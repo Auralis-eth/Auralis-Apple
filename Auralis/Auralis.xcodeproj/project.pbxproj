@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		6FB1D9B22D8D117E00CD1B30 /* metamask-ios-sdk in Frameworks */ = {isa = PBXBuildFile; productRef = 6FB1D9B12D8D117E00CD1B30 /* metamask-ios-sdk */; };
-		6FB4562A2CC5C337009A055C /* web3.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 6FB456292CC5C337009A055C /* web3.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,7 +70,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				6FB1D9B22D8D117E00CD1B30 /* metamask-ios-sdk in Frameworks */,
-				6FB4562A2CC5C337009A055C /* web3.swift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -140,7 +138,6 @@
 			);
 			name = Auralis;
 			packageProductDependencies = (
-				6FB456292CC5C337009A055C /* web3.swift */,
 				6FB1D9B12D8D117E00CD1B30 /* metamask-ios-sdk */,
 			);
 			productName = Auralis;
@@ -226,7 +223,6 @@
 			mainGroup = 6FB455D22CC5BEBB009A055C;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				6FB456282CC5C337009A055C /* XCRemoteSwiftPackageReference "web3" */,
 				6FB1D9AF2D8D10D900CD1B30 /* XCRemoteSwiftPackageReference "metamask-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -612,14 +608,6 @@
 				minimumVersion = 0.8.10;
 			};
 		};
-		6FB456282CC5C337009A055C /* XCRemoteSwiftPackageReference "web3" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/argentlabs/web3.swift";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.6.1;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -627,11 +615,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6FB1D9AF2D8D10D900CD1B30 /* XCRemoteSwiftPackageReference "metamask-ios-sdk" */;
 			productName = "metamask-ios-sdk";
-		};
-		6FB456292CC5C337009A055C /* web3.swift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6FB456282CC5C337009A055C /* XCRemoteSwiftPackageReference "web3" */;
-			productName = web3.swift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
