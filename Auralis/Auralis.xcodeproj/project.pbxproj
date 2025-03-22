@@ -1,0 +1,639 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		6FB1D9B22D8D117E00CD1B30 /* metamask-ios-sdk in Frameworks */ = {isa = PBXBuildFile; productRef = 6FB1D9B12D8D117E00CD1B30 /* metamask-ios-sdk */; };
+		6FB4562A2CC5C337009A055C /* web3.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 6FB456292CC5C337009A055C /* web3.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		6FB455F02CC5BEBD009A055C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6FB455D32CC5BEBB009A055C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6FB455DA2CC5BEBB009A055C;
+			remoteInfo = Auralis;
+		};
+		6FB455FA2CC5BEBD009A055C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6FB455D32CC5BEBB009A055C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6FB455DA2CC5BEBB009A055C;
+			remoteInfo = Auralis;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		6FB455DB2CC5BEBB009A055C /* Auralis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Auralis.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6FB455EF2CC5BEBD009A055C /* AuralisTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AuralisTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6FB455F92CC5BEBD009A055C /* AuralisUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AuralisUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		6FB456012CC5BEBD009A055C /* Exceptions for "Auralis" folder in "Auralis" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 6FB455DA2CC5BEBB009A055C /* Auralis */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		6FB455DD2CC5BEBB009A055C /* Auralis */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				6FB456012CC5BEBD009A055C /* Exceptions for "Auralis" folder in "Auralis" target */,
+			);
+			path = Auralis;
+			sourceTree = "<group>";
+		};
+		6FB455F22CC5BEBD009A055C /* AuralisTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AuralisTests;
+			sourceTree = "<group>";
+		};
+		6FB455FC2CC5BEBD009A055C /* AuralisUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AuralisUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		6FB455D82CC5BEBB009A055C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6FB1D9B22D8D117E00CD1B30 /* metamask-ios-sdk in Frameworks */,
+				6FB4562A2CC5C337009A055C /* web3.swift in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6FB455EC2CC5BEBD009A055C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6FB455F62CC5BEBD009A055C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		6FB1D9B02D8D117E00CD1B30 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		6FB455D22CC5BEBB009A055C = {
+			isa = PBXGroup;
+			children = (
+				6FB455DD2CC5BEBB009A055C /* Auralis */,
+				6FB455F22CC5BEBD009A055C /* AuralisTests */,
+				6FB455FC2CC5BEBD009A055C /* AuralisUITests */,
+				6FB1D9B02D8D117E00CD1B30 /* Frameworks */,
+				6FB455DC2CC5BEBB009A055C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		6FB455DC2CC5BEBB009A055C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6FB455DB2CC5BEBB009A055C /* Auralis.app */,
+				6FB455EF2CC5BEBD009A055C /* AuralisTests.xctest */,
+				6FB455F92CC5BEBD009A055C /* AuralisUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		6FB455DA2CC5BEBB009A055C /* Auralis */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6FB456022CC5BEBD009A055C /* Build configuration list for PBXNativeTarget "Auralis" */;
+			buildPhases = (
+				6FB455D72CC5BEBB009A055C /* Sources */,
+				6FB455D82CC5BEBB009A055C /* Frameworks */,
+				6FB455D92CC5BEBB009A055C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				6FB455DD2CC5BEBB009A055C /* Auralis */,
+			);
+			name = Auralis;
+			packageProductDependencies = (
+				6FB456292CC5C337009A055C /* web3.swift */,
+				6FB1D9B12D8D117E00CD1B30 /* metamask-ios-sdk */,
+			);
+			productName = Auralis;
+			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
+			productType = "com.apple.product-type.application";
+		};
+		6FB455EE2CC5BEBD009A055C /* AuralisTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6FB456072CC5BEBD009A055C /* Build configuration list for PBXNativeTarget "AuralisTests" */;
+			buildPhases = (
+				6FB455EB2CC5BEBD009A055C /* Sources */,
+				6FB455EC2CC5BEBD009A055C /* Frameworks */,
+				6FB455ED2CC5BEBD009A055C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				6FB455F12CC5BEBD009A055C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				6FB455F22CC5BEBD009A055C /* AuralisTests */,
+			);
+			name = AuralisTests;
+			packageProductDependencies = (
+			);
+			productName = AuralisTests;
+			productReference = 6FB455EF2CC5BEBD009A055C /* AuralisTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		6FB455F82CC5BEBD009A055C /* AuralisUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6FB4560A2CC5BEBD009A055C /* Build configuration list for PBXNativeTarget "AuralisUITests" */;
+			buildPhases = (
+				6FB455F52CC5BEBD009A055C /* Sources */,
+				6FB455F62CC5BEBD009A055C /* Frameworks */,
+				6FB455F72CC5BEBD009A055C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				6FB455FB2CC5BEBD009A055C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				6FB455FC2CC5BEBD009A055C /* AuralisUITests */,
+			);
+			name = AuralisUITests;
+			packageProductDependencies = (
+			);
+			productName = AuralisUITests;
+			productReference = 6FB455F92CC5BEBD009A055C /* AuralisUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		6FB455D32CC5BEBB009A055C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					6FB455DA2CC5BEBB009A055C = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					6FB455EE2CC5BEBD009A055C = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 6FB455DA2CC5BEBB009A055C;
+					};
+					6FB455F82CC5BEBD009A055C = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 6FB455DA2CC5BEBB009A055C;
+					};
+				};
+			};
+			buildConfigurationList = 6FB455D62CC5BEBB009A055C /* Build configuration list for PBXProject "Auralis" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 6FB455D22CC5BEBB009A055C;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6FB456282CC5C337009A055C /* XCRemoteSwiftPackageReference "web3" */,
+				6FB1D9AF2D8D10D900CD1B30 /* XCRemoteSwiftPackageReference "metamask-ios-sdk" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6FB455DA2CC5BEBB009A055C /* Auralis */,
+				6FB455EE2CC5BEBD009A055C /* AuralisTests */,
+				6FB455F82CC5BEBD009A055C /* AuralisUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6FB455D92CC5BEBB009A055C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6FB455ED2CC5BEBD009A055C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6FB455F72CC5BEBD009A055C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		6FB455D72CC5BEBB009A055C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6FB455EB2CC5BEBD009A055C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6FB455F52CC5BEBD009A055C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		6FB455F12CC5BEBD009A055C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6FB455DA2CC5BEBB009A055C /* Auralis */;
+			targetProxy = 6FB455F02CC5BEBD009A055C /* PBXContainerItemProxy */;
+		};
+		6FB455FB2CC5BEBD009A055C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6FB455DA2CC5BEBB009A055C /* Auralis */;
+			targetProxy = 6FB455FA2CC5BEBD009A055C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		6FB456032CC5BEBD009A055C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Auralis/Auralis.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Auralis/Preview Content\"";
+				DEVELOPMENT_TEAM = U4R9TJ5FN4;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Auralis/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "To see the world around you";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Auralis uses Face ID to securely access and protect your private key, ensuring only you can access your encrypted data.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiredDeviceCapabilities = arkit;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ETH.Auralis.Auralis;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6FB456042CC5BEBD009A055C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Auralis/Auralis.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Auralis/Preview Content\"";
+				DEVELOPMENT_TEAM = U4R9TJ5FN4;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Auralis/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "To see the world around you";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Auralis uses Face ID to securely access and protect your private key, ensuring only you can access your encrypted data.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiredDeviceCapabilities = arkit;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ETH.Auralis.Auralis;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		6FB456052CC5BEBD009A055C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		6FB456062CC5BEBD009A055C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		6FB456082CC5BEBD009A055C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U4R9TJ5FN4;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ETH.Auralis.AuralisTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Auralis.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Auralis";
+			};
+			name = Debug;
+		};
+		6FB456092CC5BEBD009A055C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U4R9TJ5FN4;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ETH.Auralis.AuralisTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Auralis.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Auralis";
+			};
+			name = Release;
+		};
+		6FB4560B2CC5BEBD009A055C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U4R9TJ5FN4;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ETH.Auralis.AuralisUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Auralis;
+			};
+			name = Debug;
+		};
+		6FB4560C2CC5BEBD009A055C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U4R9TJ5FN4;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ETH.Auralis.AuralisUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Auralis;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6FB455D62CC5BEBB009A055C /* Build configuration list for PBXProject "Auralis" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6FB456052CC5BEBD009A055C /* Debug */,
+				6FB456062CC5BEBD009A055C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6FB456022CC5BEBD009A055C /* Build configuration list for PBXNativeTarget "Auralis" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6FB456032CC5BEBD009A055C /* Debug */,
+				6FB456042CC5BEBD009A055C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6FB456072CC5BEBD009A055C /* Build configuration list for PBXNativeTarget "AuralisTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6FB456082CC5BEBD009A055C /* Debug */,
+				6FB456092CC5BEBD009A055C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6FB4560A2CC5BEBD009A055C /* Build configuration list for PBXNativeTarget "AuralisUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6FB4560B2CC5BEBD009A055C /* Debug */,
+				6FB4560C2CC5BEBD009A055C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6FB1D9AF2D8D10D900CD1B30 /* XCRemoteSwiftPackageReference "metamask-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MetaMask/metamask-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.8.10;
+			};
+		};
+		6FB456282CC5C337009A055C /* XCRemoteSwiftPackageReference "web3" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argentlabs/web3.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.6.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6FB1D9B12D8D117E00CD1B30 /* metamask-ios-sdk */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6FB1D9AF2D8D10D900CD1B30 /* XCRemoteSwiftPackageReference "metamask-ios-sdk" */;
+			productName = "metamask-ios-sdk";
+		};
+		6FB456292CC5C337009A055C /* web3.swift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6FB456282CC5C337009A055C /* XCRemoteSwiftPackageReference "web3" */;
+			productName = web3.swift;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 6FB455D32CC5BEBB009A055C /* Project object */;
+}
