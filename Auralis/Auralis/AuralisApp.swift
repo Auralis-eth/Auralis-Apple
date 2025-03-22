@@ -23,8 +23,8 @@ struct AuralisApp: App {
         metamaskSDK = MetaMaskSDK.shared(
             appMetadata,
             transport: .socket,
-            //sdkOptions: SDKOptions(infuraAPIKey: "your-api-key", readonlyRPCMap: ["0x1": "hptts://www.testrpc.com"]) // for read-only RPC calls
-            sdkOptions: SDKOptions(infuraAPIKey: "your-api-key") // for read-only RPC calls
+            //sdkOptions: SDKOptions(infuraAPIKey: Secrets.apiKey(.infura) ?? "", readonlyRPCMap: ["0x1": "hptts://www.testrpc.com"]) // for read-only RPC calls
+            sdkOptions: SDKOptions(infuraAPIKey: Secrets.apiKey(.infura) ?? "") // for read-only RPC calls
             )
     }
 
