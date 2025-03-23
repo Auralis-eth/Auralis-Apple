@@ -19,17 +19,19 @@ struct NFTImageView: View {
                         Image(uiImage: image)
                     }
                 case .svg(let svg):
-                    //TODO: rewrite and cleanup
-                    //https://www.svgviewer.dev/s/453488/dog
                     SVGView(string: svg)
             }
-
         } else {
-            EmptyView()
+            ZStack {
+                Color.surface
+                    .aspectRatio(1, contentMode: .fit)
+                Image(systemName: "photo")
+                    .font(.largeTitle)
+                    .foregroundColor(.textSecondary)
+            }
         }
     }
 }
-
 
 
 // Image Cache Manager
@@ -139,21 +141,40 @@ struct CachedAsyncImage: View {
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: .infinity)
-                    .shadow(radius: 10)
+                    .shadow(radius: 5)
             } else if loader.isLoading {
-                ProgressView()
+                ZStack {
+                    Color.surface
+                        .aspectRatio(1, contentMode: .fit)
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
+                        .scaleEffect(1.5)
+                }
             } else if let error = loader.error {
-                switch error {
-                    case .invalidData:
-                        Image(systemName: "camera.macro.slash")
-                    case .networkError:
-                        Image(systemName: "network.slash")
+                ZStack {
+                    Color.surface
+                        .aspectRatio(1, contentMode: .fit)
+                    VStack {
+                        switch error {
+                            case .invalidData:
+                                Image(systemName: "camera.macro.slash")
+                            case .networkError:
+                                Image(systemName: "network.slash")
+                        }
+                        Text(error == .invalidData ? "Invalid Image" : "Network Error")
+                            .font(.caption)
+                            .foregroundColor(.textSecondary)
+                    }
+                    .foregroundColor(.error)
                 }
             } else {
-                //        * Use .placeholder { Rectangle().fill(Color.gray).overlay(Text("NFT")).frame(width: 100, height: 100) }.
-                Image(systemName: "photo")
-                    .frame(width: 50, height: 50)
-                    .shadow(radius: 10)
+                ZStack {
+                    Color.surface
+                        .aspectRatio(1, contentMode: .fit)
+                    Image(systemName: "photo")
+                        .font(.largeTitle)
+                        .foregroundColor(.textSecondary)
+                }
             }
         }
     }

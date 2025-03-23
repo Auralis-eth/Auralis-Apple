@@ -1,10 +1,3 @@
-//
-//  AddressBarView.swift
-//  Auralis
-//
-//  Created by Daniel Bell on 3/22/25.
-//
-
 import SwiftUI
 
 struct AddressBarView: View {
@@ -26,7 +19,7 @@ struct AddressBarView: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "wallet.pass")
-                .foregroundColor(.secondary)
+                .foregroundColor(.textSecondary)  // Changed from .secondary to app's textSecondary
                 .font(.system(size: 16, weight: .medium))
                 .padding(.leading, 4)
 
@@ -34,7 +27,7 @@ struct AddressBarView: View {
                 // Full address when editing
                 TextField("Enter wallet address", text: $address)
                     .font(.system(size: 15))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.textPrimary)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
                     .onSubmit {
@@ -51,7 +44,7 @@ struct AddressBarView: View {
                 // Abbreviated address when not editing
                 Text(displayAddress)
                     .font(.system(size: 15))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.textPrimary)
                     .onTapGesture {
                         isEditing = true
                     }
@@ -69,10 +62,11 @@ struct AddressBarView: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle())
                             .scaleEffect(0.8)
+                            .tint(.secondary)  // Added tint for the progress indicator
                     } else {
                         Image(systemName: "arrow.right.circle.fill")
                             .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.blue)
+                            .foregroundColor(.secondary)  // Changed from .blue to app's secondary (teal green)
                     }
                 }
                 .frame(width: 28, height: 28)
@@ -84,12 +78,12 @@ struct AddressBarView: View {
         .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemBackground))
+                .fill(Color.surface)  // Changed from Color(.systemBackground) to app's surface color
                 .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                .stroke(Color.deepBlue.opacity(0.2), lineWidth: 1)
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

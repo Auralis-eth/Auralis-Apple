@@ -14,16 +14,16 @@ struct Card3D<Content: View>: View {
     // Customization properties
     var cornerRadius: CGFloat = 16
     var shadowRadius: CGFloat = 10
-    var cardColor: Color = .gray
+    var cardColor: Color = .surface
     var backgroundGradient: LinearGradient {
         LinearGradient(
-            colors: [Color.white, cardColor.opacity(0.1)],
+            colors: [Color.surface, cardColor.opacity(0.6)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
     }
 
-    init(cardColor: Color = .gray, @ViewBuilder content: @escaping () -> Content) {
+    init(cardColor: Color = .surface, @ViewBuilder content: @escaping () -> Content) {
         self.content = content
         self.cardColor = cardColor
     }
@@ -42,7 +42,7 @@ struct Card3D<Content: View>: View {
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .stroke(
                             LinearGradient(
-                                colors: [Color.white.opacity(0.6), Color.black.opacity(0.1)],
+                                colors: [Color.accent.opacity(0.6), Color.accent.opacity(0.1)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
@@ -53,7 +53,7 @@ struct Card3D<Content: View>: View {
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .strokeBorder(
                             LinearGradient(
-                                colors: [Color.white.opacity(0.8), Color.white.opacity(0)],
+                                colors: [Color.secondary.opacity(0.8), Color.secondary.opacity(0)],
                                 startPoint: .topLeading,
                                 endPoint: .center
                             ),
@@ -65,8 +65,8 @@ struct Card3D<Content: View>: View {
                         )
                 }
             )
-            .shadow(color: Color.black.opacity(0.1), radius: shadowRadius, x: 5, y: 5)
-            .shadow(color: Color.black.opacity(0.05), radius: shadowRadius/2, x: 2, y: 2)
+            .shadow(color: Color.black.opacity(0.2), radius: shadowRadius, x: 5, y: 5)
+            .shadow(color: Color.deepBlue.opacity(0.1), radius: shadowRadius/2, x: 2, y: 2)
             // Small scale effect to enhance 3D appearance
             .scaleEffect(0.98)
     }
@@ -75,64 +75,73 @@ struct Card3D<Content: View>: View {
 // Usage example
 struct ContentView: View {
     var body: some View {
-        VStack(spacing: 20) {
-            // Horizontal card
-            Card3D() {
-                HStack {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 40))
-                        .foregroundColor(.yellow)
+        ZStack {
+            // Background color
+            Color.background
+                .ignoresSafeArea()
 
-                    VStack(alignment: .leading) {
-                        Text("Premium Card")
-                            .font(.headline)
-                        Text("Tap to view details")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+            VStack(spacing: 20) {
+                // Horizontal card
+                Card3D() {
+                    HStack {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(.accent)
+
+                        VStack(alignment: .leading) {
+                            Text("Premium Card")
+                                .font(.headline)
+                                .foregroundColor(.textPrimary)
+                            Text("Tap to view details")
+                                .font(.subheadline)
+                                .foregroundColor(.textSecondary)
+                        }
+                        Spacer()
                     }
-                    Spacer()
                 }
-            }
 
-            // Vertical card
-            Card3D() {
-                VStack(spacing: 15) {
-                    Image(systemName: "gift.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(.purple)
+                // Vertical card
+                Card3D(cardColor: .deepBlue.opacity(0.7)) {
+                    VStack(spacing: 15) {
+                        Image(systemName: "gift.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.secondary)
 
-                    Text("Special Offer")
-                        .font(.title3)
-                        .fontWeight(.bold)
-
-                    Text("Limited time only")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-            }
-
-            // Custom styled card
-            Card3D() {
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text("Premium Account")
-                            .font(.headline)
-                        Text("$99/month")
-                            .font(.title2)
+                        Text("Special Offer")
+                            .font(.title3)
                             .fontWeight(.bold)
-                            .foregroundColor(.blue)
-                        Text("Unlimited access to all features")
+                            .foregroundColor(.textPrimary)
+
+                        Text("Limited time only")
                             .font(.caption)
+                            .foregroundColor(.textSecondary)
+                    }
+                    .padding()
+                }
+
+                // Custom styled card
+                Card3D(cardColor: .accent.opacity(0.5)) {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text("Premium Account")
+                                .font(.headline)
+                                .foregroundColor(.textPrimary)
+                            Text("$99/month")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.secondary)
+                            Text("Unlimited access to all features")
+                                .font(.caption)
+                                .foregroundColor(.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "creditcard.fill")
+                            .font(.system(size: 30))
                             .foregroundColor(.secondary)
                     }
-                    Spacer()
-                    Image(systemName: "creditcard.fill")
-                        .font(.system(size: 30))
-                        .foregroundColor(.blue)
                 }
             }
+            .padding()
         }
-        .padding()
     }
 }

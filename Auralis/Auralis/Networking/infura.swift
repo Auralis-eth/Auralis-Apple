@@ -57,7 +57,9 @@ class GasPriceEstimate: Codable {
 struct Infura {
     func getGasPrice() async -> GasPriceEstimate? {
         do {
-            let apiKey = Secrets.apiKey(.infura)
+            guard let apiKey = Secrets.apiKey(.infura) else {
+                return nil
+            }
             let chainId = 1
     //                        Supported networks
     //                        Arbitrum

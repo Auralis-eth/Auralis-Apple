@@ -27,91 +27,113 @@ struct NFTListView: View {
     @Binding var selectedNFT: WalletNFTResponse.NFT?
 
     var body: some View {
-        LazyVStack {
-            ForEach(nftMetaData) { metaData in
-                Card3D() {
-
-                    if let parsedmetaData = metaData.parseMetadata {
-                        VStack(alignment: .leading) {
-                            Card3D(cardColor: .white) {
-                                NFTNameView(
-                                    name: parsedmetaData.name,
-                                    arworkName: parsedmetaData.arworkName,
-                                    metaCollectionName: parsedmetaData.collectionName,
-                                    artist: parsedmetaData.artist,
-                                    createdBy: parsedmetaData.createdBy
-                                )
-                            }
-
-                            if let description = parsedmetaData.description, !description.isEmpty {
-                                NFFTDescriptionView(description: description)
-                            }
-                            Card3D(cardColor: .white) {
-                                NFTImageView(image: parsedmetaData.image ?? parsedmetaData.imageURL ?? parsedmetaData.imageData)
-                                    .overlay(
-                                        ZStack {
-                                            // Play button overlay
-                                            if parsedmetaData.animationData != nil {
-                                                Circle()
-                                                    .fill(Color.black.opacity(0.5))
-                                                    .frame(width: 60, height: 60)
-
-                                                Image(systemName: "play.fill")
-                                                    .resizable()
-                                                    .scaledToFit()
-                                                    .frame(width: 20, height: 20)
-                                                    .foregroundColor(.white)
-                                            }
-                                        }
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                ForEach(nftMetaData) { metaData in
+                    Card3D(cardColor: .surface) {
+                        if let parsedmetaData = metaData.parseMetadata {
+                            VStack(alignment: .leading, spacing: 12) {
+                                // NFT Name and Artist Info
+                                Card3D(cardColor: .deepBlue.opacity(0.7)) {
+                                    NFTNameView(
+                                        name: parsedmetaData.name,
+                                        arworkName: parsedmetaData.arworkName,
+                                        metaCollectionName: parsedmetaData.collectionName,
+                                        artist: parsedmetaData.artist,
+                                        createdBy: parsedmetaData.createdBy
                                     )
+                                }
+
+                                // NFT Description
+                                if let description = parsedmetaData.description, !description.isEmpty {
+                                    NFFTDescriptionView(description: description)
+                                }
+
+                                // NFT Image
+                                Card3D(cardColor: .deepBlue.opacity(0.5)) {
+                                    NFTImageView(image: parsedmetaData.image ?? parsedmetaData.imageURL ?? parsedmetaData.imageData)
+                                        .overlay(
+                                            ZStack {
+                                                // Play button overlay for animations
+                                                if parsedmetaData.animationData != nil {
+                                                    Circle()
+                                                        .fill(Color.background.opacity(0.7))
+                                                        .frame(width: 60, height: 60)
+
+                                                    Image(systemName: "play.fill")
+                                                        .resizable()
+                                                        .scaledToFit()
+                                                        .frame(width: 20, height: 20)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+                                        )
+                                }
+
+                                // Category display (placeholder)
+                                HStack {
+                                    Spacer()
+                                    Text("Category")
+                                    Text("Category Selector")
+//                                    Text(parsedmetaData.category ?? "Collectible")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(Color.accent.opacity(0.3))
+                                        .foregroundColor(.textPrimary)
+                                        .cornerRadius(16)
+                                    Spacer()
+                                }
                             }
-                            //Category
-                            VStack {
-                                Text("Category")
-                                Text("Category Selector")
+                        } else {
+                            // Fallback for NFTs without parsed metadata
+                            VStack(spacing: 12) {
+                                Text("NFT Details Unavailable")
+                                    .font(.headline)
+                                    .foregroundColor(.textPrimary)
+
+                                Text("This NFT's metadata could not be parsed")
+                                    .font(.subheadline)
+                                    .foregroundColor(.textSecondary)
+                                    .multilineTextAlignment(.center)
                             }
+                            .frame(height: 200)
+                            .frame(maxWidth: .infinity)
                         }
-                        //create static instagram card
-                        //  Post component
-                        //  Post Engagement
-                        //  Post Detail
-                        //  Post Permissions
-                        //  Edit Post
-                        //  Rwaction/share
-
-                        //  Text Post
-                        //  Image
-                        //  Video
-                        //  File
-
-                        //User profile
-                        //search
-
-                        //Redo each one using Dviances
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
                     }
-                    //TODO:
+                    .padding(.horizontal, 16)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedNFT = metaData
+                    }
+                }
+            }
+            .padding(.vertical)
+        }
+        .background(Color.background)
+    }
+}
+
+//create static instagram card
+                       //  Post component
+                       //  Post Engagement
+                       //  Post Detail
+                       //  Post Permissions
+                       //  Edit Post
+                       //  Rwaction/share
+
+                       //  Text Post
+                       //  Image
+                       //  Video
+                       //  File
+
+                       //User profile
+                       //search
+
+                       //Redo each one using Dviances
+
+//TODO:
                     //        - Add a button to view the NFT in a detailed view
                     //        - move data extraction up to view model or network processing
                     //      create the UI cards
@@ -178,15 +200,3 @@ struct NFTListView: View {
                     //  1) in full Screen NFT view show the image and animation details properties info
                     //      A) need a way to show primaryAssetURL
                     //====================================================================================
-
-                }
-                .padding(.horizontal, 16)
-                .padding()
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    selectedNFT = metaData
-                }
-            }
-        }
-    }
-}
