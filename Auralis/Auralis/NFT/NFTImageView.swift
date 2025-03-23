@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct NFTImageView: View {
-    var image: WalletNFTResponse.NFT.DisplayModel.ImageSource?
+    var image: NFTDisplayModel.ImageSource?
     var body: some View {
         if let image {
             switch image {

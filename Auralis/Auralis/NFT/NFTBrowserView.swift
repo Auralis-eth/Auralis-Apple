@@ -167,34 +167,28 @@ struct NFTBrowserView: View {
         do {
             let nftResponse = try await Moralis().getNFTs(for: address, normalizeMetadata: true)?.result
             nftMetaData = nftResponse?.filter({ $0.metadata != nil })
-//                .filter {
-               //            $0.parseMetadata?.animationData != nil
-               //            || $0.parseMetadata?.imageData != nil
-               //            || $0.parseMetadata?.primaryAssetURL != nil
-               //            || $0.parseMetadata?.previewAssetURL != nil
-               //            || $0.parseMetadata?.imageHR != nil
-               //            || (
-               //                $0.parseMetadata?.image != nil
-               //                || $0.parseMetadata?.imageURL != nil
-               //            )
-               //
-               //
-               //
-               //
-               //
-               //
-               //
-               ////                $0.parseMetadata?.animationData == nil
-               //
-               ////                $0.parseMetadata?.animationData != nil
-               //            }
+                .filter {
+                    $0.parseMetadata?.identifier != nil
+                    || $0.parseMetadata?.projectID != nil
+                    || $0.parseMetadata?.collectionID != nil
+                    || $0.parseMetadata?.tokenId != nil
+                    || $0.parseMetadata?.tokenID != nil
+                    || $0.parseMetadata?.seriesID != nil
+                    || $0.parseMetadata?.uniqueID != nil
+                    || $0.tokenId != nil
+               }
 
-//            (nftMetaData ?? []).forEach { nft in
+            (nftMetaData ?? []).forEach { nft in
 //                print("============================")
 //                guard let metadata = nft.parseMetadata else {
 //                    print("no parseMetaData for this nft \(nft)")
 //                    return
 //                }
+                print("--------------------------------")
+                print(nft.normalizedMetadata)
+                print("````````````````````````````````````````````")
+                print(nft.tokenUri)
+                print("--------------------------------")
                 //                print("-----------ANIMATION----------------")
                 //            print(metadata.animationData)
                 //
@@ -206,7 +200,7 @@ struct NFTBrowserView: View {
                 //            print(metadata.previewAssetURL)
                 //            print(metadata.imageData)
                 //            print(metadata.image ?? metadata.imageURL)
-//            }
+            }
         } catch {
             self.error = error
         }
@@ -346,7 +340,7 @@ struct NFTDetailView: View {
 
                                         VStack(alignment: .leading, spacing: 8) {
                                             DetailRow(title: "Contract", value: nft.tokenAddress ?? "Unknown")
-                                            DetailRow(title: "Token ID", value: nft.tokenId ?? "Unknown")
+                                            DetailRow(title: "Token ID", value: nft.tokenId ?? parsedMetadata.identifier ?? "Unknown")
                                             DetailRow(title: "Token Standard", value: nft.contractType ?? "Unknown")
                                             DetailRow(title: "Blockchain", value: "Ethereum")
 

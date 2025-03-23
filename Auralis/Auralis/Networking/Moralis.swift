@@ -128,12 +128,11 @@ struct Moralis {
 
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
-            do {
-                return try JSONDecoder().decode(T.self, from: data)
-            } catch let error {
-                throw MoralisError.invalidData
-            }
-        } catch let error {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch is DecodingError {
+            throw MoralisError.invalidData
+        } catch {
+            print(error)
             throw MoralisError.invalidResponse
         }
     }

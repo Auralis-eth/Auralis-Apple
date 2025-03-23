@@ -9,7 +9,7 @@ import AVKit
 import SwiftUI
 
 struct NFTAnimationView: View {
-    var animation: WalletNFTResponse.NFT.DisplayModel.Animation?
+    var animation: NFTDisplayModel.Animation?
     var image: URL? {
         animation?.animations?.first
     }

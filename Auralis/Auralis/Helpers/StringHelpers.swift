@@ -8,6 +8,156 @@
 import Foundation
 
 extension String {
+    static var id: String {
+        "id"
+    }
+
+    static var tokenID: String {
+        "tokenID"
+    }
+
+    static var tokenId: String {
+        "tokenId"
+    }
+
+    static var artworkIndex: String {
+        "artwork_index"
+    }
+
+    static var timestamp: String {
+        "timestamp"
+    }
+    static var platform: String {
+        "platform"
+    }
+
+    static var externalUrl: String {
+        "external_url"
+    }
+
+    static var copyright: String {
+        "copyright"
+    }
+
+    static var license: String {
+        "license"
+    }
+
+    static var generatorUrl: String {
+        "generator_url"
+    }
+
+    static var termsOfService: String {
+        "terms_of_service"
+    }
+
+    static var feeRecipient: String {
+        "fee_recipient"
+    }
+
+    static var backgroundColor: String {
+        "background_color"
+    }
+
+    static var medium: String {
+        "medium"
+    }
+
+    static var royalties: String {
+        "royalties"
+    }
+
+    static var accessArtworkFiles: String {
+        "access_artwork_files"
+    }
+
+    static var metadataVersion: String {
+        "metadata_version"
+    }
+
+    static var symbols: String {
+        "symbols"
+    }
+
+    static var vrmUrl: String {
+        "vrm_url"
+    }
+
+    static var seed: String {
+        "seed"
+    }
+
+    static var original: String {
+        "original"
+    }
+
+    static var print3DSTL: String {
+        "print3D_STL"
+    }
+
+    static var agreement: String {
+        "agreement"
+    }
+
+    static var modelGlb: String {
+        "model_glb"
+    }
+
+    static var tokenHash: String {
+        "token_hash"
+    }
+
+    static var website: String {
+        "website"
+    }
+
+    static var payoutAddress: String {
+        "payout_address"
+    }
+
+    static var scriptType: String {
+        "script_type"
+    }
+
+    static var engineType: String {
+        "engine_type"
+    }
+
+    static var sellerFeeBasisPoints: String {
+        "seller_fee_basis_points"
+    }
+
+    static var minted: String {
+        "minted"
+    }
+
+    static var isStatic: String {
+        "is_static"
+    }
+
+    static var aspectRatio: String {
+        "aspect_ratio"
+    }
+
+    static var properties: String {
+        "properties"
+    }
+
+    static var exhibitionInfo: String {
+        "exhibition_info"
+    }
+
+    static var royaltyInfo: String {
+        "royaltyInfo"
+    }
+
+    static var features: String {
+        "features"
+    }
+
+    static var traits: String {
+        "traits"
+    }
     static var createdBy: String {
         "created_by"
     }
