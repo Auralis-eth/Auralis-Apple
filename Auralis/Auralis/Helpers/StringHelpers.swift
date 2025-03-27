@@ -8,6 +8,9 @@
 import Foundation
 
 extension String {
+    static var audioUrl: String {
+        "audio_url"
+    }
     static var id: String {
         "id"
     }
@@ -247,6 +250,16 @@ extension String {
 
     static var usdzUrl: String {
         "model_usdz"
+    }
+
+    static var audioURI: String {
+        "audioURI"
+    }
+    static var losslessAudio: String {
+        "losslessAudio"
+    }
+    static var audio: String {
+        "audio"
     }
 }
 

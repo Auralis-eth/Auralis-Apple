@@ -28,10 +28,12 @@ struct NFTAnimationView: View {
                 VideoPlayer(
                     player: AVPlayer(url: image)
                 )
-                .frame(width: 300, height: 300)
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: .infinity)
             } else if animation?.source == .website {
                 BasicWebView(url: image)
-                    .frame(width: 300, height: 300)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity)
             } else {
                 CachedAsyncImage(url: image)
             }

@@ -9,71 +9,64 @@ import SwiftUI
 
 // MARK: - Main View
 struct GasPriceEstimateView: View {
-    @StateObject private var viewModel = GasPriceViewModel()
+    @Binding var chainId: Int
+    @State private var estimate: GasPriceEstimate?
+    @State private var isLoading = false
+    @State private var error: Error?
 
     var body: some View {
-        VStack(spacing: 12) {
-            HeaderView()
+        NavigationStack {
+            VStack(spacing: 12) {
+                HeaderView()
 
-            if let estimate = viewModel.estimate {
-                ScrollView {
-                    VStack(spacing: 16) {
-                        FeeEstimateCardView(estimate: estimate)
-                        BaseFeeCardView(estimate: estimate)
+                if let estimate = estimate {
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            FeeEstimateCardView(estimate: estimate)
+                            BaseFeeCardView(estimate: estimate)
 
-                        NetworkCongestionView(congestion: "\(estimate.networkCongestion)")
-                            .padding(.horizontal)
+                            NetworkCongestionView(congestion: "\(estimate.networkCongestion)")
+                                .padding(.horizontal)
 
-                        PriorityFeeCardView(estimate: estimate)
+                            PriorityFeeCardView(estimate: estimate)
+                        }
+                    }
+                } else {
+                    if isLoading {
+                        LoadingView()
+                    } else {
+                        ErrorView()
                     }
                 }
-            } else {
-                if viewModel.isLoading {
-                    LoadingView()
-                } else {
-                    ErrorView()
+            }
+            .padding()
+            .background(Color.surface)
+            .cornerRadius(10)
+            .shadow(color: Color.black.opacity(0.3), radius: 5, x: 0, y: 3)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.deepBlue.opacity(0.2), lineWidth: 1)
+            )
+            .background(Color.background)
+            .task {
+                await fetchGasPrice()
+            }
+            .onChange(of: chainId) { newValue in
+                Task {
+                    await fetchGasPrice()
                 }
             }
         }
-        .padding()
-        .background(Color.background)
-        .cornerRadius(10)
-        .shadow(color: Color.black.opacity(0.3), radius: 5, x: 0, y: 3)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.deepBlue.opacity(0.2), lineWidth: 1)
-        )
-        .padding()
-    }
-}
-
-// MARK: - View Model
-final class GasPriceViewModel: ObservableObject {
-    @Published var estimate: GasPriceEstimate?
-    @Published var isLoading = false
-    @Published var error: Error?
-
-    init() {
-        fetchGasPrice()
     }
 
-    func fetchGasPrice() {
+    func fetchGasPrice() async {
         isLoading = true
 
-        Task {
-            do {
-                let result = await Infura().getGasPrice()
+        let result = await Infura().getGasPrice(chainId: chainId)
 
-                await MainActor.run {
-                    self.estimate = result
-                    self.isLoading = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.error = error
-                    self.isLoading = false
-                }
-            }
+        await MainActor.run {
+            self.estimate = result
+            self.isLoading = false
         }
     }
 }
@@ -90,6 +83,7 @@ struct HeaderView: View {
                 .foregroundStyle(Color.accent)
         }
         .padding(.top, 8)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -329,6 +323,10 @@ struct DataRowView: View {
     let value: String
     let isTrendUp: Bool
 
+    var accessibilityLabel: String {
+        "\(title): \(value) trending \(isTrendUp ? "up" : "down")"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -345,5 +343,7 @@ struct DataRowView: View {
             Text(value)
                 .foregroundColor(.textSecondary)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
     }
 }

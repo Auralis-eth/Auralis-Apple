@@ -11,53 +11,14 @@ import metamask_ios_sdk
 
 @main
 struct AuralisApp: App {
-    let appMetadata = AppMetadata(
-        name: "Auralis.ETH",
-        url: "Auralis.eth",//"https://dubdapp.com",
-        iconUrl: "https://pbs.twimg.com/profile_images/1846931552753930242/on5jhKP6_400x400.jpg"
-    )
-    @ObservedObject var metamaskSDK: MetaMaskSDK
-    @State var account: String = "0x183AbE67478eB7E87c96CA28E2f63Dec53f22E3A"
-
-    @MainActor @preconcurrency init() {
-        metamaskSDK = MetaMaskSDK.shared(
-            appMetadata,
-            transport: .socket,
-            //sdkOptions: SDKOptions(infuraAPIKey: Secrets.apiKey(.infura) ?? "", readonlyRPCMap: ["0x1": "hptts://www.testrpc.com"]) // for read-only RPC calls
-            sdkOptions: SDKOptions(infuraAPIKey: Secrets.apiKey(.infura) ?? "") // for read-only RPC calls
-            )
-    }
-
     var body: some Scene {
-        //                    ParentView()
         WindowGroup {
-            TabView {
-                //TODO: extract chain
-                WalletView(metamaskSDK: metamaskSDK, account: $account)
-                    .onAppear {
-                        account = "0x183AbE67478eB7E87c96CA28E2f63Dec53f22E3A"
-                    }
-                    .tabItem {
-                        Image(systemName: "wallet.bifold.fill")
-                        Text("Wallet")
-                    }
-
-                //TODO: fix UI
-                NFTBrowserView(address: $account)
-                    .tabItem {
-                        Image(systemName: "location.north.circle")
-                        Text("NFT Browser")
-                    }
-
-                GasPriceEstimateView()
-                    .tabItem {
-                        Image(systemName: "fuelpump")
-                        Text("Gas")
-                    }
-
-
-            }
+            MainView()
+                .onOpenURL { url in
+                    handleDeepLink(url)
+                }
         }
+
 #if os(macOS)
         Settings {
             Text("Settings")
@@ -68,6 +29,36 @@ struct AuralisApp: App {
         }.menuBarExtraStyle(.window)
 #endif
     }
+
+    func handleDeepLink(_ url: URL) {
+        if URLComponents(url: url, resolvingAgainstBaseURL: true)?.host == "mmsdk" {
+            MetaMaskSDK.sharedInstance?.handleUrl(url)
+        } else {
+            // Handle other deep links
+            // For example, you might want to route to specific views
+            // or process different types of deep links
+        }
+    }
 }
+//NOTES
 
 
+// MARK: - Helper Functions & Computed Properties
+extension String {
+    var networkName: String {
+        switch self {
+            case "0x1":
+                return "Ethereum Mainnet"
+            case "0x89":
+                return "Polygon"
+            case "0xaa36a7":
+                return "Sepolia Testnet"
+            default:
+                return "Chain ID: \(self)"
+        }
+    }
+
+    var formattedChainId: String {
+        return "Chain ID: \(self)"
+    }
+}

@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct NFFTDescriptionView: View {
+struct NFTDescriptionView: View {
     var description: String
     var body: some View {
         Card3D(cardColor: .surface) {

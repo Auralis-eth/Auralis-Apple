@@ -22,6 +22,7 @@ struct AddressBarView: View {
                 .foregroundColor(.textSecondary)  // Changed from .secondary to app's textSecondary
                 .font(.system(size: 16, weight: .medium))
                 .padding(.leading, 4)
+                .accessibilityHidden(true)
 
             if isEditing {
                 // Full address when editing
@@ -33,12 +34,6 @@ struct AddressBarView: View {
                     .onSubmit {
                         isEditing = false
                         submitAddress()
-                    }
-                    .onAppear {
-                        // Ensure keyboard is shown when editing starts
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            UIApplication.shared.sendAction(#selector(UIResponder.becomeFirstResponder), to: nil, from: nil, for: nil)
-                        }
                     }
             } else {
                 // Abbreviated address when not editing
@@ -67,6 +62,7 @@ struct AddressBarView: View {
                         Image(systemName: "arrow.right.circle.fill")
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundColor(.secondary)  // Changed from .blue to app's secondary (teal green)
+                            .accessibilityLabel("Submit")
                     }
                 }
                 .frame(width: 28, height: 28)

@@ -14,34 +14,52 @@ struct WalletView: View {
     @Binding var account: String
 
     var body: some View {
-        VStack(spacing: 16) {
-            // Address bar at the top
-            AddressBarView(address: $account) {
-                await refreshWalletData()
+        NavigationStack {
+            VStack(spacing: 16) {
+                // Address bar at the top
+                AddressBarView(address: $account)
+
+                // Connection status section
+                connectionStatusView
+
+                Spacer()
             }
-
-            // Connection status section
-            connectionStatusView
-
-            Spacer()
-        }
-        .padding(.horizontal)
-        .background(Color.background)
-        .onChange(of: metamaskSDK.account) { _, _ in
-            account = metamaskSDK.account
-        }
-        .onAppear {
-            account = metamaskSDK.account
+            .padding(.horizontal)
+            .background(Color.background)
+            .onChange(of: metamaskSDK.account) { _, _ in
+                account = metamaskSDK.account
+            }
+            .onAppear {
+                if !metamaskSDK.account.isEmpty {
+                    account = metamaskSDK.account
+                }
+            }
         }
     }
 
     // MARK: - Connection Status View
     private var connectionStatusView: some View {
         VStack(spacing: 12) {
-            if metamaskSDK.connected {
+            if metamaskSDK.connected || !metamaskSDK.account.isEmpty{
+                HStack {
+                    if !metamaskSDK.account.isEmpty {
+                        Text("Connected as \(metamaskSDK.account)...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        if metamaskSDK.connected {
+                            Circle()
+                                .fill(Color.success)
+                                .frame(width: 8, height: 8)
+                        } else {
+                            Circle()
+                                .fill(Color.secondary)
+                                .frame(width: 8, height: 8)
+                        }
+                    }
+                }
                 HStack {
                     Label {
-                        Text("Connected to \(networkName)")
+                        Text("Connected to \(metamaskSDK.chainId.networkName)")
                             .font(.subheadline)
                             .foregroundColor(.textSecondary)
                     } icon: {
@@ -52,7 +70,7 @@ struct WalletView: View {
 
                     Spacer()
 
-                    Text(formattedChainId)
+                    Text(metamaskSDK.chainId.formattedChainId)
                         .font(.caption)
                         .padding(6)
                         .background(Color.surface)
@@ -88,24 +106,6 @@ struct WalletView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.deepBlue.opacity(0.2), lineWidth: 1)
         )
-    }
-
-    // MARK: - Helper Functions & Computed Properties
-    private var networkName: String {
-        switch metamaskSDK.chainId {
-        case "0x1":
-            return "Ethereum Mainnet"
-        case "0x89":
-            return "Polygon"
-        case "0xaa36a7":
-            return "Sepolia Testnet"
-        default:
-            return "Chain ID: \(metamaskSDK.chainId)"
-        }
-    }
-
-    private var formattedChainId: String {
-        return "Chain ID: \(metamaskSDK.chainId)"
     }
 
     private func refreshWalletData() async {

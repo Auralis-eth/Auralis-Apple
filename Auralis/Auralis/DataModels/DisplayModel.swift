@@ -265,7 +265,21 @@ struct NFTDisplayModel: Identifiable {
     var print3DSTL: String? {
         data[.print3DSTL] as? String
     }
-    
+
+    var audioUrl: String? {
+        data[.audioUrl] as? String
+    }
+
+    var audioURI: String? {
+        data[.audioURI] as? String
+    }
+    var losslessAudio: String? {
+        data[.losslessAudio] as? String
+    }
+    var audio: String? {
+        data[.audio] as? String
+    }
+
     //MARK: Additional Metadata
     var platform: [String: Any]? {
         data[.platform] as? [String: Any]//String
@@ -514,5 +528,138 @@ struct NFTDisplayModel: Identifiable {
         }
         
         return imageURL
+    }
+}
+
+extension NFTDisplayModel {
+    var unusedAttributes: [String: Any] {
+        var jsonObject = data
+        let stringKeys = [
+            "audioURI",
+            "audio",
+            "losslessAudio",
+            .name,
+            .audioUrl,
+            .description,
+            .image,
+            .animationUrl,
+            .imageData,
+            .createdBy,
+            .collectionName,
+            .platform,
+            .externalUrl,
+            .copyright,
+            .imageUrl,
+            .imageHrUrl,
+            .license,
+            .generatorUrl,
+            .termsOfService,
+            .feeRecipient,
+            .artistWebsite,
+            .backgroundColor,
+            .imageHash,
+            .animation,
+            .medium,
+            .creator,
+            .artworkName,
+            .seriesID,
+            .artist,
+            .royalties,
+            .timestamp,
+            "access_artwork_files",
+            "metadata_version",
+            "symbols",
+            "id",
+            "tokenID",
+            "vrm_url",
+            .collectionID,
+            "seed",
+            "original",
+            "print3D_STL",
+            "agreement",
+            .usdzUrl,
+            "model_glb",
+            "token_hash",
+            "website",
+            .primaryAssetUrl,
+            .projectID,
+            .series,
+            "payout_address",
+            "script_type",
+            .previewAssetUrl,
+            "engine_type",
+        ]
+
+        stringKeys.forEach { stringKey in
+            if jsonObject[stringKey] as? String != nil {
+                jsonObject.removeValue(forKey: stringKey)
+            }
+        }
+
+        [
+            "tokenID",
+             "artwork_index",
+             "seller_fee_basis_points",
+             "minted",
+             "is_static",
+             "aspect_ratio",
+             "tokenId",
+        ]
+            .forEach { key in
+            if jsonObject[key] as? Int != nil {
+                jsonObject.removeValue(forKey: key)
+            }
+        }
+
+        if jsonObject[.attributes] as? [[String: Any]] != nil {
+            jsonObject.removeValue(forKey: .attributes)
+        }
+
+        let dictionaryKeys =
+        [
+        .createdBy,
+        "collection_name",
+        "platform",
+        "external_url",
+        "copyright",
+        .imageUrl,
+        .imageHrUrl,
+        "license",
+        .imageDetails,
+        "generator_url",
+        "terms_of_service",
+        "seller_fee_basis_points",
+        "fee_recipient",
+        .animationDetails,
+        .attributes,
+        .artistWebsite,
+        .artistRoyalty,
+        "properties",
+        "artwork_index",
+         "exhibition_info",
+        "royaltyInfo",
+        "features",
+        "royalties",
+        ]
+
+        dictionaryKeys.forEach { key in
+            if jsonObject[key] as? [String: Any] != nil {
+                jsonObject.removeValue(forKey: key)
+            }
+        }
+
+
+        [String.traits].forEach { key in
+            if jsonObject[key] as? [[String:String]] != nil {
+                jsonObject.removeValue(forKey: key)
+            }
+        }
+
+        [String.aspectRatio].forEach { key in
+            if jsonObject[key] as? Double != nil {
+                jsonObject.removeValue(forKey: key)
+            }
+        }
+        return jsonObject
     }
 }

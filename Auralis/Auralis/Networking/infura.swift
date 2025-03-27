@@ -55,40 +55,11 @@ class GasPriceEstimate: Codable {
 }
 
 struct Infura {
-    func getGasPrice() async -> GasPriceEstimate? {
+    func getGasPrice(chainId: Int = 1) async -> GasPriceEstimate? {
         do {
             guard let apiKey = Secrets.apiKey(.infura) else {
                 return nil
             }
-            let chainId = 1
-    //                        Supported networks
-    //                        Arbitrum
-    //                        Network    Chain ID
-    //                        Mainnet    42161
-    //                        Nova    42170
-
-    //                        Base
-    //                        Network    Chain ID
-    //                        Mainnet    8453
-
-    //                        Ethereum
-    //                        Network    Chain ID
-    //                        Mainnet    1
-    //                        Holesky    17000
-    //                        Sepolia    11155111
-
-    //                        Filecoin
-    //                        Network    Chain ID
-    //                        Mainnet    314
-
-    //                        Optimism
-    //                        Network    Chain ID
-    //                        Mainnet    10
-
-    //                        Polygon
-    //                        Network    Network ID
-    //                        Mainnet    137
-    //                        Amoy    80002
 
             let urlString = "https://gas.api.infura.io/v3/\(apiKey)/networks/\(chainId)/suggestedGasFees"
 

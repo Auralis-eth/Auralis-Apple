@@ -18,10 +18,10 @@ extension WalletNFTResponse {
         let ownerOf: String?
         let blockNumber: String?
         let blockNumberMinted: String?
-            let tokenUri: String?
-            let metadata: String?
+        let tokenUri: String?
+        let metadata: String?
         let normalizedMetadata: NormalizedMetadata?
-            let media: String?
+        let media: String?
         let amount: String
         let name: String?
         let symbol: String?
@@ -57,10 +57,6 @@ extension WalletNFTResponse {
             case possibleSpam = "possible_spam"
             case verifiedCollection = "verified_collection"
         }
-        //image
-        //imageData
-        //animationURL
-        //attributes
 
         struct Attribute: Identifiable {
             var id: String {
@@ -84,9 +80,9 @@ extension WalletNFTResponse {
                 }
 
                 let nftDisplayModel = NFTDisplayModel(data: jsonObject)
-
-//                testKeys(json: nftDisplayModel.unusedAttributes)
-
+                #if DEBUG
+                testKeys(json: nftDisplayModel.unusedAttributes)
+                #endif
                 return nftDisplayModel
 
             } catch {
@@ -141,11 +137,11 @@ extension WalletNFTResponse {
             }
 
 
-            if !jsonObject.keys.isEmpty {
-                print("===============================")
-                print(jsonObject.keys)
-                print("===============================")
-            }
+//            if !jsonObject.keys.isEmpty {
+//                print("===============================")
+//                print(jsonObject.keys)
+//                print("===============================")
+//            }
         }
     }
 }
