@@ -7,16 +7,12 @@
 
 import SwiftUI
 import SwiftData
-import metamask_ios_sdk
 
 @main
 struct AuralisApp: App {
     var body: some Scene {
         WindowGroup {
             MainView()
-                .onOpenURL { url in
-                    handleDeepLink(url)
-                }
         }
 
 #if os(macOS)
@@ -28,16 +24,6 @@ struct AuralisApp: App {
             Text("Settings")
         }.menuBarExtraStyle(.window)
 #endif
-    }
-
-    func handleDeepLink(_ url: URL) {
-        if URLComponents(url: url, resolvingAgainstBaseURL: true)?.host == "mmsdk" {
-            MetaMaskSDK.sharedInstance?.handleUrl(url)
-        } else {
-            // Handle other deep links
-            // For example, you might want to route to specific views
-            // or process different types of deep links
-        }
     }
 }
 //NOTES

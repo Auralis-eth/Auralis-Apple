@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import metamask_ios_sdk
 
 struct NFT: Identifiable {
     var id: String {
@@ -16,6 +15,8 @@ struct NFT: Identifiable {
     var nftBaseData: WalletNFTResponse.NFT
     var metadata: NFTDisplayModel?
 }
+
+
 //                        Supported networks
 //                        Arbitrum
 //                        Network    Chain ID
@@ -46,13 +47,6 @@ struct NFT: Identifiable {
 //                        Amoy    80002
 //    @State private var chainId: Int = 1
 @Observable class MainStore {
-    let appMetadata = AppMetadata(
-        name: "Auralis.ETH",
-        url: "Auralis.eth",//"https://dubdapp.com",
-        iconUrl: "https://pbs.twimg.com/profile_images/1846931552753930242/on5jhKP6_400x400.jpg"
-    )
-    var metamaskSDK: MetaMaskSDK
-
     var loading: Bool = false
     var error: Error?
     var chain: String = "eth"
@@ -67,19 +61,15 @@ struct NFT: Identifiable {
             return metaData.audioUrl != nil || ($0.nftBaseData.tokenUri?.hasSuffix(".mp3") ?? false) || ($0.nftBaseData.tokenUri?.hasSuffix(".wav") ?? false) || metaData.audioURI != nil || metaData.losslessAudio != nil || metaData.audio != nil
         }
     }
+
+    var accountAddress: String? = nil
+    var isConnected: Bool = false
     var account: String = "0x5b93ff82faaf241c15997ea3975419dddd8362c5"
 //    "0x63A65fC3a6E3714e2a210B7fE17A9d743426DA22"//"0x183AbE67478eB7E87c96CA28E2f63Dec53f22E3A"
 //
 //
 //    0xA46128894419058F48089e5C9eB7CF6a8a932A80
     init() {
-        metamaskSDK = MetaMaskSDK.shared(
-            appMetadata,
-            transport: .socket,
-            //sdkOptions: SDKOptions(infuraAPIKey: Secrets.apiKey(.infura) ?? "", readonlyRPCMap: ["0x1": "hptts://www.testrpc.com"]) // for read-only RPC calls
-            sdkOptions: SDKOptions(infuraAPIKey: Secrets.apiKey(.infura) ?? "") // for read-only RPC calls
-            )
-
         if !account.isEmpty {
             Task {
                 await fetchAllNFTs()

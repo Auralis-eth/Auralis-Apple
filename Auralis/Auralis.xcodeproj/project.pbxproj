@@ -6,10 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		6FB1D9B22D8D117E00CD1B30 /* metamask-ios-sdk in Frameworks */ = {isa = PBXBuildFile; productRef = 6FB1D9B12D8D117E00CD1B30 /* metamask-ios-sdk */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		6FB455F02CC5BEBD009A055C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -69,7 +65,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6FB1D9B22D8D117E00CD1B30 /* metamask-ios-sdk in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -138,7 +133,6 @@
 			);
 			name = Auralis;
 			packageProductDependencies = (
-				6FB1D9B12D8D117E00CD1B30 /* metamask-ios-sdk */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -223,7 +217,6 @@
 			mainGroup = 6FB455D22CC5BEBB009A055C;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				6FB1D9AF2D8D10D900CD1B30 /* XCRemoteSwiftPackageReference "metamask-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -598,25 +591,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		6FB1D9AF2D8D10D900CD1B30 /* XCRemoteSwiftPackageReference "metamask-ios-sdk" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/MetaMask/metamask-ios-sdk";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.8.10;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		6FB1D9B12D8D117E00CD1B30 /* metamask-ios-sdk */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6FB1D9AF2D8D10D900CD1B30 /* XCRemoteSwiftPackageReference "metamask-ios-sdk" */;
-			productName = "metamask-ios-sdk";
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6FB455D32CC5BEBB009A055C /* Project object */;
 }

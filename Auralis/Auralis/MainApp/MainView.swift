@@ -11,10 +11,7 @@ struct MainView: View {
     @State private var mainAppStore = MainStore()
     var body: some View {
         TabView {
-            WalletView(metamaskSDK: mainAppStore.metamaskSDK, account: $mainAppStore.account)
-                .onAppear {
-                    mainAppStore.account = "0x5b93ff82faaf241c15997ea3975419dddd8362c5"
-                }
+            WalletView(account: $mainAppStore.account)
                 .tabItem {
                     Image(systemName: "wallet.bifold.fill")
                     Text("Wallet")
