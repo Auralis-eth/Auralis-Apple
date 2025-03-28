@@ -12,7 +12,7 @@ struct WalletHistoryResponse: Codable {
     let pageSize: Int
     let cursor: String?
     let page: Int
-    var result: [Result]
+    var result: [WalletHistoryResult]
 
     enum CodingKeys: String, CodingKey {
         case page
@@ -22,7 +22,7 @@ struct WalletHistoryResponse: Codable {
 }
 
 // MARK: - Result
-struct Result: Codable, Identifiable {
+struct WalletHistoryResult: Codable, Identifiable {
     var id: String {
         hash + nonce + blockTimestamp + blockNumber + blockHash + transactionIndex
     }

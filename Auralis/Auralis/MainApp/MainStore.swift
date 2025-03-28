@@ -66,9 +66,8 @@ struct NFT: Identifiable {
     var isConnected: Bool = false
     var account: String = "0x5b93ff82faaf241c15997ea3975419dddd8362c5"
 //    "0x63A65fC3a6E3714e2a210B7fE17A9d743426DA22"//"0x183AbE67478eB7E87c96CA28E2f63Dec53f22E3A"
-//
-//
 //    0xA46128894419058F48089e5C9eB7CF6a8a932A80
+
     init() {
         if !account.isEmpty {
             Task {
