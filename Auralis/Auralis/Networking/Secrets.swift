@@ -11,6 +11,7 @@ struct Secrets {
     enum APIKeyProvider: String {
         case moralis = "Moralis"
         case infura = "Infura"
+        case alchemy = "Alchemy"
     }
     static func apiKey(_ provider: APIKeyProvider) -> String? {
         guard let url = Bundle.main.url(forResource: "Secrets", withExtension: "plist"),

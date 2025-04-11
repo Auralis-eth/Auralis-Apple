@@ -103,11 +103,15 @@ class ImageLoader: ObservableObject {
                         self.image = downloadedImage
                     }
                 } else {
-                    self.error = .invalidData
+                    await MainActor.run {
+                        self.error = .invalidData
+                    }
                 }
             } catch {
                 if !Task.isCancelled {
-                    self.error = .networkError
+                    await MainActor.run {
+                        self.error = .networkError
+                    }
                 }
             }
             await MainActor.run {
@@ -173,7 +177,7 @@ struct CachedAsyncImage: View {
                         .aspectRatio(1, contentMode: .fit)
                     Image(systemName: "photo")
                         .font(.largeTitle)
-                        .foregroundColor(.textSecondary)
+                        .foregroundColor(.textSecondary.opacity(0.3))
                 }
             }
         }

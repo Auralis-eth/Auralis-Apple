@@ -7,41 +7,6 @@
 
 import CodeScanner
 import SwiftUI
-struct TorchToggleButton: View {
-    @Binding var torchOn: Bool
-
-    var body: some View {
-        Button {
-            torchOn.toggle()
-        } label: {
-            HStack {
-                Image(systemName: torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
-                    .font(.title2)
-                    .foregroundColor(torchOn ? .secondary : .deepBlue) // Use yellow when on, gray when off
-                Text(torchOn ? "Torch Off" : "Torch On")
-                    .fontWeight(.semibold)
-                    .foregroundColor(.textPrimary) // Use primary color for text
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.surface) // Use system background for adaptive colors
-                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-            )
-        }
-        .buttonStyle(ScaleButtonStyle()) // Apply custom button style for subtle animation
-    }
-}
-
-struct ScaleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
 
 // MARK: - Main WalletView
 struct WalletView: View {
@@ -68,11 +33,17 @@ struct WalletView: View {
                     isScanning = true
                 } label: {
                     Card3D(cardColor: .surface) {
-                        Image(systemName: "qrcode.viewfinder")
-                            .foregroundColor(.accent)  // Changed from .secondary to app's textSecondary
-                            .foregroundStyle(Color.accent)
-                            .font(.system(size: 40, weight: .medium))
-                            .padding(.leading, 4)
+                        HStack {
+                            Text("Scan your wallet")
+                                .font(.subheadline)
+                                .foregroundColor(.textSecondary)
+                            Spacer()
+                            Image(systemName: "qrcode.viewfinder")
+                                .foregroundColor(.accent)  // Changed from .secondary to app's textSecondary
+                                .foregroundStyle(Color.accent)
+                                .font(.system(size: 40, weight: .medium))
+                                .padding(.leading, 4)
+                        }
                     }
                 }
                 .sheet(isPresented: $isScanning) {
@@ -109,6 +80,19 @@ struct WalletView: View {
                     }
                 }
                 .presentationDetents([.fraction(0.5), .fraction(0.25), .medium, .fraction(0.75)])
+                Card3D(cardColor: .surface) {
+                    VStack {
+                        Text("Paste Your Address Here")
+                            .font(.subheadline)
+                            .foregroundColor(.textSecondary)
+                        TextEditor(text: $account)
+                            .font(.body)  // Use your desired font
+                            .fixedSize(horizontal: false, vertical: true)
+                            .scrollContentBackground(.hidden)
+                            .foregroundColor(.textPrimary)
+                            .background(Color.surface)
+                    }
+                }
                 Spacer()
             }
             .padding(.horizontal)
@@ -125,79 +109,5 @@ struct WalletView: View {
         }
 
         return nil
-    }
-}
-
-// MARK: - Connection Status View
-struct ConnectionStatusView: View {
-    let account: String
-    let connected: Bool
-    let chainId: String
-
-    var body: some View {
-        VStack(spacing: 12) {
-            if connected || !account.isEmpty{
-                HStack {
-                    if !account.isEmpty {
-                        Text("Connected as \(account)...")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        if connected {
-                            Circle()
-                                .fill(Color.success)
-                                .frame(width: 8, height: 8)
-                        } else {
-                            Circle()
-                                .fill(Color.secondary)
-                                .frame(width: 8, height: 8)
-                        }
-                    }
-                }
-                HStack {
-                    Label {
-                        Text("Connected to \(chainId.networkName)")
-                            .font(.subheadline)
-                            .foregroundColor(.textSecondary)
-                    } icon: {
-                        Circle()
-                            .fill(Color.success)
-                            .frame(width: 8, height: 8)
-                    }
-
-                    Spacer()
-
-                    Text(chainId.formattedChainId)
-                        .font(.caption)
-                        .padding(6)
-                        .background(Color.surface)
-                        .cornerRadius(6)
-                        .foregroundColor(.textSecondary)
-                }
-                .padding(.horizontal, 4)
-            } else {
-                HStack {
-                    Label {
-                        Text("Not connected to any wallet")
-                            .font(.subheadline)
-                            .foregroundColor(.textSecondary)
-                    } icon: {
-                        Circle()
-                            .fill(Color.error)
-                            .frame(width: 8, height: 8)
-                    }
-
-                    Spacer()
-                }
-                .padding(.horizontal, 4)
-            }
-        }
-        .padding()
-        .background(Color.surface)
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.deepBlue.opacity(0.2), lineWidth: 1)
-        )
     }
 }

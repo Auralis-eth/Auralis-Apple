@@ -7,6 +7,20 @@
 
 import AVKit
 import SwiftUI
+import WebKit
+
+struct BasicWebView: UIViewRepresentable {
+    let url: URL
+
+    func makeUIView(context: Context) -> WKWebView {
+        WKWebView()
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        let request = URLRequest(url: url)
+        uiView.load(request)
+    }
+}
 
 struct NFTAnimationView: View {
     var animation: NFTDisplayModel.Animation?

@@ -29,11 +29,13 @@ struct MainView: View {
                     Text("Gas")
                 }
 
-            MusicApp(musicNFTs: mainAppStore.musicNFTs)
-                .tabItem {
-                    Image(systemName: "music.quarternote.3")
-                    Text("Music")
-                }
+//            MusicApp(musicNFTs: mainAppStore.musicNFTs)
+//                .tabItem {
+//                    Image(systemName: "music.quarternote.3")
+//                    Text("Music")
+//                }
         }
+        .tint(Color.accent)
+        .modelContainer(for: [NFT.self, NFT.Contract.self, NFT.Image.self, NFT.Raw.self, NFT.NFTMetadata.self, NFT.Attribute.self, NFT.Collection.self, NFT.AcquiredAt.self])
     }
 }

@@ -26,25 +26,3 @@ struct AuralisApp: App {
 #endif
     }
 }
-//NOTES
-
-
-// MARK: - Helper Functions & Computed Properties
-extension String {
-    var networkName: String {
-        switch self {
-            case "0x1":
-                return "Ethereum Mainnet"
-            case "0x89":
-                return "Polygon"
-            case "0xaa36a7":
-                return "Sepolia Testnet"
-            default:
-                return "Chain ID: \(self)"
-        }
-    }
-
-    var formattedChainId: String {
-        return "Chain ID: \(self)"
-    }
-}

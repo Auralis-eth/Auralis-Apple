@@ -5,139 +5,232 @@
 //  Created by Daniel Bell on 3/3/25.
 //
 
+import SwiftData
 import SwiftUI
-
-import WebKit
-struct BasicWebView: UIViewRepresentable {
-    let url: URL
-
-    func makeUIView(context: Context) -> WKWebView {
-        WKWebView()
-    }
-
-    func updateUIView(_ uiView: WKWebView, context: Context) {
-        let request = URLRequest(url: url)
-        uiView.load(request)
-    }
-}
 
 
 struct NFTListView: View {
-    @Binding var nftMetaData: [NFT]
+    @Environment(\.modelContext) private var modelContext
+
+    @Binding var mainAppStore: MainStore
+    var nftFetcher = NFTFetcher()
+
+
     @Binding var selectedNFT: NFT?
-    @State private var expandedAnimationNFT: NFT?
+    @State private var sortOrder = SortDescriptor(\NFT.acquiredAt?.blockTimestamp)
+    @State private var searchText: String = ""
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(nftMetaData) { metaData in
-                    Card3D(cardColor: .surface) {
-                        if let parsedmetaData = metaData.metadata {
-                            VStack(alignment: .leading, spacing: 12) {
-                                // NFT Name and Artist Info
-                                Card3D(cardColor: .deepBlue.opacity(0.7)) {
-                                    NFTNameView(
-                                        name: parsedmetaData.name,
-                                        arworkName: parsedmetaData.arworkName,
-                                        metaCollectionName: parsedmetaData.collectionName,
-                                        artist: parsedmetaData.artist,
-                                        createdBy: parsedmetaData.createdBy
-                                    )
-                                }
-
-                                // NFT Description
-                                if let description = parsedmetaData.description, !description.isEmpty {
-                                    NFTDescriptionView(description: description)
-                                }
-
-                                // NFT Image
-                                // NFT Image with Animation Support
-                                Card3D(cardColor: .deepBlue.opacity(0.5)) {
-                                    ZStack {
-                                        // Image display
-                                        if expandedAnimationNFT?.id == metaData.id,
-                                           let animationData = parsedmetaData.animationData {
-                                            // Display animation when expanded
-                                            NFTAnimationView(animation: animationData)
-                                        } else {
-                                            // Default image display
-                                            NFTImageView(image: parsedmetaData.image ?? parsedmetaData.imageURL ?? parsedmetaData.imageData)
-                                        }
-
-                                        // Play button overlay
-                                        if parsedmetaData.animationData != nil {
-                                            VStack {
-                                                Spacer()
-                                                HStack {
-                                                    Spacer()
-                                                    Button(action: {
-                                                        // Toggle animation view
-                                                        if expandedAnimationNFT?.id == metaData.id {
-                                                            expandedAnimationNFT = nil
-                                                        } else {
-                                                            expandedAnimationNFT = metaData
-                                                        }
-                                                    }) {
-                                                        Circle()
-                                                            .fill(Color.background.opacity(0.7))
-                                                            .frame(width: 60, height: 60)
-                                                            .overlay(
-                                                                Image(systemName: expandedAnimationNFT?.id == metaData.id ? "stop.fill" : "play.fill")
-                                                                    .resizable()
-                                                                    .scaledToFit()
-                                                                    .frame(width: 20, height: 20)
-                                                                    .foregroundColor(.secondary)
-                                                            )
-                                                    }
-                                                    .padding()
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-
-                                // Category display (placeholder)
-                                HStack {
-                                    Spacer()
-                                    Text("Category")
-                                    Text("Category Selector")
-//                                    Text(parsedmetaData.category ?? "Collectible")
-                                        .font(.caption)
-                                        .fontWeight(.medium)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(Color.accent.opacity(0.3))
-                                        .foregroundColor(.textPrimary)
-                                        .cornerRadius(16)
-                                    Spacer()
-                                }
-                            }
-                        } else {
-                            // Fallback for NFTs without parsed metadata
-                            VStack(spacing: 12) {
-                                Text("NFT Details Unavailable")
-                                    .font(.headline)
-                                    .foregroundColor(.textPrimary)
-
-                                Text("This NFT's metadata could not be parsed")
-                                    .font(.subheadline)
-                                    .foregroundColor(.textSecondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .frame(height: 200)
-                            .frame(maxWidth: .infinity)
-                        }
+        VStack {
+            NFTListingView(selectedNFT: $selectedNFT, sort: sortOrder, searchString: searchText, mainAppStore: $mainAppStore)
+                .searchable(text: $searchText)
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    //SORT options
+                    Menu("Time", systemImage: "clock") {
+//                        NFTSortButton(title: "Deployed", sortOrder: $sortOrder, keyPath: \.contract.deployedBlockNumber)
+                        NFTSortButton(title: "Last Update", sortOrder: $sortOrder, keyPath: \.timeLastUpdated)
+                        NFTSortButton(title: "Acquired", sortOrder: $sortOrder, keyPath: \.acquiredAt?.blockTimestamp)
                     }
-                    .padding(.horizontal, 16)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedNFT = metaData
+
+//                    Button {
+//                        //filter on Contract
+//                        //          address
+//                        //var tokenId: String
+//                        //var contract: Contract
+//                    } label: {
+//                        Label("NFT", systemImage: "widget.large")
+//                    }
+
+//                    Button {
+//                        //filter on Contract is spam
+//                    } label: {
+//                        Label("Spam", systemImage: "xmark.bin")
+//                    }
+                    NFTSortButton(title: "Collection Name", sortOrder: $sortOrder, keyPath: \.collection?.name)
+                    NFTSortButton(title: "Item Name", sortOrder: $sortOrder, keyPath: \.name)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .padding(8)
+                }
+
+                Button(action: {
+                    Task {
+                        await fetchAllNFTs()
+                    }
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                }
+            }
+        }
+    }
+
+    func fetchAllNFTs() async {
+        do {
+            let nfts = try await nftFetcher.fetchAllNFTs(for: mainAppStore.account, chain: mainAppStore.chain)
+            //TODO: make this return the values/NFTs and save the data in the view
+            //TODO go through the results and process and parse and update
+            guard let nfts else {
+                return
+            }
+
+            for nft in nfts {
+                modelContext.insert(nft)
+            }
+
+            do {
+                try modelContext.save()
+            } catch {
+                nftFetcher.error = error
+            }
+
+            let nftIDs = nfts.map(\.id)
+            let descriptor = FetchDescriptor<NFT>(predicate: #Predicate { !nftIDs.contains($0.id) })
+            do {
+                try modelContext.enumerate(descriptor) { nft in
+                    modelContext.delete(nft)
+                }
+                //                try modelContext.fetch(descriptor).forEach { nft in
+                //                  modelContext.delete(nft)
+                //                }
+            } catch {
+                print("Failed to retrieve NFTs to SwiftData: \(error)")
+                nftFetcher.error = error
+            }
+        } catch {
+            nftFetcher.error = error
+        }
+
+        nftFetcher.reset()
+
+    }
+}
+
+struct NFTListingView: View {
+    @Environment(\.modelContext) private var modelContext
+
+    @Query(sort: [
+        SortDescriptor(\NFT.acquiredAt?.blockTimestamp),
+        SortDescriptor(\NFT.collection?.name),
+        SortDescriptor(\NFT.tokenId)
+    ]) private var nfts: [NFT]
+
+    @Binding var mainAppStore: MainStore
+    @Binding var selectedNFT: NFT?
+    @State private var expandedAnimationNFT: NFT?
+    let searchString: String
+    var nftFetcher = NFTFetcher()
+
+    var displayNFTs: [NFT] {
+        if searchString.trimmingCharacters(in: .whitespaces).isEmpty {
+            nfts
+        } else {
+            nfts.filter {
+                [$0.name, $0.collection?.name, $0.nftDescription]
+                    .contains { field in
+                        field?.localizedStandardContains(searchString) ?? false
+                    }
+            }
+        }
+
+    }
+    var body: some View {
+        if nfts.isEmpty {
+            // No NFTs found view
+            Card3D(cardColor: .surface) {
+                VStack(spacing: 20) {
+                    Image(systemName: "photo.artframe")
+                        .font(.system(size: 60))
+                        .foregroundColor(.accent)
+
+                    Text("No NFTs Found")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.textPrimary)
+
+                    Text("We couldn't find any NFTs in this wallet address")
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.textSecondary)
+
+                    Button {
+                        Task {
+                            await fetchAllNFTs()
+                        }
+                    } label: {
+                        Text("Refresh")
+                            .fontWeight(.medium)
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 24)
+                            .background(Color.secondary)
+                            .foregroundColor(.black)
+                            .cornerRadius(12)
                     }
                 }
             }
-            .padding(.vertical)
+            .padding(.horizontal, 40)
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 16) {
+                    ForEach(displayNFTs) { metaData in
+                        NFTNewsfeedPostView(nft: metaData)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedNFT = metaData
+                            }
+                    }
+                }
+                .padding(.vertical)
+            }
+            .background(Color.background)
         }
-        .background(Color.background)
+    }
+
+    init(selectedNFT: Binding<NFT?>, sort: SortDescriptor<NFT>, searchString: String, mainAppStore: Binding<MainStore>) {
+        _mainAppStore = mainAppStore
+        _nfts = Query(sort: [sort])
+        self.searchString = searchString
+        _selectedNFT = selectedNFT
+    }
+
+    func fetchAllNFTs() async {
+        do {
+            let nfts = try await nftFetcher.fetchAllNFTs(for: mainAppStore.account, chain: mainAppStore.chain)
+            //TODO: make this return the values/NFTs and save the data in the view
+            //TODO go through the results and process and parse and update
+            guard let nfts else {
+                return
+            }
+
+            for nft in nfts {
+                modelContext.insert(nft)
+            }
+
+            do {
+                try modelContext.save()
+            } catch {
+                nftFetcher.error = error
+            }
+
+            let nftIDs = nfts.map(\.id)
+            let descriptor = FetchDescriptor<NFT>(predicate: #Predicate { !nftIDs.contains($0.id) })
+            do {
+                try modelContext.enumerate(descriptor) { nft in
+                    modelContext.delete(nft)
+                }
+                //                try modelContext.fetch(descriptor).forEach { nft in
+                //                  modelContext.delete(nft)
+                //                }
+            } catch {
+                print("Failed to retrieve NFTs to SwiftData: \(error)")
+                nftFetcher.error = error
+            }
+        } catch {
+            nftFetcher.error = error
+        }
+
+        nftFetcher.reset()
+
     }
 }
