@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6F4179322DA96363002A78F5 /* web3.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 6F4179312DA96363002A78F5 /* web3.swift */; };
 		6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = 6F7B76032D962FE800DF0AD7 /* CodeScanner */; };
 /* End PBXBuildFile section */
 
@@ -69,6 +70,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6F4179322DA96363002A78F5 /* web3.swift in Frameworks */,
 				6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -139,6 +141,7 @@
 			name = Auralis;
 			packageProductDependencies = (
 				6F7B76032D962FE800DF0AD7 /* CodeScanner */,
+				6F4179312DA96363002A78F5 /* web3.swift */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -224,6 +227,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				6F7B76022D962FE800DF0AD7 /* XCRemoteSwiftPackageReference "CodeScanner" */,
+				6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -600,6 +604,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argentlabs/web3.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.6.1;
+			};
+		};
 		6F7B76022D962FE800DF0AD7 /* XCRemoteSwiftPackageReference "CodeScanner" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/twoStraws/CodeScanner";
@@ -611,6 +623,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		6F4179312DA96363002A78F5 /* web3.swift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */;
+			productName = web3.swift;
+		};
 		6F7B76032D962FE800DF0AD7 /* CodeScanner */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6F7B76022D962FE800DF0AD7 /* XCRemoteSwiftPackageReference "CodeScanner" */;
