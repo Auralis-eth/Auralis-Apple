@@ -23,8 +23,11 @@ public enum KeychainError: Error {
     case addressNotFound
 }
 
-
-public struct EthereumKeyChainStorage: EthereumSingleKeyStorageProtocol {
+public class EthereumKeyChainStorage: EthereumSingleKeyStorageProtocol {
+    var addresses: [EOAccount]
+    init(addresses: [EOAccount] = []) {
+        self.addresses = addresses
+    }
 
     // MARK: - KeyChain Constants
     private struct KeychainConstants {
@@ -32,8 +35,6 @@ public struct EthereumKeyChainStorage: EthereumSingleKeyStorageProtocol {
         static let addressPrefix = "ethereumAddress_"
         static let account = "ethereumPrivateKey"
     }
-
-    public init() {}
 
     public func storePrivateKey(key: Data) throws {
         // First, try to delete any existing key
@@ -113,6 +114,7 @@ extension EthereumKeyChainStorage: EthereumMultipleKeyStorageProtocol {
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainError.unexpectedStatus(status)
         }
+        addresses = []
     }
 
     public func deletePrivateKey(for address: web3.EthereumAddress) throws {
@@ -123,6 +125,7 @@ extension EthereumKeyChainStorage: EthereumMultipleKeyStorageProtocol {
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainError.unexpectedStatus(status)
         }
+        addresses = addresses.filter { $0.address != address.asString() }
     }
 
     public func fetchAccounts() throws -> [web3.EthereumAddress] {
@@ -159,7 +162,10 @@ extension EthereumKeyChainStorage: EthereumMultipleKeyStorageProtocol {
         }
     }
 
-    public func loadPrivateKey(for address: web3.EthereumAddress) throws -> Data {
+    public func loadPrivateKey(for address: EthereumAddress) throws -> Data {
+        guard addresses.contains(where: { $0.address.lowercased() == address.asString().lowercased() }) else {
+            throw KeychainError.addressNotFound
+        }
         var query = keychainQuery(for: address)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -193,5 +199,6 @@ extension EthereumKeyChainStorage: EthereumMultipleKeyStorageProtocol {
         guard status == errSecSuccess else {
             throw KeychainError.unexpectedStatus(status)
         }
+        addresses.append(EOAccount(address: address.asString()))
     }
 }
