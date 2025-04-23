@@ -11,7 +11,7 @@ import SwiftUI
 struct ConnectionStatusView: View {
     let account: String
     let connected: Bool
-    let chainId: String
+    let chainId: Chain
 
     var body: some View {
         VStack(spacing: 12) {

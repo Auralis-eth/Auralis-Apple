@@ -22,7 +22,7 @@ import SwiftData
     var loading: Bool = false
     var error: Error? = nil
 
-    func fetchAllNFTs(for account: String, chain: String) async throws -> [NFT]? {
+    func fetchAllNFTs(for account: String, chain: Chain) async throws -> [NFT]? {
         guard let apiKey = Secrets.apiKey(.alchemy) else {
             fatalError("API key not set")
         }
@@ -39,7 +39,7 @@ import SwiftData
 
         repeat {
             do {
-                let service = AlchemyNFTService(network: chain, apiKey: apiKey)
+                let service = AlchemyNFTService(network: chain.rawValue, apiKey: apiKey)
                 let nfts = try await service.getNFTsForOwner(owner: account)
 
                 seenItems += nfts.ownedNfts.count

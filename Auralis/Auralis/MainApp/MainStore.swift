@@ -9,8 +9,7 @@ import SwiftUI
 import SwiftData
 
 @Observable class MainStore {
-    var chain: String = "eth-mainnet"
-    var chainId: Int = 1
+    var chain: Chain = .ethMainnet
 
     //var musicNFTs: [NFT] = [] {
 //        nftMetaData.filter {

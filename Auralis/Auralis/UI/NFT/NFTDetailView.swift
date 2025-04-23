@@ -119,7 +119,7 @@ struct NFTDetailView: View {
                                             DetailRow(title: "Contract", value: nft.contract.address ?? "0x0")
                                             DetailRow(title: "Token ID", value: nft.tokenId)
                                             DetailRow(title: "Token Standard", value: nft.tokenType ?? "Unknown")
-                                            DetailRow(title: "Blockchain", value: nft.network)
+                                            DetailRow(title: "Blockchain", value: nft.network?.networkName ?? "Unknown")
                                         }
                                         if let contractAddress = nft.contract.address {
                                             Card3D(cardColor: .surface) {

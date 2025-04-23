@@ -9,7 +9,7 @@ import SwiftUI
 
 
 struct PasswordStrengthView: View {
-    enum PasswordStrength {
+    enum PasswordStrength: String {
         case weak, medium, strong
         var message: String {
             switch self {

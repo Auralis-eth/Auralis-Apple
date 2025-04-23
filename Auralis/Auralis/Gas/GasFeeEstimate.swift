@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - Main View
 struct GasPriceEstimateView: View {
-    @Binding var chainId: Int
+    @Binding var chain: Chain
     @State private var estimate: GasPriceEstimate?
     @State private var isLoading = false
     @State private var error: Error?
@@ -51,7 +51,7 @@ struct GasPriceEstimateView: View {
             .task {
                 await fetchGasPrice()
             }
-            .onChange(of: chainId) { newValue in
+            .onChange(of: chain) { newValue in
                 Task {
                     await fetchGasPrice()
                 }
@@ -62,7 +62,7 @@ struct GasPriceEstimateView: View {
     func fetchGasPrice() async {
         isLoading = true
 
-        let result = await Infura().getGasPrice(chainId: chainId)
+        let result = await Infura().getGasPrice(chainId: chain.chainId)
 
         await MainActor.run {
             self.estimate = result
