@@ -23,7 +23,7 @@ struct BasicWebView: UIViewRepresentable {
 }
 
 struct NFTAnimationView: View {
-    var animation: NFTDisplayModel.Animation?
+    var animation: NFTAnimation?
     var image: URL? {
         animation?.animations?.first
     }

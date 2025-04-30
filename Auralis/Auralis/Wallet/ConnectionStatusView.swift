@@ -11,64 +11,23 @@ import SwiftUI
 struct ConnectionStatusView: View {
     let account: String
     let connected: Bool
-    let chainId: Chain
 
     var body: some View {
-        VStack(spacing: 12) {
-            if connected || !account.isEmpty{
-                HStack {
-                    if !account.isEmpty {
-                        Text("Connected as \(account)...")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        if connected {
-                            Circle()
-                                .fill(Color.success)
-                                .frame(width: 8, height: 8)
-                        } else {
-                            Circle()
-                                .fill(Color.secondary)
-                                .frame(width: 8, height: 8)
-                        }
-                    }
+        HStack {
+            if !account.isEmpty {
+                Text("Connected as \(account)...")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Spacer()
+                if connected {
+                    Circle()
+                        .fill(Color.success)
+                        .frame(width: 8, height: 8)
+                } else {
+                    Circle()
+                        .fill(Color.secondary)
+                        .frame(width: 8, height: 8)
                 }
-                HStack {
-                    Label {
-                        Text("Connected to \(chainId.networkName)")
-                            .font(.subheadline)
-                            .foregroundColor(.textSecondary)
-                    } icon: {
-                        Circle()
-                            .fill(Color.success)
-                            .frame(width: 8, height: 8)
-                    }
-
-                    Spacer()
-
-                    Text(chainId.formattedChainId)
-                        .font(.caption)
-                        .padding(6)
-                        .background(Color.surface)
-                        .cornerRadius(6)
-                        .foregroundColor(.textSecondary)
-                }
-                .padding(.horizontal, 4)
-            } else {
-                HStack {
-                    Label {
-                        Text("Not connected to any wallet")
-                            .font(.subheadline)
-                            .foregroundColor(.textSecondary)
-                    } icon: {
-                        Circle()
-                            .fill(Color.error)
-                            .frame(width: 8, height: 8)
-                    }
-
-                    Spacer()
-                }
-                .padding(.horizontal, 4)
             }
         }
         .padding()

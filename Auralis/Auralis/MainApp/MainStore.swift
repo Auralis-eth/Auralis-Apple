@@ -23,7 +23,7 @@ import SwiftData
 
     var accountAddress: String? = nil
     var isConnected: Bool = false
-    var account: String = ""// "0x5b93ff82faaf241c15997ea3975419dddd8362c5"
+    var account: EOAccount? //= EOAccount(address: "0x5b93ff82faaf241c15997ea3975419dddd8362c5", access: .readonly) 
 
     init() {}
 }

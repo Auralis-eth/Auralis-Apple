@@ -13,6 +13,7 @@ struct AuralisApp: App {
     var body: some Scene {
         WindowGroup {
             MainView()
+                .modelContainer(for: [NFT.self, EOAccount.self])
         }
 
 #if os(macOS)

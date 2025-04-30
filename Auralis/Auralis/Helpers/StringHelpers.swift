@@ -7,6 +7,69 @@
 
 import Foundation
 
+enum NFTImageSource: Hashable {
+    case url(URL)
+    case data(Data)
+    case svg(String)
+}
+
+extension Optional where Wrapped == String {
+    var imageSource: NFTImageSource? {
+        // Implementation remains the same
+        var imageURL = URL(string: self ?? "")
+        var imageData: Data?
+        var imageSVG: String?
+        if imageURL?.isIPFS ?? false {
+            if let host = imageURL?.ipfsHTML {
+                imageURL = host
+            } else {
+                print(imageURL)
+            }
+        } else if imageURL?.scheme != "https" && imageURL?.scheme != "http" {
+            if imageURL?.scheme == nil, let hash = imageURL?.path {
+                imageURL = URL(string: "https://ipfs.io/ipfs/\(hash)/")
+            } else if imageURL?.scheme == "data" {
+                if let base64Data = self?.extractSVGData() {
+                    imageSVG = base64Data
+                } else {
+                    fatalError("Invalid data URL")
+                }
+                imageURL = nil
+            }
+            else if let imageURL {
+                print(imageURL)
+            }
+        } else {
+            if imageURL?.scheme == "http" {
+                if let url = imageURL, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+                    if components.scheme?.lowercased() == "http" {
+                        components.scheme = "https"
+                    }
+
+                    // Return the modified URL or fall back to the original URL
+                    imageURL = components.url ?? url
+                } else {
+                    print(imageURL)
+                }
+
+            }
+            if let imageURL, imageURL.host == nil {
+                print(imageURL)
+            }
+        }
+
+        var imageSource: NFTImageSource?
+        if let url = imageURL {
+            imageSource = .url(url)
+        } else if let imageData {
+            imageSource = .data(imageData)
+        } else if let imageSVG {
+            imageSource = .svg(imageSVG)
+        }
+        return imageSource
+    }
+}
+
 extension String {
     static var audioUrl: String {
         "audio_url"

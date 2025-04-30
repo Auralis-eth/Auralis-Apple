@@ -10,16 +10,19 @@ import web3
 
 struct CreateWalletView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.modelContext) private var modelContext
+
     @State private var password: Password = ""
     @State private var confirmPassword: Password = ""
     @State private var isPasswordValid: Bool = false
     @State private var showingWarningAlert: Bool = false
     @State private var errorMessage: String = ""
-    @State private var showBiometricOptIn: Bool = false
+    @State private var useBioMetrics: Bool = true
+
     @FocusState private var focusedField: Field?
     @StateObject private var biometricManager = BiometricAuthManager.shared
 
-    @Binding public var address: String
+    @Binding public var address: EOAccount?
 
     enum Field {
         case password, confirmPassword
@@ -52,75 +55,63 @@ struct CreateWalletView: View {
                             }
                             .accessibilityLabel("Close")
                         }
+                        .padding(.trailing)
                     }
-                    
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Enter Password")
-                            .fontWeight(.medium)
-                            .foregroundColor(.textSecondary)
-                        
-                        PasswordField(
-                            password: $password,
-                            isPasswordValid: $isPasswordValid,
-                            placeholder: "Password",
-                            field: .password,
-                            focusedField: $focusedField
-                        )
-                    }
-                    .padding(.horizontal)
-                    
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Confirm Password")
-                            .fontWeight(.medium)
-                            .foregroundColor(.textSecondary)
-                        
-                        HStack {
-                            if password.isEmpty {
-                                SecureField("Confirm password", text: $confirmPassword)
-                                    .textContentType(.newPassword)
-                                    .focused($focusedField, equals: .confirmPassword)
-                                    .padding()
-                                    .background(Color.secondary.opacity(0.1))
-                                    .cornerRadius(8)
-                                    .foregroundColor(.textSecondary)
-                                    .disabled(password.isEmpty)
-                            } else {
-                                SecureField("Confirm password", text: $confirmPassword)
-                                    .textContentType(.newPassword)
-                                    .focused($focusedField, equals: .confirmPassword)
-                                    .padding()
-                                    .background(Color.secondary.opacity(0.1))
-                                    .cornerRadius(8)
-                                    .foregroundColor(.textSecondary)
+
+                    VStack {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Enter Password")
+                                .fontWeight(.medium)
+                                .foregroundColor(.textSecondary)
+
+                            PasswordField(
+                                password: $password,
+                                isPasswordValid: $isPasswordValid,
+                                placeholder: "Password",
+                                field: .password,
+                                focusedField: $focusedField
+                            )
+                        }
+                        .padding(.horizontal)
+
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Confirm Password")
+                                .fontWeight(.medium)
+                                .foregroundColor(.textSecondary)
+
+                            SecureField("Confirm password", text: $confirmPassword)
+                                .textContentType(.newPassword)
+                                .focused($focusedField, equals: .confirmPassword)
+                                .padding()
+                                .background(Color.secondary.opacity(0.1))
+                                .cornerRadius(8)
+                                .foregroundColor(.textSecondary)
+                                .disabled(password.isEmpty)
+
+
+                            if !confirmPassword.isEmpty && !passwordsMatch {
+                                Text("Passwords do not match")
+                                    .foregroundColor(.error)
+                                    .font(.caption)
+                                    .accessibilityLabel("Error: Passwords do not match")
+                            }
+
+                            if !errorMessage.isEmpty {
+                                Text(errorMessage)
+                                    .foregroundColor(.error)
+                                    .font(.caption)
+                                    .accessibilityLabel("Error: \(errorMessage)")
                             }
                         }
-                        
-                        if !confirmPassword.isEmpty && !passwordsMatch {
-                            Text("Passwords do not match")
-                                .foregroundColor(.error)
-                                .font(.caption)
-                                .accessibilityLabel("Error: Passwords do not match")
-                        }
-                        
-                        if !errorMessage.isEmpty {
-                            Text(errorMessage)
-                                .foregroundColor(.error)
-                                .font(.caption)
-                                .accessibilityLabel("Error: \(errorMessage)")
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    Divider()
-                        .padding(.vertical)
-                        .foregroundStyle(Color.surface)
-                    
-                    Text("⚠️ This password is not recoverable. If you lose it, you will lose access to your wallet.")
-                        .foregroundColor(.secondary)
-                        .font(.callout)
-                        .multilineTextAlignment(.center)
                         .padding(.horizontal)
-                    
+
+                        Text("⚠️ This password is not recoverable. If you lose it, you will lose access to your wallet.")
+                            .foregroundColor(.secondary)
+                            .font(.callout)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    BiometricOptInView(useBioMetrics: $useBioMetrics)
                     Spacer()
                     
                     Button {
@@ -153,9 +144,6 @@ struct CreateWalletView: View {
             .padding(.vertical)
             .background(Color.background)
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showBiometricOptIn) {
-                BiometricOptInView(address: $address)
-            }
         }
     }
 
@@ -168,7 +156,7 @@ struct CreateWalletView: View {
             let accessControl = SecAccessControlCreateWithFlags(
                 nil,
                 kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-                [.userPresence],
+                [ useBioMetrics ? .biometryAny : .userPresence],
                 &error
             )
 
@@ -178,23 +166,23 @@ struct CreateWalletView: View {
             }
 
             // Configure keyStorage with enhanced security
+            //FACEID USED
             if let accessControl = accessControl {
                 keyStorage.accessControl = accessControl
             }
-
+            //FACEID USED
             let account = try EthereumAccount.create(addingTo: keyStorage, keystorePassword: password)
 
+            let eoAccount = EOAccount(address: account.address.asString(), access: .wallet)
+//            modelContext.insert(eoAccount)
+//            try modelContext.save()
             // Save to iOS keychain with enhanced security
             password.saveToKeychain()
 
-            address = account.address.asString()
+            address = eoAccount
 
             // After successful wallet creation, show biometric opt-in if available
-            if biometricManager.biometricType != .none {
-                showBiometricOptIn = true
-            } else {
-                dismiss()
-            }
+            dismiss()
         } catch {
             errorMessage = "Error creating wallet: \(error.localizedDescription)"
             print("Error creating wallet: \(error)")

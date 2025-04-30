@@ -68,8 +68,12 @@ struct NFTListView: View {
     }
 
     func fetchAllNFTs() async {
+        guard let accountAddress = mainAppStore.account?.address else {
+            return
+        }
+
         do {
-            let nfts = try await nftFetcher.fetchAllNFTs(for: mainAppStore.account, chain: mainAppStore.chain)
+            let nfts = try await nftFetcher.fetchAllNFTs(for: accountAddress, chain: mainAppStore.chain)
             //TODO: make this return the values/NFTs and save the data in the view
             //TODO go through the results and process and parse and update
             guard let nfts else {
@@ -195,8 +199,12 @@ struct NFTListingView: View {
     }
 
     func fetchAllNFTs() async {
+        guard let accountAddress = mainAppStore.account?.address else {
+            return
+        }
+
         do {
-            let nfts = try await nftFetcher.fetchAllNFTs(for: mainAppStore.account, chain: mainAppStore.chain)
+            let nfts = try await nftFetcher.fetchAllNFTs(for: accountAddress, chain: mainAppStore.chain)
             //TODO: make this return the values/NFTs and save the data in the view
             //TODO go through the results and process and parse and update
             guard let nfts else {

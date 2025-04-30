@@ -251,7 +251,7 @@ extension EthereumKeyChainStorage: EthereumMultipleKeyStorageProtocol {
         guard status == errSecSuccess else {
             throw KeychainError.unexpectedStatus(status)
         }
-        addresses.append(EOAccount(address: address.asString()))
+        addresses.append(EOAccount(address: address.asString(), access: .wallet))
     }
 }
 
