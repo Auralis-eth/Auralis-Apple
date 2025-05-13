@@ -20,18 +20,16 @@ struct NFTNewsfeedPostView: View {
 
                 HStack {
                     VStack(alignment: .leading) {
-                        Text(nft.collection?.name ?? "Unknown Collection")
-                            .font(.system(size: 14, weight: .medium, design: .serif))
-                            .foregroundColor(.textSecondary)
+                        SystemFontText(
+                            text: nft.collection?.name ?? "Unknown Collection",
+                            size: 14,
+                            weight: .medium
+                        )
 
                         if let timeUpdated = nft.timeLastUpdated {
                             HStack {
-                                Text("Updated: ")
-                                    .font(.footnote)
-                                    .foregroundColor(.textSecondary)
-                                Text(formattedDate(timeUpdated))
-                                    .font(.caption)
-                                    .foregroundColor(.textSecondary)
+                                FootnoteFontText("Updated: ")
+                                SecondaryCaptionFontText(formattedDate(timeUpdated))
                             }
                         }
                     }
@@ -45,7 +43,7 @@ struct NFTNewsfeedPostView: View {
                             Label("Copy ID", systemImage: "doc.on.doc")
                         }
                     } label: {
-                        Image(systemName: "ellipsis")
+                        SystemImage("ellipsis")
                             .padding(8)
                     }
                 }
@@ -59,7 +57,7 @@ struct NFTNewsfeedPostView: View {
                             .fill(Color.gray.opacity(0.3))
                             .aspectRatio(1, contentMode: .fit)
                             .overlay(
-                                Image(systemName: "photo")
+                                SystemImage("photo")
                                     .foregroundColor(.gray)
                             )
                     }
@@ -71,25 +69,22 @@ struct NFTNewsfeedPostView: View {
                     Button(action: {
                         // Like action
                     }) {
-                        Image(systemName: "heart")
+                        SecondarySystemImage("heart")
                             .font(.title2)
-                            .foregroundColor(.secondary)
                     }
 
                     Button(action: {
                         // Comment action
                     }) {
-                        Image(systemName: "bubble.right")
+                        AccentTextSystemImage("bubble.right")
                             .font(.title2)
-                            .foregroundColor(.accent)
                     }
 
                     Button(action: {
                         // Share action
                     }) {
-                        Image(systemName: "paperplane")
+                        PrimaryTextSystemImage("paperplane")
                             .font(.title2)
-                            .foregroundColor(.textPrimary)
                     }
 
                     Spacer()
@@ -97,7 +92,7 @@ struct NFTNewsfeedPostView: View {
                     Button(action: {
                         // Bookmark action
                     }) {
-                        Image(systemName: "bookmark")
+                        SystemImage("bookmark")
                             .font(.title2)
                             .foregroundColor(.deepBlue)
                     }
@@ -108,9 +103,7 @@ struct NFTNewsfeedPostView: View {
                 // NFT details
                 VStack(alignment: .leading, spacing: 8) {
                     // Title and description
-                    Text(nft.name ?? "Unnamed NFT")
-                        .font(.system(size: 18, weight: .semibold, design: .serif))
-                        .foregroundColor(.textPrimary)
+                    SystemFontText(text: nft.name ?? "Unnamed NFT", size: 18, weight: .semibold)
 
                     // NFT Description
                     if let description = nft.nftDescription, !description.isEmpty {
@@ -119,49 +112,33 @@ struct NFTNewsfeedPostView: View {
 
                     // Token details
                     HStack {
-                        Text("Token ID:")
-                            .font(.caption)
-                            .foregroundColor(.textSecondary)
-                        Text(nft.tokenId)
-                            .font(.caption)
+                        SecondaryCaptionFontText("Token ID:")
+                        PrimaryCaptionFontText(nft.tokenId)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                            .foregroundColor(.textPrimary)
                     }
 
                     HStack {
-                        Text("Contract:")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .foregroundColor(.textSecondary)
-                        Text(nft.contract.address ?? "0x0")
-                            .font(.caption)
+                        SecondaryCaptionFontText("Contract:")
+                        PrimaryCaptionFontText(nft.contract.address ?? "0x0")
                             .lineLimit(1)
                             .truncationMode(.middle)
-                            .foregroundColor(.textPrimary)
                     }
 
                     // Attributes/Traits section
                     if let metadata = nft.raw?.metadata, let attributes = metadata.attributes, !attributes.isEmpty {
-                        Text("Traits")
-                            .font(.headline)
+                        HeadlineFontText("Traits")
                             .padding(.top, 8)
-                            .foregroundColor(.textSecondary)
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(attributes, id: \.traitType) { attribute in
                                     VStack(alignment: .center) {
                                         if let traitType = attribute.traitType {
-                                            Text(traitType)
-                                                .font(.caption)
-                                                .foregroundColor(.textSecondary)
+                                            SecondaryCaptionFontText(traitType)
                                         }
 
-                                        Text(attribute.value)
-                                            .font(.caption2)
-                                            .fontWeight(.semibold)
-                                            .foregroundColor(.textPrimary)
+                                        Caption2FontText(attribute.value)
                                     }
                                     .padding(8)
                                     .background(Color.gray.opacity(0.1))
@@ -174,15 +151,12 @@ struct NFTNewsfeedPostView: View {
                     // Category display (placeholder)
                     HStack {
                         Spacer()
-                        Text("Category")
-                        Text("Category Selector")
-//                                    Text(parsedmetaData.category ?? "Collectible")
-                            .font(.caption)
+                        PrimaryText("Category")
+                        PrimaryCaptionFontText("Category Selector")
                             .fontWeight(.medium)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(Color.accent.opacity(0.3))
-                            .foregroundColor(.textPrimary)
                             .cornerRadius(16)
                         Spacer()
                     }

@@ -39,24 +39,20 @@ struct PasswordField<Field: Hashable>: View {
                 Button {
                     showPassword.toggle()
                 } label: {
-                    Image(systemName: showPassword ? "eye.slash" : "eye")
-                        .foregroundColor(.textSecondary)
+                    SecondaryTextSystemImage(showPassword ? "eye.slash" : "eye")
                 }
                 .padding(.trailing, 8)
             }
 
             // Password strength indicator
             HStack {
-                Text("Strength:")
-                    .foregroundColor(.textSecondary)
+                SecondaryText("Strength:")
                 PasswordStrengthView(strength: password.strength)
             }
             .padding(.top, 5)
 
-            Text(password.strength.message)
+            SecondaryCaptionFontText(password.strength.message)
                 .lineLimit(nil)
-                .font(.caption)
-                .foregroundColor(.textSecondary)
                 .accessibilityLabel("Password strength: \(password.strength.rawValue)")
         }
         .onChange(of: password) { _, newValue in

@@ -18,8 +18,7 @@ struct AddressBarView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "wallet.pass")
-                .foregroundColor(.textSecondary)  // Changed from .secondary to app's textSecondary
+            SecondaryTextSystemImage( "wallet.pass")
                 .font(.system(size: 16, weight: .medium))
                 .padding(.leading, 4)
                 .accessibilityHidden(true)
@@ -37,9 +36,7 @@ struct AddressBarView: View {
                     }
             } else {
                 // Abbreviated address when not editing
-                Text(displayAddress)
-                    .font(.system(size: 15))
-                    .foregroundColor(.textPrimary)
+                SystemFontText(text: displayAddress, size: 15)
                     .onTapGesture {
                         isEditing = true
                     }
@@ -59,9 +56,8 @@ struct AddressBarView: View {
                             .scaleEffect(0.8)
                             .tint(.secondary)  // Added tint for the progress indicator
                     } else {
-                        Image(systemName: "arrow.right.circle.fill")
+                        SecondarySystemImage( "arrow.right.circle.fill")
                             .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.secondary)  // Changed from .blue to app's secondary (teal green)
                             .accessibilityLabel("Submit")
                     }
                 }

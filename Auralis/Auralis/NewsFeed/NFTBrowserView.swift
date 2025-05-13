@@ -12,6 +12,7 @@ import SwiftUI
 struct NFTBrowserView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var mainAppStore: MainStore
+    @Binding var currentAccount: EOAccount?
     @State private var selectedNFT: NFT?
     var nftFetcher = NFTFetcher()
 
@@ -24,20 +25,16 @@ struct NFTBrowserView: View {
                     Card3D(cardColor: .error.opacity(0.2)) {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
-                                Image(systemName: "exclamationmark.triangle.fill")
+                                SystemImage("exclamationmark.triangle.fill")
                                     .foregroundColor(.error)
-                                Text("Error")
-                                    .font(.headline)
-                                    .foregroundColor(.textPrimary)
+                                HeadlineFontText("Error")
                             }
 
                             switch error {
                                 case .invalidData:
-                                    Text("Invalid data returned from server.")
-                                        .foregroundColor(.textSecondary)
+                                    SecondaryText("Invalid data returned from server.")
                                 case .invalidResponse:
-                                    Text("An unknown error occurred. Please check your connection and try again.")
-                                        .foregroundColor(.textSecondary)
+                                    SecondaryText("An unknown error occurred. Please check your connection and try again.")
                             }
 
                             Button {
@@ -45,12 +42,11 @@ struct NFTBrowserView: View {
                                     await fetchAllNFTs()
                                 }
                             } label: {
-                                Text("Try Again")
+                                PrimaryText("Try Again")
                                     .fontWeight(.medium)
                                     .padding(.vertical, 8)
                                     .padding(.horizontal, 16)
                                     .background(Color.secondary)
-                                    .foregroundColor(.black)
                                     .cornerRadius(8)
                             }
                             .padding(.top, 8)
@@ -66,9 +62,7 @@ struct NFTBrowserView: View {
                                 .scaleEffect(1.5)
                                 .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
 
-                            Text("Loading NFTs...")
-                                .font(.headline)
-                                .foregroundColor(.textSecondary)
+                            HeadlineFontText("Loading NFTs...")
                                 .padding(.top, 16)
                             Card3D(cardColor: .surface) {
                                 LoadingProgressView(total: nftFetcher.total, itemsLoaded: nftFetcher.itemsLoaded)
@@ -76,32 +70,26 @@ struct NFTBrowserView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if mainAppStore.account == nil {
+                } else if currentAccount == nil {
                     // Empty wallet view
                     Card3D(cardColor: .surface) {
                         VStack(spacing: 20) {
-                            Image(systemName: "wallet.pass")
+                            SecondarySystemImage("wallet.pass")
                                 .font(.system(size: 60))
-                                .foregroundColor(.secondary)
 
-                            Text("Connect Your Wallet")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.textPrimary)
+                            Title2FontText("Connect Your Wallet")
 
-                            Text("Please connect your wallet to view your NFTs")
+                            SecondaryText("Please connect your wallet to view your NFTs")
                                 .multilineTextAlignment(.center)
-                                .foregroundColor(.textSecondary)
 
                             Button {
                                 // Connect wallet action would go here
                             } label: {
-                                Text("Connect Wallet")
+                                PrimaryText("Connect Wallet")
                                     .fontWeight(.medium)
                                     .padding(.vertical, 12)
                                     .padding(.horizontal, 24)
                                     .background(Color.secondary)
-                                    .foregroundColor(.black)
                                     .cornerRadius(12)
                             }
                         }
@@ -109,7 +97,7 @@ struct NFTBrowserView: View {
                     .padding(.horizontal, 40)
                 } else {
                     // NFTs list view
-                    NFTListView(mainAppStore: $mainAppStore, selectedNFT: $selectedNFT)
+                    NFTListView(mainAppStore: $mainAppStore, currentAccount: $currentAccount, selectedNFT: $selectedNFT)
                 }
                 Spacer()
             }
@@ -120,7 +108,7 @@ struct NFTBrowserView: View {
         .refreshable {
             await fetchAllNFTs()
         }
-        .onChange(of: mainAppStore.account, initial: false) {
+        .onChange(of: currentAccount, initial: false) {
             Task {
                 await fetchAllNFTs()
             }
@@ -134,7 +122,7 @@ struct NFTBrowserView: View {
     }
 
     func fetchAllNFTs() async {
-        guard let accountAddress = mainAppStore.account?.address else {
+        guard let accountAddress = currentAccount?.address else {
             return
         }
         do {
@@ -270,17 +258,13 @@ struct LoadingProgressView: View {
                         .padding(.horizontal)
 
                     // Progress percentage
-                    Text("\(Int(progressValue * 100))%")
-                        .font(.headline)
+                    HeadlineFontText("\(Int(progressValue * 100))%")
                         .fontWeight(.bold)
-                        .foregroundColor(.textPrimary)
                 }
             }
 
             // Status text
-            Text(statusText)
-                .font(.subheadline)
-                .foregroundColor(.textSecondary)
+            SubheadlineFontText(statusText)
         }
         .frame(maxWidth: .infinity)
         .padding()

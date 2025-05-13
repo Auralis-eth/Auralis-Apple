@@ -31,7 +31,6 @@ struct Card3D<Content: View>: View {
     var body: some View {
         content()
             .padding()
-            .frame(maxWidth: .infinity)
             .background(
                 ZStack {
                     // Base card with gradient

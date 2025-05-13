@@ -76,12 +76,9 @@ extension GasPriceEstimateView {
     struct HeaderView: View {
         var body: some View {
             HStack {
-                Text("Ethereum Gas Tracker")
-                    .font(.headline)
-                    .foregroundColor(.textPrimary)
+                HeadlineFontText("Ethereum Gas Tracker")
 
-                Image(systemName: "fuelpump")
-                    .foregroundStyle(Color.accent)
+                AccentTextSystemImage( "fuelpump")
             }
             .padding(.top, 8)
             .accessibilityElement(children: .combine)
@@ -97,8 +94,7 @@ extension GasPriceEstimateView {
                     .scaleEffect(1.2)
                     .padding()
 
-                Text("Fetching gas prices...")
-                    .foregroundColor(.textSecondary)
+                SecondaryText("Fetching gas prices...")
             }
             .frame(maxWidth: .infinity, minHeight: 200)
             .background(Color.surface)
@@ -113,18 +109,10 @@ extension GasPriceEstimateView {
                 Label("Gas Price Data Unavailable", systemImage: "exclamationmark.triangle")
                     .foregroundColor(.error)
             } description: {
-                Text("Failed to fetch gas price estimate. Please try again later.")
-                    .foregroundColor(.textSecondary)
+                SecondaryText("Failed to fetch gas price estimate. Please try again later.")
             } actions: {
-                Button(action: {
+                PrimaryTextButton("Try Again") {
                     // Reconnect action would go here
-                }) {
-                    Text("Try Again")
-                        .foregroundColor(.textPrimary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.deepBlue)
-                        .cornerRadius(8)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 200)
@@ -160,9 +148,7 @@ extension GasPriceEstimateView {
         var body: some View {
             CardView {
                 VStack(spacing: 12) {
-                    Text("Gas Fee Estimates")
-                        .font(.subheadline)
-                        .foregroundColor(.textSecondary)
+                    SubheadlineFontText("Gas Fee Estimates")
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     Divider().background(Color.textSecondary.opacity(0.3))
@@ -182,9 +168,7 @@ extension GasPriceEstimateView {
         var body: some View {
             CardView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Base Fee Information")
-                        .font(.subheadline)
-                        .foregroundColor(.textSecondary)
+                    SubheadlineFontText("Base Fee Information")
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     Divider().background(Color.textSecondary.opacity(0.3))
@@ -212,9 +196,7 @@ extension GasPriceEstimateView {
         var body: some View {
             CardView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Priority Fee Information")
-                        .font(.subheadline)
-                        .foregroundColor(.textSecondary)
+                    SubheadlineFontText("Priority Fee Information")
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     Divider().background(Color.textSecondary.opacity(0.3))
@@ -241,14 +223,10 @@ extension GasPriceEstimateView {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Network Congestion")
-                    .font(.subheadline)
-                    .foregroundColor(.textSecondary)
+                SubheadlineFontText("Network Congestion")
 
                 HStack {
-                    Text(congestion)
-                        .font(.headline)
-                        .foregroundColor(.textPrimary)
+                    HeadlineFontText(congestion)
 
                     Spacer()
 
@@ -306,13 +284,11 @@ extension GasPriceEstimateView {
 
         var body: some View {
             HStack {
-                Text(title)
-                    .foregroundColor(.textPrimary)
+                PrimaryText(title)
 
                 Spacer()
 
-                Text(estimate.suggestedMaxPriorityFeePerGas)
-                    .foregroundColor(.textPrimary)
+                PrimaryText(estimate.suggestedMaxPriorityFeePerGas)
                     .fontWeight(.medium)
             }
         }
@@ -331,18 +307,16 @@ extension GasPriceEstimateView {
         var body: some View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(title)
+                    PrimaryText(title)
                         .fontWeight(.semibold)
-                        .foregroundColor(.textPrimary)
 
                     Spacer()
 
-                    Image(systemName: isTrendUp ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                    SystemImage(isTrendUp ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
                         .foregroundColor(isTrendUp ? .success : .error)
                 }
 
-                Text(value)
-                    .foregroundColor(.textSecondary)
+                SecondaryText(value)
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(accessibilityLabel)

@@ -26,3 +26,14 @@ extension String {
         replacingOccurrences(of: dropFirst(6).dropLast(4), with: "...")
     }
 }
+
+extension String {
+    var displayAddress: String {
+        if count > 10 {
+            let start = prefix(6)
+            let end = suffix(4)
+            return "\(start)...\(end)"
+        }
+        return self
+    }
+}

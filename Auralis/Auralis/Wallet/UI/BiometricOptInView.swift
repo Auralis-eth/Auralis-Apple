@@ -13,9 +13,7 @@ struct BiometricOptInView: View {
 
     var body: some View {
         HStack {
-            Image(systemName: biometricManager.biometricType.systemImageName)
-                .foregroundColor(.accent)  // Changed from .secondary to app's textSecondary
-                .foregroundStyle(Color.accent)
+            AccentTextSystemImage(biometricManager.biometricType.systemImageName)
                 .font(.system(size: 40, weight: .medium))
 
             Spacer()
@@ -25,20 +23,18 @@ struct BiometricOptInView: View {
                 useBioMetrics.toggle()
             } label: {
                 if useBioMetrics {
-                    Text("Disable \(biometricManager.biometricType.description)")
+                    SecondaryText("Disable \(biometricManager.biometricType.description)")
                         .fontWeight(.medium)
                         .padding()
                         .frame(maxWidth: .infinity)
                         .background(Color.surface)
-                        .foregroundColor(.textSecondary)
                         .cornerRadius(10)
                 } else {
-                    Text("Enable \(biometricManager.biometricType.description)")
+                    SecondaryText("Enable \(biometricManager.biometricType.description)")
                         .fontWeight(.semibold)
                         .padding()
                         .frame(maxWidth: .infinity)
                         .background(Color.accent)
-                        .foregroundColor(.textSecondary)
                         .cornerRadius(10)
                 }
             }

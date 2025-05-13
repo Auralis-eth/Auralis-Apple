@@ -19,11 +19,10 @@ struct ImportWalletView: View {
 
     @State private var privateKey: String = ""
     @State private var password: Password = ""
-    @State private var confirmPassword: Password = ""
     @State private var isPasswordValid: Bool = false
     @State private var isPrivateKeyValid: Bool = false
     @State private var errorMessage: String = ""
-    @State private var showingWarningAlert: Bool = false
+
     @State private var derivedAddress: String = ""
     @State private var useBioMetrics: Bool = true
     @State private var importPhase: ImportPhase? = nil
@@ -33,15 +32,11 @@ struct ImportWalletView: View {
     @Binding public var address: EOAccount?
 
     enum Field {
-        case privateKey, password, confirmPassword
-    }
-
-    private var passwordsMatch: Bool {
-        password == confirmPassword && !password.isEmpty
+        case privateKey
     }
 
     private var canProceed: Bool {
-        isPrivateKeyValid && isPasswordValid && passwordsMatch
+        isPrivateKeyValid && isPasswordValid
     }
 
     private var biometricType: BiometricAuthManager.BiometricType {
@@ -57,36 +52,26 @@ struct ImportWalletView: View {
                             .scaleEffect(1.5)
                             .padding(.bottom, 30)
 
-                        Text("Importing Your Wallet")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.textPrimary)
+                        Title2FontText("Importing Your Wallet")
 
-                        Text("We're creating a secure wallet from your private key. This process encrypts your key with your \(biometricType.description).")
+                        SecondaryText("We're creating a secure wallet from your private key. This process encrypts your key with your \(biometricType.description).")
                             .multilineTextAlignment(.center)
-                            .foregroundColor(.textSecondary)
                             .padding(.horizontal)
 
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                Text("Validating private key")
-                                    .foregroundColor(.textSecondary)
+                                SuccessTextSystemImage("checkmark.circle.fill")
+                                SecondaryText("Validating private key")
                             }
 
                             HStack {
-                                Image(systemName: "lock.fill")
-                                    .foregroundColor(.accent)
-                                Text("Encrypting wallet data")
-                                    .foregroundColor(.textSecondary)
+                                AccentTextSystemImage("lock.fill")
+                                SecondaryText("Encrypting wallet data")
                             }
                         }
                         .padding(.vertical)
 
-                        Text("Please don't close the app during this process.")
-                            .font(.callout)
-                            .foregroundColor(.textSecondary)
+                        CalloutFontText("Please don't close the app during this process.")
                             .padding(.top)
                     }
                     .padding()
@@ -95,51 +80,38 @@ struct ImportWalletView: View {
 
                 case .setEnhancedSecurity:
                     VStack(spacing: 20) {
-                        Image(systemName: biometricType.systemImageName)
+                        AccentTextSystemImage(biometricType.systemImageName)
                             .font(.system(size: 60))
-                            .foregroundColor(.accent)
                             .padding(.bottom, 20)
 
-                        Text("Enable Enhanced Security")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.textPrimary)
+                        Title2FontText("Enable Enhanced Security")
 
-                        Text("We're setting up biometric authentication for your wallet. This adds an additional layer of security when accessing your funds.")
+                        SecondaryText("We're setting up biometric authentication for your wallet. This adds an additional layer of security when accessing your funds.")
                             .multilineTextAlignment(.center)
-                            .foregroundColor(.textSecondary)
                             .padding(.horizontal)
 
                         VStack(alignment: .leading, spacing: 15) {
                             HStack(alignment: .top) {
-                                Image(systemName: "shield.fill")
-                                    .foregroundColor(.green)
+                                SuccessTextSystemImage("shield.fill")
                                     .frame(width: 24)
 
                                 VStack(alignment: .leading) {
-                                    Text("Why we need \(biometricType.description)")
+                                    PrimaryText("Why we need \(biometricType.description)")
                                         .fontWeight(.medium)
-                                        .foregroundColor(.textPrimary)
 
-                                    Text("Your biometrics are used to unlock your encrypted wallet data locally. This means you can access your wallet quickly without typing your password each time.")
-                                        .foregroundColor(.textSecondary)
-                                        .font(.callout)
+                                    CalloutFontText("Your biometrics are used to unlock your encrypted wallet data locally. This means you can access your wallet quickly without typing your password each time.")
                                 }
                             }
 
                             HStack(alignment: .top) {
-                                Image(systemName: "lock.shield")
-                                    .foregroundColor(.green)
+                                SuccessTextSystemImage("lock.shield")
                                     .frame(width: 24)
 
                                 VStack(alignment: .leading) {
-                                    Text("Your data stays private")
+                                    PrimaryText("Your data stays private")
                                         .fontWeight(.medium)
-                                        .foregroundColor(.textPrimary)
 
-                                    Text("Your biometric data never leaves your device and isn't stored by our app. It's handled securely by your device's operating system.")
-                                        .foregroundColor(.textSecondary)
-                                        .font(.callout)
+                                    CalloutFontText("Your biometric data never leaves your device and isn't stored by our app. It's handled securely by your device's operating system.")
                                 }
                             }
                         }
@@ -156,49 +128,38 @@ struct ImportWalletView: View {
                                 .fill(Color.green.opacity(0.2))
                                 .frame(width: 100, height: 100)
 
-                            Image(systemName: "checkmark.circle.fill")
+                            SuccessTextSystemImage("checkmark.circle.fill")
                                 .font(.system(size: 60))
-                                .foregroundColor(.green)
                         }
                         .padding(.bottom, 10)
 
-                        Text("Wallet Successfully Imported!")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.textPrimary)
+                        Title2FontText("Wallet Successfully Imported!")
 
-                        Text("Your wallet has been securely imported and is ready to use.")
+                        SecondaryText("Your wallet has been securely imported and is ready to use.")
                             .multilineTextAlignment(.center)
-                            .foregroundColor(.textSecondary)
                             .padding(.horizontal)
 
                         VStack(alignment: .leading, spacing: 15) {
                             HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
+                                SuccessTextSystemImage("checkmark.circle.fill")
                                     .frame(width: 24)
 
-                                Text("Private key securely encrypted")
-                                    .foregroundColor(.textSecondary)
+                                SecondaryText("Private key securely encrypted")
                             }
 
                             HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
+                                SuccessTextSystemImage("checkmark.circle.fill")
                                     .frame(width: 24)
 
-                                Text("Wallet address successfully verified")
-                                    .foregroundColor(.textSecondary)
+                                SecondaryText("Wallet address successfully verified")
                             }
 
                             if useBioMetrics {
                                 HStack {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
+                                    SuccessTextSystemImage("checkmark.circle.fill")
                                         .frame(width: 24)
 
-                                    Text("\(biometricType.description) authentication enabled")
-                                        .foregroundColor(.textSecondary)
+                                    SecondaryText("\(biometricType.description) authentication enabled")
                                 }
                             }
                         }
@@ -213,33 +174,12 @@ struct ImportWalletView: View {
                         ScrollView {
                             VStack(spacing: 20) {
                                 // Header
-                                HStack {
-                                    Spacer()
-                                    Text("Import Wallet")
-                                        .font(.title)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.textPrimary)
-                                    Spacer()
-                                }
-                                .background(Color.background)
-                                .overlay {
-                                    HStack {
-                                        Spacer()
-                                        Button {
-                                            dismiss()
-                                        } label: {
-                                            Image(systemName: "xmark")
-                                                .foregroundColor(.textSecondary)
-                                        }
-                                        .accessibilityLabel("Close")
-                                    }
-                                }
+                                WalletGenerationHeader(action: .importWallet)
 
                                 // Private Key Input
                                 VStack(alignment: .leading, spacing: 5) {
-                                    Text("Enter Private Key")
+                                    SecondaryText("Enter Private Key")
                                         .fontWeight(.medium)
-                                        .foregroundColor(.textSecondary)
 
                                     HStack {
                                         SecureField("Private Key (64 character hex)", text: $privateKey)
@@ -260,30 +200,23 @@ struct ImportWalletView: View {
                                                 validatePrivateKey()
                                             }
                                         } label: {
-                                            Image(systemName: "doc.on.clipboard")
-                                                .foregroundColor(.textSecondary)
+                                            SecondaryTextSystemImage( "doc.on.clipboard")
                                         }
                                         .padding(.trailing, 8)
                                         .accessibilityLabel("Paste from clipboard")
                                     }
 
                                     if !errorMessage.isEmpty {
-                                        Text(errorMessage)
-                                            .foregroundColor(.error)
-                                            .font(.caption)
+                                        ErrorText(errorMessage)
                                             .accessibilityLabel("Error: \(errorMessage)")
                                     }
 
                                     if isPrivateKeyValid && !derivedAddress.isEmpty {
-                                        Text("Derived address: \(derivedAddress)")
-                                            .font(.caption)
-                                            .foregroundColor(.green)
+                                        SuccessText("Derived address: \(derivedAddress)")
                                             .padding(.top, 5)
                                             .accessibilityLabel("Derived wallet address: \(derivedAddress)")
                                     }
-                                    Text("⚠️ Handling private keys is risky. Never share your private key with anyone, and make sure you're using this app on a secure device.")
-                                        .foregroundColor(.secondary)
-                                        .font(.callout)
+                                    CalloutFontText("⚠️ Handling private keys is risky. Never share your private key with anyone, and make sure you're using this app on a secure device.")
                                         .multilineTextAlignment(.center)
                                         .padding(.horizontal)
 
@@ -292,83 +225,15 @@ struct ImportWalletView: View {
                                 .padding()
                                 .background(Color.background)
 
-                                VStack {
-                                    // Password Input
-                                    VStack(alignment: .leading, spacing: 5) {
-                                        Text("Create Password")
-                                            .fontWeight(.medium)
-                                            .foregroundColor(.textSecondary)
-
-                                        PasswordField(
-                                            password: $password,
-                                            isPasswordValid: $isPasswordValid,
-                                            placeholder: "Password",
-                                            field: .password,
-                                            focusedField: $focusedField
-                                        )
-                                    }
-                                    .padding()
-
-                                    // Confirm Password
-                                    VStack(alignment: .leading, spacing: 5) {
-                                        Text("Confirm Password")
-                                            .fontWeight(.medium)
-                                            .foregroundColor(.textSecondary)
-
-
-                                        SecureField("Confirm password", text: $confirmPassword)
-                                            .textContentType(.newPassword)
-                                            .focused($focusedField, equals: .confirmPassword)
-                                            .padding()
-                                            .background(Color.secondary.opacity(0.1))
-                                            .cornerRadius(8)
-                                            .foregroundColor(.textSecondary)
-                                            .disabled(password.isEmpty)
-
-
-                                        if !confirmPassword.isEmpty && !passwordsMatch {
-                                            Text("Passwords do not match")
-                                                .foregroundColor(.error)
-                                                .font(.caption)
-                                                .accessibilityLabel("Error: Passwords do not match")
-                                        }
-                                    }
-                                    .padding()
-
-                                    Text("⚠️ This password is not recoverable. If you lose it, you will lose access to your wallet.")
-                                        .foregroundColor(.secondary)
-                                        .font(.callout)
-                                        .multilineTextAlignment(.center)
-                                        .padding(.horizontal)
-                                }
-                                .background(Color.background)
+                                PasswordEntryView(
+                                    passwordIsValid: $isPasswordValid,
+                                    errorMessage: $errorMessage,
+                                    password: $password
+                                )
                                 BiometricOptInView(useBioMetrics: $useBioMetrics)
                                 Spacer()
-
-                                Button {
-                                    showingWarningAlert = true
-                                } label: {
-                                    Text("Import Wallet")
-                                        .fontWeight(.semibold)
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                        .background(
-                                            canProceed
-                                            ? Color.accent
-                                            : Color.surface
-                                        )
-                                        .foregroundColor(.textSecondary)
-                                        .cornerRadius(10)
-                                }
-                                .disabled(!canProceed)
-                                .padding(.horizontal)
-                                .alert("Confirm Wallet Import", isPresented: $showingWarningAlert) {
-                                    Button("Cancel", role: .cancel) { }
-                                    Button("Import", role: .destructive) {
-                                        importPhase = .setEnhancedSecurity
-                                    }
-                                } message: {
-                                    Text("You will not be able to recover your wallet without this password. Make sure you have saved it securely.")
+                                WalletGenerationCTA(role: .importWallet, isPasswordValid: canProceed) {
+                                    importPhase = .setEnhancedSecurity
                                 }
                             }
                             .padding(.vertical)
@@ -380,7 +245,7 @@ struct ImportWalletView: View {
             }
         }
         .onChange(of: importPhase, initial: false) { oldValue, newValue in
-            guard passwordsMatch else {
+            guard isPasswordValid else {
                 errorMessage = "Invalid Password"
                 return
             }
@@ -429,7 +294,7 @@ struct ImportWalletView: View {
                         privateKey = ""
 
                         let eoAccount = EOAccount(address: account.address.asString(), access: .wallet)
-//                        modelContext.insert(eoAccount)
+                        modelContext.insert(eoAccount)
 
                         password.saveToKeychain()
                         address = eoAccount

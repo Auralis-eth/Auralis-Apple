@@ -13,6 +13,7 @@ struct NFTListView: View {
     @Environment(\.modelContext) private var modelContext
 
     @Binding var mainAppStore: MainStore
+    @Binding var currentAccount: EOAccount?
     var nftFetcher = NFTFetcher()
 
 
@@ -22,7 +23,7 @@ struct NFTListView: View {
 
     var body: some View {
         VStack {
-            NFTListingView(selectedNFT: $selectedNFT, sort: sortOrder, searchString: searchText, mainAppStore: $mainAppStore)
+            NFTListingView(currentAccount: $currentAccount, selectedNFT: $selectedNFT, sort: sortOrder, searchString: searchText, mainAppStore: $mainAppStore)
                 .searchable(text: $searchText)
         }
         .toolbar {
@@ -52,7 +53,7 @@ struct NFTListView: View {
                     NFTSortButton(title: "Collection Name", sortOrder: $sortOrder, keyPath: \.collection?.name)
                     NFTSortButton(title: "Item Name", sortOrder: $sortOrder, keyPath: \.name)
                 } label: {
-                    Image(systemName: "ellipsis")
+                    SystemImage("ellipsis")
                         .padding(8)
                 }
 
@@ -61,14 +62,14 @@ struct NFTListView: View {
                         await fetchAllNFTs()
                     }
                 }) {
-                    Image(systemName: "arrow.clockwise")
+                    SystemImage("arrow.clockwise")
                 }
             }
         }
     }
 
     func fetchAllNFTs() async {
-        guard let accountAddress = mainAppStore.account?.address else {
+        guard let accountAddress = currentAccount?.address else {
             return
         }
 
@@ -121,6 +122,7 @@ struct NFTListingView: View {
         SortDescriptor(\NFT.tokenId)
     ]) private var nfts: [NFT]
 
+    @Binding var currentAccount: EOAccount?
     @Binding var mainAppStore: MainStore
     @Binding var selectedNFT: NFT?
     @State private var expandedAnimationNFT: NFT?
@@ -145,30 +147,24 @@ struct NFTListingView: View {
             // No NFTs found view
             Card3D(cardColor: .surface) {
                 VStack(spacing: 20) {
-                    Image(systemName: "photo.artframe")
+                    AccentTextSystemImage("photo.artframe")
                         .font(.system(size: 60))
-                        .foregroundColor(.accent)
 
-                    Text("No NFTs Found")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.textPrimary)
+                    Title2FontText("No NFTs Found")
 
-                    Text("We couldn't find any NFTs in this wallet address")
+                    SecondaryText("We couldn't find any NFTs in this wallet address")
                         .multilineTextAlignment(.center)
-                        .foregroundColor(.textSecondary)
 
                     Button {
                         Task {
                             await fetchAllNFTs()
                         }
                     } label: {
-                        Text("Refresh")
+                        PrimaryText("Refresh")
                             .fontWeight(.medium)
                             .padding(.vertical, 12)
                             .padding(.horizontal, 24)
                             .background(Color.secondary)
-                            .foregroundColor(.black)
                             .cornerRadius(12)
                     }
                 }
@@ -191,15 +187,16 @@ struct NFTListingView: View {
         }
     }
 
-    init(selectedNFT: Binding<NFT?>, sort: SortDescriptor<NFT>, searchString: String, mainAppStore: Binding<MainStore>) {
+    init(currentAccount: Binding<EOAccount?>, selectedNFT: Binding<NFT?>, sort: SortDescriptor<NFT>, searchString: String, mainAppStore: Binding<MainStore>) {
         _mainAppStore = mainAppStore
         _nfts = Query(sort: [sort])
         self.searchString = searchString
         _selectedNFT = selectedNFT
+        _currentAccount = currentAccount
     }
 
     func fetchAllNFTs() async {
-        guard let accountAddress = mainAppStore.account?.address else {
+        guard let accountAddress = currentAccount?.address else {
             return
         }
 

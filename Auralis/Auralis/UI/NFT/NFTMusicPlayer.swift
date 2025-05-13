@@ -13,16 +13,14 @@ struct NFTMusicPlayer: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Music Player")
-                .font(.title)
-                .fontWeight(.bold)
+            TitleFontText(text: "Music Player")
 
             if audioPlayer.isPlaying {
-                Image(systemName: "waveform")
+                SystemImage("waveform")
                     .font(.system(size: 100))
                     .foregroundColor(.blue)
             } else {
-                Image(systemName: "waveform.slash")
+                SystemImage("waveform.slash")
                     .font(.system(size: 100))
                     .foregroundColor(.gray)
             }
@@ -35,7 +33,7 @@ struct NFTMusicPlayer: View {
                         audioPlayer.play()
                     }
                 } label: {
-                    Image(systemName: audioPlayer.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    SystemImage(audioPlayer.isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.system(size: 50))
                         .accessibilityLabel(audioPlayer.isPlaying ? "Pause" : "Play")
                 }
@@ -43,15 +41,14 @@ struct NFTMusicPlayer: View {
                 Button(action: {
                     audioPlayer.stop()
                 }) {
-                    Image(systemName: "stop.circle.fill")
+                    SystemImage("stop.circle.fill")
                         .font(.system(size: 50))
                         .accessibilityLabel("Stop")
                 }
             }
 
             if let error = audioPlayer.errorMessage {
-                Text(error)
-                    .foregroundColor(.red)
+                ErrorText(error)
                     .padding()
             }
         }

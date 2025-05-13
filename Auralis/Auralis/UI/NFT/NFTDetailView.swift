@@ -24,9 +24,8 @@ struct NFTDetailView: View {
                         Button {
                             dismiss()
                         } label: {
-                            Image(systemName: "xmark.circle.fill")
+                            SecondaryTextSystemImage("xmark.circle.fill")
                                 .font(.title2)
-                                .foregroundColor(.textSecondary)
                         }
                         .padding(.trailing)
                     }
@@ -41,19 +40,17 @@ struct NFTDetailView: View {
 
                                     HStack {
                                         VStack(alignment: .leading) {
-                                            Text(nft.collection?.name ?? "Unknown Collection")
-                                                .font(.system(size: 14, weight: .medium, design: .serif))
-                                                .foregroundColor(.textSecondary)
+                                            SystemFontText(
+                                                text: nft.collection?.name ?? "Unknown Collection",
+                                                size: 14,
+                                                weight: .medium
+                                            )
 
                                             if let timeUpdated = nft.timeLastUpdated {
                                                 HStack {
-                                                    Text("Updated: ")
-                                                        .font(.footnote)
-                                                        .foregroundColor(.textSecondary)
+                                                    FootnoteFontText("Updated: ")
 //                                                    Text(formattedDate(timeUpdated))
-                                                    Text(timeUpdated)
-                                                        .font(.caption)
-                                                        .foregroundColor(.textSecondary)
+                                                    SecondaryCaptionFontText(timeUpdated)
                                                 }
                                             }
                                         }
@@ -67,7 +64,7 @@ struct NFTDetailView: View {
                                                 Label("Copy ID", systemImage: "doc.on.doc")
                                             }
                                         } label: {
-                                            Image(systemName: "ellipsis")
+                                            SystemImage("ellipsis")
                                                 .padding(8)
                                         }
                                     }
@@ -81,7 +78,7 @@ struct NFTDetailView: View {
                                                 .fill(Color.gray.opacity(0.3))
                                                 .aspectRatio(1, contentMode: .fit)
                                                 .overlay(
-                                                    Image(systemName: "photo")
+                                                    SystemImage("photo")
                                                         .foregroundColor(.gray)
                                                 )
                                         }
@@ -91,31 +88,25 @@ struct NFTDetailView: View {
                                     // NFT details
                                     VStack(alignment: .leading, spacing: 8) {
                                         // Title and description
-                                        Text(nft.name ?? "Unnamed NFT")
-                                            .font(.system(size: 18, weight: .semibold, design: .serif))
-                                            .foregroundColor(.textPrimary)
+                                        SystemFontText(
+                                            text: nft.name ?? "Unnamed NFT",
+                                            size: 18,
+                                            weight: .semibold
+                                        )
 
                                         // NFT Description
                                         if let description = nft.nftDescription, !description.isEmpty {
                                             VStack(alignment: .leading, spacing: 8) {
-                                                Text("Description")
-                                                    .font(.headline)
-                                                    .foregroundColor(.accent)
+                                                HeadlineFontText("Description")
 
-                                                Text(description)
-                                                    .foregroundColor(.textPrimary)
-                                                    .font(.system(size: 15, weight: .regular, design: .serif))
+                                                SystemFontText(text: description, size: 15, weight: .regular)
                                             }
                                             .padding(.vertical, 8)
                                         }
 
                                         // Token details
                                         VStack {
-                                            Text("Technical Details")
-                                                .font(.headline)
-                                                .foregroundColor(.accent)
-
-
+                                            HeadlineFontText("Technical Details")
                                             DetailRow(title: "Contract", value: nft.contract.address ?? "0x0")
                                             DetailRow(title: "Token ID", value: nft.tokenId)
                                             DetailRow(title: "Token Standard", value: nft.tokenType ?? "Unknown")
@@ -129,25 +120,18 @@ struct NFTDetailView: View {
 
                                         // Attributes/Traits section
                                         if let metadata = nft.raw?.metadata, let attributes = metadata.attributes, !attributes.isEmpty {
-                                            Text("Traits")
-                                                .font(.headline)
+                                            HeadlineFontText("Traits")
                                                 .padding(.top, 8)
-                                                .foregroundColor(.textSecondary)
 
                                             ScrollView(.horizontal, showsIndicators: false) {
                                                 HStack(spacing: 8) {
                                                     ForEach(attributes, id: \.traitType) { attribute in
                                                         VStack(alignment: .center) {
                                                             if let traitType = attribute.traitType {
-                                                                Text(traitType)
-                                                                    .font(.caption)
-                                                                    .foregroundColor(.textSecondary)
+                                                                SecondaryCaptionFontText(traitType)
                                                             }
 
-                                                            Text(attribute.value)
-                                                                .font(.caption2)
-                                                                .fontWeight(.semibold)
-                                                                .foregroundColor(.textPrimary)
+                                                            Caption2FontText(attribute.value)
                                                         }
                                                         .padding(8)
                                                         .background(Color.gray.opacity(0.1))
@@ -161,14 +145,11 @@ struct NFTDetailView: View {
                                         HStack {
                                             Spacer()
                                             Text("Category")
-                                            Text("Category Selector")
-                    //                                    Text(parsedmetaData.category ?? "Collectible")
-                                                .font(.caption)
+                                            PrimaryCaptionFontText("Category Selector")
                                                 .fontWeight(.medium)
                                                 .padding(.horizontal, 12)
                                                 .padding(.vertical, 6)
                                                 .background(Color.accent.opacity(0.3))
-                                                .foregroundColor(.textPrimary)
                                                 .cornerRadius(16)
                                             Spacer()
                                         }
@@ -216,14 +197,10 @@ struct DetailRow: View {
 
     var body: some View {
         HStack(alignment: .top) {
-            Text(title)
-                .font(.subheadline)
-                .foregroundColor(.textSecondary)
+            SubheadlineFontText(title)
                 .frame(width: 100, alignment: .leading)
 
-            Text(value)
-                .font(.subheadline)
-                .foregroundColor(.textPrimary)
+            SubheadlineFontText(value)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .truncationMode(.middle)
         }

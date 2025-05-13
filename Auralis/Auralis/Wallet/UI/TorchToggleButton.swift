@@ -15,12 +15,11 @@ struct TorchToggleButton: View {
             torchOn.toggle()
         } label: {
             HStack {
-                Image(systemName: torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
+                SystemImage(torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
                     .font(.title2)
                     .foregroundColor(torchOn ? .secondary : .deepBlue) // Use yellow when on, gray when off
-                Text(torchOn ? "Torch Off" : "Torch On")
+                PrimaryText(torchOn ? "Torch Off" : "Torch On")
                     .fontWeight(.semibold)
-                    .foregroundColor(.textPrimary) // Use primary color for text
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)

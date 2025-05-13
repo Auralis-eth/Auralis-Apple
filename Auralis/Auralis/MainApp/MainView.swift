@@ -41,126 +41,202 @@ struct MainView: View {
     @State private var currentAccount: EOAccount?
     @State private var currentChain: Chain?
 
+    @State private var chaining: Chain = .ethMainnet
+
     @Query private var accounts: [EOAccount]
 
+    var isIpad: Bool {
+        UIDevice.current.userInterfaceIdiom == .pad
+    }
+
+    func points(for timeline: TimelineViewDefaultContext) -> [SIMD2<Float>] {
+        [
+            // First row
+            [0, 0], [0.2, 0], [0.4, 0], [0.6, 0], [0.8, 0], [1, 0],
+
+            // Second row
+            [0, 0.2],
+            [0.2, Float(0.2 + 0.05 * sin(timeline.date.timeIntervalSince1970 * 0.5))],
+            [0.4, Float(0.2 + 0.08 * sin(timeline.date.timeIntervalSince1970 * 0.7 + 0.5))],
+            [0.6, Float(0.2 + 0.06 * sin(timeline.date.timeIntervalSince1970 * 0.6 + 1.0))],
+            [0.8, Float(0.2 + 0.04 * sin(timeline.date.timeIntervalSince1970 * 0.8 + 1.5))],
+            [1, 0.2],
+
+            // Third row - Main aurora activity
+            [0, 0.4],
+            [0.2, Float(0.4 + 0.12 * sin(timeline.date.timeIntervalSince1970 * 0.8 + 0.2))],
+            [0.4, Float(0.4 + 0.15 * sin(timeline.date.timeIntervalSince1970 * 0.9 + 0.7))],
+            [0.6, Float(0.4 + 0.18 * sin(timeline.date.timeIntervalSince1970 * 1.0 + 1.3))],
+            [0.8, Float(0.4 + 0.14 * sin(timeline.date.timeIntervalSince1970 * 0.7 + 1.8))],
+            [1, 0.4],
+
+            // Fourth row - Main aurora activity
+            [0, 0.6],
+            [0.2, Float(0.6 + 0.13 * sin(timeline.date.timeIntervalSince1970 * 0.9 + 0.3))],
+            [0.4, Float(0.6 + 0.17 * sin(timeline.date.timeIntervalSince1970 * 1.1 + 0.8))],
+            [0.6, Float(0.6 + 0.19 * sin(timeline.date.timeIntervalSince1970 * 0.9 + 1.4))],
+            [0.8, Float(0.6 + 0.15 * sin(timeline.date.timeIntervalSince1970 * 0.8 + 1.9))],
+            [1, 0.6],
+
+            // Fifth row
+            [0, 0.8],
+            [0.2, Float(0.8 + 0.06 * sin(timeline.date.timeIntervalSince1970 * 0.7 + 0.4))],
+            [0.4, Float(0.8 + 0.09 * sin(timeline.date.timeIntervalSince1970 * 0.6 + 0.9))],
+            [0.6, Float(0.8 + 0.07 * sin(timeline.date.timeIntervalSince1970 * 0.8 + 1.5))],
+            [0.8, Float(0.8 + 0.05 * sin(timeline.date.timeIntervalSince1970 * 0.7 + 2.0))],
+            [1, 0.8],
+
+            // Sixth row
+            [0, 1], [0.2, 1], [0.4, 1], [0.6, 1], [0.8, 1], [1, 1]
+        ]
+    }
+    func colorsForNorthernLights() -> [Color] {
+        [
+            // First row (night sky background)
+            .background, .background, .background, .background, .background, .background,
+
+            // Second row (subtle stars and beginning aurora)
+            .surface,
+            .secondary,
+            .accent,
+            .deepBlue,
+            .secondary,
+            .surface,
+
+            // Third row (main aurora colors - greens)
+            .secondary,
+            .secondary,
+            .secondary,
+            .deepBlue,
+            .secondary,
+            .secondary,
+
+            //  Fourth row
+            .secondary,
+            .accent,
+            .deepBlue,
+            .accent,
+            .secondary,
+            .surface,
+
+
+            // Fifth row (fading aurora)
+            .secondary,
+            .accent,
+            .deepBlue,
+            .accent,
+            .secondary,
+            .surface,
+
+            // Sixth row (night sky background)
+            .background, .background, .background, .background, .background, .background
+        ]
+    }
+    func northernLights(in geometry: GeometryProxy) -> some View {
+        TimelineView(.animation) { timeline in
+            MeshGradient(
+                width: 6,  // Increased from 3 to 6 for more detail
+                height: 6, // Increased from 3 to 6 for more detail
+                points: points(for: timeline),
+                colors: colorsForNorthernLights(),
+                background: .black
+            )
+            .frame(maxWidth: .infinity, minHeight: geometry.frame(in: .local).height)
+        }
+    }
     var body: some View {
         Group {
-            if let currentAccount {
+            if isIpad {
+//                ScrollView {
+//                    VStack {
+                        GeometryReader { geometry in
+                            northernLights(in: geometry)
+                                .overlay(.ultraThinMaterial)
+                        }
+
+                        //                    HStack {
+                        //                        Spacer()
+                        //                        ImportWalletView(address: $currentAccount)
+                        //                        Spacer()
+                        //                    }
+                        //                    HStack {
+                        //                        MainVIewEmptyAddress(account: $currentAccount)
+                        //                        WalletView(account: $currentAccount, chainId: $chaining)
+                        //                    }
+//                    }
+//                }
+            } else if currentAccount != nil {
                 TabView {
-                    WalletView(account: $mainAppStore.account, chainId: $mainAppStore.chain)
+                    Text("HOME")
                         .tabItem {
-                            Image(systemName: "wallet.bifold.fill")
+                            SystemImage("house")
+                            Text("Home")
+                        }
+
+                    WalletView(account: $currentAccount, chainId: $mainAppStore.chain)
+                        .tabItem {
+                            SystemImage("wallet.bifold.fill")
                             Text("Wallet")
                         }
 
-                    NFTBrowserView(mainAppStore: $mainAppStore)
+                    NFTBrowserView(mainAppStore: $mainAppStore, currentAccount: $currentAccount)
                         .tabItem {
-                            Image(systemName: "location.north.circle")
+                            SystemImage("location.north.circle")
                             Text("NFT Browser")
                         }
 
                     GasPriceEstimateView(chain: $mainAppStore.chain)
                         .tabItem {
-                            Image(systemName: "fuelpump")
+                            SystemImage("fuelpump")
                             Text("Gas")
                         }
 
                     //            MusicApp(musicNFTs: mainAppStore.musicNFTs)
                     //                .tabItem {
-                    //                    Image(systemName: "music.quarternote.3")
+                    //                    SystemImage("music.quarternote.3")
                     //                    Text("Music")
                     //                }
                 }
             } else {
-
-                //TODO: cleanup/finish onAppear
-                MainVIewEmptyAddress(account: $mainAppStore.account)
-
+                MainVIewEmptyAddress(account: $currentAccount)
             }
         }
         .tint(Color.accent)
-        .constructionBorder(animate: true)
         .onAppear {
             currentChain = Chain(rawValue: currentChainId) ?? .ethMainnet
 
-            guard !currentAddress.isEmpty else { return }
+            guard !currentAddress.isEmpty else {
+                currentAccount = nil
+                return
+            }
 
             let fetchResult = accounts.filter { $0.address == currentAddress }
             if let first = fetchResult.first {
                 currentAccount = first
             } else {
-                let account = EOAccount(address: currentAddress, access: .readonly)
+                let account = EOAccount(address: currentAddress)
+                currentAccount = account
             }
         }
-        .onChange(of: mainAppStore.account) { oldValue, newValue in
+        .onChange(of: currentAccount) { oldValue, newValue in
             currentAddress = newValue?.address ?? ""
-            currentAccount = newValue
         }
         .onChange(of: mainAppStore.chain) { oldValue, newValue in
             currentChainId = newValue.rawValue
         }
-    }
-}
-
-
-struct ConstructionTapeBorder: ViewModifier {
-    let angle: Double
-    let animate: Bool
-
-    @State private var offset: CGFloat = 0
-
-    init(angle: Double = 45, animate: Bool = true) {
-        self.angle = angle
-        self.animate = animate
-    }
-
-    func body(content: Content) -> some View {
-        content
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
-            .padding(.top, 40)
-            .overlay(
-                Rectangle()
-                    .stroke(
-                        AngularGradient(
-                            gradient: Gradient(colors: [.black, .yellow]),
-                            center: .center,
-                            startAngle: .degrees(offset),
-                            endAngle: .degrees(360.0 + offset)
-                        ),
-                        style: StrokeStyle(
-                            lineWidth: 20,
-                            lineCap: .butt,
-                            lineJoin: .miter,
-                            miterLimit: 1,
-                            dash: [10, 10],
-                            dashPhase: offset
-                        )
-                    )
-                    .overlay {
-                        VStack {
-                            Text("UNDER CONSTRUCTION")
-                                .foregroundStyle(Color.textPrimary)
-                                .padding()
-                                .background { Color.yellow }
-                            Spacer()
-                        }
-                    }
-            )
-            .onAppear {
-                guard animate else { return }
-
-                withAnimation(Animation.linear(duration: 3).repeatForever(autoreverses: false)) {
-                    offset = 275
-                }
+        .onChange(of: currentAddress) { oldValue, newValue in
+            guard !newValue.isEmpty else {
+                currentAccount = nil
+                return
             }
-            .padding(2)
-            .background(Color.surface)
+            let fetchResult = accounts.filter { $0.address == newValue }
+            if let first = fetchResult.first {
+                currentAccount = first
+            } else {
+                let account = EOAccount(address: currentAddress)
+                currentAccount = account
+            }
+        }
     }
 }
 
-extension View {
-    func constructionBorder(angle: Double = 45, animate: Bool = true) -> some View {
-        self.modifier(ConstructionTapeBorder(angle: angle, animate: animate))
-    }
-}

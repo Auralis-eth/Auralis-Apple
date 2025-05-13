@@ -25,9 +25,8 @@ struct NFTImageView: View {
             ZStack {
                 Color.surface
                     .aspectRatio(1, contentMode: .fit)
-                Image(systemName: "photo")
+                SecondaryTextSystemImage("photo")
                     .font(.largeTitle)
-                    .foregroundColor(.textSecondary)
             }
         }
     }
@@ -161,13 +160,11 @@ struct CachedAsyncImage: View {
                     VStack {
                         switch error {
                             case .invalidData:
-                                Image(systemName: "camera.macro.slash")
+                                SystemImage("camera.macro.slash")
                             case .networkError:
-                                Image(systemName: "network.slash")
+                                SystemImage("network.slash")
                         }
-                        Text(error == .invalidData ? "Invalid Image" : "Network Error")
-                            .font(.caption)
-                            .foregroundColor(.textSecondary)
+                        SecondaryCaptionFontText(error == .invalidData ? "Invalid Image" : "Network Error")
                     }
                     .foregroundColor(.error)
                 }
@@ -175,7 +172,7 @@ struct CachedAsyncImage: View {
                 ZStack {
                     Color.surface
                         .aspectRatio(1, contentMode: .fit)
-                    Image(systemName: "photo")
+                    SystemImage("photo")
                         .font(.largeTitle)
                         .foregroundColor(.textSecondary.opacity(0.3))
                 }

@@ -26,27 +26,19 @@ struct NFTNameView: View {
         HStack {
             VStack(alignment: .leading) {
                 if let collection = metaCollectionName, !collection.isEmpty {
-                    Text(collection)
-                        .font(.system(size: 14, weight: .medium, design: .serif))
-                        .foregroundColor(.textSecondary)
+                    SystemFontText(text: collection, size: 14, weight: .medium)
                 }
 
                 if let artworkName = displayName, !artworkName.isEmpty {
-                    Text(artworkName)
-                        .font(.system(size: 18, weight: .semibold, design: .serif))
-                        .foregroundColor(.textPrimary)
+                    SystemFontText(text: artworkName, size: 18, weight: .semibold)
                 }
 
                 if let artistName = displayArtist, !artistName.isEmpty {
                     HStack(spacing: 4) {
-                        Text("by")
-                            .font(.system(size: 14, weight: .regular, design: .serif))
-                            .foregroundColor(.textSecondary)
+                        SystemFontText(text: "by", size: 14, weight: .regular)
                             .italic()
 
-                        Text(artistName)
-                            .font(.system(size: 15, weight: .medium, design: .serif))
-                            .foregroundColor(.accent)
+                        SystemFontText(text: artistName, size: 15, weight: .medium)
                     }
                 }
             }
