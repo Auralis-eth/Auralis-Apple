@@ -60,8 +60,11 @@ struct AccountListItem: View {
                     if account.access == .wallet {
                         Label("Wallet", systemImage: "key.fill")
                             .foregroundColor(.accent)
-                    } else {
+                    } else if account.access == .readonly {
                         Label("Read-only", systemImage: "eye")
+                            .foregroundColor(.textSecondary)
+                    } else {
+                        Label("Unknown", systemImage: "questionmark")
                             .foregroundColor(.textSecondary)
                     }
 

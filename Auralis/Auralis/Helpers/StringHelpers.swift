@@ -13,6 +13,17 @@ enum NFTImageSource: Hashable {
     case svg(String)
 }
 
+extension NFTImageSource: Equatable {
+    static func == (lhs: NFTImageSource, rhs: NFTImageSource) -> Bool {
+        switch (lhs, rhs) {
+        case let (.url(l), .url(r)): return l == r
+        case let (.data(l), .data(r)): return l == r
+        case let (.svg(l), .svg(r)): return l == r
+        default: return false
+        }
+    }
+}
+
 extension Optional where Wrapped == String {
     var imageSource: NFTImageSource? {
         // Implementation remains the same
@@ -32,7 +43,7 @@ extension Optional where Wrapped == String {
                 if let base64Data = self?.extractSVGData() {
                     imageSVG = base64Data
                 } else {
-                    fatalError("Invalid data URL")
+                    return nil
                 }
                 imageURL = nil
             }
@@ -53,8 +64,10 @@ extension Optional where Wrapped == String {
                 }
 
             }
+
             if let imageURL, imageURL.host == nil {
                 print(imageURL)
+                return nil
             }
         }
 
@@ -69,6 +82,43 @@ extension Optional where Wrapped == String {
         return imageSource
     }
 }
+
+extension String {
+    func extractSVGData() -> String? {
+        do {
+            // Regex for UTF-8, charset, and direct SVG
+            let directRegex = try NSRegularExpression(pattern: "data:image/svg\\+xml(;charset=utf-8|;utf8)?,(<svg.*)", options: .caseInsensitive)
+            let directMatches = directRegex.matches(in: self, range: NSRange(self.startIndex..., in: self))
+            if let match = directMatches.first {
+                let svgRange = match.range(at: match.numberOfRanges - 1)
+                if svgRange.location != NSNotFound, let range = Range(svgRange, in: self) {
+                    let svg = String(self[range])
+                    // URL-decode if needed
+                    return svg.removingPercentEncoding ?? svg
+                }
+            }
+
+            // Regex for Base64
+            let base64Regex = try NSRegularExpression(pattern: "data:image/svg\\+xml;base64,(.+)", options: .caseInsensitive)
+            let base64Matches = base64Regex.matches(in: self, range: NSRange(self.startIndex..., in: self))
+            if let match = base64Matches.first, match.numberOfRanges == 2 {
+                let dataRange = match.range(at: 1)
+                if dataRange.location != NSNotFound, let range = Range(dataRange, in: self) {
+                    let base64 = String(self[range])
+                    if let data = Data(base64Encoded: base64), let svg = String(data: data, encoding: .utf8) {
+                        return svg
+                    }
+                }
+            }
+        } catch {
+            print("Regex error: \(error)")
+        }
+        return nil
+    }
+}
+
+
+
 
 extension String {
     static var audioUrl: String {
@@ -325,36 +375,4 @@ extension String {
         "audio"
     }
 }
-
-extension String {
-    func extractSVGData() -> String? {
-        do {
-            // Regex for utf8 and //data variants
-            let utf8Regex = try NSRegularExpression(pattern: "data:image/svg\\+xml(;utf8)?,(<svg.*)", options: .caseInsensitive)
-            let utf8Matches = utf8Regex.matches(in: self, range: NSRange(self.startIndex..., in: self))
-            if let match = utf8Matches.first {
-                let svgRange = match.range(at: match.numberOfRanges - 1)
-                if svgRange.location != NSNotFound, let range = Range(svgRange, in: self){
-                    return String(self[range])
-                }
-            }
-
-            // Regex for base64
-            let base64Regex = try NSRegularExpression(pattern: "data:image/svg\\+xml;base64,(.+)", options: .caseInsensitive)
-            let base64Matches = base64Regex.matches(in: self, range: NSRange(self.startIndex..., in: self))
-            if let match = base64Matches.first, match.numberOfRanges == 2 {
-                let dataRange = match.range(at: 1)
-                if dataRange.location != NSNotFound, let range = Range(dataRange, in: self){
-                    return String(self[range])
-                }
-            }
-
-        } catch {
-            print("Regex error: \(error)")
-        }
-        return nil
-    }
-}
-
-
 

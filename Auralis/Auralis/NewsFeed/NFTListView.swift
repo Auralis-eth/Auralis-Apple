@@ -75,8 +75,7 @@ struct NFTListView: View {
 
         do {
             let nfts = try await nftFetcher.fetchAllNFTs(for: accountAddress, chain: mainAppStore.chain)
-            //TODO: make this return the values/NFTs and save the data in the view
-            //TODO go through the results and process and parse and update
+
             guard let nfts else {
                 return
             }
@@ -97,9 +96,6 @@ struct NFTListView: View {
                 try modelContext.enumerate(descriptor) { nft in
                     modelContext.delete(nft)
                 }
-                //                try modelContext.fetch(descriptor).forEach { nft in
-                //                  modelContext.delete(nft)
-                //                }
             } catch {
                 print("Failed to retrieve NFTs to SwiftData: \(error)")
                 nftFetcher.error = error
@@ -202,8 +198,6 @@ struct NFTListingView: View {
 
         do {
             let nfts = try await nftFetcher.fetchAllNFTs(for: accountAddress, chain: mainAppStore.chain)
-            //TODO: make this return the values/NFTs and save the data in the view
-            //TODO go through the results and process and parse and update
             guard let nfts else {
                 return
             }
@@ -224,9 +218,6 @@ struct NFTListingView: View {
                 try modelContext.enumerate(descriptor) { nft in
                     modelContext.delete(nft)
                 }
-                //                try modelContext.fetch(descriptor).forEach { nft in
-                //                  modelContext.delete(nft)
-                //                }
             } catch {
                 print("Failed to retrieve NFTs to SwiftData: \(error)")
                 nftFetcher.error = error

@@ -19,9 +19,17 @@ extension Password {
         var score = 0
 
         // Check for mixed case
-        if rangeOfCharacter(from: .uppercaseLetters) != nil &&
-           rangeOfCharacter(from: .lowercaseLetters) != nil {
+
+        if rangeOfCharacter(from: .uppercaseLetters) != nil {
             score += 1
+            if rangeOfCharacter(from: .lowercaseLetters) != nil {
+                score += 1
+            }
+        } else if rangeOfCharacter(from: .lowercaseLetters) != nil {
+            score += 1
+            if rangeOfCharacter(from: .uppercaseLetters) != nil {
+                score += 1
+            }
         }
 
         // Check for numbers
@@ -30,8 +38,7 @@ extension Password {
         }
 
         // Check for special characters
-        let specialCharSet = CharacterSet(charactersIn: "!@#$%^&*()_-+=<>?/[]{}|~")
-        if rangeOfCharacter(from: specialCharSet) != nil {
+        if rangeOfCharacter(from: CharacterSet(charactersIn: "!@#$%^&*()_-+=<>?/[]{}|~")) != nil {
             score += 1
         }
 

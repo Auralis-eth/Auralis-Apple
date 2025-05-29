@@ -115,6 +115,7 @@ struct NFTDetailView: View {
                                         if let contractAddress = nft.contract.address {
                                             Card3D(cardColor: .surface) {
                                                 OpenSeaLink(contractAddress: contractAddress, tokenId: nft.tokenId)
+                                                EtherscanLink(contractAddress: contractAddress, tokenId: nft.tokenId)
                                             }
                                         }
 

@@ -11,9 +11,20 @@ import SwiftUI
 
 //import web3
 
+@Observable
+class WalletViewAccountsViewModel {
+    var keychainAccounts: [EOAccount]?
+    init () {
+    }
+
+    func setKeychainAccounts()  {
+        keychainAccounts = (try? EthereumKeyChainStorage().fetchAccounts().map { EOAccount(address: $0.asString(), access: .wallet) }) ?? []
+    }
+}
 
 // MARK: - Main WalletView
 struct WalletView: View {
+    let accountsModel = WalletViewAccountsViewModel()
     @AppStorage("currentAccountAddress") var currentAddress: String = ""
     @Environment(\.modelContext) private var modelContext
     @Binding var account: EOAccount?
@@ -32,14 +43,9 @@ struct WalletView: View {
 
         return EOAccount(address: currentAddress)
     }
-    var keychainAccounts: [EOAccount]? {
-        try? EthereumKeyChainStorage().fetchAccounts().map {
-            EOAccount(address: $0.asString(), access: .wallet)
-        }
-    }
 
     var allAccounts: [EOAccount] {
-        var combinedAccounts = (keychainAccounts ?? []) + accounts
+        var combinedAccounts = (accountsModel.keychainAccounts ?? []) + accounts
         if let storedAccount {
             combinedAccounts.append(storedAccount)
         }
@@ -191,6 +197,9 @@ struct WalletView: View {
                     deleteAllButton
                     Spacer()
                 }
+                .onAppear {
+                    accountsModel.setKeychainAccounts()
+                }
             }
             .padding(.horizontal)
             .background(Color.background)
@@ -233,26 +242,6 @@ struct WalletView: View {
         }
 
         return nil
-    }
-
-    func processAccount() {
-        guard !accounts.isEmpty else {
-            return
-        }
-
-        guard var keychainAccounts = try? EthereumKeyChainStorage().fetchAccounts(), !keychainAccounts.isEmpty else {
-            return
-        }
-
-        // Filter out accounts with matching addresses
-        keychainAccounts = keychainAccounts.filter { keyChainAccount in
-            !accounts.contains { $0.address == keyChainAccount.asString() }
-        }
-
-        keychainAccounts.forEach { ethAddress in
-            modelContext.insert(EOAccount(address: ethAddress.asString(), access: .wallet))
-        }
-        try? modelContext.save()
     }
 
     func delete(at offsets: IndexSet) {

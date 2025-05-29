@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum AnyValue: Codable {
+enum AnyValue: Codable, Equatable {
     case string(String)
     case integer(Int)
     case double(Double)
@@ -49,6 +49,17 @@ enum AnyValue: Codable {
             try container.encode(value)
         case .null:
             try container.encodeNil()
+        }
+    }
+
+    static func == (lhs: AnyValue, rhs: AnyValue) -> Bool {
+        switch (lhs, rhs) {
+        case (.string(let l), .string(let r)): return l == r
+        case (.integer(let l), .integer(let r)): return l == r
+        case (.double(let l), .double(let r)): return l == r
+        case (.boolean(let l), .boolean(let r)): return l == r
+        case (.null, .null): return true
+        default: return false
         }
     }
 }

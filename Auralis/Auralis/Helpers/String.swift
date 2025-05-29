@@ -22,12 +22,6 @@ extension String {
 }
 
 extension String {
-    func addressFormatedForDisplay() -> String {
-        replacingOccurrences(of: dropFirst(6).dropLast(4), with: "...")
-    }
-}
-
-extension String {
     var displayAddress: String {
         if count > 10 {
             let start = prefix(6)
@@ -35,5 +29,21 @@ extension String {
             return "\(start)...\(end)"
         }
         return self
+    }
+}
+
+extension String {
+    /// Initializes a URL with a string and converts it to an IPFS gateway URL
+    /// - Parameter string: The URL string to convert
+    /// - Returns: An IPFS gateway URL or nil if conversion fails
+    func ipfsGatewayURL() -> URL? {
+        guard contains("ipfs") else {
+            return nil
+        }
+        guard !isEmpty, let url = URL(string: self) else {
+            return nil
+        }
+
+        return url.toPinataGatewayURL()
     }
 }
