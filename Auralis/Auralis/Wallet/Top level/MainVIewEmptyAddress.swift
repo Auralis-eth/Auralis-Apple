@@ -23,7 +23,7 @@ struct WalletCell: View {
                     SubheadlineFontText(title)
                     Spacer()
                     AccentTextSystemImage(systemImage)
-                        .foregroundColor(.accent)  // Changed from .secondary to app's textSecondary
+                        .foregroundStyle(Color.accent)  // Changed from .secondary to app's textSecondary
                         .font(.system(size: 40, weight: .medium))
                 }
             }

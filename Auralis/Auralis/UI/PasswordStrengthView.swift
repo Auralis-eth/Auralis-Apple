@@ -29,15 +29,15 @@ struct PasswordStrengthView: View {
         HStack(spacing: 2) {
             Rectangle()
                 .frame(height: 5)
-                .foregroundColor(strengthColor(for: .weak))
+                .foregroundStyle(strengthColor(for: .weak))
 
             Rectangle()
                 .frame(height: 5)
-                .foregroundColor(strengthColor(for: .medium))
+                .foregroundStyle(strengthColor(for: .medium))
 
             Rectangle()
                 .frame(height: 5)
-                .foregroundColor(strengthColor(for: .strong))
+                .foregroundStyle(strengthColor(for: .strong))
         }
         .frame(width: 100)
     }

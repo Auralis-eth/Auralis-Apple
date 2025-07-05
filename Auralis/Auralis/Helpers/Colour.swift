@@ -63,4 +63,13 @@ extension Color {
     //black text is recommended
     static let error = Color(hexString: "FF3B30")         // Error Red
     static let success = Color(hexString: "4CD964")       // Success Green
+
+
+//    static let textDark = Color(hexString: "4AD7D1")
+    static let auroraGreen = Color(hexString: "39FF14")      // Electric lime green
+    static let auroraCyan = Color(hexString: "00FFFF")       // Bright cyan
+    static let auroraPurple = Color(hexString: "BF00FF")     // Vivid purple
+    static let auroraPink = Color(hexString: "FF1493")       // Deep pink
+    static let auroraBlue = Color(hexString: "1E90FF")       // Bright blue
+    static let auroraTeal = Color(hexString: "00FFA5")       // Bright teal
 }

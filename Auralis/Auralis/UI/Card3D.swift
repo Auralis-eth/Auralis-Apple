@@ -70,3 +70,22 @@ struct Card3D<Content: View>: View {
             .scaleEffect(0.98)
     }
 }
+
+
+@available(iOS 26.0, *)
+struct GlassCard3D<Content: View>: View {
+    let content: () -> Content
+    let cardColor: Color
+
+
+    init(cardColor: Color = .surface, @ViewBuilder content: @escaping () -> Content) {
+        self.content = content
+        self.cardColor = cardColor
+    }
+
+    var body: some View {
+        content()
+            .padding()
+            .glassEffect(.regular.tint(cardColor), in: .rect(cornerRadius: 16))
+    }
+}

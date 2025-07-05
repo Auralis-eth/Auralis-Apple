@@ -107,7 +107,7 @@ extension GasPriceEstimateView {
         var body: some View {
             ContentUnavailableView {
                 Label("Gas Price Data Unavailable", systemImage: "exclamationmark.triangle")
-                    .foregroundColor(.error)
+                    .foregroundStyle(Color.error)
             } description: {
                 SecondaryText("Failed to fetch gas price estimate. Please try again later.")
             } actions: {
@@ -313,7 +313,7 @@ extension GasPriceEstimateView {
                     Spacer()
 
                     SystemImage(isTrendUp ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
-                        .foregroundColor(isTrendUp ? .success : .error)
+                        .foregroundStyle(isTrendUp ? Color.success : .error)
                 }
 
                 SecondaryText(value)

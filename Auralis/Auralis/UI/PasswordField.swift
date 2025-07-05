@@ -25,7 +25,7 @@ struct PasswordField<Field: Hashable>: View {
                         .padding()
                         .background(Color.secondary.opacity(0.1))
                         .cornerRadius(8)
-                        .foregroundColor(.textSecondary)
+                        .foregroundStyle(Color.textSecondary)
                 } else {
                     SecureField(placeholder, text: $password)
                         .textContentType(.newPassword)
@@ -33,7 +33,7 @@ struct PasswordField<Field: Hashable>: View {
                         .padding()
                         .background(Color.secondary.opacity(0.1))
                         .cornerRadius(8)
-                        .foregroundColor(.textSecondary)
+                        .foregroundStyle(Color.textSecondary)
                 }
 
                 Button {

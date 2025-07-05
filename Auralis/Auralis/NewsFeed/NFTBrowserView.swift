@@ -26,7 +26,7 @@ struct NFTBrowserView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 SystemImage("exclamationmark.triangle.fill")
-                                    .foregroundColor(.error)
+                                    .foregroundStyle(Color.error)
                                 HeadlineFontText("Error")
                             }
 

@@ -32,7 +32,7 @@ extension View {
                 fatalError("Base SVGPaint is not convertable to SwiftUI")
             }
         } else {
-            self.foregroundColor(.clear)
+            foregroundStyle(Color.clear)
         }
     }
 

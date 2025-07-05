@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		6F4179322DA96363002A78F5 /* web3.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 6F4179312DA96363002A78F5 /* web3.swift */; };
+		6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */; };
 		6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = 6F7B76032D962FE800DF0AD7 /* CodeScanner */; };
 /* End PBXBuildFile section */
 
@@ -29,6 +30,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AuralisIcon.icon; sourceTree = "<group>"; };
 		6FB455DB2CC5BEBB009A055C /* Auralis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Auralis.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6FB455EF2CC5BEBD009A055C /* AuralisTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AuralisTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6FB455F92CC5BEBD009A055C /* AuralisUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AuralisUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -107,6 +109,7 @@
 				6FB455FC2CC5BEBD009A055C /* AuralisUITests */,
 				6FB1D9B02D8D117E00CD1B30 /* Frameworks */,
 				6FB455DC2CC5BEBB009A055C /* Products */,
+				6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */,
 			);
 			sourceTree = "<group>";
 		};
@@ -246,6 +249,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -306,7 +310,7 @@
 		6FB456032CC5BEBD009A055C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AuralisIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Auralis/Auralis.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -340,7 +344,7 @@
 		6FB456042CC5BEBD009A055C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AuralisIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Auralis/Auralis.entitlements;
 				CODE_SIGN_STYLE = Automatic;

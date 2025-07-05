@@ -34,6 +34,8 @@ struct WalletView: View {
     @State private var isScanning = false
     @State private var isCreating = false
     @State private var isImporting = false
+    @State private var showImportSheet: Bool = false
+    @State private var showAllAccounts: Bool = false
 
     @Query private var accounts: [EOAccount]
     var storedAccount: EOAccount? {
@@ -80,7 +82,7 @@ struct WalletView: View {
             }
             .pickerStyle(.menu)
             .tint(.secondary)
-            .foregroundColor(.secondary)
+            .foregroundStyle(Color.secondary)
         }
     }
 
@@ -102,103 +104,124 @@ struct WalletView: View {
                                         HStack {
                                             SubheadlineFontText("Disconnect Wallet")
                                             AccentTextSystemImage("network.slash")
-                                                .foregroundColor(.accent)  // Changed from .secondary to app's textSecondary
+                                                .foregroundStyle(Color.accent)  // Changed from .secondary to app's textSecondary
                                                 .font(.system(size: 20, weight: .medium))
                                         }
                                     }
                                 }
                             }
                         }
-                        if !allAccounts.isEmpty {
-                            VStack {
-                                SecondaryText("Wallets")
-                                ForEach(allAccounts) { storedAccount in
-                                    AccountListItem(account: storedAccount)
-                                        .onTapGesture {
-                                            account = storedAccount
-                                        }
-                                }
-                            }
-                        }
+
+
                     }
                     .padding(.vertical)
 
                     WalletCell(
-                        title: "Create your wallet",
+                        title: "Wallets",
                         systemImage: "wallet.pass.fill",
-                        isSelected: $isCreating
+                        isSelected: $showAllAccounts
                     )
-                    .sheet(isPresented: $isCreating) {
-                        CreateWalletView(address: $account)
-                    }
-
-                    WalletCell(
-                        title: "Import your wallet",
-                        systemImage: "wallet.pass",
-                        isSelected: $isImporting
-                    )
-                    .sheet(isPresented: $isImporting) {
-                        ImportWalletView(address: $account)
-                    }
-
-                    WalletCell(
-                        title: "Scan your wallet",
-                        systemImage: "qrcode.viewfinder",
-                        isSelected: $isScanning
-                    )
-                    .sheet(isPresented: $isScanning) {
+                    .sheet(isPresented:$showAllAccounts) {
                         VStack {
-                            TorchToggleButton(torchOn: $torchOn)
-                            CodeScannerView(codeTypes: [.qr], requiresPhotoOutput: false, isTorchOn: torchOn) { result in
-                                switch result {
-                                    case .success(let code):
-                                        let scannedCode = code.string
-                                        if scannedCode.count == 42 && scannedCode.hasPrefix("0x") {
-                                            let eoAccount = EOAccount(address: scannedCode, access: .readonly)
-                                            modelContext.insert(eoAccount)
-//                                            self.account = eoAccount
-                                        } else if scannedCode.hasPrefix("ethereum:") {
-                                            let newCode = String(scannedCode.dropFirst("ethereum:".count))
-                                            if newCode.count == 42 && newCode.hasPrefix("0x") {
-                                                let eoAccount = EOAccount(address: newCode, access: .readonly)
-                                                modelContext.insert(eoAccount)
-//                                                self.account = eoAccount
-                                            } else if newCode.hasPrefix("0x") {
-                                                if let ethereumAddress = extractEthereumAddress(newCode) {
-                                                    let eoAccount = EOAccount(address: ethereumAddress, access: .readonly)
-                                                    modelContext.insert(eoAccount)
-//                                                    self.account = eoAccount
-                                                } else {
-                                                    print("")
-                                                }
-                                            } else {
-                                                print("")
-                                            }
-                                            try? modelContext.save()
-                                        }
-                                    case .failure(let error):
-                                        //                               self.scannedCode = error.localizedDescription
-                                        print(error)
-                                }
-                                isScanning = false
-
+                            SecondaryText("Wallets")
+                            ForEach(allAccounts) { storedAccount in
+                                AccountListItem(account: storedAccount)
+                                    .onTapGesture {
+                                        account = storedAccount
+                                        showAllAccounts = false
+                                    }
+                            }
+                            if !allAccounts.isEmpty {
+                                deleteAllButton
                             }
                         }
-                    }
-                    .presentationDetents([.fraction(0.5), .fraction(0.25), .medium, .fraction(0.75)])
-
-                    AddressInputView { address in
-                        let eoAccount = EOAccount(address: address, access: .readonly)
-                        modelContext.insert(eoAccount)
-                        try? modelContext.save()
-                        self.address = ""
+                        .onAppear {
+                            accountsModel.setKeychainAccounts()
+                        }
                     }
 
-                    deleteAllButton
+                    WalletCell(
+                        title: "Add an wallet",
+                        systemImage: "wallet.pass.fill",
+                        isSelected: $showImportSheet
+                    )
+                    .sheet(isPresented:$showImportSheet) {
+                        VStack {
+
+                            WalletCell(
+                                title: "Create your wallet",
+                                systemImage: "wallet.pass.fill",
+                                isSelected: $isCreating
+                            )
+                            .sheet(isPresented: $isCreating) {
+                                CreateWalletView(address: $account)
+                            }
+
+                            WalletCell(
+                                title: "Import your wallet",
+                                systemImage: "wallet.pass",
+                                isSelected: $isImporting
+                            )
+                            .sheet(isPresented: $isImporting) {
+                                ImportWalletView(address: $account)
+                            }
+
+                            WalletCell(
+                                title: "Scan your wallet",
+                                systemImage: "qrcode.viewfinder",
+                                isSelected: $isScanning
+                            )
+                            .sheet(isPresented: $isScanning) {
+                                VStack {
+                                    TorchToggleButton(torchOn: $torchOn)
+                                    CodeScannerView(codeTypes: [.qr], requiresPhotoOutput: false, isTorchOn: torchOn) { result in
+                                        switch result {
+                                            case .success(let code):
+                                                let scannedCode = code.string
+                                                if scannedCode.count == 42 && scannedCode.hasPrefix("0x") {
+                                                    let eoAccount = EOAccount(address: scannedCode, access: .readonly)
+                                                    modelContext.insert(eoAccount)
+        //                                            self.account = eoAccount
+                                                } else if scannedCode.hasPrefix("ethereum:") {
+                                                    let newCode = String(scannedCode.dropFirst("ethereum:".count))
+                                                    if newCode.count == 42 && newCode.hasPrefix("0x") {
+                                                        let eoAccount = EOAccount(address: newCode, access: .readonly)
+                                                        modelContext.insert(eoAccount)
+        //                                                self.account = eoAccount
+                                                    } else if newCode.hasPrefix("0x") {
+                                                        if let ethereumAddress = extractEthereumAddress(newCode) {
+                                                            let eoAccount = EOAccount(address: ethereumAddress, access: .readonly)
+                                                            modelContext.insert(eoAccount)
+        //                                                    self.account = eoAccount
+                                                        } else {
+                                                            print("")
+                                                        }
+                                                    } else {
+                                                        print("")
+                                                    }
+                                                    try? modelContext.save()
+                                                }
+                                            case .failure(let error):
+                                                //                               self.scannedCode = error.localizedDescription
+                                                print(error)
+                                        }
+                                        isScanning = false
+
+                                    }
+                                }
+                            }
+                            .presentationDetents([.fraction(0.5), .fraction(0.25), .medium, .fraction(0.75)])
+
+                            AddressInputView { address in
+                                let eoAccount = EOAccount(address: address, access: .readonly)
+                                modelContext.insert(eoAccount)
+                                try? modelContext.save()
+                                self.address = ""
+                            }
+                        }
+                        .presentationDetents([.fraction(0.75)])
+                    }
                     Spacer()
-                }
-                .onAppear {
-                    accountsModel.setKeychainAccounts()
                 }
             }
             .padding(.horizontal)

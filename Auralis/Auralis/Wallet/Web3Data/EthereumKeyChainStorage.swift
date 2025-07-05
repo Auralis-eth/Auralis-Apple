@@ -8,6 +8,7 @@
 import Foundation
 import Security
 import web3
+import SwiftData
 
 // Error enum for better error handling
 public enum KeychainError: Error {
@@ -20,11 +21,12 @@ public enum KeychainError: Error {
     case accessControlCreationError
 }
 
+@Model
 public class EthereumKeyChainStorage: EthereumSingleKeyStorageProtocol {
     var addresses: [EOAccount]
 
     // SecAccessControl property to manage keychain access restrictions
-    private var _accessControl: SecAccessControl?
+    @Transient private var _accessControl: SecAccessControl?
 
     init(addresses: [EOAccount] = []) {
         self.addresses = addresses
@@ -210,6 +212,9 @@ extension EthereumKeyChainStorage: EthereumMultipleKeyStorageProtocol {
     }
 
     public func loadPrivateKey(for address: EthereumAddress) throws -> Data {
+        if addresses.isEmpty {
+            self.addresses = (try? fetchAccounts().map { EOAccount(address: $0.asString())}) ?? []
+        }
         guard addresses.contains(where: { $0.address.lowercased() == address.asString().lowercased() }) else {
             throw KeychainError.addressNotFound
         }

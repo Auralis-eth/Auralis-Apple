@@ -191,7 +191,7 @@ struct ImportWalletView: View {
                                             .onChange(of: privateKey, initial: false) { _, _ in
                                                 validatePrivateKey()
                                             }
-                                            .foregroundColor(.textSecondary)
+                                            .foregroundStyle(Color.textSecondary)
 
                                         Button {
                                             // Paste from clipboard functionality

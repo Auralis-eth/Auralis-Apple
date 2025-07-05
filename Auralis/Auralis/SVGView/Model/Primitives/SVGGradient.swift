@@ -73,7 +73,7 @@ public class SVGLinearGradient: SVGGradient {
         let maximum = max(width, height)
         
         return view
-            .foregroundColor(.clear)
+            .foregroundStyle(Color.clear)
             .overlay(
                 toSwiftUI(rect: frame)
                     .applyIf(!userSpace) {
@@ -123,7 +123,7 @@ public class SVGRadialGradient: SVGGradient {
         let height = bounds.height
         let minimum = min(width, height)
         return view
-            .foregroundColor(.clear)
+            .foregroundStyle(Color.clear)
             .overlay(
                 toSwiftUI(rect: frame)
                     .scaleEffect(CGSize(width: userSpace ? 1 : width/minimum,

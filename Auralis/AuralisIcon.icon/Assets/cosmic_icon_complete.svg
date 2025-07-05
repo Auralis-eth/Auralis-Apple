@@ -1,0 +1,106 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1C2526"/>
+      <stop offset="100%" stop-color="#0A0F12"/>
+    </linearGradient>
+    
+    <!-- Green Wave Gradients -->
+    <linearGradient id="greenWave1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+    
+    <linearGradient id="greenWave2" x1="30%" y1="0%" x2="70%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    
+    <!-- Blue Wave Gradients -->
+    <linearGradient id="blueWave1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
+    </linearGradient>
+    
+    <linearGradient id="blueWave2" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+    
+    <!-- Purple Wave Gradients -->
+    <linearGradient id="purpleWave1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="50%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+    
+    <linearGradient id="purpleWave2" x1="40%" y1="0%" x2="60%" y2="100%">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#8B5CF6"/>
+    </linearGradient>
+    
+    <!-- Speckle Gradients -->
+    <radialGradient id="speckleWhite" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F3F4F6" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#F3F4F6" stop-opacity="0.1"/>
+    </radialGradient>
+    
+    <radialGradient id="speckleGray" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E5E7EB" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#E5E7EB" stop-opacity="0.1"/>
+    </radialGradient>
+  </defs>
+  
+  <!-- Background Layer -->
+  <g id="background">
+    <rect width="1024" height="1024" fill="url(#backgroundGradient)"/>
+  </g>
+  
+  <!-- Waves-Green Layer -->
+  <g id="waves-green" opacity="0.8">
+    <path d="M0,600 Q200,400 400,500 T800,450 Q900,400 1024,420 L1024,1024 L0,1024 Z" fill="url(#greenWave1)"/>
+    <path d="M0,700 Q300,550 600,600 T1024,580 L1024,1024 L0,1024 Z" fill="url(#greenWave2)"/>
+  </g>
+  
+  <!-- Waves-Blue Layer -->
+  <g id="waves-blue" opacity="0.85">
+    <path d="M0,500 Q250,300 500,400 T850,350 Q950,320 1024,340 L1024,1024 L0,1024 Z" fill="url(#blueWave1)"/>
+    <path d="M0,650 Q400,500 700,550 T1024,530 L1024,1024 L0,1024 Z" fill="url(#blueWave2)"/>
+  </g>
+  
+  <!-- Waves-Purple Layer -->
+  <g id="waves-purple" opacity="0.9">
+    <path d="M0,400 Q300,200 600,300 T1000,250 Q1050,230 1024,240 L1024,1024 L0,1024 Z" fill="url(#purpleWave1)"/>
+    <path d="M0,550 Q350,400 650,450 T1024,430 L1024,1024 L0,1024 Z" fill="url(#purpleWave2)"/>
+  </g>
+  
+  <!-- Speckles Layer -->
+  <g id="speckles">
+    <!-- Large speckles -->
+    <circle cx="150" cy="200" r="3" fill="url(#speckleWhite)" opacity="0.5"/>
+    <circle cx="800" cy="150" r="4" fill="url(#speckleGray)" opacity="0.4"/>
+    <circle cx="600" cy="300" r="2.5" fill="url(#speckleWhite)" opacity="0.3"/>
+    <circle cx="900" cy="250" r="5" fill="url(#speckleGray)" opacity="0.5"/>
+    <circle cx="300" cy="100" r="3.5" fill="url(#speckleWhite)" opacity="0.4"/>
+    
+    <!-- Medium speckles -->
+    <circle cx="450" cy="180" r="2" fill="url(#speckleGray)" opacity="0.3"/>
+    <circle cx="750" cy="320" r="3" fill="url(#speckleWhite)" opacity="0.4"/>
+    <circle cx="200" cy="350" r="2.5" fill="url(#speckleGray)" opacity="0.3"/>
+    <circle cx="850" cy="400" r="2" fill="url(#speckleWhite)" opacity="0.5"/>
+    <circle cx="100" cy="300" r="4" fill="url(#speckleGray)" opacity="0.4"/>
+    
+    <!-- Small speckles scattered throughout -->
+    <circle cx="950" cy="100" r="2" fill="url(#speckleWhite)" opacity="0.3"/>
+    <circle cx="50" cy="150" r="2" fill="url(#speckleGray)" opacity="0.3"/>
+    <circle cx="700" cy="200" r="2" fill="url(#speckleWhite)" opacity="0.4"/>
+    <circle cx="400" cy="80" r="2" fill="url(#speckleGray)" opacity="0.3"/>
+    <circle cx="550" cy="120" r="2" fill="url(#speckleWhite)" opacity="0.3"/>
+    <circle cx="250" cy="250" r="2" fill="url(#speckleGray)" opacity="0.4"/>
+    <circle cx="800" cy="80" r="2" fill="url(#speckleWhite)" opacity="0.3"/>
+    <circle cx="650" cy="50" r="2" fill="url(#speckleGray)" opacity="0.3"/>
+    <circle cx="350" cy="400" r="2" fill="url(#speckleWhite)" opacity="0.4"/>
+    <circle cx="500" cy="50" r="2" fill="url(#speckleGray)" opacity="0.3"/>
+  </g>
+</svg>

@@ -18,11 +18,11 @@ struct NFTMusicPlayer: View {
             if audioPlayer.isPlaying {
                 SystemImage("waveform")
                     .font(.system(size: 100))
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Color.blue)
             } else {
                 SystemImage("waveform.slash")
                     .font(.system(size: 100))
-                    .foregroundColor(.gray)
+                    .foregroundStyle(Color.gray)
             }
 
             HStack(spacing: 30) {

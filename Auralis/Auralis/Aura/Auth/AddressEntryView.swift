@@ -1,0 +1,220 @@
+//
+//  AddressEntryView.swift
+//  Auralis
+//
+//  Created by Daniel Bell on 6/14/25.
+//
+
+import SwiftUI
+import SwiftData
+
+struct AddressEntryView: View {
+    @State private var address: String = ""
+    @State private var showingAlert: Bool = false
+    @State private var isAddressValid: Bool = false
+    @Environment(\.modelContext) private var modelContext
+    @Binding var currentAccount: EOAccount?
+
+    var addressEntryCard: some View {
+        VStack(spacing: 25) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "square.and.pencil")
+                        .foregroundStyle(Color.deepBlue)
+                        .font(.system(size: 30, weight: .medium))
+                    TextField("Ethereum Address", text: $address)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .font(.body)  // Use your desired font
+                        .scrollContentBackground(.hidden)
+                        .foregroundStyle(Color.surface)
+                        .onChange(of: address) { _, newValue in
+                            validateAddress(newValue)
+                        }
+
+                    QRScannerView(account: $currentAccount)
+                }
+                .padding(.horizontal, 15)
+                .padding(.vertical, 18)
+
+                Rectangle()
+                    .fill(Color.deepBlue.opacity(0.3))
+                    .frame(height: 1)
+            }
+            .padding(.horizontal, 30)
+
+            // Sign In Button
+            Button(action: {
+                // Handle sign in action
+                guard address.isEmpty == false else {
+                    showingAlert = true
+                    return
+                }
+
+                validateAddress(address)
+
+                guard isAddressValid else {
+                    showingAlert = true
+                    return
+                }
+
+                let eoAccount = EOAccount(address: address, access: .readonly)
+                self.currentAccount = eoAccount
+                modelContext.insert(eoAccount)
+                try? modelContext.save()
+                self.address = ""
+            }) {
+                if #available(iOS 26.0, *) {
+                    Text("View Assets")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .cornerRadius(25)
+                } else {
+                    Text("View Assets")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(
+                            LinearGradient(
+                                colors: [Color.accent, Color.deepBlue.opacity(0.8)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(25)
+                }
+            }
+            .padding(.horizontal, 30)
+        }
+    }
+
+    var body: some View {
+            // Bottom form section
+        Group {
+            if #available(iOS 26.0, *) {
+                VStack {
+                    HStack {
+                        Image(systemName: "square.and.pencil")
+                            .foregroundStyle(Color.deepBlue)
+                            .font(.system(size: 30, weight: .medium))
+                        TextField("Ethereum Address", text: $address)
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                            .font(.body)  // Use your desired font
+                            .scrollContentBackground(.hidden)
+                            .foregroundStyle(Color.surface)
+                            .onChange(of: address) { _, newValue in
+                                validateAddress(newValue)
+                            }
+
+                        QRScannerView(account: $currentAccount)
+                            .transition(.opacity)
+                    }
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 18)
+
+                    Button {
+                        // Handle sign in action
+                        guard address.isEmpty == false else {
+                            showingAlert = true
+                            return
+                        }
+
+                        validateAddress(address)
+
+                        guard isAddressValid else {
+                            showingAlert = true
+                            return
+                        }
+
+                        let eoAccount = EOAccount(address: address, access: .readonly)
+                        self.currentAccount = eoAccount
+                        modelContext.insert(eoAccount)
+                        try? modelContext.save()
+                        self.address = ""
+                    } label: {
+                        Text("View Assets")
+                            .foregroundStyle(Color.textPrimary)
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                            .background(Color.accent.gradient, in: .capsule)
+                    }
+                    .padding(.horizontal, 30)
+                    .padding(.bottom, 18)
+                }
+                .glassEffect(.regular, in: .rect(cornerRadius: 30, style: .continuous))
+                .safeAreaPadding(15)
+                .transition(.scale.combined(with: .opacity))
+            } else {
+                addressEntryCard
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical)
+                    .background(
+                        Color.textPrimary
+                            .clipShape(
+                                RoundedRectangle(cornerRadius: 30)
+                            )
+                    )
+                    .padding(.horizontal)
+            }
+        }
+        .alert("Address Required", isPresented: $showingAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Please enter your Address to continue.")
+        }
+
+    }
+    private func validateAddress(_ address: String) {
+        // Simple validation - should be 42 chars with 0x prefix
+        isAddressValid = address.count == 42 && address.hasPrefix("0x") && extractEthereumAddress(address) != nil
+    }
+    private func extractEthereumAddress(_ input: String) -> String? {
+        // Use regular expression to match Ethereum address pattern
+        let addressPattern = #"(0x[a-fA-F0-9]{40})"#
+
+        if let match = input.range(of: addressPattern, options: .regularExpression) {
+            return String(input[match])
+        }
+
+        return nil
+    }
+}
+
+//import ImagePlayground
+//@available(iOS 18.4, *)
+//func generateImageFromPlayground() async throws {
+//    let seletedStyle: ImagePlaygroundStyle = .animation
+//    let creator = try await ImageCreator()
+//    let images = creator.images(for: [.text("Aurora Borealis over the Arctic and Rocky Mounts")], style: seletedStyle, limit: 4)
+//
+//    for try await image in images {
+//        print("Generated image:")
+//        print(image.cgImage)
+//    }
+//}
+
+// TIPS
+//      Break down the process/request
+
+//  USE CASES
+//      Content Generation???
+//          splash image
+//      summarization
+//          in the NFT newsfeed view summarize NFT text blurb
+//      In-app  user guides
+//          have a ? button on each screen and do a help bot
+//      Classification
+//          start with the "stash" page for NFTs, then migrate to ERC-20s
+//      Tag generation
+//          start with the "stash" page for NFTs, then migrate to ERC-20s
+
+
+//      Composition???
+//          what is it and could I use it
+//      Revision???
+//          what is it and could I use it

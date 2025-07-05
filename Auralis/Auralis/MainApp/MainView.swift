@@ -41,12 +41,15 @@ struct MainView: View {
     @State private var currentAccount: EOAccount?
     @State private var currentChain: Chain?
 
+    @State private var currentAuraAccount: EOAccount?
+
     @State private var chaining: Chain = .ethMainnet
 
     @Query private var accounts: [EOAccount]
 
     var isIpad: Bool {
-        UIDevice.current.userInterfaceIdiom == .pad
+//        UIDevice.current.userInterfaceIdiom == .pad
+        true
     }
 
     func points(for timeline: TimelineViewDefaultContext) -> [SIMD2<Float>] {
@@ -92,43 +95,42 @@ struct MainView: View {
     }
     func colorsForNorthernLights() -> [Color] {
         [
-            // First row (night sky background)
+            // First row (night sky)
             .background, .background, .background, .background, .background, .background,
 
-            // Second row (subtle stars and beginning aurora)
+            // Second row (subtle beginning)
             .surface,
-            .secondary,
-            .accent,
+            .auroraBlue.opacity(0.3),
+            .auroraTeal.opacity(0.4),
             .deepBlue,
-            .secondary,
-            .surface,
-
-            // Third row (main aurora colors - greens)
-            .secondary,
-            .secondary,
-            .secondary,
-            .deepBlue,
-            .secondary,
-            .secondary,
-
-            //  Fourth row
-            .secondary,
-            .accent,
-            .deepBlue,
-            .accent,
-            .secondary,
+            .auroraBlue.opacity(0.3),
             .surface,
 
+            // Third row (main aurora - vibrant greens)
+            .auroraTeal.opacity(0.2),
+            .auroraGreen.opacity(0.7),
+            .auroraCyan.opacity(0.8),
+            .auroraGreen.opacity(0.9),
+            .auroraTeal.opacity(0.6),
+            .auroraTeal.opacity(0.2),
 
-            // Fifth row (fading aurora)
-            .secondary,
-            .accent,
-            .deepBlue,
-            .accent,
-            .secondary,
+            // Fourth row (purple/pink highlights)
+            .auroraBlue.opacity(0.3),
+            .auroraPurple.opacity(0.6),
+            .auroraPink.opacity(0.7),
+            .auroraPurple.opacity(0.8),
+            .auroraCyan.opacity(0.5),
+            .auroraBlue.opacity(0.3),
+
+            // Fifth row (fading)
+            .surface,
+            .auroraGreen.opacity(0.3),
+            .auroraTeal.opacity(0.4),
+            .auroraBlue.opacity(0.3),
+            .auroraTeal.opacity(0.2),
             .surface,
 
-            // Sixth row (night sky background)
+            // Sixth row (night sky)
             .background, .background, .background, .background, .background, .background
         ]
     }
@@ -142,6 +144,9 @@ struct MainView: View {
                 background: .black
             )
             .frame(maxWidth: .infinity, minHeight: geometry.frame(in: .local).height)
+            .background(.black)
+            .shadow(color: .auroraGreen.opacity(0.3), radius: 20)
+            .shadow(color: .auroraCyan.opacity(0.2), radius: 40)
         }
     }
     var body: some View {
@@ -151,7 +156,7 @@ struct MainView: View {
 //                    VStack {
                         GeometryReader { geometry in
                             northernLights(in: geometry)
-                                .overlay(.ultraThinMaterial)
+                                .overlay(.ultraThinMaterial.opacity(0.1))
                         }
 
                         //                    HStack {
@@ -167,11 +172,17 @@ struct MainView: View {
 //                }
             } else if currentAccount != nil {
                 TabView {
-                    Text("HOME")
-                        .tabItem {
-                            SystemImage("house")
-                            Text("Home")
+                    VStack {
+                        if let currentAuraAccount {
+                            Text("HELLO \(currentAuraAccount.address)")
+                        } else {
+                            LoginView(currentAccount: $currentAuraAccount)
                         }
+                    }
+                    .tabItem {
+                        SystemImage("house")
+                        Text("Home")
+                    }
 
                     WalletView(account: $currentAccount, chainId: $mainAppStore.chain)
                         .tabItem {
@@ -239,4 +250,3 @@ struct MainView: View {
         }
     }
 }
-

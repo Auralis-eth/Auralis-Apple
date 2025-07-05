@@ -142,9 +142,6 @@ struct CachedAsyncImage: View {
             if let image = loader.image {
                 Image(uiImage: image)
                     .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity)
-                    .shadow(radius: 5)
             } else if loader.isLoading {
                 ZStack {
                     Color.surface
@@ -158,15 +155,17 @@ struct CachedAsyncImage: View {
                     Color.surface
                         .aspectRatio(1, contentMode: .fit)
                     VStack {
-                        switch error {
-                            case .invalidData:
-                                SystemImage("camera.macro.slash")
-                            case .networkError:
-                                SystemImage("network.slash")
-                        }
-                        SecondaryCaptionFontText(error == .invalidData ? "Invalid Image" : "Network Error")
+//                        switch error {
+//                            case .invalidData:
+//                                SystemImage("camera.macro.slash")
+//                            case .networkError:
+//                                SystemImage("network.slash")
+//                        }
+//                        SecondaryCaptionFontText(error == .invalidData ? "Invalid Image" : "Network Error")
+                        SecondaryText("\(error as NSError).code)")
+                        SecondaryText(error.localizedDescription)
                     }
-                    .foregroundColor(.error)
+                    .foregroundStyle(Color.error)
                 }
             } else {
                 ZStack {
@@ -174,7 +173,7 @@ struct CachedAsyncImage: View {
                         .aspectRatio(1, contentMode: .fit)
                     SystemImage("photo")
                         .font(.largeTitle)
-                        .foregroundColor(.textSecondary.opacity(0.3))
+                        .foregroundStyle(Color.textSecondary.opacity(0.3))
                 }
             }
         }

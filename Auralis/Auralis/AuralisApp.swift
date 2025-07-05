@@ -12,7 +12,7 @@ import SwiftData
 struct AuralisApp: App {
     var body: some Scene {
         WindowGroup {
-            MainView()
+            MainAuraView()
                 .modelContainer(for: [NFT.self, EOAccount.self])
         }
 
@@ -27,3 +27,5 @@ struct AuralisApp: App {
 #endif
     }
 }
+
+

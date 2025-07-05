@@ -48,7 +48,7 @@ public class SVGColor: SVGPaint {
     }
 
     func apply<S>(view: S, model: SVGShape? = nil) -> some View where S : View {
-        view.foregroundColor(toSwiftUI())
+        view.foregroundStyle(toSwiftUI())
     }
 
     public var r: Int {

@@ -40,7 +40,6 @@ struct AccountListItem: View {
                         }
 
                         Button(action: {
-//                            try? EthereumKeyChainStorage().deletePrivateKey(for: EthereumAddress(account.address))
                             let privateKey = try? EthereumKeyChainStorage().loadPrivateKey(for: EthereumAddress(account.address))
                             if let privateKey, !privateKey.isEmpty {
                                 account.access = .wallet
@@ -59,13 +58,13 @@ struct AccountListItem: View {
                 HStack {
                     if account.access == .wallet {
                         Label("Wallet", systemImage: "key.fill")
-                            .foregroundColor(.accent)
+                            .foregroundStyle(Color.accent)
                     } else if account.access == .readonly {
                         Label("Read-only", systemImage: "eye")
-                            .foregroundColor(.textSecondary)
+                            .foregroundStyle(Color.textSecondary)
                     } else {
                         Label("Unknown", systemImage: "questionmark")
-                            .foregroundColor(.textSecondary)
+                            .foregroundStyle(Color.textSecondary)
                     }
 
                     Spacer()

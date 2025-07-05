@@ -19,7 +19,7 @@ struct ReadOnlyAddressInput: View {
                 .disableAutocorrection(true)
                 .font(.body)  // Use your desired font
                 .scrollContentBackground(.hidden)
-                .foregroundColor(.textPrimary)
+                .foregroundStyle(Color.textPrimary)
                 .padding()
                 .background(Color.surface.opacity(0.1))
                 .cornerRadius(8)

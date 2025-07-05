@@ -49,7 +49,7 @@ struct PasswordEntryView: View {
                     .padding()
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(8)
-                    .foregroundColor(.textSecondary)
+                    .foregroundStyle(Color.textSecondary)
                     .disabled(password.isEmpty)
 
 

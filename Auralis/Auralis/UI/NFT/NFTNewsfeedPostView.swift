@@ -58,7 +58,7 @@ struct NFTNewsfeedPostView: View {
                             .aspectRatio(1, contentMode: .fit)
                             .overlay(
                                 SystemImage("photo")
-                                    .foregroundColor(.gray)
+                                    .foregroundStyle(Color.gray)
                             )
                     }
                 }
@@ -94,7 +94,7 @@ struct NFTNewsfeedPostView: View {
                     }) {
                         SystemImage("bookmark")
                             .font(.title2)
-                            .foregroundColor(.deepBlue)
+                            .foregroundStyle(Color.deepBlue)
                     }
                 }
                 .padding(.horizontal)

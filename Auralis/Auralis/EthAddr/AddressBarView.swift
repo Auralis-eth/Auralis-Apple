@@ -27,7 +27,7 @@ struct AddressBarView: View {
                 // Full address when editing
                 TextField("Enter wallet address", text: $address)
                     .font(.system(size: 15))
-                    .foregroundColor(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
                     .onSubmit {
@@ -49,19 +49,18 @@ struct AddressBarView: View {
                 }
                 submitAddress()
             } label: {
-                Group {
-                    if isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle())
-                            .scaleEffect(0.8)
-                            .tint(.secondary)  // Added tint for the progress indicator
-                    } else {
-                        SecondarySystemImage( "arrow.right.circle.fill")
-                            .font(.system(size: 20, weight: .semibold))
-                            .accessibilityLabel("Submit")
-                    }
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                        .scaleEffect(0.8)
+                        .tint(.secondary)  // Added tint for the progress indicator
+                        .frame(width: 28, height: 28)
+                } else {
+                    SecondarySystemImage( "arrow.right.circle.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .accessibilityLabel("Submit")
                 }
-                .frame(width: 28, height: 28)
+
             }
             .buttonStyle(PlainButtonStyle())
             .padding(.trailing, 4)
