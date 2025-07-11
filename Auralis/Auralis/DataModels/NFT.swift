@@ -127,7 +127,51 @@ class NFT: Codable {
         case timeLastUpdated
         case acquiredAt
     }
-    
+
+    var hasMetaData: Bool {
+        return contentType != nil ||
+               collectionName != nil ||
+               artistName != nil ||
+               animationUrl != nil ||
+               secureAnimationUrl != nil ||
+               audioUrl != nil ||
+               externalUrl != nil ||
+               modelUrl != nil ||
+               backgroundColor != nil ||
+               collectionID != nil ||
+               projectID != nil ||
+               series != nil ||
+               seriesID != nil ||
+               primaryAssetUrl != nil ||
+               securePrimaryAssetUrl != nil ||
+               previewAssetUrl != nil ||
+               securePreviewAssetUrl != nil ||
+               artistWebsite != nil ||
+               uniqueID != nil ||
+               timestamp != nil ||
+               tokenHash != nil ||
+               medium != nil ||
+               metadataVersion != nil ||
+               imageDataUrl != nil ||
+               secureImageDataUrl != nil ||
+               imageHrUrl != nil ||
+               secureImageHrUrl != nil ||
+               imageHash != nil ||
+               symbols != nil ||
+               seed != nil ||
+               original != nil ||
+               agreement != nil ||
+               website != nil ||
+               payoutAddress != nil ||
+               scriptType != nil ||
+               engineType != nil ||
+               accessArtworkFiles != nil ||
+               sellerFeeBasisPoints != nil ||
+               minted != nil ||
+               isStatic != nil ||
+               aspectRatio != nil
+    }
+
     init(id: String, contract: Contract, tokenId: String, tokenType: String? = nil, name: String? = nil, nftDescription: String? = nil, image: Image? = nil, raw: Raw? = nil, collection: Collection? = nil, tokenUri: String? = nil, timeLastUpdated: String? = nil, acquiredAt: AcquiredAt? = nil, network: Chain = .ethMainnet, contentType: String? = nil, collectionName: String? = nil, artistName: String? = nil, animationUrl: String? = nil, secureAnimationUrl: String? = nil, audioUrl: String? = nil) {
         self.id = id
         self.contract = contract

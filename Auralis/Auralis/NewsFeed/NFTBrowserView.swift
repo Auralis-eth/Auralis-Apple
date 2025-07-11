@@ -262,7 +262,7 @@ struct LoadingProgressView: View {
 
 extension String {
     //// Function to decode a raw token URI string to a dictionary
-    var base64JSON: [String: Any]? {
+    var base64JSON: [String: Codable]? {
         // Extract the base64 part from the URI
         // Format is: data:application/json;base64,<BASE64_ENCODED_JSON>
         guard let base64StartRange = self.range(of: "base64,") else {
@@ -281,7 +281,7 @@ extension String {
 
         // Parse the JSON as dictionary
         do {
-            guard let jsonDict = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            guard let jsonDict = try JSONSerialization.jsonObject(with: jsonData) as? [String: Codable] else {
                 print("Failed to decode token URI: JSON could not be converted to dictionary")
                 return nil
             }

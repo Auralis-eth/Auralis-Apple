@@ -67,6 +67,44 @@ import SwiftData
         return nftMetaData
     }
 
+    func fetchMetadataBatch(for tokens: [TokenRequest], chain: Chain) async throws -> [NFTMetadataResponse] {
+        guard let apiKey = Secrets.apiKey(.alchemy) else {
+            fatalError("API key not set")
+        }
+
+        let service = AlchemyNFTService(network: chain.rawValue, apiKey: apiKey)
+        return try await service.getNFTMetadataBatch(tokens: tokens)
+    }
+
+
+    func fetchMetadataBatchLarge(for tokens: [TokenRequest], chain: Chain) async throws -> [NFTMetadataResponse] {
+        guard !tokens.isEmpty else { return [] }
+
+        let batchSize = 100
+        var batches: [ArraySlice<TokenRequest>] = []
+
+        for i in stride(from: 0, to: tokens.count, by: batchSize) {
+            let endIndex = min(i + batchSize, tokens.count)
+            batches.append(tokens[i..<endIndex])
+        }
+
+        let results = try await withThrowingTaskGroup(of: [NFTMetadataResponse].self) { group in
+            for batch in batches {
+                group.addTask {
+                    try await self.fetchMetadataBatch(for: Array(batch), chain: chain)
+                }
+            }
+
+            var allMetadata: [NFTMetadataResponse] = []
+            for try await batchResult in group {
+                allMetadata.append(contentsOf: batchResult)
+            }
+            return allMetadata
+        }
+
+        return results
+    }
+
     func reset() {
         itemsLoaded = 0
         total = nil
