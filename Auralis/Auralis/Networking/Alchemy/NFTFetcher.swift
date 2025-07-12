@@ -37,10 +37,10 @@ import SwiftData
         var currentCursor: String? = nil
         var seenItems: Int = 0
 
+        let service = AlchemyNFTService(network: chain.rawValue, apiKey: apiKey)
         repeat {
             do {
-                let service = AlchemyNFTService(network: chain.rawValue, apiKey: apiKey)
-                let nfts = try await service.getNFTsForOwner(owner: account)
+                let nfts = try await service.getNFTsForOwner(owner: account, pageKey: currentCursor)
 
                 seenItems += nfts.ownedNfts.count
                 itemsLoaded = seenItems
@@ -52,6 +52,9 @@ import SwiftData
                     nftMetaData?.append(contentsOf: nfts.ownedNfts)
                 }
 
+                print("=============================")
+                print("seenItems: \(seenItems)")
+                print("=============================")
                 currentCursor = nfts.pageKey
                 if let totalItems = total {
                     if seenItems >= totalItems {
@@ -59,7 +62,19 @@ import SwiftData
                     }
                 }
             } catch {
+                //TODOL 1) replace code with the old code
+                //TODOL 1) make NFT raw metadata a dictionary of [String: JSONValue]
+                //TODO: 2) finish this
+                //TODO: 3) in the NFTService have the metadata parse out whats there
+                //
                 print("Error fetching NFTs: \(error)")
+                let nsError = error as NSError
+                if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+                    break
+                }
+                if nsError.code == -1011 {
+                    continue
+                }
                 self.error = error
             }
         } while currentCursor != nil
@@ -77,7 +92,7 @@ import SwiftData
     }
 
 
-    func fetchMetadataBatchLarge(for tokens: [TokenRequest], chain: Chain) async throws -> [NFTMetadataResponse] {
+    func fetchMetadataBatchLarge(for tokens: [TokenRequest], chain: Chain) async -> [NFTMetadataResponse] {
         guard !tokens.isEmpty else { return [] }
 
         let batchSize = 100
@@ -88,15 +103,15 @@ import SwiftData
             batches.append(tokens[i..<endIndex])
         }
 
-        let results = try await withThrowingTaskGroup(of: [NFTMetadataResponse].self) { group in
+        let results = await withTaskGroup(of: [NFTMetadataResponse].self) { group in
             for batch in batches {
                 group.addTask {
-                    try await self.fetchMetadataBatch(for: Array(batch), chain: chain)
+                    (try? await self.fetchMetadataBatch(for: Array(batch), chain: chain)) ?? []
                 }
             }
 
             var allMetadata: [NFTMetadataResponse] = []
-            for try await batchResult in group {
+            for await batchResult in group {
                 allMetadata.append(contentsOf: batchResult)
             }
             return allMetadata

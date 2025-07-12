@@ -263,6 +263,15 @@ enum JSONValue: Codable {
             try container.encode(array)
         }
     }
+
+    var stringValue: String? {
+        switch self {
+            case .string(let value):
+                return value
+            default:
+                return nil
+        }
+    }
 }
 
 // NFT attributes

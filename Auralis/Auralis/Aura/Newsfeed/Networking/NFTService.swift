@@ -1,109 +1,11 @@
 import Foundation
 import SwiftData
+import SwiftUI
 
 
-
-//================================================================================================================
-//================================================================================================================
-
-// MARK: - Circuit Breaker
-actor CircuitBreaker {
-    private let failureThreshold: Int
-    private let resetTimeout: TimeInterval
-    private let halfOpenMaxCalls: Int
-
-    private var failureCount = 0
-    private var lastFailureTime: Date?
-    private var state: State = .closed
-    private var halfOpenCalls = 0
-
-    enum State {
-        case closed, open, halfOpen
-    }
-
-    init(failureThreshold: Int = 5, resetTimeout: TimeInterval = 60, halfOpenMaxCalls: Int = 3) {
-        self.failureThreshold = failureThreshold
-        self.resetTimeout = resetTimeout
-        self.halfOpenMaxCalls = halfOpenMaxCalls
-    }
-
-    func canExecute() -> Bool {
-        switch state {
-        case .closed:
-            return true
-        case .open:
-            if let lastFailure = lastFailureTime, Date().timeIntervalSince(lastFailure) > resetTimeout {
-                state = .halfOpen
-                halfOpenCalls = 0
-                return true
-            }
-            return false
-        case .halfOpen:
-            if halfOpenCalls < halfOpenMaxCalls {
-               halfOpenCalls += 1
-               return true
-            }
-            return false
-        }
-    }
-
-    func recordSuccess() {
-        failureCount = 0
-        state = .closed
-        halfOpenCalls = 0
-    }
-
-    func recordFailure() {
-        failureCount += 1
-        lastFailureTime = Date()
-
-        if state == .halfOpen || failureCount >= failureThreshold {
-            state = .open
-            halfOpenCalls = 0  // Reset counter
-        }
-    }
-}
-//================================================================================================================
-// MARK: - Helper Classes
-actor AsyncSemaphore {
-    private var permits: Int
-    private var waiters: [CheckedContinuation<Void, Never>] = []
-
-    init(initialPermits: Int = 1) {
-        self.permits = initialPermits
-    }
-
-    func wait() async {
-        if permits > 0 {
-            permits -= 1
-            return
-        }
-
-        await withCheckedContinuation { continuation in
-            waiters.append(continuation)
-        }
-    }
-
-    func signal() {
-        if let next = waiters.first {
-            waiters.removeFirst()
-            next.resume()
-        } else {
-            permits += 1
-        }
-    }
-}
-
-//================================================================================================================
-// MARK: - Optimized NFT Service
 @Observable
 class NFTService {
     private let nftFetcher = NFTFetcher()
-    private let circuitBreaker = CircuitBreaker()
-
-    // Rate limiting
-    private let rateLimiter = AsyncSemaphore()
-    private var isProcessing = false
 
     var isLoading: Bool { nftFetcher.loading }
     var itemsLoaded: Int? { nftFetcher.itemsLoaded }
@@ -112,6 +14,7 @@ class NFTService {
 
     func fetchAllNFTs(for accountAddress: String, chain: Chain, modelContext: ModelContext) async {
         do {
+            print("========== Fetching NFTs for \(accountAddress) ==========")
             let nfts = try await nftFetcher.fetchAllNFTs(for: accountAddress, chain: chain)
 
             guard let nfts else {
@@ -131,25 +34,8 @@ class NFTService {
                 }
             }
 
-            // Process NFTs with priority and concurrency control
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                for nft in nfts {
-                    group.addTask {
-                        do {
-                            try await self.processNFTItem(
-                                nft: nft,
-                                tokenURIs: Set([nft.tokenUri, nft.raw?.tokenUri].compactMap(\.self)),
-                                modelContext: modelContext
-                            )
-                        } catch {
-                            print("Failed to process NFT \(nft.id): \(error)")
-                        }
-                    }
-                }
-
-                // Wait for all tasks to complete
-                for try await _ in group { }
-            }
+            // Fetch metadata for all NFTs in batches
+            await fetchMetadataForNFTs(nfts, chain: chain, modelContext: modelContext)
 
             // Clean up old NFTs
             await cleanupOldNFTs(currentNFTIDs: nfts.map(\.id), modelContext: modelContext)
@@ -165,127 +51,107 @@ class NFTService {
         }
     }
 
-    private func processNFTItem(nft: NFT, tokenURIs: Set<String>, modelContext: ModelContext) async throws {
-        // Process each unique token URI
-        for tokenURI in tokenURIs {
-            await rateLimiter.wait()
-            await parseNFTMetadata(nft: nft, tokenURI: tokenURI, modelContext: modelContext)
-            await rateLimiter.signal()
-        }
-    }
+    private func fetchMetadataForNFTs(_ nfts: [NFT], chain: Chain, modelContext: ModelContext) async {
+        // Create TokenRequest objects for NFTs that need metadata
+        let tokenRequests = await createTokenRequestsForNFTs(nfts, modelContext: modelContext)
 
-    private func parseNFTMetadata(nft: NFT, tokenURI: String, modelContext: ModelContext) async {
-        // Check if we already have metadata for this NFT
-        guard await !hasMetadataForNFT(tokenURI: tokenURI, modelContext: modelContext) else {
+        guard !tokenRequests.isEmpty else {
             return
         }
 
-        // Handle base64 JSON token URI
-        if let decodedTokenURI = tokenURI.base64JSON {
-            await processBase64TokenURI(decodedTokenURI, for: nft, modelContext: modelContext)
-            return
-        }
+        // Fetch metadata in batches using Alchemy API
+        let metadataResponses = await nftFetcher.fetchMetadataBatchLarge(for: tokenRequests, chain: chain)
 
-        // Handle URL-based token URI
-        guard let url = URL(string: tokenURI) else { return }
-
-        do {
-            let metadata = try await self.fetchMetadataWithCircuitBreaker(url: url, tokenURI: tokenURI) ?? [:]
-            await updateNFTWithMetadata(nft: nft, metadata: metadata, modelContext: modelContext)
-        } catch {
-            print("Failed to fetch metadata for \(tokenURI): \(error)")
-        }
+        // Update NFTs with fetched metadata
+        await updateNFTsWithMetadata(nfts: nfts, metadataResponses: metadataResponses, modelContext: modelContext)
     }
 
-    private func hasMetadataForNFT(tokenURI: String, modelContext: ModelContext) async -> Bool {
-        return await MainActor.run {
-            do {
-                let descriptor = FetchDescriptor<NFT>(
-                    predicate: #Predicate<NFT> {
-                        $0.tokenUri == tokenURI &&
-                        ($0.name != nil || $0.nftDescription != nil || $0.timeLastUpdated != nil)
-                    }
+    private func createTokenRequestsForNFTs(_ nfts: [NFT], modelContext: ModelContext) async -> [TokenRequest] {
+        var tokenRequests: [TokenRequest] = []
+
+        for nft in nfts {
+            // Check if NFT already has metadata
+            if !nft.hasMetaData, let contractAddress = nft.contract.address {
+                let tokenRequest = TokenRequest(
+                    contractAddress: contractAddress,
+                    tokenId: nft.tokenId
                 )
-
-                let fetchedNFTs = try modelContext.fetch(descriptor)
-
-                guard let fetchedNFT = fetchedNFTs.first else {
-                    return false
-                }
-
-                // Check if essential metadata fields are populated
-                return fetchedNFT.hasMetaData
-            } catch {
-                return false
+                tokenRequests.append(tokenRequest)
             }
         }
+
+        return tokenRequests
     }
 
-    private func fetchMetadataWithCircuitBreaker(url: URL, tokenURI: String) async throws -> [String: Any]? {
-        guard await circuitBreaker.canExecute() else {
-            throw NSError(domain: "CircuitBreakerOpen", code: -1, userInfo: [NSLocalizedDescriptionKey: "Circuit breaker is open"])
-        }
-
-        do {
-            let metadata = try await withRetry(url: url, tokenURI: tokenURI)
-            await circuitBreaker.recordSuccess()
-            return metadata
-        } catch {
-            await circuitBreaker.recordFailure()
-            throw error
-        }
-    }
-
-    private func fetchMetadata(url: URL, tokenURI: String) async throws -> [String: Any]? {
-        // Normalize URL
-        let normalizedURL = await normalizeURL(from: url, originalTokenURI: tokenURI)
-
-        guard let secureURL = normalizedURL, secureURL.scheme == "https" else {
-            throw NSError(domain: "InvalidURL", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid or insecure URL"])
-        }
-
-        let (data, _) = try await URLSession.shared.data(from: secureURL)
-
-        guard let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
-            throw NSError(domain: "InvalidJSON", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON data"])
-        }
-
-        return json
-    }
-
-    private func normalizeURL(from url: URL, originalTokenURI: String) async -> URL? {
-        if url.isIPFS, let ipfsHTML = url.ipfsHTML {
-            return ipfsHTML
-        } else if url.scheme == "ar",
-                  let arWeaveURLString = try? ArweaveURLConverter.convertURL(originalTokenURI),
-                  let arWeaveURL = URL(string: arWeaveURLString) {
-            return arWeaveURL
-        } else if url.scheme?.lowercased() == "http",
-                  var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-            components.scheme = "https"
-            return components.url ?? url
-        } else if url.scheme != "https" {
-            return nil
-        }
-
-        return url
-    }
-
-    private func updateNFTWithMetadata(nft: NFT, metadata: [String: Any], modelContext: ModelContext) async {
+    private func updateNFTsWithMetadata(nfts: [NFT], metadataResponses: [NFTMetadataResponse], modelContext: ModelContext) async {
         await MainActor.run {
-            do {
-                let descriptor = FetchDescriptor<NFT>(predicate: #Predicate { return $0.id == nft.id })
-                guard let fetchedNFTs = try? modelContext.fetch(descriptor), let fetchedNFT = fetchedNFTs.first else {
-                    return
+            // Create a lookup dictionary for faster access
+            var metadataLookup: [String: NFTMetadataResponse] = [:]
+
+            for response in metadataResponses {
+                if let contractAddress = response.contract?.address,
+                   let tokenId = response.tokenId {
+                    let key = "\(contractAddress.lowercased())_\(tokenId)"
+                    metadataLookup[key] = response
                 }
+            }
 
-                // Apply all the metadata updates from your original code
-                updateNFTProperties(fetchedNFT, with: metadata)
+            // Update each NFT with its corresponding metadata
+            for nft in nfts {
+                if let contractAddress = nft.contract.address {
+                    let tokenId = nft.tokenId
+                    let key = "\(contractAddress.lowercased())_\(tokenId)"
 
+                    if let metadataResponse = metadataLookup[key],
+                       let rawMetadata = metadataResponse.raw?.metadata {
+                        updateNFTWithMetadata(nft: nft, metadata: rawMetadata, modelContext: modelContext)
+                    }
+                }
+            }
+
+            do {
                 try modelContext.save()
             } catch {
-                print("Error updating NFT with metadata: \(error)")
+                print("Error saving NFT metadata updates: \(error)")
+                nftFetcher.error = error
             }
+        }
+    }
+
+    private func updateNFTWithMetadata(nft: NFT, metadata: [String: JSONValue], modelContext: ModelContext) {
+        // Convert JSONValue dictionary to [String: Any] for easier processing
+        let metadataDict = convertJSONValueToAny(metadata)
+
+        // Update NFT properties using the existing updateNFTProperties method
+        updateNFTProperties(nft, with: metadataDict)
+    }
+
+    private func convertJSONValueToAny(_ jsonValue: [String: JSONValue]) -> [String: Any] {
+        var result: [String: Any] = [:]
+
+        for (key, value) in jsonValue {
+            result[key] = convertJSONValueToAny(value)
+        }
+
+        return result
+    }
+
+    private func convertJSONValueToAny(_ jsonValue: JSONValue) -> Any {
+        switch jsonValue {
+        case .string(let value):
+            return value
+        case .int(let value):
+            return value
+        case .double(let value):
+            return value
+        case .bool(let value):
+            return value
+        case .object(let dict):
+            return convertJSONValueToAny(dict)
+        case .array(let array):
+            return array.map { convertJSONValueToAny($0) }
+        case .null:
+            return NSNull()
         }
     }
 
@@ -341,10 +207,6 @@ class NFTService {
             nft.artistWebsite = artistWebsite
         }
 
-    //    if let artistRoyalty = json["artistRoyalty"] as? [String: Any] {
-    //        nft.artistRoyalty = artistRoyalty
-    //    }
-
         // Media URLs
         // First handle image URLs
         if let imageURLString = json["image"] as? String {
@@ -398,10 +260,6 @@ class NFTService {
             nft.imageHash = imageHash
         }
 
-    //    if let imageDetails = json["imageDetails"] as? [String: Any] {
-    //        nft.imageDetails = imageDetails
-    //    }
-
         // Then handle animation URLs
         if let animationURLString = json["animationUrl"] as? String, let animationURL = URL(string: animationURLString) {
             nft.animationUrl = animationURLString
@@ -410,11 +268,6 @@ class NFTService {
             nft.animationUrl = animationURLString
             nft.secureAnimationUrl = ensureSecureURL(animationURL)?.absoluteString
         }
-
-        // Handle animation details
-    //    if let animationDetails = json["animationDetails"] as? [String: Any] {
-    //        nft.animationDetails = animationDetails
-    //    }
 
         // Handle audio URLs
         if let audioURLString = json["audioUrl"] as? String {
@@ -539,77 +392,6 @@ class NFTService {
         if let aspectRatio = json["aspectRatio"] as? Double {
             nft.aspectRatio = aspectRatio
         }
-
-        // Complex data structures (commented out as in original)
-    //    if let platform = json["platform"] as? [String: Any] {
-    //        nft.platform = platform
-    //    }
-
-    //    if let copyright = json["copyright"] as? [String: Any] {
-    //        nft.copyright = copyright
-    //    }
-
-    //    if let license = json["license"] as? [String: Any] {
-    //        nft.license = license
-    //    }
-
-    //    if let generatorUrl = json["generatorUrl"] as? [String: Any] {
-    //        nft.generatorUrl = generatorUrl
-    //    }
-
-    //    if let termsOfService = json["termsOfService"] as? [String: Any] {
-    //        nft.termsOfService = termsOfService
-    //    }
-
-    //    if let feeRecipient = json["feeRecipient"] as? [String: Any] {
-    //        nft.feeRecipient = feeRecipient
-    //    }
-
-    //    if let royalties = json["royalties"] as? [String: Any] {
-    //        nft.royalties = royalties
-    //    }
-
-    //    if let royaltyInfo = json["royaltyInfo"] as? [String: Any] {
-    //        nft.royaltyInfo = royaltyInfo
-    //    }
-
-    //    if let properties = json["properties"] as? [String: Any] {
-    //        nft.properties = properties
-    //    }
-
-    //    if let exhibitionInfo = json["exhibitionInfo"] as? [String: Any] {
-    //        nft.exhibitionInfo = exhibitionInfo
-    //    }
-
-    //    if let features = json["features"] as? [String: Any] {
-    //        nft.features = features
-    //    }
-
-        // Handle traits/attributes (commented out as in original)
-    //    if let attributesArray = json["attributes"] as? [[String: Any]] {
-    //        var traits: [NFTTrait] = []
-    //
-    //        for attribute in attributesArray {
-    //            if let traitType = attribute["trait_type"] as? String,
-    //               let value = attribute["value"] {
-    //                let trait = NFTTrait(type: traitType, value: String(describing: value))
-    //                traits.append(trait)
-    //            }
-    //        }
-    //
-    //        nft.traits = traits
-    //    } else if let traitsArray = json["traits"] as? [[String: String]] {
-    //        var traits: [NFTTrait] = []
-    //
-    //        for trait in traitsArray {
-    //            if let type = trait["type"], let value = trait["value"] {
-    //                let nftTrait = NFTTrait(type: type, value: value)
-    //                traits.append(nftTrait)
-    //            }
-    //        }
-    //
-    //        nft.traits = traits
-    //    }
     }
 
     private func ensureSecureURL(_ url: URL) -> URL? {
@@ -620,10 +402,6 @@ class NFTService {
             return ipfsURL
         }
         return url
-    }
-
-    private func processBase64TokenURI(_ decodedURI: [String: Any], for nft: NFT, modelContext: ModelContext) async {
-        await updateNFTWithMetadata(nft: nft, metadata: decodedURI, modelContext: modelContext)
     }
 
     private func cleanupOldNFTs(currentNFTIDs: [String], modelContext: ModelContext) async {
@@ -659,32 +437,4 @@ class NFTService {
     func reset() {
         nftFetcher.reset()
     }
-
-    func withRetry(url: URL, tokenURI: String) async throws -> [String : Any]? {
-
-        let maxAttempts: Int = 3
-        let maxDelay: TimeInterval = 30.0
-        let backoffMultiplier: Double = 2.0
-
-        var lastError: Error?
-
-        for attempt in 0..<maxAttempts {
-            do {
-                return try await self.fetchMetadata(url: url, tokenURI: tokenURI)
-            } catch {
-                lastError = error
-
-                if attempt < maxAttempts - 1 {
-                    let delay = min(
-                        pow(backoffMultiplier, Double(attempt)),
-                        maxDelay
-                    )
-                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                }
-            }
-        }
-
-        throw lastError ?? NSError(domain: "RetryError", code: -1, userInfo: [NSLocalizedDescriptionKey: "All retry attempts failed"])
-    }
 }
-

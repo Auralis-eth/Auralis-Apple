@@ -304,8 +304,18 @@ class NFT: Codable {
             do {
                 metadata = try container.decodeIfPresent(NFTMetadata.self, forKey: .metadata)
             } catch {
-                let website = try container.decodeIfPresent(String.self, forKey: .metadata)
-                metadata = NFTMetadata(image: nil, name: nil, metadataDescription: website, attributes: nil)
+                do {
+                    let website = try container.decodeIfPresent(String.self, forKey: .metadata)
+                    metadata = NFTMetadata(image: nil, name: nil, metadataDescription: website, attributes: nil)
+                } catch {
+                    let website = try container.decodeIfPresent([String:JSONValue].self, forKey: .metadata)
+                    metadata = NFTMetadata(
+                        image: website?["image"]?.stringValue,
+                        name: website?["name"]?.stringValue,
+                        metadataDescription: website?["description"]?.stringValue,
+                        attributes: nil
+                    )
+                }
             }
         }
         

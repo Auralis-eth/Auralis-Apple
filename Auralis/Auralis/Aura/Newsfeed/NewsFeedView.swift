@@ -51,5 +51,12 @@ struct NewsFeedView: View {
                 )
             }
         }
+        .task { @MainActor in
+            await nftService.refreshNFTs(
+                for: currentAccount,
+                chain: currentChain,
+                modelContext: modelContext
+            )
+        }
     }
 }

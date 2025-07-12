@@ -31,7 +31,21 @@ struct MainAuraView: View {
                 VStack {
                     Text("HELLO \(currentAccount?.address ?? "")")
                     Button("Logout") {
-                        self.currentAccount = nil
+                        do {
+                            try modelContext.delete(model: NFT.self)
+                            try modelContext.delete(model: EOAccount.self)
+                            self.currentAccount = nil
+                        } catch {
+
+                        }
+                    }
+                    if let address = currentAccount?.address {
+                        Button("Fetch") {
+                            Task {
+                                let nfts = try await NFTFetcher().fetchAllNFTs(for: address, chain: currentChain)
+                                print(nfts)
+                            }
+                        }
                     }
                 }
                 .sheet(isPresented: $isPresented) {
