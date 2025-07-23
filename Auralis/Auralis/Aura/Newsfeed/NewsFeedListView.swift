@@ -9,6 +9,7 @@ import SwiftData
 import SwiftUI
 
 struct NewsFeedListView: View {
+    @Query private var collections: [NFT.Collection]
     @Environment(\.modelContext) private var modelContext
     @Binding var currentAccount: EOAccount?
     @Binding var selectedNFT: NFT?
@@ -19,22 +20,30 @@ struct NewsFeedListView: View {
     let nftService: NFTService
 
     var body: some View {
-        NewsFeedListingView(
-            currentAccount: $currentAccount,
-            selectedNFT: $selectedNFT,
-            sort: sortOrder,
-            searchString: searchText,
-            nftService: nftService,
-            currentChain: $currentChain
-        )
+        VStack {
+            ForEach(collections) { collection in
+                Text(collection.name ?? "NO NAME")
+            }
+            if collections.isEmpty {
+                Text("No collections found")
+            }
+            NewsFeedListingView(
+                currentAccount: $currentAccount,
+                selectedNFT: $selectedNFT,
+                sort: sortOrder,
+                searchString: searchText,
+                nftService: nftService,
+                currentChain: $currentChain
+            )
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     // Sort options
-                    Menu("Time", systemImage: "clock") {
-                        NFTSortButton(title: "Last Update", sortOrder: $sortOrder, keyPath: \.timeLastUpdated)
-                        NFTSortButton(title: "Acquired", sortOrder: $sortOrder, keyPath: \.acquiredAt?.blockTimestamp)
-                    }
+//                    Menu("Time", systemImage: "clock") {
+//                        NFTSortButton(title: "Last Update", sortOrder: $sortOrder, keyPath: \.timeLastUpdated)
+                    NFTSortButton(title: "Acquired", sortOrder: $sortOrder, keyPath: \.acquiredAt?.blockTimestamp)
+//                    }
 
                     NFTSortButton(title: "Collection Name", sortOrder: $sortOrder, keyPath: \.collection?.name)
                     NFTSortButton(title: "Item Name", sortOrder: $sortOrder, keyPath: \.name)
