@@ -16,6 +16,29 @@ class NFTService {
     var total: Int? { nftFetcher.total }
     var error: Error? { nftFetcher.error }
 
+    //                NFTService
+    //                    try recovery
+    //                        store pageKey in user defaults
+    //                            nil when success
+    //                        show collected NFTs
+    //                        in the UI have a button to retry continuation
+    //                    Redundancy Providers
+    //                        Backfill or failover with Reservoir, Zora API, or Moralis, QuickNode, Chainstack, BlockSpan, Coinbase, NFTScan
+    //
+    //
+    //
+
+    //move parsing from the other code over
+
+    //TODO: 3) in the NFTService have the metadata parse out whats there
+    //      parse metadata
+    //      move more fetching and processing to the background
+    //TODO: re-arch for getting ModelContainer instead of ModelContext
+//    func fetchAllNFTs(for accountAddress: String, chain: Chain, container: ModelContainer) async {
+//        let newContext = ModelContext(container)
+//        await fetchAllNFTs(for: accountAddress, chain: chain, modelContext: newContext)
+//    }
+
     func fetchAllNFTs(for accountAddress: String, chain: Chain, modelContext: ModelContext) async {
         do {
             let nfts = try await nftFetcher.fetchAllNFTs(for: accountAddress, chain: chain)//NFT.sampleData
@@ -50,10 +73,12 @@ class NFTService {
                     }
                 }
 
-                // Clean up old NFTs that are no longer owned
-                group.addTask {
+                if nftFetcher.currentCursor == nil {
                     // Clean up old NFTs that are no longer owned
-                    await self.cleanupOldNFTs(currentNFTIDs: nfts.map(\.id), modelContext: modelContext)
+                    group.addTask {
+                        // Clean up old NFTs that are no longer owned
+                        await self.cleanupOldNFTs(currentNFTIDs: nfts.map(\.id), modelContext: modelContext)
+                    }
                 }
             }
 
