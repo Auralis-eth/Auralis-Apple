@@ -171,14 +171,17 @@ struct AddressEntryView: View {
     }
     private func validateAddress(_ address: String) {
         // Simple validation - should be 42 chars with 0x prefix
-        isAddressValid = address.count == 42 && address.hasPrefix("0x") && extractEthereumAddress(address) != nil
+        isAddressValid = extractEthereumAddress(address) != nil
     }
     private func extractEthereumAddress(_ input: String) -> String? {
-        // Use regular expression to match Ethereum address pattern
-        let addressPattern = #"(0x[a-fA-F0-9]{40})"#
+        let address = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !address.isEmpty else { return nil }
 
-        if let match = input.range(of: addressPattern, options: .regularExpression) {
-            return String(input[match])
+        // Use regular expression to match Ethereum address pattern
+        let addressPattern = #"^0x[a-fA-F0-9]{40}$"#
+
+        if let match = address.range(of: addressPattern, options: .regularExpression) {
+            return String(address[match])
         }
 
         return nil

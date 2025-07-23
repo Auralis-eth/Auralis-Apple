@@ -101,6 +101,17 @@ class AlchemyNFTService {
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            // Check HTTP status
+            if let httpResponse = response as? HTTPURLResponse {
+                print("Status code: \(httpResponse.statusCode)")
+                if httpResponse.statusCode == 429 {
+                    // Rate limited - implement exponential backoff
+                    throw URLError(.resourceUnavailable)
+                } else {
+                    print("Status code: \(httpResponse.statusCode)")
+                    print("Headers: \(httpResponse.allHeaderFields)")
+                }
+            }
             throw URLError(.badServerResponse)
         }
 

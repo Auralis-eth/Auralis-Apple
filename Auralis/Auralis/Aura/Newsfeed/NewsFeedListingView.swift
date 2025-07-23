@@ -91,6 +91,9 @@ struct NewsFeedListingView: View {
                 }
             }
             .task { @MainActor in
+                guard !nfts.isEmpty else {
+                    return
+                }
                 await nftService.refreshNFTs(
                     for: currentAccount,
                     chain: currentChain,

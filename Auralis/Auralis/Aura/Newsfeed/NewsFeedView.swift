@@ -14,6 +14,7 @@ import SwiftUI
 
 struct NewsFeedView: View {
     @Environment(\.modelContext) private var modelContext
+    
     @Binding var currentAccount: EOAccount?
     @State private var selectedNFT: NFT?
     @State private var nftService = NFTService()

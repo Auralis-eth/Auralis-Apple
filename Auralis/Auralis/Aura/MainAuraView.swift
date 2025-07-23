@@ -13,6 +13,7 @@ struct MainAuraView: View {
     @AppStorage("currentAccountAddress") var currentAddress: String = ""
     @AppStorage("currentChainId") var currentChainId: String = Chain.ethMainnet.rawValue
     @Environment(\.modelContext) private var modelContext
+
     @State private var currentAccount: EOAccount?
     @State private var currentChain: Chain = .ethMainnet
 
@@ -31,6 +32,8 @@ struct MainAuraView: View {
                 VStack {
                     Text("HELLO \(currentAccount?.address ?? "")")
                     Button("Logout") {
+                        try? modelContext.delete(model: NFT.self)
+                        try? modelContext.delete(model: EOAccount.self)
                         self.currentAccount = nil
                     }
                 }
