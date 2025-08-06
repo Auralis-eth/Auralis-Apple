@@ -72,7 +72,7 @@ struct Card3D<Content: View>: View {
 }
 
 
-@available(iOS 26.0, *)
+
 struct GlassCard3D<Content: View>: View {
     let content: () -> Content
     let cardColor: Color

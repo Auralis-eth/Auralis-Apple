@@ -33,6 +33,13 @@ struct NewsFeedView: View {
             .background(Color.background)
         }
         .background(Color.background)
+        .task { @MainActor in
+            await nftService.refreshNFTs(
+                for: currentAccount,
+                chain: currentChain,
+                modelContext: modelContext
+            )
+        }
         ////            .scrollEdgeEffectStyle(.soft, for: .vertical)
         ////            .backgroundExtensionEffect()
 
@@ -42,15 +49,6 @@ struct NewsFeedView: View {
                 chain: currentChain,
                 modelContext: modelContext
             )
-        }
-        .onChange(of: currentAccount, initial: false) {
-            Task {
-                await nftService.refreshNFTs(
-                    for: currentAccount,
-                    chain: currentChain,
-                    modelContext: modelContext
-                )
-            }
         }
     }
 }

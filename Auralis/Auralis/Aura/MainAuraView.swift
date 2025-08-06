@@ -38,19 +38,16 @@ struct MainAuraView: View {
                     }
                 }
                 .sheet(isPresented: $isPresented) {
-                    if #available(iOS 26.0, *) {
-                        Button(action: {
-                            presentDialog = true
-                        }, label: {
-                            Text("hello")
-                        })
-                        .confirmationDialog("Delete?", isPresented: $presentDialog) {
-                            Text("not deleted")
-                        }
-                            .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
-                    }  else {
-                        Text("NO SHEET")
+                    Button(action: {
+                        presentDialog = true
+                    }, label: {
+                        Text("hello")
+                    })
+                    .confirmationDialog("Delete?", isPresented: $presentDialog) {
+                        Text("not deleted")
                     }
+                    .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
+
                 }
             }
 
@@ -82,17 +79,13 @@ struct MainAuraView: View {
     var body: some View {
         Group {
             if let currentAccount {
-                if #available(iOS 26.0, *) {
-                    tabView
-                        .tabBarMinimizeBehavior(.onScrollDown)
+                tabView
+                    .tabBarMinimizeBehavior(.onScrollDown)
 //                        .tabViewBottomAccessory {
 //                            if 0 > 9 {
 //                                Text("Hello")
 //                            }
 //                        }
-                } else {
-                    tabView
-                }
             } else {
                 LoginView(currentAccount: $currentAccount)
             }

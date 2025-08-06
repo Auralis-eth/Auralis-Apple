@@ -16,23 +16,6 @@ class NFTService {
     var total: Int? { nftFetcher.total }
     var error: Error? { nftFetcher.error }
 
-    //                NFTService
-    //                    try recovery
-    //                        store pageKey in user defaults
-    //                            nil when success
-    //                        show collected NFTs
-    //                        in the UI have a button to retry continuation
-    //                    Redundancy Providers
-    //                        Backfill or failover with Reservoir, Zora API, or Moralis, QuickNode, Chainstack, BlockSpan, Coinbase, NFTScan
-    //
-    //
-    //
-
-    //move parsing from the other code over
-
-    //TODO: 3) in the NFTService have the metadata parse out whats there
-    //      parse metadata
-    //      move more fetching and processing to the background
     //TODO: re-arch for getting ModelContainer instead of ModelContext
 //    func fetchAllNFTs(for accountAddress: String, chain: Chain, container: ModelContainer) async {
 //        let newContext = ModelContext(container)
@@ -41,45 +24,31 @@ class NFTService {
 
     func fetchAllNFTs(for accountAddress: String, chain: Chain, modelContext: ModelContext) async {
         do {
-            let nfts = try await nftFetcher.fetchAllNFTs(for: accountAddress, chain: chain)//NFT.sampleData
+            let nfts = try await nftFetcher.fetchAllNFTs(for: accountAddress, chain: chain)
 
             guard let nfts else {
                 return
             }
 
-            // Insert new NFTs
-            await MainActor.run {
-                for nft in nfts {
-                    modelContext.insert(nft)
-                }
-
-                do {
-                    try modelContext.save()
-                } catch {
-                    nftFetcher.error = error
-                }
+            nfts.forEach {
+                $0.parseMetadata()
             }
 
-            await withTaskGroup(of: Void.self) { group in
-                // Parse metadata for each NFT
-                group.addTask {
-                    // Parse metadata for each NFT
-                    await withTaskGroup(of: Void.self) { group in
-                        for nft in nfts {
-                            group.addTask {
-                                await self.parseNFTMetadata(nft: nft, modelContext: modelContext)
-                            }
-                        }
-                    }
-                }
+            if (nftFetcher.itemsLoaded ?? 0) > (nftFetcher.total ?? 0) - 200 || nftFetcher.currentCursor == nil {
+                await cleanupOldNFTs(currentNFTIDs: nfts.map(\.id), modelContext: modelContext)
+            } else if let currentCursor = nftFetcher.currentCursor {
+                UserDefaults.standard.set(currentCursor, forKey: "currentCursor")
+            }
 
-                if nftFetcher.currentCursor == nil {
-                    // Clean up old NFTs that are no longer owned
-                    group.addTask {
-                        // Clean up old NFTs that are no longer owned
-                        await self.cleanupOldNFTs(currentNFTIDs: nfts.map(\.id), modelContext: modelContext)
+            do {
+                try await MainActor.run {
+                    for nft in nfts {
+                        modelContext.insert(nft)
                     }
+                    try modelContext.save()
                 }
+            } catch {
+                print("Error updating NFT in SwiftData: \(error)")
             }
 
         } catch {
@@ -105,40 +74,6 @@ class NFTService {
         )
     }
 
-    private func parseNFTMetadata(nft: NFT, modelContext: ModelContext) async {
-        let tokenURIs = Set([nft.tokenUri, nft.raw?.tokenUri].compactMap(\.self))
-        let siftedTokenURIs = tokenURIs.siftTokenURIs()
-
-        guard !siftedTokenURIs.isEmpty else { return }
-
-        if siftedTokenURIs.count > 1 {
-            print("Multiple token URIs found for NFT \(nft.id)")
-        }
-
-        for tokenURI in tokenURIs {
-            if let decodedTokenURI = tokenURI.base64JSON {
-                // Handle base64 JSON token URI
-                await processBase64TokenURI(decodedTokenURI, for: nft, modelContext: modelContext)
-            } else if let url = URL(string: tokenURI) {
-                // Handle URL-based token URI
-                await MainActor.run {
-                    NFTMetaParser(
-                        url: url,
-                        tokenURI: tokenURI,
-                        nftID: nft.id,
-                        modelContext: modelContext
-                    ).startParsing()
-                }
-            }
-        }
-    }
-
-    private func processBase64TokenURI(_ decodedURI: [String : Any], for nft: NFT, modelContext: ModelContext) async {
-        // Add your base64 JSON processing logic here
-        // This might involve parsing JSON and updating the NFT metadata
-        print("Processing base64 token URI for NFT: \(nft.id)")
-    }
-
     private func cleanupOldNFTs(currentNFTIDs: [String], modelContext: ModelContext) async {
         let descriptor = FetchDescriptor<NFT>(
             predicate: #Predicate<NFT> { !currentNFTIDs.contains($0.id) }
@@ -161,4 +96,25 @@ class NFTService {
         nftFetcher.reset()
     }
 
+}
+
+extension NFT {
+    func parseMetadata() {
+        let tokenURIs = Set([tokenUri, raw?.tokenUri].compactMap(\.self))
+        let siftedTokenURIs = tokenURIs.siftTokenURIs()
+
+        guard !siftedTokenURIs.isEmpty else { return }
+
+        if siftedTokenURIs.count > 1 {
+            print("Multiple token URIs found for NFT \(id)")
+        }
+
+        for tokenURI in tokenURIs {
+            if let decodedTokenURI = tokenURI.base64JSON {
+                NFTMetadataUpdater.updateNFTFromMetadata(nft: self, metadata: decodedTokenURI)
+            } else {
+                NFTMetadataUpdater.updateNFTFromMetadata(nft: self, metadata: raw?.metadata)
+            }
+        }
+    }
 }

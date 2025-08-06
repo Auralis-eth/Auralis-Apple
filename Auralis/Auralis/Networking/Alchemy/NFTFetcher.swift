@@ -40,7 +40,7 @@ actor RequestThrottler {
     var currentCursor: String? = nil
 
     func fetchAllNFTs(for account: String, chain: Chain) async throws -> [NFT]? {
-        return NFTExamples.allExamples
+//        return NFTExamples.allExamples
         guard let apiKey = Secrets.apiKey(.alchemy) else {
             fatalError("API key not set")
         }
@@ -75,6 +75,7 @@ actor RequestThrottler {
                 currentCursor = nfts.pageKey
                 if let totalItems = total {
                     if seenItems >= totalItems {
+                        currentCursor = nil
                         break
                     }
                 }

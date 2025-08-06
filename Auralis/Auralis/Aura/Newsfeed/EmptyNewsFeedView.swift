@@ -45,15 +45,8 @@ struct EmptyNewsFeedView: View {
     }
 
     var body: some View {
-        if #available(iOS 26.0, *) {
-            content
-            .padding()
-            .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
-        } else  {
-            Card3D(cardColor: .surface) {
-                content
-            }
-            .padding(.horizontal, 40)
-        }
+        content
+        .padding()
+        .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
     }
 }

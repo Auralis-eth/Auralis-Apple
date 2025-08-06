@@ -60,13 +60,13 @@ struct NewsFeedListingView: View {
                 currentChain: currentChain,
                 nftService: nftService
             )
-            .task { @MainActor in
-                await nftService.refreshNFTs(
-                    for: currentAccount,
-                    chain: currentChain,
-                    modelContext: modelContext
-                )
-            }
+//            .task { @MainActor in
+//                await nftService.refreshNFTs(
+//                    for: currentAccount,
+//                    chain: currentChain,
+//                    modelContext: modelContext
+//                )
+//            }
         } else {
             ScrollView {
                 LazyVStack(spacing: 16) {
@@ -91,7 +91,7 @@ struct NewsFeedListingView: View {
                 }
             }
             .task { @MainActor in
-                guard !nfts.isEmpty else {
+                guard nfts.isEmpty else {
                     return
                 }
                 await nftService.refreshNFTs(

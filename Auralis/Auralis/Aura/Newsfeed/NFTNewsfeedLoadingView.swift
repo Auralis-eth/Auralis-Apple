@@ -18,36 +18,19 @@ struct NFTNewsfeedLoadingView: View {
     var size: Size = .large
 
     var body: some View {
-        if #available(iOS 26.0, *) {
-            VStack {
-                if size == .large {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
-                        .padding(.top)
-                }
-                HeadlineFontText("Loading NFTs...")
-                    .padding(.top, 16)
-                LoadingProgressView(total: total, itemsLoaded: itemsLoaded)
+        VStack {
+            if size == .large {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
+                    .padding(.top)
             }
-            .padding(.vertical)
-            .frame(maxWidth: size == .large ? .infinity : 200)
-            .glassEffect(.regular.tint(.surface.opacity(0.2)), in: .rect(cornerRadius: 32))
-        } else {
-            Card3D(cardColor: .surface) {
-                VStack {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
-
-                    HeadlineFontText("Loading NFTs...")
-                        .padding(.top, 16)
-                    Card3D(cardColor: .surface) {
-                        LoadingProgressView(total: total, itemsLoaded: itemsLoaded)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            HeadlineFontText("Loading NFTs...")
+                .padding(.top, 16)
+            LoadingProgressView(total: total, itemsLoaded: itemsLoaded)
         }
+        .padding(.vertical)
+        .frame(maxWidth: size == .large ? .infinity : 200)
+        .glassEffect(.regular.tint(.surface.opacity(0.2)), in: .rect(cornerRadius: 32))
     }
 }

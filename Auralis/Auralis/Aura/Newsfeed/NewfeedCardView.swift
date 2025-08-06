@@ -190,26 +190,17 @@ struct NewfeedCardView: View {
                 // Bottom content
             HStack(alignment: .bottom) {
                 ScrollView {
-                    if #available(iOS 26.0, *) {
-                        cardDetailsView
-                            .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
-                            .safeAreaPadding(.leading, 15)
-                    } else {
-                        cardDetailsView
-                            .background(Color.black.gradient.opacity(0.1))
-                            .safeAreaPadding(.leading, 15)
-                    }
+                    cardDetailsView
+                        .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
+                        .safeAreaPadding(.leading, 15)
                 }
                 .defaultScrollAnchor((isExpanded && (nft.nftDescription?.count ?? 0) > 1000) ? .top : .bottom)
 
                 Spacer()
-                if #available(iOS 26.0, *) {
-                    GlassEffectContainer(spacing: 12) {
-                        buttons
-                            .glassEffect(.regular.tint(.surface), in: .capsule)
-                    }
-                } else {
+
+                GlassEffectContainer(spacing: 12) {
                     buttons
+                        .glassEffect(.regular.tint(.surface), in: .capsule)
                 }
             }
             .padding(.horizontal, 20)

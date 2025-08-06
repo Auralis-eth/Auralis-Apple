@@ -15,9 +15,10 @@ struct AddressEntryView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var currentAccount: EOAccount?
 
-    var addressEntryCard: some View {
-        VStack(spacing: 25) {
-            VStack(alignment: .leading, spacing: 8) {
+    var body: some View {
+            // Bottom form section
+        Group {
+            VStack {
                 HStack {
                     Image(systemName: "square.and.pencil")
                         .foregroundStyle(Color.deepBlue)
@@ -33,134 +34,44 @@ struct AddressEntryView: View {
                         }
 
                     QRScannerView(account: $currentAccount)
+                        .transition(.opacity)
                 }
                 .padding(.horizontal, 15)
                 .padding(.vertical, 18)
 
-                Rectangle()
-                    .fill(Color.deepBlue.opacity(0.3))
-                    .frame(height: 1)
-            }
-            .padding(.horizontal, 30)
+                Button {
+                    // Handle sign in action
+                    guard address.isEmpty == false else {
+                        showingAlert = true
+                        return
+                    }
 
-            // Sign In Button
-            Button(action: {
-                // Handle sign in action
-                guard address.isEmpty == false else {
-                    showingAlert = true
-                    return
-                }
+                    validateAddress(address)
 
-                validateAddress(address)
+                    guard isAddressValid else {
+                        showingAlert = true
+                        return
+                    }
 
-                guard isAddressValid else {
-                    showingAlert = true
-                    return
-                }
-
-                let eoAccount = EOAccount(address: address, access: .readonly)
-                self.currentAccount = eoAccount
-                modelContext.insert(eoAccount)
-                try? modelContext.save()
-                self.address = ""
-            }) {
-                if #available(iOS 26.0, *) {
+                    let eoAccount = EOAccount(address: address, access: .readonly)
+                    self.currentAccount = eoAccount
+                    modelContext.insert(eoAccount)
+                    try? modelContext.save()
+                    self.address = ""
+                } label: {
                     Text("View Assets")
-                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Color.textPrimary)
+                        .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .cornerRadius(25)
-                } else {
-                    Text("View Assets")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.textPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(
-                            LinearGradient(
-                                colors: [Color.accent, Color.deepBlue.opacity(0.8)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .cornerRadius(25)
+                        .background(Color.accent.gradient, in: .capsule)
                 }
+                .padding(.horizontal, 30)
+                .padding(.bottom, 18)
             }
-            .padding(.horizontal, 30)
-        }
-    }
-
-    var body: some View {
-            // Bottom form section
-        Group {
-            if #available(iOS 26.0, *) {
-                VStack {
-                    HStack {
-                        Image(systemName: "square.and.pencil")
-                            .foregroundStyle(Color.deepBlue)
-                            .font(.system(size: 30, weight: .medium))
-                        TextField("Ethereum Address", text: $address)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                            .font(.body)  // Use your desired font
-                            .scrollContentBackground(.hidden)
-                            .foregroundStyle(Color.surface)
-                            .onChange(of: address) { _, newValue in
-                                validateAddress(newValue)
-                            }
-
-                        QRScannerView(account: $currentAccount)
-                            .transition(.opacity)
-                    }
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 18)
-
-                    Button {
-                        // Handle sign in action
-                        guard address.isEmpty == false else {
-                            showingAlert = true
-                            return
-                        }
-
-                        validateAddress(address)
-
-                        guard isAddressValid else {
-                            showingAlert = true
-                            return
-                        }
-
-                        let eoAccount = EOAccount(address: address, access: .readonly)
-                        self.currentAccount = eoAccount
-                        modelContext.insert(eoAccount)
-                        try? modelContext.save()
-                        self.address = ""
-                    } label: {
-                        Text("View Assets")
-                            .foregroundStyle(Color.textPrimary)
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 18)
-                            .background(Color.accent.gradient, in: .capsule)
-                    }
-                    .padding(.horizontal, 30)
-                    .padding(.bottom, 18)
-                }
-                .glassEffect(.regular, in: .rect(cornerRadius: 30, style: .continuous))
-                .safeAreaPadding(15)
-                .transition(.scale.combined(with: .opacity))
-            } else {
-                addressEntryCard
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical)
-                    .background(
-                        Color.textPrimary
-                            .clipShape(
-                                RoundedRectangle(cornerRadius: 30)
-                            )
-                    )
-                    .padding(.horizontal)
-            }
+            .glassEffect(.regular, in: .rect(cornerRadius: 30, style: .continuous))
+            .safeAreaPadding(15)
+            .transition(.scale.combined(with: .opacity))
         }
         .alert("Address Required", isPresented: $showingAlert) {
             Button("OK", role: .cancel) { }

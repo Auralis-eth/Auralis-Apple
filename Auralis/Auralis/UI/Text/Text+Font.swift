@@ -203,12 +203,8 @@ struct PrimaryTextButton: View {
 struct SystemImage: View {
     let systemName: String
     var body: some View {
-        if #available(iOS 26.0, *) {
-            Image(systemName: systemName)
-                .symbolColorRenderingMode(.gradient)
-        } else {
-            Image(systemName: systemName)
-        }
+        Image(systemName: systemName)
+            .symbolColorRenderingMode(.gradient)
     }
     init(_ systemName: String) {
         self.systemName = systemName

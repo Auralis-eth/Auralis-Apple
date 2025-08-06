@@ -32,39 +32,11 @@ struct LoginView: View {
                 VStack(spacing: 0) {
                     Spacer()
 
-                    if #available(iOS 26.0, *) {
-                        LoginTitleView()
-                            .padding(.bottom, 40)
+                    LoginTitleView()
+                        .padding(.bottom, 40)
 
-                        LoginMenuView(authFlavour: $authFlavor, currentAccount: $currentAccount, isAddressExpanded: $isAddressExpanded)
+                    LoginMenuView(authFlavour: $authFlavor, currentAccount: $currentAccount, isAddressExpanded: $isAddressExpanded)
 
-                    } else {
-                        switch authFlavor {
-                            case .viewAssets:
-                                AddressEntryTitleView()
-                                Spacer()
-                            case .createWallet:
-                                Text("CREATE WALLET")
-                            case .connectWallet:
-                                Text("CONNECT WALLET")
-                            case .menu:
-                                LoginTitleView()
-                                    .padding(.bottom, 40)
-                        }
-
-                        switch authFlavor {
-                            case .viewAssets:
-                                AddressEntryView(currentAccount: $currentAccount)
-                                Spacer()
-                            case .createWallet:
-                                Text("CREATE WALLET")
-                            case .connectWallet:
-                                Text("CONNECT WALLET")
-                            case .menu:
-                                LoginMenuView(authFlavour: $authFlavor, currentAccount: $currentAccount, isAddressExpanded: $isAddressExpanded)
-                        }
-
-                    }
                 }
                 .background {
                     Image("aurora-1") // Replace with your background image

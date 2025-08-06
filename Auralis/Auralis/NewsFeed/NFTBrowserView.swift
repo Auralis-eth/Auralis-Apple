@@ -262,7 +262,7 @@ struct LoadingProgressView: View {
 
 extension String {
     //// Function to decode a raw token URI string to a dictionary
-    var base64JSON: [String: Any]? {
+    var base64JSON: [String: JSONValue]? {
         // Extract the base64 part from the URI
         // Format is: data:application/json;base64,<BASE64_ENCODED_JSON>
         guard let base64StartRange = self.range(of: "base64,") else {
@@ -281,7 +281,7 @@ extension String {
 
         // Parse the JSON as dictionary
         do {
-            guard let jsonDict = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            guard let jsonDict = try JSONSerialization.jsonObject(with: jsonData) as? [String: JSONValue] else {
                 print("Failed to decode token URI: JSON could not be converted to dictionary")
                 return nil
             }
@@ -563,16 +563,16 @@ class NFTMetaParser {
     private func fetchAndProcessData(from url: URL) async {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
-            await processResponseData(data)
+            await processResponseData(data, from: url)
         } catch {
             await handleNetworkError(error as NSError)
         }
     }
 
     // Process the response data
-    private func processResponseData(_ data: Data) async {
+    private func processResponseData(_ data: Data, from url: URL) async {
         do {
-            guard let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+            guard let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: JSONValue] else {
                 print(String(data: data, encoding: .utf8) ?? "Invalid Dictionary data")
                 return
             }
@@ -587,356 +587,21 @@ class NFTMetaParser {
                         return
                     }
 
-                    // Basic Information
-                    if let name = json[.name] as? String {
-                        nft.name = name
-                    } else if let artworkName = json[.artworkName] as? String {
-                        nft.name = artworkName
-                    }
-
-                    if let description = json[.description] as? String {
-                        nft.nftDescription = description
-                    }
-
-                    // Collection Information
-                    if let collection = json["collection"] as? [String: Any], let collectionName = collection[.name] as? String {
-                        nft.collectionName = collectionName
-                    } else if let collectionName = json[.collectionName] as? String {
-                        nft.collectionName = collectionName
-                    }
-
-                    // Additional Collection Information
-                    if let collectionID = json[.collectionID] as? String {
-                        nft.collectionID = collectionID
-                    }
-
-                    if let projectID = json[.projectID] as? String {
-                        nft.projectID = projectID
-                    }
-
-                    if let series = json[.series] as? String {
-                        nft.series = series
-                    }
-
-                    if let seriesID = json[.seriesID] as? String {
-                        nft.seriesID = seriesID
-                    }
-
-                    // Artist/Creator Information
-                    if let artistName = json["artist_name"] as? String {
-                        nft.artistName = artistName
-                    } else if let artist = json[.artist] as? String {
-                        nft.artistName = artist
-                    } else if let creator = json[.creator] as? String {
-                        nft.artistName = creator
-                    } else if let createdBy = json[.createdBy] as? String {
-                        nft.artistName = createdBy
-                    }
-
-                    // Additional Artist Information
-                    if let artistWebsite = json[.artistWebsite] as? String {
-                        nft.artistWebsite = artistWebsite
-                    }
-
-//                    if let artistRoyalty = json[.artistRoyalty] as? [String: Any] {
-//                        nft.artistRoyalty = artistRoyalty
-//                    }
-
-                    // Media URLs
-                    // First handle image URLs
-                    if let imageURLString = json[.image] as? String {
-                        nft.image?.originalUrl = imageURLString
-                        if let imageURL = URL(string: imageURLString) {
-                            nft.image?.secureUrl = ensureSecureURL(imageURL)?.absoluteString
-                        }
-                    }
-
-                    if let imageURLString = json[.imageUrl] as? String {
-                        nft.image?.originalUrl = imageURLString
-                        if let imageURL = URL(string: imageURLString) {
-                            nft.image?.secureUrl = ensureSecureURL(imageURL)?.absoluteString
-                        }
-                    }
-
-                    // Handle primary asset URLs
-                    if let primaryAssetUrl = json[.primaryAssetUrl] as? String {
-                        nft.primaryAssetUrl = primaryAssetUrl
-                        if let imageURL = URL(string: primaryAssetUrl) {
-                            nft.securePrimaryAssetUrl = ensureSecureURL(imageURL)?.absoluteString
-                        }
-                    }
-
-                    // Handle preview asset URLs
-                    if let previewAssetUrl = json[.previewAssetUrl] as? String {
-                        nft.previewAssetUrl = previewAssetUrl
-                        if let imageURL = URL(string: previewAssetUrl) {
-                            nft.securePreviewAssetUrl = ensureSecureURL(imageURL)?.absoluteString
-                        }
-                    }
-
-                    // Handle image data
-                    if let imageDataUrl = json[.imageData] as? String {
-                        nft.imageDataUrl = imageDataUrl
-                        if let imageURL = URL(string: imageDataUrl) {
-                            nft.secureImageDataUrl = ensureSecureURL(imageURL)?.absoluteString
-                        }
-                    }
-
-                    // Handle high-resolution image
-                    if let imageHrUrl = json[.imageHrUrl] as? String {
-                        nft.imageHrUrl = imageHrUrl
-                        if let imageURL = URL(string: imageHrUrl) {
-                            nft.secureImageHrUrl = ensureSecureURL(imageURL)?.absoluteString
-                        }
-                    }
-
-                    // Handle image hash and details
-                    if let imageHash = json[.imageHash] as? String {
-                        nft.imageHash = imageHash
-                    }
-
-//                    if let imageDetails = json[.imageDetails] as? [String: Any] {
-//                        nft.imageDetails = imageDetails
-//                    }
-
-                    // Then handle animation URLs
-                    if let animationURLString = json[.animationUrl] as? String, let animationURL = URL(string: animationURLString) {
-                        nft.animationUrl = animationURLString
-                        nft.secureAnimationUrl = ensureSecureURL(animationURL)?.absoluteString
-                    } else if let animationURLString = json[.animation] as? String, let animationURL = URL(string: animationURLString) {
-                        nft.animationUrl = animationURLString
-                        nft.secureAnimationUrl = ensureSecureURL(animationURL)?.absoluteString
-                    }
-
-                    // Handle animation details
-//                    if let animationDetails = json[.animationDetails] as? [String: Any] {
-//                        nft.animationDetails = animationDetails
-//                    }
-
-                    // Handle audio URLs
-                    if let audioURLString = json[.audioUrl] as? String {
-                        nft.audioUrl = audioURLString
-                    } else if let audioURLString = json[.audioURI] as? String {
-                        nft.audioUrl = audioURLString
-                    } else if let audioURLString = json[.audio] as? String {
-                        nft.audioUrl = audioURLString
-                    } else if let audioURLString = json[.losslessAudio] as? String {
-                        nft.audioUrl = audioURLString
-                    }
-
-                    // Handle external URLs/links
-                    if let externalURLString = json[.externalUrl] as? String {
-                        nft.externalUrl = externalURLString
-                    } else if let externalURLString = json["external_link"] as? String {
-                        nft.externalUrl = externalURLString
-                    } else if let externals = json[.externalUrl] as? [String: Any],
-                              let externalURLString = externals["url"] as? String {
-                        nft.externalUrl = externalURLString
-                    }
-
-                    // Handle 3D model URLs
-                    if let modelURLString = json[.modelGlb] as? String {
-                        nft.modelUrl = modelURLString
-                    } else if let modelURLString = json[.vrmUrl] as? String {
-                        nft.modelUrl = modelURLString
-                    } else if let modelURLString = json[.usdzUrl] as? String {
-                        nft.modelUrl = modelURLString
-                    } else if let modelURLString = json[.print3DSTL] as? String {
-                        nft.modelUrl = modelURLString
-                    }
-
-                    // Handle token IDs
-                    if let tokenID = json[.tokenID] as? Int {
-                        nft.tokenId = String(tokenID)
-                    } else if let tokenID = json[.tokenId] as? Int {
-                        nft.tokenId = String(tokenID)
-                    } else if let tokenIDString = json[.tokenID] as? String {
-                        nft.tokenId = tokenIDString
-                    } else if let tokenIDString = json[.tokenId] as? String {
-                        nft.tokenId = tokenIDString
-                    }
-
-                    // Handle unique ID
-                    if let uniqueID = json[.id] as? String {
-                        nft.uniqueID = uniqueID
-                    }
-
-                    // Handle timestamp and token hash
-                    if let timestamp = json[.timestamp] as? String {
-                        nft.timestamp = timestamp
-                    }
-
-                    if let tokenHash = json[.tokenHash] as? String {
-                        nft.tokenHash = tokenHash
-                    }
-
-                    // Handle metadata for background color
-                    if let backgroundColor = json[.backgroundColor] as? String {
-                        nft.backgroundColor = backgroundColor
-                    }
-
-                    // Additional metadata
-                    if let medium = json[.medium] as? String {
-                        nft.medium = medium
-                    }
-
-                    if let metadataVersion = json[.metadataVersion] as? String {
-                        nft.metadataVersion = metadataVersion
-                    }
-
-                    if let symbols = json[.symbols] as? String {
-                        nft.symbols = symbols
-                    }
-
-                    if let seed = json[.seed] as? String {
-                        nft.seed = seed
-                    }
-
-                    if let original = json[.original] as? String {
-                        nft.original = original
-                    }
-
-                    if let agreement = json[.agreement] as? String {
-                        nft.agreement = agreement
-                    }
-
-                    if let website = json[.website] as? String {
-                        nft.website = website
-                    }
-
-                    if let payoutAddress = json[.payoutAddress] as? String {
-                        nft.payoutAddress = payoutAddress
-                    }
-
-                    if let scriptType = json[.scriptType] as? String {
-                        nft.scriptType = scriptType
-                    }
-
-                    if let engineType = json[.engineType] as? String {
-                        nft.engineType = engineType
-                    }
-
-                    if let accessArtworkFiles = json[.accessArtworkFiles] as? String {
-                        nft.accessArtworkFiles = accessArtworkFiles
-                    }
-
-                    // Handle numeric properties
-                    if let sellerFeeBasisPoints = json[.sellerFeeBasisPoints] as? Int {
-                        nft.sellerFeeBasisPoints = sellerFeeBasisPoints
-                    }
-
-                    if let minted = json[.minted] as? Int {
-                        nft.minted = minted
-                    }
-
-                    if let isStatic = json[.isStatic] as? Int {
-                        nft.isStatic = isStatic
-                    }
-
-                    if let aspectRatio = json[.aspectRatio] as? Double {
-                        nft.aspectRatio = aspectRatio
-                    }
-
-                    // Complex data structures
-//                    if let platform = json[.platform] as? [String: Any] {
-//                        nft.platform = platform
-//                    }
-
-//                    if let copyright = json[.copyright] as? [String: Any] {
-//                        nft.copyright = copyright
-//                    }
-
-//                    if let license = json[.license] as? [String: Any] {
-//                        nft.license = license
-//                    }
-
-//                    if let generatorUrl = json[.generatorUrl] as? [String: Any] {
-//                        nft.generatorUrl = generatorUrl
-//                    }
-
-//                    if let termsOfService = json[.termsOfService] as? [String: Any] {
-//                        nft.termsOfService = termsOfService
-//                    }
-
-//                    if let feeRecipient = json[.feeRecipient] as? [String: Any] {
-//                        nft.feeRecipient = feeRecipient
-//                    }
-
-//                    if let royalties = json[.royalties] as? [String: Any] {
-//                        nft.royalties = royalties
-//                    }
-
-//                    if let royaltyInfo = json[.royaltyInfo] as? [String: Any] {
-//                        nft.royaltyInfo = royaltyInfo
-//                    }
-
-//                    if let properties = json[.properties] as? [String: Any] {
-//                        nft.properties = properties
-//                    }
-
-//                    if let exhibitionInfo = json[.exhibitionInfo] as? [String: Any] {
-//                        nft.exhibitionInfo = exhibitionInfo
-//                    }
-
-//                    if let features = json[.features] as? [String: Any] {
-//                        nft.features = features
-//                    }
-
-                    // Handle traits/attributes
-//                    if let attributesArray = json["attributes"] as? [[String: Any]] {
-//                        var traits: [NFTTrait] = []
-//
-//                        for attribute in attributesArray {
-//                            if let traitType = attribute["trait_type"] as? String,
-//                               let value = attribute["value"] {
-//                                let trait = NFTTrait(type: traitType, value: String(describing: value))
-//                                traits.append(trait)
-//                            }
-//                        }
-//
-//                        nft.traits = traits
-//                    } else if let traitsArray = json["traits"] as? [[String: String]] {
-//                        var traits: [NFTTrait] = []
-//
-//                        for trait in traitsArray {
-//                            if let type = trait["type"], let value = trait["value"] {
-//                                let nftTrait = NFTTrait(type: type, value: value)
-//                                traits.append(nftTrait)
-//                            }
-//                        }
-//
-//                        nft.traits = traits
-//                    }
-//    var attributes: [WalletNFTResponse.NFT.Attribute] {
-//        var attributes: [WalletNFTResponse.NFT.Attribute] = []
-//        if let attributeArray = data[.attributes] as? [[String: Any]] {
-//            attributes = attributeArray.compactMap { dict in
-//                if let traitType = dict["trait_type"] as? String, let value = dict["value"] as? String {
-//                    return WalletNFTResponse.NFT.Attribute(traitType: traitType, value: value)
-//                }
-//                return nil
-//            }
-//        }
-//        return attributes
-//    }
-
+                    // Use the shared utility function to update NFT properties
+                    NFTMetadataUpdater.updateNFTFromMetadata(nft: nft, metadata: json)
 
                     // Save the changes
-                    try modelContext.save()
+                    try self.modelContext.save()
                 } catch {
                     print("Error updating NFT in SwiftData: \(error)")
                 }
             }
         } catch {
-            // The URL was not a JSON endpoint
+            // The URL was not a JSON endpoint, handle other content types
             print("Error parsing JSON: \(error)")
-
-            guard let content = String(data: data, encoding: .utf8) else {
-                return
-            }
+            guard let content = String(data: data, encoding: .utf8) else { return }
 
             if content.contains("<html>") {
-                // TODO: mark NFT content as website
                 await MainActor.run {
                     do {
                         let descriptor = FetchDescriptor<NFT>(predicate: #Predicate { return $0.id == nftID })
@@ -945,9 +610,11 @@ class NFTMetaParser {
                         }
 
                         nft.contentType = "website"
-                        try modelContext.save()
+                        nft.website = url.absoluteString // Store the website URL
+
+                        try self.modelContext.save()
                     } catch {
-                        print("Error updating NFT content type: \(error)")
+                        print("Error updating NFT content type to website: \(error)")
                     }
                 }
             } else {
@@ -956,28 +623,293 @@ class NFTMetaParser {
         }
     }
 
-    // Helper function to ensure URLs are secure
-    private func ensureSecureURL(_ url: URL) -> URL? {
-        if url.scheme?.lowercased() == "http", var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-            components.scheme = "https"
-            return components.url
-        } else if url.isIPFS, let ipfsURL = url.ipfsHTML {
-            return ipfsURL
-        }
-        return url
-    }
-
-    // Handle network errors
+    // Handle network errors with comprehensive error handling
     private func handleNetworkError(_ nsError: NSError) async {
         switch nsError.code {
-        case -1003: // Server can't be reached
-            // Uncomment if needed: print("Server can't be reached")
-            break
-        case -1001: // Timeout
-            // Uncomment if needed: print("Connection timed out")
-            break
+        case NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost:
+            print("Network connection error for URL \(url.absoluteString): \(nsError.localizedDescription)")
+        case NSURLErrorTimedOut:
+            print("Connection timed out for URL: \(url.absoluteString)")
+        case NSURLErrorCannotFindHost:
+            print("Cannot find host for URL: \(url.absoluteString)")
+        case NSURLErrorServerCertificateUntrusted:
+            print("Server certificate untrusted for URL: \(url.absoluteString)")
         default:
-            print(nsError)
+            print("Network error for URL \(url.absoluteString): \(nsError)")
         }
+    }
+}
+
+// MARK: - NFTMetadataUpdater Utility Class
+class NFTMetadataUpdater {
+    static func updateNFTFromMetadata(nft: NFT, metadata: [String : JSONValue]?) {
+        guard let metadata else {
+            return
+        }
+        // Basic Information
+        if let name = metadata["name"] {
+            nft.name = name.stringValue
+        } else if let artworkName = metadata["artworkName"] {
+            nft.name = artworkName.stringValue
+        }
+
+        if let description = metadata["description"] {
+            nft.nftDescription = description.stringValue
+        }
+
+        // Collection Information
+        if let collection = metadata["collection"], let collectionName = collection.objectValue?["name"] {
+            nft.collectionName = collectionName.stringValue
+        } else if let collectionName = metadata["collectionName"] {
+            nft.collectionName = collectionName.stringValue
+        }
+
+        // Additional Collection Information
+        if let collectionID = metadata["collectionID"] {
+            nft.collectionID = collectionID.stringValue
+        }
+        if let projectID = metadata["projectID"] {
+            nft.projectID = projectID.stringValue
+        }
+        if let series = metadata["series"] {
+            nft.series = series.stringValue
+        }
+        if let seriesID = metadata["seriesID"] {
+            nft.seriesID = seriesID.stringValue
+        }
+
+        // Artist/Creator Information
+        if let artistName = metadata["artist_name"] {
+            nft.artistName = artistName.stringValue
+        } else if let artist = metadata["artist"] {
+            nft.artistName = artist.stringValue
+        } else if let creator = metadata["creator"] {
+            nft.artistName = creator.stringValue
+        } else if let createdBy = metadata["createdBy"] {
+            nft.artistName = createdBy.stringValue
+        }
+
+        // Additional Artist Information
+        if let artistWebsite = metadata["artistWebsite"] {
+            nft.artistWebsite = artistWebsite.stringValue
+        }
+
+        // Media URLs - Optimized with helper function
+        updateImageURLs(nft: nft, metadata: metadata)
+        updateAnimationURLs(nft: nft, metadata: metadata)
+        updateAudioURLs(nft: nft, metadata: metadata)
+        updateExternalURLs(nft: nft, metadata: metadata)
+        updateModelURLs(nft: nft, metadata: metadata)
+
+        // Handle token IDs
+        if let tokenID = metadata["tokenID"]?.intValue {
+            nft.tokenId = String(tokenID)
+        } else if let tokenID = metadata["tokenId"]?.intValue {
+            nft.tokenId = String(tokenID)
+        } else if let tokenIDString = metadata["tokenID"]?.stringValue ?? metadata["tokenId"]?.stringValue {
+            nft.tokenId = tokenIDString
+        }
+
+        // Handle unique ID
+        if let uniqueID = metadata["id"]?.stringValue {
+            nft.uniqueID = uniqueID
+        }
+
+        // Handle timestamp and token hash
+        if let timestamp = metadata["timestamp"]?.stringValue {
+            nft.timestamp = timestamp
+        }
+        if let tokenHash = metadata["tokenHash"]?.stringValue {
+            nft.tokenHash = tokenHash
+        }
+
+        // Handle metadata properties
+        updateMetadataProperties(nft: nft, metadata: metadata)
+
+        // Handle numeric properties
+        updateNumericProperties(nft: nft, metadata: metadata)
+
+        // Handle traits/attributes
+        updateTraitsAndAttributes(nft: nft, metadata: metadata)
+    }
+
+    // MARK: - Helper Methods for URL Updates
+    private static func updateImageURLs(nft: NFT, metadata: [String: JSONValue]) {
+        // Handle main image URLs
+        if let imageURLString = metadata["image"]?.stringValue ?? metadata["imageUrl"]?.stringValue {
+            nft.image?.originalUrl = imageURLString
+            if let imageURL = URL(string: imageURLString) {
+                nft.image?.secureUrl = ensureSecureURL(imageURL)?.absoluteString
+            }
+        }
+
+        // Handle specialized image URLs
+        if let primaryAssetUrl = metadata["primaryAssetUrl"]?.stringValue {
+            nft.primaryAssetUrl = primaryAssetUrl
+            if let assetURL = URL(string: primaryAssetUrl) {
+                nft.securePrimaryAssetUrl = ensureSecureURL(assetURL)?.absoluteString
+            }
+        }
+
+        if let previewAssetUrl = metadata["previewAssetUrl"]?.stringValue {
+            nft.previewAssetUrl = previewAssetUrl
+            if let assetURL = URL(string: previewAssetUrl) {
+                nft.securePreviewAssetUrl = ensureSecureURL(assetURL)?.absoluteString
+            }
+        }
+
+        if let imageDataUrl = metadata["imageData"]?.stringValue {
+            nft.imageDataUrl = imageDataUrl
+            if let imageURL = URL(string: imageDataUrl) {
+                nft.secureImageDataUrl = ensureSecureURL(imageURL)?.absoluteString
+            }
+        }
+
+        if let imageHrUrl = metadata["imageHrUrl"]?.stringValue {
+            nft.imageHrUrl = imageHrUrl
+            if let imageURL = URL(string: imageHrUrl) {
+                nft.secureImageHrUrl = ensureSecureURL(imageURL)?.absoluteString
+            }
+        }
+
+        if let imageHash = metadata["imageHash"]?.stringValue {
+            nft.imageHash = imageHash
+        }
+    }
+
+    private static func updateAnimationURLs(nft: NFT, metadata: [String: JSONValue]) {
+        if let animationURLString = metadata["animation_url"]?.stringValue ?? metadata["animationUrl"]?.stringValue ?? metadata["animation"]?.stringValue {
+            nft.animationUrl = animationURLString
+            if let animationURL = URL(string: animationURLString) {
+                nft.secureAnimationUrl = ensureSecureURL(animationURL)?.absoluteString
+            }
+        }
+    }
+
+    private static func updateAudioURLs(nft: NFT, metadata: [String: JSONValue]) {
+        let audioURLString = metadata["audioUrl"]?.stringValue ??
+                           metadata["audioURI"]?.stringValue ??
+                           metadata["audio"]?.stringValue ??
+                           metadata["losslessAudio"]?.stringValue
+        if let audioURLString = audioURLString {
+            nft.audioUrl = audioURLString
+        }
+    }
+
+    private static func updateExternalURLs(nft: NFT, metadata: [String: JSONValue]) {
+        if let externalURLString = metadata["external_url"]?.stringValue ?? metadata["externalUrl"]?.stringValue ?? metadata["external_link"]?.stringValue {
+            nft.externalUrl = externalURLString
+        } else if let externals = metadata["external_url"]?.objectValue ?? metadata["externalUrl"]?.objectValue,
+                  let externalURLString = externals["url"]?.stringValue {
+            nft.externalUrl = externalURLString
+        }
+    }
+
+    private static func updateModelURLs(nft: NFT, metadata: [String: JSONValue]) {
+        let modelURLString = metadata["modelGlb"]?.stringValue ??
+                           metadata["vrmUrl"]?.stringValue ??
+                           metadata["usdzUrl"]?.stringValue ??
+                           metadata["print3DSTL"]?.stringValue
+        if let modelURLString = modelURLString {
+            nft.modelUrl = modelURLString
+        }
+    }
+
+    private static func updateMetadataProperties(nft: NFT, metadata: [String: JSONValue]) {
+        if let backgroundColor = metadata["background_color"]?.stringValue ?? metadata["backgroundColor"]?.stringValue {
+            nft.backgroundColor = backgroundColor
+        }
+        if let medium = metadata["medium"]?.stringValue {
+            nft.medium = medium
+        }
+        if let metadataVersion = metadata["metadataVersion"]?.stringValue {
+            nft.metadataVersion = metadataVersion
+        }
+        if let symbols = metadata["symbols"]?.stringValue {
+            nft.symbols = symbols
+        }
+        if let seed = metadata["seed"]?.stringValue {
+            nft.seed = seed
+        }
+        if let original = metadata["original"]?.stringValue {
+            nft.original = original
+        }
+        if let agreement = metadata["agreement"]?.stringValue {
+            nft.agreement = agreement
+        }
+        if let website = metadata["website"]?.stringValue {
+            nft.website = website
+        }
+        if let payoutAddress = metadata["payoutAddress"]?.stringValue {
+            nft.payoutAddress = payoutAddress
+        }
+        if let scriptType = metadata["scriptType"]?.stringValue {
+            nft.scriptType = scriptType
+        }
+        if let engineType = metadata["engineType"]?.stringValue {
+            nft.engineType = engineType
+        }
+        if let accessArtworkFiles = metadata["accessArtworkFiles"]?.stringValue {
+            nft.accessArtworkFiles = accessArtworkFiles
+        }
+    }
+
+    private static func updateNumericProperties(nft: NFT, metadata: [String: JSONValue]) {
+        if let sellerFeeBasisPoints = metadata["sellerFeeBasisPoints"]?.intValue {
+            nft.sellerFeeBasisPoints = sellerFeeBasisPoints
+        }
+        if let minted = metadata["minted"]?.intValue {
+            nft.minted = minted
+        }
+        if let isStatic = metadata["isStatic"]?.intValue {
+            nft.isStatic = isStatic
+        }
+        if let aspectRatio = metadata["aspectRatio"]?.doubleValue {
+            nft.aspectRatio = aspectRatio
+        }
+    }
+
+    private static func updateTraitsAndAttributes(nft: NFT, metadata: [String: JSONValue]) {
+        if let attributesArray = metadata["attributes"]?.arrayValue  {//as? [[String: Any]]
+            nft.attributes = attributesArray.compactMap {
+                guard let attribute = $0.objectValue else {
+                    return nil
+                }
+
+                guard let value = attribute["value"]?.stringValue else {
+                    return nil
+                }
+
+                return NFT.Attribute(
+                    value: value,
+                    traitType: attribute["type"]?.stringValue ?? attribute["trait_type"]?.stringValue
+                )
+            }
+        } else if let traitsArray = metadata["traits"]?.arrayValue {
+            nft.attributes = traitsArray.compactMap {
+                guard let traitDict = $0.objectValue else {
+                    return nil
+                }
+
+                guard let value = traitDict["value"]?.stringValue else {
+                    return nil
+                }
+                return NFT.Attribute(
+                    value: value,
+                    traitType: traitDict["type"]?.stringValue ?? traitDict["trait_type"]?.stringValue
+                )
+            }
+        }
+    }
+
+    // Helper function to ensure URLs are secure (HTTPS) or point to a gateway
+    private static func ensureSecureURL(_ url: URL) -> URL? {
+        if url.isIPFS, let ipfsGatewayURL = url.ipfsHTML {
+            return ipfsGatewayURL
+        } else if url.scheme?.lowercased() == "http", var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            components.scheme = "https"
+            return components.url
+        }
+        return url
     }
 }
