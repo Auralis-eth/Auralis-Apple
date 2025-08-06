@@ -10,8 +10,23 @@ import Foundation
 
 typealias Password = String
 
+enum PasswordStrength: String {
+    case weak, medium, strong
+    var message: String {
+        switch self {
+        case .weak:
+            return "Use at least 8 characters with numbers, symbols, and mixed case letters."
+        case .medium:
+            return "Good password, but consider adding more complexity."
+        case .strong:
+            return "Strong password!"
+        }
+    }
+}
+
+
 extension Password {
-    var strength: PasswordStrengthView.PasswordStrength {
+    var strength: PasswordStrength {
         if count < 5 {
             return .weak
         }

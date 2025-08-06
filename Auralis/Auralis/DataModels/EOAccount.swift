@@ -21,10 +21,6 @@ class EOAccount: Codable, Identifiable {
 
     @Relationship(deleteRule: .cascade) var nfts: [NFT] = []
 
-    var privateKey: Data? {
-        try? EthereumKeyChainStorage().loadPrivateKey(for: .init(address))
-    }
-
     init(address: String, access: EthereumAddressAccess? = nil, name: String? = nil) {
         self.address = address
         self.access = access

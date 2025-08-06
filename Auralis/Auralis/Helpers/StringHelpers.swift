@@ -83,40 +83,118 @@ extension Optional where Wrapped == String {
     }
 }
 
-extension String {
-    func extractSVGData() -> String? {
-        do {
-            // Regex for UTF-8, charset, and direct SVG
-            let directRegex = try NSRegularExpression(pattern: "data:image/svg\\+xml(;charset=utf-8|;utf8)?,(<svg.*)", options: .caseInsensitive)
-            let directMatches = directRegex.matches(in: self, range: NSRange(self.startIndex..., in: self))
-            if let match = directMatches.first {
-                let svgRange = match.range(at: match.numberOfRanges - 1)
-                if svgRange.location != NSNotFound, let range = Range(svgRange, in: self) {
-                    let svg = String(self[range])
-                    // URL-decode if needed
-                    return svg.removingPercentEncoding ?? svg
-                }
-            }
+extension Set where Element == String {
+    func siftTokenURIs() -> Set<String> {
+        // Map canonical resource identifiers to their best URI representation
+        var bestURIs: [String: (uri: String, priority: URIFormat)] = [:]
+        var otherURIs = Set<String>()
 
-            // Regex for Base64
-            let base64Regex = try NSRegularExpression(pattern: "data:image/svg\\+xml;base64,(.+)", options: .caseInsensitive)
-            let base64Matches = base64Regex.matches(in: self, range: NSRange(self.startIndex..., in: self))
-            if let match = base64Matches.first, match.numberOfRanges == 2 {
-                let dataRange = match.range(at: 1)
-                if dataRange.location != NSNotFound, let range = Range(dataRange, in: self) {
-                    let base64 = String(self[range])
-                    if let data = Data(base64Encoded: base64), let svg = String(data: data, encoding: .utf8) {
-                        return svg
+        for uri in self where !uri.isEmpty {
+
+            // Try to find a matching configuration
+            var foundMatch = false
+
+            for config in URIConfig.uriConfigurations {
+                if uri.hasPrefix(config.prefix) {
+                    guard uri.count > config.prefix.count else {
+                        otherURIs.insert(uri)
+                        continue
+                    }
+
+                    let startIndex = uri.index(uri.startIndex, offsetBy: config.prefix.count)
+                    let remainder = String(uri[startIndex...])
+                    let components = remainder.split(separator: "/", maxSplits: 1)
+
+                    if components.count >= 1, !components[0].isEmpty {
+                        let hash = String(components[0])
+                        let path = components.count > 1 ? String(components[1]) : ""
+                        let resource = NormalizedResource(type: config.type, identifier: hash, path: path)
+                        let canonical = resource.canonicalForm
+
+                        if let existing = bestURIs[canonical] {
+                            // Keep the higher priority URI format
+                            if config.format > existing.priority {
+                                bestURIs[canonical] = (uri, config.format)
+                            }
+                        } else {
+                            // First time seeing this resource
+                            bestURIs[canonical] = (uri, config.format)
+                        }
+
+                        foundMatch = true
+                        break
                     }
                 }
             }
-        } catch {
-            print("Regex error: \(error)")
+
+            if !foundMatch {
+                // Not a recognized URI format, keep it as is
+                otherURIs.insert(uri)
+            }
         }
-        return nil
+
+        // Collect the final results
+        var result = Set<String>()
+
+        // Add all the best format URIs
+        for (_, uriInfo) in bestURIs {
+            result.insert(uriInfo.uri)
+        }
+
+        // Add all other URIs
+        result.formUnion(otherURIs)
+
+        return result
     }
 }
 
+
+// Define priority for URI formats (higher = better)
+enum URIFormat: Int {
+    case other = 0
+    case content = 1
+    case location = 2
+    case optimizedLocation = 3
+
+}
+
+extension URIFormat: Comparable {
+    static func < (lhs: URIFormat, rhs: URIFormat) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+}
+
+struct NormalizedResource {
+    enum ResourceType: String {
+        case arweave
+        case ipfs
+        case other
+    }
+
+    let type: ResourceType
+    let identifier: String
+    let path: String
+
+    // Create a canonical representation for deduplication
+    var canonicalForm: String {
+        "\(type.rawValue):\(identifier):\(path)"
+    }
+}
+
+struct URIConfig {
+    let prefix: String
+    let type: NormalizedResource.ResourceType
+    let format: URIFormat
+    // Define all URI configurations
+    static let uriConfigurations: [URIConfig] = [
+        URIConfig(prefix: "ar://", type: .arweave, format: .content),
+        URIConfig(prefix: "https://arweave.net/", type: .arweave, format: .location),
+        URIConfig(prefix: "ipfs://", type: .ipfs, format: .content),
+        URIConfig(prefix: "https://ipfs.io/ipfs/", type: .ipfs, format: .location),
+        URIConfig(prefix: "https://alchemy.mypinata.cloud/ipfs/", type: .ipfs, format: .optimizedLocation)
+    ]
+
+}
 
 
 

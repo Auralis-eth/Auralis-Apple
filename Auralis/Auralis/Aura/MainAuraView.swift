@@ -8,8 +8,8 @@
 import SwiftUI
 import SwiftData
 
+//    var account: EOAccount? //= EOAccount(address: "0x5b93ff82faaf241c15997ea3975419dddd8362c5", access: .readonly)
 struct MainAuraView: View {
-    @State private var mainAppStore = MainStore()
     @AppStorage("currentAccountAddress") var currentAddress: String = ""
     @AppStorage("currentChainId") var currentChainId: String = Chain.ethMainnet.rawValue
     @Environment(\.modelContext) private var modelContext
@@ -109,7 +109,7 @@ struct MainAuraView: View {
         .onChange(of: currentAccount) { oldValue, newValue in
             currentAddress = newValue?.address ?? ""
         }
-        .onChange(of: mainAppStore.chain) { oldValue, newValue in
+        .onChange(of: currentChain) { oldValue, newValue in
             currentChainId = newValue.rawValue
         }
         .onChange(of: currentAddress) { oldValue, newValue in

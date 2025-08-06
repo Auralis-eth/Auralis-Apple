@@ -109,10 +109,8 @@ struct NewfeedCardView: View {
             }
 
             if let contractAddress = nft.contract.address {
-                Card3D(cardColor: .surface) {
-                    OpenSeaLink(contractAddress: contractAddress, tokenId: nft.tokenId)
-                    EtherscanLink(contractAddress: contractAddress, tokenId: nft.tokenId)
-                }
+                OpenSeaLink(contractAddress: contractAddress, tokenId: nft.tokenId)
+                EtherscanLink(contractAddress: contractAddress, tokenId: nft.tokenId)
             }
 
             // Category display (placeholder)
@@ -259,3 +257,19 @@ struct NewfeedCardView: View {
     }
 }
 
+struct DetailRow: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .top) {
+            SubheadlineFontText(title)
+                .frame(width: 100, alignment: .leading)
+
+            SubheadlineFontText(value)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .truncationMode(.middle)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}

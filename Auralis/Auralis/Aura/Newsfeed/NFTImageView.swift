@@ -7,32 +7,6 @@
 
 import SwiftUI
 
-struct NFTImageView: View {
-    var image: NFTImageSource?
-    var body: some View {
-        if let image {
-            switch image {
-                case .url(let imageURL):
-                    CachedAsyncImage(url: imageURL)
-                case .data(let data):
-                    if let image = UIImage(data: data) {
-                        Image(uiImage: image)
-                    }
-                case .svg(let svg):
-                    SVGView(string: svg)
-            }
-        } else {
-            ZStack {
-                Color.surface
-                    .aspectRatio(1, contentMode: .fit)
-                SecondaryTextSystemImage("photo")
-                    .font(.largeTitle)
-            }
-        }
-    }
-}
-
-
 // Image Cache Manager
 class ImageCache {
     static let shared = ImageCache()

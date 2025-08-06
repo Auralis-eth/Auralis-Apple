@@ -137,6 +137,16 @@ struct PasswordSignInView: View {
 //======================================================
 
 struct MusicPlayerView: View {
+    //var musicNFTs: [NFT] = [] {
+//        nftMetaData.filter {
+//            guard let metaData = $0.metadata else {
+//                return false
+//            }
+//
+//            return metaData.audioUrl != nil || ($0.nftBaseData.tokenUri?.hasSuffix(".mp3") ?? false) || ($0.nftBaseData.tokenUri?.hasSuffix(".wav") ?? false) || metaData.audioURI != nil || metaData.losslessAudio != nil || metaData.audio != nil
+//        }
+//    }
+
     @State private var progress: Double = 0.65
     @State private var isPlaying = false
 
