@@ -40,32 +40,6 @@ struct LoginMenuView: View {
                     .transition(.scale.combined(with: .opacity))
                 }
             }
-
-            // Sign Up Button
-            Button(action: {
-                withAnimation {
-                    authFlavour = .createWallet
-                }
-            }) {
-                Text("Create Wallet")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.textPrimary)
-            }
-            .frame(maxWidth: .infinity, minHeight: 56)
-            .glassEffect(.regular.interactive())
-
-            // Sign In Button
-            Button(action: {
-                withAnimation {
-                    authFlavour = .connectWallet
-                }
-            }) {
-                Text("Connect Wallet")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.textPrimary)
-                    .frame(maxWidth: .infinity, minHeight: 56)
-                    .glassEffect(.regular.interactive())
-            }
         }
         .padding(.horizontal, 32)
         .padding(.bottom, 160)

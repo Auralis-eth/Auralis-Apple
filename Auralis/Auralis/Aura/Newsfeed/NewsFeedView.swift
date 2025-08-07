@@ -40,8 +40,8 @@ struct NewsFeedView: View {
                 modelContext: modelContext
             )
         }
-        ////            .scrollEdgeEffectStyle(.soft, for: .vertical)
-        ////            .backgroundExtensionEffect()
+//        .scrollEdgeEffectStyle(.soft, for: .vertical)
+//        .backgroundExtensionEffect()
 
         .refreshable {
             await nftService.refreshNFTs(
