@@ -414,7 +414,7 @@ class NFT: Codable {
     }
     
     @Model
-    class Attribute: Codable {
+    class Attribute: Codable, Identifiable {
         var value: String
         var traitType: String?
 

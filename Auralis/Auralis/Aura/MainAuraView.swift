@@ -13,18 +13,22 @@ struct MainAuraView: View {
     @AppStorage("currentAccountAddress") var currentAddress: String = ""
     @AppStorage("currentChainId") var currentChainId: String = Chain.ethMainnet.rawValue
     @Environment(\.modelContext) private var modelContext
+    @State private var nftService = NFTService()
 
     @State private var currentAccount: EOAccount?
     @State private var currentChain: Chain = .ethMainnet
-
-    @State private var chaining: Chain = .ethMainnet
 
     @Query private var accounts: [EOAccount]
 
     @Namespace private var namespace
     private let transitionID = "transition-id"
     @State private var isPresented: Bool = false
+    @State private var isloading: Bool = false
     @State private var presentDialog: Bool = false
+
+    var nftsAreLoading: Bool {
+        nftService.isLoading || isloading
+    }
 
     var tabView: some View {
         TabView {
@@ -35,6 +39,8 @@ struct MainAuraView: View {
                         try? modelContext.delete(model: NFT.self)
                         try? modelContext.delete(model: EOAccount.self)
                         self.currentAccount = nil
+                        currentAddress = ""
+                        currentChainId = ""
                     }
                 }
                 .sheet(isPresented: $isPresented) {
@@ -52,7 +58,7 @@ struct MainAuraView: View {
             }
 
             Tab("NewsFeed", systemImage: "bubble.right") {
-                NewsFeedView(currentAccount: $currentAccount, currentChain: $currentChain)
+                NewsFeedView(currentAccount: $currentAccount, nftService: $nftService, currentChain: $currentChain)
             }
 
             Tab("Music", systemImage: "play.circle") {
@@ -78,16 +84,21 @@ struct MainAuraView: View {
 
     var body: some View {
         Group {
-            if let currentAccount {
+            if !nftsAreLoading, let currentAccount {
                 tabView
                     .tabBarMinimizeBehavior(.onScrollDown)
-//                        .tabViewBottomAccessory {
-//                            if 0 > 9 {
-//                                Text("Hello")
-//                            }
-//                        }
+                    .tabViewBottomAccessory {
+                        if 0 > 9 {
+                            Text("Hello")
+                        }
+                    }
+            } else if nftsAreLoading {
+                NFTNewsfeedLoadingView(
+                    itemsLoaded: nftService.itemsLoaded,
+                    total: nftService.total
+                )
             } else {
-                LoginView(currentAccount: $currentAccount)
+                GatewayView(currentAccount: $currentAccount)
             }
         }
         .onAppear {
@@ -107,6 +118,16 @@ struct MainAuraView: View {
             }
         }
         .onChange(of: currentAccount) { oldValue, newValue in
+            if currentAccount?.address != currentAddress, currentAccount != nil {
+                isloading = true
+                Task {
+                    await nftService.refreshNFTs(for: currentAccount, chain: currentChain, modelContext: modelContext)
+                    await MainActor.run {
+                        isloading = false
+                    }
+                }
+            }
+
             currentAddress = newValue?.address ?? ""
         }
         .onChange(of: currentChain) { oldValue, newValue in
@@ -128,3 +149,37 @@ struct MainAuraView: View {
     }
 
 }
+//
+//import ImagePlayground
+//@available(iOS 18.4, *)
+//func generateImageFromPlayground() async throws {
+//    let seletedStyle: ImagePlaygroundStyle = .animation
+//    let creator = try await ImageCreator()
+//    let images = creator.images(for: [.text("Aurora Borealis over the Arctic and Rocky Mounts")], style: seletedStyle, limit: 4)
+//
+//    for try await image in images {
+//        print("Generated image:")
+//        print(image.cgImage)
+//    }
+//}
+//
+//// TIPS
+////      Break down the process/request
+//
+////  USE CASES
+////      Content Generation???
+////          splash image
+////      summarization
+////          in the NFT newsfeed view summarize NFT text blurb
+////      In-app  user guides
+////          have a ? button on each screen and do a help bot
+////      Classification
+////          start with the "stash" page for NFTs, then migrate to ERC-20s
+////      Tag generation
+////          start with the "stash" page for NFTs, then migrate to ERC-20s
+//
+//
+////      Composition???
+////          what is it and could I use it
+////      Revision???
+////          what is it and could I use it

@@ -37,13 +37,13 @@ struct NewsFeedListView: View {
 
 
 
-            ForEach(collections) { collection in
-                Text(collection.name ?? "NO NAME")
-                    .foregroundStyle(Color.textPrimary)
-            }
-            if collections.isEmpty {
-                Text("No collections found")
-            }
+//            ForEach(collections) { collection in
+//                Text(collection.name ?? "NO NAME")
+//                    .foregroundStyle(Color.textPrimary)
+//            }
+//            if collections.isEmpty {
+//                Text("No collections found")
+//            }
             NewsFeedListingView(
                 currentAccount: $currentAccount,
                 selectedNFT: $selectedNFT,

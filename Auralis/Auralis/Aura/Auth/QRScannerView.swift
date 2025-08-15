@@ -23,8 +23,7 @@ struct QRScannerView: View {
                 .font(.system(size: 30, weight: .medium))
         }
         .sheet(isPresented: $isScanning) {
-            VStack {
-                TorchToggleButton(torchOn: $torchOn)
+            ZStack(alignment: .top) {
                 CodeScannerView(codeTypes: [.qr], requiresPhotoOutput: false, isTorchOn: torchOn) { result in
                     switch result {
                         case .success(let code):
@@ -59,6 +58,10 @@ struct QRScannerView: View {
                     isScanning = false
 
                 }
+                .ignoresSafeArea()
+
+                TorchToggleButton(torchOn: $torchOn)
+                    .padding(.top)
             }
         }
     }

@@ -17,7 +17,7 @@ struct NewsFeedView: View {
     
     @Binding var currentAccount: EOAccount?
     @State private var selectedNFT: NFT?
-    @State private var nftService = NFTService()
+    @Binding var nftService: NFTService
     @Binding var currentChain: Chain
 
     var body: some View {
@@ -33,13 +33,6 @@ struct NewsFeedView: View {
             .background(Color.background)
         }
         .background(Color.background)
-        .task { @MainActor in
-            await nftService.refreshNFTs(
-                for: currentAccount,
-                chain: currentChain,
-                modelContext: modelContext
-            )
-        }
 //        .scrollEdgeEffectStyle(.soft, for: .vertical)
 //        .backgroundExtensionEffect()
 

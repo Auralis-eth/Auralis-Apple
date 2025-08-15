@@ -37,41 +37,27 @@ struct NewsFeedListingView: View {
     }
 
     var body: some View {
-        if nftService.isLoading && nfts.isEmpty {
-            // Loading state with background
-            Image("aurora-1")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-                .ignoresSafeArea()
-                .overlay(alignment: .center) {
-                    if nftService.isLoading {
-                        NFTNewsfeedLoadingView(
-                            itemsLoaded: nftService.itemsLoaded,
-                            total: nftService.total
-                        )
-                    }
-                }
-        } else if nfts.isEmpty {
+        if nfts.isEmpty {
             // No NFTs found view
-            EmptyNewsFeedView(
-                currentAccount: currentAccount,
-                currentChain: currentChain,
-                nftService: nftService
-            )
-//            .task { @MainActor in
-//                await nftService.refreshNFTs(
-//                    for: currentAccount,
-//                    chain: currentChain,
-//                    modelContext: modelContext
-//                )
-//            }
+            ZStack {
+                Image("aurora-1")
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
+                    .ignoresSafeArea()
+
+                EmptyNewsFeedView(
+                    currentAccount: currentAccount,
+                    currentChain: currentChain,
+                    nftService: nftService
+                )
+            }
         } else {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     ForEach(displayNFTs) { metaData in
-                        NewfeedCardView(nft: metaData)
+                        NewsFeedCardView(nft: metaData)
                         .contentShape(Rectangle())
                         .onTapGesture {
                             selectedNFT = metaData
@@ -81,25 +67,6 @@ struct NewsFeedListingView: View {
                 .padding(.vertical)
             }
             .background(Color.background)
-            .overlay(alignment: .topLeading) {
-                if nftService.isLoading {
-                    NFTNewsfeedLoadingView(
-                        itemsLoaded: nftService.itemsLoaded,
-                        total: nftService.total,
-                        size: .small
-                    )
-                }
-            }
-            .task { @MainActor in
-                guard nfts.isEmpty else {
-                    return
-                }
-                await nftService.refreshNFTs(
-                    for: currentAccount,
-                    chain: currentChain,
-                    modelContext: modelContext
-                )
-            }
         }
     }
 
