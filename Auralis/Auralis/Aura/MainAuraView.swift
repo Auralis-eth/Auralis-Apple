@@ -61,6 +61,16 @@ struct MainAuraView: View {
                 NewsFeedView(currentAccount: $currentAccount, nftService: $nftService, currentChain: $currentChain)
             }
 
+            Tab("Gas", systemImage: "fuelpump") {
+                ZStack(alignment: .bottom) {
+                    GatewayBackgroundImage()
+                    Color.background.opacity(0.3)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                    GasPriceEstimateView(chain: $currentChain)
+                }
+            }
+            
             Tab("Music", systemImage: "play.circle") {
                 MusicPlayerView()
             }
@@ -93,10 +103,18 @@ struct MainAuraView: View {
                         }
                     }
             } else if nftsAreLoading {
-                NFTNewsfeedLoadingView(
-                    itemsLoaded: nftService.itemsLoaded,
-                    total: nftService.total
-                )
+                ZStack(alignment: .bottom) {
+                    GatewayBackgroundImage()
+                    Color.background.opacity(0.3)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                    NFTNewsfeedLoadingView(
+                        itemsLoaded: nftService.itemsLoaded,
+                        total: nftService.total
+                    )
+                }
+
+                
             } else {
                 GatewayView(currentAccount: $currentAccount)
             }

@@ -33,9 +33,6 @@ struct NewsFeedView: View {
             .background(Color.background)
         }
         .background(Color.background)
-//        .scrollEdgeEffectStyle(.soft, for: .vertical)
-//        .backgroundExtensionEffect()
-
         .refreshable {
             await nftService.refreshNFTs(
                 for: currentAccount,

@@ -454,3 +454,138 @@ extension String {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import Foundation
+
+// Existing enums and structs (unchanged)...
+
+// Updated error enum with LocalizedError
+enum URLConversionError: Error, LocalizedError {
+    case emptyString
+    case malformedURI
+    case unsupportedScheme
+    case invalidIdentifier
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyString: return "Empty URL string"
+        case .malformedURI: return "Malformed URL"
+        case .unsupportedScheme: return "Unsupported scheme"
+        case .invalidIdentifier: return "Invalid identifier"
+        }
+    }
+}
+
+/// Utility for converting URIs (e.g., ar://, ipfs://) to preferred HTTPS formats based on priority.
+/// Priorities: Higher rawValue in URIFormat means preferred (e.g., optimizedLocation > location).
+/// Always checks for config matches first to allow upgrading existing URLs to better gateways.
+struct URLConverter {
+    private static let transactionIDRegexPattern = "^[a-zA-Z0-9_-]{43}$"
+    private static let cachedRegex: NSRegularExpression? = {
+        try? NSRegularExpression(pattern: transactionIDRegexPattern)
+    }()
+
+    private static let configsByType: [NormalizedResource.ResourceType: [URIConfig]] = {
+        Dictionary(grouping: URIConfig.uriConfigurations) { $0.type }
+            .mapValues { $0.sorted { $0.format.rawValue > $1.format.rawValue } }  // Highest first
+    }()
+
+    /// Converts a URI string to the preferred HTTPS format if possible.
+    /// - Parameter urlString: The input URI (e.g., "ipfs://hash" or "https://ipfs.io/ipfs/hash").
+    /// - Returns: Success with converted string, or failure with specific error.
+    static func convertToPreferredHTTPS(_ urlString: String) -> Result<String, URLConversionError> {
+        guard !urlString.isEmpty else {
+            return .failure(.emptyString)
+        }
+
+        // Check for config matches first (allows upgrading existing HTTPS to better formats)
+        for config in URIConfig.uriConfigurations {
+            if let remainder = extractRemainder(from: urlString, after: config.prefix) {
+                let components = remainder.components(separatedBy: "/")
+                guard !components.isEmpty, !components[0].isEmpty else {
+                    return .failure(.malformedURI)
+                }
+                let identifier = components[0]
+                let path = components.dropFirst().joined(separator: "/")
+
+                // Validate Arweave specifically
+                if config.type == .arweave && !isValidTransactionID(identifier) {
+                    return .failure(.invalidIdentifier)
+                }
+
+                // Get best config for type
+                guard let bestConfig = configsByType[config.type]?.first else {
+                    return .failure(.unsupportedScheme)
+                }
+                var newURI = bestConfig.prefix + identifier
+                if !path.isEmpty {
+                    newURI += "/" + path
+                }
+                return .success(newURI)
+            }
+        }
+
+        // Handle non-config URLs
+        guard let url = URL(string: urlString) else {
+            return .failure(.malformedURI)
+        }
+
+        let scheme = url.scheme?.lowercased()
+        if scheme == "http" {
+            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            components?.scheme = "https"
+            guard let newURLString = components?.string else {
+                return .failure(.malformedURI)
+            }
+            return .success(newURLString)
+        } else if scheme == "https" {
+            return .success(urlString)
+        }
+
+        return .failure(.unsupportedScheme)
+    }
+
+    /// Safely extracts the substring after a given prefix if it matches at the start.
+    private static func extractRemainder(from urlString: String, after prefix: String) -> String? {
+        guard let range = urlString.range(of: prefix, options: .anchored) else {
+            return nil
+        }
+        return String(urlString[range.upperBound...])
+    }
+
+    private static func isValidTransactionID(_ transactionID: String) -> Bool {
+        guard let regex = cachedRegex else {
+            return false
+        }
+        let range = NSRange(location: 0, length: transactionID.utf16.count)
+        return regex.firstMatch(in: transactionID, options: [], range: range) != nil
+    }
+}

@@ -104,12 +104,26 @@ class NFTMetadataUpdater {
     // MARK: - Helper Methods for URL Updates
     private static func updateImageURLs(nft: NFT, metadata: [String: JSONValue]) {
         // Handle main image URLs
+        // Updated caller code with validated fallback
         if let imageURLString = metadata["image"]?.stringValue ?? metadata["imageUrl"]?.stringValue {
-            nft.image?.originalUrl = imageURLString
-            if let imageURL = URL(string: imageURLString) {
-                nft.image?.secureUrl = ensureSecureURL(imageURL)?.absoluteString
+            switch URLConverter.convertToPreferredHTTPS(imageURLString) {
+            case .success(let convertedURLString):
+                nft.image?.originalUrl = convertedURLString
+                if let imageURL = URL(string: convertedURLString) {
+                    nft.image?.secureUrl = ensureSecureURL(imageURL)?.absoluteString
+                }
+            case .failure(let error):
+                    print("URL conversion failed for \(imageURLString): \(error.localizedDescription)")  // Log for debugging
+
+                // Fallback only if original is a valid URL
+                if let originalURL = URL(string: imageURLString) {
+                    nft.image?.originalUrl = imageURLString
+                    nft.image?.secureUrl = ensureSecureURL(originalURL)?.absoluteString
+                }
+                // Otherwise, skip to avoid bad data
             }
         }
+
 
         // Handle specialized image URLs
         if let primaryAssetUrl = metadata["primaryAssetUrl"]?.stringValue {
