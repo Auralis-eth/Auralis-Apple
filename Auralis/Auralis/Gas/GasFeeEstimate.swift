@@ -159,12 +159,12 @@ extension GasPriceEstimateView {
     struct HeaderView: View {
         var body: some View {
             HStack {
-                HeadlineFontText("Ethereum Gas Tracker")
-                
+                HeadlineFontText("Gas Price Fees")
+                    
                 Spacer()
-                
+                    
                 AccentTextSystemImage("fuelpump")
-                    .accessibilityLabel("Ethereum gas tracker icon")
+                    .accessibilityLabel("Gas price icon")
                     .accessibilityAddTraits(.isImage)
             }
             .padding(.top, 8)
@@ -181,7 +181,7 @@ extension GasPriceEstimateView {
                     .scaleEffect(1.2)
                     .padding()
 
-                SecondaryText("Fetching gas prices...")
+                SecondaryText("Loading current gas Fees...")
             }
             .frame(maxWidth: .infinity, minHeight: 200)
             .padding()
@@ -196,12 +196,12 @@ extension GasPriceEstimateView {
         
         var body: some View {
             ContentUnavailableView {
-                Label("Gas Price Data Unavailable", systemImage: "exclamationmark.triangle")
+                Label("Unable to Load Gas Prices", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(Color.error)
             } description: {
-                SecondaryText(error?.localizedDescription ?? "Failed to fetch gas price estimate. Please try again later.")
+                SecondaryText(error?.localizedDescription ?? "We couldn’t load the latest gas prices. Check your connection and try again.")
             } actions: {
-                PrimaryTextButton("Try Again") {
+                PrimaryTextButton("Retry Now") {
                     Task {
                         await onRetry()
                     }
@@ -219,19 +219,19 @@ extension GasPriceEstimateView {
 
         var body: some View {
             VStack(spacing: 12) {
-                SubheadlineFontText("Gas Fee Estimates")
+                SubheadlineFontText("Transaction Speed Options")
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Divider().background(Color.textSecondary.opacity(0.3))
 
-                GasFeeEstimateRow(title: "Safe", estimate: estimate.low)
-                GasFeeEstimateRow(title: "Average", estimate: estimate.medium)
-                GasFeeEstimateRow(title: "Fast", estimate: estimate.high)
+                GasFeeEstimateRow(title: "Low Cost", estimate: estimate.low)
+                GasFeeEstimateRow(title: "Balanced", estimate: estimate.medium)
+                GasFeeEstimateRow(title: "High Speed", estimate: estimate.high)
             }
             .padding()
             .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("Gas fee estimates")
+            .accessibilityLabel("Transaction speed options")
         }
     }
 
@@ -242,13 +242,13 @@ extension GasPriceEstimateView {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
-                SubheadlineFontText("Base Fee Information")
+                SubheadlineFontText("Network Base Fee")
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Divider().background(Color.textSecondary.opacity(0.3))
 
                 DataRowView(
-                    title: "Estimated Base Fee",
+                    title: "Current Base Fee",
                     value: estimate.estimatedBaseFee,
                     isTrendUp: estimate.baseFeeTrend != "down"
                 )
@@ -256,7 +256,7 @@ extension GasPriceEstimateView {
                 if formattedData.showHistoricalBaseFee,
                    let historicalDisplay = formattedData.historicalBaseFeeDisplay {
                     DataRowView(
-                        title: "Historical Base Fee Range",
+                        title: "Recent Base Fee Range",
                         value: historicalDisplay,
                         isTrendUp: estimate.baseFeeTrend != "down"
                     )
@@ -274,7 +274,7 @@ extension GasPriceEstimateView {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
-                SubheadlineFontText("Priority Fee Information")
+                SubheadlineFontText("Priority Fee for Speed")
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Divider().background(Color.textSecondary.opacity(0.3))
@@ -282,7 +282,7 @@ extension GasPriceEstimateView {
                 if formattedData.showLatestPriorityFee,
                    let latestDisplay = formattedData.latestPriorityFeeDisplay {
                     DataRowView(
-                        title: "Latest Priority Fee Range",
+                        title: "Current Priority Fee Range",
                         value: latestDisplay,
                         isTrendUp: estimate.priorityFeeTrend != "down"
                     )
@@ -291,7 +291,7 @@ extension GasPriceEstimateView {
                 if formattedData.showHistoricalPriorityFee,
                    let historicalDisplay = formattedData.historicalPriorityFeeDisplay {
                     DataRowView(
-                        title: "Historical Priority Fee Range",
+                        title: "Recent Priority Fee Range",
                         value: historicalDisplay,
                         isTrendUp: estimate.priorityFeeTrend != "down"
                     )
@@ -308,10 +308,10 @@ extension GasPriceEstimateView {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
-                SubheadlineFontText("Network Congestion")
+                SubheadlineFontText("Network Activity")
 
                 HStack {
-                    HeadlineFontText(congestion)
+                    HeadlineFontText(congestionLevel.displayText)
 
                     Spacer()
 
@@ -321,9 +321,10 @@ extension GasPriceEstimateView {
             .padding()
             .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Network congestion")
-            .accessibilityValue(congestion)
+            .accessibilityLabel("Network activity level")
+            .accessibilityValue(congestionLevel.displayText)
         }
+
         private var congestionLevel: CongestionLevel {
             let lowercasedCongestion = congestion.lowercased()
             if lowercasedCongestion.contains("high") {
@@ -389,7 +390,7 @@ extension GasPriceEstimateView {
                     .fontWeight(.medium)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(title) fee: \(estimate.suggestedMaxPriorityFeePerGas)")
+            .accessibilityLabel("\(title) speed: \(estimate.suggestedMaxPriorityFeePerGas)")
         }
     }
 
@@ -424,3 +425,12 @@ extension GasPriceEstimateView {
 }
 
 
+extension GasPriceEstimateView.CongestionLevel {
+    var displayText: String {
+        switch self {
+        case .low: return "Low"
+        case .medium: return "Moderate"
+        case .high: return "High"
+        }
+    }
+}
