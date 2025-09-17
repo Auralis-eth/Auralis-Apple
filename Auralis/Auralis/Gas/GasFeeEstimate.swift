@@ -7,92 +7,222 @@
 
 import SwiftUI
 
-// MARK: - Formatted Display Data
-struct FormattedGasPriceData {
-    let historicalBaseFeeDisplay: String?
-    let latestPriorityFeeDisplay: String?
-    let historicalPriorityFeeDisplay: String?
-    let showHistoricalBaseFee: Bool
-    let showLatestPriorityFee: Bool
-    let showHistoricalPriorityFee: Bool
+// MARK: - Enums for Type Safety
+enum UrgencyLevel: String, CaseIterable {
+    case low = "low"
+    case medium = "medium"
+    case high = "high"
     
-    init?(estimate: GasPriceEstimate?) {
-        guard let estimate else {
-            return nil
+    var displayName: String {
+        switch self {
+        case .low: return "Safe"
+        case .medium: return "Standard"
+        case .high: return "Fast"
         }
-        self.showHistoricalBaseFee = !estimate.historicalBaseFeeRange.isEmpty
-        self.showLatestPriorityFee = !estimate.latestPriorityFeeRange.isEmpty
-        self.showHistoricalPriorityFee = !estimate.historicalPriorityFeeRange.isEmpty
+    }
+    
+    var description: String {
+        switch self {
+        case .low: return "Cheapest option, may take longer"
+        case .medium: return "Balanced speed and cost"
+        case .high: return "Fastest confirmation, higher cost"
+        }
+    }
+}
+
+enum CongestionLevel: String, CaseIterable {
+    case low = "low"
+    case medium = "medium"
+    case high = "high"
+    
+    var displayName: String {
+        switch self {
+        case .low: return "Low"
+        case .medium: return "Medium"
+        case .high: return "High"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .low: return .green
+        case .medium: return .orange
+        case .high: return .red
+        }
+    }
+}
+
+enum TrendDirection {
+    case up, down, stable
+    
+    var isUp: Bool { self == .up }
+    
+    var icon: String {
+        switch self {
+        case .up: return "arrow.up.circle.fill"
+        case .down: return "arrow.down.circle.fill"
+        case .stable: return "minus.circle.fill"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .up: return .red // Up trend = more expensive = bad for users
+        case .down: return .green // Down trend = cheaper = good for users
+        case .stable: return .gray
+        }
+    }
+}
+
+// MARK: - Extensions for Business Logic
+extension GasPriceEstimate {
+    // Convert networkCongestion (0-1) to congestion level
+    var congestionLevel: CongestionLevel {
+        if networkCongestion >= 0.7 { return .high }
+        if networkCongestion >= 0.3 { return .medium }
+        return .low
+    }
+    
+    var baseFeeTrendDirection: TrendDirection {
+        switch baseFeeTrend.lowercased() {
+        case "up": return .up
+        case "down": return .down
+        default: return .stable
+        }
+    }
+    
+    var priorityFeeTrendDirection: TrendDirection {
+        switch priorityFeeTrend.lowercased() {
+        case "up": return .up
+        case "down": return .down
+        default: return .stable
+        }
+    }
+    
+    // Display properties with proper units
+    var networkCongestionDisplay: String {
+        String(format: "%.1f%%", networkCongestion * 100)
+    }
+    
+    var estimatedBaseFeeDisplay: String {
+        formatGweiValue(estimatedBaseFee)
+    }
+    
+    var historicalBaseFeeDisplay: String {
+        guard historicalBaseFeeRange.count >= 2 else { return "N/A" }
+        return "\(formatGweiValue(historicalBaseFeeRange[0])) - \(formatGweiValue(historicalBaseFeeRange[1]))"
+    }
+    
+    var latestPriorityFeeDisplay: String {
+        guard latestPriorityFeeRange.count >= 2 else { return "N/A" }
+        return "\(formatGweiValue(latestPriorityFeeRange[0])) - \(formatGweiValue(latestPriorityFeeRange[1]))"
+    }
+    
+    var historicalPriorityFeeDisplay: String {
+        guard historicalPriorityFeeRange.count >= 2 else { return "N/A" }
+        return "\(formatGweiValue(historicalPriorityFeeRange[0])) - \(formatGweiValue(historicalPriorityFeeRange[1]))"
+    }
+    
+    private func formatGweiValue(_ value: String) -> String {
+        guard let doubleValue = Double(value) else { return value }
+        if doubleValue < 0.001 {
+            return String(format: "%.6f Gwei", doubleValue)
+        } else if doubleValue < 1 {
+            return String(format: "%.3f Gwei", doubleValue)
+        } else {
+            return String(format: "%.1f Gwei", doubleValue)
+        }
+    }
+}
+
+extension GasPriceEstimate.FeeDetails {
+    var maxFeeDisplay: String {
+        guard let doubleValue = Double(suggestedMaxFeePerGas) else { return suggestedMaxFeePerGas }
+        return String(format: "%.1f Gwei", doubleValue)
+    }
+    
+    var priorityFeeDisplay: String {
+        guard let doubleValue = Double(suggestedMaxPriorityFeePerGas) else { return suggestedMaxPriorityFeePerGas }
+        return String(format: "%.3f Gwei", doubleValue)
+    }
+    
+    var waitTimeDisplay: String {
+        let minSeconds = minWaitTimeEstimate / 1000
+        let maxSeconds = maxWaitTimeEstimate / 1000
         
-        self.historicalBaseFeeDisplay = showHistoricalBaseFee ?
-            estimate.historicalBaseFeeRange.joined(separator: " - ") : nil
-        self.latestPriorityFeeDisplay = showLatestPriorityFee ?
-            estimate.latestPriorityFeeRange.joined(separator: " - ") : nil
-        self.historicalPriorityFeeDisplay = showHistoricalPriorityFee ?
-            estimate.historicalPriorityFeeRange.joined(separator: " - ") : nil
+        if maxSeconds < 60 {
+            return "\(minSeconds)-\(maxSeconds)s"
+        } else {
+            let minMinutes = minSeconds / 60
+            let maxMinutes = maxSeconds / 60
+            return "\(minMinutes)-\(maxMinutes)m"
+        }
     }
 }
 
 // MARK: - ViewModel
-class GasPriceEstimateViewModel: ObservableObject {
+@MainActor
+final class GasPriceEstimateViewModel: ObservableObject {
     @Published private(set) var estimate: GasPriceEstimate?
-    @Published private(set) var formattedData: FormattedGasPriceData?
     @Published private(set) var isLoading = false
     @Published private(set) var error: Error?
     @Published private(set) var currentChain: Chain?
+    @Published private(set) var lastUpdated: Date?
     
     private let service = Infura()
-    private let debounceDelay: UInt64 = 500_000_000 // 0.5 seconds
-    private var fetchTask: Task<Void, Never>?
-    private var debounceTask: Task<Void, Never>?
-    private let cacheValidityDuration: TimeInterval = 30 // 30 seconds
+    private var currentTask: Task<Void, Never>?
+    private var refreshTimer: Timer?
     
     deinit {
-        cancelAllTasks()
+        currentTask?.cancel()
+        refreshTimer?.invalidate()
     }
     
     func setChain(_ chain: Chain) {
         guard currentChain?.chainId != chain.chainId else { return }
-        currentChain = chain
-        error = nil // Clear previous errors when changing chains
-        fetchGasPriceWithDebounce()
-    }
-    
-    func fetchGasPrice() async {
-        guard let chain = currentChain else { return }
-        cancelAllTasks()
-        fetchTask = Task {
-            await performFetch(chainId: chain.chainId)
-        }
-    }
-    
-    func fetchGasPriceWithDebounce() {
-        debounceTask?.cancel()
         
-        debounceTask = Task {
-            do {
-                try await Task.sleep(nanoseconds: debounceDelay)
-                if !Task.isCancelled {
-                    await fetchGasPrice()
-                }
-            } catch is CancellationError {
-                // Task was cancelled, this is expected
-            } catch {
-                // Unexpected error in sleep
-                self.error = error
+        // Clear stale data immediately when changing chains
+        if currentChain != nil {
+            estimate = nil
+            error = nil
+            lastUpdated = nil
+        }
+        
+        currentChain = chain
+        
+        // Cancel any existing fetch
+        currentTask?.cancel()
+        refreshTimer?.invalidate()
+        
+        // Start new fetch with slight debounce for chain changes
+        currentTask = Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            if !Task.isCancelled {
+                await performFetch(for: chain)
+                startAutoRefresh()
             }
         }
     }
     
-    func cancelAllTasks() {
-        fetchTask?.cancel()
-        debounceTask?.cancel()
-        fetchTask = nil
-        debounceTask = nil
+    func fetchGasPrice() async {
+        guard let chain = currentChain else { return }
+        await performFetch(for: chain)
     }
     
-    @MainActor
-    private func performFetch(chainId: Int) async {
+    private func startAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { _ in
+            Task { @MainActor in
+                guard !self.isLoading else { return }
+                await self.fetchGasPrice()
+            }
+        }
+    }
+    
+    private func performFetch(for chain: Chain) async {
+        // Cancel previous task
+        currentTask?.cancel()
+        
         isLoading = true
         error = nil
         
@@ -100,14 +230,21 @@ class GasPriceEstimateViewModel: ObservableObject {
             isLoading = false
         }
         
-
-        let result = await service.getGasPrice(chainId: chainId)
-        
-        if Task.isCancelled { return }
-        
-        self.estimate = result
-        self.formattedData = FormattedGasPriceData(estimate: result)
-        self.error = nil
+        do {
+            let result = try await service.getGasPrice(chainId: chain.chainId)
+            
+            // Only update if we're still on the same chain and not cancelled
+            if !Task.isCancelled && currentChain?.chainId == chain.chainId {
+                self.estimate = result
+                self.error = nil
+                self.lastUpdated = Date()
+            }
+        } catch {
+            if !Task.isCancelled && currentChain?.chainId == chain.chainId {
+                self.estimate = nil
+                self.error = error
+            }
+        }
     }
 }
 
@@ -118,38 +255,48 @@ struct GasPriceEstimateView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            HeaderView()
+            HeaderView(
+                chainName: chain.networkName,
+                lastUpdated: viewModel.lastUpdated,
+                isLoading: viewModel.isLoading
+            )
             
-            if viewModel.isLoading {
-                LoadingView()
-            } else if let estimate = viewModel.estimate,
-                      let formattedData = viewModel.formattedData {
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        FeeEstimateCardView(estimate: estimate)
-                        BaseFeeCardView(estimate: estimate, formattedData: formattedData)
-                        NetworkCongestionView(congestion: "\(estimate.networkCongestion)")
-                        PriorityFeeCardView(estimate: estimate, formattedData: formattedData)
-                    }
-                    .padding(.horizontal)
-                }
-                .refreshable {
-                    await viewModel.fetchGasPrice()
-                }
-            } else {
-                ErrorView(error: viewModel.error, onRetry: viewModel.fetchGasPrice)
-            }
+            content
         }
         .padding()
-        .task {
+        .task(id: chain.chainId) {
             viewModel.setChain(chain)
-            await viewModel.fetchGasPrice()
         }
-        .onChange(of: chain) { newChain, oldchain in
-            viewModel.setChain(newChain)
-        }
-        .onDisappear {
-            viewModel.cancelAllTasks()
+    }
+    
+    @ViewBuilder
+    private var content: some View {
+        if let estimate = viewModel.estimate {
+            ScrollView {
+                LazyVStack(spacing: 16) {
+                    FeeEstimateCardView(estimate: estimate)
+                    
+                    HStack(spacing: 12) {
+                        BaseFeeCardView(estimate: estimate)
+                        NetworkCongestionView(estimate: estimate)
+                    }
+                    
+                    PriorityFeeCardView(estimate: estimate)
+                }
+                .padding(.horizontal)
+            }
+            .refreshable {
+                await viewModel.fetchGasPrice()
+            }
+        } else if viewModel.isLoading {
+            LoadingView()
+        } else {
+            ErrorView(
+                error: viewModel.error,
+                onRetry: {
+                    await viewModel.fetchGasPrice()
+                }
+            )
         }
     }
 }
@@ -157,31 +304,50 @@ struct GasPriceEstimateView: View {
 extension GasPriceEstimateView {
     // MARK: - Header View
     struct HeaderView: View {
+        let chainName: String
+        let lastUpdated: Date?
+        let isLoading: Bool
+        
         var body: some View {
-            HStack {
-                HeadlineFontText("Gas Price Fees")
+            VStack(spacing: 4) {
+                HStack {
+                    HeadlineFontText("\(chainName) Gas Tracker")
                     
-                Spacer()
+                    Spacer()
                     
-                AccentTextSystemImage("fuelpump")
-                    .accessibilityLabel("Gas price icon")
-                    .accessibilityAddTraits(.isImage)
+                    HStack(spacing: 8) {
+                        if isLoading {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
+                        
+                        AccentTextSystemImage("fuelpump")
+                            .accessibilityLabel("\(chainName) gas tracker icon")
+                    }
+                }
+                
+                if let lastUpdated = lastUpdated {
+                    HStack {
+                        Text("Last updated: \(lastUpdated, format: .dateTime.hour().minute())")
+                            .foregroundStyle(Color.textSecondary)
+                        Spacer()
+                    }
+                }
             }
             .padding(.top, 8)
-            .accessibilityElement(children: .combine)
         }
     }
 
     // MARK: - Loading View
     struct LoadingView: View {
         var body: some View {
-            VStack {
+            VStack(spacing: 16) {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .accent))
+                    .progressViewStyle(CircularProgressViewStyle())
+                    .tint(.accent)
                     .scaleEffect(1.2)
-                    .padding()
 
-                SecondaryText("Loading current gas Fees...")
+                SecondaryText("Fetching gas prices...")
             }
             .frame(maxWidth: .infinity, minHeight: 200)
             .padding()
@@ -196,18 +362,50 @@ extension GasPriceEstimateView {
         
         var body: some View {
             ContentUnavailableView {
-                Label("Unable to Load Gas Prices", systemImage: "exclamationmark.triangle")
+                Label("Gas Price Data Unavailable", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(Color.error)
             } description: {
-                SecondaryText(error?.localizedDescription ?? "We couldn’t load the latest gas prices. Check your connection and try again.")
+                SecondaryText(errorMessage)
             } actions: {
-                PrimaryTextButton("Retry Now") {
+                PrimaryTextButton("Try Again") {
                     Task {
                         await onRetry()
                     }
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 200)
+            .padding()
+            .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
+        }
+        
+        private var errorMessage: String {
+            guard let error = error else {
+                return "Failed to fetch gas price estimate. Please try again later."
+            }
+            return error.localizedDescription
+        }
+    }
+
+    // MARK: - Reusable Card Component
+    struct CardView<Content: View>: View {
+        let title: String
+        let content: Content
+        
+        init(title: String, @ViewBuilder content: () -> Content) {
+            self.title = title
+            self.content = content()
+        }
+        
+        var body: some View {
+            VStack(alignment: .leading, spacing: 12) {
+                SubheadlineFontText(title)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Divider()
+                    .background(Color.textSecondary.opacity(0.3))
+
+                content
+            }
             .padding()
             .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
         }
@@ -218,127 +416,97 @@ extension GasPriceEstimateView {
         let estimate: GasPriceEstimate
 
         var body: some View {
-            VStack(spacing: 12) {
-                SubheadlineFontText("Transaction Speed Options")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Divider().background(Color.textSecondary.opacity(0.3))
-
-                GasFeeEstimateRow(title: "Low Cost", estimate: estimate.low)
-                GasFeeEstimateRow(title: "Balanced", estimate: estimate.medium)
-                GasFeeEstimateRow(title: "High Speed", estimate: estimate.high)
+            CardView(title: "Gas Fee Estimates") {
+                VStack(spacing: 12) {
+                    GasFeeEstimateRow(
+                        urgency: .low,
+                        feeDetails: estimate.low
+                    )
+                    GasFeeEstimateRow(
+                        urgency: .medium,
+                        feeDetails: estimate.medium
+                    )
+                    GasFeeEstimateRow(
+                        urgency: .high,
+                        feeDetails: estimate.high
+                    )
+                }
             }
-            .padding()
-            .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Transaction speed options")
         }
     }
 
     // MARK: - Base Fee Card
     struct BaseFeeCardView: View {
         let estimate: GasPriceEstimate
-        let formattedData: FormattedGasPriceData
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                SubheadlineFontText("Network Base Fee")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Divider().background(Color.textSecondary.opacity(0.3))
-
-                DataRowView(
-                    title: "Current Base Fee",
-                    value: estimate.estimatedBaseFee,
-                    isTrendUp: estimate.baseFeeTrend != "down"
-                )
-
-                if formattedData.showHistoricalBaseFee,
-                   let historicalDisplay = formattedData.historicalBaseFeeDisplay {
+            CardView(title: "Base Fee") {
+                VStack(spacing: 12) {
                     DataRowView(
-                        title: "Recent Base Fee Range",
-                        value: historicalDisplay,
-                        isTrendUp: estimate.baseFeeTrend != "down"
+                        title: "Current",
+                        value: estimate.estimatedBaseFeeDisplay,
+                        trend: estimate.baseFeeTrendDirection
+                    )
+                    
+                    DataRowView(
+                        title: "24h Range",
+                        value: estimate.historicalBaseFeeDisplay,
+                        trend: nil
                     )
                 }
             }
-            .padding()
-            .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
         }
     }
 
     // MARK: - Priority Fee Card
     struct PriorityFeeCardView: View {
         let estimate: GasPriceEstimate
-        let formattedData: FormattedGasPriceData
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                SubheadlineFontText("Priority Fee for Speed")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Divider().background(Color.textSecondary.opacity(0.3))
-
-                if formattedData.showLatestPriorityFee,
-                   let latestDisplay = formattedData.latestPriorityFeeDisplay {
+            CardView(title: "Priority Fee Ranges") {
+                VStack(spacing: 12) {
                     DataRowView(
-                        title: "Current Priority Fee Range",
-                        value: latestDisplay,
-                        isTrendUp: estimate.priorityFeeTrend != "down"
+                        title: "Recent",
+                        value: estimate.latestPriorityFeeDisplay,
+                        trend: estimate.priorityFeeTrendDirection
                     )
-                }
-
-                if formattedData.showHistoricalPriorityFee,
-                   let historicalDisplay = formattedData.historicalPriorityFeeDisplay {
+                    
                     DataRowView(
-                        title: "Recent Priority Fee Range",
-                        value: historicalDisplay,
-                        isTrendUp: estimate.priorityFeeTrend != "down"
+                        title: "Historical",
+                        value: estimate.historicalPriorityFeeDisplay,
+                        trend: nil
                     )
                 }
             }
-            .padding()
-            .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
         }
     }
 
     // MARK: - Network Congestion View
     struct NetworkCongestionView: View {
-        let congestion: String
+        let estimate: GasPriceEstimate
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 8) {
-                SubheadlineFontText("Network Activity")
-
-                HStack {
-                    HeadlineFontText(congestionLevel.displayText)
-
-                    Spacer()
-
-                    CongestionIndicator(level: congestionLevel)
+            CardView(title: "Network Status") {
+                VStack(spacing: 12) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            PrimaryText(estimate.congestionLevel.displayName)
+                                .fontWeight(.semibold)
+                            SecondaryText("Congestion")
+                        }
+                        
+                        Spacer()
+                        
+                        CongestionIndicator(level: estimate.congestionLevel)
+                    }
+                    
+                    HStack {
+                        SecondaryText("Activity: \(estimate.networkCongestionDisplay)")
+                        Spacer()
+                    }
                 }
             }
-            .padding()
-            .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Network activity level")
-            .accessibilityValue(congestionLevel.displayText)
         }
-
-        private var congestionLevel: CongestionLevel {
-            let lowercasedCongestion = congestion.lowercased()
-            if lowercasedCongestion.contains("high") {
-                return .high
-            } else if lowercasedCongestion.contains("medium") {
-                return .medium
-            } else {
-                return .low
-            }
-        }
-    }
-
-    enum CongestionLevel {
-        case low, medium, high
     }
     
     // MARK: - Congestion Indicator
@@ -350,9 +518,14 @@ extension GasPriceEstimateView {
                 ForEach(0..<3, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 2)
                         .fill(getColor(for: index))
-                        .frame(width: 8, height: CGFloat(index * 3) + 8)
+                        .frame(width: 8, height: CGFloat(8 + index * 4))
                 }
             }
+        }
+
+        private func getColor(for index: Int) -> Color {
+            let isActive = index < activeBars
+            return isActive ? level.color : Color.textSecondary.opacity(0.3)
         }
         
         private var activeBars: Int {
@@ -362,35 +535,38 @@ extension GasPriceEstimateView {
             case .high: return 3
             }
         }
-
-        private func getColor(for index: Int) -> Color {
-            switch level {
-            case .low:
-                return index == 0 ? .success : .textSecondary.opacity(0.3)
-            case .medium:
-                return index <= 1 ? .secondary : .textSecondary.opacity(0.3)
-            case .high:
-                return index <= 2 ? .error : .textSecondary.opacity(0.3)
-            }
-        }
     }
 
     // MARK: - Fee Estimate Row
     struct GasFeeEstimateRow: View {
-        var title: String
-        var estimate: GasPriceEstimate.FeeDetails
+        let urgency: UrgencyLevel
+        let feeDetails: GasPriceEstimate.FeeDetails
 
         var body: some View {
-            HStack {
-                PrimaryText(title)
-
-                Spacer()
-
-                PrimaryText(estimate.suggestedMaxPriorityFeePerGas)
-                    .fontWeight(.medium)
+            VStack(spacing: 8) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        PrimaryText(urgency.displayName)
+                            .fontWeight(.semibold)
+                        SecondaryText(urgency.description)
+                            .font(.caption)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing, spacing: 2) {
+                        PrimaryText(feeDetails.maxFeeDisplay)
+                            .fontWeight(.medium)
+                        SecondaryText(feeDetails.waitTimeDisplay)
+                            .font(.caption)
+                    }
+                }
+                
+                if urgency != .high {
+                    Divider()
+                        .background(Color.textSecondary.opacity(0.2))
+                }
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(title) speed: \(estimate.suggestedMaxPriorityFeePerGas)")
         }
     }
 
@@ -398,39 +574,25 @@ extension GasPriceEstimateView {
     struct DataRowView: View {
         let title: String
         let value: String
-        let isTrendUp: Bool
-
-        var accessibilityLabel: String {
-            "\(title): \(value) trending \(isTrendUp ? "up" : "down")"
-        }
+        let trend: TrendDirection?
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    PrimaryText(title)
-                        .fontWeight(.semibold)
+            HStack {
+                PrimaryText(title)
+                    .fontWeight(.medium)
 
-                    Spacer()
-
-                    SystemImage(isTrendUp ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
-                        .foregroundStyle(isTrendUp ? Color.success : .error)
+                Spacer()
+                
+                HStack(spacing: 4) {
+                    PrimaryText(value)
+                    
+                    if let trend = trend, trend != .stable {
+                        Image(systemName: trend.icon)
+                            .foregroundStyle(trend.color)
+                            .font(.caption)
+                    }
                 }
-
-                SecondaryText(value)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(accessibilityLabel)
-        }
-    }
-}
-
-
-extension GasPriceEstimateView.CongestionLevel {
-    var displayText: String {
-        switch self {
-        case .low: return "Low"
-        case .medium: return "Moderate"
-        case .high: return "High"
         }
     }
 }

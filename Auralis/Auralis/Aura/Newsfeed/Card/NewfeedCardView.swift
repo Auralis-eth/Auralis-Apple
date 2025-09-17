@@ -10,27 +10,34 @@ import SwiftUI
 struct NewsFeedCardView: View {
     let nft: NFT
     @State private var isExpanded: Bool = false
-
+    
     @ViewBuilder
     private var imageView: some View {
         if let imageUrlString = nft.image?.originalUrl,
            !imageUrlString.isEmpty,
            let imageUrl = URL(string: imageUrlString) {
             CachedAsyncImage(url: imageUrl)
-                .aspectRatio(contentMode: .fit)
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
                 .clipped()
         } else {
             ZStack {
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
+                    .ignoresSafeArea()
+                
                 VStack {
                     Image(systemName: "photo")
-                    if let imageUrlString = nft.image?.originalUrl,
-                       !imageUrlString.isEmpty {
-                        Text(imageUrlString)
+                        .font(.system(size: 50))
+                    
+                    if let urlString = nft.image?.originalUrl,
+                       !urlString.isEmpty {
+                        Text(urlString)
+                            .font(.footnote)
                     }
                 }
-                    .foregroundStyle(Color.gray)
+                .foregroundStyle(Color.gray)
             }
             .aspectRatio(contentMode: .fit)
             .clipped()
@@ -38,40 +45,46 @@ struct NewsFeedCardView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Background NFT image
-            imageView
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .ignoresSafeArea()
-
-            // Bottom content
-            HStack(alignment: .lastTextBaseline) {
-                if isExpanded {
-                    ScrollView {
+        GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                // Background NFT image
+                imageView
+                
+                HStack(alignment: .bottom, spacing: 16) {
+                    // NFT details
+                    if isExpanded {
+                        ScrollView {
+                            NewsFeedCardDetailsView(nft: nft, isExpanded: $isExpanded)
+                                .glassEffect(.regular.tint(.surface),
+                                           in: .rect(cornerRadius: 30, style: .continuous))
+                                .padding(.leading, 15)
+                                .frame(maxWidth: geo.size.width * 0.65, alignment: .leading)
+                        }
+                        .defaultScrollAnchor(.top)
+                        .frame(maxHeight: geo.size.height * 0.4)
+                    } else {
                         NewsFeedCardDetailsView(nft: nft, isExpanded: $isExpanded)
                             .glassEffect(.regular.tint(.surface),
-                                         in: .rect(cornerRadius: 30, style: .continuous))
-                            .safeAreaPadding(.leading, 15)
+                                       in: .rect(cornerRadius: 30, style: .continuous))
+                            .padding(.leading, 15)
+                            .frame(maxWidth: geo.size.width * 0.65, alignment: .leading)
                     }
-                    .defaultScrollAnchor(.top)
-                } else {
-                    NewsFeedCardDetailsView(nft: nft, isExpanded: $isExpanded)
-                        .glassEffect(.regular.tint(.surface),
-                                     in: .rect(cornerRadius: 30, style: .continuous))
-                        .safeAreaPadding(.leading, 15)
+                    
+                    // Action buttons
+                    NewsFeedCardButtons()
+                        .frame(width: 70) // fixed width so it never clips offscreen
+                        .padding(.trailing, 5)
                 }
-
-                Spacer()
-
-                NewsFeedCardButtons()
+                .padding(.horizontal, 15)
+                .padding(.bottom, geo.safeAreaInsets.bottom + 15)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
-
+            .frame(width: geo.size.width, height: geo.size.height)
         }
+        .ignoresSafeArea(.all)
     }
+    
+    
 }
-
 
 struct NewsFeedCardButtons: View {
     @Namespace private var namespace
@@ -136,6 +149,7 @@ struct NewsFeedCardButtons: View {
         }
     }
 }
+
 struct NewsFeedCardExpandedDetailsView: View {
     let nft: NFT
     var body: some View {
@@ -219,27 +233,38 @@ struct NewsFeedCardExpandedDetailsView: View {
         }
     }
 }
+
 struct NewsFeedCardDetailsView: View {
     let nft: NFT
     @Binding var isExpanded: Bool
-    private static let isoFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
+    
+    // Modern, efficient, and localizable formatters
+    private static let isoFormatters: [ISO8601DateFormatter] = {
+        var f1 = ISO8601DateFormatter()
+        f1.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        var f2 = ISO8601DateFormatter()
+        f2.formatOptions = [.withInternetDateTime]
+
+        return [f1, f2]
     }()
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let rf = RelativeDateTimeFormatter()
+        rf.unitsStyle = .short // or .full for accessibility
+        return rf
+    }()
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             VStack(alignment: .leading) {
                 HeadlineFontText(nft.collection?.name ?? "Unknown Collection")
                     .fontWeight(.semibold)
                     .foregroundStyle(Color.textPrimary)
-                if let timeUpdated = nft.timeLastUpdated, let formattedDate = formattedDate(timeUpdated) {
-                    HStack {
-                        FootnoteFontText("Updated: ")
-                        SecondaryCaptionFontText(formattedDate)
-                    }
-                }else {
-                    FootnoteFontText("Updated: Not available")
+                
+                HStack {
+                    FootnoteFontText("Updated: ")
+                    SecondaryCaptionFontText(formattedUpdateTime)
                 }
             }
 
@@ -283,96 +308,29 @@ struct NewsFeedCardDetailsView: View {
         .padding()
     }
 
-    // Helper function to format date strings
-    private func formattedDate(_ dateString: String) -> String? {
-        // Create date formatter for ISO 8601 format
-        let dateFormatter = Self.isoFormatter
-
-        // Try to parse the date string
-        guard let date = dateFormatter.date(from: dateString) else {
-            return nil
+    // Modern computed property using RelativeDateTimeFormatter
+    private var formattedUpdateTime: String {
+        guard let timeUpdated = nft.timeLastUpdated,
+              let date = parseISODate(timeUpdated) else {
+            return "Not available"
         }
-
+        
         let now = Date()
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date, to: now)
-
-        if let years = components.year, years > 0 {
-            return years == 1 ? "1 year ago" : "\(years) years ago"
+        // Handle future dates by clamping them to "just now"
+        if date > now {
+            return Self.relativeFormatter.localizedString(fromTimeInterval: -1)
         }
+        
+        return Self.relativeFormatter.localizedString(for: date, relativeTo: now)
+    }
 
-        if let months = components.month, months > 0 {
-            return months == 1 ? "1 month ago" : "\(months) months ago"
+    // Helper function to parse ISO dates with fallback formatters
+    private func parseISODate(_ dateString: String) -> Date? {
+        for formatter in Self.isoFormatters {
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
         }
-
-        if let days = components.day, days > 0 {
-            return days == 1 ? "1 day ago" : "\(days) days ago"
-        }
-
-        if let hours = components.hour, hours > 0 {
-            return hours == 1 ? "1 hour ago" : "\(hours) hours ago"
-        }
-
-        if let minutes = components.minute, minutes > 0 {
-            return minutes == 1 ? "1 minute ago" : "\(minutes) minutes ago"
-        }
-
-        if let seconds = components.second, seconds > 0 {
-            return seconds == 1 ? "1 second ago" : "\(seconds) seconds ago"
-        }
-
-        return "Just now"
+        return nil
     }
 }
-
-
-
-//TODO:
-//  1) replace overlay with Zstack
-
-
-
-
-
-//  3) replace formatting code
-// Use the modern, efficient, and localizable formatter
-//private static let relativeFormatter = RelativeDateTimeFormatter()
-//
-//private var formattedUpdateTime: String {
-//   guard let timeUpdated = nft.timeLastUpdated,
-//         let date = ISO8601DateFormatter().date(from: timeUpdated) else {
-//       return "Not available"
-//   }
-//   return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
-//}
-//----------------------------------------------------------
-//private static let isoFormatters: [ISO8601DateFormatter] = {
-//    var f1 = ISO8601DateFormatter()
-//    f1.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-//
-//    var f2 = ISO8601DateFormatter()
-//    f2.formatOptions = [.withInternetDateTime]
-//
-//    return [f1, f2]
-//}()
-//
-//private static let relativeFormatter: RelativeDateTimeFormatter = {
-//    let rf = RelativeDateTimeFormatter()
-//    rf.unitsStyle = .short // or .full for accessibility
-//    return rf
-//}()
-//
-//private func parseISODate(_ s: String) -> Date? {
-//    for f in Self.isoFormatters {
-//        if let d = f.date(from: s) { return d }
-//    }
-//    return nil
-//}
-//
-//private func formattedDate(_ dateString: String) -> String? {
-//    guard let date = parseISODate(dateString) else { return nil }
-//    // Clamp future dates to "Just now" or show "in X" depending on your product choice:
-//    let now = Date()
-//    if date > now { return Self.relativeFormatter.localizedString(fromTimeInterval: -1) } // "in 1 sec" -> adjust as desired
-//    return Self.relativeFormatter.localizedString(for: date, relativeTo: now)
-//}

@@ -13,9 +13,10 @@ import AVFoundation
 class AudioEngine: ObservableObject {
     private var audioEngine = AVAudioEngine()
     private var playerNode = AVAudioPlayerNode()
-    private var audioFile: AVAudioFile?
+    public var audioFile: AVAudioFile?
     private var pausedAt: TimeInterval = 0
     private var seekPosition: TimeInterval = 0
+    private var tempAudioURL: URL? // Track temporary downloaded file
     
     enum PlaybackState {
         case stopped
@@ -24,6 +25,14 @@ class AudioEngine: ObservableObject {
         case loading
     }
     
+    struct Track: Identifiable, Equatable {
+        let id = UUID()
+        var title: String
+        var artist: String
+        var duration: TimeInterval
+    }
+
+    @Published var currentTrack: Track? = nil    
     @Published var playbackState: PlaybackState = .stopped
     
     // Computed property to eliminate state redundancy
@@ -41,6 +50,7 @@ class AudioEngine: ObservableObject {
         case fileLoadFailed
         case unsupportedFormat
         case seekFailed
+        case downloadFailed
         
         var localizedDescription: String {
             switch self {
@@ -54,6 +64,8 @@ class AudioEngine: ObservableObject {
                 return "Unsupported audio format"
             case .seekFailed:
                 return "Failed to seek to position"
+            case .downloadFailed:
+                return "Failed to download remote audio file"
             }
         }
     }
@@ -156,17 +168,56 @@ class AudioEngine: ObservableObject {
         let fileExtension = url.pathExtension.lowercased()
         return supportedFormats.contains(fileExtension)
     }
-
+    
+    // MARK: - Remote File Download
+    private func downloadAudioFile(from url: URL) async throws -> URL {
+        let (tempURL, response) = try await URLSession.shared.download(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw AudioEngineError.downloadFailed
+        }
+        
+        // Create a permanent temp file with proper extension
+        let documentsPath = FileManager.default.temporaryDirectory
+        let fileName = url.lastPathComponent.isEmpty ? "audio.mp3" : url.lastPathComponent
+        let permanentURL = documentsPath.appendingPathComponent(fileName)
+        
+        // Remove existing file if it exists
+        try? FileManager.default.removeItem(at: permanentURL)
+        
+        // Move downloaded file to permanent location
+        try FileManager.default.moveItem(at: tempURL, to: permanentURL)
+        
+        return permanentURL
+    }
     
     // MARK: - Audio Loading and Playback
-    func loadAudio(from url: URL) throws {
+    func loadAudio(from url: URL, title: String, artist: String) async throws {
         playbackState = .loading
         
+        // Clean up previous temp file
+        if let tempURL = tempAudioURL {
+            try? FileManager.default.removeItem(at: tempURL)
+            tempAudioURL = nil
+        }
+        
+        let localURL: URL
+        
+        // Check if URL is remote
+        if url.scheme == "http" || url.scheme == "https" {
+            localURL = try await downloadAudioFile(from: url)
+            tempAudioURL = localURL
+        } else {
+            localURL = url
+        }
+        
         do {
-            audioFile = try AVAudioFile(forReading: url)
+            audioFile = try AVAudioFile(forReading: localURL)
             seekPosition = 0
             pausedAt = 0
             playbackState = .stopped
+            currentTrack = Track(title: title, artist: artist, duration: self.duration)
         } catch {
             playbackState = .stopped
             throw AudioEngineError.fileLoadFailed
@@ -183,11 +234,19 @@ class AudioEngine: ObservableObject {
         let sampleRate = audioFile.processingFormat.sampleRate
         let startFrame = AVAudioFramePosition(seekPosition * sampleRate)
         let remainingFrames = AVAudioFrameCount(audioFile.length - startFrame)
-        
+        guard remainingFrames > 0 else {
+            return
+        }
         playerNode.scheduleSegment(audioFile, startingFrame: startFrame, frameCount: remainingFrames, at: nil) {
             Task { @MainActor in
                 if self.playbackState == .playing {
                     self.playbackState = .stopped
+                    
+                    // TODO: Handle completion notification
+                    // Options:
+                    // - Call closure: self.onTrackCompleted?()
+                    // - Call closure: self.onPlaybackComplete?()
+                    // - Call delegate: self.delegate?.audioEngineDidFinishPlaying(self)
                 }
             }
         }
@@ -250,12 +309,12 @@ class AudioEngine: ObservableObject {
         stop()
     }
     
-    func loadAndPlay(url: URL) throws {
+    func loadAndPlay(url: URL, title: String, artist: String) async throws {
         guard canPlayFormat(url) else {
             throw AudioEngineError.unsupportedFormat
         }
         
-        try loadAudio(from: url)
+        try await loadAudio(from: url, title: title, artist: artist)
         try play()
     }
     
@@ -290,6 +349,11 @@ class AudioEngine: ObservableObject {
         }
         
         audioEngine.detach(playerNode)
+        
+        // Clean up temp file
+        if let tempURL = tempAudioURL {
+            try? FileManager.default.removeItem(at: tempURL)
+        }
         
         do {
             try AVAudioSession.sharedInstance().setActive(false)

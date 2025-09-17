@@ -8,7 +8,7 @@
 import Foundation
 import SwiftData
 import web3
-
+import UIKit
 
 // MARK: - Helper Functions & Computed Properties
 enum JSONValue: Codable {
@@ -111,14 +111,714 @@ enum JSONValue: Codable {
     }
 }
 
+import SwiftUI
+import SwiftUI
+import SwiftData
 
+// MARK: - Updated TagMutatingView
+struct TagMutatingView: View {
+    @Query(sort: [SortDescriptor(\Tag.name)]) private var tags: [Tag]
+    
+    @State private var lastError: TagError?
+    @State private var showingCreateSheet = false
+    @State private var tagToUpdate: Tag?
+    
+    @Environment(\.modelContext) private var modelContext
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(tags) { tag in
+                        VStack(spacing: 8) {
+                            Text(tag.name)
+                                .font(.headline)
+                                .foregroundStyle(tag.color.toColor())
+                            
+                            HStack(spacing: 16) {
+                                Button {
+                                    deleteTag(tag)
+                                } label: {
+                                    Text("Delete")
+                                        .foregroundColor(.red)
+                                }
+                                .buttonStyle(.glass)
+                                
+                                Button {
+                                    tagToUpdate = tag
+                                } label: {
+                                    Text("Update")
+                                }
+                                .buttonStyle(.glass)
+                            }
+                        }
+                        .padding()
+                        .glassEffect(.clear.interactive(), in: .rect)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Tags")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showingCreateSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingCreateSheet) {
+                TagCreateUpdateView()
+            }
+            .sheet(item: $tagToUpdate) { tag in
+                TagCreateUpdateView(existingTag: tag)
+            }
+            .alert("Error", isPresented: .constant(lastError != nil)) {
+                Button("OK") {
+                    lastError = nil
+                }
+            } message: {
+                if let error = lastError {
+                    Text(error.localizedDescription)
+                }
+            }
+        }
+    }
+    
+    private func deleteTag(_ tag: Tag) {
+        lastError = nil
+        do {
+            modelContext.delete(tag)
+            try modelContext.save()
+        } catch {
+            lastError = TagError.operationFailed(underlying: error)
+        }
+    }
+}
 
-//// Presumed NFTTrait model structure
-//struct NFTTrait {
-//    var type: String
-//    var value: String
-//}
+// MARK: - TagCreateUpdateView
+struct TagCreateUpdateView: View {
+    @Query(sort: [SortDescriptor(\Tag.name)]) private var tags: [Tag]
+    @Environment(\.modelContext) private var modelContext
+    
+    @State private var existingTag: Tag?
+    @State private var tagName: String
+    @State private var tagColor: String
+    @State private var validationError: TagError?
+    
+    @Environment(\.dismiss) private var dismiss
+    
+    // Predefined color options
+    private let colorOptions = [
+        ("Red", "FF0000"),
+        ("Green", "00FF00"),
+        ("Blue", "0000FF"),
+        ("Orange", "FF8800"),
+        ("Purple", "8800FF"),
+        ("Pink", "FF0088"),
+        ("Cyan", "00FFFF"),
+        ("Yellow", "FFFF00"),
+        ("Indigo", "4B0082"),
+        ("Teal", "008080")
+    ]
+    
+    @State private var selectedColorIndex: Int = 0
+    @State private var useCustomColor = false
+    
+    private enum Constants {
+        static let maxNameLength = 50
+        static let allowedCharacterSet = CharacterSet.letters
+            .union(.decimalDigits)
+            .union(.whitespaces)
+            .union(CharacterSet(charactersIn: "-_.,!?()&"))
+    }
+    
+    init(existingTag: Tag? = nil) {
+        self.existingTag = existingTag
+        
+        if let existingTag = existingTag {
+            _tagName = State(initialValue: existingTag.name)
+            _tagColor = State(initialValue: existingTag.color)
+            
+            // Find matching color in options
+            if let index = colorOptions.firstIndex(where: { $0.1 == existingTag.color }) {
+                _selectedColorIndex = State(initialValue: index)
+                _useCustomColor = State(initialValue: false)
+            } else {
+                _useCustomColor = State(initialValue: true)
+            }
+        } else {
+            _tagName = State(initialValue: "")
+            _tagColor = State(initialValue: colorOptions[0].1)
+        }
+    }
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Tag Details") {
+                    TextField("Tag Name", text: $tagName)
+                        .textFieldStyle(.roundedBorder)
+                }
+                
+                Section("Color") {
+                    Toggle("Use Custom Color", isOn: $useCustomColor)
+                    
+                    if useCustomColor {
+                        VStack(alignment: .leading, spacing: 8) {
+                            TextField("Hex Color (e.g., FF0000)", text: $tagColor)
+                                .textFieldStyle(.roundedBorder)
+                                .autocapitalization(.allCharacters)
+                            
+                            HStack {
+                                Text("Preview:")
+                                Circle()
+                                    .fill(tagColor.toColor())
+                                    .frame(width: 30, height: 30)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.gray, lineWidth: 1)
+                                    )
+                            }
+                        }
+                    } else {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
+                            ForEach(0..<colorOptions.count, id: \.self) { index in
+                                let (colorName, colorHex) = colorOptions[index]
+                                
+                                Button {
+                                    selectedColorIndex = index
+                                    tagColor = colorHex
+                                } label: {
+                                    Circle()
+                                        .fill(colorHex.toColor())
+                                        .frame(width: 40, height: 40)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(
+                                                    selectedColorIndex == index ? Color.primary : Color.gray,
+                                                    lineWidth: selectedColorIndex == index ? 3 : 1
+                                                )
+                                        )
+                                }
+                                .accessibilityLabel(colorName)
+                            }
+                        }
+                    }
+                }
+                
+                if let validationError = validationError?.errorDescription {
+                    Section {
+                        Text(validationError)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
+            }
+            .navigationTitle(existingTag == nil ? "Create Tag" : "Update Tag")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(existingTag == nil ? "Create" : "Update") {
+                        saveTag()
+                    }
+                    .disabled(!isFormValid)
+                }
+            }
+        }
+    }
+    
+    private var isFormValid: Bool {
+        (try? validateForm()) ?? false
+    }
+    
+    private func validateForm() throws -> Bool {
+        // Validate name
+        let trimmedName = tagName.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if trimmedName.isEmpty {
+            throw TagError.emptyName
+        }
+        
+        if trimmedName.count > Constants.maxNameLength {
+            throw TagError.nameTooLong
+        }
+        
+        // Check for invalid characters
+        if trimmedName.rangeOfCharacter(from: Constants.allowedCharacterSet.inverted) != nil {
+            throw TagError.invalidCharacters
+        }
+        
+        // Check for duplicate names (excluding current tag being updated)
+        let lowercasedName = trimmedName.lowercased()
+        if Set(tags.map { $0.name.lowercased() }).contains(lowercasedName) &&
+           existingTag?.name.lowercased() != lowercasedName {
+            throw TagError.duplicateName(existing: lowercasedName)
+        }
+        
+        // Validate color
+        let trimmedColor = tagColor.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedColor.isEmpty {
+            throw TagError.invalidColor(color: trimmedColor)
+        }
+        
+        // Validate hex color format
+        let cleanColor = trimmedColor.replacingOccurrences(of: "#", with: "")
+        if !(cleanColor.count == 6 || cleanColor.count == 8) {
+            throw TagError.invalidColor(color: cleanColor)
+        }
+        
+        let hexCharacterSet = CharacterSet(charactersIn: "0123456789ABCDEFabcdef")
+        if cleanColor.rangeOfCharacter(from: hexCharacterSet.inverted) != nil {
+            throw TagError.invalidColor(color: cleanColor)
+        }
+        
+        return true
+    }
+    
+    private func saveTag() {
+        do {
+            guard try validateForm() else {
+                return
+            }
+        } catch let error as TagError {
+            validationError = error
+        } catch {
+            let tagError = TagError.operationFailed(underlying: error)
+            validationError = tagError
+        }
+        
+        validationError = nil
+        
+        let trimmedName = tagName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanColor = tagColor.replacingOccurrences(of: "#", with: "").uppercased()
+        
+        if existingTag != nil {
+            updateTag(name: trimmedName, color: cleanColor)
+        } else {
+            createTag(name: trimmedName, color: cleanColor)
+        }
+        
+        dismiss()
+    }
+    
+    
+    private func processAndValidateTagName(_ name: String, excludingTag: Tag? = nil) throws -> String {
+        let cleanedString = name.components(separatedBy: .controlCharacters).joined()
+        let normalizedString = cleanedString
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        let trimmed = normalizedString.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmed.isEmpty else { throw TagError.emptyName }
+        guard trimmed.count <= Constants.maxNameLength else { throw TagError.nameTooLong }
+        guard trimmed.rangeOfCharacter(from: Constants.allowedCharacterSet.inverted) == nil else {
+            throw TagError.invalidCharacters
+        }
+        
+        try validateUniqueTag(name: trimmed, excludingTag: excludingTag)
+        return trimmed
+    }
+    
+    private func validateUniqueTag(name: String, excludingTag: Tag? = nil) throws {
+        let lowerName = name.lowercased()
+        
+        if let excluding = excludingTag, excluding.name.lowercased() == lowerName {
+            return
+        }
+        
+        if Set(tags.map { $0.name.lowercased() }).contains(lowerName) {
+            throw TagError.duplicateName(existing: lowerName)
+        }
+    }
+    
+    /// Enhanced color validation with accessibility check
+    private func validateColor(_ color: String) throws -> String {
+        let validated = try Tag.validateColor(color)
+        
+        // Accessibility check using WCAG contrast guidelines
+        if let uiColor = UIColor(hex: validated) {
+            let contrastRatio = uiColor.contrastRatio(with: .white)
+            if contrastRatio < 4.5 {
+                throw TagError.lowContrast
+            }
+        }
+        
+        return validated
+    }
+    
+    private func createTag(name: String, color: String) {
+        validationError = nil
+        
+        do {
+            let validatedName = try self.processAndValidateTagName(name)
+            let validatedColor = try self.validateColor(color)
+            
+            let tag = try Tag(name: validatedName, color: validatedColor)
+            
+            self.modelContext.insert(tag)
+            try self.modelContext.save()
+        } catch let error as TagError {
+            validationError = error
+        } catch {
+            let tagError = TagError.operationFailed(underlying: error)
+            validationError = tagError
+        }
 
+    }
+    
+    private func updateTag(name: String, color: String) {
+        validationError = nil
+        
+        guard let tag = existingTag else {
+            return
+        }
+        do {
+            // Use Tag model's update methods
+            let nameResult = tag.updateName(name)
+            let colorResult = tag.updateColor(color)
+            
+            // Handle validation results from Tag model
+            try nameResult.get()
+            try colorResult.get()
+            
+            try self.modelContext.save()
+        } catch let error as TagError {
+            validationError = error
+        } catch {
+            let tagError = TagError.operationFailed(underlying: error)
+            validationError = tagError
+        }
+    }
+}
+
+import SwiftUI
+
+struct ColorPickerWithHex: View {
+    @State private var selectedColor = Color.blue
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Color Picker")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+            
+            // Color preview rectangle
+            RoundedRectangle(cornerRadius: 12)
+                .fill(selectedColor)
+                .frame(width: 200, height: 100)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.gray, lineWidth: 1)
+                )
+            
+            // ColorPicker
+            ColorPicker("Select Color", selection: $selectedColor)
+                .frame(maxWidth: 300)
+            
+            // Hex value display
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Hex Value:")
+                    .font(.headline)
+                
+                Text(selectedColor.toHexString())
+                    .font(.system(.title2, design: .monospaced))
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
+                    .textSelection(.enabled) // Allows text selection for copying
+            }
+        }
+        .padding()
+    }
+}
+
+// Optimized Color extension for hex conversion
+extension Color {
+    func toHexString() -> String {
+        guard let components = self.cgColor?.components, components.count >= 3 else {
+            return "#000000"
+        }
+        
+        let red = UInt8(clamp(components[0] * 255))
+        let green = UInt8(clamp(components[1] * 255))
+        let blue = UInt8(clamp(components[2] * 255))
+        let alpha: UInt8
+        
+        if components.count == 4 {
+            alpha = UInt8(clamp(components[3] * 255))
+        } else {
+            alpha = 255
+        }
+        
+        // Include alpha only if it's not fully opaque
+        if alpha < 255 {
+            return String(format: "#%02X%02X%02X%02X", red, green, blue, alpha)
+        } else {
+            return String(format: "#%02X%02X%02X", red, green, blue)
+        }
+    }
+    
+    private func clamp(_ value: CGFloat) -> CGFloat {
+        return value < 0 ? 0 : (value > 255 ? 255 : value)
+    }
+}
+
+//---------------------------------------------------
+// MARK: - UIColor Extension for Accessibility
+
+extension UIColor {
+    /// Calculate contrast ratio according to WCAG guidelines
+    func contrastRatio(with color: UIColor) -> CGFloat {
+        let luminance1 = self.luminance
+        let luminance2 = color.luminance
+        let lighter = max(luminance1, luminance2)
+        let darker = min(luminance1, luminance2)
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+    
+    /// Calculate relative luminance according to WCAG formula
+    private var luminance: CGFloat {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        
+        getRed(&red, green: &green, blue: &blue, alpha: nil)
+        
+        func adjustColorComponent(_ component: CGFloat) -> CGFloat {
+            return component <= 0.03928
+                ? component / 12.92
+                : pow((component + 0.055) / 1.055, 2.4)
+        }
+        
+        let adjustedRed = adjustColorComponent(red)
+        let adjustedGreen = adjustColorComponent(green)
+        let adjustedBlue = adjustColorComponent(blue)
+        
+        return 0.2126 * adjustedRed + 0.7152 * adjustedGreen + 0.0722 * adjustedBlue
+    }
+    
+    /// Initialize UIColor from hex string
+    convenience init?(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        
+        guard Scanner(string: hex).scanHexInt64(&int) else { return nil }
+        
+        let alpha: CGFloat = 1.0
+        let red: CGFloat
+        let green: CGFloat
+        let blue: CGFloat
+        
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            red = CGFloat((int >> 8) * 17) / 255
+            green = CGFloat((int >> 4 & 0xF) * 17) / 255
+            blue = CGFloat((int & 0xF) * 17) / 255
+        case 6: // RGB (24-bit)
+            red = CGFloat((int >> 16) & 0xFF) / 255
+            green = CGFloat((int >> 8) & 0xFF) / 255
+            blue = CGFloat(int & 0xFF) / 255
+        default:
+            return nil
+        }
+        
+        self.init(red: red, green: green, blue: blue, alpha: alpha)
+    }
+}
+
+// MARK: - Localized Error Types
+
+enum TagError: LocalizedError, Equatable {
+    case emptyName
+    case nameTooLong
+    case invalidCharacters
+    case duplicateName(existing: String)
+    case invalidColor(color: String)
+    case lowContrast
+    case operationFailed(underlying: Error)
+    case fetchFailed(underlying: Error)
+    
+    var errorDescription: String? {
+        switch self {
+        case .emptyName:
+            return NSLocalizedString("tag.error.emptyName",
+                                   value: "Tag name cannot be empty",
+                                   comment: "Error when tag name is empty")
+        case .nameTooLong:
+            return NSLocalizedString("tag.error.nameTooLong",
+                                   value: "Tag name is too long (maximum 50 characters)",
+                                   comment: "Error when tag name exceeds length limit")
+        case .invalidCharacters:
+            return NSLocalizedString("tag.error.invalidCharacters",
+                                   value: "Tag name contains invalid characters",
+                                   comment: "Error when tag name contains invalid characters")
+        case .duplicateName(let existing):
+            return NSLocalizedString("tag.error.duplicateName",
+                                   value: "A tag named '\(existing)' already exists",
+                                   comment: "Error when tag name already exists")
+        case .invalidColor(let color):
+            return NSLocalizedString("tag.error.invalidColor",
+                                   value: "Invalid color format: \(color)",
+                                   comment: "Error when color format is invalid")
+        case .lowContrast:
+            return NSLocalizedString("tag.error.lowContrast",
+                                   value: "Color has insufficient contrast for accessibility",
+                                   comment: "Error when color contrast is too low")
+        case .operationFailed(let underlying):
+            return "Operation failed: \(underlying.localizedDescription)"
+        case .fetchFailed(let underlying):
+            return "Failed to fetch tags: \(underlying.localizedDescription)"
+        }
+    }
+    
+    static func == (lhs: TagError, rhs: TagError) -> Bool {
+        switch (lhs, rhs) {
+        case (.emptyName, .emptyName),
+             (.nameTooLong, .nameTooLong),
+             (.invalidCharacters, .invalidCharacters),
+             (.lowContrast, .lowContrast):
+            return true
+        case let (.duplicateName(lhsName), .duplicateName(rhsName)):
+            return lhsName == rhsName
+        case let (.invalidColor(lhsColor), .invalidColor(rhsColor)):
+            return lhsColor == rhsColor
+        case let (.operationFailed(lhsError), .operationFailed(rhsError)),
+             let (.fetchFailed(lhsError), .fetchFailed(rhsError)):
+            return lhsError.localizedDescription == rhsError.localizedDescription
+        default:
+            return false
+        }
+    }
+}
+
+@Model
+class Tag: Codable, Equatable, Hashable {
+    @Attribute(.unique) var name: String
+    var color: String
+    var createdAt: Date
+    var lastModified: Date
+    var nfts: [NFT] = [] // Fixed: Provide default value for SwiftData
+    
+    // Optimized hex color validation (much faster than regex)
+    private static func isValidHexColor(_ color: String) -> Bool {
+        guard color.hasPrefix("#") else { return false }
+        let hex = String(color.dropFirst())
+        guard hex.count == 3 || hex.count == 6 else { return false }
+        return hex.allSatisfy { $0.isHexDigit }
+    }
+    
+    /// Creates a new Tag with validated name and color
+    /// - Parameters:
+    ///   - name: Tag name (will be trimmed, must not be empty, max 50 chars)
+    ///   - color: Hex color string (e.g., "#FF5733" or "#F73")
+    /// - Throws: TagError for validation failures
+    init(name: String, color: String = "#007AFF") throws {
+        let validatedName = try Self.validateName(name)
+        let validatedColor = try Self.validateColor(color)
+        
+        self.name = validatedName
+        self.color = validatedColor
+        let now = Date()
+        self.createdAt = now
+        self.lastModified = now
+        // nfts has default empty array
+    }
+    
+    // MARK: - Update Methods
+    
+    func updateColor(_ newColor: String) -> Result<Void, TagError> {
+        do {
+            let validatedColor = try Self.validateColor(newColor)
+            self.color = validatedColor
+            self.lastModified = Date()
+            return .success(())
+        } catch let tagError as TagError {
+            return .failure(tagError)
+        } catch {
+            // This should never happen with current validation, but safety first
+            return .failure(.invalidColor(color: newColor))
+        }
+    }
+    
+    func updateName(_ newName: String) -> Result<Void, TagError> {
+        do {
+            let validatedName = try Self.validateName(newName)
+            self.name = validatedName
+            self.lastModified = Date()
+            return .success(())
+        } catch let tagError as TagError {
+            return .failure(tagError)
+        } catch {
+            // Fallback for unexpected errors
+            return .failure(.emptyName)
+        }
+    }
+    
+    // MARK: - Private Validation
+    
+    static func validateName(_ name: String) throws -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw TagError.emptyName
+        }
+        guard trimmed.count <= 50 else {
+            throw TagError.nameTooLong
+        }
+        return trimmed
+    }
+    
+    static func validateColor(_ color: String) throws -> String {
+        guard isValidHexColor(color) else {
+            throw TagError.invalidColor(color: color)
+        }
+        return color
+    }
+    
+    // MARK: - Protocol Conformance
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+    }
+    
+    static func == (lhs: Tag, rhs: Tag) -> Bool {
+        lhs.name == rhs.name
+    }
+    
+    // MARK: - Codable with Validation
+    
+    enum CodingKeys: String, CodingKey {
+        case name, color, createdAt, lastModified
+    }
+    
+    required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.color = try container.decode(String.self, forKey: .color)
+        self.createdAt = try container.decode(Date.self, forKey: .createdAt)
+        self.lastModified = try container.decode(Date.self, forKey: .lastModified)
+        self.nfts = [] // Initialize empty array
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(color, forKey: .color)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(lastModified, forKey: .lastModified)
+    }
+}
+//-----------------------------------------------------------
 @Model
 class NFT: Codable {
     #Unique<NFT>([\.contract, \.tokenId, \.networkRawValue])
@@ -186,6 +886,8 @@ class NFT: Codable {
 
     @Relationship(deleteRule: .cascade, inverse: \Attribute.nft)
     var attributes: [NFT.Attribute]?
+    @Relationship(deleteRule: .nullify, inverse: \Tag.nfts)
+    var tags: [Tag]?
 
     // Complex data structures
 //    var imageDetails: [String: Any]?
@@ -215,6 +917,37 @@ class NFT: Codable {
             networkRawValue = newValue?.rawValue ?? ""
         }
     }
+    
+    func isMusic() -> Bool {
+        let hasAudioContentType = contentType?.starts(with: "audio/") == true
+        let hasAudioUrl = audioUrl?.isEmpty == false
+        
+        let animationUrl = self.animationUrl ?? ""
+        
+        let hasAudioAnimation = animationUrl.contains(".mp3") ||
+        animationUrl.contains(".m4a") ||
+        animationUrl.contains(".wav") ||
+        animationUrl.contains(".flac")
+        
+        return hasAudioContentType || hasAudioUrl || hasAudioAnimation
+    }
+    
+    var musicURL: URL? {
+        guard isMusic() else { return nil }
+        
+        let animationUrl = self.animationUrl ?? ""
+        
+        if animationUrl.contains(".mp3") ||
+            animationUrl.contains(".m4a") ||
+            animationUrl.contains(".wav") ||
+            animationUrl.contains(".flac") {
+            return URL(string: animationUrl)
+        } else if let audioUrl, !audioUrl.isEmpty {
+            return URL(string: audioUrl)
+        } else {
+            return nil
+        }
+    }
 
     enum CodingKeys: String, CodingKey {
         case contract
@@ -230,7 +963,7 @@ class NFT: Codable {
         case acquiredAt
     }
     
-    init(id: String, contract: Contract, tokenId: String, tokenType: String? = nil, name: String? = nil, nftDescription: String? = nil, image: Image? = nil, raw: Raw? = nil, collection: Collection?, tokenUri: String? = nil, timeLastUpdated: String? = nil, acquiredAt: AcquiredAt? = nil, network: Chain = .ethMainnet, contentType: String? = nil, collectionName: String? = nil, artistName: String? = nil, animationUrl: String? = nil, secureAnimationUrl: String? = nil, audioUrl: String? = nil) {
+    init(id: String, contract: Contract, tokenId: String, tokenType: String? = nil, name: String? = nil, nftDescription: String? = nil, image: Image? = nil, raw: Raw? = nil, collection: Collection?, tokenUri: String? = nil, timeLastUpdated: String? = nil, acquiredAt: AcquiredAt? = nil, network: Chain = .ethMainnet, contentType: String? = nil, collectionName: String? = nil, artistName: String? = nil, animationUrl: String? = nil, secureAnimationUrl: String? = nil, audioUrl: String? = nil, tags: [Tag]? = nil) {
         self.id = id
         self.contract = contract
         self.tokenId = tokenId
@@ -250,18 +983,22 @@ class NFT: Codable {
         self.animationUrl = animationUrl
         self.secureAnimationUrl = secureAnimationUrl
         self.audioUrl = audioUrl
+        self.tags = tags ?? []
     }
 
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        tokenType = try container.decodeIfPresent(String.self, forKey: .tokenType)
-        name = try container.decodeIfPresent(String.self, forKey: .name)
+        let tokenType = try container.decodeIfPresent(String.self, forKey: .tokenType)
+        self.tokenType = tokenType
+        let name = try container.decodeIfPresent(String.self, forKey: .name)
+        self.name = name
         nftDescription = try container.decodeIfPresent(String.self, forKey: .nftDescription)
         image = try container.decodeIfPresent(Image.self, forKey: .image)
         raw = try container.decodeIfPresent(Raw.self, forKey: .raw)
         collection = try container.decodeIfPresent(Collection.self, forKey: .collection)
-        tokenUri = try container.decodeIfPresent(String.self, forKey: .tokenUri)
+        let tokenUri = try container.decodeIfPresent(String.self, forKey: .tokenUri)
+        self.tokenUri = tokenUri
         timeLastUpdated = try container.decodeIfPresent(String.self, forKey: .timeLastUpdated)
         acquiredAt = try container.decodeIfPresent(AcquiredAt.self, forKey: .acquiredAt)
         networkRawValue = Chain.ethMainnet.rawValue
@@ -270,7 +1007,9 @@ class NFT: Codable {
         self.tokenId = tokenId
         let contract = try container.decode(Contract.self, forKey: .contract)
         self.contract = contract
-        id = (contract.address ?? UUID().uuidString) + ":" + tokenId
+        let contractAddress = contract.address ?? ("unknown" + (tokenType ?? "") + (name ?? "") + (tokenUri ?? ""))
+        let networkPrefix = Chain.ethMainnet.rawValue
+        id = "\(networkPrefix):\(contractAddress):\(tokenId)"
     }
     
     func encode(to encoder: Encoder) throws {
@@ -445,8 +1184,7 @@ class NFT: Codable {
     
     @Model
     class Collection: Codable {
-        #Unique<Collection>([\.name])
-        var name: String?
+        @Attribute(.unique) var name: String?
         
         enum CodingKeys: String, CodingKey {
             case name

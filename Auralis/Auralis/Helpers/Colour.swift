@@ -73,3 +73,29 @@ extension Color {
     static let auroraBlue = Color(hexString: "1E90FF")       // Bright blue
     static let auroraTeal = Color(hexString: "00FFA5")       // Bright teal
 }
+
+extension String {
+    func toColor() -> Color {
+        let hex = self.hasPrefix("#") ? String(dropFirst()) : self
+        
+        // Fast path validation
+        guard (hex.count == 6 || hex.count == 8),
+              let value = UInt64(hex, radix: 16) else {
+            return .clear
+        }
+        
+        if hex.count == 8 {
+            return Color(.sRGB,
+                        red: Double((value >> 24) & 0xFF) / 255,
+                        green: Double((value >> 16) & 0xFF) / 255,
+                        blue: Double((value >> 8) & 0xFF) / 255,
+                        opacity: Double(value & 0xFF) / 255)
+        } else {
+            return Color(.sRGB,
+                        red: Double((value >> 16) & 0xFF) / 255,
+                        green: Double((value >> 8) & 0xFF) / 255,
+                        blue: Double(value & 0xFF) / 255,
+                        opacity: 1.0)
+        }
+    }
+}

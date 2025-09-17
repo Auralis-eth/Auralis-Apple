@@ -26,10 +26,6 @@ class NFTService {
         do {
             let nfts = try await nftFetcher.fetchAllNFTs(for: accountAddress, chain: chain)
 
-            guard let nfts else {
-                return
-            }
-
             nfts.forEach {
                 $0.parseMetadata()
             }

@@ -22,28 +22,6 @@ struct NewsFeedListView: View {
 
     var body: some View {
         VStack {
-            //    * [#11] Filter by Collection: Optional dropdown or search bar
-            //    * [#12] Filter by Tag: Filter by user-added tags
-
-            //    * AURA-13 [BE]: Implement filtering logic in the data layer.
-
-//            * Date range filtering
-//            * Multiple filter combinations
-//            * Clear filters option
-//            * Filter state persistence
-
-//=================================
-
-
-
-
-//            ForEach(collections) { collection in
-//                Text(collection.name ?? "NO NAME")
-//                    .foregroundStyle(Color.textPrimary)
-//            }
-//            if collections.isEmpty {
-//                Text("No collections found")
-//            }
             NewsFeedListingView(
                 currentAccount: $currentAccount,
                 selectedNFT: $selectedNFT,
@@ -55,36 +33,14 @@ struct NewsFeedListView: View {
         }
         .toolbar {
             ToolbarItemGroup {
-//                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        // Sort options
-                        Menu("Time", systemImage: "clock") {
-                            NFTSortButton(title: "Last Update", sortOrder: $sortOrder, keyPath: \.timeLastUpdated)
-                            NFTSortButton(title: "Acquired", sortOrder: $sortOrder, keyPath: \.acquiredAt?.blockTimestamp)
-                        }
-
-                        NFTSortButton(title: "Collection Name", sortOrder: $sortOrder, keyPath: \.collection?.name)
-                        NFTSortButton(title: "Item Name", sortOrder: $sortOrder, keyPath: \.name)
-                    } label: {
-                        SystemImage("line.3.horizontal.decrease")
-                            .padding(8)
-                    }
-//                }
-//                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        // Sort options
-                        //                    Menu("Time", systemImage: "clock") {
-                        //                        NFTSortButton(title: "Last Update", sortOrder: $sortOrder, keyPath: \.timeLastUpdated)
-                        NFTSortButton(title: "Acquired", sortOrder: $sortOrder, keyPath: \.acquiredAt?.blockTimestamp)
-                        //                    }
-
-                        NFTSortButton(title: "Collection Name", sortOrder: $sortOrder, keyPath: \.collection?.name)
-                        NFTSortButton(title: "Item Name", sortOrder: $sortOrder, keyPath: \.name)
-                    } label: {
-                        SystemImage("ellipsis")
-                            .padding(8)
-                    }
-//                }
+                Menu {
+                    NFTSortButton(title: "Acquired", sortOrder: $sortOrder, keyPath: \.acquiredAt?.blockTimestamp)
+                    NFTSortButton(title: "Collection Name", sortOrder: $sortOrder, keyPath: \.collection?.name)
+                    NFTSortButton(title: "Item Name", sortOrder: $sortOrder, keyPath: \.name)
+                } label: {
+                    SystemImage("ellipsis")
+                        .padding(8)
+                }
             }
 
             ToolbarSpacer(.flexible)

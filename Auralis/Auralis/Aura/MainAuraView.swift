@@ -14,7 +14,8 @@ struct MainAuraView: View {
     @AppStorage("currentChainId") var currentChainId: String = Chain.ethMainnet.rawValue
     @Environment(\.modelContext) private var modelContext
     @State private var nftService = NFTService()
-
+    @StateObject private var audioEngine: AudioEngine
+    
     @State private var currentAccount: EOAccount?
     @State private var currentChain: Chain = .ethMainnet
 
@@ -38,6 +39,7 @@ struct MainAuraView: View {
                     Button("Logout") {
                         try? modelContext.delete(model: NFT.self)
                         try? modelContext.delete(model: EOAccount.self)
+                        try? modelContext.delete(model: Tag.self)
                         self.currentAccount = nil
                         currentAddress = ""
                         currentChainId = ""
@@ -72,7 +74,10 @@ struct MainAuraView: View {
             }
             
             Tab("Music", systemImage: "play.circle") {
-                MusicPlayerView()
+                VStack {
+                    //                MusicPlayerView()
+                    NFTMusicPlayerApp(currentAccount: $currentAccount, audioEngine: audioEngine)
+                }
             }
 
             Tab("Profile", systemImage: "person.circle") {
@@ -98,9 +103,10 @@ struct MainAuraView: View {
                 tabView
                     .tabBarMinimizeBehavior(.onScrollDown)
                     .tabViewBottomAccessory {
-                        if 0 > 9 {
-                            Text("Hello")
-                        }
+                        // Wrap the accessory in a container so it gets proper padding and material.
+                        MiniPlayerView(audioEngine: audioEngine)
+                            .padding(.horizontal, 6)
+                            .padding(.bottom, 4)
                     }
             } else if nftsAreLoading {
                 ZStack(alignment: .bottom) {
@@ -166,6 +172,15 @@ struct MainAuraView: View {
         }
     }
 
+    init() {
+        do {
+            let engine = try AudioEngine()
+            _audioEngine = StateObject(wrappedValue: engine)
+        } catch {
+            // Fallback for initialization errors
+            fatalError("Failed to initialize AudioEngine: \(error)")
+        }
+    }
 }
 //
 //import ImagePlayground
@@ -201,3 +216,51 @@ struct MainAuraView: View {
 ////          what is it and could I use it
 ////      Revision???
 ////          what is it and could I use it
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
