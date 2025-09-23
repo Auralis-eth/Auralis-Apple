@@ -6,99 +6,90 @@
 //
 
 import SwiftUI
-// A) move POC audio controls and display
-    // 1) now playing view
-    //      album art   (NEW/ADD)
-    //      title       (NEW/ADD)
-    //      artist      (NEW/ADD)
-    //      forward
-    //      reverse
-    //      progress/seek bar
-    // 2) mini player view
-    //      album art   (NEW/ADD)
-    //      title       (NEW/ADD)
-    //      artist      (NEW/ADD)
-    //      forward
-// 420) fix the design/layout/UI apearance
-// 710) address the placement enviroment property
 
 // MARK: - Mini Player (bottom accessory)
 struct MiniPlayerView: View {
     @ObservedObject var audioEngine: AudioEngine
-    /**
-     # TabViewBottomAccessoryPlacement Environment Value
-     
-     The `@Environment(\.tabViewBottomAccessoryPlacement)` environment value is a **SwiftUI property introduced in iOS 26**
-     that provides information about the current placement state of a tab view's bottom accessory. This environment value
-     works in conjunction with the new `.tabViewBottomAccessory` modifier to create adaptive UI components that respond
-     to tab bar minimization behavior.
-     
-     ## Placement States
-     
-     The `tabViewBottomAccessoryPlacement` environment value returns a `TabViewBottomAccessoryPlacement` enum with
-     possible states:
-     
-     - `.inline`: The accessory is placed inline with the bottom tab bar, integrating with the tab bar
-     - `.expanded`: The accessory is displayed expanded above the tab bar with its own layout when the tab bar is
-       minimized or in certain scroll states
-     - `nil`: No specific placement is defined (accessory rendered outside supported TabView context)
-     
-     By checking `placement`, your accessory view can adjust its UI accordingly — show more detail when expanded,
-     simplify when inline, or hide entirely when `nil`.
-     
-     ## Recommended Best Practices
-     
-     - **Provide a safe default UI**: Render a fallback appearance or minimal content instead of assuming expanded or
-       inline states
-     - **Avoid critical logic on nil**: Do not trigger navigation, animations, or essential UI behaviors when placement
-       is nil. Use a simple placeholder or hide the accessory
-     - **Debug context usage**: If placement is unexpectedly nil, verify that the accessory is inside a
-       `.tabViewBottomAccessory` within a properly configured TabView, and isn't wrapped in a view hierarchy
-       that breaks environment propagation
-     */
+    
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
     @State private var showNowPlaying: Bool = false
+    @State private var miniSeekValue: Double = 0
+    @State private var miniIsDragging: Bool = false
+
+    private enum AccessoryMode {
+        case inline
+        case expanded
+        case unknown
+    }
+
+    private var accessoryMode: AccessoryMode {
+        switch placement {
+        case .some(.inline):
+            return .inline
+        case .some(.expanded):
+            return .expanded
+        default:
+            return .unknown
+        }
+    }
 
     private var progressFraction: Double {
         guard let t = audioEngine.currentTrack, t.duration > 0 else { return 0 }
-        return audioEngine.progress / t.duration
+        let raw = audioEngine.progress / t.duration
+        if !raw.isFinite || raw.isNaN { return 0 }
+        return min(max(raw, 0), 1)
+    }
+    
+    @ViewBuilder
+    private var nftThumbnailView: some View {
+        if let imageUrlString = audioEngine.currentTrack?.imageUrl,
+           !imageUrlString.isEmpty,
+           let imageUrl = URL(string: imageUrlString) {
+            CachedAsyncImage(url: imageUrl)
+                .scaledToFill()
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        } else {
+            RoundedRectangle(cornerRadius: 6)
+                .frame(width: accessoryMode == .expanded ? 44 : 36, height: accessoryMode == .expanded ? 44 : 36)
+                .overlay(
+                    Image(systemName: "music.note")
+                        .font(.system(size: accessoryMode == .expanded ? 20 : 16))
+                        .padding(6)
+                )
+        }
     }
 
     var body: some View {
         Group {
-//            if audioEngine.currentTrack == nil {
-//                EmptyView()
-//            } else {
+            if audioEngine.currentTrack == nil {
+                EmptyView()
+            } else {
                 content
                     .onTapGesture {
-                        showNowPlaying = true
+                        if accessoryMode != .unknown {
+                            showNowPlaying = true
+                        }
                     }
                     .sheet(isPresented: $showNowPlaying) {
                         NowPlayingView(audioEngine: audioEngine)
                     }
-//            }
+            }
         }
         .accessibilityElement(children: .contain)
     }
 
     private var content: some View {
         VStack {
-            HStack(spacing: 12) {
-                // album art / icon
-                RoundedRectangle(cornerRadius: 6)
-                    .frame(width: placement == .expanded ? 44 : 36, height: placement == .expanded ? 44 : 36)
-                    .overlay(
-                        Image(systemName: "music.note")
-                            .font(.system(size: placement == .expanded ? 20 : 16))
-                            .padding(6)
-                    )
+            HStack {
+                nftThumbnailView
+                    .padding(.trailing)
                 
                 // title / artist
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading) {
                     Text(audioEngine.currentTrack?.title ?? "Unknown Title")
-                        .font(placement == .expanded ? .subheadline.bold() : .subheadline)
+                        .font(accessoryMode == .expanded ? .subheadline.bold() : .subheadline)
                         .lineLimit(1)
-                    if placement == .expanded {
+                    if accessoryMode == .expanded {
                         Text(audioEngine.currentTrack?.artist ?? "Unknown Artist")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -107,7 +98,6 @@ struct MiniPlayerView: View {
                 }
                 
                 Spacer()
-                
                 
                 // playback controls
                 HStack(spacing: 8) {
@@ -142,7 +132,11 @@ struct MiniPlayerView: View {
                                 .font(.title3)
                         }
                     }
-                    Button(action: audioEngine.playNext) {
+                    Button {
+                        Task {
+                            await audioEngine.playNext()
+                        }
+                    } label: {
                         Image(systemName: "forward.fill")
                             .font(.title3)
                     }
@@ -150,11 +144,42 @@ struct MiniPlayerView: View {
                 .buttonStyle(.glass)
             }
             
-            // compact progress indicator
-            ProgressView(value: progressFraction)
-                .frame(maxWidth:.infinity)
+            // Adaptive progress/seek
+            switch (accessoryMode, audioEngine.currentTrack) {
+            case (.expanded, let track?):
+                Slider(
+                    value: Binding(
+                        get: { miniIsDragging ? miniSeekValue : audioEngine.progress },
+                        set: { newValue in
+                            miniSeekValue = newValue
+                        }
+                    ),
+                    in: 0...max(1, track.duration),
+                    onEditingChanged: { dragging in
+                        miniIsDragging = dragging
+                        if !dragging {
+                            // Only seek when we are in a supported context
+                            try? audioEngine.seek(to: miniSeekValue)
+                        }
+                    }
+                )
+            default:
+                // Compact indicator when inline or unknown placement (safe fallback)
+                ProgressView(value: progressFraction, total: 1)
+                    .frame(maxWidth: .infinity)
+            }
 
         }
-//        .glassEffect(.clear)
+        .padding(.top)
+        .padding(.trailing)
+    }
+    
+    private func timeString(from seconds: TimeInterval) -> String {
+        guard seconds.isFinite else { return "0:00" }
+        let s = Int(seconds)
+        let mins = s / 60
+        let secs = s % 60
+        return String(format: "%d:%02d", mins, secs)
     }
 }
+

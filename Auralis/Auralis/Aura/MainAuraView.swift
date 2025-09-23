@@ -76,7 +76,7 @@ struct MainAuraView: View {
             Tab("Music", systemImage: "play.circle") {
                 VStack {
                     //                MusicPlayerView()
-                    NFTMusicPlayerApp(currentAccount: $currentAccount, audioEngine: audioEngine)
+                    NFTMusicPlayerApp(audioEngine: audioEngine)
                 }
             }
 
@@ -105,8 +105,6 @@ struct MainAuraView: View {
                     .tabViewBottomAccessory {
                         // Wrap the accessory in a container so it gets proper padding and material.
                         MiniPlayerView(audioEngine: audioEngine)
-                            .padding(.horizontal, 6)
-                            .padding(.bottom, 4)
                     }
             } else if nftsAreLoading {
                 ZStack(alignment: .bottom) {

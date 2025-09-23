@@ -919,33 +919,20 @@ class NFT: Codable {
     }
     
     func isMusic() -> Bool {
-        let hasAudioContentType = contentType?.starts(with: "audio/") == true
-        let hasAudioUrl = audioUrl?.isEmpty == false
-        
-        let animationUrl = self.animationUrl ?? ""
-        
-        let hasAudioAnimation = animationUrl.contains(".mp3") ||
-        animationUrl.contains(".m4a") ||
-        animationUrl.contains(".wav") ||
-        animationUrl.contains(".flac")
-        
-        return hasAudioContentType || hasAudioUrl || hasAudioAnimation
+        audioUrl?.isEmpty == false
     }
     
     var musicURL: URL? {
-        guard isMusic() else { return nil }
         
-        let animationUrl = self.animationUrl ?? ""
-        
-        if animationUrl.contains(".mp3") ||
-            animationUrl.contains(".m4a") ||
-            animationUrl.contains(".wav") ||
-            animationUrl.contains(".flac") {
-            return URL(string: animationUrl)
-        } else if let audioUrl, !audioUrl.isEmpty {
-            return URL(string: audioUrl)
-        } else {
+        guard let audioUrl else {
             return nil
+        }
+        
+        switch URLConverter.convertToPreferredHTTPS(audioUrl) {
+        case .success(let convertedURLString):
+            return URL(string: convertedURLString)
+        case .failure(let error):
+            return URL(string: audioUrl)
         }
     }
 
