@@ -8,15 +8,25 @@
 
 
 import AVFoundation
+import Foundation
 
 @MainActor
 class AudioEngine: ObservableObject {
+    private var currentNFT: NFT?
     private var audioEngine = AVAudioEngine()
     private var playerNode = AVAudioPlayerNode()
+    
     public var audioFile: AVAudioFile?
+    public var previousAudio = Playlist(name: "Previous")
+    public var nextAudio = Playlist(name: "Next")
+    
+    
     private var pausedAt: TimeInterval = 0
     private var seekPosition: TimeInterval = 0
     private var tempAudioURL: URL? // Track temporary downloaded file
+
+    private var currentLoadTask: Task<Void, Error>?
+    private var activeLoadID = UUID()
     
     enum PlaybackState {
         case stopped
@@ -27,9 +37,10 @@ class AudioEngine: ObservableObject {
     
     struct Track: Identifiable, Equatable {
         let id = UUID()
-        var title: String
-        var artist: String
+        var title: String?
+        var artist: String?
         var duration: TimeInterval
+        var imageUrl: String?
     }
 
     @Published var currentTrack: Track? = nil    
@@ -110,6 +121,18 @@ class AudioEngine: ObservableObject {
         )
     }
     
+    @discardableResult
+    private func beginNewLoad() async -> UUID {
+        // Capture and cancel any in-flight load task, then await its completion to avoid overlap
+        let previousTask = currentLoadTask
+        currentLoadTask = nil
+        previousTask?.cancel()
+        _ = try? await previousTask?.value
+        let id = UUID()
+        activeLoadID = id
+        return id
+    }
+    
     @objc private func handleInterruption(notification: Notification) {
         guard let userInfo = notification.userInfo,
               let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
@@ -144,7 +167,7 @@ class AudioEngine: ObservableObject {
         }
     }
 
-    func canPlayFormat(_ url: URL) -> Bool {
+    private func canPlayFormat(_ url: URL) -> Bool {
         // File extensions supported by AVAudioFile/Core Audio
         let supportedFormats: Set<String> = [
             // Uncompressed / PCM
@@ -164,14 +187,28 @@ class AudioEngine: ObservableObject {
             // FLAC (iOS 11+ / macOS 10.13+)
             "flac"
         ]
-
+        
+        // Domains that serve audio content without file extensions
+        let audioServingDomains: Set<String> = [
+            "arweave.net",
+            "ipfs.io",
+            "gateway.pinata.cloud"
+        ]
+        
+        if let host = url.host?.lowercased(), audioServingDomains.contains(host) {
+            return true
+        }
+        
         let fileExtension = url.pathExtension.lowercased()
         return supportedFormats.contains(fileExtension)
     }
+
     
     // MARK: - Remote File Download
     private func downloadAudioFile(from url: URL) async throws -> URL {
         let (tempURL, response) = try await URLSession.shared.download(from: url)
+        
+        try Task.checkCancellation()
         
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
@@ -193,8 +230,12 @@ class AudioEngine: ObservableObject {
     }
     
     // MARK: - Audio Loading and Playback
-    func loadAudio(from url: URL, title: String, artist: String) async throws {
+    private func loadAudio(from url: URL, title: String?, artist: String?, imageUrl: String?, loadID: UUID) async throws {
         playbackState = .loading
+        
+        // Respect task cancellation and staleness
+        try Task.checkCancellation()
+        guard loadID == activeLoadID else { throw CancellationError() }
         
         // Clean up previous temp file
         if let tempURL = tempAudioURL {
@@ -204,72 +245,89 @@ class AudioEngine: ObservableObject {
         
         let localURL: URL
         
-        // Check if URL is remote
         if url.scheme == "http" || url.scheme == "https" {
-            localURL = try await downloadAudioFile(from: url)
+            let downloadedURL = try await downloadAudioFile(from: url)
+            try Task.checkCancellation()
+            guard loadID == activeLoadID else {
+                // Clean up stale downloaded file
+                try? FileManager.default.removeItem(at: downloadedURL)
+                throw CancellationError()
+            }
+            localURL = downloadedURL
             tempAudioURL = localURL
         } else {
             localURL = url
         }
+        
+        try Task.checkCancellation()
+        guard loadID == activeLoadID else { throw CancellationError() }
         
         do {
             audioFile = try AVAudioFile(forReading: localURL)
             seekPosition = 0
             pausedAt = 0
             playbackState = .stopped
-            currentTrack = Track(title: title, artist: artist, duration: self.duration)
+            currentTrack = Track(title: title, artist: artist, duration: self.duration, imageUrl: imageUrl)
         } catch {
             playbackState = .stopped
             throw AudioEngineError.fileLoadFailed
         }
     }
     
-    func play() throws {
-        guard let audioFile = audioFile else { return }
-        
+    public func play() throws {
+        // If no audio file is loaded, try to advance to the next queued item
+        guard let audioFile = audioFile else {
+            Task { @MainActor in
+                await self.playNext()
+            }
+            return
+        }
+
         // Stop and clear any existing playback
         playerNode.stop()
-        
+
         // Schedule from current seek position
         let sampleRate = audioFile.processingFormat.sampleRate
         let startFrame = AVAudioFramePosition(seekPosition * sampleRate)
         let remainingFrames = AVAudioFrameCount(audioFile.length - startFrame)
+
+        // If we've reached the end or there's nothing to play, try next item
         guard remainingFrames > 0 else {
+            Task { @MainActor in
+                await self.playNext()
+            }
             return
         }
+
         playerNode.scheduleSegment(audioFile, startingFrame: startFrame, frameCount: remainingFrames, at: nil) {
             Task { @MainActor in
                 if self.playbackState == .playing {
                     self.playbackState = .stopped
-                    
-                    // TODO: Handle completion notification
-                    // Options:
-                    // - Call closure: self.onTrackCompleted?()
-                    // - Call closure: self.onPlaybackComplete?()
-                    // - Call delegate: self.delegate?.audioEngineDidFinishPlaying(self)
+                    // Auto-advance to next item in the next queue if available
+                    await self.playNext()
                 }
             }
         }
-        
+
         playerNode.play()
         playbackState = .playing
     }
     
     // Fixed pause implementation - AVAudioPlayerNode doesn't have pause()
-    func pause() {
+    public func pause() {
         guard playbackState == .playing else { return }
         pausedAt = currentTime
         playerNode.stop()
         playbackState = .paused
     }
     
-    func resume() throws {
+    public func resume() throws {
         guard playbackState == .paused else { return }
         seekPosition = pausedAt
         try play()
     }
     
-    func stop() {
+    private func stop() {
         playerNode.stop()
         seekPosition = 0
         pausedAt = 0
@@ -277,7 +335,7 @@ class AudioEngine: ObservableObject {
     }
     
     // MARK: - Fixed Seek Functionality
-    func seek(to time: TimeInterval) throws {
+    public func seek(to time: TimeInterval) throws {
         guard let audioFile = audioFile else { return }
         
         let duration = self.duration
@@ -299,27 +357,126 @@ class AudioEngine: ObservableObject {
     }
     
     // MARK: - Playlist Navigation
-    func playNext() {
-        // To be implemented with playlist integration
-        stop()
+    @MainActor
+    public func playNext() async {
+        // If there's an item queued in Next, play it
+        guard !nextAudio.tracks.isEmpty else {
+            stop()
+            return
+        }
+
+        let next = nextAudio.tracks.removeFirst()
+
+        // Move current item to Previous if available
+        if let current = currentNFT {
+            previousAudio.tracks.append(current)
+        }
+
+        do {
+            // loadAndPlay auto-starts playback; no need to call play() again
+            try await loadAndPlay(nft: next)
+        } catch {
+            // If the error is a cancellation (stale load), do nothing; a newer request will handle playback
+            if error is CancellationError { return }
+            // If playback fails, try the next item recursively, or stop if none
+            await playNextSafely()
+        }
+    }
+
+    @MainActor
+    private func playNextSafely() async {
+        if nextAudio.tracks.isEmpty {
+            stop()
+        } else {
+            await playNext()
+        }
+    }
+
+    @MainActor
+    public func playPrevious() async {
+        guard !previousAudio.tracks.isEmpty else {
+            // If nothing in previous, restart current or stop
+            seekPosition = 0
+            pausedAt = 0
+            if playbackState == .playing {
+                try? play()
+            }
+            return
+        }
+
+        let previous = previousAudio.tracks.removeLast()
+
+        // Put current on the front of Next so we can go forward again
+        if let current = currentNFT {
+            nextAudio.tracks.insert(current, at: 0)
+        }
+
+        do {
+            // loadAndPlay auto-starts playback; no need to call play() again
+            try await loadAndPlay(nft: previous)
+        } catch {
+            // If the error is a cancellation (stale load), do nothing; a newer request will handle playback
+            if error is CancellationError { return }
+            // If playback fails, attempt the previous again if available
+            await playPreviousSafely()
+        }
+    }
+
+    @MainActor
+    private func playPreviousSafely() async {
+        if previousAudio.tracks.isEmpty {
+            stop()
+        } else {
+            await playPrevious()
+        }
     }
     
-    func playPrevious() {
-        // To be implemented with playlist integration
-        stop()
-    }
-    
-    func loadAndPlay(url: URL, title: String, artist: String) async throws {
+    // Note: This method loads the file and immediately starts playback (auto-play).
+    private func loadAndPlay(url: URL, title: String?, artist: String?, imageUrl: String?) async throws {
         guard canPlayFormat(url) else {
             throw AudioEngineError.unsupportedFormat
         }
         
-        try await loadAudio(from: url, title: title, artist: artist)
+        // Use the current activeLoadID to guard against stale completions
+        let loadID = activeLoadID
+        
+        try await loadAudio(from: url, title: title, artist: artist, imageUrl: imageUrl, loadID: loadID)
+        try Task.checkCancellation()
+        guard loadID == activeLoadID else { throw CancellationError() }
         try play()
     }
     
+    // Convenience: Play directly from an NFT and track current item for prev/next
+    public func loadAndPlay(nft: NFT) async throws {
+        let loadID = await beginNewLoad()
+        guard let url = nft.musicURL else {
+            throw AudioEngineError.fileLoadFailed
+        }
+
+        // Start a new load task on the current actor (MainActor)
+        let task = Task { [weak self] in
+            guard let self else { return }
+            try Task.checkCancellation()
+            try await self.loadAndPlay(
+                url: url,
+                title: nft.name,
+                artist: nft.artistName,
+                imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl
+            )
+            try Task.checkCancellation()
+            // Only set currentNFT if this load is still the active one
+            guard loadID == self.activeLoadID else { throw CancellationError() }
+            self.currentNFT = nft
+        }
+
+        // Track and await the task
+        currentLoadTask = task
+        defer { currentLoadTask = nil }
+        try await task.value
+    }
+    
     // MARK: - Improved Playback Information
-    var currentTime: TimeInterval {
+    private var currentTime: TimeInterval {
         switch playbackState {
         case .playing:
             // For playing state, calculate from node time + seek position
@@ -336,7 +493,7 @@ class AudioEngine: ObservableObject {
         }
     }
     
-    var duration: TimeInterval {
+    private var duration: TimeInterval {
         guard let audioFile = audioFile else { return 0 }
         return Double(audioFile.length) / audioFile.processingFormat.sampleRate
     }
@@ -344,6 +501,7 @@ class AudioEngine: ObservableObject {
     // MARK: - Resource Cleanup
     deinit {
         NotificationCenter.default.removeObserver(self)
+        currentLoadTask?.cancel()
         if audioEngine.isRunning {
             audioEngine.stop()
         }
@@ -362,3 +520,4 @@ class AudioEngine: ObservableObject {
         }
     }
 }
+
