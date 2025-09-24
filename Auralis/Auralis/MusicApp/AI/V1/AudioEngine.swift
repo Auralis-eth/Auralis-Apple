@@ -5,8 +5,6 @@
 //  Created by Daniel Bell on 9/4/25.
 //
 
-
-
 import AVFoundation
 import Foundation
 
@@ -33,6 +31,7 @@ class AudioEngine: ObservableObject {
         case playing
         case paused
         case loading
+        case error
     }
     
     struct Track: Identifiable, Equatable {
@@ -45,6 +44,7 @@ class AudioEngine: ObservableObject {
 
     @Published var currentTrack: Track? = nil    
     @Published var playbackState: PlaybackState = .stopped
+    @Published var lastError: AudioEngineError? = nil
     
     // Computed property to eliminate state redundancy
     var isPlaying: Bool {
@@ -269,7 +269,8 @@ class AudioEngine: ObservableObject {
             playbackState = .stopped
             currentTrack = Track(title: title, artist: artist, duration: self.duration, imageUrl: imageUrl)
         } catch {
-            playbackState = .stopped
+            playbackState = .error
+            lastError = .fileLoadFailed
             throw AudioEngineError.fileLoadFailed
         }
     }
@@ -277,6 +278,7 @@ class AudioEngine: ObservableObject {
     public func play() throws {
         // If no audio file is loaded, try to advance to the next queued item
         guard let audioFile = audioFile else {
+            playbackState = .loading
             Task { @MainActor in
                 await self.playNext()
             }
@@ -293,6 +295,7 @@ class AudioEngine: ObservableObject {
 
         // If we've reached the end or there's nothing to play, try next item
         guard remainingFrames > 0 else {
+            playbackState = .loading
             Task { @MainActor in
                 await self.playNext()
             }
@@ -378,6 +381,8 @@ class AudioEngine: ObservableObject {
         } catch {
             // If the error is a cancellation (stale load), do nothing; a newer request will handle playback
             if error is CancellationError { return }
+            playbackState = .error
+            lastError = (error as? AudioEngineError) ?? .fileLoadFailed
             // If playback fails, try the next item recursively, or stop if none
             await playNextSafely()
         }
@@ -417,6 +422,8 @@ class AudioEngine: ObservableObject {
         } catch {
             // If the error is a cancellation (stale load), do nothing; a newer request will handle playback
             if error is CancellationError { return }
+            playbackState = .error
+            lastError = (error as? AudioEngineError) ?? .fileLoadFailed
             // If playback fails, attempt the previous again if available
             await playPreviousSafely()
         }
@@ -452,6 +459,15 @@ class AudioEngine: ObservableObject {
         guard let url = nft.musicURL else {
             throw AudioEngineError.fileLoadFailed
         }
+        
+        // Show upcoming track metadata while loading
+        self.currentTrack = Track(
+            title: nft.name,
+            artist: nft.artistName,
+            duration: 0,
+            imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl
+        )
+        self.playbackState = .loading
 
         // Start a new load task on the current actor (MainActor)
         let task = Task { [weak self] in
@@ -472,7 +488,17 @@ class AudioEngine: ObservableObject {
         // Track and await the task
         currentLoadTask = task
         defer { currentLoadTask = nil }
-        try await task.value
+        do {
+            try await task.value
+        } catch is CancellationError {
+            // If this task was cancelled because a newer load started, leave state to the newer request.
+            // If not, ensure we don't show stale playing/loading state.
+            if loadID == activeLoadID { playbackState = .stopped }
+        } catch {
+            playbackState = .error
+            lastError = (error as? AudioEngineError) ?? .fileLoadFailed
+            throw error
+        }
     }
     
     // MARK: - Improved Playback Information
@@ -488,7 +514,7 @@ class AudioEngine: ObservableObject {
             return seekPosition + (Double(playerTime.sampleTime) / playerTime.sampleRate)
         case .paused:
             return pausedAt
-        case .stopped, .loading:
+        case .stopped, .loading, .error:
             return seekPosition
         }
     }

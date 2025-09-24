@@ -131,6 +131,8 @@ struct MiniPlayerView: View {
                             Image(systemName: "play.fill")
                                 .font(.title3)
                         }
+                    case .error:
+                        EmptyView()
                     }
                     Button {
                         Task {

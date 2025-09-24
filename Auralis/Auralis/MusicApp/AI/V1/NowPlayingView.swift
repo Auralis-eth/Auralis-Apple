@@ -119,6 +119,8 @@ struct NowPlayingView: View {
                                             Image(systemName: "play.fill")
                                                 .font(.system(size: 56))
                                         }
+                                    case .error:
+                                        EmptyView()
                                     }
 
                                     Button {
