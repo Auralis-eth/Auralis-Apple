@@ -30,8 +30,8 @@ class AudioEngine: ObservableObject {
     private var seekPosition: TimeInterval = 0
     private var tempAudioURL: URL? // Track temporary downloaded file
 
-    private var currentLoadTask: Task<Void, Error>?
-    private var activeLoadID = UUID()
+    private var currentLoadTask: Task<Void, Never>?
+    private var activeLoadID: UUID = .init()
     
     enum PlaybackState {
         case stopped
@@ -88,6 +88,36 @@ class AudioEngine: ObservableObject {
         }
     }
     
+    // MARK: - Loading Helpers (non-isolated)
+    nonisolated private static func downloadToManagedTemp(from url: URL) async throws -> URL {
+        // Cooperatively cancellable download; move to a managed temp folder we control
+        let (tempURL, response) = try await URLSession.shared.download(from: url)
+        try Task.checkCancellation()
+
+        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            throw AudioEngineError.downloadFailed
+        }
+
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("AudioLoads", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        // Preserve extension if present, otherwise default to mp3
+        let suggestedName = url.lastPathComponent.isEmpty ? UUID().uuidString : url.lastPathComponent
+        let ext = (suggestedName as NSString).pathExtension.isEmpty ? "mp3" : (suggestedName as NSString).pathExtension
+        let base = ((suggestedName as NSString).deletingPathExtension)
+        let dest = dir.appendingPathComponent("\(base)-\(UUID().uuidString).\(ext)")
+
+        // Remove any file if it somehow already exists (extremely unlikely)
+        try? FileManager.default.removeItem(at: dest)
+        try FileManager.default.moveItem(at: tempURL, to: dest)
+        return dest
+    }
+
+    nonisolated private static func shouldTreatAsRemote(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https"
+    }
+    
     init() throws {
         try setupAudioSession()
         try setupAudioEngine()
@@ -131,14 +161,106 @@ class AudioEngine: ObservableObject {
     
     @discardableResult
     private func beginNewLoad() async -> UUID {
-        // Capture and cancel any in-flight load task, then await its completion to avoid overlap
+        // Cancel and await any in-flight load task to avoid overlap
         let previousTask = currentLoadTask
         currentLoadTask = nil
         previousTask?.cancel()
-        _ = try? await previousTask?.value
+        _ = await previousTask?.value
         let id = UUID()
         activeLoadID = id
         return id
+    }
+
+    @MainActor
+    private func beginNewLoad(nft: NFT) async {
+        // Cancel any existing load and establish new active ID
+        let loadID = await beginNewLoad()
+
+        guard let url = nft.musicURL else {
+            playbackState = .error
+            lastError = .fileLoadFailed
+            return
+        }
+
+        // Show upcoming track metadata while loading
+        self.currentTrack = Track(
+            title: nft.name,
+            artist: nft.artistName,
+            duration: 0,
+            imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl
+        )
+        self.playbackState = .loading
+
+        // Capture prior temp for cleanup if we succeed
+        let previousTemp = self.tempAudioURL
+
+        // Detach heavy work off the main actor
+        let task = Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+
+            // Prepare a local URL (download if remote)
+            var managedURL: URL?
+            do {
+                let localURL: URL
+                if AudioEngine.shouldTreatAsRemote(url) {
+                    localURL = try await AudioEngine.downloadToManagedTemp(from: url)
+                    managedURL = localURL
+                } else {
+                    localURL = url
+                }
+                try Task.checkCancellation()
+
+                // Open AVAudioFile off-main
+                let file = try AVAudioFile(forReading: localURL)
+                try Task.checkCancellation()
+
+                // Hop to main to apply if still current
+                try await MainActor.run {
+                    guard loadID == self.activeLoadID else {
+                        // Stale: cleanup and exit
+                        if localURL != url { try? FileManager.default.removeItem(at: localURL) }
+                        return
+                    }
+
+                    // Swap in new state
+                    self.audioFile = file
+                    self.seekPosition = 0
+                    self.pausedAt = 0
+                    self.currentNFT = nft
+                    self.currentTrack = Track(title: nft.name, artist: nft.artistName, duration: self.duration, imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl)
+
+                    // Update temp ownership and cleanup previous temp file
+                    if AudioEngine.shouldTreatAsRemote(url) {
+                        self.tempAudioURL = localURL
+                        managedURL = localURL
+                        if let prev = previousTemp, prev != localURL {
+                            try? FileManager.default.removeItem(at: prev)
+                        }
+                    } else {
+                        // No temp management for local files
+                        self.tempAudioURL = nil
+                    }
+
+                    // Start playback now that file is ready
+                    do { try self.play() } catch {
+                        self.playbackState = .error
+                        self.lastError = (error as? AudioEngineError) ?? .fileLoadFailed
+                    }
+                }
+            } catch is CancellationError {
+                // Cancelled: best-effort cleanup of any temp we created
+                if let url = managedURL { try? FileManager.default.removeItem(at: url) }
+            } catch {
+                // Error: only report if still current
+                await MainActor.run {
+                    guard loadID == self.activeLoadID else { return }
+                    self.playbackState = .error
+                    self.lastError = (error as? AudioEngineError) ?? .fileLoadFailed
+                }
+            }
+        }
+
+        currentLoadTask = task
     }
     
     @objc private func handleInterruption(notification: Notification) {
@@ -212,37 +334,10 @@ class AudioEngine: ObservableObject {
     }
 
     
-    // MARK: - Remote File Download
-    private func downloadAudioFile(from url: URL) async throws -> URL {
-        let (tempURL, response) = try await URLSession.shared.download(from: url)
-        
-        try Task.checkCancellation()
-        
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw AudioEngineError.downloadFailed
-        }
-        
-        // Create a permanent temp file with proper extension
-        let documentsPath = FileManager.default.temporaryDirectory
-        let fileName = url.lastPathComponent.isEmpty ? "audio.mp3" : url.lastPathComponent
-        let permanentURL = documentsPath.appendingPathComponent(fileName)
-        
-        // Remove existing file if it exists
-        try? FileManager.default.removeItem(at: permanentURL)
-        
-        // Move downloaded file to permanent location
-        try FileManager.default.moveItem(at: tempURL, to: permanentURL)
-        
-        return permanentURL
-    }
-    
     // MARK: - Audio Loading and Playback
     private func loadAudio(from url: URL, title: String?, artist: String?, imageUrl: String?, loadID: UUID) async throws {
         playbackState = .loading
         
-        // Respect task cancellation and staleness
-        try Task.checkCancellation()
         guard loadID == activeLoadID else { throw CancellationError() }
         
         // Clean up previous temp file
@@ -253,8 +348,8 @@ class AudioEngine: ObservableObject {
         
         let localURL: URL
         
-        if url.scheme == "http" || url.scheme == "https" {
-            let downloadedURL = try await downloadAudioFile(from: url)
+        if AudioEngine.shouldTreatAsRemote(url) {
+            let downloadedURL = try await AudioEngine.downloadToManagedTemp(from: url)
             try Task.checkCancellation()
             guard loadID == activeLoadID else {
                 // Clean up stale downloaded file
@@ -410,7 +505,7 @@ class AudioEngine: ObservableObject {
     @MainActor
     public func playPrevious() async {
         guard !previousAudio.tracks.isEmpty else {
-            // If nothing in previous, restart current or stop
+            // If nothing in previous, restart current position or remain stopped
             seekPosition = 0
             pausedAt = 0
             if playbackState == .playing {
@@ -448,67 +543,10 @@ class AudioEngine: ObservableObject {
         }
     }
     
-    // Note: This method loads the file and immediately starts playback (auto-play).
-    private func loadAndPlay(url: URL, title: String?, artist: String?, imageUrl: String?) async throws {
-        guard canPlayFormat(url) else {
-            throw AudioEngineError.unsupportedFormat
-        }
-        
-        // Use the current activeLoadID to guard against stale completions
-        let loadID = activeLoadID
-        
-        try await loadAudio(from: url, title: title, artist: artist, imageUrl: imageUrl, loadID: loadID)
-        try Task.checkCancellation()
-        guard loadID == activeLoadID else { throw CancellationError() }
-        try play()
-    }
-    
-    // Convenience: Play directly from an NFT and track current item for prev/next
+    // Note: Replaced implementation with single-flight delegator
     public func loadAndPlay(nft: NFT) async throws {
-        let loadID = await beginNewLoad()
-        guard let url = nft.musicURL else {
-            throw AudioEngineError.fileLoadFailed
-        }
-        
-        // Show upcoming track metadata while loading
-        self.currentTrack = Track(
-            title: nft.name,
-            artist: nft.artistName,
-            duration: 0,
-            imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl
-        )
-        self.playbackState = .loading
-
-        // Start a new load task on the current actor (MainActor)
-        let task = Task { [weak self] in
-            guard let self else { return }
-            try Task.checkCancellation()
-            try await self.loadAndPlay(
-                url: url,
-                title: nft.name,
-                artist: nft.artistName,
-                imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl
-            )
-            try Task.checkCancellation()
-            // Only set currentNFT if this load is still the active one
-            guard loadID == self.activeLoadID else { throw CancellationError() }
-            self.currentNFT = nft
-        }
-
-        // Track and await the task
-        currentLoadTask = task
-        defer { currentLoadTask = nil }
-        do {
-            try await task.value
-        } catch is CancellationError {
-            // If this task was cancelled because a newer load started, leave state to the newer request.
-            // If not, ensure we don't show stale playing/loading state.
-            if loadID == activeLoadID { playbackState = .stopped }
-        } catch {
-            playbackState = .error
-            lastError = (error as? AudioEngineError) ?? .fileLoadFailed
-            throw error
-        }
+        // Start a new single-flight load
+        await beginNewLoad(nft: nft)
     }
     
     // MARK: - Improved Playback Information
@@ -593,22 +631,32 @@ class AudioEngine: ObservableObject {
     }
 
     private func startCrossfade(duration: TimeInterval) {
+        let crossfadeID = activeLoadID
         guard !isCrossfading else { return }
         guard !nextAudio.tracks.isEmpty else { return }
         isCrossfading = true
         // Prepare next track
         let next = nextAudio.tracks.removeFirst()
         Task { @MainActor in
+            var managedURL: URL?
+            let previousTemp = self.tempAudioURL
             do {
                 guard let url = next.musicURL else { throw AudioEngineError.fileLoadFailed }
-                // Download if needed without altering current state
+                // Download if needed without altering current state (managed temp)
                 let localURL: URL
-                if url.scheme == "http" || url.scheme == "https" {
-                    localURL = try await downloadAudioFile(from: url)
+                if AudioEngine.shouldTreatAsRemote(url) {
+                    localURL = try await AudioEngine.downloadToManagedTemp(from: url)
+                    managedURL = localURL
                 } else {
                     localURL = url
                 }
                 let nextFile = try AVAudioFile(forReading: localURL)
+                // Re-check staleness before scheduling any stateful audio work
+                guard crossfadeID == self.activeLoadID else {
+                    if let managedURL { try? FileManager.default.removeItem(at: managedURL) }
+                    self.isCrossfading = false
+                    return
+                }
                 // Start next node at volume 0
                 nextNode.volume = 0.0
                 nextNode.stop()
@@ -623,7 +671,10 @@ class AudioEngine: ObservableObject {
                 let timer = DispatchSource.makeTimerSource(queue: .main)
                 timer.schedule(deadline: .now(), repeating: stepDuration)
                 timer.setEventHandler { [weak self] in
-                    guard let self else { timer.cancel(); return }
+                    guard let self else {
+                        timer.cancel()
+                        return
+                    }
                     let t = min(1.0, Double(i) / Double(steps))
                     // Equal-power curve
                     let fadeIn = sin(t * .pi / 2)
@@ -632,10 +683,29 @@ class AudioEngine: ObservableObject {
                     self.currentNode.volume = Float(fadeOut)
                     i += 1
                     if t >= 1.0 {
+                        // Guard against staleness right before committing the swap
+                        guard crossfadeID == self.activeLoadID else {
+                            timer.cancel()
+                            self.resetNodeVolumes()
+                            self.isCrossfading = false
+                            if let managedURL { try? FileManager.default.removeItem(at: managedURL) }
+                            return
+                        }
                         timer.cancel()
                         self.currentNode.stop()
                         if let oldNFT = self.currentNFT { self.previousAudio.tracks.append(oldNFT) }
                         self.resetNodeVolumes()
+                        
+                        // Transfer temp ownership for crossfade result
+                        if url.scheme == "http" || url.scheme == "https" {
+                            self.tempAudioURL = localURL
+                            if let prev = previousTemp, prev != localURL {
+                                try? FileManager.default.removeItem(at: prev)
+                            }
+                        } else {
+                            self.tempAudioURL = nil
+                        }
+                        
                         // Previous queue updated to keep navigation consistent for both scheduled and emergency crossfades.
                         // Swap nodes and update state
                         self.currentNodeIsA.toggle()
@@ -651,6 +721,9 @@ class AudioEngine: ObservableObject {
                 self.fadeTimer = timer
                 timer.resume()
             } catch {
+                // Best-effort cleanup of any managed temp created during crossfade
+                // (managedURL is only set for remote downloads)
+                if let managedURL { try? FileManager.default.removeItem(at: managedURL) }
                 // On failure, stop crossfade and attempt normal advance
                 self.isCrossfading = false
                 self.resetNodeVolumes()
