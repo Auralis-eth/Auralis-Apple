@@ -10,21 +10,29 @@ import Foundation
 
 @MainActor
 class AudioEngine: ObservableObject {
-    private var currentNFT: NFT?
     private var audioEngine = AVAudioEngine()
     private var playerNodeA = AVAudioPlayerNode()
     private var playerNodeB = AVAudioPlayerNode()
+    private let mixerA = AVAudioMixerNode()
+    private let mixerB = AVAudioMixerNode()
+    private let gainA = TinyGainUnit()
+    private let gainB = TinyGainUnit()
     private var currentNodeIsA: Bool = true
     private var currentNode: AVAudioPlayerNode { currentNodeIsA ? playerNodeA : playerNodeB }
     private var nextNode: AVAudioPlayerNode { currentNodeIsA ? playerNodeB : playerNodeA }
+    private var currentMixer: AVAudioMixerNode { currentNodeIsA ? mixerA : mixerB }
+    private var nextMixer: AVAudioMixerNode { currentNodeIsA ? mixerB : mixerA }
+    private var currentGainUnit: TinyGainUnit { currentNodeIsA ? gainA : gainB }
+    private var nextGainUnit: TinyGainUnit { currentNodeIsA ? gainB : gainA }
     private var crossfadeDuration: TimeInterval = 2.0
-    private var fadeTimer: DispatchSourceTimer?
-    private var isCrossfading: Bool = false
+    // Crossfade configuration
+    private let crossfadePeakGain: Float = 0.9 // cap peak during overlap to avoid clipping (Option A)
+    private let crossfadeSafetyPad: TimeInterval = 0.05 // 50 ms safety pad before track end
     
     public var audioFile: AVAudioFile?
     public var previousAudio = Playlist(name: "Previous")
     public var nextAudio = Playlist(name: "Next")
-    
+    private var currentNFT: NFT? = nil
     
     private var pausedAt: TimeInterval = 0
     private var seekPosition: TimeInterval = 0
@@ -155,8 +163,30 @@ class AudioEngine: ObservableObject {
     private func setupAudioEngine() throws {
         audioEngine.attach(playerNodeA)
         audioEngine.attach(playerNodeB)
-        audioEngine.connect(playerNodeA, to: audioEngine.mainMixerNode, format: nil)
-        audioEngine.connect(playerNodeB, to: audioEngine.mainMixerNode, format: nil)
+        audioEngine.attach(gainA)
+        audioEngine.attach(gainB)
+        audioEngine.attach(mixerA)
+        audioEngine.attach(mixerB)
+
+        // Normalize formats to the engine's output format to avoid conversion issues
+        let outFormat = audioEngine.outputNode.inputFormat(forBus: 0)
+
+        // player A → gain A → mixer A → main mixer
+        audioEngine.connect(playerNodeA, to: gainA, format: outFormat)
+        audioEngine.connect(gainA, to: mixerA, format: outFormat)
+        audioEngine.connect(mixerA, to: audioEngine.mainMixerNode, format: outFormat)
+
+        // player B → gain B → mixer B → main mixer
+        audioEngine.connect(playerNodeB, to: gainB, format: outFormat)
+        audioEngine.connect(gainB, to: mixerB, format: outFormat)
+        audioEngine.connect(mixerB, to: audioEngine.mainMixerNode, format: outFormat)
+
+        // Start silent by default
+        mixerA.volume = 0.0
+        mixerB.volume = 0.0
+        gainA.setLinearGain(0.0)
+        gainB.setLinearGain(0.0)
+
         audioEngine.prepare()
     }
     
@@ -196,6 +226,22 @@ class AudioEngine: ObservableObject {
                 throw AudioEngineError.engineStartFailed(underlying: error)
             }
         }
+    }
+
+    @MainActor
+    func performCrossfade(duration: TimeInterval,
+                          from currentMixer: AVAudioMixerNode,
+                          to nextMixer: AVAudioMixerNode) {
+        // Clamp duration
+        let d = max(0.05, min(duration, 10.0))
+        // Enable next path in the graph
+        nextMixer.volume = 1.0
+        // Compute a hostTime aligned to the engine's render timeline
+        guard let renderTime = self.audioEngine.outputNode.lastRenderTime else { return }
+        let hostTime = renderTime.hostTime
+        // Schedule ramps: current down to 0, next up to crossfadePeakGain
+        nextGainUnit.scheduleLinearRamp(to: crossfadePeakGain, duration: d, atHostTime: hostTime)
+        currentGainUnit.scheduleLinearRamp(to: 0.0, duration: d, atHostTime: hostTime)
     }
     
     // MARK: - Audio Interruption Handling
@@ -376,6 +422,11 @@ class AudioEngine: ObservableObject {
         }
 
         currentNode.play()
+        // Ensure path gain: enable active mixer, mute inactive; set gains for paths
+        currentMixer.volume = 1.0
+        nextMixer.volume = 0.0
+        currentGainUnit.setLinearGain(crossfadePeakGain)
+        nextGainUnit.setLinearGain(0.0)
         playbackState = .playing
         scheduleCrossfadeIfPossible()
     }
@@ -383,7 +434,6 @@ class AudioEngine: ObservableObject {
     // Fixed pause implementation - AVAudioPlayerNode doesn't have pause()
     public func pause() {
         guard playbackState == .playing else { return }
-        cancelFade()
         pausedAt = currentTime
         playerNodeA.stop()
         playerNodeB.stop()
@@ -397,10 +447,12 @@ class AudioEngine: ObservableObject {
     }
     
     private func stop() {
-        cancelFade()
         playerNodeA.stop()
         playerNodeB.stop()
-        resetNodeVolumes()
+        mixerA.volume = 0.0
+        mixerB.volume = 0.0
+        gainA.setLinearGain(0.0)
+        gainB.setLinearGain(0.0)
         seekPosition = 0
         pausedAt = 0
         playbackState = .stopped
@@ -438,8 +490,67 @@ class AudioEngine: ObservableObject {
             return
         }
         if playbackState == .playing {
-            // Emergency short crossfade
-            startCrossfade(duration: 0.2)
+            let fadeID = activeLoadID
+            // Immediate crossfade with pre-roll at mixer=0
+            let next = nextAudio.tracks.removeFirst()
+            if let current = currentNFT { previousAudio.tracks.append(current) }
+            Task { @MainActor in
+                do {
+                    guard let url = next.musicURL else { return }
+                    try self.ensureEngineReadyToPlay()
+                    let localURL: URL
+                    if AudioEngine.shouldTreatAsRemote(url) {
+                        localURL = try await AudioEngine.downloadToManagedTemp(from: url)
+                    } else {
+                        localURL = url
+                    }
+                    let nextFile = try AVAudioFile(forReading: localURL)
+                    guard fadeID == self.activeLoadID else {
+                        print("xfade_cancelled_stale {\(fadeID)}")
+                        return
+                    }
+                    self.nextMixer.volume = 0.0
+                    self.nextGainUnit.setLinearGain(0.0)
+                    self.nextNode.stop()
+                    self.nextNode.scheduleFile(nextFile, at: nil, completionHandler: nil)
+                    self.nextNode.play()
+
+                    // Auto-cap fade: min(configured, 30% of current track length)
+                    let cappedFade = min(self.crossfadeDuration, 0.3 * self.duration)
+                    let d = max(0.05, min(cappedFade, 10.0))
+                    self.performCrossfade(duration: d, from: self.currentMixer, to: self.nextMixer)
+
+                    DispatchQueue.main.asyncAfter(deadline: .now() + d) { [weak self] in
+                        guard let self else { return }
+                        guard fadeID == self.activeLoadID else {
+                            print("xfade_cancelled_stale {\(fadeID)}")
+                            return
+                        }
+                        self.currentNode.stop()
+                        // Mute old mix path, flip, then enable new path
+                        self.currentMixer.volume = 0.0
+
+                        // Commit new state
+                        if let oldNFT = self.currentNFT { self.previousAudio.tracks.append(oldNFT) }
+                        _ = self.nextAudio.tracks.isEmpty ? nil : self.nextAudio.tracks.removeFirst()
+                        self.currentNodeIsA.toggle()
+                        // After toggle, currentMixer/nextMixer refer to new roles
+                        self.currentMixer.volume = 1.0
+                        self.nextMixer.volume = 0.0
+                        // Set gains for new roles: active path ~-0.915 dB, inactive muted
+                        self.currentGainUnit.setLinearGain(self.crossfadePeakGain)
+                        self.nextGainUnit.setLinearGain(0.0)
+                        self.audioFile = nextFile
+                        self.seekPosition = 0
+                        self.pausedAt = 0
+                        self.currentNFT = next
+                        self.currentTrack = Track(title: next.name, artist: next.artistName, duration: self.duration, imageUrl: next.image?.secureUrl ?? next.image?.originalUrl)
+                        self.playbackState = .playing
+                    }
+                } catch {
+                    print("xfade_cancelled_stale {\(fadeID)}")
+                }
+            }
             return
         }
         // If not currently playing, load and start normally
@@ -633,8 +744,17 @@ class AudioEngine: ObservableObject {
             audioEngine.stop()
         }
         
+        mixerA.volume = 0.0
+        mixerB.volume = 0.0
+        gainA.setLinearGain(0.0)
+        gainB.setLinearGain(0.0)
+        
         audioEngine.detach(playerNodeA)
         audioEngine.detach(playerNodeB)
+        audioEngine.detach(mixerA)
+        audioEngine.detach(mixerB)
+        audioEngine.detach(gainA)
+        audioEngine.detach(gainB)
         
         // Clean up temp file
         if let tempURL = tempAudioURL {
@@ -649,147 +769,115 @@ class AudioEngine: ObservableObject {
     }
     
     // MARK: - Crossfade Helpers
-    private func cancelFade() {
-        fadeTimer?.cancel()
-        fadeTimer = nil
-        isCrossfading = false
-    }
-
-    private func resetNodeVolumes() {
-        playerNodeA.volume = 1.0
-        playerNodeB.volume = 1.0
-    }
-
     private func scheduleCrossfadeIfPossible() {
-        // If there's no upcoming track, do nothing
+        // If there's no upcoming track or no current file, do nothing
         guard !nextAudio.tracks.isEmpty, let audioFile = audioFile else { return }
-        // Compute remaining time
+
+        // Compute remaining time on the current file from the current seek position
         let sampleRate = audioFile.processingFormat.sampleRate
         let startFrame = AVAudioFramePosition(seekPosition * sampleRate)
         let remainingFrames = max(0, audioFile.length - startFrame)
         let remainingTime = Double(remainingFrames) / sampleRate
-        let overlap = min(crossfadeDuration, max(0.0, remainingTime))
-        guard overlap > 0 else { return }
-        // Schedule a timer to begin crossfade overlap seconds before end
-        let fireIn = max(0.0, remainingTime - overlap)
-        cancelFade()
-        isCrossfading = false
-        let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now() + fireIn)
-        timer.setEventHandler { [weak self] in
-            self?.startCrossfade(duration: overlap)
-        }
-        fadeTimer = timer
-        timer.resume()
-    }
 
-    private func startCrossfade(duration: TimeInterval) {
-        let crossfadeID = activeLoadID
-        guard !isCrossfading else { return }
-        guard !nextAudio.tracks.isEmpty else { return }
-        isCrossfading = true
-        // Prepare next track
-        let next = nextAudio.tracks.removeFirst()
+        // Auto-cap fade: min(configured, 30% of track length)
+        let cappedFade = min(crossfadeDuration, max(0.0, 0.3 * (Double(audioFile.length) / sampleRate)))
+        let overlap = min(cappedFade, max(0.0, remainingTime))
+        guard overlap > 0 else { return }
+
+        // Safety pad near the end to avoid underruns / render race
+        let safety = crossfadeSafetyPad
+        let fireIn = max(0.0, remainingTime - overlap - safety)
+
+        // Prepare and schedule the next track to start at the computed node time with its mixer muted
+        let fadeID = activeLoadID
+
+        // Obtain current render time references
+        guard let nodeTime = currentNode.lastRenderTime,
+              let playerTime = currentNode.playerTime(forNodeTime: nodeTime) else { return }
+
+        let framesUntilStart = AVAudioFramePosition((remainingTime - overlap - safety) * playerTime.sampleRate)
+        let targetSampleTime = playerTime.sampleTime + framesUntilStart
+        let targetPlayerTime = AVAudioTime(sampleTime: targetSampleTime, atRate: playerTime.sampleRate)
+
+        // Pre-roll next track on its player; keep its mixer at 0.0
+        let next = nextAudio.tracks.first!
         Task { @MainActor in
-            var managedURL: URL?
-            let previousTemp = self.tempAudioURL
             do {
-                guard let url = next.musicURL else { throw AudioEngineError.fileLoadFailed }
-                // Download if needed without altering current state (managed temp)
+                guard fadeID == self.activeLoadID else {
+                    print("xfade_cancelled_stale {\(fadeID)}")
+                    return
+                }
+                guard let url = next.musicURL else { return }
+                try self.ensureEngineReadyToPlay()
+
+                // Prepare local URL (download if remote) for pre-roll
                 let localURL: URL
                 if AudioEngine.shouldTreatAsRemote(url) {
                     localURL = try await AudioEngine.downloadToManagedTemp(from: url)
-                    managedURL = localURL
                 } else {
                     localURL = url
                 }
+
                 let nextFile = try AVAudioFile(forReading: localURL)
-                // Re-check staleness before scheduling any stateful audio work
-                guard crossfadeID == self.activeLoadID else {
-                    if let managedURL { try? FileManager.default.removeItem(at: managedURL) }
-                    self.isCrossfading = false
-                    return
-                }
-                // Start next node at volume 0
-                nextNode.volume = 0.0
-                nextNode.stop()
-                nextNode.scheduleFile(nextFile, at: nil, completionHandler: nil)
-                do {
-                    try self.ensureEngineReadyToPlay()
-                } catch {
-                    // Abort crossfade gracefully if engine cannot be started
-                    self.isCrossfading = false
-                    self.resetNodeVolumes()
-                    if let managedURL { try? FileManager.default.removeItem(at: managedURL) }
-                    await self.playNext()
-                    return
-                }
-                nextNode.play()
-                // Fade loop (equal-power)
-                let steps = max(1, Int(duration / 0.02))
-                let stepDuration = duration / Double(steps)
-                var i = 0
-                cancelFade()
-                let timer = DispatchSource.makeTimerSource(queue: .main)
-                timer.schedule(deadline: .now(), repeating: stepDuration)
-                timer.setEventHandler { [weak self] in
-                    guard let self else {
-                        timer.cancel()
+
+                // Keep next mixer silent until fade begins
+                self.nextMixer.volume = 0.0
+                self.nextGainUnit.setLinearGain(0.0)
+
+                self.nextNode.stop()
+                self.nextNode.scheduleFile(nextFile, at: targetPlayerTime, completionHandler: nil)
+                self.nextNode.play()
+
+                // Schedule a one-shot to trigger the fade at the computed time.
+                // We convert framesUntilStart to seconds relative to now; minor drift expected <10ms.
+                let secondsUntilStart = max(0.0, fireIn)
+                DispatchQueue.main.asyncAfter(deadline: .now() + secondsUntilStart) { [weak self] in
+                    guard let self else { return }
+                    guard fadeID == self.activeLoadID else {
+                        print("xfade_cancelled_stale {\(fadeID)}")
                         return
                     }
-                    let t = min(1.0, Double(i) / Double(steps))
-                    // Equal-power curve
-                    let fadeIn = sin(t * .pi / 2)
-                    let fadeOut = cos(t * .pi / 2)
-                    self.nextNode.volume = Float(fadeIn)
-                    self.currentNode.volume = Float(fadeOut)
-                    i += 1
-                    if t >= 1.0 {
-                        // Guard against staleness right before committing the swap
-                        guard crossfadeID == self.activeLoadID else {
-                            timer.cancel()
-                            self.resetNodeVolumes()
-                            self.isCrossfading = false
-                            if let managedURL { try? FileManager.default.removeItem(at: managedURL) }
+                    // Begin crossfade
+                    self.performCrossfade(duration: overlap, from: self.currentMixer, to: self.nextMixer)
+
+                    // After fade completes, stop previous player, reset its mixer, and flip roles
+                    DispatchQueue.main.asyncAfter(deadline: .now() + overlap) { [weak self] in
+                        guard let self else { return }
+                        guard fadeID == self.activeLoadID else {
+                            print("xfade_cancelled_stale {\(fadeID)}")
                             return
                         }
-                        timer.cancel()
                         self.currentNode.stop()
+                        // Mute old mix path, then flip roles and enable new path
+                        self.currentMixer.volume = 0.0
+
+                        // Commit new state
                         if let oldNFT = self.currentNFT { self.previousAudio.tracks.append(oldNFT) }
-                        self.resetNodeVolumes()
-                        
-                        // Transfer temp ownership for crossfade result
-                        if url.scheme == "http" || url.scheme == "https" {
-                            self.tempAudioURL = localURL
-                            if let prev = previousTemp, prev != localURL {
-                                try? FileManager.default.removeItem(at: prev)
-                            }
-                        } else {
-                            self.tempAudioURL = nil
-                        }
-                        
-                        // Previous queue updated to keep navigation consistent for both scheduled and emergency crossfades.
-                        // Swap nodes and update state
+                        _ = self.nextAudio.tracks.isEmpty ? nil : self.nextAudio.tracks.removeFirst()
                         self.currentNodeIsA.toggle()
+                        // After toggle, currentMixer/nextMixer refer to new roles
+                        self.currentMixer.volume = 1.0
+                        self.nextMixer.volume = 0.0
+                        // Set gains for new roles: active path ~-0.915 dB, inactive muted
+                        self.currentGainUnit.setLinearGain(self.crossfadePeakGain)
+                        self.nextGainUnit.setLinearGain(0.0)
                         self.audioFile = nextFile
                         self.seekPosition = 0
                         self.pausedAt = 0
                         self.currentNFT = next
                         self.currentTrack = Track(title: next.name, artist: next.artistName, duration: self.duration, imageUrl: next.image?.secureUrl ?? next.image?.originalUrl)
                         self.playbackState = .playing
-                        self.isCrossfading = false
                     }
                 }
-                self.fadeTimer = timer
-                timer.resume()
+            } catch is CancellationError {
+                print("xfade_cancelled_stale {\(fadeID)}")
             } catch {
-                // Best-effort cleanup of any managed temp created during crossfade
-                // (managedURL is only set for remote downloads)
-                if let managedURL { try? FileManager.default.removeItem(at: managedURL) }
-                // On failure, stop crossfade and attempt normal advance
-                self.isCrossfading = false
-                self.resetNodeVolumes()
-                await self.playNext()
+                // On error, mute both to safe state and attempt to advance normally
+                self.currentMixer.volume = 0.0
+                self.nextMixer.volume = 0.0
+                Task { @MainActor in
+                    await self.playNext()
+                }
             }
         }
     }
