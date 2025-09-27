@@ -52,7 +52,7 @@ class AudioEngine: ObservableObject {
     }
     
     var progress: Double {
-        duration > 0 ? currentTime / duration : 0
+        return currentTime
     }
     
     enum PlaybackState {
@@ -493,7 +493,6 @@ class AudioEngine: ObservableObject {
             let fadeID = activeLoadID
             // Immediate crossfade with pre-roll at mixer=0
             let next = nextAudio.tracks.removeFirst()
-            if let current = currentNFT { previousAudio.tracks.append(current) }
             Task { @MainActor in
                 do {
                     guard let url = next.musicURL else { return }
@@ -532,7 +531,6 @@ class AudioEngine: ObservableObject {
 
                         // Commit new state
                         if let oldNFT = self.currentNFT { self.previousAudio.tracks.append(oldNFT) }
-                        _ = self.nextAudio.tracks.isEmpty ? nil : self.nextAudio.tracks.removeFirst()
                         self.currentNodeIsA.toggle()
                         // After toggle, currentMixer/nextMixer refer to new roles
                         self.currentMixer.volume = 1.0
