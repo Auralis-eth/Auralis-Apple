@@ -46,6 +46,8 @@ class AudioEngine: ObservableObject {
     @Published var lastError: AudioEngineError? = nil
     private var needsEngineStart: Bool = false
     
+    private var suppressAutoAdvanceOnce: Bool = false
+    
     // Computed property to eliminate state redundancy
     var isPlaying: Bool {
         playbackState == .playing
@@ -413,6 +415,11 @@ class AudioEngine: ObservableObject {
 
         currentNode.scheduleSegment(audioFile, startingFrame: startFrame, frameCount: remainingFrames, at: nil) {
             Task { @MainActor in
+                // AE-004: Suppress Double Auto-Advance
+                if self.suppressAutoAdvanceOnce {
+                    self.suppressAutoAdvanceOnce = false
+                    return
+                }
                 if self.playbackState == .playing {
                     self.playbackState = .stopped
                     // Auto-advance to next item in the next queue if available
@@ -513,6 +520,7 @@ class AudioEngine: ObservableObject {
                     self.nextNode.stop()
                     self.nextNode.scheduleFile(nextFile, at: nil, completionHandler: nil)
                     self.nextNode.play()
+                    self.suppressAutoAdvanceOnce = true // AE-004: prevent race with completion
 
                     // Auto-cap fade: min(configured, 30% of current track length)
                     let cappedFade = min(self.crossfadeDuration, 0.3 * self.duration)
@@ -544,6 +552,7 @@ class AudioEngine: ObservableObject {
                         self.currentNFT = next
                         self.currentTrack = Track(title: next.name, artist: next.artistName, duration: self.duration, imageUrl: next.image?.secureUrl ?? next.image?.originalUrl)
                         self.playbackState = .playing
+                        self.suppressAutoAdvanceOnce = false
                     }
                 } catch {
                     print("xfade_cancelled_stale {\(fadeID)}")
@@ -835,6 +844,7 @@ class AudioEngine: ObservableObject {
                         print("xfade_cancelled_stale {\(fadeID)}")
                         return
                     }
+                    self.suppressAutoAdvanceOnce = true // AE-004: prevent race with completion
                     // Begin crossfade
                     self.performCrossfade(duration: overlap, from: self.currentMixer, to: self.nextMixer)
 
@@ -865,6 +875,7 @@ class AudioEngine: ObservableObject {
                         self.currentNFT = next
                         self.currentTrack = Track(title: next.name, artist: next.artistName, duration: self.duration, imageUrl: next.image?.secureUrl ?? next.image?.originalUrl)
                         self.playbackState = .playing
+                        self.suppressAutoAdvanceOnce = false
                     }
                 }
             } catch is CancellationError {
