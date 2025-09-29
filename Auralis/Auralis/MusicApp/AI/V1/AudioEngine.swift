@@ -61,6 +61,12 @@ class AudioEngine: ObservableObject {
     @Published var currentTrack: Track? = nil    
     @Published var playbackState: PlaybackState = .stopped
     @Published var lastError: AudioEngineError? = nil
+    
+    // Shuffle / Repeat support (PB-010)
+    enum RepeatMode { case none, track, playlist }
+    @Published var isShuffleEnabled: Bool = false
+    @Published var repeatMode: RepeatMode = .none
+    
     private var needsEngineStart: Bool = false
     
     private var suppressAutoAdvanceOnce: Bool = false
@@ -353,8 +359,9 @@ class AudioEngine: ObservableObject {
     }
     
     private func updateRemoteCommandAvailability() {
-        // Next/Previous availability based on queues
-        remoteCommands.nextTrackCommand.isEnabled = !nextAudio.tracks.isEmpty
+        // Next/Previous availability based on queues and repeat mode
+        let canAdvance = !nextAudio.tracks.isEmpty || repeatMode != .none
+        remoteCommands.nextTrackCommand.isEnabled = canAdvance
         remoteCommands.previousTrackCommand.isEnabled = !previousAudio.tracks.isEmpty || (seekPosition > 1.0)
 
         // Scrubbing and skip only when we have a determinate duration (non-live)
@@ -749,6 +756,75 @@ class AudioEngine: ObservableObject {
     }
 
     
+    // MARK: - Queue Helpers (Shuffle/Repeat)
+    private func peekNextTrackRespectingModes() -> NFT? {
+        // Repeat the same track
+        if repeatMode == .track, let current = currentNFT {
+            return current
+        }
+
+        // If we have items queued, either pick first (ordered) or random (shuffle)
+        if !nextAudio.tracks.isEmpty {
+            if isShuffleEnabled {
+                return nextAudio.tracks.randomElement()
+            } else {
+                return nextAudio.tracks.first
+            }
+        }
+
+        // If we’re out of items and repeat is playlist, derive a virtual next from history + current
+        if repeatMode == .playlist {
+            var rebuilt: [NFT] = []
+            if let current = currentNFT { rebuilt.append(current) }
+            if !previousAudio.tracks.isEmpty { rebuilt.append(contentsOf: previousAudio.tracks) }
+            guard !rebuilt.isEmpty else { return nil }
+            return isShuffleEnabled ? rebuilt.randomElement() : rebuilt.first
+        }
+
+        // No next track and repeat is none
+        return nil
+    }
+
+    @discardableResult
+    private func dequeueNextTrackRespectingModes() -> NFT? {
+        // Repeat the same track (no queue mutation)
+        if repeatMode == .track, let current = currentNFT {
+            return current
+        }
+
+        // If items are present in next queue
+        if !nextAudio.tracks.isEmpty {
+            if isShuffleEnabled {
+                let idx = Int.random(in: 0..<nextAudio.tracks.count)
+                return nextAudio.tracks.remove(at: idx)
+            } else {
+                return nextAudio.tracks.removeFirst()
+            }
+        }
+
+        // Rebuild next queue from history + current for repeat-playlist
+        if repeatMode == .playlist {
+            var rebuilt: [NFT] = []
+            if let current = currentNFT { rebuilt.append(current) }
+            if !previousAudio.tracks.isEmpty { rebuilt.append(contentsOf: previousAudio.tracks) }
+            guard !rebuilt.isEmpty else { return nil }
+
+            // Reset queues so we start fresh for the next cycle
+            previousAudio.tracks.removeAll()
+            nextAudio.tracks = rebuilt
+
+            if isShuffleEnabled {
+                let idx = Int.random(in: 0..<nextAudio.tracks.count)
+                return nextAudio.tracks.remove(at: idx)
+            } else {
+                return nextAudio.tracks.removeFirst()
+            }
+        }
+
+        // Nothing else to play
+        return nil
+    }
+    
     // MARK: - Audio Loading and Playback
     private func loadAudio(from url: URL, title: String?, artist: String?, imageUrl: String?, loadID: UUID) async throws {
         playbackState = .loading
@@ -903,16 +979,22 @@ class AudioEngine: ObservableObject {
     // MARK: - Playlist Navigation
     @MainActor
     public func playNext() async {
-        // If there's an item queued in Next, crossfade to it if currently playing
-        guard !nextAudio.tracks.isEmpty else {
-            stop()
-            updateRemoteCommandAvailability()
+        // Repeat-track: restart current track from beginning without crossfade
+        if repeatMode == .track {
+            try? self.seek(to: 0)
             return
         }
+        
+        // If there's an item queued in Next, crossfade to it if currently playing
         if playbackState == .playing {
             let fadeID = activeLoadID
+            // Choose next according to shuffle/repeat rules
+            guard let next = dequeueNextTrackRespectingModes() else {
+                stop()
+                updateRemoteCommandAvailability()
+                return
+            }
             // Immediate crossfade with pre-roll at mixer=0
-            let next = nextAudio.tracks.removeFirst()
             updateRemoteCommandAvailability()
             Task { @MainActor in
                 do {
@@ -978,7 +1060,11 @@ class AudioEngine: ObservableObject {
             return
         }
         // If not currently playing, load and start normally
-        let next = nextAudio.tracks.removeFirst()
+        guard let next = dequeueNextTrackRespectingModes() else {
+            stop()
+            updateRemoteCommandAvailability()
+            return
+        }
         if let current = currentNFT { previousAudio.tracks.append(current) }
         updateRemoteCommandAvailability()
         do {
@@ -1192,7 +1278,12 @@ class AudioEngine: ObservableObject {
     // MARK: - Crossfade Helpers
     private func scheduleCrossfadeIfPossible() {
         // If there's no upcoming track or no current file, do nothing
-        guard !nextAudio.tracks.isEmpty, let audioFile = audioFile else { return }
+        guard let next = self.peekNextTrackRespectingModes() else { return }
+        // Avoid scheduling a crossfade into the same track when repeating track
+        if repeatMode == .track, let current = currentNFT, current.id == next.id {
+            return
+        }
+        guard let audioFile = audioFile else { return }
 
         // Compute remaining time on the current file from the current seek position
         let sampleRate = audioFile.processingFormat.sampleRate
@@ -1221,7 +1312,6 @@ class AudioEngine: ObservableObject {
         let targetPlayerTime = AVAudioTime(sampleTime: targetSampleTime, atRate: playerTime.sampleRate)
 
         // Pre-roll next track on its player; keep its mixer at 0.0
-        let next = nextAudio.tracks.first!
         Task { @MainActor in
             do {
                 guard fadeID == self.activeLoadID else {
@@ -1275,7 +1365,9 @@ class AudioEngine: ObservableObject {
 
                         // Commit new state
                         if let oldNFT = self.currentNFT { self.previousAudio.tracks.append(oldNFT) }
-                        _ = self.nextAudio.tracks.isEmpty ? nil : self.nextAudio.tracks.removeFirst()
+                        if let idx = self.nextAudio.tracks.firstIndex(where: { $0.id == next.id }) {
+                            self.nextAudio.tracks.remove(at: idx)
+                        }
                         self.currentNodeIsA.toggle()
                         // After toggle, currentMixer/nextMixer refer to new roles
                         self.currentMixer.volume = 1.0
