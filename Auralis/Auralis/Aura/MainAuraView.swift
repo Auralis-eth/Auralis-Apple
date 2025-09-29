@@ -171,13 +171,8 @@ struct MainAuraView: View {
     }
 
     init() {
-        do {
-            let engine = try AudioEngine()
-            _audioEngine = StateObject(wrappedValue: engine)
-        } catch {
-            // Fallback for initialization errors
-            fatalError("Failed to initialize AudioEngine: \(error)")
-        }
+        let engine = AudioEngineProvider.shared
+        _audioEngine = StateObject(wrappedValue: engine)
     }
 }
 //
@@ -214,6 +209,7 @@ struct MainAuraView: View {
 ////          what is it and could I use it
 ////      Revision???
 ////          what is it and could I use it
+
 
 
 
