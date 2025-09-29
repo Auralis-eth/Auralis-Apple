@@ -64,6 +64,9 @@ class AudioEngine: ObservableObject {
     
     private var suppressAutoAdvanceOnce: Bool = false
     
+    // AE-006: Route-change context
+    private var wasPlayingBeforeRouteChange: Bool = false
+    
     // Computed property to eliminate state redundancy
     var isPlaying: Bool {
         playbackState == .playing
@@ -350,6 +353,15 @@ class AudioEngine: ObservableObject {
             // Removed .mixWithOthers for proper music app behavior
             try session.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetoothA2DP])
             try session.setActive(true)
+            
+            if #available(iOS 26.0, *) {
+                do {
+                    try session.setPrefersInterruptionOnRouteDisconnect(true)
+                } catch {
+                    print("[AE-006] Failed to set prefersInterruptionOnRouteDisconnect: \(error)")
+                }
+            }
+            
         } catch {
             throw AudioEngineError.sessionSetupFailed
         }
@@ -494,8 +506,147 @@ class AudioEngine: ObservableObject {
     }
     
     @objc private func handleRouteChange(notification: Notification) {
-        // Mark that the engine needs a fresh start on next playback after route changes
+        let session = AVAudioSession.sharedInstance()
+        let userInfo = notification.userInfo ?? [:]
+
+        // Capture pre-change state
+        wasPlayingBeforeRouteChange = (playbackState == .playing)
+
+        // Read reason and previous route
+        let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt ?? 0
+        let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) ?? .unknown
+        let previousRoute = userInfo[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription
+
+        // Log for QA
+        logRouteChange(reason: reason, previous: previousRoute, current: session.currentRoute)
+
+        // Mark engine to require restart on next play
         needsEngineStart = true
+
+        switch reason {
+        case .oldDeviceUnavailable:
+            // Headphone/A2DP/AirPlay disconnect: pause immediately
+            if let prev = previousRoute { handleDeviceDisconnection(previousRoute: prev) }
+
+        case .newDeviceAvailable:
+            // New device appeared: let the system route, then refresh session & UI
+            Task { @MainActor in
+                do { try ensureSessionActive() } catch { }
+                reconfigureForCurrentRoute()
+                updateNowPlayingMetadata()
+            }
+
+        case .routeConfigurationChange, .categoryChange, .override, .wakeFromSleep:
+            // Session or route changed in-place: re-activate and reconfigure
+            Task { @MainActor in
+                do { try ensureSessionActive() } catch { }
+                reconfigureForCurrentRoute()
+                // If we were playing, try to resume once stable
+                if wasPlayingBeforeRouteChange && playbackState == .paused {
+                    try? resume()
+                }
+            }
+
+        case .noSuitableRouteForCategory:
+            // Gracefully fall back to built-in speaker by reaffirming playback category
+            Task { @MainActor in
+                do {
+                    try session.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetoothA2DP])
+                    try session.setActive(true)
+                } catch {
+                    print("[AE-006] Failed to fallback to speaker: \(error)")
+                }
+                reconfigureForCurrentRoute()
+                if wasPlayingBeforeRouteChange { pause() } // ensure state matches actual output
+            }
+
+        default:
+            // Unknown/other: ensure session is active and reconfigure conservatively
+            Task { @MainActor in
+                do { try ensureSessionActive() } catch { }
+                reconfigureForCurrentRoute()
+            }
+        }
+    }
+    
+    // AE-006: Pause-on-unplug for specific outputs
+    private func handleDeviceDisconnection(previousRoute: AVAudioSessionRouteDescription) {
+        for output in previousRoute.outputs {
+            switch output.portType {
+            case .headphones, .bluetoothA2DP, .airPlay:
+                // Immediate pause and UI update
+                if playbackState == .playing { pause() }
+                updateNowPlayingMetadata()
+                return
+            default:
+                continue
+            }
+        }
+    }
+
+    // AE-006: Reconfigure engine/session for current route (AirPlay, Bluetooth, sample rate changes)
+    @MainActor
+    private func reconfigureForCurrentRoute() {
+        let session = AVAudioSession.sharedInstance()
+
+        // Ensure playback category with AirPlay/Bluetooth A2DP
+        do {
+            try session.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetoothA2DP])
+            try session.setActive(true)
+        } catch {
+            print("[AE-006] Session reconfig failed: \(error)")
+        }
+
+        // Handle potential output format changes (sample rate / channels)
+        // Reset the engine graph to the new output format
+        let outFormat = audioEngine.outputNode.inputFormat(forBus: 0)
+        audioEngine.stop()
+        audioEngine.reset()
+
+        // Reconnect nodes to main mixer using the output format to avoid conversions
+        audioEngine.disconnectNodeOutput(playerNodeA)
+        audioEngine.disconnectNodeOutput(playerNodeB)
+        audioEngine.disconnectNodeOutput(gainA)
+        audioEngine.disconnectNodeOutput(gainB)
+        audioEngine.disconnectNodeOutput(mixerA)
+        audioEngine.disconnectNodeOutput(mixerB)
+
+        audioEngine.connect(playerNodeA, to: gainA, format: outFormat)
+        audioEngine.connect(gainA, to: mixerA, format: outFormat)
+        audioEngine.connect(mixerA, to: audioEngine.mainMixerNode, format: outFormat)
+
+        audioEngine.connect(playerNodeB, to: gainB, format: outFormat)
+        audioEngine.connect(gainB, to: mixerB, format: outFormat)
+        audioEngine.connect(mixerB, to: audioEngine.mainMixerNode, format: outFormat)
+
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+            needsEngineStart = false
+        } catch {
+            print("[AE-006] Engine restart failed after route change: \(error)")
+            needsEngineStart = true
+        }
+
+        // If currently routed to AirPlay, ensure gains are safe and UI is up-to-date
+        let isAirPlay = session.currentRoute.outputs.contains { $0.portType == .airPlay }
+        if isAirPlay {
+            // Nothing special required beyond session options; ensure metadata is fresh
+            updateNowPlayingMetadata()
+        }
+    }
+
+    // AE-006: Logging helper for QA
+    private func logRouteChange(reason: AVAudioSession.RouteChangeReason,
+                                previous: AVAudioSessionRouteDescription?,
+                                current: AVAudioSessionRouteDescription) {
+        func describe(_ route: AVAudioSessionRouteDescription?) -> String {
+            guard let route else { return "nil" }
+            let outs = route.outputs.map { "\($0.portType.rawValue):\($0.portName)" }.joined(separator: ", ")
+            let ins = route.inputs.map { "\($0.portType.rawValue):\($0.portName)" }.joined(separator: ", ")
+            return "outs=[\(outs)] ins=[\(ins)]"
+        }
+        print("[AE-006] Route change reason=\(reason.rawValue) prev=\(describe(previous)) curr=\(describe(current))")
     }
     
     private func canPlayFormat(_ url: URL) -> Bool {

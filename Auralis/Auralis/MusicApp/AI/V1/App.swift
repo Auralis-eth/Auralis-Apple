@@ -191,7 +191,13 @@ struct NFTMusicPlayerLibraryView: View {
                 }
             }
             .navigationTitle("Music NFTs")
-            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AVRoutePicker()
+                        .frame(width: 32, height: 32)
+                        .accessibilityLabel("AirPlay and Bluetooth devices")
+                }
+            }
             .alert("Audio Engine Error", isPresented: $showingError) {
                 Button("OK") { }
             } message: {
