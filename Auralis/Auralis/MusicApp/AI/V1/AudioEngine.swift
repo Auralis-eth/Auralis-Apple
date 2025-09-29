@@ -7,6 +7,9 @@
 
 import AVFoundation
 import Foundation
+import MediaPlayer
+import AVKit
+import UIKit
 
 @MainActor
 class AudioEngine: ObservableObject {
@@ -40,6 +43,19 @@ class AudioEngine: ObservableObject {
     private var currentLoadTask: Task<Void, Never>?
     private var activeLoadID: UUID = .init()
     private let audioCache = AudioFileCache.shared
+    
+    private let nowPlayingCenter = MPNowPlayingInfoCenter.default()
+    private let remoteCommands = MPRemoteCommandCenter.shared()
+    private var nowPlayingInfo: [String: Any] = [:]
+    private var nowPlayingUpdateTimer: Timer?
+    
+    // Optional artwork loader to plug in app's image pipeline/cache
+    var artworkLoader: ((URL) async -> UIImage?)?
+
+    // Allow callers to inject a loader at runtime
+    func setArtworkLoader(_ loader: @escaping (URL) async -> UIImage?) {
+        self.artworkLoader = loader
+    }
     
     @Published var currentTrack: Track? = nil    
     @Published var playbackState: PlaybackState = .stopped
@@ -100,6 +116,188 @@ class AudioEngine: ObservableObject {
         }
     }
     
+    // MARK: - Now Playing & Remote Command Center
+    private func setupNowPlayingAndRemoteCommands() {
+        // Configure Remote Command Center handlers
+        let center = remoteCommands
+
+        center.playCommand.isEnabled = true
+        center.playCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            Task { @MainActor in
+                if self.playbackState == .paused || self.playbackState == .stopped {
+                    try? self.resume()
+                } else if self.playbackState == .loading {
+                    // ignore until loaded
+                } else if self.playbackState == .error {
+                    // attempt to play next if possible
+                    await self.playNext()
+                }
+            }
+            return .success
+        }
+
+        center.pauseCommand.isEnabled = true
+        center.pauseCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            Task { @MainActor in
+                self.pause()
+            }
+            return .success
+        }
+
+        center.nextTrackCommand.isEnabled = true
+        center.nextTrackCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            Task { @MainActor in
+                await self.playNext()
+            }
+            return .success
+        }
+
+        center.previousTrackCommand.isEnabled = true
+        center.previousTrackCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            Task { @MainActor in
+                await self.playPrevious()
+            }
+            return .success
+        }
+
+        // Scrubbing to a specific time
+        center.changePlaybackPositionCommand.isEnabled = true
+        center.changePlaybackPositionCommand.addTarget { [weak self] event in
+            guard let self, let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            Task { @MainActor in
+                try? self.seek(to: e.positionTime)
+            }
+            return .success
+        }
+    }
+
+    private func setupMediaServicesNotifications() {
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handleMediaServicesLost),
+                                               name: AVAudioSession.mediaServicesWereLostNotification,
+                                               object: nil)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handleMediaServicesReset),
+                                               name: AVAudioSession.mediaServicesWereResetNotification,
+                                               object: nil)
+    }
+    
+    private func setupAppLifecycleObservers() {
+        #if os(iOS)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handleWillEnterForeground),
+                                               name: UIApplication.willEnterForegroundNotification,
+                                               object: nil)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handleDidEnterBackground),
+                                               name: UIApplication.didEnterBackgroundNotification,
+                                               object: nil)
+        #endif
+    }
+
+    @objc private func handleWillEnterForeground() {
+        // Refresh Now Playing metadata to keep it accurate on return
+        updateNowPlayingMetadata()
+    }
+
+    @objc private func handleDidEnterBackground() {
+        // Keep metadata fresh for background controls
+        updateNowPlayingMetadata()
+    }
+
+    @objc private func handleMediaServicesLost() {
+        // Mark for restart; pause to avoid undefined state
+        needsEngineStart = true
+        if playbackState == .playing { pause() }
+    }
+
+    @objc private func handleMediaServicesReset() {
+        // Reconfigure session and engine on reset
+        needsEngineStart = true
+        do {
+            try ensureSessionActive()
+        } catch { }
+        // If we were playing before, try to resume
+        if playbackState == .paused { try? resume() }
+    }
+
+    private func startNowPlayingTimer() {
+        stopNowPlayingTimer()
+        nowPlayingUpdateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.updateNowPlayingProgress()
+        }
+        RunLoop.main.add(nowPlayingUpdateTimer!, forMode: .common)
+    }
+
+    private func stopNowPlayingTimer() {
+        nowPlayingUpdateTimer?.invalidate()
+        nowPlayingUpdateTimer = nil
+    }
+
+    private func updateNowPlayingMetadata() {
+        guard let currentTrack = currentTrack else { return }
+        var info: [String: Any] = nowPlayingInfo
+        info[MPMediaItemPropertyTitle] = currentTrack.title
+        info[MPMediaItemPropertyArtist] = currentTrack.artist
+        info[MPMediaItemPropertyPlaybackDuration] = currentTrack.duration
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = progress
+        info[MPNowPlayingInfoPropertyPlaybackRate] = (playbackState == .playing) ? 1.0 : 0.0
+
+        // Artwork (async fetch via injected loader if available, else simple fetch)
+        if let urlString = currentTrack.imageUrl, let url = URL(string: urlString) {
+            if let loader = artworkLoader {
+                Task.detached(priority: .utility) { [weak self] in
+                    guard let self else { return }
+                    let image = await loader(url)
+                    await MainActor.run {
+                        var updated = info
+                        if let image {
+                            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                            updated[MPMediaItemPropertyArtwork] = artwork
+                        }
+                        self.nowPlayingCenter.nowPlayingInfo = updated
+                        self.nowPlayingInfo = updated
+                    }
+                }
+            } else {
+                Task.detached(priority: .utility) { [weak self] in
+                    guard let self else { return }
+                    if let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
+                        let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                        await MainActor.run {
+                            var updated = info
+                            updated[MPMediaItemPropertyArtwork] = artwork
+                            self.nowPlayingCenter.nowPlayingInfo = updated
+                            self.nowPlayingInfo = updated
+                        }
+                    } else {
+                        await MainActor.run {
+                            self.nowPlayingCenter.nowPlayingInfo = info
+                            self.nowPlayingInfo = info
+                        }
+                    }
+                }
+            }
+        } else {
+            nowPlayingCenter.nowPlayingInfo = info
+            nowPlayingInfo = info
+        }
+    }
+
+    private func updateNowPlayingProgress() {
+        guard nowPlayingCenter.nowPlayingInfo != nil else { return }
+        var info = nowPlayingInfo
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = progress
+        info[MPNowPlayingInfoPropertyPlaybackRate] = (playbackState == .playing) ? 1.0 : 0.0
+        nowPlayingCenter.nowPlayingInfo = info
+        nowPlayingInfo = info
+    }
+    
     // MARK: - Loading Helpers (non-isolated)
     nonisolated private static func downloadToManagedTemp(from url: URL) async throws -> URL {
         // Maintain signature for existing call sites but route via AudioFileCache.
@@ -140,6 +338,9 @@ class AudioEngine: ObservableObject {
         try setupAudioEngine()
         setupInterruptionHandling()
         AudioEngine.cleanupLegacyTempDir()
+        setupNowPlayingAndRemoteCommands()
+        setupMediaServicesNotifications()
+        setupAppLifecycleObservers()
     }
     
     // MARK: - Audio Session Configuration
@@ -284,6 +485,7 @@ class AudioEngine: ObservableObject {
                 let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
                 if options.contains(.shouldResume) && playbackState == .paused {
                     try? resume()
+                    self.updateNowPlayingMetadata()
                 }
             @unknown default:
                 break
@@ -361,6 +563,7 @@ class AudioEngine: ObservableObject {
             pausedAt = 0
             playbackState = .stopped
             currentTrack = Track(title: title, artist: artist, duration: self.duration, imageUrl: imageUrl)
+            updateNowPlayingMetadata()
         } catch {
             playbackState = .error
             lastError = .fileLoadFailed
@@ -419,6 +622,8 @@ class AudioEngine: ObservableObject {
         currentGainUnit.setLinearGain(crossfadePeakGain)
         nextGainUnit.setLinearGain(0.0)
         playbackState = .playing
+        startNowPlayingTimer()
+        updateNowPlayingMetadata()
         scheduleCrossfadeIfPossible()
     }
     
@@ -429,6 +634,8 @@ class AudioEngine: ObservableObject {
         playerNodeA.stop()
         playerNodeB.stop()
         playbackState = .paused
+        stopNowPlayingTimer()
+        updateNowPlayingMetadata()
     }
     
     public func resume() throws {
@@ -447,6 +654,8 @@ class AudioEngine: ObservableObject {
         seekPosition = 0
         pausedAt = 0
         playbackState = .stopped
+        stopNowPlayingTimer()
+        updateNowPlayingMetadata()
     }
     
     // MARK: - Fixed Seek Functionality
@@ -465,6 +674,7 @@ class AudioEngine: ObservableObject {
         // Update seek position
         seekPosition = clampedTime
         pausedAt = clampedTime
+        updateNowPlayingProgress()
         
         // If we were playing, restart from new position
         if wasPlaying {
@@ -536,6 +746,8 @@ class AudioEngine: ObservableObject {
                         self.currentNFT = next
                         self.currentTrack = Track(title: next.name, artist: next.artistName, duration: self.duration, imageUrl: next.image?.secureUrl ?? next.image?.originalUrl)
                         self.playbackState = .playing
+                        self.updateNowPlayingMetadata()
+                        self.startNowPlayingTimer()
                         self.suppressAutoAdvanceOnce = false
                     }
                 } catch {
@@ -713,6 +925,11 @@ class AudioEngine: ObservableObject {
     
     // MARK: - Resource Cleanup
     deinit {
+        DispatchQueue.main.async { [weak self] in
+            self?.stopNowPlayingTimer()
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        }
+
         NotificationCenter.default.removeObserver(self)
         currentLoadTask?.cancel()
         if audioEngine.isRunning {
@@ -738,6 +955,13 @@ class AudioEngine: ObservableObject {
         } catch {
             // Log cleanup error but don't throw in deinit
         }
+        
+        // Remote command cleanup
+        remoteCommands.playCommand.removeTarget(nil)
+        remoteCommands.pauseCommand.removeTarget(nil)
+        remoteCommands.nextTrackCommand.removeTarget(nil)
+        remoteCommands.previousTrackCommand.removeTarget(nil)
+        remoteCommands.changePlaybackPositionCommand.removeTarget(nil)
     }
     
     // MARK: - Crossfade Helpers
@@ -840,6 +1064,8 @@ class AudioEngine: ObservableObject {
                         self.currentNFT = next
                         self.currentTrack = Track(title: next.name, artist: next.artistName, duration: self.duration, imageUrl: next.image?.secureUrl ?? next.image?.originalUrl)
                         self.playbackState = .playing
+                        self.updateNowPlayingMetadata()
+                        self.startNowPlayingTimer()
                         self.suppressAutoAdvanceOnce = false
                     }
                 }
