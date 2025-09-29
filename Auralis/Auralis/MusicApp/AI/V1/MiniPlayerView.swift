@@ -16,7 +16,7 @@ struct MiniPlayerView: View {
     @State private var miniSeekValue: Double = 0
     @State private var miniIsDragging: Bool = false
 
-    private enum AccessoryMode {
+    fileprivate enum AccessoryMode {
         case inline
         case expanded
         case unknown
@@ -38,25 +38,6 @@ struct MiniPlayerView: View {
         let raw = audioEngine.progress / t.duration
         if !raw.isFinite || raw.isNaN { return 0 }
         return min(max(raw, 0), 1)
-    }
-    
-    @ViewBuilder
-    private var nftThumbnailView: some View {
-        if let imageUrlString = audioEngine.currentTrack?.imageUrl,
-           !imageUrlString.isEmpty,
-           let imageUrl = URL(string: imageUrlString) {
-            CachedAsyncImage(url: imageUrl)
-                .scaledToFill()
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-        } else {
-            RoundedRectangle(cornerRadius: 6)
-                .frame(width: accessoryMode == .expanded ? 44 : 36, height: accessoryMode == .expanded ? 44 : 36)
-                .overlay(
-                    Image(systemName: "music.note")
-                        .font(.system(size: accessoryMode == .expanded ? 20 : 16))
-                        .padding(6)
-                )
-        }
     }
 
     var body: some View {
@@ -81,32 +62,13 @@ struct MiniPlayerView: View {
     private var content: some View {
         VStack {
             HStack {
-                nftThumbnailView
-                    .padding(.trailing)
-                
-                // title / artist
-                VStack(alignment: .leading) {
-                    Text(audioEngine.currentTrack?.title ?? "Unknown Title")
-                        .font(accessoryMode == .expanded ? .subheadline.bold() : .subheadline)
-                        .lineLimit(1)
-                    if accessoryMode == .expanded {
-                        Text(audioEngine.currentTrack?.artist ?? "Unknown Artist")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
+                if let currentTrack = audioEngine.currentTrack {
+                    MiniPlayerPlayingView(currentTrack: currentTrack, accessoryMode: accessoryMode)
+                    Spacer()
                 }
-                
-                Spacer()
                 
                 // playback controls
                 HStack(spacing: 8) {
-                    // Coarse skip backward
-                    Button { audioEngine.skipBackward() } label: {
-                        Image(systemName: "gobackward.10")
-                            .font(.title3)
-                    }
-
                     // Previous track
                     Button {
                         Task { await audioEngine.playPrevious() }
@@ -153,12 +115,6 @@ struct MiniPlayerView: View {
                         Image(systemName: "forward.fill")
                             .font(.title3)
                     }
-
-                    // Coarse skip forward
-                    Button { audioEngine.skipForward() } label: {
-                        Image(systemName: "goforward.10")
-                            .font(.title3)
-                    }
                 }
                 .buttonStyle(.glass)
             }
@@ -167,21 +123,23 @@ struct MiniPlayerView: View {
             switch (accessoryMode, audioEngine.currentTrack) {
             case (.expanded, let track?):
                 Slider(
-                    value: Binding(
-                        get: { miniIsDragging ? miniSeekValue : audioEngine.progress },
-                        set: { newValue in
-                            miniSeekValue = newValue
-                        }
-                    ),
+                    value: $miniSeekValue,
                     in: 0...max(1, track.duration),
                     onEditingChanged: { dragging in
                         miniIsDragging = dragging
                         if !dragging {
-                            // Only seek when we are in a supported context
                             try? audioEngine.seek(to: miniSeekValue)
                         }
                     }
                 )
+                .onChange(of: audioEngine.progress) { newProgress in
+                    if !miniIsDragging {
+                        miniSeekValue = newProgress
+                    }
+                }
+                .onAppear {  // ← Added
+                    miniSeekValue = audioEngine.progress
+                }
             default:
                 // Compact indicator when inline or unknown placement (safe fallback)
                 ProgressView(value: progressFraction, total: 1)
@@ -199,5 +157,43 @@ struct MiniPlayerView: View {
         let mins = s / 60
         let secs = s % 60
         return String(format: "%d:%02d", mins, secs)
+    }
+}
+
+struct MiniPlayerPlayingView: View {
+    let currentTrack: AudioEngine.Track
+    fileprivate let accessoryMode: MiniPlayerView.AccessoryMode
+
+    var body: some View {
+        if let imageUrlString = currentTrack.imageUrl,
+           !imageUrlString.isEmpty,
+           let imageUrl = URL(string: imageUrlString) {
+            CachedAsyncImage(url: imageUrl)
+                .scaledToFill()
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .padding(.trailing)
+        } else {
+            RoundedRectangle(cornerRadius: 6)
+                .frame(width: accessoryMode == .expanded ? 44 : 36, height: accessoryMode == .expanded ? 44 : 36)
+                .overlay(
+                    Image(systemName: "music.note")
+                        .font(.system(size: accessoryMode == .expanded ? 20 : 16))
+                        .padding(6)
+                )
+                .padding(.trailing)
+        }
+            
+        // title / artist
+        VStack(alignment: .leading) {
+            Text(currentTrack.title ?? "Unknown Title")
+                .font(accessoryMode == .expanded ? .subheadline.bold() : .subheadline)
+                .lineLimit(1)
+            if accessoryMode == .expanded {
+                Text(currentTrack.artist ?? "Unknown Artist")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
     }
 }
