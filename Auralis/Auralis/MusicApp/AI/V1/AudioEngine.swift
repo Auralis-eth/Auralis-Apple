@@ -18,15 +18,11 @@ class AudioEngine: ObservableObject {
     private var playerNodeB = AVAudioPlayerNode()
     private let mixerA = AVAudioMixerNode()
     private let mixerB = AVAudioMixerNode()
-    private let gainA = TinyGainUnit()
-    private let gainB = TinyGainUnit()
     private var currentNodeIsA: Bool = true
     private var currentNode: AVAudioPlayerNode { currentNodeIsA ? playerNodeA : playerNodeB }
     private var nextNode: AVAudioPlayerNode { currentNodeIsA ? playerNodeB : playerNodeA }
     private var currentMixer: AVAudioMixerNode { currentNodeIsA ? mixerA : mixerB }
     private var nextMixer: AVAudioMixerNode { currentNodeIsA ? mixerB : mixerA }
-    private var currentGainUnit: TinyGainUnit { currentNodeIsA ? gainA : gainB }
-    private var nextGainUnit: TinyGainUnit { currentNodeIsA ? gainB : gainA }
     private var crossfadeDuration: TimeInterval = 2.0
     // Crossfade configuration
     private let crossfadePeakGain: Float = 0.9 // cap peak during overlap to avoid clipping (Option A)
@@ -463,29 +459,23 @@ class AudioEngine: ObservableObject {
     private func setupAudioEngine() throws {
         audioEngine.attach(playerNodeA)
         audioEngine.attach(playerNodeB)
-        audioEngine.attach(gainA)
-        audioEngine.attach(gainB)
         audioEngine.attach(mixerA)
         audioEngine.attach(mixerB)
 
         // Normalize formats to the engine's output format to avoid conversion issues
         let outFormat = audioEngine.outputNode.inputFormat(forBus: 0)
 
-        // player A → gain A → mixer A → main mixer
-        audioEngine.connect(playerNodeA, to: gainA, format: outFormat)
-        audioEngine.connect(gainA, to: mixerA, format: outFormat)
+        // player A → mixer A → main mixer
+        audioEngine.connect(playerNodeA, to: mixerA, format: outFormat)
         audioEngine.connect(mixerA, to: audioEngine.mainMixerNode, format: outFormat)
 
-        // player B → gain B → mixer B → main mixer
-        audioEngine.connect(playerNodeB, to: gainB, format: outFormat)
-        audioEngine.connect(gainB, to: mixerB, format: outFormat)
+        // player B → mixer B → main mixer
+        audioEngine.connect(playerNodeB, to: mixerB, format: outFormat)
         audioEngine.connect(mixerB, to: audioEngine.mainMixerNode, format: outFormat)
 
         // Start silent by default
         mixerA.volume = 0.0
         mixerB.volume = 0.0
-        gainA.setLinearGain(0.0)
-        gainB.setLinearGain(0.0)
 
         audioEngine.prepare()
     }
@@ -528,20 +518,57 @@ class AudioEngine: ObservableObject {
         }
     }
 
+    // Smooth volume ramping for mixers (replaces TinyGainUnit scheduling)
+    private var mixerRampLinks: [ObjectIdentifier: CADisplayLink] = [:]
+
+    @MainActor
+    private func rampMixer(_ mixer: AVAudioMixerNode, to target: Float, duration: TimeInterval) {
+        let d = max(0.05, min(duration, 10.0))
+        let id = ObjectIdentifier(mixer)
+        // Invalidate any existing ramp for this mixer
+        if let link = mixerRampLinks[id] {
+            link.invalidate()
+            mixerRampLinks[id] = nil
+        }
+        let startTime = CACurrentMediaTime()
+        let startVol = mixer.volume
+        let delta = target - startVol
+        guard abs(delta) > 0.0001 else { mixer.volume = target; return }
+
+        let link = CADisplayLink(target: DisplayLinkProxy { [weak self] in
+            guard let self else { return }
+            let t = CACurrentMediaTime() - startTime
+            if t >= d {
+                mixer.volume = target
+                self.mixerRampLinks[id]?.invalidate()
+                self.mixerRampLinks[id] = nil
+                return
+            }
+            let progress = Float(t / d)
+            mixer.volume = startVol + delta * progress
+        }, selector: #selector(DisplayLinkProxy.tick))
+        link.add(to: .main, forMode: .common)
+        mixerRampLinks[id] = link
+    }
+
+    // Helper proxy to avoid retain cycle with CADisplayLink target
+    private class DisplayLinkProxy: NSObject {
+        let block: () -> Void
+        init(_ block: @escaping () -> Void) { self.block = block }
+        @objc func tick() { block() }
+    }
+
     @MainActor
     func performCrossfade(duration: TimeInterval,
-                          from currentMixer: AVAudioMixerNode,
-                          to nextMixer: AVAudioMixerNode) {
+                          from from: AVAudioMixerNode,
+                          to to: AVAudioMixerNode) {
         // Clamp duration
         let d = max(0.05, min(duration, 10.0))
-        // Enable next path in the graph
-        nextMixer.volume = 1.0
-        // Compute a hostTime aligned to the engine's render timeline
-        guard let renderTime = self.audioEngine.outputNode.lastRenderTime else { return }
-        let hostTime = renderTime.hostTime
-        // Schedule ramps: current down to 0, next up to crossfadePeakGain
-        nextGainUnit.scheduleLinearRamp(to: crossfadePeakGain, duration: d, atHostTime: hostTime)
-        currentGainUnit.scheduleLinearRamp(to: 0.0, duration: d, atHostTime: hostTime)
+        // Ensure destination path is audible (start from its current volume)
+        to.volume = to.volume // no-op, ensures node is active
+        // Begin ramps now on the main thread
+        rampMixer(to, to: crossfadePeakGain, duration: d)
+        rampMixer(from, to: 0.0, duration: d)
     }
     
     // MARK: - Audio Interruption Handling
@@ -698,17 +725,13 @@ class AudioEngine: ObservableObject {
         // Reconnect nodes to main mixer using the output format to avoid conversions
         audioEngine.disconnectNodeOutput(playerNodeA)
         audioEngine.disconnectNodeOutput(playerNodeB)
-        audioEngine.disconnectNodeOutput(gainA)
-        audioEngine.disconnectNodeOutput(gainB)
         audioEngine.disconnectNodeOutput(mixerA)
         audioEngine.disconnectNodeOutput(mixerB)
 
-        audioEngine.connect(playerNodeA, to: gainA, format: outFormat)
-        audioEngine.connect(gainA, to: mixerA, format: outFormat)
+        audioEngine.connect(playerNodeA, to: mixerA, format: outFormat)
         audioEngine.connect(mixerA, to: audioEngine.mainMixerNode, format: outFormat)
 
-        audioEngine.connect(playerNodeB, to: gainB, format: outFormat)
-        audioEngine.connect(gainB, to: mixerB, format: outFormat)
+        audioEngine.connect(playerNodeB, to: mixerB, format: outFormat)
         audioEngine.connect(mixerB, to: audioEngine.mainMixerNode, format: outFormat)
 
         audioEngine.prepare()
@@ -928,11 +951,9 @@ class AudioEngine: ObservableObject {
         }
 
         currentNode.play()
-        // Ensure path gain: enable active mixer, mute inactive; set gains for paths
+        // Ensure path gain: enable active mixer, mute inactive
         currentMixer.volume = 1.0
         nextMixer.volume = 0.0
-        currentGainUnit.setLinearGain(crossfadePeakGain)
-        nextGainUnit.setLinearGain(0.0)
         playbackState = .playing
         startNowPlayingTimer()
         updateRemoteCommandAvailability()
@@ -963,8 +984,6 @@ class AudioEngine: ObservableObject {
         playerNodeB.stop()
         mixerA.volume = 0.0
         mixerB.volume = 0.0
-        gainA.setLinearGain(0.0)
-        gainB.setLinearGain(0.0)
         seekPosition = 0
         pausedAt = 0
         playbackState = .stopped
@@ -1045,7 +1064,6 @@ class AudioEngine: ObservableObject {
                         return
                     }
                     self.nextMixer.volume = 0.0
-                    self.nextGainUnit.setLinearGain(0.0)
                     self.nextNode.stop()
                     self.nextNode.scheduleFile(nextFile, at: nil, completionHandler: nil)
                     self.nextNode.play()
@@ -1072,9 +1090,6 @@ class AudioEngine: ObservableObject {
                         // After toggle, currentMixer/nextMixer refer to new roles
                         self.currentMixer.volume = 1.0
                         self.nextMixer.volume = 0.0
-                        // Set gains for new roles: active path ~-0.915 dB, inactive muted
-                        self.currentGainUnit.setLinearGain(self.crossfadePeakGain)
-                        self.nextGainUnit.setLinearGain(0.0)
                         self.audioFile = nextFile
                         self.seekPosition = 0
                         self.pausedAt = 0
@@ -1280,15 +1295,11 @@ class AudioEngine: ObservableObject {
         
         mixerA.volume = 0.0
         mixerB.volume = 0.0
-        gainA.setLinearGain(0.0)
-        gainB.setLinearGain(0.0)
         
         audioEngine.detach(playerNodeA)
         audioEngine.detach(playerNodeB)
         audioEngine.detach(mixerA)
         audioEngine.detach(mixerB)
-        audioEngine.detach(gainA)
-        audioEngine.detach(gainB)
         
         // No temp file cleanup needed; cache persists across sessions
         
@@ -1366,7 +1377,6 @@ class AudioEngine: ObservableObject {
 
                 // Keep next mixer silent until fade begins
                 self.nextMixer.volume = 0.0
-                self.nextGainUnit.setLinearGain(0.0)
 
                 self.nextNode.stop()
                 self.nextNode.scheduleFile(nextFile, at: targetPlayerTime, completionHandler: nil)
@@ -1405,9 +1415,6 @@ class AudioEngine: ObservableObject {
                         // After toggle, currentMixer/nextMixer refer to new roles
                         self.currentMixer.volume = 1.0
                         self.nextMixer.volume = 0.0
-                        // Set gains for new roles: active path ~-0.915 dB, inactive muted
-                        self.currentGainUnit.setLinearGain(self.crossfadePeakGain)
-                        self.nextGainUnit.setLinearGain(0.0)
                         self.audioFile = nextFile
                         self.seekPosition = 0
                         self.pausedAt = 0
@@ -1433,4 +1440,3 @@ class AudioEngine: ObservableObject {
         }
     }
 }
-
