@@ -33,19 +33,13 @@ struct MiniPlayerView: View {
         }
     }
 
-    private var progressFraction: Double {
-        guard let t = audioEngine.currentTrack, t.duration > 0 else { return 0 }
-        let raw = audioEngine.progress / t.duration
-        if !raw.isFinite || raw.isNaN { return 0 }
-        return min(max(raw, 0), 1)
-    }
-
     var body: some View {
         Group {
             if audioEngine.currentTrack == nil {
                 EmptyView()
             } else {
-                content
+                MiniPlayerContentView(audioEngine: audioEngine, accessoryMode: accessoryMode)
+                    .contentShape(Rectangle())
                     .onTapGesture {
                         if accessoryMode != .unknown {
                             showNowPlaying = true
@@ -58,14 +52,37 @@ struct MiniPlayerView: View {
         }
         .accessibilityElement(children: .contain)
     }
+    
+    private func timeString(from seconds: TimeInterval) -> String {
+        guard seconds.isFinite else { return "0:00" }
+        let s = Int(seconds)
+        let mins = s / 60
+        let secs = s % 60
+        return String(format: "%d:%02d", mins, secs)
+    }
+}
 
-    private var content: some View {
+struct MiniPlayerContentView: View {
+    @ObservedObject var audioEngine: AudioEngine
+    fileprivate let accessoryMode: MiniPlayerView.AccessoryMode
+
+    @State private var miniSeekValue: Double = 0
+    @State private var miniIsDragging: Bool = false
+
+    private var progressFraction: Double {
+        guard let t = audioEngine.currentTrack, t.duration > 0 else { return 0 }
+        let raw = audioEngine.progress / t.duration
+        if !raw.isFinite || raw.isNaN { return 0 }
+        return min(max(raw, 0), 1)
+    }
+
+    var body: some View {
         VStack {
             HStack {
-                if let currentTrack = audioEngine.currentTrack {
-                    MiniPlayerPlayingView(currentTrack: currentTrack, accessoryMode: accessoryMode)
-                    Spacer()
-                }
+//                if let currentTrack = audioEngine.currentTrack {
+//                    MiniPlayerPlayingView(currentTrack: currentTrack, accessoryMode: accessoryMode)
+//                    Spacer()
+//                }
                 
                 // playback controls
                 HStack(spacing: 8) {
@@ -77,36 +94,12 @@ struct MiniPlayerView: View {
                             .font(.title3)
                     }
 
-                    // Play/Pause cluster
-                    switch audioEngine.playbackState {
-                    case .loading:
-                        Button(action: audioEngine.pause) {
-                            Image(systemName: "pause.fill")
-                                .font(.title3)
-                        }
-                        .disabled(true) // disable the button
-                        .overlay {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle())
-                        }
-                    case .playing:
-                        Button(action: audioEngine.pause) {
-                            Image(systemName: "pause.fill")
-                                .font(.title3)
-                        }
-                    case .paused:
-                        Button { try? audioEngine.resume() } label: {
-                            Image(systemName: "play.fill")
-                                .font(.title3)
-                        }
-                    case .stopped:
-                        Button { try? audioEngine.play() } label: {
-                            Image(systemName: "play.fill")
-                                .font(.title3)
-                        }
-                    case .error:
-                        EmptyView()
-                    }
+//                    PlaybackStateButton(
+//                        sourceState: audioEngine.playbackState,
+//                        play: { try? audioEngine.play() },
+//                        pause: audioEngine.pause,
+//                        resume: { try? audioEngine.resume() }
+//                    )
 
                     // Next track
                     Button {
@@ -137,7 +130,7 @@ struct MiniPlayerView: View {
                         miniSeekValue = newProgress
                     }
                 }
-                .onAppear {  // ← Added
+                .onAppear {
                     miniSeekValue = audioEngine.progress
                 }
             default:
@@ -149,14 +142,6 @@ struct MiniPlayerView: View {
         }
         .padding(.top)
         .padding(.trailing)
-    }
-    
-    private func timeString(from seconds: TimeInterval) -> String {
-        guard seconds.isFinite else { return "0:00" }
-        let s = Int(seconds)
-        let mins = s / 60
-        let secs = s % 60
-        return String(format: "%d:%02d", mins, secs)
     }
 }
 
@@ -195,5 +180,56 @@ struct MiniPlayerPlayingView: View {
                     .lineLimit(1)
             }
         }
+    }
+}
+
+struct PlaybackStateButton: View {
+    // Source value provided by the parent
+    let sourceState: AudioEngine.PlaybackState
+
+    // Actions
+    let play: () -> Void
+    let pause: () -> Void
+    let resume: () -> Void
+
+    var body: some View {
+        Button {
+            switch sourceState {
+            case .loading:
+                // No-op or pause safeguard
+                pause()
+            case .playing:
+                pause()
+            case .paused:
+                resume()
+            case .stopped:
+                play()
+            case .error:
+                break
+            }
+        } label: {
+            switch sourceState {
+            case .loading:
+                Image(systemName: "pause.fill")
+                    .font(.title3)
+            case .playing:
+                Image(systemName: "pause.fill")
+                    .font(.title3)
+            case .paused, .stopped:
+                Image(systemName: "play.fill")
+                    .font(.title3)
+            case .error:
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.title3)
+            }
+        }
+        .disabled(sourceState == .loading || sourceState == .error)
+        .overlay {
+            if sourceState == .loading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle())
+            }
+        }
+        .animation(nil, value: sourceState)
     }
 }
