@@ -313,21 +313,25 @@ class AudioEngine: ObservableObject {
             } else {
                 Task.detached(priority: .utility) { [weak self] in
                     guard let self else { return }
-                    if let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
-                        let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-                        await MainActor.run {
-                            var updated = info
+                    var updated = info
+                    do {
+                        var request = URLRequest(url: url)
+                        request.timeoutInterval = 15 // artwork tighter timeout
+                        let (data, response) = try await URLSession.shared.data(for: request)
+                        try Task.checkCancellation()
+
+                        if let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode),
+                           let image = UIImage(data: data) {
+                            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
                             updated[MPMediaItemPropertyArtwork] = artwork
-                            self.nowPlayingCenter.nowPlayingInfo = updated
-                            self.nowPlayingInfo = updated
-                            self.updateRemoteCommandAvailability()
                         }
-                    } else {
-                        await MainActor.run {
-                            self.nowPlayingCenter.nowPlayingInfo = info
-                            self.nowPlayingInfo = info
-                            self.updateRemoteCommandAvailability()
-                        }
+                    } catch {
+                        // Ignore artwork errors; fallback to metadata without artwork
+                    }
+                    await MainActor.run {
+                        self.nowPlayingCenter.nowPlayingInfo = updated
+                        self.nowPlayingInfo = updated
+                        self.updateRemoteCommandAvailability()
                     }
                 }
             }
@@ -1304,5 +1308,4 @@ class AudioEngine: ObservableObject {
         }
     }
 }
-
 

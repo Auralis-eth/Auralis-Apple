@@ -8,6 +8,20 @@ actor AudioFileCache {
 
     private let cacheDirName = "AudioCache"
 
+    // Dedicated session with explicit timeouts and connectivity behavior
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30 // connect/read timeout per request
+        config.timeoutIntervalForResource = 90 // overall resource timeout
+        config.waitsForConnectivity = true
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: config)
+    }()
+
+    // Cache policy
+    private let maxCacheBytes: Int64 = 500 * 1024 * 1024 // 500 MB cap
+    private let metadataExtension = "meta" // sidecar extension for ETag/Last-Modified
+
     // MARK: - Public API
 
     /// Returns a local file URL for the remote audio URL.
@@ -16,7 +30,21 @@ actor AudioFileCache {
         let cacheDir = try cacheDirectory()
         let key = cacheKey(for: url)
         if let existing = try? existingCachedURL(forKey: key, in: cacheDir) {
-            return existing
+            // Attempt conditional revalidation with ETag/Last-Modified
+            let meta = loadMetadata(forFileURL: existing)
+            do {
+                let request = buildConditionalRequest(for: url, with: meta)
+                let (_, response) = try await session.data(for: request)
+                try Task.checkCancellation()
+                if let http = response as? HTTPURLResponse, http.statusCode == 304 {
+                    // Not modified, return cached
+                    return existing
+                }
+                // Modified or unvalidated but successful; fall through to full download
+            } catch {
+                // Network error during validation: use stale cache optimistically
+                return existing
+            }
         }
 
         // Download with timeout, retry, and MIME validation
@@ -35,6 +63,10 @@ actor AudioFileCache {
         // Remove any stale file (unlikely) then move
         try? FileManager.default.removeItem(at: destURL)
         try FileManager.default.moveItem(at: tmpURL, to: destURL)
+        // Save validators
+        saveMetadata(from: response, forFileURL: destURL, originalURL: url)
+        // Enforce cache size
+        trimCacheIfNeeded(in: cacheDir)
         return destURL
     }
 
@@ -46,6 +78,14 @@ actor AudioFileCache {
     }
 
     // MARK: - Internals
+
+    private struct CacheMetadata: Codable {
+        var originalURL: String
+        var etag: String?
+        var lastModified: String?
+        var createdAt: Date
+        var updatedAt: Date
+    }
 
     private func cacheDirectory() throws -> URL {
         let base = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
@@ -95,18 +135,95 @@ actor AudioFileCache {
         return cacheDir.appendingPathComponent(fileName, isDirectory: false)
     }
 
+    private func metadataURL(forFileURL fileURL: URL) -> URL {
+        fileURL.appendingPathExtension(metadataExtension)
+    }
+
+    private func saveMetadata(from response: URLResponse, forFileURL fileURL: URL, originalURL: URL) {
+        guard let http = response as? HTTPURLResponse else { return }
+        let meta = CacheMetadata(
+            originalURL: originalURL.absoluteString,
+            etag: http.value(forHTTPHeaderField: "ETag"),
+            lastModified: http.value(forHTTPHeaderField: "Last-Modified"),
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        let url = metadataURL(forFileURL: fileURL)
+        do {
+            let data = try JSONEncoder().encode(meta)
+            try data.write(to: url, options: [.atomic])
+        } catch {
+            // Best effort; ignore failures
+        }
+    }
+
+    private func loadMetadata(forFileURL fileURL: URL) -> CacheMetadata? {
+        let url = metadataURL(forFileURL: fileURL)
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(CacheMetadata.self, from: data)
+    }
+
+    private func buildConditionalRequest(for url: URL, with meta: CacheMetadata?) -> URLRequest {
+        var req = buildRequest(for: url)
+        if let meta {
+            if let etag = meta.etag { req.addValue(etag, forHTTPHeaderField: "If-None-Match") }
+            if let lm = meta.lastModified { req.addValue(lm, forHTTPHeaderField: "If-Modified-Since") }
+        }
+        return req
+    }
+
     // Find an existing cached file that matches the key, with or without an extension
     private func existingCachedURL(forKey key: String, in cacheDir: URL) throws -> URL? {
         let fm = FileManager.default
         do {
             let items = try fm.contentsOfDirectory(atPath: cacheDir.path)
             if let match = items.first(where: { $0 == key || $0.hasPrefix("\(key).") }) {
-                return cacheDir.appendingPathComponent(match, isDirectory: false)
+                let url = cacheDir.appendingPathComponent(match, isDirectory: false)
+                // Touch access date for LRU
+                var attrs = try fm.attributesOfItem(atPath: url.path)
+                attrs[.creationDate] = attrs[.creationDate] ?? Date()
+                attrs[.modificationDate] = Date()
+                try fm.setAttributes(attrs, ofItemAtPath: url.path)
+                return url
             }
             return nil
         } catch {
-            // If directory doesn't exist yet, treat as miss
             return nil
+        }
+    }
+
+    private func trimCacheIfNeeded(in cacheDir: URL) {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(at: cacheDir, includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey, .fileSizeKey], options: [.skipsHiddenFiles]) else { return }
+
+        var files: [(url: URL, size: Int64, date: Date)] = []
+        var total: Int64 = 0
+
+        for case let fileURL as URL in enumerator {
+            do {
+                let values = try fileURL.resourceValues(forKeys: [.isDirectoryKey, .contentModificationDateKey, .fileSizeKey])
+                if values.isDirectory == true { continue }
+                // Skip metadata files in size accounting but keep them paired with their main file remove
+                if fileURL.pathExtension == metadataExtension { continue }
+                let size = Int64(values.fileSize ?? 0)
+                let date = values.contentModificationDate ?? Date.distantPast
+                files.append((fileURL, size, date))
+                total += size
+            } catch { continue }
+        }
+
+        guard total > maxCacheBytes else { return }
+        // Sort by oldest modification date first (LRU-like)
+        files.sort { $0.date < $1.date }
+
+        for entry in files {
+            do {
+                try fm.removeItem(at: entry.url)
+                let metaURL = metadataURL(forFileURL: entry.url)
+                try? fm.removeItem(at: metaURL)
+                total -= entry.size
+                if total <= maxCacheBytes { break }
+            } catch { continue }
         }
     }
 
@@ -131,18 +248,19 @@ actor AudioFileCache {
 
     private func downloadWithRetry(from url: URL) async throws -> (URL, URLResponse) {
         var lastError: Error?
-        for attempt in 0..<2 { // initial try + 1 retry
+        var delay: UInt64 = 500_000_000 // 0.5s
+        for attempt in 0..<3 { // initial try + up to 2 retries
             do {
                 let request = buildRequest(for: url)
-                let (tmpURL, response) = try await URLSession.shared.download(for: request)
+                let (tmpURL, response) = try await session.download(for: request)
                 try Task.checkCancellation()
                 try validate(response: response)
                 return (tmpURL, response)
             } catch {
                 lastError = error
-                if attempt == 0 {
-                    // Small backoff before retry
-                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+                if attempt < 2 {
+                    try? await Task.sleep(nanoseconds: delay)
+                    delay = min(delay * 2, 4_000_000_000) // cap at 4s
                     continue
                 } else {
                     throw error
