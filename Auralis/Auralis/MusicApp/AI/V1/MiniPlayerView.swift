@@ -101,6 +101,21 @@ struct MiniPlayerView: View {
                 
                 // playback controls
                 HStack(spacing: 8) {
+                    // Coarse skip backward
+                    Button { audioEngine.skipBackward() } label: {
+                        Image(systemName: "gobackward.10")
+                            .font(.title3)
+                    }
+
+                    // Previous track
+                    Button {
+                        Task { await audioEngine.playPrevious() }
+                    } label: {
+                        Image(systemName: "backward.fill")
+                            .font(.title3)
+                    }
+
+                    // Play/Pause cluster
                     switch audioEngine.playbackState {
                     case .loading:
                         Button(action: audioEngine.pause) {
@@ -110,7 +125,7 @@ struct MiniPlayerView: View {
                         .disabled(true) // disable the button
                         .overlay {
                             ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle())
+                                .progressViewStyle(CircularProgressViewStyle())
                         }
                     case .playing:
                         Button(action: audioEngine.pause) {
@@ -118,28 +133,30 @@ struct MiniPlayerView: View {
                                 .font(.title3)
                         }
                     case .paused:
-                        Button {
-                            try? audioEngine.resume()
-                        } label: {
+                        Button { try? audioEngine.resume() } label: {
                             Image(systemName: "play.fill")
                                 .font(.title3)
                         }
                     case .stopped:
-                        Button {
-                            try? audioEngine.play()
-                        } label: {
+                        Button { try? audioEngine.play() } label: {
                             Image(systemName: "play.fill")
                                 .font(.title3)
                         }
                     case .error:
                         EmptyView()
                     }
+
+                    // Next track
                     Button {
-                        Task {
-                            await audioEngine.playNext()
-                        }
+                        Task { await audioEngine.playNext() }
                     } label: {
                         Image(systemName: "forward.fill")
+                            .font(.title3)
+                    }
+
+                    // Coarse skip forward
+                    Button { audioEngine.skipForward() } label: {
+                        Image(systemName: "goforward.10")
                             .font(.title3)
                     }
                 }
@@ -184,4 +201,3 @@ struct MiniPlayerView: View {
         return String(format: "%d:%02d", mins, secs)
     }
 }
-

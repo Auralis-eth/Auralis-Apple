@@ -66,6 +66,23 @@ class AudioEngine: ObservableObject {
     enum RepeatMode { case none, track, playlist }
     @Published var isShuffleEnabled: Bool = false
     @Published var repeatMode: RepeatMode = .none
+
+    // Coarse skip configuration (PB-004)
+    private let coarseSkipDefaultsKey = "AudioEngine.coarseSkipSeconds"
+    @Published var coarseSkipSeconds: TimeInterval = 10 {
+        didSet {
+            // Persist and reflect in remote commands
+            UserDefaults.standard.set(coarseSkipSeconds, forKey: coarseSkipDefaultsKey)
+            updateRemoteSkipIntervals()
+        }
+    }
+
+    private func updateRemoteSkipIntervals() {
+        // Reflect the configured skip interval in Remote Command Center
+        let intervalNumber = NSNumber(value: coarseSkipSeconds)
+        remoteCommands.skipForwardCommand.preferredIntervals = [intervalNumber]
+        remoteCommands.skipBackwardCommand.preferredIntervals = [intervalNumber]
+    }
     
     private var needsEngineStart: Bool = false
     
@@ -199,7 +216,7 @@ class AudioEngine: ObservableObject {
         }
 
         // Optional skip forward/back by interval
-        center.skipForwardCommand.preferredIntervals = [15, 30]
+        center.skipForwardCommand.preferredIntervals = [NSNumber(value: coarseSkipSeconds)]
         center.skipForwardCommand.isEnabled = true
         center.skipForwardCommand.addTarget { [weak self] event in
             guard let self, let e = event as? MPSkipIntervalCommandEvent else { return .commandFailed }
@@ -209,7 +226,7 @@ class AudioEngine: ObservableObject {
             return .success
         }
 
-        center.skipBackwardCommand.preferredIntervals = [15, 30]
+        center.skipBackwardCommand.preferredIntervals = [NSNumber(value: coarseSkipSeconds)]
         center.skipBackwardCommand.isEnabled = true
         center.skipBackwardCommand.addTarget { [weak self] event in
             guard let self, let e = event as? MPSkipIntervalCommandEvent else { return .commandFailed }
@@ -410,8 +427,13 @@ class AudioEngine: ObservableObject {
         try setupAudioSession()
         try setupAudioEngine()
         setupInterruptionHandling()
+        // Load persisted coarse skip interval if available
+        if let storedSkip = UserDefaults.standard.object(forKey: coarseSkipDefaultsKey) as? Double {
+            coarseSkipSeconds = storedSkip
+        }
         AudioEngine.cleanupLegacyTempDir()
         setupNowPlayingAndRemoteCommands()
+        updateRemoteSkipIntervals()
         setupMediaServicesNotifications()
         setupAppLifecycleObservers()
     }
@@ -974,6 +996,17 @@ class AudioEngine: ObservableObject {
         if wasPlaying {
             try play()
         }
+    }
+
+    // MARK: - Coarse Skip Helpers
+    public func skipForward(seconds: TimeInterval? = nil) {
+        let delta = seconds ?? coarseSkipSeconds
+        try? seek(to: currentTime + delta)
+    }
+
+    public func skipBackward(seconds: TimeInterval? = nil) {
+        let delta = seconds ?? coarseSkipSeconds
+        try? seek(to: currentTime - delta)
     }
     
     // MARK: - Playlist Navigation

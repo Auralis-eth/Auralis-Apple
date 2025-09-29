@@ -73,7 +73,16 @@ struct NowPlayingView: View {
                                 }
 
                                 // Playback controls row
-                                HStack(spacing: 40) {
+                                HStack(spacing: 28) {
+                                    // Coarse skip backward
+                                    Button {
+                                        audioEngine.skipBackward()
+                                    } label: {
+                                        Image(systemName: "gobackward.10")
+                                            .font(.title3)
+                                    }
+
+                                    // Previous track
                                     Button {
                                         Task {
                                             await audioEngine.playPrevious()
@@ -123,6 +132,7 @@ struct NowPlayingView: View {
                                         EmptyView()
                                     }
 
+                                    // Next track
                                     Button {
                                         Task {
                                             await audioEngine.playNext()
@@ -131,6 +141,14 @@ struct NowPlayingView: View {
                                         Image(systemName: "forward.fill")
                                             .font(.title2)
                                             .foregroundStyle(.primary)
+                                    }
+
+                                    // Coarse skip forward
+                                    Button {
+                                        audioEngine.skipForward()
+                                    } label: {
+                                        Image(systemName: "goforward.10")
+                                            .font(.title3)
                                     }
                                 }
                             }
@@ -262,3 +280,4 @@ private struct DetailRow: View {
         }
     }
 }
+
