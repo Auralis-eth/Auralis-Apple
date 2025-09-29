@@ -36,10 +36,10 @@ class AudioEngine: ObservableObject {
     
     private var pausedAt: TimeInterval = 0
     private var seekPosition: TimeInterval = 0
-    private var tempAudioURL: URL? // Track temporary downloaded file
 
     private var currentLoadTask: Task<Void, Never>?
     private var activeLoadID: UUID = .init()
+    private let audioCache = AudioFileCache.shared
     
     @Published var currentTrack: Track? = nil    
     @Published var playbackState: PlaybackState = .stopped
@@ -102,32 +102,24 @@ class AudioEngine: ObservableObject {
     
     // MARK: - Loading Helpers (non-isolated)
     nonisolated private static func downloadToManagedTemp(from url: URL) async throws -> URL {
-        // Cooperatively cancellable download; move to a managed temp folder we control
-        let (tempURL, response) = try await URLSession.shared.download(from: url)
-        try Task.checkCancellation()
-
-        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-            throw AudioEngineError.downloadFailed
+        // Maintain signature for existing call sites but route via AudioFileCache.
+        if let cachedOpt = try? await AudioFileCache.shared.cachedURL(forRemote: url) {
+            return cachedOpt
         }
-
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("AudioLoads", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-
-        // Preserve extension if present, otherwise default to mp3
-        let suggestedName = url.lastPathComponent.isEmpty ? UUID().uuidString : url.lastPathComponent
-        let ext = (suggestedName as NSString).pathExtension.isEmpty ? "mp3" : (suggestedName as NSString).pathExtension
-        let base = ((suggestedName as NSString).deletingPathExtension)
-        let dest = dir.appendingPathComponent("\(base)-\(UUID().uuidString).\(ext)")
-
-        // Remove any file if it somehow already exists (extremely unlikely)
-        try? FileManager.default.removeItem(at: dest)
-        try FileManager.default.moveItem(at: tempURL, to: dest)
-        return dest
+        // Fallback: use cache to download and store
+        let local = try await AudioFileCache.shared.localURL(forRemote: url)
+        return local
     }
 
     nonisolated private static func shouldTreatAsRemote(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased() else { return false }
         return scheme == "http" || scheme == "https"
+    }
+    
+    nonisolated private static func cleanupLegacyTempDir() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("AudioLoads", isDirectory: true)
+        // Best-effort removal; ignore errors if directory doesn't exist or is in use
+        try? FileManager.default.removeItem(at: dir)
     }
     
     // Added single-flight starter without arguments
@@ -147,6 +139,7 @@ class AudioEngine: ObservableObject {
         try setupAudioSession()
         try setupAudioEngine()
         setupInterruptionHandling()
+        AudioEngine.cleanupLegacyTempDir()
     }
     
     // MARK: - Audio Session Configuration
@@ -346,24 +339,15 @@ class AudioEngine: ObservableObject {
         
         guard loadID == activeLoadID else { throw CancellationError() }
         
-        // Clean up previous temp file
-        if let tempURL = tempAudioURL {
-            try? FileManager.default.removeItem(at: tempURL)
-            tempAudioURL = nil
-        }
+        // No temp cleanup needed here; cached files persist
         
         let localURL: URL
         
         if AudioEngine.shouldTreatAsRemote(url) {
-            let downloadedURL = try await AudioEngine.downloadToManagedTemp(from: url)
+            let cachedURL = try await AudioFileCache.shared.localURL(forRemote: url)
             try Task.checkCancellation()
-            guard loadID == activeLoadID else {
-                // Clean up stale downloaded file
-                try? FileManager.default.removeItem(at: downloadedURL)
-                throw CancellationError()
-            }
-            localURL = downloadedURL
-            tempAudioURL = localURL
+            guard loadID == activeLoadID else { throw CancellationError() }
+            localURL = cachedURL
         } else {
             localURL = url
         }
@@ -506,7 +490,7 @@ class AudioEngine: ObservableObject {
                     try self.ensureEngineReadyToPlay()
                     let localURL: URL
                     if AudioEngine.shouldTreatAsRemote(url) {
-                        localURL = try await AudioEngine.downloadToManagedTemp(from: url)
+                        localURL = try await AudioFileCache.shared.localURL(forRemote: url)
                     } else {
                         localURL = url
                     }
@@ -642,9 +626,6 @@ class AudioEngine: ObservableObject {
         )
         self.playbackState = .loading
 
-        // Capture prior temp for cleanup if we succeed
-        let previousTemp = self.tempAudioURL
-
         // Detach heavy work off the main actor
         let task = Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
@@ -654,8 +635,8 @@ class AudioEngine: ObservableObject {
             do {
                 let localURL: URL
                 if AudioEngine.shouldTreatAsRemote(url) {
-                    localURL = try await AudioEngine.downloadToManagedTemp(from: url)
-                    managedURL = localURL
+                    localURL = try await AudioFileCache.shared.localURL(forRemote: url)
+                    managedURL = nil // cached persistently
                 } else {
                     localURL = url
                 }
@@ -680,18 +661,6 @@ class AudioEngine: ObservableObject {
                     self.currentNFT = nft
                     self.currentTrack = Track(title: nft.name, artist: nft.artistName, duration: self.duration, imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl)
 
-                    // Update temp ownership and cleanup previous temp file
-                    if AudioEngine.shouldTreatAsRemote(url) {
-                        self.tempAudioURL = localURL
-                        managedURL = localURL
-                        if let prev = previousTemp, prev != localURL {
-                            try? FileManager.default.removeItem(at: prev)
-                        }
-                    } else {
-                        // No temp management for local files
-                        self.tempAudioURL = nil
-                    }
-
                     // Start playback now that file is ready
                     do { try self.play() } catch {
                         self.playbackState = .error
@@ -699,8 +668,7 @@ class AudioEngine: ObservableObject {
                     }
                 }
             } catch is CancellationError {
-                // Cancelled: best-effort cleanup of any temp we created
-                if let url = managedURL { try? FileManager.default.removeItem(at: url) }
+                // Cancelled: nothing to clean when using cache
             } catch {
                 // Error: only report if still current
                 await MainActor.run {
@@ -763,10 +731,7 @@ class AudioEngine: ObservableObject {
         audioEngine.detach(gainA)
         audioEngine.detach(gainB)
         
-        // Clean up temp file
-        if let tempURL = tempAudioURL {
-            try? FileManager.default.removeItem(at: tempURL)
-        }
+        // No temp file cleanup needed; cache persists across sessions
         
         do {
             try AVAudioSession.sharedInstance().setActive(false)
@@ -820,7 +785,7 @@ class AudioEngine: ObservableObject {
                 // Prepare local URL (download if remote) for pre-roll
                 let localURL: URL
                 if AudioEngine.shouldTreatAsRemote(url) {
-                    localURL = try await AudioEngine.downloadToManagedTemp(from: url)
+                    localURL = try await AudioFileCache.shared.localURL(forRemote: url)
                 } else {
                     localURL = url
                 }
