@@ -48,7 +48,8 @@ class AudioEngine: ObservableObject {
     private let remoteCommands = MPRemoteCommandCenter.shared()
     private var nowPlayingInfo: [String: Any] = [:]
     private var nowPlayingUpdateTimer: Timer?
-    
+    private var remoteCommandsRegistered: Bool = false
+
     // Optional artwork loader to plug in app's image pipeline/cache
     var artworkLoader: ((URL) async -> UIImage?)?
 
@@ -121,9 +122,12 @@ class AudioEngine: ObservableObject {
     
     // MARK: - Now Playing & Remote Command Center
     private func setupNowPlayingAndRemoteCommands() {
-        // Configure Remote Command Center handlers
+        guard !remoteCommandsRegistered else { return }
+        remoteCommandsRegistered = true
+
         let center = remoteCommands
 
+        // Play
         center.playCommand.isEnabled = true
         center.playCommand.addTarget { [weak self] _ in
             guard let self else { return .commandFailed }
@@ -133,13 +137,13 @@ class AudioEngine: ObservableObject {
                 } else if self.playbackState == .loading {
                     // ignore until loaded
                 } else if self.playbackState == .error {
-                    // attempt to play next if possible
                     await self.playNext()
                 }
             }
             return .success
         }
 
+        // Pause
         center.pauseCommand.isEnabled = true
         center.pauseCommand.addTarget { [weak self] _ in
             guard let self else { return .commandFailed }
@@ -149,6 +153,17 @@ class AudioEngine: ObservableObject {
             return .success
         }
 
+        // Toggle
+        center.togglePlayPauseCommand.isEnabled = true
+        center.togglePlayPauseCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            Task { @MainActor in
+                if self.playbackState == .playing { self.pause() } else { try? self.resume() }
+            }
+            return .success
+        }
+
+        // Next / Previous
         center.nextTrackCommand.isEnabled = true
         center.nextTrackCommand.addTarget { [weak self] _ in
             guard let self else { return .commandFailed }
@@ -167,7 +182,7 @@ class AudioEngine: ObservableObject {
             return .success
         }
 
-        // Scrubbing to a specific time
+        // Scrubbing
         center.changePlaybackPositionCommand.isEnabled = true
         center.changePlaybackPositionCommand.addTarget { [weak self] event in
             guard let self, let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
@@ -176,6 +191,30 @@ class AudioEngine: ObservableObject {
             }
             return .success
         }
+
+        // Optional skip forward/back by interval
+        center.skipForwardCommand.preferredIntervals = [15, 30]
+        center.skipForwardCommand.isEnabled = true
+        center.skipForwardCommand.addTarget { [weak self] event in
+            guard let self, let e = event as? MPSkipIntervalCommandEvent else { return .commandFailed }
+            Task { @MainActor in
+                try? self.seek(to: self.currentTime + e.interval)
+            }
+            return .success
+        }
+
+        center.skipBackwardCommand.preferredIntervals = [15, 30]
+        center.skipBackwardCommand.isEnabled = true
+        center.skipBackwardCommand.addTarget { [weak self] event in
+            guard let self, let e = event as? MPSkipIntervalCommandEvent else { return .commandFailed }
+            Task { @MainActor in
+                try? self.seek(to: self.currentTime - e.interval)
+            }
+            return .success
+        }
+
+        // Initial availability
+        updateRemoteCommandAvailability()
     }
 
     private func setupMediaServicesNotifications() {
@@ -245,12 +284,15 @@ class AudioEngine: ObservableObject {
     private func updateNowPlayingMetadata() {
         guard let currentTrack = currentTrack else { return }
         var info: [String: Any] = nowPlayingInfo
-        info[MPMediaItemPropertyTitle] = currentTrack.title
-        info[MPMediaItemPropertyArtist] = currentTrack.artist
+        let isLive = currentTrack.duration <= 0
+        info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
+        info[MPNowPlayingInfoPropertyIsLiveStream] = isLive
         info[MPMediaItemPropertyPlaybackDuration] = currentTrack.duration
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = progress
         info[MPNowPlayingInfoPropertyPlaybackRate] = (playbackState == .playing) ? 1.0 : 0.0
-
+        info[MPMediaItemPropertyTitle] = currentTrack.title
+        info[MPMediaItemPropertyArtist] = currentTrack.artist
+        
         // Artwork (async fetch via injected loader if available, else simple fetch)
         if let urlString = currentTrack.imageUrl, let url = URL(string: urlString) {
             if let loader = artworkLoader {
@@ -265,6 +307,7 @@ class AudioEngine: ObservableObject {
                         }
                         self.nowPlayingCenter.nowPlayingInfo = updated
                         self.nowPlayingInfo = updated
+                        self.updateRemoteCommandAvailability()
                     }
                 }
             } else {
@@ -277,11 +320,13 @@ class AudioEngine: ObservableObject {
                             updated[MPMediaItemPropertyArtwork] = artwork
                             self.nowPlayingCenter.nowPlayingInfo = updated
                             self.nowPlayingInfo = updated
+                            self.updateRemoteCommandAvailability()
                         }
                     } else {
                         await MainActor.run {
                             self.nowPlayingCenter.nowPlayingInfo = info
                             self.nowPlayingInfo = info
+                            self.updateRemoteCommandAvailability()
                         }
                     }
                 }
@@ -289,6 +334,7 @@ class AudioEngine: ObservableObject {
         } else {
             nowPlayingCenter.nowPlayingInfo = info
             nowPlayingInfo = info
+            updateRemoteCommandAvailability()
         }
     }
 
@@ -299,6 +345,19 @@ class AudioEngine: ObservableObject {
         info[MPNowPlayingInfoPropertyPlaybackRate] = (playbackState == .playing) ? 1.0 : 0.0
         nowPlayingCenter.nowPlayingInfo = info
         nowPlayingInfo = info
+        updateRemoteCommandAvailability()
+    }
+    
+    private func updateRemoteCommandAvailability() {
+        // Next/Previous availability based on queues
+        remoteCommands.nextTrackCommand.isEnabled = !nextAudio.tracks.isEmpty
+        remoteCommands.previousTrackCommand.isEnabled = !previousAudio.tracks.isEmpty || (seekPosition > 1.0)
+
+        // Scrubbing and skip only when we have a determinate duration (non-live)
+        let hasDuration = duration > 0
+        remoteCommands.changePlaybackPositionCommand.isEnabled = hasDuration
+        remoteCommands.skipForwardCommand.isEnabled = hasDuration
+        remoteCommands.skipBackwardCommand.isEnabled = hasDuration
     }
     
     // MARK: - Loading Helpers (non-isolated)
@@ -774,6 +833,7 @@ class AudioEngine: ObservableObject {
         nextGainUnit.setLinearGain(0.0)
         playbackState = .playing
         startNowPlayingTimer()
+        updateRemoteCommandAvailability()
         updateNowPlayingMetadata()
         scheduleCrossfadeIfPossible()
     }
@@ -786,6 +846,7 @@ class AudioEngine: ObservableObject {
         playerNodeB.stop()
         playbackState = .paused
         stopNowPlayingTimer()
+        updateRemoteCommandAvailability()
         updateNowPlayingMetadata()
     }
     
@@ -806,6 +867,7 @@ class AudioEngine: ObservableObject {
         pausedAt = 0
         playbackState = .stopped
         stopNowPlayingTimer()
+        updateRemoteCommandAvailability()
         updateNowPlayingMetadata()
     }
     
@@ -826,6 +888,7 @@ class AudioEngine: ObservableObject {
         seekPosition = clampedTime
         pausedAt = clampedTime
         updateNowPlayingProgress()
+        updateRemoteCommandAvailability()
         
         // If we were playing, restart from new position
         if wasPlaying {
@@ -839,12 +902,14 @@ class AudioEngine: ObservableObject {
         // If there's an item queued in Next, crossfade to it if currently playing
         guard !nextAudio.tracks.isEmpty else {
             stop()
+            updateRemoteCommandAvailability()
             return
         }
         if playbackState == .playing {
             let fadeID = activeLoadID
             // Immediate crossfade with pre-roll at mixer=0
             let next = nextAudio.tracks.removeFirst()
+            updateRemoteCommandAvailability()
             Task { @MainActor in
                 do {
                     guard let url = next.musicURL else { return }
@@ -897,6 +962,7 @@ class AudioEngine: ObservableObject {
                         self.currentNFT = next
                         self.currentTrack = Track(title: next.name, artist: next.artistName, duration: self.duration, imageUrl: next.image?.secureUrl ?? next.image?.originalUrl)
                         self.playbackState = .playing
+                        self.updateRemoteCommandAvailability()
                         self.updateNowPlayingMetadata()
                         self.startNowPlayingTimer()
                         self.suppressAutoAdvanceOnce = false
@@ -910,6 +976,7 @@ class AudioEngine: ObservableObject {
         // If not currently playing, load and start normally
         let next = nextAudio.tracks.removeFirst()
         if let current = currentNFT { previousAudio.tracks.append(current) }
+        updateRemoteCommandAvailability()
         do {
             try await loadAndPlay(nft: next)
         } catch {
@@ -945,6 +1012,7 @@ class AudioEngine: ObservableObject {
         if let current = currentNFT {
             nextAudio.tracks.insert(current, at: 0)
         }
+        updateRemoteCommandAvailability()
 
         do {
             // loadAndPlay auto-starts playback; no need to call play() again
@@ -1113,6 +1181,8 @@ class AudioEngine: ObservableObject {
         remoteCommands.nextTrackCommand.removeTarget(nil)
         remoteCommands.previousTrackCommand.removeTarget(nil)
         remoteCommands.changePlaybackPositionCommand.removeTarget(nil)
+        remoteCommands.skipForwardCommand.removeTarget(nil)
+        remoteCommands.skipBackwardCommand.removeTarget(nil)
     }
     
     // MARK: - Crossfade Helpers
@@ -1215,6 +1285,7 @@ class AudioEngine: ObservableObject {
                         self.currentNFT = next
                         self.currentTrack = Track(title: next.name, artist: next.artistName, duration: self.duration, imageUrl: next.image?.secureUrl ?? next.image?.originalUrl)
                         self.playbackState = .playing
+                        self.updateRemoteCommandAvailability()
                         self.updateNowPlayingMetadata()
                         self.startNowPlayingTimer()
                         self.suppressAutoAdvanceOnce = false
@@ -1233,4 +1304,5 @@ class AudioEngine: ObservableObject {
         }
     }
 }
+
 
