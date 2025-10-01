@@ -9,6 +9,8 @@ import AVFoundation
 import Foundation
 import MediaPlayer
 import AVKit
+import CoreGraphics
+import ImageIO
 
 // MARK: - Testability protocols and default adapters
 protocol AudioSessioning {
@@ -116,6 +118,11 @@ class AudioEngine: ObservableObject {
     private var nowPlayingInfo: [String: Any] = [:]
     private var nowPlayingUpdateTimer: Timer?
     private var remoteCommandsRegistered: Bool = false
+    
+    private var artworkLoadID: UUID = .init()
+    private var nextPreloadTask: Task<Void, Never>? = nil
+    private var nextPreloadToken: UUID = .init()
+    private var preloadedNext: (nft: NFT, url: URL, file: AVAudioFile)? = nil
 
     // Testability toggles and DI
     private let isTesting: Bool
@@ -402,46 +409,71 @@ class AudioEngine: ObservableObject {
         info[MPMediaItemPropertyTitle] = currentTrack.title
         info[MPMediaItemPropertyArtist] = currentTrack.artist
         
-        // Artwork (async fetch via injected loader if available, else simple fetch)
+        // AE-009: Downsample/resize images per requested size before returning from requestHandler; race-protected via activeLoadID
+        let token = self.activeLoadID
         if let urlString = currentTrack.imageUrl, let url = URL(string: urlString) {
-            if let loader = artworkLoader {
-                Task.detached(priority: .utility) { [weak self] in
-                    guard let self else { return }
-                    let image = await loader(url)
-                    await MainActor.run {
-                        var updated = info
-                        if let image {
-                            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-                            updated[MPMediaItemPropertyArtwork] = artwork
-                        }
-                        self.nowPlayingCenter.nowPlayingInfo = updated
-                        self.nowPlayingInfo = updated
-                        self.updateRemoteCommandAvailability()
+            Task.detached(priority: .utility) { [weak self] in
+                guard let self else { return }
+                let imageData: Data?
+                if let loader = await self.artworkLoader {
+                    // Use injected loader, convert to data without heavy UI work
+                    if let image = await loader(url) {
+                        imageData = image.pngData() ?? image.jpegData(compressionQuality: 0.9)
+                    } else {
+                        imageData = nil
                     }
-                }
-            } else {
-                Task.detached(priority: .utility) { [weak self] in
-                    guard let self else { return }
-                    var updated = info
+                } else {
+                    var req = URLRequest(url: url)
+                    req.timeoutInterval = 15
                     do {
-                        var request = URLRequest(url: url)
-                        request.timeoutInterval = 15 // artwork tighter timeout
-                        let (data, response) = try await URLSession.shared.data(for: request)
+                        let (data, resp) = try await URLSession.shared.data(for: req)
                         try Task.checkCancellation()
-
-                        if let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode),
-                           let image = UIImage(data: data) {
-                            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-                            updated[MPMediaItemPropertyArtwork] = artwork
+                        if let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) {
+                            imageData = data
+                        } else {
+                            imageData = nil
                         }
                     } catch {
-                        // Ignore artwork errors; fallback to metadata without artwork
+                        imageData = nil
                     }
-                    await MainActor.run {
-                        self.nowPlayingCenter.nowPlayingInfo = updated
-                        self.nowPlayingInfo = updated
-                        self.updateRemoteCommandAvailability()
+                }
+
+                // Build artwork with requestHandler that downsamples per requested size
+                var updated = info
+                if let data = imageData as NSData? as Data? {
+                    let maxSize: CGSize = {
+                        if let src = CGImageSourceCreateWithData(data as CFData, nil),
+                           let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
+                           let w = props[kCGImagePropertyPixelWidth] as? CGFloat,
+                           let h = props[kCGImagePropertyPixelHeight] as? CGFloat {
+                            return CGSize(width: w, height: h)
+                        }
+                        return CGSize(width: 1024, height: 1024)
+                    }()
+
+                    let artwork = MPMediaItemArtwork(boundsSize: maxSize) { requestedSize in
+                        let scale = UIScreen.main.scale
+                        let pixelMax = max(requestedSize.width, requestedSize.height) * scale
+                        let options: [CFString: Any] = [
+                            kCGImageSourceCreateThumbnailFromImageAlways: true,
+                            kCGImageSourceShouldCache: false,
+                            kCGImageSourceShouldCacheImmediately: false,
+                            kCGImageSourceThumbnailMaxPixelSize: pixelMax
+                        ]
+                        guard let src = CGImageSourceCreateWithData(data as CFData, nil),
+                              let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary) else {
+                            return UIImage()
+                        }
+                        return UIImage(cgImage: cg, scale: scale, orientation: .up)
                     }
+                    updated[MPMediaItemPropertyArtwork] = artwork
+                }
+
+                await MainActor.run {
+                    guard token == self.activeLoadID else { return }
+                    self.nowPlayingCenter.nowPlayingInfo = updated
+                    self.nowPlayingInfo = updated
+                    self.updateRemoteCommandAvailability()
                 }
             }
         } else {
@@ -472,6 +504,45 @@ class AudioEngine: ObservableObject {
         remoteCommands.changePlaybackPositionCommand.isEnabled = hasDuration
         remoteCommands.skipForwardCommand.isEnabled = hasDuration
         remoteCommands.skipBackwardCommand.isEnabled = hasDuration
+    }
+    
+    private func cancelNextPreload() {
+        nextPreloadTask?.cancel()
+        nextPreloadTask = nil
+        nextPreloadToken = UUID()
+        preloadedNext = nil
+    }
+
+    private func triggerPreloadForNextIfNeeded() {
+        // Only when currently playing and we don't already have a preload
+        guard playbackState == .playing else { return }
+        guard preloadedNext == nil else { return }
+        guard let next = peekNextTrackRespectingModes(), let url = next.musicURL else { return }
+
+        // Start a new preload task
+        cancelNextPreload()
+        let token = UUID()
+        nextPreloadToken = token
+        nextPreloadTask = Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            do {
+                let localURL: URL
+                if AudioEngine.shouldTreatAsRemote(url) {
+                    localURL = try await self.audioCache.localURL(forRemote: url)
+                } else {
+                    localURL = url
+                }
+                try Task.checkCancellation()
+                let file = try AVAudioFile(forReading: localURL) // header/format validation only
+                try Task.checkCancellation()
+                await MainActor.run {
+                    guard token == self.nextPreloadToken else { return }
+                    self.preloadedNext = (nft: next, url: localURL, file: file)
+                }
+            } catch {
+                // Ignore preload failures; playback path will attempt normal load
+            }
+        }
     }
     
     // MARK: - Loading Helpers (non-isolated)
@@ -1183,6 +1254,8 @@ class AudioEngine: ObservableObject {
     }
     
     public func play() throws {
+        cancelNextPreload()
+        
         // If no audio file is loaded, try to advance to the next queued item
         guard let audioFile = audioFile else {
             playbackState = .loading
@@ -1201,6 +1274,7 @@ class AudioEngine: ObservableObject {
             updateRemoteCommandAvailability()
             updateNowPlayingMetadata()
             scheduleCrossfadeIfPossible()
+            self.triggerPreloadForNextIfNeeded()
             return
         }
 
@@ -1247,6 +1321,7 @@ class AudioEngine: ObservableObject {
         updateRemoteCommandAvailability()
         updateNowPlayingMetadata()
         scheduleCrossfadeIfPossible()
+        self.triggerPreloadForNextIfNeeded()
     }
     
     // Fixed pause implementation - AVAudioPlayerNode doesn't have pause()
@@ -1328,6 +1403,8 @@ class AudioEngine: ObservableObject {
     // MARK: - Playlist Navigation
     @MainActor
     public func playNext() async {
+        cancelNextPreload()
+        
         // Repeat-track: restart current track from beginning without crossfade
         if repeatMode == .track {
             try? self.seek(to: 0)
@@ -1387,7 +1464,14 @@ class AudioEngine: ObservableObject {
                     } else {
                         localURL = url
                     }
-                    let nextFile = try AVAudioFile(forReading: localURL)
+                    
+                    let nextFile: AVAudioFile
+                    if let pre = self.preloadedNext, pre.nft.id == next.id, pre.url == localURL {
+                        nextFile = pre.file
+                    } else {
+                        nextFile = try AVAudioFile(forReading: localURL)
+                    }
+                    
                     guard fadeID == self.activeLoadID else {
                         print("xfade_cancelled_stale {\(fadeID)}")
                         return
@@ -1438,6 +1522,8 @@ class AudioEngine: ObservableObject {
 
     @MainActor
     public func playPrevious() async {
+        cancelNextPreload()
+        
         guard !previousAudio.tracks.isEmpty else {
             // If nothing in previous, restart current position or remain stopped
             seekPosition = 0
@@ -1557,6 +1643,8 @@ class AudioEngine: ObservableObject {
     
     // Note: Replaced implementation with single-flight delegator and test override
     public func loadAndPlay(nft: NFT) async throws {
+        cancelNextPreload()
+        
         if isTesting {
             // Single-flight: cancel previous and establish new active ID
             let loadID = await beginNewLoad()
@@ -1650,6 +1738,9 @@ class AudioEngine: ObservableObject {
 
         NotificationCenter.default.removeObserver(self)
         currentLoadTask?.cancel()
+        nextPreloadTask?.cancel()
+        preloadedNext = nil
+        
         if audioEngine.isRunning {
             audioEngine.stop()
         }
@@ -1727,7 +1818,12 @@ class AudioEngine: ObservableObject {
                     localURL = url
                 }
 
-                let nextFile = try AVAudioFile(forReading: localURL)
+                let nextFile: AVAudioFile
+                if let pre = self.preloadedNext, pre.nft.id == next.id, pre.url == localURL {
+                    nextFile = pre.file
+                } else {
+                    nextFile = try AVAudioFile(forReading: localURL)
+                }
 
                 // Pre-roll next track on its player; keep its mixer silent
                 self.nextMixer.volume = 0.0
@@ -1776,6 +1872,7 @@ class AudioEngine: ObservableObject {
                         self.updateNowPlayingMetadata()
                         self.startNowPlayingTimer()
                         self.suppressAutoAdvanceOnce = false
+                        self.preloadedNext = nil
                     }
                 }
             } catch is CancellationError {
