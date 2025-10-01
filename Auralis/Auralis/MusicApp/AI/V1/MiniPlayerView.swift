@@ -79,10 +79,11 @@ struct MiniPlayerContentView: View {
     var body: some View {
         VStack {
             HStack {
-//                if let currentTrack = audioEngine.currentTrack {
-//                    MiniPlayerPlayingView(currentTrack: currentTrack, accessoryMode: accessoryMode)
-//                    Spacer()
-//                }
+                if let currentTrack = audioEngine.currentTrack {
+                    MiniPlayerPlayingView(currentTrack: currentTrack, accessoryMode: accessoryMode)
+                        .id(currentTrack.id) // forces a full rebuild when the track identity changes
+                    Spacer()
+                }
                 
                 // playback controls
                 HStack(spacing: 8) {
@@ -94,12 +95,12 @@ struct MiniPlayerContentView: View {
                             .font(.title3)
                     }
 
-//                    PlaybackStateButton(
-//                        sourceState: audioEngine.playbackState,
-//                        play: { try? audioEngine.play() },
-//                        pause: audioEngine.pause,
-//                        resume: { try? audioEngine.resume() }
-//                    )
+                    PlaybackStateButton(
+                        sourceState: audioEngine.playbackState,
+                        play: { try? audioEngine.play() },
+                        pause: audioEngine.pause,
+                        resume: { try? audioEngine.resume() }
+                    )
 
                     // Next track
                     Button {

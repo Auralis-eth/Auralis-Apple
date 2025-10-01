@@ -1479,9 +1479,17 @@ class AudioEngine: ObservableObject {
     
     // MARK: - Resource Cleanup
     deinit {
-        DispatchQueue.main.async { [weak self] in
-            self?.stopNowPlayingTimer()
-            self?.nowPlayingCenter.nowPlayingInfo = nil
+        // Capture dependencies strongly before scheduling async cleanup to avoid [weak self] becoming nil
+        var capturedCenter = nowPlayingCenter
+        let capturedTimer = nowPlayingUpdateTimer
+        let capturedSession = self.session
+        let capturedRemoteCommands = self.remoteCommands
+        let shouldCleanupRemoteCommands = !self.remoteCommandsDisabled
+
+        // Clear Now Playing info and stop timer on the main queue using captured references
+        DispatchQueue.main.async {
+            capturedTimer?.invalidate()
+            capturedCenter.nowPlayingInfo = nil
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         }
 
@@ -1490,33 +1498,35 @@ class AudioEngine: ObservableObject {
         if audioEngine.isRunning {
             audioEngine.stop()
         }
-        
+
         mixerA.volume = 0.0
         mixerB.volume = 0.0
-        
+
         audioEngine.detach(playerNodeA)
         audioEngine.detach(playerNodeB)
         audioEngine.detach(mixerA)
         audioEngine.detach(mixerB)
-        
-        // No temp file cleanup needed; cache persists across sessions
-        
+
+        // Deactivate the session using the captured reference
         do {
-            try session.setActive(false)
+            try capturedSession.setActive(false)
         } catch {
             // Log cleanup error but don't throw in deinit
         }
-        
-        if !remoteCommandsDisabled {
-            remoteCommands.playCommand.removeTarget(nil)
-            remoteCommands.pauseCommand.removeTarget(nil)
-            remoteCommands.nextTrackCommand.removeTarget(nil)
-            remoteCommands.previousTrackCommand.removeTarget(nil)
-            remoteCommands.changePlaybackPositionCommand.removeTarget(nil)
-            remoteCommands.skipForwardCommand.removeTarget(nil)
-            remoteCommands.skipBackwardCommand.removeTarget(nil)
+
+        // Remove remote command targets if they were registered, using captured references
+        if shouldCleanupRemoteCommands {
+            capturedRemoteCommands.playCommand.removeTarget(nil)
+            capturedRemoteCommands.pauseCommand.removeTarget(nil)
+            capturedRemoteCommands.togglePlayPauseCommand.removeTarget(nil)
+            capturedRemoteCommands.nextTrackCommand.removeTarget(nil)
+            capturedRemoteCommands.previousTrackCommand.removeTarget(nil)
+            capturedRemoteCommands.changePlaybackPositionCommand.removeTarget(nil)
+            capturedRemoteCommands.skipForwardCommand.removeTarget(nil)
+            capturedRemoteCommands.skipBackwardCommand.removeTarget(nil)
         }
     }
+
     
     // MARK: - Crossfade Helpers
     private func scheduleCrossfadeIfPossible() {
