@@ -594,24 +594,41 @@ struct AudioEngineTest {
     func testSeekWhilePlaying() async throws {
         let duration: Double = 1.0
         let file = try dummyAudioFile(durationSeconds: duration)
-        let engine = try AudioEngine(testing: true, disableRemoteCommands: true, disableTimers: true)
+        
+        // Use fake audio session to prevent system notifications from interfering
+        let fakeSession = FakeAudioSession()
+        let engine = try AudioEngine(
+            testing: true,
+            disableRemoteCommands: true,
+            disableTimers: true,
+            session: fakeSession
+        )
         engine.injectAudioFileForTesting(file)
-
+        
+        // Start playback
         try engine.play()
-        // Let time advance a bit
+        #expect(engine.playbackState == .playing, "Should be playing after initial play()")
+        
+        // Let playback run briefly
         try await Task.sleep(nanoseconds: 100_000_000) // 100ms
-
+        
         // Seek to middle
         let target = duration / 2
         try engine.seek(to: target)
-
-        // Give a short tick for state to update
-        try await Task.sleep(nanoseconds: 50_000_000)
-
-        // Assert: still playing and progress near target
-        #expect(engine.playbackState == .playing)
+        
+        // Poll for playing state (handles any async state transitions gracefully)
+        let deadline = Date().addingTimeInterval(0.3)
+        while Date() < deadline && engine.playbackState != .playing {
+            try await Task.sleep(nanoseconds: 20_000_000) // 20ms
+        }
+        
+        // Verify final state
+        #expect(engine.playbackState == .playing, "Should remain playing after seek")
+        #expect(engine.audioFile != nil, "Audio file should still be loaded after seek")
+        
+        // Verify progress is near target
         let p = engine.progress
-        #expect(abs(p - target) < 0.25, "Expected progress near target after seek while playing (got: \(p))")
+        #expect(abs(p - target) < 0.25, "Expected progress near target after seek while playing (got: \(p), expected: \(target))")
         _ = (engine, file)
     }
 

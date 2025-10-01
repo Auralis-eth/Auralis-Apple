@@ -1134,12 +1134,15 @@ class AudioEngine: ObservableObject {
         // Update seek position
         seekPosition = clampedTime
         pausedAt = clampedTime
-        updateNowPlayingProgress()
-        updateRemoteCommandAvailability()
         
-        // If we were playing, restart from new position
+        // If we were playing, restart from new position immediately and reflect intent in state
         if wasPlaying {
+            playbackState = .playing
             try play()
+        } else {
+            // Only update progress/availability immediately if not resuming playback
+            updateNowPlayingProgress()
+            updateRemoteCommandAvailability()
         }
     }
 
