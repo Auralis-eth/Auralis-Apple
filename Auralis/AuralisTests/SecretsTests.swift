@@ -21,13 +21,18 @@ import Testing
         TestCase(provider: .alchemy, expected: "alchemy_key"),
     ])
     func testApiKeyValidCases(testcase: TestCase) {
-        let result = Secrets.apiKey(testcase.provider, bundle: Bundle(for: BundleLocatorClass.self))
-        #expect(
-            result == testcase.expected,
-            "Expected API key '\(testcase.expected)' for provider \(testcase.provider.rawValue), got \(result ?? "nil")"
-        )
+        do {
+            let result = try Secrets.apiKey(testcase.provider, bundle: Bundle(for: BundleLocatorClass.self))
+            #expect(
+                result == testcase.expected,
+                "Expected API key '\(testcase.expected)' for provider \(testcase.provider.rawValue), got \(result)"
+            )
+        } catch {
+            Issue.record("Unexpected error thrown for provider \(testcase.provider.rawValue): \(error)")
+        }
     }
 }
 
 class BundleLocatorClass {
 }
+

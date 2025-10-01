@@ -14,7 +14,7 @@ import Security
 @Suite class PasswordExtensionTests {
     struct TestCase {
         let password: String
-        let expected: PasswordStrengthView.PasswordStrength
+        let expected: PasswordStrength
     }
     func cleanKeychain() {
         let keychainQuery: [String: Any] = [
@@ -120,3 +120,4 @@ import Security
         )
     }
 }
+
