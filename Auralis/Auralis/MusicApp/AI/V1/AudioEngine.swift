@@ -163,11 +163,15 @@ class AudioEngine: ObservableObject {
     private var suppressAutoAdvanceOnce: Bool = false
     
     // AE-006: Route-change context
-    private var wasPlayingBeforeRouteChange: Bool = false
-
+    // Removed private var wasPlayingBeforeRouteChange: Bool = false
+    
     // AE-006: Debounce and single-flight route-change handling
     private var routeChangeDebounceTask: Task<Void, Never>? = nil
     private var isReconfiguringRoute: Bool = false
+    
+    // AE-008: Simulator throttle to avoid reconfiguration churn
+    private var lastRouteChangeHandledAt: TimeInterval = 0
+    private let routeChangeThrottleSeconds: TimeInterval = 1.0
     
     // Computed property to eliminate state redundancy
     var isPlaying: Bool {
@@ -803,13 +807,19 @@ class AudioEngine: ObservableObject {
         let session = self.session
         let userInfo = notification.userInfo ?? [:]
 
-        // Capture pre-change state
-        wasPlayingBeforeRouteChange = (playbackState == .playing)
+        // Removed wasPlayingBeforeRouteChange = (playbackState == .playing)
 
         // Read reason and previous route
         let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt ?? 0
         let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) ?? .unknown
         let previousRoute = userInfo[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription
+
+        // AE-008: Immediate pause on unplug (no debounce)
+        if reason == .oldDeviceUnavailable {
+            Task { @MainActor in
+                self.handleDeviceDisconnection(previousRoute: previousRoute ?? AVAudioSessionRouteDescription())
+            }
+        }
 
         // Log for QA
         logRouteChange(reason: reason, previous: previousRoute, current: session.currentRoute)
@@ -824,26 +834,23 @@ class AudioEngine: ObservableObject {
             try? await Task.sleep(nanoseconds: 200_000_000)
             await MainActor.run {
                 guard let self = self else { return }
+                // AE-008: Debounced handling without auto-resume
                 switch reason {
                 case .oldDeviceUnavailable:
-                    // Headphone/A2DP/AirPlay disconnect: pause immediately
-                    if let prev = previousRoute { self.handleDeviceDisconnection(previousRoute: prev) }
-                case .categoryChange, .newDeviceAvailable, .routeConfigurationChange, .override, .wakeFromSleep:
-                    // Re-affirm session/engine and attempt resume without nuking graph
+                    // Already paused immediately; perform conservative reconfigure only
                     self.reaffirmRouteAndResume()
-                case .noSuitableRouteForCategory:
-                    // Immediately pause for safety so state reflects that output is unavailable
-                    if self.playbackState == .playing { self.pause() }
-                    // Gracefully fall back to built-in speaker by reaffirming playback category
-                    do {
-                        try session.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetoothA2DP])
-                        try session.setActive(true)
-                    } catch {
-                        print("[AE-006] Failed to fallback to speaker: \(error)")
+                case .categoryChange, .newDeviceAvailable, .routeConfigurationChange, .override, .wakeFromSleep, .noSuitableRouteForCategory, .unknown:
+                    // Simulator guard to avoid churn
+                    #if targetEnvironment(simulator)
+                    let now = CFAbsoluteTimeGetCurrent()
+                    if now - self.lastRouteChangeHandledAt < self.routeChangeThrottleSeconds {
+                        print("[AE-008] Simulator: throttling route change handling")
+                        return
                     }
+                    self.lastRouteChangeHandledAt = now
+                    #endif
                     self.reaffirmRouteAndResume()
-                default:
-                    // Unknown/other: ensure session is active and reconfigure conservatively
+                @unknown default:
                     self.reaffirmRouteAndResume()
                 }
             }
@@ -963,10 +970,10 @@ class AudioEngine: ObservableObject {
             nextMixer.volume = 0.0
         }
 
-        // If we were playing before the route change and are paused now, try to resume
-        if wasPlayingBeforeRouteChange && playbackState == .paused {
-            try? resume()
-        }
+        // Removed auto-resume after route change:
+        // if wasPlayingBeforeRouteChange && playbackState == .paused {
+        //     try? resume()
+        // }
 
         updateNowPlayingMetadata()
     }
