@@ -9,7 +9,6 @@ import AVFoundation
 import Foundation
 import MediaPlayer
 import AVKit
-import UIKit
 
 // MARK: - Testability protocols and default adapters
 protocol AudioSessioning {
@@ -165,6 +164,10 @@ class AudioEngine: ObservableObject {
     
     // AE-006: Route-change context
     private var wasPlayingBeforeRouteChange: Bool = false
+
+    // AE-006: Debounce and single-flight route-change handling
+    private var routeChangeDebounceTask: Task<Void, Never>? = nil
+    private var isReconfiguringRoute: Bool = false
     
     // Computed property to eliminate state redundancy
     var isPlaying: Bool {
@@ -603,6 +606,13 @@ class AudioEngine: ObservableObject {
         do {
             try audioEngine.start()
             needsEngineStart = false
+
+            // Ensure mix path is audible after engine start
+            if playbackState == .playing {
+                currentMixer.volume = 1.0
+                nextMixer.volume = 0.0
+            }
+
             return
         } catch {
             // Attempt minimal recovery then retry once
@@ -612,6 +622,13 @@ class AudioEngine: ObservableObject {
             do {
                 try audioEngine.start()
                 needsEngineStart = false
+
+                // Ensure mix path is audible after engine start
+                if playbackState == .playing {
+                    currentMixer.volume = 1.0
+                    nextMixer.volume = 0.0
+                }
+
                 return
             } catch {
                 throw AudioEngineError.engineStartFailed(underlying: error)
@@ -619,9 +636,34 @@ class AudioEngine: ObservableObject {
         }
     }
 
-    // Smooth volume ramping for mixers (replaces TinyGainUnit scheduling)
-    private var mixerRampLinks: [ObjectIdentifier: CADisplayLink] = [:]
+    // MARK: - Precise Crossfade Ramping (AE-007)
+    // High-priority queue for volume ramps and crossfade coordination
+    private let rampQueue = DispatchQueue(label: "audio.ramp.queue", qos: .userInteractive, attributes: [], autoreleaseFrequency: .workItem)
 
+    // Cancellable timers per mixer and for crossfade stages
+    private var rampTimers: [ObjectIdentifier: DispatchSourceTimer] = [:]
+    private var crossfadeStartTimer: DispatchSourceTimer? = nil
+    private var crossfadeFlipTimer: DispatchSourceTimer? = nil
+
+    // Cancel and clear all ramp timers (call on main actor when mutating mixer volumes/state)
+    @MainActor
+    private func cancelAllRampTimers() {
+        for (_, t) in rampTimers { t.cancel() }
+        rampTimers.removeAll()
+        crossfadeStartTimer?.cancel(); crossfadeStartTimer = nil
+        crossfadeFlipTimer?.cancel(); crossfadeFlipTimer = nil
+    }
+
+    // Cancel ramp for a specific mixer
+    @MainActor
+    private func cancelRamp(for mixer: AVAudioMixerNode) {
+        let id = ObjectIdentifier(mixer)
+        if let t = rampTimers[id] { t.cancel() }
+        rampTimers[id] = nil
+    }
+
+    // Lightweight ramp on mixer.volume driven by a background DispatchSourceTimer (~180 Hz)
+    // Anchored to current uptime clock; short-lived (<= 10s) to minimize drift.
     @MainActor
     private func rampMixer(_ mixer: AVAudioMixerNode, to target: Float, duration: TimeInterval) {
         let d = max(0.05, min(duration, 10.0))
@@ -629,54 +671,77 @@ class AudioEngine: ObservableObject {
             mixer.volume = target
             return
         }
+
+        // Cancel any existing ramp for this mixer
+        cancelRamp(for: mixer)
+
         let id = ObjectIdentifier(mixer)
-        // Invalidate any existing ramp for this mixer
-        if let link = mixerRampLinks[id] {
-            link.invalidate()
-            mixerRampLinks[id] = nil
-        }
-        let startTime = CACurrentMediaTime()
         let startVol = mixer.volume
         let delta = target - startVol
-        guard abs(delta) > 0.0001 else { mixer.volume = target; return }
+        if abs(delta) < 0.0001 {
+            mixer.volume = target
+            return
+        }
 
-        let link = CADisplayLink(target: DisplayLinkProxy { [weak self] in
+        let intervalHz: Double = 180.0
+        let tick = 1.0 / intervalHz
+        let timer = DispatchSource.makeTimerSource(flags: [], queue: rampQueue)
+        let start = DispatchTime.now()
+
+        timer.setEventHandler { [weak self] in
             guard let self else { return }
-            let t = CACurrentMediaTime() - startTime
-            if t >= d {
-                mixer.volume = target
-                self.mixerRampLinks[id]?.invalidate()
-                self.mixerRampLinks[id] = nil
+            // Compute elapsed using uptime to avoid wall-clock drift
+            let now = DispatchTime.now()
+            let elapsedNs = now.uptimeNanoseconds &- start.uptimeNanoseconds
+            let elapsed = Double(elapsedNs) / 1_000_000_000.0
+            if elapsed >= d {
+                // Finalize on main to keep property writes consistent with UI state
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    mixer.volume = target
+                    self.cancelRamp(for: mixer)
+                }
                 return
             }
-            let progress = Float(t / d)
-            mixer.volume = startVol + delta * progress
-        }, selector: #selector(DisplayLinkProxy.tick))
-        link.add(to: .main, forMode: .common)
-        mixerRampLinks[id] = link
+            let progress = Float(elapsed / d)
+            let newVol = startVol + delta * progress
+            DispatchQueue.main.async {
+                mixer.volume = newVol
+            }
+        }
+
+        // Minimal leeway for smoother ramps; schedule immediately
+        timer.schedule(deadline: .now(), repeating: tick, leeway: .milliseconds(1))
+        timer.resume()
+        rampTimers[id] = timer
     }
 
-    // Helper proxy to avoid retain cycle with CADisplayLink target
-    private class DisplayLinkProxy: NSObject {
-        let block: () -> Void
-        init(_ block: @escaping () -> Void) { self.block = block }
-        @objc func tick() { block() }
+    // Helper to schedule a one-shot at a specific hostTime (mach absolute).
+    // Returns a configured DispatchSourceTimer stored in the provided reference.
+    @MainActor
+    private func scheduleOneShot(atHostTime hostTime: UInt64, storeIn slot: inout DispatchSourceTimer?, handler: @escaping () -> Void) {
+        // Cancel any existing timer in the slot
+        slot?.cancel(); slot = nil
+        let timer = DispatchSource.makeTimerSource(flags: [], queue: rampQueue)
+        let deadline = DispatchTime(uptimeNanoseconds: hostTime)
+        timer.setEventHandler(handler: handler)
+        timer.schedule(deadline: deadline, leeway: .milliseconds(1))
+        timer.resume()
+        slot = timer
     }
 
     @MainActor
     func performCrossfade(duration: TimeInterval,
                           from from: AVAudioMixerNode,
                           to to: AVAudioMixerNode) {
-        // Clamp duration
+        // Clamp duration and use background ramp timers
         let d = max(0.05, min(duration, 10.0))
         if timersDisabled {
             to.volume = crossfadePeakGain
             from.volume = 0.0
             return
         }
-        // Ensure destination path is audible (start from its current volume)
-        to.volume = to.volume // no-op, ensures node is active
-        // Begin ramps now on the main thread
+        // Start ramps concurrently, executed on the ramp queue with main-thread volume writes
         rampMixer(to, to: crossfadePeakGain, duration: d)
         rampMixer(from, to: 0.0, duration: d)
     }
@@ -752,49 +817,35 @@ class AudioEngine: ObservableObject {
         // Mark engine to require restart on next play
         needsEngineStart = true
 
-        switch reason {
-        case .oldDeviceUnavailable:
-            // Headphone/A2DP/AirPlay disconnect: pause immediately
-            if let prev = previousRoute { handleDeviceDisconnection(previousRoute: prev) }
-
-        case .newDeviceAvailable:
-            // New device appeared: let the system route, then refresh session & UI
-            Task { @MainActor in
-                do { try ensureSessionActive() } catch { }
-                reconfigureForCurrentRoute()
-                updateNowPlayingMetadata()
-            }
-
-        case .routeConfigurationChange, .categoryChange, .override, .wakeFromSleep:
-            // Session or route changed in-place: re-activate and reconfigure
-            Task { @MainActor in
-                do { try ensureSessionActive() } catch { }
-                reconfigureForCurrentRoute()
-                // If we were playing, try to resume once stable
-                if wasPlayingBeforeRouteChange && playbackState == .paused {
-                    try? resume()
+        // Debounce: cancel any in-flight handler and schedule a new one
+        routeChangeDebounceTask?.cancel()
+        routeChangeDebounceTask = Task { [weak self] in
+            // Debounce window 200ms to collapse cascades
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            await MainActor.run {
+                guard let self = self else { return }
+                switch reason {
+                case .oldDeviceUnavailable:
+                    // Headphone/A2DP/AirPlay disconnect: pause immediately
+                    if let prev = previousRoute { self.handleDeviceDisconnection(previousRoute: prev) }
+                case .categoryChange, .newDeviceAvailable, .routeConfigurationChange, .override, .wakeFromSleep:
+                    // Re-affirm session/engine and attempt resume without nuking graph
+                    self.reaffirmRouteAndResume()
+                case .noSuitableRouteForCategory:
+                    // Immediately pause for safety so state reflects that output is unavailable
+                    if self.playbackState == .playing { self.pause() }
+                    // Gracefully fall back to built-in speaker by reaffirming playback category
+                    do {
+                        try session.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetoothA2DP])
+                        try session.setActive(true)
+                    } catch {
+                        print("[AE-006] Failed to fallback to speaker: \(error)")
+                    }
+                    self.reaffirmRouteAndResume()
+                default:
+                    // Unknown/other: ensure session is active and reconfigure conservatively
+                    self.reaffirmRouteAndResume()
                 }
-            }
-
-        case .noSuitableRouteForCategory:
-            // Immediately pause for safety so state reflects that output is unavailable
-            if playbackState == .playing { pause() }
-            // Gracefully fall back to built-in speaker by reaffirming playback category
-            Task { @MainActor in
-                do {
-                    try session.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetoothA2DP])
-                    try session.setActive(true)
-                } catch {
-                    print("[AE-006] Failed to fallback to speaker: \(error)")
-                }
-                reconfigureForCurrentRoute()
-            }
-
-        default:
-            // Unknown/other: ensure session is active and reconfigure conservatively
-            Task { @MainActor in
-                do { try ensureSessionActive() } catch { }
-                reconfigureForCurrentRoute()
             }
         }
     }
@@ -818,6 +869,10 @@ class AudioEngine: ObservableObject {
     @MainActor
     private func reconfigureForCurrentRoute() {
         let session = self.session
+
+        if isReconfiguringRoute { return }
+        isReconfiguringRoute = true
+        defer { isReconfiguringRoute = false }
 
         // Ensure playback category with AirPlay/Bluetooth A2DP
         do {
@@ -875,6 +930,109 @@ class AudioEngine: ObservableObject {
         print("[AE-006] Route change reason=\(reason.rawValue) prev=\(describe(previous)) curr=\(describe(current))")
     }
     
+    @MainActor
+    private func reaffirmRouteAndResume() {
+        // Gate against overlapping reconfigurations
+        if isReconfiguringRoute { return }
+        isReconfiguringRoute = true
+        defer { isReconfiguringRoute = false }
+
+        do {
+            try ensureSessionActive()
+        } catch {
+            // If we cannot ensure the session, attempt a full reset as a last resort
+            fullReset()
+            return
+        }
+
+        // If engine isn't running, start it; if it is, we can leave it as-is
+        if !audioEngine.isRunning {
+            do {
+                try audioEngine.start()
+                needsEngineStart = false
+            } catch {
+                // As a fallback, perform a full reset to rebuild the graph cleanly
+                fullReset()
+                return
+            }
+        }
+
+        // Re-apply mixer volumes in case they were affected by the route change
+        if playbackState == .playing {
+            currentMixer.volume = 1.0
+            nextMixer.volume = 0.0
+        }
+
+        // If we were playing before the route change and are paused now, try to resume
+        if wasPlayingBeforeRouteChange && playbackState == .paused {
+            try? resume()
+        }
+
+        updateNowPlayingMetadata()
+    }
+
+    @MainActor
+    private func fullReset() {
+        // Stop timers and nodes to reach a safe state
+        stopNowPlayingTimer()
+        playerNodeA.stop()
+        playerNodeB.stop()
+        mixerA.volume = 0.0
+        mixerB.volume = 0.0
+
+        // Stop and reset the engine
+        audioEngine.pause()
+        audioEngine.stop()
+        audioEngine.reset()
+
+        // Disconnect and detach existing nodes to avoid stale connections
+        audioEngine.disconnectNodeOutput(playerNodeA)
+        audioEngine.disconnectNodeOutput(playerNodeB)
+        audioEngine.disconnectNodeOutput(mixerA)
+        audioEngine.disconnectNodeOutput(mixerB)
+
+        audioEngine.detach(playerNodeA)
+        audioEngine.detach(playerNodeB)
+        audioEngine.detach(mixerA)
+        audioEngine.detach(mixerB)
+
+        // Recreate fresh nodes and reattach
+        playerNodeA = AVAudioPlayerNode()
+        playerNodeB = AVAudioPlayerNode()
+        // Keep mixers instances but ensure they are attached
+        // (They are constants; detach/attach existing instances)
+        audioEngine.attach(playerNodeA)
+        audioEngine.attach(playerNodeB)
+        audioEngine.attach(mixerA)
+        audioEngine.attach(mixerB)
+
+        // Reconnect using the current output format to avoid conversions
+        let outFormat = audioEngine.outputNode.inputFormat(forBus: 0)
+        audioEngine.connect(playerNodeA, to: mixerA, format: outFormat)
+        audioEngine.connect(mixerA, to: audioEngine.mainMixerNode, format: outFormat)
+
+        audioEngine.connect(playerNodeB, to: mixerB, format: outFormat)
+        audioEngine.connect(mixerB, to: audioEngine.mainMixerNode, format: outFormat)
+
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+            needsEngineStart = false
+        } catch {
+            // Mark for later restart; caller will handle resume paths
+            needsEngineStart = true
+        }
+
+        // If there is an audio file loaded and we were playing, restart playback
+        if playbackState == .playing {
+            try? play()
+        } else if playbackState == .paused {
+            // Keep paused state but ensure metadata and availability are correct
+            updateRemoteCommandAvailability()
+            updateNowPlayingMetadata()
+        }
+    }
+
     internal func canPlayFormat(_ url: URL) -> Bool {
         // File extensions supported by AVAudioFile/Core Audio
         let supportedFormats: Set<String> = [
@@ -1093,6 +1251,7 @@ class AudioEngine: ObservableObject {
             playerNodeB.stop()
             playbackState = .paused
             stopNowPlayingTimer()
+            Task { @MainActor in await cancelAllRampTimers() }
         }
         // Always refresh availability and metadata when pause() is invoked, even if it was a no-op
         updateRemoteCommandAvailability()
@@ -1114,6 +1273,7 @@ class AudioEngine: ObservableObject {
         pausedAt = 0
         playbackState = .stopped
         stopNowPlayingTimer()
+        Task { @MainActor in await cancelAllRampTimers() }
         updateRemoteCommandAvailability()
         updateNowPlayingMetadata()
     }
@@ -1130,6 +1290,7 @@ class AudioEngine: ObservableObject {
         // Stop and clear buffers
         playerNodeA.stop()
         playerNodeB.stop()
+        Task { @MainActor in await cancelAllRampTimers() }
         
         // Update seek position
         seekPosition = clampedTime
@@ -1204,6 +1365,9 @@ class AudioEngine: ObservableObject {
                 }
             }
             
+            // Cancel existing ramp timers to avoid overlap
+            await cancelAllRampTimers()
+            
             // Immediate crossfade with pre-roll at mixer=0
             updateRemoteCommandAvailability()
             Task { @MainActor in
@@ -1232,33 +1396,8 @@ class AudioEngine: ObservableObject {
                     let d = max(0.05, min(cappedFade, 10.0))
                     self.performCrossfade(duration: d, from: self.currentMixer, to: self.nextMixer)
 
-                    DispatchQueue.main.asyncAfter(deadline: .now() + d) { [weak self] in
-                        guard let self else { return }
-                        guard fadeID == self.activeLoadID else {
-                            print("xfade_cancelled_stale {\(fadeID)}")
-                            return
-                        }
-                        self.currentNode.stop()
-                        // Mute old mix path, flip, then enable new path
-                        self.currentMixer.volume = 0.0
-
-                        // Commit new state
-                        if let oldNFT = self.currentNFT { self.previousAudio.tracks.append(oldNFT) }
-                        self.currentNodeIsA.toggle()
-                        // After toggle, currentMixer/nextMixer refer to new roles
-                        self.currentMixer.volume = 1.0
-                        self.nextMixer.volume = 0.0
-                        self.audioFile = nextFile
-                        self.seekPosition = 0
-                        self.pausedAt = 0
-                        self.currentNFT = next
-                        self.currentTrack = Track(title: next.name, artist: next.artistName, duration: self.duration, imageUrl: next.image?.secureUrl ?? next.image?.originalUrl)
-                        self.playbackState = .playing
-                        self.updateRemoteCommandAvailability()
-                        self.updateNowPlayingMetadata()
-                        self.startNowPlayingTimer()
-                        self.suppressAutoAdvanceOnce = false
-                    }
+                    // Removed trailing DispatchQueue.main.asyncAfter to flip roles
+                    // The flip will be handled by scheduleCrossfadeIfPossible()
                 } catch {
                     print("xfade_cancelled_stale {\(fadeID)}")
                 }
@@ -1486,6 +1625,15 @@ class AudioEngine: ObservableObject {
         let capturedRemoteCommands = self.remoteCommands
         let shouldCleanupRemoteCommands = !self.remoteCommandsDisabled
 
+        // Cancel any in-flight debounce task
+        routeChangeDebounceTask?.cancel()
+        routeChangeDebounceTask = nil
+
+        // Cancel ramp timers on main queue
+        DispatchQueue.main.async { [weak self] in
+            self?.cancelAllRampTimers()
+        }
+
         // Clear Now Playing info and stop timer on the main queue using captured references
         DispatchQueue.main.async {
             capturedTimer?.invalidate()
@@ -1532,11 +1680,9 @@ class AudioEngine: ObservableObject {
     private func scheduleCrossfadeIfPossible() {
         // If there's no upcoming track or no current file, do nothing
         guard let next = self.peekNextTrackRespectingModes() else { return }
-        // Avoid scheduling a crossfade into the same track when repeating track
-        if repeatMode == .track, let current = currentNFT, current.id == next.id {
-            return
-        }
+        if repeatMode == .track, let current = currentNFT, current.id == next.id { return }
         guard let audioFile = audioFile else { return }
+        guard playbackState == .playing else { return }
 
         // Compute remaining time on the current file from the current seek position
         let sampleRate = audioFile.processingFormat.sampleRate
@@ -1549,28 +1695,20 @@ class AudioEngine: ObservableObject {
         let overlap = min(cappedFade, max(0.0, remainingTime))
         guard overlap > 0 else { return }
 
-        // Safety pad near the end to avoid underruns / render race
         let safety = crossfadeSafetyPad
-        let fireIn = max(0.0, remainingTime - overlap - safety)
+        let secondsUntilStart = max(0.0, remainingTime - overlap - safety)
 
-        // Prepare and schedule the next track to start at the computed node time with its mixer muted
+        // Establish a precise hostTime for the next track start and fade start
+        let startHostDelta = AVAudioTime.hostTime(forSeconds: secondsUntilStart)
+        let fadeStartHostTime = mach_absolute_time() &+ startHostDelta
+        let flipHostDelta = AVAudioTime.hostTime(forSeconds: overlap)
+        let flipHostTime = fadeStartHostTime &+ flipHostDelta
+
         let fadeID = activeLoadID
 
-        // Obtain current render time references
-        guard let nodeTime = currentNode.lastRenderTime,
-              let playerTime = currentNode.playerTime(forNodeTime: nodeTime) else { return }
-
-        let framesUntilStart = AVAudioFramePosition((remainingTime - overlap - safety) * playerTime.sampleRate)
-        let targetSampleTime = playerTime.sampleTime + framesUntilStart
-        let targetPlayerTime = AVAudioTime(sampleTime: targetSampleTime, atRate: playerTime.sampleRate)
-
-        // Pre-roll next track on its player; keep its mixer at 0.0
         Task { @MainActor in
             do {
-                guard fadeID == self.activeLoadID else {
-                    print("xfade_cancelled_stale {\(fadeID)}")
-                    return
-                }
+                guard fadeID == self.activeLoadID else { return }
                 guard let url = next.musicURL else { return }
                 try self.ensureEngineReadyToPlay()
 
@@ -1584,35 +1722,33 @@ class AudioEngine: ObservableObject {
 
                 let nextFile = try AVAudioFile(forReading: localURL)
 
-                // Keep next mixer silent until fade begins
+                // Pre-roll next track on its player; keep its mixer silent
                 self.nextMixer.volume = 0.0
-
                 self.nextNode.stop()
-                self.nextNode.scheduleFile(nextFile, at: targetPlayerTime, completionHandler: nil)
+                let startTime = AVAudioTime(hostTime: fadeStartHostTime)
+                self.nextNode.scheduleFile(nextFile, at: startTime, completionHandler: nil)
                 self.nextNode.play()
 
-                // Schedule a one-shot to trigger the fade at the computed time.
-                // We convert framesUntilStart to seconds relative to now; minor drift expected <10ms.
-                let secondsUntilStart = max(0.0, fireIn)
-                DispatchQueue.main.asyncAfter(deadline: .now() + secondsUntilStart) { [weak self] in
-                    guard let self else { return }
-                    guard fadeID == self.activeLoadID else {
-                        print("xfade_cancelled_stale {\(fadeID)}")
-                        return
-                    }
-                    self.suppressAutoAdvanceOnce = true // AE-004: prevent race with completion
-                    // Begin crossfade
-                    self.performCrossfade(duration: overlap, from: self.currentMixer, to: self.nextMixer)
+                // Cancel any prior timers and schedule the fade start and flip using hostTime
+                self.cancelAllRampTimers()
 
-                    // After fade completes, stop previous player, reset its mixer, and flip roles
-                    DispatchQueue.main.asyncAfter(deadline: .now() + overlap) { [weak self] in
-                        guard let self else { return }
-                        guard fadeID == self.activeLoadID else {
-                            print("xfade_cancelled_stale {\(fadeID)}")
-                            return
-                        }
+                // Start crossfade exactly at fadeStartHostTime
+                self.scheduleOneShot(atHostTime: fadeStartHostTime, storeIn: &self.crossfadeStartTimer) { [weak self] in
+                    guard let self else { return }
+                    DispatchQueue.main.async {
+                        guard fadeID == self.activeLoadID else { return }
+                        self.suppressAutoAdvanceOnce = true
+                        self.performCrossfade(duration: overlap, from: self.currentMixer, to: self.nextMixer)
+                    }
+                }
+
+                // Flip roles exactly at flipHostTime
+                self.scheduleOneShot(atHostTime: flipHostTime, storeIn: &self.crossfadeFlipTimer) { [weak self] in
+                    guard let self else { return }
+                    DispatchQueue.main.async {
+                        guard fadeID == self.activeLoadID else { return }
+                        // Stop old node and mute its path
                         self.currentNode.stop()
-                        // Mute old mix path, then flip roles and enable new path
                         self.currentMixer.volume = 0.0
 
                         // Commit new state
@@ -1621,7 +1757,6 @@ class AudioEngine: ObservableObject {
                             self.nextAudio.tracks.remove(at: idx)
                         }
                         self.currentNodeIsA.toggle()
-                        // After toggle, currentMixer/nextMixer refer to new roles
                         self.currentMixer.volume = 1.0
                         self.nextMixer.volume = 0.0
                         self.audioFile = nextFile
@@ -1637,7 +1772,7 @@ class AudioEngine: ObservableObject {
                     }
                 }
             } catch is CancellationError {
-                print("xfade_cancelled_stale {\(fadeID)}")
+                // Stale
             } catch {
                 // On error, mute both to safe state and attempt to advance normally
                 self.currentMixer.volume = 0.0
