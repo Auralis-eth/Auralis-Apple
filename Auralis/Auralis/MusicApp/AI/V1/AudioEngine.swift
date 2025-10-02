@@ -229,6 +229,22 @@ class AudioEngine: ObservableObject {
         updateNowPlayingMetadata()
     }
     
+    // AE-012: Now Playing throttling and telemetry
+    private let nowPlayingProgressInterval: TimeInterval = 5.0 // steady-state cadence
+    private var isAppInBackground: Bool = false
+
+    private struct NowPlayingSnapshot {
+        var elapsed: Double = -1
+        var rate: Double = -1
+        var itemID: UUID? = nil
+        var duration: Double = -1
+    }
+    private var lastPublishedNowPlaying = NowPlayingSnapshot()
+
+    // Telemetry counters
+    private var npPublishCount: Int = 0
+    private var npSuppressedCount: Int = 0
+
     struct Track: Identifiable, Codable {
         var id = UUID()
         var title: String?
@@ -392,11 +408,13 @@ class AudioEngine: ObservableObject {
     }
 
     @objc private func handleWillEnterForeground() {
+        isAppInBackground = false
         // Refresh Now Playing metadata to keep it accurate on return
         updateNowPlayingMetadata()
     }
 
     @objc private func handleDidEnterBackground() {
+        isAppInBackground = true
         // Keep metadata fresh for background controls
         updateNowPlayingMetadata()
     }
@@ -420,7 +438,7 @@ class AudioEngine: ObservableObject {
     private func startNowPlayingTimer() {
         guard !timersDisabled else { return }
         stopNowPlayingTimer()
-        nowPlayingUpdateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        nowPlayingUpdateTimer = Timer.scheduledTimer(withTimeInterval: nowPlayingProgressInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.updateNowPlayingProgress()
         }
@@ -433,6 +451,9 @@ class AudioEngine: ObservableObject {
     }
 
     private func updateNowPlayingMetadata() {
+        // Gate redundant metadata writes when app is backgrounded and playback is paused
+        if isAppInBackground && playbackState == .paused { return }
+
         guard let currentTrack = currentTrack else { return }
         var info: [String: Any] = nowPlayingInfo
         let isLive = currentTrack.duration <= 0
@@ -506,12 +527,26 @@ class AudioEngine: ObservableObject {
 
                 await MainActor.run {
                     guard token == self.activeLoadID else { return }
+                    // Refresh snapshot for immediate-update coherence
+                    let currentElapsed = self.progress
+                    let currentRate = (self.playbackState == .playing) ? 1.0 : 0.0
+                    let currentItemID = self.currentTrack?.id
+                    let currentDuration = self.currentTrack?.duration ?? self.duration
+                    self.lastPublishedNowPlaying = NowPlayingSnapshot(elapsed: currentElapsed, rate: currentRate, itemID: currentItemID, duration: currentDuration)
+
                     self.nowPlayingCenter.nowPlayingInfo = updated
                     self.nowPlayingInfo = updated
                     self.updateRemoteCommandAvailability()
                 }
             }
         } else {
+            // Refresh snapshot for immediate-update coherence
+            let currentElapsed = progress
+            let currentRate = (playbackState == .playing) ? 1.0 : 0.0
+            let currentItemID = currentTrack.id
+            let currentDuration = currentTrack.duration ?? duration
+            lastPublishedNowPlaying = NowPlayingSnapshot(elapsed: currentElapsed, rate: currentRate, itemID: currentItemID, duration: currentDuration)
+
             nowPlayingCenter.nowPlayingInfo = info
             nowPlayingInfo = info
             updateRemoteCommandAvailability()
@@ -519,12 +554,39 @@ class AudioEngine: ObservableObject {
     }
 
     private func updateNowPlayingProgress() {
+        // Only publish periodic progress during active playback
+        guard playbackState == .playing else { return }
+        // Avoid unnecessary writes if app is backgrounded and not actively playing (already guarded)
         guard nowPlayingCenter.nowPlayingInfo != nil else { return }
+
+        let currentElapsed = progress
+        let currentRate = (playbackState == .playing) ? 1.0 : 0.0
+        let currentItemID = currentTrack?.id
+        let currentDuration = currentTrack?.duration ?? duration
+
+        // Duplicate suppression: if values haven't meaningfully changed, skip
+        let elapsedDelta = abs(currentElapsed - lastPublishedNowPlaying.elapsed)
+        let isSameItem = (currentItemID == lastPublishedNowPlaying.itemID)
+        let isSameRate = (currentRate == lastPublishedNowPlaying.rate)
+        let isSameDuration = (currentDuration == lastPublishedNowPlaying.duration)
+
+        if isSameItem && isSameRate && isSameDuration && elapsedDelta < 0.5 {
+            npSuppressedCount += 1
+            print("[AE-012] Suppressed duplicate progress update (suppressed=\(npSuppressedCount))")
+            return
+        }
+
         var info = nowPlayingInfo
-        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = progress
-        info[MPNowPlayingInfoPropertyPlaybackRate] = (playbackState == .playing) ? 1.0 : 0.0
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentElapsed
+        info[MPNowPlayingInfoPropertyPlaybackRate] = currentRate
         nowPlayingCenter.nowPlayingInfo = info
         nowPlayingInfo = info
+
+        // Update snapshot and telemetry
+        lastPublishedNowPlaying = NowPlayingSnapshot(elapsed: currentElapsed, rate: currentRate, itemID: currentItemID, duration: currentDuration)
+        npPublishCount += 1
+        print("[AE-012] Published progress update (count=\(npPublishCount))")
+
         updateRemoteCommandAvailability()
     }
     
