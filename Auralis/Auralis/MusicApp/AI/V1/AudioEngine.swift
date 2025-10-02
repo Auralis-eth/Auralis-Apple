@@ -197,6 +197,38 @@ class AudioEngine: ObservableObject {
         case error
     }
     
+    // AE-011: Centralized state management and debounce
+    private var lastCommandTimestamp: CFAbsoluteTime = 0
+    private let commandDebounceInterval: TimeInterval = 0.3
+
+    private func shouldDebounceCommands() -> Bool {
+        let now = CFAbsoluteTimeGetCurrent()
+        if now - lastCommandTimestamp < commandDebounceInterval {
+            print("[AE-011] Debounced rapid command (\(now - lastCommandTimestamp)s < \(commandDebounceInterval)s)")
+            return true
+        }
+        lastCommandTimestamp = now
+        return false
+    }
+
+    // Source of truth for playback state transitions
+    private func commitPlaybackState(_ newState: PlaybackState, reason: String) {
+        if playbackState == newState {
+            print("[AE-011] No-op transition: \(playbackState) -> \(newState) [reason=\(reason)]")
+            return
+        }
+        print("[AE-011] Transition: \(playbackState) -> \(newState) [reason=\(reason)]")
+        playbackState = newState
+        switch newState {
+        case .playing:
+            startNowPlayingTimer()
+        case .paused, .stopped, .loading, .error:
+            stopNowPlayingTimer()
+        }
+        updateRemoteCommandAvailability()
+        updateNowPlayingMetadata()
+    }
+    
     struct Track: Identifiable, Codable {
         var id = UUID()
         var title: String?
@@ -246,6 +278,7 @@ class AudioEngine: ObservableObject {
         center.playCommand.addTarget { [weak self] _ in
             guard let self else { return .commandFailed }
             Task { @MainActor in
+                guard !self.shouldDebounceCommands() else { return }
                 if self.playbackState == .paused || self.playbackState == .stopped {
                     try? self.resume()
                 } else if self.playbackState == .loading {
@@ -262,6 +295,7 @@ class AudioEngine: ObservableObject {
         center.pauseCommand.addTarget { [weak self] _ in
             guard let self else { return .commandFailed }
             Task { @MainActor in
+                guard !self.shouldDebounceCommands() else { return }
                 self.pause()
             }
             return .success
@@ -272,6 +306,7 @@ class AudioEngine: ObservableObject {
         center.togglePlayPauseCommand.addTarget { [weak self] _ in
             guard let self else { return .commandFailed }
             Task { @MainActor in
+                guard !self.shouldDebounceCommands() else { return }
                 if self.playbackState == .playing { self.pause() } else { try? self.resume() }
             }
             return .success
@@ -1219,7 +1254,7 @@ class AudioEngine: ObservableObject {
     
     // MARK: - Audio Loading and Playback
     private func loadAudio(from url: URL, title: String?, artist: String?, imageUrl: String?, loadID: UUID) async throws {
-        playbackState = .loading
+        commitPlaybackState(.loading, reason: "loadAudio begin")
         
         guard loadID == activeLoadID else { throw CancellationError() }
         
@@ -1243,11 +1278,11 @@ class AudioEngine: ObservableObject {
             audioFile = try AVAudioFile(forReading: localURL)
             seekPosition = 0
             pausedAt = 0
-            playbackState = .stopped
+            commitPlaybackState(.stopped, reason: "loadAudio prepared")
             currentTrack = Track(title: title, artist: artist, duration: self.duration, imageUrl: imageUrl)
             updateNowPlayingMetadata()
         } catch {
-            playbackState = .error
+            commitPlaybackState(.error, reason: "loadAudio failed")
             lastError = .fileLoadFailed
             throw AudioEngineError.fileLoadFailed
         }
@@ -1256,9 +1291,15 @@ class AudioEngine: ObservableObject {
     public func play() throws {
         cancelNextPreload()
         
+        // AE-011: Idempotent guard
+        if playbackState == .playing {
+            print("[AE-011] play() no-op: already playing")
+            return
+        }
+        
         // If no audio file is loaded, try to advance to the next queued item
         guard let audioFile = audioFile else {
-            playbackState = .loading
+            commitPlaybackState(.loading, reason: "play() with no file; advancing to next")
             Task { @MainActor in
                 await self.playNext()
             }
@@ -1267,12 +1308,9 @@ class AudioEngine: ObservableObject {
 
         if isTesting {
             // In test mode, simulate immediate playback without relying on AVAudioEngine runtime
-            playbackState = .playing
             currentMixer.volume = 1.0
             nextMixer.volume = 0.0
-            startNowPlayingTimer()
-            updateRemoteCommandAvailability()
-            updateNowPlayingMetadata()
+            commitPlaybackState(.playing, reason: "play() test mode")
             scheduleCrossfadeIfPossible()
             self.triggerPreloadForNextIfNeeded()
             return
@@ -1290,7 +1328,7 @@ class AudioEngine: ObservableObject {
 
         // If we've reached the end or there's nothing to play, try next item
         guard remainingFrames > 0 else {
-            playbackState = .loading
+            commitPlaybackState(.loading, reason: "play() reached end; advancing to next")
             Task { @MainActor in
                 await self.playNext()
             }
@@ -1305,7 +1343,7 @@ class AudioEngine: ObservableObject {
                     return
                 }
                 if self.playbackState == .playing {
-                    self.playbackState = .stopped
+                    self.commitPlaybackState(.stopped, reason: "segment completed")
                     // Auto-advance to next item in the next queue if available
                     await self.playNext()
                 }
@@ -1316,32 +1354,33 @@ class AudioEngine: ObservableObject {
         // Ensure path gain: enable active mixer, mute inactive
         currentMixer.volume = 1.0
         nextMixer.volume = 0.0
-        playbackState = .playing
-        startNowPlayingTimer()
-        updateRemoteCommandAvailability()
-        updateNowPlayingMetadata()
+        commitPlaybackState(.playing, reason: "play() scheduled and started")
         scheduleCrossfadeIfPossible()
         self.triggerPreloadForNextIfNeeded()
     }
     
     // Fixed pause implementation - AVAudioPlayerNode doesn't have pause()
     public func pause() {
-        let wasPlaying = playbackState == .playing
-        if wasPlaying {
-            pausedAt = currentTime
-            playerNodeA.stop()
-            playerNodeB.stop()
-            playbackState = .paused
-            stopNowPlayingTimer()
-            Task { @MainActor in await cancelAllRampTimers() }
+        // AE-011: Idempotent pause
+        guard playbackState == .playing else {
+            print("[AE-011] pause() no-op: state=\(playbackState)")
+            updateRemoteCommandAvailability()
+            updateNowPlayingMetadata()
+            return
         }
-        // Always refresh availability and metadata when pause() is invoked, even if it was a no-op
-        updateRemoteCommandAvailability()
-        updateNowPlayingMetadata()
+        pausedAt = currentTime
+        playerNodeA.stop()
+        playerNodeB.stop()
+        commitPlaybackState(.paused, reason: "pause() invoked")
+        Task { @MainActor in await cancelAllRampTimers() }
     }
     
     public func resume() throws {
-        guard playbackState == .paused else { return }
+        // AE-011: Idempotent resume
+        guard playbackState == .paused else {
+            print("[AE-011] resume() no-op: state=\(playbackState)")
+            return
+        }
         seekPosition = pausedAt
         try play()
     }
@@ -1353,11 +1392,8 @@ class AudioEngine: ObservableObject {
         mixerB.volume = 0.0
         seekPosition = 0
         pausedAt = 0
-        playbackState = .stopped
-        stopNowPlayingTimer()
+        commitPlaybackState(.stopped, reason: "stop() invoked")
         Task { @MainActor in await cancelAllRampTimers() }
-        updateRemoteCommandAvailability()
-        updateNowPlayingMetadata()
     }
     
     // MARK: - Fixed Seek Functionality
@@ -1384,7 +1420,7 @@ class AudioEngine: ObservableObject {
             try play()
         } else {
             // Only update progress/availability immediately if not resuming playback
-            updateNowPlayingProgress()
+            updateNowPlayingMetadata()
             updateRemoteCommandAvailability()
         }
     }
@@ -1437,13 +1473,10 @@ class AudioEngine: ObservableObject {
                     self.pausedAt = 0
                     self.currentNFT = next
                     self.currentTrack = Track(title: next.name, artist: next.artistName, duration: self.duration, imageUrl: next.image?.secureUrl ?? next.image?.originalUrl)
-                    self.playbackState = .playing
-                    self.updateRemoteCommandAvailability()
-                    self.updateNowPlayingMetadata()
-                    self.startNowPlayingTimer()
+                    self.commitPlaybackState(.playing, reason: "playNext() test path committed")
                     return
                 } catch {
-                    self.playbackState = .error
+                    self.commitPlaybackState(.error, reason: "playNext() test path error")
                     self.lastError = .fileLoadFailed
                     return
                 }
@@ -1548,7 +1581,7 @@ class AudioEngine: ObservableObject {
         } catch {
             // If the error is a cancellation (stale load), do nothing; a newer request will handle playback
             if error is CancellationError { return }
-            playbackState = .error
+            commitPlaybackState(.error, reason: "playPrevious() failed")
             lastError = (error as? AudioEngineError) ?? .fileLoadFailed
             // If playback fails, attempt the previous again if available
             await playPreviousSafely()
@@ -1571,7 +1604,7 @@ class AudioEngine: ObservableObject {
         let loadID = await beginNewLoad()
 
         guard let url = nft.musicURL else {
-            playbackState = .error
+            commitPlaybackState(.error, reason: "beginNewLoad(nft:) missing url")
             lastError = .fileLoadFailed
             return
         }
@@ -1583,7 +1616,7 @@ class AudioEngine: ObservableObject {
             duration: 0,
             imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl
         )
-        self.playbackState = .loading
+        self.commitPlaybackState(.loading, reason: "beginNewLoad(nft:) queued")
 
         // Detach heavy work off the main actor
         let task = Task.detached(priority: .userInitiated) { [weak self] in
@@ -1622,7 +1655,7 @@ class AudioEngine: ObservableObject {
 
                     // Start playback now that file is ready
                     do { try self.play() } catch {
-                        self.playbackState = .error
+                        self.commitPlaybackState(.error, reason: "beginNewLoad(nft:) play failed")
                         self.lastError = (error as? AudioEngineError) ?? .fileLoadFailed
                     }
                 }
@@ -1632,7 +1665,7 @@ class AudioEngine: ObservableObject {
                 // Error: only report if still current
                 await MainActor.run {
                     guard loadID == self.activeLoadID else { return }
-                    self.playbackState = .error
+                    self.commitPlaybackState(.error, reason: "beginNewLoad(nft:) failed")
                     self.lastError = (error as? AudioEngineError) ?? .fileLoadFailed
                 }
             }
@@ -1649,7 +1682,7 @@ class AudioEngine: ObservableObject {
             // Single-flight: cancel previous and establish new active ID
             let loadID = await beginNewLoad()
             guard let url = nft.musicURL else {
-                self.playbackState = .error
+                self.commitPlaybackState(.error, reason: "loadAndPlay test path missing url")
                 self.lastError = .fileLoadFailed
                 throw AudioEngineError.fileLoadFailed
             }
@@ -1659,7 +1692,7 @@ class AudioEngine: ObservableObject {
                 do {
                     localURL = try await self.audioCache.localURL(forRemote: url)
                 } catch {
-                    self.playbackState = .error
+                    self.commitPlaybackState(.error, reason: "loadAndPlay test path download failure")
                     self.lastError = .downloadFailed
                     throw error
                 }
@@ -1678,7 +1711,7 @@ class AudioEngine: ObservableObject {
                 self.currentTrack = Track(title: nft.name, artist: nft.artistName, duration: self.duration, imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl)
                 try self.play()
             } catch {
-                self.playbackState = .error
+                self.commitPlaybackState(.error, reason: "loadAndPlay test path file open failure")
                 self.lastError = .fileLoadFailed
                 throw error
             }
@@ -1829,7 +1862,7 @@ class AudioEngine: ObservableObject {
                 self.nextMixer.volume = 0.0
                 self.nextNode.stop()
                 let startTime = AVAudioTime(hostTime: fadeStartHostTime)
-                self.nextNode.scheduleFile(nextFile, at: startTime, completionHandler: nil)
+                await self.nextNode.scheduleFile(nextFile, at: startTime)
                 self.nextNode.play()
 
                 // Cancel any prior timers and schedule the fade start and flip using hostTime
@@ -1867,10 +1900,7 @@ class AudioEngine: ObservableObject {
                         self.pausedAt = 0
                         self.currentNFT = next
                         self.currentTrack = Track(title: next.name, artist: next.artistName, duration: self.duration, imageUrl: next.image?.secureUrl ?? next.image?.originalUrl)
-                        self.playbackState = .playing
-                        self.updateRemoteCommandAvailability()
-                        self.updateNowPlayingMetadata()
-                        self.startNowPlayingTimer()
+                        self.commitPlaybackState(.playing, reason: "crossfade flip committed")
                         self.suppressAutoAdvanceOnce = false
                         self.preloadedNext = nil
                     }
@@ -1899,7 +1929,7 @@ class AudioEngine: ObservableObject {
         } else {
             self.currentTrack = Track(title: "Test Track", artist: "Test Artist", duration: self.duration, imageUrl: nil)
         }
-        self.playbackState = .stopped
+        self.commitPlaybackState(.stopped, reason: "injectAudioFileForTesting")
         updateRemoteCommandAvailability()
         updateNowPlayingMetadata()
     }
