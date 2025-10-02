@@ -544,7 +544,7 @@ class AudioEngine: ObservableObject {
             let currentElapsed = progress
             let currentRate = (playbackState == .playing) ? 1.0 : 0.0
             let currentItemID = currentTrack.id
-            let currentDuration = currentTrack.duration ?? duration
+            let currentDuration = currentTrack.duration
             lastPublishedNowPlaying = NowPlayingSnapshot(elapsed: currentElapsed, rate: currentRate, itemID: currentItemID, duration: currentDuration)
 
             nowPlayingCenter.nowPlayingInfo = info
@@ -1456,6 +1456,8 @@ class AudioEngine: ObservableObject {
         pausedAt = 0
         commitPlaybackState(.stopped, reason: "stop() invoked")
         Task { @MainActor in await cancelAllRampTimers() }
+        // AE-013: Deactivate session when fully stopped
+        do { try session.setActive(false, options: [.notifyOthersOnDeactivation]) } catch { }
     }
     
     // MARK: - Fixed Seek Functionality
@@ -1806,66 +1808,90 @@ class AudioEngine: ObservableObject {
         return Double(audioFile.length) / audioFile.processingFormat.sampleRate
     }
     
-    // MARK: - Resource Cleanup
-    deinit {
-        // Capture dependencies strongly before scheduling async cleanup to avoid [weak self] becoming nil
-        var capturedCenter = nowPlayingCenter
-        let capturedTimer = nowPlayingUpdateTimer
-        let capturedSession = self.session
-        let capturedRemoteCommands = self.remoteCommands
-        let shouldCleanupRemoteCommands = !self.remoteCommandsDisabled
+    // MARK: - Explicit Teardown
+    public func shutdown() {
+        print("[AE-013] Shutdown started")
+        // Timers: progress + ramps/crossfade
+        stopNowPlayingTimer()
+        Task { @MainActor in await cancelAllRampTimers() }
 
-        // Cancel any in-flight debounce task
+        // Debounce task
         routeChangeDebounceTask?.cancel()
         routeChangeDebounceTask = nil
 
-        // Cancel ramp timers on main queue
-        DispatchQueue.main.async { [weak self] in
-            self?.cancelAllRampTimers()
-        }
-
-        // Clear Now Playing info and stop timer on the main queue using captured references
-        DispatchQueue.main.async {
-            capturedTimer?.invalidate()
-            capturedCenter.nowPlayingInfo = nil
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-        }
-
-        NotificationCenter.default.removeObserver(self)
-        currentLoadTask?.cancel()
-        nextPreloadTask?.cancel()
+        // Loading/preload tasks and tokens
+        currentLoadTask?.cancel(); currentLoadTask = nil
+        cancelNextPreload()
         preloadedNext = nil
-        
-        if audioEngine.isRunning {
-            audioEngine.stop()
+        activeLoadID = UUID() // invalidate any in-flight metadata/artwork updates
+        artworkLoadID = UUID()
+
+        // Observers
+        NotificationCenter.default.removeObserver(self)
+
+        // Remote commands: deregister and disable
+        if remoteCommandsRegistered {
+            remoteCommands.playCommand.removeTarget(nil)
+            remoteCommands.pauseCommand.removeTarget(nil)
+            remoteCommands.togglePlayPauseCommand.removeTarget(nil)
+            remoteCommands.nextTrackCommand.removeTarget(nil)
+            remoteCommands.previousTrackCommand.removeTarget(nil)
+            remoteCommands.changePlaybackPositionCommand.removeTarget(nil)
+            remoteCommands.skipForwardCommand.removeTarget(nil)
+            remoteCommands.skipBackwardCommand.removeTarget(nil)
+            // Disable commands to avoid stale controls
+            remoteCommands.playCommand.isEnabled = false
+            remoteCommands.pauseCommand.isEnabled = false
+            remoteCommands.togglePlayPauseCommand.isEnabled = false
+            remoteCommands.nextTrackCommand.isEnabled = false
+            remoteCommands.previousTrackCommand.isEnabled = false
+            remoteCommands.changePlaybackPositionCommand.isEnabled = false
+            remoteCommands.skipForwardCommand.isEnabled = false
+            remoteCommands.skipBackwardCommand.isEnabled = false
+            remoteCommandsRegistered = false
         }
 
+        // Stop nodes and engine
+        playerNodeA.stop()
+        playerNodeB.stop()
         mixerA.volume = 0.0
         mixerB.volume = 0.0
-
+        audioEngine.pause()
+        audioEngine.stop()
+        audioEngine.reset()
+        audioEngine.disconnectNodeOutput(playerNodeA)
+        audioEngine.disconnectNodeOutput(playerNodeB)
+        audioEngine.disconnectNodeOutput(mixerA)
+        audioEngine.disconnectNodeOutput(mixerB)
         audioEngine.detach(playerNodeA)
         audioEngine.detach(playerNodeB)
         audioEngine.detach(mixerA)
         audioEngine.detach(mixerB)
 
-        // Deactivate the session using the captured reference
+        // Clear Now Playing and per-track state
+        nowPlayingCenter.nowPlayingInfo = nil
+        nowPlayingInfo = [:]
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        audioFile = nil
+        currentNFT = nil
+        currentTrack = nil
+        previousAudio.tracks.removeAll()
+        nextAudio.tracks.removeAll()
+
+        // Deactivate session; notify others
         do {
-            try capturedSession.setActive(false)
+            try session.setActive(false, options: [.notifyOthersOnDeactivation])
         } catch {
-            // Log cleanup error but don't throw in deinit
+            // Best-effort; ignore errors
         }
 
-        // Remove remote command targets if they were registered, using captured references
-        if shouldCleanupRemoteCommands {
-            capturedRemoteCommands.playCommand.removeTarget(nil)
-            capturedRemoteCommands.pauseCommand.removeTarget(nil)
-            capturedRemoteCommands.togglePlayPauseCommand.removeTarget(nil)
-            capturedRemoteCommands.nextTrackCommand.removeTarget(nil)
-            capturedRemoteCommands.previousTrackCommand.removeTarget(nil)
-            capturedRemoteCommands.changePlaybackPositionCommand.removeTarget(nil)
-            capturedRemoteCommands.skipForwardCommand.removeTarget(nil)
-            capturedRemoteCommands.skipBackwardCommand.removeTarget(nil)
-        }
+        needsEngineStart = true
+        print("[AE-013] Shutdown completed")
+    }
+
+    // MARK: - Resource Cleanup
+    @MainActor deinit {
+        shutdown()
     }
 
     
