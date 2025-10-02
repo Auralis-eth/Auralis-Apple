@@ -77,6 +77,28 @@ actor AudioFileCache {
         return try existingCachedURL(forKey: key, in: cacheDir)
     }
 
+    /// AE-003: Trim memory/disk usage aggressively (LRU eviction beyond normal cap)
+    func trimMemoryAggressively() {
+        do {
+            let dir = try cacheDirectory()
+            trimCacheAggressively(in: dir)
+        } catch { /* ignore */ }
+    }
+
+    /// AE-003: Clear all cached items (files + metadata)
+    func clearAll() {
+        do {
+            let dir = try cacheDirectory()
+            let fm = FileManager.default
+            if let items = try? fm.contentsOfDirectory(atPath: dir.path) {
+                for name in items {
+                    let url = dir.appendingPathComponent(name)
+                    try? fm.removeItem(at: url)
+                }
+            }
+        } catch { /* ignore */ }
+    }
+
     // MARK: - Internals
 
     private struct CacheMetadata: Codable {
@@ -223,6 +245,41 @@ actor AudioFileCache {
                 try? fm.removeItem(at: metaURL)
                 total -= entry.size
                 if total <= maxCacheBytes { break }
+            } catch { continue }
+        }
+    }
+
+    // AE-003: Aggressive trim that frees until we are at ~70% of max
+    private func trimCacheAggressively(in cacheDir: URL) {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(at: cacheDir, includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey, .fileSizeKey], options: [.skipsHiddenFiles]) else { return }
+
+        var files: [(url: URL, size: Int64, date: Date)] = []
+        var total: Int64 = 0
+
+        for case let fileURL as URL in enumerator {
+            do {
+                let values = try fileURL.resourceValues(forKeys: [.isDirectoryKey, .contentModificationDateKey, .fileSizeKey])
+                if values.isDirectory == true { continue }
+                if fileURL.pathExtension == metadataExtension { continue }
+                let size = Int64(values.fileSize ?? 0)
+                let date = values.contentModificationDate ?? Date.distantPast
+                files.append((fileURL, size, date))
+                total += size
+            } catch { continue }
+        }
+
+        // Target 70% of max as a post-trim watermark
+        let target = Int64(Double(maxCacheBytes) * 0.7)
+        guard total > target else { return }
+        files.sort { $0.date < $1.date }
+        for entry in files {
+            do {
+                try fm.removeItem(at: entry.url)
+                let metaURL = metadataURL(forFileURL: entry.url)
+                try? fm.removeItem(at: metaURL)
+                total -= entry.size
+                if total <= target { break }
             } catch { continue }
         }
     }

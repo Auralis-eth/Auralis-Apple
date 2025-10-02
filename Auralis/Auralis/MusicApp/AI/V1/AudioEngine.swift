@@ -70,6 +70,9 @@ struct DefaultRemoteCommands: RemoteCommandCentering {
 protocol AudioFileCaching {
     func cachedURL(forRemote url: URL) async throws -> URL
     func localURL(forRemote url: URL) async throws -> URL
+    // AE-003: Memory pressure hooks (no-op in default impl)
+    func trimMemoryAggressively()
+    func clearAll()
 }
 
 struct DefaultAudioFileCache: AudioFileCaching {
@@ -83,6 +86,9 @@ struct DefaultAudioFileCache: AudioFileCaching {
     func localURL(forRemote url: URL) async throws -> URL {
         try await AudioFileCache.shared.localURL(forRemote: url)
     }
+    // AE-003 default no-ops replaced with calls to AudioFileCache actor
+    func trimMemoryAggressively() { Task { await AudioFileCache.shared.trimMemoryAggressively() } }
+    func clearAll() { Task { await AudioFileCache.shared.clearAll() } }
 }
 
 @MainActor
@@ -196,6 +202,26 @@ class AudioEngine: ObservableObject {
         case loading
         case error
     }
+    
+    // AE-001: Retry / circuit breaker
+    private let maxLoadRetries: Int = 2
+    private let baseBackoffSeconds: TimeInterval = 0.75
+    private var consecutiveFailureCount: Int = 0
+    private let circuitBreakerThreshold: Int = 5
+
+    // AE-001: user-visible notification name
+    static let trackFailedNotification = Notification.Name("AudioEngine.trackFailed")
+
+    // AE-001: recent error log (for QA/ops)
+    private var recentLoadErrors: [String] = [] // capped in code
+    private let recentErrorsCap = 50
+
+    // AE-004: Deferred session deactivation timer
+    private var sessionDeactivationTimer: Timer? = nil
+
+    // AE-003: Memory pressure
+    private var memoryWarningObserver: NSObjectProtocol? = nil
+    private var thermalStateObserver: NSObjectProtocol? = nil
     
     // AE-011: Centralized state management and debounce
     private var lastCommandTimestamp: CFAbsoluteTime = 0
@@ -405,6 +431,34 @@ class AudioEngine: ObservableObject {
                                                name: UIApplication.didEnterBackgroundNotification,
                                                object: nil)
         #endif
+    }
+
+    // AE-003: Memory & thermal observers
+    private func setupMemoryAndThermalObservers() {
+        #if os(iOS)
+        memoryWarningObserver = NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.handleMemoryPressure()
+        }
+        thermalStateObserver = NotificationCenter.default.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            let state = ProcessInfo.processInfo.thermalState
+            if state == .serious || state == .critical {
+                self.handleMemoryPressure()
+            }
+        }
+        #endif
+    }
+
+    private func handleMemoryPressure() {
+        // Trim preloads and caches aggressively
+        cancelNextPreload()
+        preloadedNext = nil
+        audioCache.trimMemoryAggressively()
+        // If paused for a while, consider releasing current file handles
+        if playbackState != .playing {
+            audioFile = nil
+        }
     }
 
     @objc private func handleWillEnterForeground() {
@@ -677,6 +731,42 @@ class AudioEngine: ObservableObject {
         return id
     }
     
+    // AE-001: Retry & backoff loading helper
+    @MainActor
+    private func loadAndPlayWithRetry(nft: NFT) async {
+        consecutiveFailureCount = min(consecutiveFailureCount, circuitBreakerThreshold) // clamp
+        var attempt = 0
+        while attempt <= maxLoadRetries {
+            let currentAttempt = attempt
+            do {
+                try await loadAndPlay(nft: nft)
+                // success: reset counters and return
+                consecutiveFailureCount = 0
+                return
+            } catch is CancellationError {
+                // A newer request superseded this one; just return
+                return
+            } catch {
+                consecutiveFailureCount += 1
+                let desc = (error as NSError).localizedDescription
+                recentLoadErrors.append("attempt=\(currentAttempt) error=\(desc)")
+                if recentLoadErrors.count > recentErrorsCap { recentLoadErrors.removeFirst(recentLoadErrors.count - recentErrorsCap) }
+                // Circuit breaker
+                if consecutiveFailureCount >= circuitBreakerThreshold { break }
+                // Backoff and retry if attempts remain
+                if currentAttempt < maxLoadRetries {
+                    let backoff = baseBackoffSeconds * pow(2.0, Double(currentAttempt))
+                    try? await Task.sleep(nanoseconds: UInt64(backoff * 1_000_000_000))
+                    attempt += 1
+                    continue
+                }
+                break
+            }
+        }
+        // Notify user on failure
+        NotificationCenter.default.post(name: AudioEngine.trackFailedNotification, object: nil)
+    }
+    
     init(testing: Bool = false,
          disableRemoteCommands: Bool = true,
          disableTimers: Bool = true,
@@ -707,6 +797,7 @@ class AudioEngine: ObservableObject {
         if !isTesting {
             setupMediaServicesNotifications()
             setupAppLifecycleObservers()
+            setupMemoryAndThermalObservers()
         }
     }
     
@@ -807,6 +898,25 @@ class AudioEngine: ObservableObject {
             }
         }
     }
+    
+    // AE-004: Defer session deactivation
+    private func scheduleDeferredSessionDeactivation(delay: TimeInterval = 45) {
+        guard !timersDisabled else { return }
+        sessionDeactivationTimer?.invalidate()
+        sessionDeactivationTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            // Only deactivate if not playing at the time of firing
+            if self.playbackState != .playing {
+                do { try self.session.setActive(false, options: [.notifyOthersOnDeactivation]) } catch { }
+            }
+        }
+        RunLoop.main.add(sessionDeactivationTimer!, forMode: .common)
+    }
+
+    private func cancelDeferredSessionDeactivation() {
+        sessionDeactivationTimer?.invalidate()
+        sessionDeactivationTimer = nil
+    }
 
     // MARK: - Precise Crossfade Ramping (AE-007)
     // High-priority queue for volume ramps and crossfade coordination
@@ -819,7 +929,7 @@ class AudioEngine: ObservableObject {
 
     // Cancel and clear all ramp timers (call on main actor when mutating mixer volumes/state)
     @MainActor
-    private func cancelAllRampTimers() {
+    private func cancelAllRampTimers() async {
         for (_, t) in rampTimers { t.cancel() }
         rampTimers.removeAll()
         crossfadeStartTimer?.cancel(); crossfadeStartTimer = nil
@@ -906,16 +1016,23 @@ class AudioEngine: ObservableObject {
     func performCrossfade(duration: TimeInterval,
                           from from: AVAudioMixerNode,
                           to to: AVAudioMixerNode) {
-        // Clamp duration and use background ramp timers
+        // AE-002: Use native ramp if available, else fall back to timers
         let d = max(0.05, min(duration, 10.0))
         if timersDisabled {
             to.volume = crossfadePeakGain
             from.volume = 0.0
             return
         }
-        // Start ramps concurrently, executed on the ramp queue with main-thread volume writes
-        rampMixer(to, to: crossfadePeakGain, duration: d)
-        rampMixer(from, to: 0.0, duration: d)
+        // Prefer native ramp if available via KVC to avoid main-thread timers
+        if to.responds(to: Selector(("setVolume:rampDuration:"))) && from.responds(to: Selector(("setVolume:rampDuration:"))) {
+            // This selector is not public API in Swift; guard with responds(to:) and fall back if not present.
+            // Use perform to avoid compile-time errors if selector is unavailable on some OS versions.
+            _ = (to as AnyObject).perform(Selector(("setVolume:rampDuration:")), with: crossfadePeakGain as NSNumber, with: d as NSNumber)
+            _ = (from as AnyObject).perform(Selector(("setVolume:rampDuration:")), with: 0.0 as NSNumber, with: d as NSNumber)
+        } else {
+            rampMixer(to, to: crossfadePeakGain, duration: d)
+            rampMixer(from, to: 0.0, duration: d)
+        }
     }
     
     // MARK: - Audio Interruption Handling
@@ -992,8 +1109,7 @@ class AudioEngine: ObservableObject {
         // Log for QA
         logRouteChange(reason: reason, previous: previousRoute, current: session.currentRoute)
 
-        // Mark engine to require restart on next play
-        needsEngineStart = true
+        // Removed unconditional needsEngineStart line to prevent unnecessary full resets
 
         // Debounce: cancel any in-flight handler and schedule a new one
         routeChangeDebounceTask?.cancel()
@@ -1006,6 +1122,7 @@ class AudioEngine: ObservableObject {
                 switch reason {
                 case .oldDeviceUnavailable:
                     // Already paused immediately; perform conservative reconfigure only
+                    self.needsEngineStart = true
                     self.reaffirmRouteAndResume()
                 case .categoryChange, .newDeviceAvailable, .routeConfigurationChange, .override, .wakeFromSleep, .noSuitableRouteForCategory, .unknown:
                     // Simulator guard to avoid churn
@@ -1017,8 +1134,10 @@ class AudioEngine: ObservableObject {
                     }
                     self.lastRouteChangeHandledAt = now
                     #endif
+                    self.needsEngineStart = true
                     self.reaffirmRouteAndResume()
                 @unknown default:
+                    self.needsEngineStart = true
                     self.reaffirmRouteAndResume()
                 }
             }
@@ -1120,6 +1239,11 @@ class AudioEngine: ObservableObject {
             return
         }
 
+        // Only rebuild if output format changed in sample rate or channel count
+        let currentOut = audioEngine.outputNode.inputFormat(forBus: 0)
+        let mainOut = audioEngine.mainMixerNode.outputFormat(forBus: 0)
+        let formatChanged = (currentOut.sampleRate != mainOut.sampleRate) || (currentOut.channelCount != mainOut.channelCount)
+
         // If engine isn't running, start it; if it is, we can leave it as-is
         if !audioEngine.isRunning {
             do {
@@ -1130,6 +1254,8 @@ class AudioEngine: ObservableObject {
                 fullReset()
                 return
             }
+        } else if formatChanged {
+            reconfigureForCurrentRoute()
         }
 
         // Re-apply mixer volumes in case they were affected by the route change
@@ -1352,6 +1478,7 @@ class AudioEngine: ObservableObject {
     
     public func play() throws {
         cancelNextPreload()
+        cancelDeferredSessionDeactivation()
         
         // AE-011: Idempotent guard
         if playbackState == .playing {
@@ -1406,6 +1533,8 @@ class AudioEngine: ObservableObject {
                 }
                 if self.playbackState == .playing {
                     self.commitPlaybackState(.stopped, reason: "segment completed")
+                    // AE-003: Release file handle before advancing
+                    self.audioFile = nil
                     // Auto-advance to next item in the next queue if available
                     await self.playNext()
                 }
@@ -1443,6 +1572,7 @@ class AudioEngine: ObservableObject {
             print("[AE-011] resume() no-op: state=\(playbackState)")
             return
         }
+        cancelDeferredSessionDeactivation()
         seekPosition = pausedAt
         try play()
     }
@@ -1456,8 +1586,8 @@ class AudioEngine: ObservableObject {
         pausedAt = 0
         commitPlaybackState(.stopped, reason: "stop() invoked")
         Task { @MainActor in await cancelAllRampTimers() }
-        // AE-013: Deactivate session when fully stopped
-        do { try session.setActive(false, options: [.notifyOthersOnDeactivation]) } catch { }
+        // AE-004: Defer session deactivation to avoid glitches
+        scheduleDeferredSessionDeactivation()
     }
     
     // MARK: - Fixed Seek Functionality
@@ -1600,20 +1730,19 @@ class AudioEngine: ObservableObject {
         }
         if let current = currentNFT { previousAudio.tracks.append(current) }
         updateRemoteCommandAvailability()
-        do {
-            try await loadAndPlay(nft: next)
-        } catch {
-            if error is CancellationError { return }
-            await playNextSafely()
-        }
+        await loadAndPlayWithRetry(nft: next)
     }
 
     @MainActor
     private func playNextSafely() async {
-        if nextAudio.tracks.isEmpty {
+        if nextAudio.tracks.isEmpty || consecutiveFailureCount >= circuitBreakerThreshold {
             stop()
+            return
+        }
+        if let next = dequeueNextTrackRespectingModes() {
+            await loadAndPlayWithRetry(nft: next)
         } else {
-            await playNext()
+            stop()
         }
     }
 
@@ -1639,26 +1768,17 @@ class AudioEngine: ObservableObject {
         }
         updateRemoteCommandAvailability()
 
-        do {
-            // loadAndPlay auto-starts playback; no need to call play() again
-            try await loadAndPlay(nft: previous)
-        } catch {
-            // If the error is a cancellation (stale load), do nothing; a newer request will handle playback
-            if error is CancellationError { return }
-            commitPlaybackState(.error, reason: "playPrevious() failed")
-            lastError = (error as? AudioEngineError) ?? .fileLoadFailed
-            // If playback fails, attempt the previous again if available
-            await playPreviousSafely()
-        }
+        await loadAndPlayWithRetry(nft: previous)
     }
 
     @MainActor
     private func playPreviousSafely() async {
-        if previousAudio.tracks.isEmpty {
+        if previousAudio.tracks.isEmpty || consecutiveFailureCount >= circuitBreakerThreshold {
             stop()
-        } else {
-            await playPrevious()
+            return
         }
+        let previous = previousAudio.tracks.removeLast()
+        await loadAndPlayWithRetry(nft: previous)
     }
     
     // Added beginNewLoad(nft:) overload for actual load and play
@@ -1828,6 +1948,11 @@ class AudioEngine: ObservableObject {
 
         // Observers
         NotificationCenter.default.removeObserver(self)
+        if let obs = memoryWarningObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = thermalStateObserver { NotificationCenter.default.removeObserver(obs) }
+        memoryWarningObserver = nil
+        thermalStateObserver = nil
+        cancelDeferredSessionDeactivation()
 
         // Remote commands: deregister and disable
         if remoteCommandsRegistered {
@@ -1889,6 +2014,14 @@ class AudioEngine: ObservableObject {
         print("[AE-013] Shutdown completed")
     }
 
+    // AE-003: Manual clear for QA/debug
+    public func clearCachesAndRelease() {
+        cancelNextPreload()
+        preloadedNext = nil
+        audioFile = nil
+        audioCache.clearAll()
+    }
+
     // MARK: - Resource Cleanup
     @MainActor deinit {
         shutdown()
@@ -1896,6 +2029,28 @@ class AudioEngine: ObservableObject {
 
     
     // MARK: - Crossfade Helpers
+    
+    private func computeCrossfadeTuning() -> (safetyPad: TimeInterval, capFraction: Double) {
+        #if os(iOS)
+        let thermal = ProcessInfo.processInfo.thermalState
+        switch thermal {
+        case .nominal:
+            return (0.05, 0.30) // 50 ms safety, 30% cap
+        case .fair:
+            return (0.08, 0.32)
+        case .serious:
+            return (0.12, 0.35)
+        case .critical:
+            return (0.15, 0.40) // 150 ms safety, 40% cap
+        @unknown default:
+            return (0.08, 0.32)
+        }
+        #else
+        // On non-iOS platforms, use conservative defaults
+        return (0.08, 0.32)
+        #endif
+    }
+    
     private func scheduleCrossfadeIfPossible() {
         // If there's no upcoming track or no current file, do nothing
         guard let next = self.peekNextTrackRespectingModes() else { return }
@@ -1909,13 +2064,22 @@ class AudioEngine: ObservableObject {
         let remainingFrames = max(0, audioFile.length - startFrame)
         let remainingTime = Double(remainingFrames) / sampleRate
 
+        // Account for hardware presentation latency
+        let latency = audioEngine.outputNode.presentationLatency
+
+        // Special-case short tracks (<7s): avoid long fades that risk silence
+        if self.duration < 7.0 {
+            return // play to end without crossfade
+        }
+
         // Auto-cap fade: min(configured, 30% of track length)
-        let cappedFade = min(crossfadeDuration, max(0.0, 0.3 * (Double(audioFile.length) / sampleRate)))
+        let (_, capFraction) = computeCrossfadeTuning()
+        let cappedFade = min(crossfadeDuration, max(0.0, capFraction * (Double(audioFile.length) / sampleRate)))
         let overlap = min(cappedFade, max(0.0, remainingTime))
         guard overlap > 0 else { return }
 
-        let safety = crossfadeSafetyPad
-        let secondsUntilStart = max(0.0, remainingTime - overlap - safety)
+        let (safety, _) = computeCrossfadeTuning()
+        let secondsUntilStart = max(0.0, remainingTime - overlap - safety - latency)
 
         // Establish a precise hostTime for the next track start and fade start
         let startHostDelta = AVAudioTime.hostTime(forSeconds: secondsUntilStart)
@@ -1954,7 +2118,7 @@ class AudioEngine: ObservableObject {
                 self.nextNode.play()
 
                 // Cancel any prior timers and schedule the fade start and flip using hostTime
-                self.cancelAllRampTimers()
+                await self.cancelAllRampTimers()
 
                 // Start crossfade exactly at fadeStartHostTime
                 self.scheduleOneShot(atHostTime: fadeStartHostTime, storeIn: &self.crossfadeStartTimer) { [weak self] in
