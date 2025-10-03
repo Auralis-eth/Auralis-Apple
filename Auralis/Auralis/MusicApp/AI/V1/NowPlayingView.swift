@@ -5,16 +5,16 @@
 //  Created by Daniel Bell on 9/16/25.
 //
 
-
-
 import SwiftUI
 
 // MARK: - Now Playing (expanded) view
-import SwiftUI
 
 struct NowPlayingView: View {
     @ObservedObject var audioEngine: AudioEngine
     @Environment(\.dismiss) var dismiss
+
+    @State private var seekValue: Double = 0
+    @State private var isDraggingSeek: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -56,15 +56,22 @@ struct NowPlayingView: View {
                                 // Slider + times
                                 VStack(spacing: 8) {
                                     Slider(
-                                        value: Binding(
-                                            get: { audioEngine.progress },
-                                            set: { try? audioEngine.seek(to: $0) }
-                                        ),
-                                        in: 0...max(1, track.duration)
+                                        value: $seekValue,
+                                        in: 0...max(1, track.duration),
+                                        onEditingChanged: { dragging in
+                                            isDraggingSeek = dragging
+                                            if !dragging {
+                                                try? audioEngine.seek(to: seekValue)
+                                            }
+                                        }
                                     )
+                                    .onChange(of: audioEngine.currentTrack) { _, _ in
+                                        // Reset seek to start when track changes
+                                        seekValue = 0
+                                    }
 
                                     HStack {
-                                        Text(timeString(from: audioEngine.progress))
+                                        Text(timeString(from: seekValue))
                                         Spacer()
                                         Text(timeString(from: track.duration))
                                     }
@@ -280,4 +287,3 @@ private struct DetailRow: View {
         }
     }
 }
-

@@ -69,13 +69,6 @@ struct MiniPlayerContentView: View {
     @State private var miniSeekValue: Double = 0
     @State private var miniIsDragging: Bool = false
 
-    private var progressFraction: Double {
-        guard let t = audioEngine.currentTrack, t.duration > 0 else { return 0 }
-        let raw = audioEngine.progress / t.duration
-        if !raw.isFinite || raw.isNaN { return 0 }
-        return min(max(raw, 0), 1)
-    }
-
     var body: some View {
         VStack {
             HStack {
@@ -126,18 +119,13 @@ struct MiniPlayerContentView: View {
                         }
                     }
                 )
-                .onChange(of: audioEngine.progress) { newProgress in
-                    if !miniIsDragging {
-                        miniSeekValue = newProgress
-                    }
-                }
-                .onAppear {
-                    miniSeekValue = audioEngine.progress
+                .onChange(of: audioEngine.currentTrack) { _, _ in
+                    // Reset local slider when track changes
+                    miniSeekValue = 0
                 }
             default:
                 // Compact indicator when inline or unknown placement (safe fallback)
-                ProgressView(value: progressFraction, total: 1)
-                    .frame(maxWidth: .infinity)
+                ProgressView()
             }
 
         }
@@ -147,7 +135,7 @@ struct MiniPlayerContentView: View {
 }
 
 struct MiniPlayerPlayingView: View {
-    let currentTrack: AudioEngine.Track
+    let currentTrack: Track
     fileprivate let accessoryMode: MiniPlayerView.AccessoryMode
 
     var body: some View {
@@ -186,7 +174,7 @@ struct MiniPlayerPlayingView: View {
 
 struct PlaybackStateButton: View {
     // Source value provided by the parent
-    let sourceState: AudioEngine.PlaybackState
+    let sourceState: PlaybackState
 
     // Actions
     let play: () -> Void

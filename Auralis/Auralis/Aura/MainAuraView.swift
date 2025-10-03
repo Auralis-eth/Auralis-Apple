@@ -26,7 +26,6 @@ struct MainAuraView: View {
     @State private var isPresented: Bool = false
     @State private var isloading: Bool = false
     @State private var presentDialog: Bool = false
-    @State private var showTrackFailedAlert: Bool = false
 
     var nftsAreLoading: Bool {
         nftService.isLoading || isloading
@@ -168,14 +167,6 @@ struct MainAuraView: View {
                 let account = EOAccount(address: currentAddress)
                 currentAccount = account
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: AudioEngine.trackFailedNotification)) { _ in
-            showTrackFailedAlert = true
-        }
-        .alert("Unable to play track", isPresented: $showTrackFailedAlert) {
-            Button("OK", role: .cancel) { showTrackFailedAlert = false }
-        } message: {
-            Text("We couldn’t play this track after several attempts. Please check your network connection or try a different track.")
         }
     }
 
