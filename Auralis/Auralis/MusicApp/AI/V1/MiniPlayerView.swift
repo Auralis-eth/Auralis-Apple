@@ -123,6 +123,14 @@ struct MiniPlayerContentView: View {
                     // Reset local slider when track changes
                     miniSeekValue = 0
                 }
+                .onChange(of: audioEngine.progress) { _, newValue in
+                    if !miniIsDragging {
+                        miniSeekValue = newValue
+                    }
+                }
+                .onAppear {
+                    miniSeekValue = audioEngine.progress
+                }
             default:
                 // Compact indicator when inline or unknown placement (safe fallback)
                 ProgressView()
@@ -222,3 +230,4 @@ struct PlaybackStateButton: View {
         .animation(nil, value: sourceState)
     }
 }
+

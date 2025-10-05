@@ -69,6 +69,14 @@ struct NowPlayingView: View {
                                         // Reset seek to start when track changes
                                         seekValue = 0
                                     }
+                                    .onChange(of: audioEngine.progress) { _, newValue in
+                                        if !isDraggingSeek {
+                                            seekValue = newValue
+                                        }
+                                    }
+                                    .onAppear {
+                                        seekValue = audioEngine.progress
+                                    }
 
                                     HStack {
                                         Text(timeString(from: seekValue))
@@ -287,3 +295,4 @@ private struct DetailRow: View {
         }
     }
 }
+

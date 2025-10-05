@@ -14,23 +14,46 @@ final class AudioEngine: ObservableObject {
     // Published state exposed to UI
     @Published var currentTrack: Track? = nil
     @Published var playbackState: PlaybackState = .stopped
+    @Published var progress: TimeInterval = 0
 
     // User prefs
     @Published var isShuffleEnabled: Bool = false { didSet { queue.isShuffleEnabled = isShuffleEnabled } }
     @Published var repeatMode: QueueManager.RepeatMode = .none { didSet { queue.repeatMode = repeatMode } }
     @Published var coarseSkipSeconds: TimeInterval = 10
 
+    // Progress tracking
+    private var progressTimer: Timer? = nil
+    private var currentDuration: TimeInterval = 0
+
+    private func startProgressTimer() {
+        stopProgressTimer()
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            guard self.playbackState == .playing else { return }
+            // Increment progress while playing; clamp to duration if finite (>0)
+            let next = self.progress + 0.2
+            if self.currentDuration > 0 {
+                self.progress = min(next, self.currentDuration)
+            } else {
+                self.progress = max(0, next)
+            }
+        }
+    }
+
+    private func stopProgressTimer() {
+        progressTimer?.invalidate()
+        progressTimer = nil
+    }
+
     // Services
     private let graph = AudioGraph()
     private let session = AudioSessionManager()
-    private let cache = AudioCacheClient()
-    private lazy var preloader = Preloader(cache: cache)
+    private lazy var preloader = Preloader()
     private var queue = QueueManager()
     private lazy var crossfade = CrossfadeCoordinator(graph: graph)
     private let nowPlaying = NowPlayingService()
     private lazy var controller = PlaybackController(graph: graph,
                                                      session: session,
-                                                     cache: cache,
                                                      preloader: preloader,
                                                      queue: queue,
                                                      crossfade: crossfade,
@@ -61,6 +84,22 @@ final class AudioEngine: ObservableObject {
             guard let self else { return }
             self.playbackState = snap.state
             self.currentTrack = snap.track
+
+            // Keep a copy of duration for clamping
+            self.currentDuration = snap.duration
+
+            // Reset progress when track changes or when stopped
+            if snap.track == nil || snap.state == .stopped {
+                self.progress = 0
+            }
+
+            // Manage timer based on playback state
+            if snap.state == .playing {
+                self.startProgressTimer()
+            } else {
+                self.stopProgressTimer()
+            }
+
             let canNext = snap.canSkipNext
             let canPrev = snap.canSkipPrevious
             self.rcc.setAvailability(canNext: canNext, canPrevious: canPrev, canScrub: (snap.duration > 0))
@@ -72,19 +111,43 @@ final class AudioEngine: ObservableObject {
     func play() { controller.play() }
     func pause() { controller.pause() }
     func resume() { controller.resume() }
-    func seek(to time: TimeInterval) { controller.seek(to: time) }
-    func skipForward(seconds: TimeInterval? = nil) { controller.skipForward(seconds: seconds) }
-    func skipBackward(seconds: TimeInterval? = nil) { controller.skipBackward(seconds: seconds) }
-    func playNext() async { await controller.playNext() }
-    func playPrevious() async { await controller.playPrevious() }
+    func seek(to time: TimeInterval) { 
+        controller.seek(to: time)
+        // Clamp to known duration if finite
+        if currentDuration > 0 {
+            progress = min(max(0, time), currentDuration)
+        } else {
+            progress = max(0, time)
+        }
+    }
+    func skipForward(seconds: TimeInterval? = nil) { 
+        controller.skipForward(seconds: seconds)
+        let delta = seconds ?? coarseSkipSeconds
+        seek(to: progress + delta)
+    }
+    func skipBackward(seconds: TimeInterval? = nil) { 
+        controller.skipBackward(seconds: seconds)
+        let delta = seconds ?? coarseSkipSeconds
+        seek(to: progress - delta)
+    }
+    func playNext() async { 
+        await controller.playNext()
+        progress = 0
+    }
+    func playPrevious() async { 
+        await controller.playPrevious()
+        progress = 0
+    }
 
     func shutdown() {
         rcc.unregister()
         session.deactivate()
         controller.stop()
+        stopProgressTimer()
     }
 
     func clearCachesAndRelease() {
-        Task { await cache.clearAll() }
+        Task { await AudioFileCache.shared.clearAll() }
     }
 }
+

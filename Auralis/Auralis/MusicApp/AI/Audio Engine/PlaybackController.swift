@@ -7,7 +7,6 @@ public final class PlaybackController: ObservableObject {
     // Dependencies
     private let graph: AudioGraph
     private let session: AudioSessionManager
-    private let cache: AudioFileCaching
     private let preloader: Preloader
     private var queue: QueueManager
     private let crossfade: CrossfadeCoordinator
@@ -24,7 +23,6 @@ public final class PlaybackController: ObservableObject {
 
     public init(graph: AudioGraph,
                 session: AudioSessionManager,
-                cache: AudioFileCaching,
                 preloader: Preloader,
                 queue: QueueManager,
                 crossfade: CrossfadeCoordinator,
@@ -33,7 +31,6 @@ public final class PlaybackController: ObservableObject {
                 skipInterval: TimeInterval = 10.0) {
         self.graph = graph
         self.session = session
-        self.cache = cache
         self.preloader = preloader
         self.queue = queue
         self.crossfade = crossfade
@@ -46,7 +43,11 @@ public final class PlaybackController: ObservableObject {
     // MARK: - Public API
     func loadAndPlay(nft: NFT) async {
         await cancelCrossfade()
-        do { try await session.configureAndActivate() } catch { }
+        do {
+            try session.configureAndActivate()
+        } catch {
+            
+        }
         do {
             let file = try await openFile(for: nft)
             applyCurrent(nft: nft, file: file)
@@ -202,7 +203,7 @@ public final class PlaybackController: ObservableObject {
     private func openURL(_ url: URL) async throws -> AVAudioFile {
         let local: URL
         if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
-            local = try await cache.localURL(forRemote: url)
+            local = try await AudioFileCache.shared.localURL(forRemote: url)
         } else { local = url }
         return try AVAudioFile(forReading: local)
     }
