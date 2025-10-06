@@ -102,7 +102,7 @@ final class AudioEngine: ObservableObject {
 
             let canNext = snap.canSkipNext
             let canPrev = snap.canSkipPrevious
-            self.rcc.setAvailability(canNext: canNext, canPrevious: canPrev, canScrub: (snap.duration > 0))
+            self.rcc.setAvailability(canNext: canNext, canPrevious: canPrev, canSkip: (snap.duration > 0), canScrub: (snap.duration > 0))
         }
     }
 
