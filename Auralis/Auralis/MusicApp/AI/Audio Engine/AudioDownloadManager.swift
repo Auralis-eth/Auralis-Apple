@@ -55,6 +55,110 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         }
     }
 
+    // MARK: - Progress Throttling
+    private let minProgressInterval: TimeInterval = 0.2 // 200 ms
+    private let minProgressFractionDelta: Double = 0.01  // 1% for determinate
+    private let minProgressByteDelta: Int64 = 64 * 1024  // 64 KB for indeterminate
+
+    private final class ProgressCoalescer {
+        var lastPostedTime: TimeInterval = 0
+        var lastPostedBytes: Int64 = 0
+        var pendingBytes: Int64? = nil
+        var pendingTotal: Int64? = nil
+        var scheduledWorkItem: DispatchWorkItem? = nil
+    }
+
+    // Maps taskIdentifier -> progress coalescer
+    private var taskIdToProgress: [Int: ProgressCoalescer] = [:]
+
+    private func postProgressNow(taskId: Int, url: URL, bytesWritten: Int64, totalBytesExpected: Int64) {
+        // Build userInfo; omit fractionCompleted if indeterminate
+        var userInfo: [String: Any] = [
+            "taskIdentifier": taskId,
+            "url": url,
+            "bytesReceived": bytesWritten,
+            "totalBytes": totalBytesExpected
+        ]
+        if totalBytesExpected > 0 {
+            let fractionCompleted = max(0, min(1, Double(bytesWritten) / Double(totalBytesExpected)))
+            userInfo["fractionCompleted"] = fractionCompleted
+        }
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .audioDownloadProgress, object: nil, userInfo: userInfo)
+        }
+    }
+
+    private func handleProgressCoalescing(for downloadTask: URLSessionDownloadTask, url: URL, totalBytesWritten: Int64, totalBytesExpected: Int64) {
+        let taskId = downloadTask.taskIdentifier
+        let now = Date().timeIntervalSinceReferenceDate
+
+        let coalescer = taskIdToProgress[taskId] ?? {
+            let c = ProgressCoalescer()
+            taskIdToProgress[taskId] = c
+            return c
+        }()
+
+        let elapsed = now - coalescer.lastPostedTime
+        let deltaBytes = totalBytesWritten - coalescer.lastPostedBytes
+
+        var shouldPostNow = false
+        if totalBytesExpected > 0 {
+            let fractionDelta = totalBytesExpected > 0 ? Double(deltaBytes) / Double(totalBytesExpected) : 0
+            if totalBytesWritten == totalBytesExpected { // final progress
+                shouldPostNow = true
+            } else if elapsed >= minProgressInterval || fractionDelta >= minProgressFractionDelta {
+                shouldPostNow = true
+            }
+        } else {
+            if elapsed >= minProgressInterval || deltaBytes >= minProgressByteDelta {
+                shouldPostNow = true
+            }
+        }
+
+        if shouldPostNow {
+            coalescer.scheduledWorkItem?.cancel()
+            coalescer.scheduledWorkItem = nil
+            coalescer.lastPostedTime = now
+            coalescer.lastPostedBytes = totalBytesWritten
+            postProgressNow(taskId: taskId, url: url, bytesWritten: totalBytesWritten, totalBytesExpected: totalBytesExpected)
+        } else {
+            // Store the freshest sample and schedule a post if none pending
+            coalescer.pendingBytes = totalBytesWritten
+            coalescer.pendingTotal = totalBytesExpected
+            if coalescer.scheduledWorkItem == nil {
+                let delay = max(0, minProgressInterval - elapsed)
+                let work = DispatchWorkItem { [weak self] in
+                    guard let self = self else { return }
+                    self.withState {
+                        guard let latestBytes = coalescer.pendingBytes, let latestTotal = coalescer.pendingTotal else { return }
+                        coalescer.pendingBytes = nil
+                        coalescer.pendingTotal = nil
+                        coalescer.scheduledWorkItem = nil
+                        coalescer.lastPostedTime = Date().timeIntervalSinceReferenceDate
+                        coalescer.lastPostedBytes = latestBytes
+                        self.postProgressNow(taskId: taskId, url: url, bytesWritten: latestBytes, totalBytesExpected: latestTotal)
+                    }
+                }
+                coalescer.scheduledWorkItem = work
+                stateQueue.asyncAfter(deadline: .now() + delay, execute: work)
+            }
+        }
+    }
+
+    private func flushFinalProgressIfNeeded(for downloadTask: URLSessionTask, url: URL) {
+        let taskId = downloadTask.taskIdentifier
+        let bytes = downloadTask.countOfBytesReceived
+        let expected = downloadTask.countOfBytesExpectedToReceive
+        if let coalescer = taskIdToProgress[taskId] {
+            coalescer.scheduledWorkItem?.cancel()
+            coalescer.scheduledWorkItem = nil
+            coalescer.lastPostedTime = Date().timeIntervalSinceReferenceDate
+            coalescer.lastPostedBytes = bytes
+        }
+        postProgressNow(taskId: taskId, url: url, bytesWritten: bytes, totalBytesExpected: expected)
+        taskIdToProgress[taskId] = nil
+    }
+
     #if DEBUG
     private func debugLogDelegate(_ function: String) {
         let label = String(cString: __dispatch_queue_get_label(nil))
@@ -229,23 +333,8 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
             return
         }
 
-        let fractionCompleted: Double
-        if totalBytesExpectedToWrite > 0 {
-            fractionCompleted = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-        } else {
-            fractionCompleted = 0
-        }
-
-        let userInfo: [String: Any] = [
-            "taskIdentifier": downloadTask.taskIdentifier,
-            "url": url,
-            "bytesReceived": totalBytesWritten,
-            "totalBytes": totalBytesExpectedToWrite,
-            "fractionCompleted": fractionCompleted
-        ]
-
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .audioDownloadProgress, object: nil, userInfo: userInfo)
+        withState {
+            handleProgressCoalescing(for: downloadTask, url: url, totalBytesWritten: totalBytesWritten, totalBytesExpected: totalBytesExpectedToWrite)
         }
     }
 
@@ -264,7 +353,7 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
             url = taskIdentifierToURL[downloadTask.taskIdentifier]
             response = downloadTask.response
             guard let url = url else { return }
-            handlers = urlToCompletionHandlers[url] ?? []
+            flushFinalProgressIfNeeded(for: downloadTask, url: url)
             // Clear state for finished download
             urlToCompletionHandlers[url] = nil
             urlToTask[url] = nil
@@ -350,7 +439,7 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         withState {
             url = taskIdentifierToURL[task.taskIdentifier]
             guard let url = url else { return }
-            handlers = urlToCompletionHandlers[url] ?? []
+            flushFinalProgressIfNeeded(for: task, url: url)
             // Clear state for failed download
             urlToCompletionHandlers[url] = nil
             urlToTask[url] = nil
