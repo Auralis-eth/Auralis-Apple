@@ -1,24 +1,70 @@
 import Foundation
 import UIKit
 
+/// Notification payload contract:
+/// - .audioDownloadProgress userInfo keys:
+///   - "taskIdentifier": Int
+///   - "url": URL (canonicalized)
+///   - "bytesReceived": Int64
+///   - "totalBytes": Int64
+///   - "fractionCompleted": Double (present only when totalBytes > 0)
+/// - .audioDownloadCompleted userInfo keys:
+///   - "taskIdentifier": Int
+///   - "url": URL (canonicalized)
+///   - "temporaryFileURL": URL
+///   - "response": URLResponse
+///   - "finalURL": URL? (optional; post-redirect effective URL if different from original)
+/// - .audioDownloadFailed userInfo keys:
+///   - "taskIdentifier": Int
+///   - "url": URL (canonicalized)
+///   - "error": Error (AudioDownloadError)
+///   - "statusCode": Int (present only for HTTP errors)
 public extension Notification.Name {
     static let audioDownloadProgress = Notification.Name("AudioDownloadManager.audioDownloadProgress")
     static let audioDownloadCompleted = Notification.Name("AudioDownloadManager.audioDownloadCompleted")
     static let audioDownloadFailed = Notification.Name("AudioDownloadManager.audioDownloadFailed")
 }
 
+/// Handlers passed via await/coalesced completion are invoked on the main queue.
+/// Policy: .userInitiated downloads continue in background using a non-discretionary background session.
 public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     public enum AudioDownloadError: LocalizedError {
-        case cancelled
-        case timeout
+        case cancelled(underlying: Error?)
+        case timeout(underlying: Error?)
         case httpStatus(Int)
+        case other(underlying: Error)
 
         public var errorDescription: String? {
             switch self {
             case .cancelled: return "Download was cancelled."
             case .timeout: return "The download timed out."
             case .httpStatus(let code): return "Server returned status code \(code)."
+            case .other: return "An unexpected network error occurred."
             }
+        }
+
+        public var underlyingError: Error? {
+            switch self {
+            case .cancelled(let u): return u
+            case .timeout(let u): return u
+            case .httpStatus: return nil
+            case .other(let u): return u
+            }
+        }
+
+        public var isCancelled: Bool {
+            if case .cancelled = self { return true }
+            return false
+        }
+
+        public var isTimeout: Bool {
+            if case .timeout = self { return true }
+            return false
+        }
+
+        public var statusCode: Int? {
+            if case .httpStatus(let code) = self { return code }
+            return nil
         }
     }
 
@@ -45,6 +91,52 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     // Serial queue for synchronizing access to shared state (not used as delegate queue)
     private let stateQueue = DispatchQueue(label: "com.auralis.audioDownloadManager.stateQueue")
     private let stateQueueSpecificKey = DispatchSpecificKey<Bool>()
+
+    // Rebind state flag
+    private var isRebinding: Bool = false
+
+    // Canonicalize URLs to a stable, round-trip-safe string key to prevent duplicates
+    private func canonicalKey(for url: URL) -> String {
+        guard var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url.absoluteString
+        }
+        // Lowercase scheme and host
+        comps.scheme = comps.scheme?.lowercased()
+        comps.host = comps.host?.lowercased()
+
+        // Remove default ports
+        if let port = comps.port {
+            if (comps.scheme == "http" && port == 80) || (comps.scheme == "https" && port == 443) {
+                comps.port = nil
+            }
+        }
+
+        // Normalize path without losing percent-encoding: operate on percentEncodedPath directly
+        var p = comps.percentEncodedPath
+        if !p.isEmpty {
+            if p.count > 1 && p.hasSuffix("/") { p.removeLast() }
+            comps.percentEncodedPath = p
+        }
+
+        // Sort query items by name+value for stability (preserving percent-encoding via URLComponents)
+        if let items = comps.queryItems, !items.isEmpty {
+            let sorted = items.sorted { (a, b) -> Bool in
+                if a.name == b.name { return (a.value ?? "") < (b.value ?? "") }
+                return a.name < b.name
+            }
+            comps.queryItems = sorted
+        }
+
+        // Use the composed absolute string as stable key; enforce absolute URL invariant
+        let key = comps.string ?? url.absoluteString
+        if URL(string: key) == nil {
+            #if DEBUG
+            print("[AudioDownloadManager] canonicalKey produced non-URL string; falling back to original: \(key)")
+            #endif
+            return url.absoluteString
+        }
+        return key
+    }
 
     #if DEBUG
     // Debug telemetry: count occurrences where a synchronous state access was requested from stateQueue context
@@ -197,77 +289,131 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     private var debugCoalescedListenerCount: Int = 0
     #endif
 
-    // MARK: - Error Types
-    private struct HTTPStatusError: LocalizedError {
-        let statusCode: Int
-        let url: URL
-        let response: HTTPURLResponse
-
-        var errorDescription: String? {
-            return "Server returned status code \(statusCode) for URL: \(url.absoluteString)"
-        }
-    }
-
     // MARK: - Rebinding existing background tasks
     private func rebindInFlightTasks() {
-        session.getAllTasks { tasks in
-            let downloadTasks = tasks.compactMap { $0 as? URLSessionDownloadTask }
-            #if DEBUG
-            self.withState {
-                self.debugDiscoveredTasksOnInit += downloadTasks.count
-            }
-            #endif
-
-            for task in downloadTasks {
-                guard let originalURL = task.originalRequest?.url ?? task.currentRequest?.url else { continue }
+        isRebinding = true
+        let group = DispatchGroup()
+        let sessions: [URLSession] = [backgroundSession, userInitiatedSession]
+        for s in sessions {
+            group.enter()
+            s.getAllTasks { tasks in
+                let downloadTasks = tasks.compactMap { $0 as? URLSessionDownloadTask }
+                #if DEBUG
                 self.withState {
-                    if let existing = self.urlToTask[originalURL], existing.taskIdentifier != task.taskIdentifier {
-                        // Duplicate for same URL detected; cancel the extra to enforce single-task policy per URL
-                        #if DEBUG
-                        self.debugDuplicateTaskPreventionCount += 1
-                        #endif
-                        // Ensure no residual state for the duplicate task
-                        self.taskIdToProgress[task.taskIdentifier]?.scheduledWorkItem?.cancel()
-                        self.taskIdToProgress[task.taskIdentifier] = nil
-                        self.taskIdentifierToURL[task.taskIdentifier] = nil
-                        // Cancel without ever recording this duplicate in our maps
-                        task.cancel()
-                    } else {
-                        self.taskIdentifierToURL[task.taskIdentifier] = originalURL
-                        self.urlToTask[originalURL] = task
-                        if self.urlToCompletionHandlers[originalURL] == nil {
-                            self.urlToCompletionHandlers[originalURL] = []
+                    self.debugDiscoveredTasksOnInit += downloadTasks.count
+                }
+                #endif
+
+                for task in downloadTasks {
+                    guard let rawURL = task.originalRequest?.url ?? task.currentRequest?.url else { continue }
+                    let key = self.canonicalKey(for: rawURL)
+                    self.withState {
+                        if let existing = self.keyToTask[key], existing.taskIdentifier != task.taskIdentifier {
+                            // Prefer system-discovered task; cancel app-created duplicate
+                            #if DEBUG
+                            self.debugDuplicateTaskPreventionCount += 1
+                            #endif
+                            // Purge state for the losing task
+                            let losingId = existing.taskIdentifier
+                            self.taskIdToProgress[losingId]?.scheduledWorkItem?.cancel()
+                            self.taskIdToProgress[losingId] = nil
+                            self.taskIdentifierToKey[losingId] = nil
+                            existing.cancel()
                         }
+                        // Bind the system task as the authoritative owner
+                        self.taskIdentifierToKey[task.taskIdentifier] = key
+                        self.keyToTask[key] = task
+                        if self.keyToCompletionHandlers[key] == nil { self.keyToCompletionHandlers[key] = [] }
+                    }
+                }
+                group.leave()
+            }
+        }
+        group.notify(queue: stateQueue) {
+            self.isRebinding = false
+
+            // Drain pending listeners/starts now that authoritative tasks are bound
+            for (key, listeners) in self.pendingListenersByKey {
+                if let task = self.keyToTask[key] {
+                    // Route listeners to authoritative existing task
+                    self.keyToCompletionHandlers[key, default: []].append(contentsOf: listeners)
+                } else {
+                    // No authoritative task discovered; prefer resuming a pending task if any
+                    if let pending = self.pendingTaskByKey[key] {
+                        self.keyToCompletionHandlers[key] = listeners
+                        pending.resume()
+                        self.pendingTaskByKey[key] = nil
+                    } else {
+                        // Start one now using recorded policy (default to background)
+                        let policy = self.pendingStartPolicyByKey[key] ?? self.defaultPolicy
+                        guard let url = URL(string: key) else { continue }
+                        let request = self.makeRequest(for: url, policy: policy)
+                        let sessionToUse = policy == .userInitiated ? self.userInitiatedSession : self.backgroundSession
+                        let task = sessionToUse.downloadTask(with: request)
+                        self.taskIdentifierToKey[task.taskIdentifier] = key
+                        self.keyToTask[key] = task
+                        self.keyToCompletionHandlers[key] = listeners
+                        task.resume()
                     }
                 }
             }
+            // Cleanup: cancel any pending tasks that lost to authoritative tasks
+            for (key, pending) in self.pendingTaskByKey {
+                if self.keyToTask[key] !== pending { pending.cancel() }
+            }
+            self.pendingTaskByKey.removeAll()
+
+            self.pendingListenersByKey.removeAll()
+            self.pendingStartPolicyByKey.removeAll()
         }
     }
 
-    private lazy var session: URLSession = {
+    private lazy var backgroundSession: URLSession = {
         let config = URLSessionConfiguration.background(withIdentifier: "com.auralis.audio.background")
+        // .background policy: discretionary, respect Low Data Mode; avoid expensive networks
         config.waitsForConnectivity = true
         config.isDiscretionary = true
-        config.allowsExpensiveNetworkAccess = true
-        config.allowsConstrainedNetworkAccess = true
-        // Ticket 3: Explicit timeouts to avoid indefinite hangs
-        // Handshake/request timeout (e.g., DNS/TLS/connect) kept short; resource timeout generous for audio assets
+        config.allowsExpensiveNetworkAccess = false
+        config.allowsConstrainedNetworkAccess = false
         config.timeoutIntervalForRequest = 30 // seconds
         config.timeoutIntervalForResource = 15 * 60 // 15 minutes
         return URLSession(configuration: config, delegate: self, delegateQueue: delegateQueue)
     }()
 
-    // Maps taskIdentifier -> original URL
-    private var taskIdentifierToURL: [Int: URL] = [:]
+    private lazy var userInitiatedSession: URLSession = {
+        // Non-discretionary background session so user-initiated transfers continue in background
+        let config = URLSessionConfiguration.background(withIdentifier: "com.auralis.audio.userInitiated")
+        config.waitsForConnectivity = true
+        config.isDiscretionary = false
+        config.allowsExpensiveNetworkAccess = true
+        config.allowsConstrainedNetworkAccess = true
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 15 * 60
+        return URLSession(configuration: config, delegate: self, delegateQueue: delegateQueue)
+    }()
 
-    // Maps URL -> array of completion handlers
-    private var urlToCompletionHandlers: [URL: [(Result<(URL, URLResponse), Error>) -> Void]] = [:]
+    // Maps taskIdentifier -> original key (canonicalized string)
+    private var taskIdentifierToKey: [Int: String] = [:]
 
-    // Maps URL -> URLSessionDownloadTask
-    private var urlToTask: [URL: URLSessionDownloadTask] = [:]
+    // Maps key (canonicalized string) -> array of completion handlers
+    private var keyToCompletionHandlers: [String: [(Result<(URL, URLResponse), Error>) -> Void]] = [:]
 
-    // Maps background session identifier -> completionHandler to call when all background events are handled
-    private var backgroundSessionCompletionHandlers: [String: () -> Void] = [:]
+    // Maps key (canonicalized string) -> URLSessionDownloadTask
+    private var keyToTask: [String: URLSessionDownloadTask] = [:]
+
+    // While a rebind is in progress, queue listeners and optional start intents to avoid races
+    private var pendingListenersByKey: [String: [(Result<(URL, URLResponse), Error>) -> Void]] = [:]
+    private var pendingStartPolicyByKey: [String: NetworkPolicy] = [:]
+
+    // Pending tasks created during rebind, waiting for resume or cancellation
+    private var pendingTaskByKey: [String: URLSessionDownloadTask] = [:]
+
+    // Background completion exactly-once guard
+    private struct BackgroundWake {
+        var invoked: Bool
+        var handler: () -> Void
+    }
+    private var backgroundWakeByIdentifier: [String: BackgroundWake] = [:]
 
     private override init() {
         super.init()
@@ -304,15 +450,32 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         var task: URLSessionDownloadTask!
 
         withState {
-            if let existingTask = urlToTask[url] {
+            let key = canonicalKey(for: url)
+            if let existingTask = keyToTask[key] {
                 task = existingTask
                 return
             }
+            // If rebind is in progress and no authoritative task exists, create a suspended task and defer starting
+            if isRebinding {
+                let request = makeRequest(for: url, policy: policy ?? defaultPolicy)
+                let sessionToUse = (policy ?? defaultPolicy) == .userInitiated ? userInitiatedSession : backgroundSession
+                let newTask = sessionToUse.downloadTask(with: request)
+                // Do NOT resume yet; allow rebind to decide
+                taskIdentifierToKey[newTask.taskIdentifier] = key
+                keyToTask[key] = newTask
+                keyToCompletionHandlers[key] = []
+                pendingStartPolicyByKey[key] = policy ?? defaultPolicy
+                pendingTaskByKey[key] = newTask
+                task = newTask
+                return
+            }
+            // Normal path: create and start immediately
             let request = makeRequest(for: url, policy: policy ?? defaultPolicy)
-            let newTask = session.downloadTask(with: request)
-            taskIdentifierToURL[newTask.taskIdentifier] = url
-            urlToTask[url] = newTask
-            urlToCompletionHandlers[url] = [] // Initialize empty handlers list
+            let sessionToUse = (policy ?? defaultPolicy) == .userInitiated ? userInitiatedSession : backgroundSession
+            let newTask = sessionToUse.downloadTask(with: request)
+            taskIdentifierToKey[newTask.taskIdentifier] = key
+            keyToTask[key] = newTask
+            keyToCompletionHandlers[key] = [] // Initialize empty handlers list
             task = newTask
             newTask.resume()
         }
@@ -325,12 +488,13 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     public func awaitDownload(from url: URL, policy: NetworkPolicy? = nil) async throws -> (URL, URLResponse) {
         try await withCheckedThrowingContinuation { continuation in
             self.withStateAsync {
-                if let _ = self.urlToTask[url] {
+                let key = self.canonicalKey(for: url)
+                if let _ = self.keyToTask[key] {
                     #if DEBUG
                     self.debugCoalescedListenerCount += 1
                     #endif
                     // Download in progress, append completion handler
-                    self.urlToCompletionHandlers[url, default: []].append { result in
+                    self.keyToCompletionHandlers[key, default: []].append { result in
                         switch result {
                         case let .success(value):
                             continuation.resume(returning: value)
@@ -339,12 +503,32 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
                         }
                     }
                 } else {
+                    if self.keyToTask[key] == nil && self.isRebinding {
+                        // Rebind in progress: queue listener and defer task creation to rebind drain
+                        self.pendingListenersByKey[key, default: []].append { result in
+                            switch result {
+                            case let .success(value):
+                                continuation.resume(returning: value)
+                            case let .failure(error):
+                                continuation.resume(throwing: error)
+                            }
+                        }
+                        // Record the most-permissive policy requested (prefer userInitiated if any)
+                        let requested = policy ?? self.defaultPolicy
+                        if let existing = self.pendingStartPolicyByKey[key] {
+                            if existing == .background && requested == .userInitiated { self.pendingStartPolicyByKey[key] = .userInitiated }
+                        } else {
+                            self.pendingStartPolicyByKey[key] = requested
+                        }
+                        return
+                    }
                     // No download in progress, start new download
                     let request = self.makeRequest(for: url, policy: policy ?? self.defaultPolicy)
-                    let task = self.session.downloadTask(with: request)
-                    self.taskIdentifierToURL[task.taskIdentifier] = url
-                    self.urlToTask[url] = task
-                    self.urlToCompletionHandlers[url] = [{
+                    let sessionToUse = (policy ?? self.defaultPolicy) == .userInitiated ? self.userInitiatedSession : self.backgroundSession
+                    let task = sessionToUse.downloadTask(with: request)
+                    self.taskIdentifierToKey[task.taskIdentifier] = key
+                    self.keyToTask[key] = task
+                    self.keyToCompletionHandlers[key] = [{
                         result in
                         switch result {
                         case let .success(value):
@@ -361,19 +545,22 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
 
     /// Cancels an in-flight download for the given URL, cleans up state, and notifies listeners with a cancellation error.
     public func cancelDownload(for url: URL) {
+        let key = canonicalKey(for: url)
         var taskToCancel: URLSessionDownloadTask?
         var handlers: [(Result<(URL, URLResponse), Error>) -> Void] = []
         var taskId: Int?
 
         withState {
-            if let task = urlToTask[url] {
+            if let task = keyToTask[key] {
                 taskToCancel = task
                 taskId = task.taskIdentifier
+                // Post final progress before terminal event
+                flushFinalProgressIfNeeded(for: task, url: url)
                 // Capture and clear handlers atomically
-                handlers = urlToCompletionHandlers[url] ?? []
-                urlToCompletionHandlers[url] = nil
-                urlToTask[url] = nil
-                taskIdentifierToURL[task.taskIdentifier] = nil
+                handlers = keyToCompletionHandlers[key] ?? []
+                keyToCompletionHandlers[key] = nil
+                keyToTask[key] = nil
+                taskIdentifierToKey[task.taskIdentifier] = nil
                 // Tear down any progress coalescer
                 if let tid = taskId {
                     taskIdToProgress[tid]?.scheduledWorkItem?.cancel()
@@ -387,20 +574,27 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
 
         guard !handlers.isEmpty else { return }
 
-        // Notify listeners with a standardized cancellation error
-        let cancelError = URLError(.cancelled)
-        let userInfo: [String: Any] = [
-            "taskIdentifier": taskId as Any,
-            "url": url,
-            "error": cancelError
-        ]
-
-        for handler in handlers {
-            handler(.failure(cancelError))
-        }
-
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .audioDownloadFailed, object: nil, userInfo: userInfo)
+        // Notify listeners with a unified cancellation error
+        let unified = AudioDownloadError.cancelled(underlying: URLError(.cancelled))
+        if let originalURL = URL(string: key) {
+            for handler in handlers {
+                DispatchQueue.main.async { handler(.failure(unified)) }
+            }
+            let userInfo: [String: Any] = [
+                "taskIdentifier": taskId as Any,
+                "url": originalURL,
+                "error": unified
+            ]
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .audioDownloadFailed, object: nil, userInfo: userInfo)
+            }
+        } else {
+            #if DEBUG
+            print("[AudioDownloadManager] Suppressing cancellation notification due to invalid URL key: \(key)")
+            #endif
+            for handler in handlers {
+                DispatchQueue.main.async { handler(.failure(unified)) }
+            }
         }
     }
 
@@ -409,11 +603,11 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     public func resume(with identifier: String, completionHandler: @escaping () -> Void) {
         rebindInFlightTasks()
         withStateAsync {
-            self.backgroundSessionCompletionHandlers[identifier] = {
+            self.backgroundWakeByIdentifier[identifier] = BackgroundWake(invoked: false, handler: {
                 DispatchQueue.main.async {
                     completionHandler()
                 }
-            }
+            })
         }
     }
 
@@ -427,7 +621,11 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         #if DEBUG
         debugLogDelegate(#function)
         #endif
-        guard let url = withState({ taskIdentifierToURL[downloadTask.taskIdentifier] }) else {
+        guard let url = withState({ self.taskIdentifierToKey[downloadTask.taskIdentifier] }).flatMap({ URL(string: $0) }) else {
+            #if DEBUG
+            let badKey = withState({ self.taskIdentifierToKey[downloadTask.taskIdentifier] }) ?? "<nil>"
+            print("[AudioDownloadManager] Progress callback missing/invalid URL for key: \(badKey)")
+            #endif
             return
         }
 
@@ -448,15 +646,19 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         #endif
 
         withState {
-            url = taskIdentifierToURL[downloadTask.taskIdentifier]
+            if let key = taskIdentifierToKey[downloadTask.taskIdentifier] {
+                url = URL(string: key)
+            } else {
+                url = nil
+            }
             response = downloadTask.response
             guard let foundURL = url else { return }
             flushFinalProgressIfNeeded(for: downloadTask, url: foundURL)
             // Capture handlers atomically, then clear state
-            handlers = urlToCompletionHandlers[foundURL] ?? []
-            urlToCompletionHandlers[foundURL] = nil
-            urlToTask[foundURL] = nil
-            taskIdentifierToURL[downloadTask.taskIdentifier] = nil
+            handlers = keyToCompletionHandlers[foundURL.absoluteString] ?? []
+            keyToCompletionHandlers[foundURL.absoluteString] = nil
+            keyToTask[foundURL.absoluteString] = nil
+            taskIdentifierToKey[downloadTask.taskIdentifier] = nil
         }
 
         guard let originalURL = url else {
@@ -467,7 +669,7 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
             // Non-success HTTP status: treat as failure
             let statusCode = httpResponse.statusCode
-            let error = HTTPStatusError(statusCode: statusCode, url: originalURL, response: httpResponse)
+            let error = AudioDownloadError.httpStatus(statusCode)
 
             // Clean up temporary file to avoid leaks
             try? FileManager.default.removeItem(at: location)
@@ -503,16 +705,19 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         debugSuccessCount += 1
         #endif
 
+        let finalURL = downloadTask.currentRequest?.url
+
         let userInfo: [String: Any] = [
             "taskIdentifier": downloadTask.taskIdentifier,
             "url": originalURL,
             "temporaryFileURL": location,
-            "response": response as Any
+            "response": response as Any,
+            "finalURL": finalURL as Any,
         ]
 
-        // Call handlers
+        // Call handlers on main queue
         for handler in handlers {
-            handler(.success((location, response ?? URLResponse())))
+            DispatchQueue.main.async { handler(.success((location, response ?? URLResponse()))) }
         }
 
         DispatchQueue.main.async {
@@ -536,29 +741,43 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         var handlers: [(Result<(URL, URLResponse), Error>) -> Void] = []
 
         withState {
-            url = taskIdentifierToURL[task.taskIdentifier]
+            if let key = taskIdentifierToKey[task.taskIdentifier] {
+                url = URL(string: key)
+            } else {
+                url = nil
+            }
             guard let foundURL = url else { return }
             flushFinalProgressIfNeeded(for: task, url: foundURL)
             // Capture handlers atomically, then clear state
-            handlers = urlToCompletionHandlers[foundURL] ?? []
-            urlToCompletionHandlers[foundURL] = nil
-            urlToTask[foundURL] = nil
-            taskIdentifierToURL[task.taskIdentifier] = nil
+            handlers = keyToCompletionHandlers[foundURL.absoluteString] ?? []
+            keyToCompletionHandlers[foundURL.absoluteString] = nil
+            keyToTask[foundURL.absoluteString] = nil
+            taskIdentifierToKey[task.taskIdentifier] = nil
         }
 
         guard let originalURL = url else {
             return
         }
 
+        // Map to unified error
+        let unified: AudioDownloadError
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .timedOut: unified = .timeout(underlying: urlError)
+            case .cancelled: unified = .cancelled(underlying: urlError)
+            default: unified = .other(underlying: urlError)
+            }
+        } else {
+            unified = .other(underlying: error)
+        }
+
         let userInfo: [String: Any] = [
             "taskIdentifier": task.taskIdentifier,
             "url": originalURL,
-            "error": error
+            "error": unified
         ]
 
-        for handler in handlers {
-            handler(.failure(error))
-        }
+        for handler in handlers { DispatchQueue.main.async { handler(.failure(unified)) } }
 
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: .audioDownloadFailed, object: nil, userInfo: userInfo)
@@ -576,19 +795,21 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         #endif
 
         withState {
-            completionHandler = backgroundSessionCompletionHandlers[identifier]
-            backgroundSessionCompletionHandlers[identifier] = nil
+            if var wake = backgroundWakeByIdentifier[identifier] {
+                if wake.invoked { completionHandler = nil } else {
+                    wake.invoked = true
+                    completionHandler = wake.handler
+                    backgroundWakeByIdentifier[identifier] = wake
+                }
+            } else {
+                completionHandler = nil
+            }
         }
 
         if let completionHandler = completionHandler {
-            #if DEBUG
-            // Telemetry: count invocations; should be exactly once per identifier
-            self.debugSuccessCount += 0 // placeholder to keep compiler using self in DEBUG
-            #endif
             DispatchQueue.main.async {
                 completionHandler()
             }
         }
     }
 }
-
