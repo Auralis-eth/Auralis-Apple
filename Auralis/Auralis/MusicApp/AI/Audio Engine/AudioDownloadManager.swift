@@ -66,6 +66,9 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     private var debugFailureCount: Int = 0
     private var debugFailureStatusCounts: [Int: Int] = [:]
     private var debugFailureHosts: [String: Int] = [:]
+    private var debugDiscoveredTasksOnInit: Int = 0
+    private var debugDuplicateTaskPreventionCount: Int = 0
+    private var debugCoalescedListenerCount: Int = 0
     #endif
 
     // MARK: - Error Types
@@ -76,6 +79,38 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
 
         var errorDescription: String? {
             return "Server returned status code \(statusCode) for URL: \(url.absoluteString)"
+        }
+    }
+
+    // MARK: - Rebinding existing background tasks
+    private func rebindInFlightTasks() {
+        session.getAllTasks { tasks in
+            let downloadTasks = tasks.compactMap { $0 as? URLSessionDownloadTask }
+            #if DEBUG
+            self.withState {
+                self.debugDiscoveredTasksOnInit += downloadTasks.count
+            }
+            #endif
+
+            for task in downloadTasks {
+                guard let originalURL = task.originalRequest?.url ?? task.currentRequest?.url else { continue }
+                self.withState {
+                    if let existing = self.urlToTask[originalURL], existing.taskIdentifier != task.taskIdentifier {
+                        // Duplicate for same URL detected; cancel the extra to enforce single-task policy per URL
+                        #if DEBUG
+                        self.debugDuplicateTaskPreventionCount += 1
+                        #endif
+                        self.taskIdentifierToURL[task.taskIdentifier] = originalURL
+                        task.cancel()
+                    } else {
+                        self.taskIdentifierToURL[task.taskIdentifier] = originalURL
+                        self.urlToTask[originalURL] = task
+                        if self.urlToCompletionHandlers[originalURL] == nil {
+                            self.urlToCompletionHandlers[originalURL] = []
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -104,6 +139,7 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         super.init()
         // Mark this queue so we can detect re-entry safely
         stateQueue.setSpecific(key: stateQueueSpecificKey, value: true)
+        rebindInFlightTasks()
     }
 
     /// Starts a download for the given URL. Returns the URLSessionDownloadTask immediately.
@@ -134,6 +170,9 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         try await withCheckedThrowingContinuation { continuation in
             self.withStateAsync {
                 if let _ = self.urlToTask[url] {
+                    #if DEBUG
+                    self.debugCoalescedListenerCount += 1
+                    #endif
                     // Download in progress, append completion handler
                     self.urlToCompletionHandlers[url, default: []].append { result in
                         switch result {
@@ -166,6 +205,7 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     /// To be called from AppDelegate when the system wakes the app for background events
     /// Stores the completion handler and calls it when background events are finished.
     public func resume(with identifier: String, completionHandler: @escaping () -> Void) {
+        rebindInFlightTasks()
         withStateAsync {
             self.backgroundSessionCompletionHandlers[identifier] = {
                 DispatchQueue.main.async {
@@ -358,3 +398,4 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         }
     }
 }
+
