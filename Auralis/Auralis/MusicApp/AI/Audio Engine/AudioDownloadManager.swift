@@ -60,7 +60,24 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         let label = String(cString: __dispatch_queue_get_label(nil))
         print("[AudioDownloadManager] Delegate callback: \(function) on queue: \(label)")
     }
+
+    // MARK: - Telemetry Counters
+    private var debugSuccessCount: Int = 0
+    private var debugFailureCount: Int = 0
+    private var debugFailureStatusCounts: [Int: Int] = [:]
+    private var debugFailureHosts: [String: Int] = [:]
     #endif
+
+    // MARK: - Error Types
+    private struct HTTPStatusError: LocalizedError {
+        let statusCode: Int
+        let url: URL
+        let response: HTTPURLResponse
+
+        var errorDescription: String? {
+            return "Server returned status code \(statusCode) for URL: \(url.absoluteString)"
+        }
+    }
 
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.background(withIdentifier: "com.auralis.audio.background")
@@ -217,6 +234,46 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         guard let originalURL = url, !handlers.isEmpty else {
             return
         }
+
+        // Evaluate HTTP status for success/failure
+        if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
+            // Non-success HTTP status: treat as failure
+            let statusCode = httpResponse.statusCode
+            let error = HTTPStatusError(statusCode: statusCode, url: originalURL, response: httpResponse)
+
+            // Clean up temporary file to avoid leaks
+            try? FileManager.default.removeItem(at: location)
+
+            #if DEBUG
+            debugFailureCount += 1
+            debugFailureStatusCounts[statusCode, default: 0] += 1
+            if let host = originalURL.host {
+                debugFailureHosts[host, default: 0] += 1
+            }
+            #endif
+
+            let failureUserInfo: [String: Any] = [
+                "taskIdentifier": downloadTask.taskIdentifier,
+                "url": originalURL,
+                "statusCode": statusCode,
+                "error": error
+            ]
+
+            // Notify continuations/handlers of failure
+            for handler in handlers {
+                handler(.failure(error))
+            }
+
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .audioDownloadFailed, object: nil, userInfo: failureUserInfo)
+            }
+
+            return
+        }
+
+        #if DEBUG
+        debugSuccessCount += 1
+        #endif
 
         let userInfo: [String: Any] = [
             "taskIdentifier": downloadTask.taskIdentifier,
