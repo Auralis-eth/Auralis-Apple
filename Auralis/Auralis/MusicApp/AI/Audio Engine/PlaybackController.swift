@@ -21,7 +21,7 @@ public final class PlaybackController: ObservableObject {
     private var currentFile: AVAudioFile?
     private var seekPosition: TimeInterval = 0
 
-    public init(graph: AudioGraph,
+    internal init(graph: AudioGraph,
                 session: AudioSessionManager,
                 preloader: Preloader,
                 queue: QueueManager,
@@ -97,7 +97,7 @@ public final class PlaybackController: ObservableObject {
         // use self.queue directly
         if snapshot.state == .playing, let next = self.queue.dequeueNext() {
             // Try preloaded consume first
-            if let url = next.musicURL, let pre = await preloader.consumeIfMatches(nft: next, url: url) {
+            if let url = next.musicURL, let pre = await preloader.consume(nft: next, url: url) {
                 applyCurrent(nft: next, file: pre)
                 try? graph.ensureStarted()
                 graph.setNextPathVolume(0)
@@ -192,7 +192,7 @@ public final class PlaybackController: ObservableObject {
 
     private func maybePreloadNext() {
         guard let next = queue.peekNext(), let url = next.musicURL else { return }
-        Task { await preloader.preload(nft: next, url: url) }
+        Task { try? await preloader.preload(nft: next, url: url) }
     }
 
     private func openFile(for nft: NFT) async throws -> AVAudioFile {

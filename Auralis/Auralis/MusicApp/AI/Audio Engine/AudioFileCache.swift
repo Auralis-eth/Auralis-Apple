@@ -1,4 +1,6 @@
 import Foundation
+import UIKit
+import os.log
 
 /// Simple on-disk cache for remote audio files.
 /// - Cache directory: Library/Caches/AudioCache
@@ -26,6 +28,7 @@ actor AudioFileCache {
     private lazy var metadataStore = CacheMetadataStore(sidecarExtension: metadataExtension)
     private lazy var trimmer = CacheTrimmer(metadataExtension: metadataExtension)
     private lazy var downloader = AudioDownloader(session: session)
+    private lazy var downloadManager = AudioDownloadManager.shared
 
     // MARK: - Public API
 
@@ -54,7 +57,7 @@ actor AudioFileCache {
         }
 
         // Download with timeout, retry, and MIME validation
-        let (tmpURL, response) = try await downloader.downloadWithRetry(from: url)
+        let (tmpURL, response) = try await downloadManager.awaitDownload(from: url)
         try Task.checkCancellation()
 
         // Determine destination extension: prefer URL's own ext; if missing, map from MIME
@@ -134,5 +137,9 @@ actor AudioFileCache {
         } catch {
             return nil
         }
+    }
+    
+    private func postProgress(url: URL, bytes: Int64, total: Int64) {
+        // reserved for future wiring
     }
 }
