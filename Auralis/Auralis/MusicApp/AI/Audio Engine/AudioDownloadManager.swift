@@ -10,13 +10,65 @@ public extension Notification.Name {
 public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     public static let shared = AudioDownloadManager()
 
+    // Dedicated delegate queue to avoid running delegate callbacks on the state queue
+    private let delegateQueue: OperationQueue = {
+        let q = OperationQueue()
+        q.name = "com.auralis.audioDownloadManager.delegateQueue"
+        q.qualityOfService = .utility
+        // Keep serialization of delegate callbacks predictable
+        q.maxConcurrentOperationCount = 1
+        return q
+    }()
+
+    // Serial queue for synchronizing access to shared state (not used as delegate queue)
+    private let stateQueue = DispatchQueue(label: "com.auralis.audioDownloadManager.stateQueue")
+    private let stateQueueSpecificKey = DispatchSpecificKey<Bool>()
+
+    #if DEBUG
+    // Debug telemetry: count occurrences where a synchronous state access was requested from stateQueue context
+    private var debugReentrySyncCalls: Int = 0
+    #endif
+
+    // MARK: - State access helpers
+    // Rule: If already on stateQueue, access state directly; otherwise marshal to stateQueue.
+    private func onStateQueue() -> Bool {
+        return DispatchQueue.getSpecific(key: stateQueueSpecificKey) == true
+    }
+
+    @discardableResult
+    private func withState<T>(_ block: () -> T) -> T {
+        if onStateQueue() {
+            #if DEBUG
+            debugReentrySyncCalls += 1
+            #endif
+            return block()
+        } else {
+            return stateQueue.sync(execute: block)
+        }
+    }
+
+    private func withStateAsync(_ block: @escaping () -> Void) {
+        if onStateQueue() {
+            block()
+        } else {
+            stateQueue.async(execute: block)
+        }
+    }
+
+    #if DEBUG
+    private func debugLogDelegate(_ function: String) {
+        let label = String(cString: __dispatch_queue_get_label(nil))
+        print("[AudioDownloadManager] Delegate callback: \(function) on queue: \(label)")
+    }
+    #endif
+
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.background(withIdentifier: "com.auralis.audio.background")
         config.waitsForConnectivity = true
         config.isDiscretionary = true
         config.allowsExpensiveNetworkAccess = true
         config.allowsConstrainedNetworkAccess = true
-        return URLSession(configuration: config, delegate: self, delegateQueue: nil)
+        return URLSession(configuration: config, delegate: self, delegateQueue: delegateQueue)
     }()
 
     // Maps taskIdentifier -> original URL
@@ -31,12 +83,10 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     // Maps background session identifier -> completionHandler to call when all background events are handled
     private var backgroundSessionCompletionHandlers: [String: () -> Void] = [:]
 
-    // Serial queue for synchronizing access to the above dictionaries
-    private let stateQueue = DispatchQueue(label: "com.auralis.audioDownloadManager.stateQueue")
-
     private override init() {
         super.init()
-        session.delegateQueue.underlyingQueue = stateQueue
+        // Mark this queue so we can detect re-entry safely
+        stateQueue.setSpecific(key: stateQueueSpecificKey, value: true)
     }
 
     /// Starts a download for the given URL. Returns the URLSessionDownloadTask immediately.
@@ -45,7 +95,7 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     public func startDownload(from url: URL) -> URLSessionDownloadTask {
         var task: URLSessionDownloadTask!
 
-        stateQueue.sync {
+        withState {
             if let existingTask = urlToTask[url] {
                 task = existingTask
                 return
@@ -65,7 +115,7 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     /// If a download for the URL is already in progress, the continuation will be appended.
     public func awaitDownload(from url: URL) async throws -> (URL, URLResponse) {
         try await withCheckedThrowingContinuation { continuation in
-            stateQueue.async {
+            self.withStateAsync {
                 if let _ = self.urlToTask[url] {
                     // Download in progress, append completion handler
                     self.urlToCompletionHandlers[url, default: []].append { result in
@@ -99,7 +149,7 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     /// To be called from AppDelegate when the system wakes the app for background events
     /// Stores the completion handler and calls it when background events are finished.
     public func resume(with identifier: String, completionHandler: @escaping () -> Void) {
-        stateQueue.async {
+        withStateAsync {
             self.backgroundSessionCompletionHandlers[identifier] = {
                 DispatchQueue.main.async {
                     completionHandler()
@@ -115,7 +165,10 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
                            didWriteData bytesWritten: Int64,
                            totalBytesWritten: Int64,
                            totalBytesExpectedToWrite: Int64) {
-        guard let url = stateQueue.sync(execute: { taskIdentifierToURL[downloadTask.taskIdentifier] }) else {
+        #if DEBUG
+        debugLogDelegate(#function)
+        #endif
+        guard let url = withState({ taskIdentifierToURL[downloadTask.taskIdentifier] }) else {
             return
         }
 
@@ -146,7 +199,11 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         var handlers: [(Result<(URL, URLResponse), Error>) -> Void] = []
         var response: URLResponse?
 
-        stateQueue.sync {
+        #if DEBUG
+        debugLogDelegate(#function)
+        #endif
+
+        withState {
             url = taskIdentifierToURL[downloadTask.taskIdentifier]
             response = downloadTask.response
             guard let url = url else { return }
@@ -186,10 +243,14 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
             return
         }
 
+        #if DEBUG
+        debugLogDelegate(#function)
+        #endif
+
         var url: URL?
         var handlers: [(Result<(URL, URLResponse), Error>) -> Void] = []
 
-        stateQueue.sync {
+        withState {
             url = taskIdentifierToURL[task.taskIdentifier]
             guard let url = url else { return }
             handlers = urlToCompletionHandlers[url] ?? []
@@ -224,7 +285,11 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         let identifier = session.configuration.identifier ?? ""
         var completionHandler: (() -> Void)?
 
-        stateQueue.sync {
+        #if DEBUG
+        debugLogDelegate(#function)
+        #endif
+
+        withState {
             completionHandler = backgroundSessionCompletionHandlers[identifier]
             backgroundSessionCompletionHandlers[identifier] = nil
         }
