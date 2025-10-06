@@ -9,6 +9,17 @@ import AVFoundation
 /// - Token lifecycle: `preload(nft:url:)` returns a stable Token; `consume(token:)` is single-use and removes that token from the prepared set.
 /// - I/O: Preload performs only URL resolution and canonicalization. The `AVAudioFile` is opened lazily in `consume(token:)` and must not be shared across isolation domains concurrently.
 /// - Cancellation: Cancellation is observed before and after awaited operations; cancelled work does not mutate state.
+/// - Eviction policy: The token inserted/promoted by a preload (or transient reinsert) is protected from eviction within the same operation. When capacity == 1, the newly inserted token overrides any existing pin ("new token wins").
+///
+/// Capacity==1 semantics (product contract): When capacity is 1, the "new token wins". If inserting/promoting a new token would exceed capacity and the only candidate for eviction is a pinned token that isn't the protected (newly inserted/promoted) one, the pinned token is evicted. This ensures the latest user selection is always prepared. Example UI copy: "Preparing latest item".
+///
+/// Cancellation contract: `cancel()` only cancels the in-flight resolver task for the most recent `preload(nft:url:)`. It does not evict or clear already-prepared entries returned by fast paths (e.g., file URLs or memo hits).
+///
+/// `.notPrepared` guidance (dev UX): Translate to UI/metrics as "already consumed or evicted". Recommended analytics key: `audio.preloader.not_prepared` with dimensions `{ reason: consumed|evicted, capacity, isPinned }` if available.
+///
+/// QA checklist:
+/// - Capacity==1: (a) Pin token A, then preload token B — expect A evicted, B prepared. (b) Rapid toggles A↔B — latest remains prepared.
+/// - Cancel semantics: (a) Preload(fileURL) then `cancel()` — consume still succeeds (not `.notPrepared`). (b) Start async preload(non-file), call `cancel()` — await throws `.cancelled`, prepared set unchanged.
 actor Preloader {
     // MARK: - Types
 
@@ -29,11 +40,13 @@ actor Preloader {
     private let memoCapacity: Int
     private let pinWindow: TimeInterval
     // Short-TTL memo for URL -> canonical file URL
+    private let resolver: (URL) async throws -> URL
+    private let clock = ContinuousClock()
 
     /// Memo keys use normalized remote URLs (scheme/host lowercase, default ports removed, fragment dropped,
     /// percent-escape hex uppercased). Query order preserved.
-    private var memo: [URL: (canonical: URL, timestamp: Date)] = [:]
-    private var pinned: (token: Token, expiry: Date)?
+    private var memo: [URL: (canonical: URL, timestamp: ContinuousClock.Instant)] = [:]
+    private var pinned: (token: Token, expiry: ContinuousClock.Instant)?
 
     // MARK: - State
 
@@ -47,11 +60,12 @@ actor Preloader {
     // MARK: - Init
 
     /// Capacity and memoization are configurable; default capacity is 3.
-    init(capacity: Int = 3, memoTTL: TimeInterval = 2.0, memoCapacity: Int = 8, pinWindow: TimeInterval = 0.75) {
+    init(capacity: Int = 3, memoTTL: TimeInterval = 2.0, memoCapacity: Int = 8, pinWindow: TimeInterval = 0.75, resolver: @escaping (URL) async throws -> URL = { url in try await AudioFileCache.shared.localURL(forRemote: url) }) {
         self.capacity = max(1, capacity)
         self.memoTTL = max(0, memoTTL)
         self.memoCapacity = max(1, memoCapacity)
         self.pinWindow = max(0, pinWindow)
+        self.resolver = resolver
     }
 
     // MARK: - Public API (internal)
@@ -106,8 +120,11 @@ actor Preloader {
         // Build resolver task for this preload
         let task = Task { () throws -> URL in
             try Task.checkCancellation()
-            let resolved = try await AudioFileCache.shared.localURL(forRemote: url)
+            let resolved = try await resolver(url)
             try Task.checkCancellation()
+            guard resolved.isFileURL else {
+                throw PreloadError.resolutionFailed(underlyingDescription: "Resolver must return a file URL, got: \(resolved.absoluteString)")
+            }
             return Self.canonicalize(resolved)
         }
         resolverTask = task
@@ -196,14 +213,14 @@ actor Preloader {
     // MARK: - Helpers
 
     private func clearPinIfExpired() {
-        if let p = pinned, Date() >= p.expiry {
+        if let p = pinned, clock.now >= p.expiry {
             pinned = nil
         }
     }
 
     private func pin(_ token: Token) {
         clearPinIfExpired()
-        pinned = (token, Date().addingTimeInterval(pinWindow))
+        pinned = (token, clock.now.advanced(by: .seconds(pinWindow)))
     }
 
     private func unpinIfMatches(_ token: Token) {
@@ -212,18 +229,46 @@ actor Preloader {
         }
     }
 
-    private func evictLRURespectingPin() {
+    private func evictLRURespectingPin(protect protected: Token?) {
         clearPinIfExpired()
         guard prepared.count > capacity else { return }
-        if let pinnedToken = pinned?.token {
-            // Find the last index that is not the pinned token
-            if let idx = prepared.lastIndex(where: { $0 != pinnedToken }) {
-                prepared.remove(at: idx)
-            } else {
-                // All entries are the pinned token (or capacity misconfiguration); nothing to evict
-                // Fall back: do nothing to avoid evicting the pinned token
+
+        // Capacity==1 policy: New token wins over an existing pin.
+        // If we exceed capacity and the only conflict is with a pinned token that isn't protected,
+        // evict the pinned one to ensure the protected (newly inserted/promoted) token remains.
+        let pinnedToken = pinned?.token
+
+        // Select a victim from LRU end toward MRU, skipping the protected token.
+        // Normally we respect the pin, but if all remaining candidates are either the protected or the pinned,
+        // we evict the pinned to honor the "new token wins" policy when necessary to satisfy capacity.
+        var victimIndex: Int? = nil
+        for idx in stride(from: prepared.count - 1, through: 0, by: -1) {
+            let candidate = prepared[idx]
+            if let protected = protected, candidate == protected {
+                continue // never evict the protected token
             }
+            if let pinnedToken, candidate == pinnedToken {
+                // Defer evicting the pinned token unless we have no other choice
+                if victimIndex == nil { victimIndex = idx } // provisional victim if nothing else found
+                continue
+            }
+            // Found a non-protected, non-pinned candidate; evict it
+            victimIndex = idx
+            break
+        }
+
+        if let victimIndex {
+            // If victim is the pinned token, clear the pin as we are evicting it.
+            if let pinnedToken, prepared[victimIndex] == pinnedToken {
+                pinned = nil
+            }
+            prepared.remove(at: victimIndex)
+        } else if let pinnedToken, let idx = prepared.firstIndex(of: pinnedToken) {
+            // Fallback: only candidates were protected/pinned; evict the pinned to keep protected
+            pinned = nil
+            prepared.remove(at: idx)
         } else {
+            // As a last resort (shouldn't happen), pop LRU
             _ = prepared.popLast()
         }
     }
@@ -254,21 +299,36 @@ actor Preloader {
     }
 
     private func normalizePercentEscapesCase(_ s: String) -> String {
-        // Replace occurrences of %xx with %XX (uppercase hex). No decoding/encoding beyond case normalization.
+        // Replace occurrences of %xx with %XX (uppercase hex) only when xx are valid hex digits.
+        // No decoding/encoding beyond case normalization. Safe on malformed/trailing sequences.
+        guard !s.isEmpty else { return s }
         var result = s
         var i = result.startIndex
+        func isHex(_ c: Character) -> Bool {
+            switch c {
+            case "0","1","2","3","4","5","6","7","8","9",
+                 "a","b","c","d","e","f",
+                 "A","B","C","D","E","F":
+                return true
+            default:
+                return false
+            }
+        }
         while i < result.endIndex {
             if result[i] == "%" {
-                let next1 = result.index(i, offsetBy: 1, limitedBy: result.endIndex)
-                let next2 = next1.flatMap { result.index($0, offsetBy: 1, limitedBy: result.endIndex) }
-                if let n1 = next1, let n2 = next2, n2 < result.endIndex {
-                    let hex = String(result[result.index(after: i)...n2])
-                    if hex.count == 2 {
-                        let upper = hex.uppercased()
-                        result.replaceSubrange(result.index(after: i)...n2, with: upper)
-                        i = result.index(i, offsetBy: 3)
-                        continue
-                    }
+                let n1i = result.index(i, offsetBy: 1)
+                if n1i >= result.endIndex { break } // trailing '%'
+                let n2i = result.index(i, offsetBy: 2)
+                if n2i >= result.endIndex { break } // trailing incomplete sequence
+                let c1 = result[n1i]
+                let c2 = result[n2i]
+                if isHex(c1) && isHex(c2) {
+                    // Uppercase the two hex digits
+                    let upper = String([c1, c2]).uppercased()
+                    result.replaceSubrange(n1i...n2i, with: upper)
+                    // Advance past the sequence
+                    i = result.index(i, offsetBy: 3)
+                    continue
                 }
             }
             i = result.index(after: i)
@@ -276,12 +336,27 @@ actor Preloader {
         return result
     }
 
+    private func pruneExpiredMemoEntries() {
+        if memoTTL <= 0 { return }
+        let now = clock.now
+        let ttl = Duration.seconds(memoTTL)
+        let expiredKeys = memo.compactMap { (key, entry) in
+            (now - entry.timestamp) > ttl ? key : nil
+        }
+        for key in expiredKeys {
+            memo.removeValue(forKey: key)
+        }
+    }
+
     /// Memo keys use normalized remote URLs (scheme/host lowercase, default ports removed, fragment dropped,
     /// percent-escape hex uppercased). Query order preserved.
     private func memoLookup(for url: URL) -> URL? {
         let key = normalizeRemoteURLForMemo(url)
+        pruneExpiredMemoEntries()
         if let entry = memo[key] {
-            if Date().timeIntervalSince(entry.timestamp) <= memoTTL {
+            let now = clock.now
+            let ttl = Duration.seconds(memoTTL)
+            if (now - entry.timestamp) <= ttl {
                 return entry.canonical
             } else {
                 memo.removeValue(forKey: key)
@@ -292,11 +367,16 @@ actor Preloader {
 
     private func memoStore(original: URL, canonical: URL) {
         let key = normalizeRemoteURLForMemo(original)
-        memo[key] = (canonical, Date())
-        if memo.count > memoCapacity {
-            // Evict oldest by timestamp deterministically
+        pruneExpiredMemoEntries()
+        memo[key] = (canonical, clock.now)
+        // Opportunistically prune again after insert (in case TTL just expired others)
+        pruneExpiredMemoEntries()
+        // Enforce capacity by evicting oldest by timestamp deterministically
+        while memo.count > memoCapacity {
             if let oldest = memo.min(by: { $0.value.timestamp < $1.value.timestamp })?.key {
                 memo.removeValue(forKey: oldest)
+            } else {
+                break
             }
         }
     }
@@ -321,8 +401,20 @@ actor Preloader {
         } else {
             // Insert as MRU
             prepared.insert(token, at: 0)
-            evictLRURespectingPin()
+            evictLRURespectingPin(protect: token)
         }
+    }
+
+    // MARK: - Testing helpers (internal)
+
+    /// Returns true if the given token is currently prepared (for tests).
+    func preparedContains(_ token: Token) -> Bool {
+        return prepared.contains(token)
+    }
+
+    /// Returns the current prepared count (for tests).
+    func preparedCount() -> Int {
+        return prepared.count
     }
 
     private static func canonicalize(_ fileURL: URL) -> URL {
@@ -331,6 +423,10 @@ actor Preloader {
         return URL(fileURLWithPath: resolvedPath, isDirectory: false)
     }
 
+    /// Classifies AVAudioFile open errors into transient vs permanent categories.
+    /// Transient (causes reinsertion): POSIX EAGAIN(35), EBUSY(16), EINTR(4), ETIMEDOUT(60); NSURLErrorDomain timeouts/connectivity (TimedOut, CannotConnectToHost, NetworkConnectionLost, ResourceUnavailable).
+    /// Permanent (no reinsertion): Common NSCocoaErrorDomain file errors (no such file, permission, invalid/corrupt/unsupported/too large), and default for NSOSStatusErrorDomain.
+    /// Note: Policy is intentionally conservative to avoid endless retries.
     private func isTransientOpenError(_ error: Error) -> Bool {
         let ns = error as NSError
 
@@ -373,4 +469,3 @@ actor Preloader {
         return false
     }
 }
-
