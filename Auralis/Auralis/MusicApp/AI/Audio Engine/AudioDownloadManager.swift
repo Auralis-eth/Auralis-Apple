@@ -8,7 +8,29 @@ public extension Notification.Name {
 }
 
 public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
+    public enum AudioDownloadError: LocalizedError {
+        case cancelled
+        case timeout
+        case httpStatus(Int)
+
+        public var errorDescription: String? {
+            switch self {
+            case .cancelled: return "Download was cancelled."
+            case .timeout: return "The download timed out."
+            case .httpStatus(let code): return "Server returned status code \(code)."
+            }
+        }
+    }
+
+    public enum NetworkPolicy {
+        case userInitiated
+        case background
+    }
+
     public static let shared = AudioDownloadManager()
+
+    // Default network policy for new downloads
+    public var defaultPolicy: NetworkPolicy = .background
 
     // Dedicated delegate queue to avoid running delegate callbacks on the state queue
     private let delegateQueue: OperationQueue = {
@@ -204,7 +226,11 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
                         #if DEBUG
                         self.debugDuplicateTaskPreventionCount += 1
                         #endif
-                        self.taskIdentifierToURL[task.taskIdentifier] = originalURL
+                        // Ensure no residual state for the duplicate task
+                        self.taskIdToProgress[task.taskIdentifier]?.scheduledWorkItem?.cancel()
+                        self.taskIdToProgress[task.taskIdentifier] = nil
+                        self.taskIdentifierToURL[task.taskIdentifier] = nil
+                        // Cancel without ever recording this duplicate in our maps
                         task.cancel()
                     } else {
                         self.taskIdentifierToURL[task.taskIdentifier] = originalURL
@@ -224,6 +250,10 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         config.isDiscretionary = true
         config.allowsExpensiveNetworkAccess = true
         config.allowsConstrainedNetworkAccess = true
+        // Ticket 3: Explicit timeouts to avoid indefinite hangs
+        // Handshake/request timeout (e.g., DNS/TLS/connect) kept short; resource timeout generous for audio assets
+        config.timeoutIntervalForRequest = 30 // seconds
+        config.timeoutIntervalForResource = 15 * 60 // 15 minutes
         return URLSession(configuration: config, delegate: self, delegateQueue: delegateQueue)
     }()
 
@@ -246,10 +276,31 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         rebindInFlightTasks()
     }
 
+    private func makeRequest(for url: URL, policy: NetworkPolicy) -> URLRequest {
+        var request = URLRequest(url: url)
+        switch policy {
+        case .userInitiated:
+            // Proceed over cellular/expensive networks; not constrained by Low Data Mode
+            if #available(iOS 13.0, *) {
+                request.allowsExpensiveNetworkAccess = true
+                request.allowsConstrainedNetworkAccess = true
+            }
+            request.networkServiceType = .responsiveData
+        case .background:
+            // Respect Low Data Mode; allow system discretion for prefetching
+            if #available(iOS 13.0, *) {
+                request.allowsExpensiveNetworkAccess = false
+                request.allowsConstrainedNetworkAccess = false
+            }
+            request.networkServiceType = .background
+        }
+        return request
+    }
+
     /// Starts a download for the given URL. Returns the URLSessionDownloadTask immediately.
     /// If a download for this URL is already in progress, returns the existing task.
     @discardableResult
-    public func startDownload(from url: URL) -> URLSessionDownloadTask {
+    public func startDownload(from url: URL, policy: NetworkPolicy? = nil) -> URLSessionDownloadTask {
         var task: URLSessionDownloadTask!
 
         withState {
@@ -257,7 +308,8 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
                 task = existingTask
                 return
             }
-            let newTask = session.downloadTask(with: url)
+            let request = makeRequest(for: url, policy: policy ?? defaultPolicy)
+            let newTask = session.downloadTask(with: request)
             taskIdentifierToURL[newTask.taskIdentifier] = url
             urlToTask[url] = newTask
             urlToCompletionHandlers[url] = [] // Initialize empty handlers list
@@ -270,7 +322,7 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
 
     /// Awaits the download completion and returns the temporary file URL and URLResponse.
     /// If a download for the URL is already in progress, the continuation will be appended.
-    public func awaitDownload(from url: URL) async throws -> (URL, URLResponse) {
+    public func awaitDownload(from url: URL, policy: NetworkPolicy? = nil) async throws -> (URL, URLResponse) {
         try await withCheckedThrowingContinuation { continuation in
             self.withStateAsync {
                 if let _ = self.urlToTask[url] {
@@ -288,7 +340,8 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
                     }
                 } else {
                     // No download in progress, start new download
-                    let task = self.session.downloadTask(with: url)
+                    let request = self.makeRequest(for: url, policy: policy ?? self.defaultPolicy)
+                    let task = self.session.downloadTask(with: request)
                     self.taskIdentifierToURL[task.taskIdentifier] = url
                     self.urlToTask[url] = task
                     self.urlToCompletionHandlers[url] = [{
@@ -303,6 +356,51 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
                     task.resume()
                 }
             }
+        }
+    }
+
+    /// Cancels an in-flight download for the given URL, cleans up state, and notifies listeners with a cancellation error.
+    public func cancelDownload(for url: URL) {
+        var taskToCancel: URLSessionDownloadTask?
+        var handlers: [(Result<(URL, URLResponse), Error>) -> Void] = []
+        var taskId: Int?
+
+        withState {
+            if let task = urlToTask[url] {
+                taskToCancel = task
+                taskId = task.taskIdentifier
+                // Capture and clear handlers atomically
+                handlers = urlToCompletionHandlers[url] ?? []
+                urlToCompletionHandlers[url] = nil
+                urlToTask[url] = nil
+                taskIdentifierToURL[task.taskIdentifier] = nil
+                // Tear down any progress coalescer
+                if let tid = taskId {
+                    taskIdToProgress[tid]?.scheduledWorkItem?.cancel()
+                    taskIdToProgress[tid] = nil
+                }
+            }
+        }
+
+        // Perform the cancellation outside the state queue
+        taskToCancel?.cancel()
+
+        guard !handlers.isEmpty else { return }
+
+        // Notify listeners with a standardized cancellation error
+        let cancelError = URLError(.cancelled)
+        let userInfo: [String: Any] = [
+            "taskIdentifier": taskId as Any,
+            "url": url,
+            "error": cancelError
+        ]
+
+        for handler in handlers {
+            handler(.failure(cancelError))
+        }
+
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .audioDownloadFailed, object: nil, userInfo: userInfo)
         }
     }
 
@@ -352,15 +450,16 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         withState {
             url = taskIdentifierToURL[downloadTask.taskIdentifier]
             response = downloadTask.response
-            guard let url = url else { return }
-            flushFinalProgressIfNeeded(for: downloadTask, url: url)
-            // Clear state for finished download
-            urlToCompletionHandlers[url] = nil
-            urlToTask[url] = nil
+            guard let foundURL = url else { return }
+            flushFinalProgressIfNeeded(for: downloadTask, url: foundURL)
+            // Capture handlers atomically, then clear state
+            handlers = urlToCompletionHandlers[foundURL] ?? []
+            urlToCompletionHandlers[foundURL] = nil
+            urlToTask[foundURL] = nil
             taskIdentifierToURL[downloadTask.taskIdentifier] = nil
         }
 
-        guard let originalURL = url, !handlers.isEmpty else {
+        guard let originalURL = url else {
             return
         }
 
@@ -438,15 +537,16 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
 
         withState {
             url = taskIdentifierToURL[task.taskIdentifier]
-            guard let url = url else { return }
-            flushFinalProgressIfNeeded(for: task, url: url)
-            // Clear state for failed download
-            urlToCompletionHandlers[url] = nil
-            urlToTask[url] = nil
+            guard let foundURL = url else { return }
+            flushFinalProgressIfNeeded(for: task, url: foundURL)
+            // Capture handlers atomically, then clear state
+            handlers = urlToCompletionHandlers[foundURL] ?? []
+            urlToCompletionHandlers[foundURL] = nil
+            urlToTask[foundURL] = nil
             taskIdentifierToURL[task.taskIdentifier] = nil
         }
 
-        guard let originalURL = url, !handlers.isEmpty else {
+        guard let originalURL = url else {
             return
         }
 
@@ -481,6 +581,10 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
         }
 
         if let completionHandler = completionHandler {
+            #if DEBUG
+            // Telemetry: count invocations; should be exactly once per identifier
+            self.debugSuccessCount += 0 // placeholder to keep compiler using self in DEBUG
+            #endif
             DispatchQueue.main.async {
                 completionHandler()
             }
