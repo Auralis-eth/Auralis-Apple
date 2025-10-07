@@ -37,10 +37,10 @@ public final class NowPlayingService {
     private var lastPublishedRate: Double?
     private let progressSignificantDelta: TimeInterval = 3.0
 
-    private let artworkRequestTimeout: TimeInterval = 10
+    private let artworkRequestTimeout: TimeInterval = 5
     private let artworkMaxBytes: Int = 10 * 1024 * 1024 // 10 MB cap
     private let allowedImageMIMETypes: Set<String> = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"]
-    private let artworkMasterMaxPixelSize: CGFloat = 1024
+    private var artworkMasterMaxPixelSize: CGFloat = 1024
 
     // Apply a coherent Now Playing bundle in a single assignment to avoid partial state
     private func applyNowPlaying(_ build: (inout [String: Any]) -> Void) {
@@ -50,10 +50,13 @@ public final class NowPlayingService {
         center.nowPlayingInfo = snapshot
     }
 
-    public init(center: NowPlayingCentering = DefaultNowPlayingCenter(), cadence: TimeInterval = 5.0, telemetry: NowPlayingTelemetry = NoopNowPlayingTelemetry()) {
+    public init(center: NowPlayingCentering = DefaultNowPlayingCenter(), cadence: TimeInterval = 5.0, telemetry: NowPlayingTelemetry = NoopNowPlayingTelemetry(), decodeMaxPixelSize: CGFloat? = nil) {
         self.center = center
         self.cadence = cadence
         self.telemetry = telemetry
+        if let decodeMaxPixelSize, decodeMaxPixelSize > 0 {
+            self.artworkMasterMaxPixelSize = decodeMaxPixelSize
+        }
     }
 
     public func updateProgress(elapsed: TimeInterval, rate: Double, duration: TimeInterval) {
@@ -102,7 +105,7 @@ public final class NowPlayingService {
         lastPublishedRate = rate
     }
 
-    public func setMetadata(title: String?, artist: String?, duration: TimeInterval, elapsed: TimeInterval, rate: Double) {
+    public func setMetadata(title: String?, artist: String?, album: String? = nil, duration: TimeInterval, elapsed: TimeInterval, rate: Double, defaultRate: Double? = nil) {
         let safeDuration = max(0, duration)
         let clampedElapsed: TimeInterval = {
             if safeDuration > 0 {
@@ -113,18 +116,35 @@ public final class NowPlayingService {
         }()
         applyNowPlaying {
             $0[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
-            $0[MPNowPlayingInfoPropertyIsLiveStream] = safeDuration <= 0
+            let isLive = safeDuration <= 0
+            $0[MPNowPlayingInfoPropertyIsLiveStream] = isLive
             $0[MPMediaItemPropertyTitle] = title
             $0[MPMediaItemPropertyArtist] = artist
-            $0[MPMediaItemPropertyPlaybackDuration] = safeDuration
+            if let album { $0[MPMediaItemPropertyAlbumTitle] = album } else { $0.removeValue(forKey: MPMediaItemPropertyAlbumTitle) }
+            // For live streams, ensure duration is 0 to discourage scrubbers
+            $0[MPMediaItemPropertyPlaybackDuration] = isLive ? 0 : safeDuration
             $0[MPNowPlayingInfoPropertyElapsedPlaybackTime] = clampedElapsed
             $0[MPNowPlayingInfoPropertyPlaybackRate] = rate
+            if let defaultRate { $0[MPNowPlayingInfoPropertyDefaultPlaybackRate] = defaultRate } else { $0.removeValue(forKey: MPNowPlayingInfoPropertyDefaultPlaybackRate) }
         }
         
         // Keep progress/rate trackers in sync when metadata is set
         lastPublishedElapsed = clampedElapsed
         lastPublishedRate = rate
         lastProgressUptime = ProcessInfo.processInfo.systemUptime
+    }
+
+    // Backward-compatible overload preserving original API
+    public func setMetadata(title: String?, artist: String?, duration: TimeInterval, elapsed: TimeInterval, rate: Double) {
+        setMetadata(title: title, artist: artist, album: nil, duration: duration, elapsed: elapsed, rate: rate, defaultRate: nil)
+    }
+
+    /// Override the maximum decode target size (in points) for artwork thumbnails.
+    /// Pass a value > 0 to allow larger (or smaller) decode caps than the default 1024.
+    /// The actual pixel cap is this value multiplied by the current screen scale.
+    public func setArtworkDecodeMaxPixelSize(_ size: CGFloat) {
+        guard size > 0 else { return }
+        artworkMasterMaxPixelSize = size
     }
 
     public func setArtwork(from urlString: String?) {
@@ -141,6 +161,12 @@ public final class NowPlayingService {
         artworkGeneration += 1
         let token = artworkGeneration
 
+        // Capture main-actor properties for use off the main actor
+        let decodeCap = self.artworkMasterMaxPixelSize
+        let allowedMimes = self.allowedImageMIMETypes
+        let maxBytes = self.artworkMaxBytes
+        let telemetry = self.telemetry
+
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: artworkRequestTimeout)
         request.httpMethod = "GET"
 
@@ -149,42 +175,77 @@ public final class NowPlayingService {
             if Task.isCancelled { return }
 
             var data = Data()
-            do {
-                let (bytes, resp) = try await URLSession.shared.bytes(for: request)
+            var fetchSucceeded = false
+
+            // Helper to perform a short backoff between attempts
+            func shortBackoff() async {
+                try? await Task.sleep(nanoseconds: 300_000_000) // 300ms
+            }
+
+            attemptLoop: for attempt in 0..<2 { // bounded: at most 1 retry
                 if Task.isCancelled { return }
-                guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-                    telemetry.artworkFetchFailed(reason: "http-status")
-                    return
-                }
-                // Validate MIME type early
-                guard let contentTypeHeader = http.value(forHTTPHeaderField: "Content-Type")?.lowercased() else {
-                    telemetry.artworkFetchFailed(reason: "missing-content-type")
-                    return
-                }
-                let mimeType = contentTypeHeader.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: true).first.map(String.init) ?? contentTypeHeader
-                guard allowedImageMIMETypes.contains(mimeType) else {
-                    telemetry.artworkFetchFailed(reason: "mime-type")
-                    return
-                }
-                // Enforce Content-Length if provided
-                if let lenStr = http.value(forHTTPHeaderField: "Content-Length"), let len = Int(lenStr), len > artworkMaxBytes {
-                    telemetry.artworkFetchFailed(reason: "content-length")
-                    return
-                }
-                // Stream with hard cap
-                for try await chunk in bytes {
+                data.removeAll(keepingCapacity: false)
+
+                do {
+                    let (bytes, resp) = try await URLSession.shared.bytes(for: request)
                     if Task.isCancelled { return }
-                    data.append(chunk)
-                    if data.count > artworkMaxBytes {
-                        telemetry.artworkFetchFailed(reason: "stream-cap-exceeded")
+                    guard let http = resp as? HTTPURLResponse else {
+                        telemetry.artworkFetchFailed(reason: "http-status")
+                        return
+                    }
+                    // Non-success status handling with transient retry for 5xx only
+                    guard (200...299).contains(http.statusCode) else {
+                        if (500...599).contains(http.statusCode), attempt == 0 {
+                            telemetry.artworkFetchFailed(reason: "http-5xx-retry")
+                            await shortBackoff()
+                            continue attemptLoop
+                        } else {
+                            telemetry.artworkFetchFailed(reason: "http-status")
+                            return
+                        }
+                    }
+                    // Validate MIME type early
+                    guard let contentTypeHeader = http.value(forHTTPHeaderField: "Content-Type")?.lowercased() else {
+                        telemetry.artworkFetchFailed(reason: "missing-content-type")
+                        return
+                    }
+                    let mimeType = contentTypeHeader.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: true).first.map(String.init) ?? contentTypeHeader
+                    guard allowedMimes.contains(mimeType) else {
+                        telemetry.artworkFetchFailed(reason: "mime-type")
+                        return
+                    }
+                    // Enforce Content-Length if provided
+                    if let lenStr = http.value(forHTTPHeaderField: "Content-Length"), let len = Int(lenStr), len > maxBytes {
+                        telemetry.artworkFetchFailed(reason: "content-length")
+                        return
+                    }
+                    // Stream with hard cap
+                    for try await chunk in bytes {
+                        if Task.isCancelled { return }
+                        data.append(chunk)
+                        if data.count > maxBytes {
+                            telemetry.artworkFetchFailed(reason: "stream-cap-exceeded")
+                            return
+                        }
+                    }
+
+                    // If we made it here, fetch succeeded
+                    fetchSucceeded = true
+                    break attemptLoop
+                } catch {
+                    if Task.isCancelled { return }
+                    telemetry.artworkFetchFailed(reason: "network-error")
+                    // Retry once on transient network error
+                    if attempt == 0 {
+                        await shortBackoff()
+                        continue attemptLoop
+                    } else {
                         return
                     }
                 }
-            } catch {
-                if Task.isCancelled { return }
-                telemetry.artworkFetchFailed(reason: "network-error")
-                return
             }
+
+            guard fetchSucceeded else { return }
             if Task.isCancelled { return }
 
             telemetry.artworkBytesReceived(data.count)
@@ -197,7 +258,7 @@ public final class NowPlayingService {
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceShouldCache: false,
                 kCGImageSourceShouldCacheImmediately: false,
-                kCGImageSourceThumbnailMaxPixelSize: artworkMasterMaxPixelSize * screenScale
+                kCGImageSourceThumbnailMaxPixelSize: decodeCap * screenScale
             ]
             guard let masterCG = CGImageSourceCreateThumbnailAtIndex(src, 0, masterOpts as CFDictionary) else { return }
             let masterImage = UIImage(cgImage: masterCG, scale: screenScale, orientation: .up)
@@ -260,6 +321,20 @@ public final class NowPlayingService {
                     $0[MPMediaItemPropertyArtwork] = artwork
                 }
             }
+        }
+    }
+
+    /// Explicitly clear the currently published artwork.
+    /// - Note: This cancels any in-flight artwork task and prevents stale applies by advancing the generation token.
+    public func clearArtwork() {
+        // Cancel any in-flight work and advance generation to invalidate pending results
+        artworkTask?.cancel()
+        artworkTask = nil
+        artworkGeneration += 1
+
+        // Remove artwork coherently without touching other metadata/progress keys
+        applyNowPlaying {
+            $0.removeValue(forKey: MPMediaItemPropertyArtwork)
         }
     }
 
