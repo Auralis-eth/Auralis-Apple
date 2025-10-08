@@ -95,11 +95,9 @@ public final class NowPlayingService {
         }
     }
     
-    // Centralized bucket thresholds and bias (T13)
     nonisolated static let bucketThresholds: [Int] = [256, 512, 1024]
     nonisolated static let bucketBias: CGFloat = 1.10
 
-    // Unified final-URL validation: HTTPS + same host / allow-list / org-domain with eTLD+1 (T10)
     nonisolated private static func isFinalURLAllowed(finalURL: URL?, originalHostASCII: String?, redirectAllowlist: [String]?, orgDomains: [String]?) -> (allowed: Bool, finalHostASCII: String?) {
         guard let url = finalURL, url.scheme?.lowercased() == "https" else { return (false, nil) }
         let finalHostRaw = url.host
@@ -138,11 +136,9 @@ public final class NowPlayingService {
     private var artworkGeneration: Int = 0
     private var artworkTask: Task<Void, Never>?
 
-    // NP-025: Configurable bucket strategy
     public enum ArtworkBucketStrategy { case one, two, three }
     private var bucketStrategy: ArtworkBucketStrategy
     
-    // NP-049: Cool-down to avoid bucket flapping
     private var bucketStrategyCooldownUntil: Date? = nil
     private let bucketStrategyCooldown: TimeInterval = 300 // 5 minutes
 
@@ -161,22 +157,18 @@ public final class NowPlayingService {
     private let allowedImageMIMETypes: Set<String> = ["image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/webp", "image/heic", "image/heif"]
     private var artworkMasterMaxPixelSize: CGFloat = 1024
     private let allowedRedirectHosts: Set<String>?
-    // T-NP-001: Optional organizational-domain allow-list (parent domains)
     private let allowedRedirectOrgDomains: Set<String>?
 
     private let runtimeSupportedMIMEs: Set<String>
-    // T-NP-002: EWMA per-host for first-attempt cellular timeout
     private var hostLatencyEWMA: [String: TimeInterval] = [:]
     private let ewmaAlpha: Double = 0.3
     private let minFirstAttemptCellularTimeout: TimeInterval = 1.0
     private let maxFirstAttemptCellularTimeout: TimeInterval = 5.0
 
-    // T-NP-017: EWMA hygiene — track last-seen, TTL, and cap table size
     private var hostLastSeen: [String: Date] = [:]
     private let ewmaInactivityTTL: TimeInterval = 1800 // 30 minutes
     private let ewmaMaxHosts: Int = 256
 
-    // T11: EWMA persistence
     private let ewmaPersistKey = "NowPlayingService.EWMA.v1"
     private struct HostEWMAEntry: Codable { let host: String; let ewma: Double; let lastSeen: Date }
     private func persistEWMA(now: Date = Date()) {
@@ -219,7 +211,6 @@ public final class NowPlayingService {
         }
     }
 
-    // T-NP-017: Remove stale EWMA entries and bound the table by last activity
     private func pruneEWMAIfNeeded(now: Date = Date()) {
         // Drop entries inactive beyond TTL
         if !hostLastSeen.isEmpty {
@@ -242,7 +233,6 @@ public final class NowPlayingService {
         }
     }
 
-    // T-NP-017: Read EWMA with staleness guard; fall back to conservative default
     private func ewmaEstimate(for host: String) -> TimeInterval {
         let now = Date()
         if let ts = hostLastSeen[host], now.timeIntervalSince(ts) <= ewmaInactivityTTL, let v = hostLatencyEWMA[host] {
@@ -1217,3 +1207,4 @@ private final class ArtworkCacheControl {
         return master
     }
 }
+
