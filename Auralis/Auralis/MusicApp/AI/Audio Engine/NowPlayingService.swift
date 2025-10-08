@@ -5,12 +5,123 @@ import CoreGraphics
 import ImageIO
 import Network
 
-extension Notification.Name {
-    static let nowPlayingLiveStreamStateDidChange = Notification.Name("NowPlayingService.liveStreamStateDidChange")
-}
-
 @MainActor
 public final class NowPlayingService {
+    // MARK: - Network Path Monitoring
+    private var pathMonitor: NWPathMonitor? = nil
+    private var pathMonitorStarted: Bool = false
+    private let pathMonitorQueue = DispatchQueue(label: "NowPlayingService.PathMonitor", qos: .utility)
+    private var pathMonitorIdleTimer: DispatchSourceTimer? = nil
+    private let pathMonitorIdleGrace: TimeInterval = 30 // seconds of idle before stopping monitor
+
+    // Path state captured from NWPathMonitor
+    private var isCellular: Bool = false
+    private var hasPathUpdate: Bool = false
+
+    // MARK: - App Lifecycle / Memory Pressure
+    private var memoryWarningObserver: NSObjectProtocol? = nil
+    private var bgObserver: NSObjectProtocol? = nil
+    private var fgObserver: NSObjectProtocol? = nil
+    private var isBackgrounded: Bool = false
+
+    private var lastMemoryWarningTime: TimeInterval = 0
+    private let memoryWarningWindow: TimeInterval = 60 // seconds to group warnings
+    private var consecutiveMemoryWarnings: Int = 0
+
+    // MARK: - Artwork / Placeholder cache
+    private var lastPlaceholderImage: UIImage? = nil
+
+    // MARK: - MIME Suppression / Decode failure tracking
+    private var suppressedMIMEUntil: [String: Date] = [:]
+    private var mimeDecodeFailureCounts: [String: Int] = [:]
+    private let mimeSuppressionTTL: TimeInterval = 3600 // 1 hour suppression for problematic MIME types
+    private let mimeSuppressionCap: Int = 64 // cap number of suppressed MIME entries
+    private let decodeSuppressionThreshold: Int = 3 // consecutive decode failures before suppression
+
+    // MARK: - Cellular timeout policy
+    private let cellularFastTimeout: TimeInterval = 1.5 // default first-attempt timeout on cellular when no EWMA
+    private let cellularTimeoutOverrideHosts: Set<String>?
+
+    // MARK: - Bucket rehydration policy (after memory pressure)
+    private var bucketRehydrateUntil: Date? = nil
+    private let bucketRehydrateCooldown: TimeInterval = 60 // seconds to defer bucket rehydration
+
+    // Normalize a host to ASCII (IDNA/punycode) using Foundation URL parsing; returns lowercased ASCII or nil
+    nonisolated private static func normalizeHostASCII(_ host: String) -> String? {
+        guard !host.isEmpty else { return nil }
+        // Build a URL and read back the host; Foundation will normalize IDNs to punycode ASCII
+        if let url = URL(string: "https://\(host)/"), let h = url.host { return h.lowercased() }
+        // Fallback: try URLComponents as a second attempt
+        var comps = URLComponents()
+        comps.scheme = "https"
+        comps.host = host
+        if let h = comps.url?.host { return h.lowercased() }
+        return host.lowercased()
+    }
+
+    // Strict subdomain check: host must be a real subdomain of parent (not equal), with dot boundary
+    nonisolated private static func isStrictSubdomain(_ host: String, of parent: String) -> Bool {
+        let h = host.lowercased()
+        let p = parent.lowercased()
+        return h != p && h.hasSuffix("." + p)
+    }
+
+    nonisolated private static func host(_ host: String, isSubdomainOf parent: String) -> Bool {
+        let h = host.lowercased()
+        let p = parent.lowercased()
+        return h == p || h.hasSuffix("." + p)
+    }
+    
+    // Compute a conservative eTLD+1 using a small set of common multi-label public suffixes
+    nonisolated private static func effectiveTLDPlusOne(_ host: String) -> String? {
+        let h = normalizeHostASCII(host) ?? ""
+        guard !h.isEmpty else { return nil }
+        let labels = h.split(separator: ".").map(String.init)
+        guard labels.count >= 2 else { return h }
+        // Common multi-label public suffixes; extend conservatively as needed
+        let multiLabelSuffixes: Set<String> = [
+            "co.uk", "org.uk", "gov.uk", "ac.uk",
+            "com.au", "net.au", "org.au", "edu.au",
+            "co.jp", "ne.jp", "or.jp",
+            "co.nz", "org.nz", "govt.nz"
+        ]
+        let lastTwo = labels.suffix(2).joined(separator: ".")
+        if multiLabelSuffixes.contains(lastTwo), labels.count >= 3 {
+            // eTLD is two labels (e.g., co.uk); eTLD+1 is last three labels
+            return labels.suffix(3).joined(separator: ".")
+        } else {
+            // Default: eTLD is one label; eTLD+1 is last two labels
+            return lastTwo
+        }
+    }
+    
+    // Centralized bucket thresholds and bias (T13)
+    nonisolated static let bucketThresholds: [Int] = [256, 512, 1024]
+    nonisolated static let bucketBias: CGFloat = 1.10
+
+    // Unified final-URL validation: HTTPS + same host / allow-list / org-domain with eTLD+1 (T10)
+    nonisolated private static func isFinalURLAllowed(finalURL: URL?, originalHostASCII: String?, redirectAllowlist: [String]?, orgDomains: [String]?) -> (allowed: Bool, finalHostASCII: String?) {
+        guard let url = finalURL, url.scheme?.lowercased() == "https" else { return (false, nil) }
+        let finalHostRaw = url.host
+        let finalHostASCII = finalHostRaw.flatMap { normalizeHostASCII($0) }
+        guard let fh = finalHostASCII else { return (false, nil) }
+        // Same host
+        if let orig = originalHostASCII, fh == orig { return (true, fh) }
+        // Explicit allow-list
+        if let list = redirectAllowlist, list.contains(fh) { return (true, fh) }
+        // Organizational domain: strict subdomain + matching eTLD+1
+        if let orgs = orgDomains, !orgs.isEmpty {
+            if let fhETLD1 = effectiveTLDPlusOne(fh) {
+                for p in orgs {
+                    if isStrictSubdomain(fh, of: p), let pETLD1 = effectiveTLDPlusOne(p), pETLD1 == fhETLD1 {
+                        return (true, fh)
+                    }
+                }
+            }
+        }
+        return (false, fh)
+    }
+
     private var center: NowPlayingCentering
     private var info: [String: Any] = [:]
     private var lastProgressUptime: TimeInterval?
@@ -37,83 +148,8 @@ public final class NowPlayingService {
 
     // Reintroduce URLSession storage (required by initializer usage)
     private let urlSession: URLSession
+    private let artworkURLCache: URLCache
 
-    // Memory purge control for provider closures; holds bucket cache to allow release under pressure
-    private final class ArtworkCacheControl {
-        final class ProviderMetrics {
-            private let q = DispatchQueue(label: "NowPlayingService.ArtworkProviderMetrics", qos: .utility)
-            private var le256: Int = 0
-            private var le512: Int = 0
-            private var gt512: Int = 0
-            func record(requestedMaxDimension: CGFloat) {
-                q.async { [requestedMaxDimension] in
-                    if requestedMaxDimension <= 256 { self.le256 += 1 }
-                    else if requestedMaxDimension <= 512 { self.le512 += 1 }
-                    else { self.gt512 += 1 }
-                }
-            }
-            func snapshot() -> (le256: Int, le512: Int, gt512: Int) {
-                return q.sync { (le256, le512, gt512) }
-            }
-            func reset() {
-                q.async { self.le256 = 0; self.le512 = 0; self.gt512 = 0 }
-            }
-        }
-        private let lock = NSLock()
-        private var _purge = false
-        private var _dropMaster = false
-        private var _buckets: [Int: UIImage]? = nil
-        private var _master: UIImage? = nil
-        private var _placeholder: UIImage? = nil
-        let metrics = ProviderMetrics()
-
-        // MARK: Thread-safe accessors
-        var purge: Bool {
-            get { lock.lock(); defer { lock.unlock() }; return _purge }
-            set { lock.lock(); _purge = newValue; lock.unlock() }
-        }
-        var dropMaster: Bool {
-            get { lock.lock(); defer { lock.unlock() }; return _dropMaster }
-            set { lock.lock(); _dropMaster = newValue; lock.unlock() }
-        }
-        var buckets: [Int: UIImage]? {
-            get { lock.lock(); defer { lock.unlock() }; return _buckets }
-            set { lock.lock(); _buckets = newValue; lock.unlock() }
-        }
-        var master: UIImage? {
-            get { lock.lock(); defer { lock.unlock() }; return _master }
-            set { lock.lock(); _master = newValue; lock.unlock() }
-        }
-        var placeholder: UIImage? {
-            get { lock.lock(); defer { lock.unlock() }; return _placeholder }
-            set { lock.lock(); _placeholder = newValue; lock.unlock() }
-        }
-
-        func imageFor(requested: CGSize, boundsSize: CGSize) -> UIImage? {
-            lock.lock()
-            let purge = _purge
-            let dropMaster = _dropMaster
-            let master = _master
-            let placeholder = _placeholder
-            let buckets = _buckets
-            lock.unlock()
-
-            if purge {
-                // On purge, avoid bucket usage. Optionally drop master if requested.
-                if dropMaster { return placeholder ?? master }
-                return master
-            }
-            // Exact match returns master
-            if requested.equalTo(boundsSize) { return master }
-            let maxDim = max(requested.width, requested.height)
-            let b: Int
-            if maxDim <= 256 { b = 256 }
-            else if maxDim <= 512 { b = 512 }
-            else { b = 1024 }
-            if let img = buckets?[b] { return img }
-            return master
-        }
-    }
     private var currentArtworkControl: ArtworkCacheControl?
 
     private var lastPublishedElapsed: TimeInterval?
@@ -135,49 +171,99 @@ public final class NowPlayingService {
     private let minFirstAttemptCellularTimeout: TimeInterval = 1.0
     private let maxFirstAttemptCellularTimeout: TimeInterval = 5.0
 
-    private var mimeDecodeFailureCounts: [String: Int] = [:]
-    private let decodeSuppressionThreshold: Int = 3
+    // T-NP-017: EWMA hygiene — track last-seen, TTL, and cap table size
+    private var hostLastSeen: [String: Date] = [:]
+    private let ewmaInactivityTTL: TimeInterval = 1800 // 30 minutes
+    private let ewmaMaxHosts: Int = 256
 
-    private var memoryWarningObserver: NSObjectProtocol?
-    private var bgObserver: NSObjectProtocol?
-    private var fgObserver: NSObjectProtocol?
-    private var isBackgrounded: Bool = false
-    private var consecutiveMemoryWarnings: Int = 0
-    private let memoryWarningWindow: TimeInterval = 60
-    private var lastMemoryWarningTime: TimeInterval = 0
-    private var lastPlaceholderImage: UIImage? = nil
-    // T-NP-004: MIME suppression LRU cap
-    private let mimeSuppressionCap: Int = 128
+    // T11: EWMA persistence
+    private let ewmaPersistKey = "NowPlayingService.EWMA.v1"
+    private struct HostEWMAEntry: Codable { let host: String; let ewma: Double; let lastSeen: Date }
+    private func persistEWMA(now: Date = Date()) {
+        // Prepare bounded, TTL-pruned snapshot
+        var entries: [HostEWMAEntry] = []
+        for (host, value) in hostLatencyEWMA {
+            if let ts = hostLastSeen[host], now.timeIntervalSince(ts) <= ewmaInactivityTTL {
+                entries.append(HostEWMAEntry(host: host, ewma: value, lastSeen: ts))
+            }
+        }
+        // Cap to max hosts by most recent
+        entries.sort { $0.lastSeen > $1.lastSeen }
+        if entries.count > ewmaMaxHosts { entries = Array(entries.prefix(ewmaMaxHosts)) }
+        do {
+            let data = try JSONEncoder().encode(entries)
+            UserDefaults.standard.set(data, forKey: ewmaPersistKey)
+        } catch {
+            // Ignore persistence errors
+        }
+    }
+    private func restoreEWMA(now: Date = Date()) {
+        guard let data = UserDefaults.standard.data(forKey: ewmaPersistKey) else { return }
+        do {
+            let entries = try JSONDecoder().decode([HostEWMAEntry].self, from: data)
+            var restored: [String: TimeInterval] = [:]
+            var seen: [String: Date] = [:]
+            for e in entries {
+                if now.timeIntervalSince(e.lastSeen) <= ewmaInactivityTTL {
+                    restored[e.host] = min(max(e.ewma, minFirstAttemptCellularTimeout), maxFirstAttemptCellularTimeout)
+                    seen[e.host] = e.lastSeen
+                }
+            }
+            // Cap to max hosts by most recent
+            let sorted = seen.sorted { $0.value > $1.value }
+            let limited = sorted.prefix(ewmaMaxHosts)
+            self.hostLatencyEWMA = Dictionary(uniqueKeysWithValues: limited.map { ($0.key, restored[$0.key] ?? cellularFastTimeout) })
+            self.hostLastSeen = Dictionary(uniqueKeysWithValues: limited.map { ($0.key, $0.value) })
+        } catch {
+            // Ignore restoration errors
+        }
+    }
 
-    private let mimeSuppressionTTL: TimeInterval = 1800 // 30 minutes
-    private var suppressedMIMEUntil: [String: Date] = [:]
+    // T-NP-017: Remove stale EWMA entries and bound the table by last activity
+    private func pruneEWMAIfNeeded(now: Date = Date()) {
+        // Drop entries inactive beyond TTL
+        if !hostLastSeen.isEmpty {
+            for (h, ts) in hostLastSeen {
+                if now.timeIntervalSince(ts) > ewmaInactivityTTL {
+                    hostLastSeen.removeValue(forKey: h)
+                    hostLatencyEWMA.removeValue(forKey: h)
+                }
+            }
+        }
+        // Enforce max size by evicting oldest last-seen first
+        if hostLastSeen.count > ewmaMaxHosts {
+            let over = hostLastSeen.count - ewmaMaxHosts
+            let sorted = hostLastSeen.sorted { $0.value < $1.value }
+            for i in 0..<min(over, sorted.count) {
+                let h = sorted[i].key
+                hostLastSeen.removeValue(forKey: h)
+                hostLatencyEWMA.removeValue(forKey: h)
+            }
+        }
+    }
 
-    // NP-046: Cap size for validator-missing host map (LRU eviction by oldest timestamp)
-    private var isCellular: Bool = false
-    // T-NP-003: Bucket rehydration cooldown
-    private let bucketRehydrateCooldown: TimeInterval = 20
-    private var bucketRehydrateUntil: Date? = nil
-
-    private let cellularFastTimeout: TimeInterval = 2.0
-    private let cellularTimeoutOverrideHosts: Set<String>?
-
-    private var pathMonitor: NWPathMonitor? = nil
-    private let pathMonitorQueue = DispatchQueue(label: "NowPlayingService.Network")
-    private var pathMonitorStarted: Bool = false
-    private var pathMonitorIdleTimer: DispatchSourceTimer?
-    private let pathMonitorIdleGrace: TimeInterval = 120
-
-    nonisolated private static func host(_ host: String, isSubdomainOf parent: String) -> Bool {
-        let h = host.lowercased()
-        let p = parent.lowercased()
-        return h == p || h.hasSuffix("." + p)
+    // T-NP-017: Read EWMA with staleness guard; fall back to conservative default
+    private func ewmaEstimate(for host: String) -> TimeInterval {
+        let now = Date()
+        if let ts = hostLastSeen[host], now.timeIntervalSince(ts) <= ewmaInactivityTTL, let v = hostLatencyEWMA[host] {
+            return v
+        }
+        return cellularFastTimeout
     }
 
     private func updateEWMA(for host: String, sample seconds: TimeInterval) {
         guard !host.isEmpty, seconds.isFinite, seconds > 0 else { return }
+        let now = Date()
+        // Keep the table healthy before insert/update
+        pruneEWMAIfNeeded(now: now)
         let prev = hostLatencyEWMA[host] ?? cellularFastTimeout
         let next = (ewmaAlpha * seconds) + ((1.0 - ewmaAlpha) * prev)
         hostLatencyEWMA[host] = min(max(next, minFirstAttemptCellularTimeout), maxFirstAttemptCellularTimeout)
+        hostLastSeen[host] = now
+        // If we exceeded the cap due to a new host, prune again
+        if hostLastSeen.count > ewmaMaxHosts {
+            pruneEWMAIfNeeded(now: now)
+        }
     }
 
     // Apply a coherent Now Playing bundle in a single assignment to avoid partial state
@@ -194,17 +280,16 @@ public final class NowPlayingService {
             let monitor = NWPathMonitor()
             self.pathMonitor = monitor
 
-            // T-NP-009: Prime network type from current path and emit telemetry
-            let primedOnCell = monitor.currentPath.isExpensive
-            self.isCellular = primedOnCell
+            // T-NP-016: Conservative priming — do NOT trust currentPath before start().
+            // Default to cellular-like behavior until the first path update arrives.
+            self.isCellular = true
+            self.hasPathUpdate = false
 
             monitor.pathUpdateHandler = { [weak self] path in
-                // Changed line as per instructions:
                 let onCell = path.isExpensive
-
-                // Mutate actor-isolated state on the main actor
                 Task { @MainActor [weak self] in
                     self?.isCellular = onCell
+                    self?.hasPathUpdate = true
                 }
             }
             monitor.start(queue: pathMonitorQueue)
@@ -216,30 +301,36 @@ public final class NowPlayingService {
 
     // NP-048: Schedule stop after idle grace
     private func schedulePathMonitorStop() {
-        // Cancel any existing timer
-        if let t = pathMonitorIdleTimer {
-            t.cancel()
-            pathMonitorIdleTimer = nil
-        }
-
-        // Create a queue-backed timer to avoid run-loop mode deferrals
-        let timer = DispatchSource.makeTimerSource(queue: pathMonitorQueue)
-        timer.schedule(deadline: .now() + pathMonitorIdleGrace, repeating: .never)
-        timer.setEventHandler { [weak self] in
+        pathMonitorQueue.async { [weak self] in
             guard let self = self else { return }
-            Task { @MainActor in
-                if let monitor = self.pathMonitor, self.pathMonitorStarted {
-                    monitor.cancel()
-                }
-                self.pathMonitorStarted = false
-                self.pathMonitor = nil
-                // Ensure timer is torn down
-                self.pathMonitorIdleTimer?.cancel()
+            // Cancel any existing timer on the pathMonitorQueue
+            if let t = self.pathMonitorIdleTimer {
+                t.cancel()
                 self.pathMonitorIdleTimer = nil
             }
+            // Create a queue-backed timer to avoid run-loop mode deferrals
+            let timer = DispatchSource.makeTimerSource(queue: self.pathMonitorQueue)
+            timer.schedule(deadline: .now() + self.pathMonitorIdleGrace, repeating: DispatchTimeInterval.never)
+            timer.setEventHandler { [weak self] in
+                guard let self = self else { return }
+                // Stop monitor and tear down timer on the pathMonitorQueue
+                if let monitor = self.pathMonitor, self.pathMonitorStarted {
+                    monitor.cancel()
+                    self.pathMonitor = nil
+                }
+                // Clear timer reference
+                if let t2 = self.pathMonitorIdleTimer { t2.cancel() }
+                self.pathMonitorIdleTimer = nil
+                // Update flags on MainActor to keep actor isolation
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    self.pathMonitorStarted = false
+                    self.hasPathUpdate = false
+                }
+            }
+            self.pathMonitorIdleTimer = timer
+            timer.resume()
         }
-        pathMonitorIdleTimer = timer
-        timer.resume()
     }
 
     private func handleMemoryPressure() {
@@ -248,6 +339,10 @@ public final class NowPlayingService {
         if now - lastMemoryWarningTime > memoryWarningWindow { consecutiveMemoryWarnings = 0 }
         lastMemoryWarningTime = now
         consecutiveMemoryWarnings += 1
+
+        // T-NP-018: Always extend bucket rehydration cooldown on every memory warning
+        let wallNow = Date()
+        self.bucketRehydrateUntil = wallNow.addingTimeInterval(self.bucketRehydrateCooldown)
 
         if let control = currentArtworkControl {
             control.purge = true
@@ -260,8 +355,7 @@ public final class NowPlayingService {
             if (isBackgrounded || paused) && consecutiveMemoryWarnings >= 2 {
                 self.ensurePlaceholderAvailable(on: control)
                 control.dropMaster = true
-                // T-NP-003: Start rehydration cooldown when master is dropped
-                self.bucketRehydrateUntil = Date().addingTimeInterval(self.bucketRehydrateCooldown)
+                // T-NP-018: Cooldown already extended above for this warning; avoid oscillation
             }
         }
     }
@@ -284,6 +378,50 @@ public final class NowPlayingService {
         return UIColor(hue: hue, saturation: 0.2, brightness: 0.9, alpha: 1.0)
     }
 
+    // Render a tiny placeholder with subtle gradient and inner shadow for contrast/depth
+    private func renderPlaceholderImage(pointSize: CGSize, baseColor: UIColor, scale: CGFloat, style: UIUserInterfaceStyle) -> UIImage {
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = max(1, scale)
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: pointSize, format: format)
+        let img = renderer.image { ctx in
+            let rect = CGRect(origin: .zero, size: pointSize)
+            // Fill base color
+            baseColor.setFill()
+            ctx.fill(rect)
+
+            // Subtle vertical gradient for depth
+            let cgCtx = ctx.cgContext
+            let colors: [CGColor]
+            if style == .dark {
+                colors = [UIColor(white: 1.0, alpha: 0.06).cgColor,
+                          UIColor(white: 0.0, alpha: 0.12).cgColor]
+            } else {
+                colors = [UIColor(white: 1.0, alpha: 0.12).cgColor,
+                          UIColor(white: 0.0, alpha: 0.08).cgColor]
+            }
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors as CFArray, locations: [0.0, 1.0]) {
+                cgCtx.saveGState()
+                cgCtx.addRect(rect)
+                cgCtx.clip()
+                let start = CGPoint(x: rect.midX, y: rect.minY)
+                let end = CGPoint(x: rect.midX, y: rect.maxY)
+                cgCtx.drawLinearGradient(gradient, start: start, end: end, options: [])
+                cgCtx.restoreGState()
+            }
+
+            // Inner shadow/border to improve edge contrast
+            let inset: CGFloat = 0.5 / format.scale
+            let innerRect = rect.insetBy(dx: inset, dy: inset)
+            let path = UIBezierPath(roundedRect: innerRect, cornerRadius: min(pointSize.width, pointSize.height) * 0.08)
+            path.lineWidth = max(0.5, 1.0 / format.scale)
+            let strokeColor: UIColor = (style == .dark) ? UIColor(white: 1.0, alpha: 0.10) : UIColor(white: 0.0, alpha: 0.15)
+            strokeColor.setStroke()
+            path.stroke()
+        }
+        return img
+    }
+
     // Tiny 1x1 fallback image to guarantee non-nil provider returns
     private lazy var tinyFallbackImage: UIImage = {
         let size = CGSize(width: 1, height: 1)
@@ -304,14 +442,16 @@ public final class NowPlayingService {
         let color = placeholderColor(for: url)
         let pointSize = CGSize(width: max(1, 32), height: max(1, 32))
 
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = max(1, scale)
-        format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: pointSize, format: format)
-        let img = renderer.image { ctx in
-            color.setFill()
-            ctx.fill(CGRect(origin: .zero, size: pointSize))
+        // Adjust base color slightly for better contrast in dark/light modes
+        let style = UIScreen.main.traitCollection.userInterfaceStyle
+        let baseColor: UIColor
+        if style == .dark {
+            // Slightly higher brightness/saturation in dark mode for contrast
+            baseColor = color.withAlphaComponent(1.0)
+        } else {
+            baseColor = color.withAlphaComponent(1.0)
         }
+        let img = renderPlaceholderImage(pointSize: pointSize, baseColor: baseColor, scale: scale, style: style)
         // Retain for low-memory fallback
         self.lastPlaceholderImage = img
 
@@ -329,14 +469,11 @@ public final class NowPlayingService {
             } else {
                 // Build a generic solid-color placeholder (no URL context)
                 let size = CGSize(width: 32, height: 32)
-                let format = UIGraphicsImageRendererFormat.default()
-                format.scale = max(1, UIScreen.main.scale)
-                format.opaque = true
-                let renderer = UIGraphicsImageRenderer(size: size, format: format)
-                let img = renderer.image { ctx in
-                    UIColor.systemGray5.setFill()
-                    ctx.fill(CGRect(origin: .zero, size: size))
-                }
+                let style = UIScreen.main.traitCollection.userInterfaceStyle
+                // Choose a neutral base with sufficient contrast in both modes
+                let neutralBase: UIColor = (style == .dark) ? UIColor(hue: 0.6, saturation: 0.18, brightness: 0.32, alpha: 1.0)
+                                                            : UIColor(hue: 0.6, saturation: 0.10, brightness: 0.90, alpha: 1.0)
+                let img = renderPlaceholderImage(pointSize: size, baseColor: neutralBase, scale: UIScreen.main.scale, style: style)
                 self.lastPlaceholderImage = img
                 control.placeholder = img
             }
@@ -371,20 +508,14 @@ public final class NowPlayingService {
         }
         self.runtimeSupportedMIMEs = NowPlayingService.detectRuntimeSupportedMIMEs()
 
-        // NP-035: Reuse a single cache-enabled URLSession
+        // NP-035/T1: Use a private cache-enabled URLSession scoped to artwork
         let cfg = URLSessionConfiguration.default
         cfg.requestCachePolicy = .useProtocolCachePolicy
-        // Ensure URLCache exists and has capacity
-        if cfg.urlCache == nil { cfg.urlCache = URLCache.shared }
-        if URLCache.shared.memoryCapacity == 0 && URLCache.shared.diskCapacity == 0 {
-            // NP-034: In release, emit telemetry and set safe defaults; in debug, assert
-            #if DEBUG
-            assertionFailure("URLCache capacities must be > 0 for caching to function.")
-            #else
-            URLCache.shared.memoryCapacity = 8 * 1024 * 1024
-            URLCache.shared.diskCapacity = 64 * 1024 * 1024
-            #endif
-        }
+        // Create a dedicated cache sized for artwork needs; avoid URLCache.shared
+        let memCap = 8 * 1024 * 1024 // 8 MB
+        let diskCap = 64 * 1024 * 1024 // 64 MB
+        let privateCache = URLCache(memoryCapacity: memCap, diskCapacity: diskCap, directory: nil)
+        cfg.urlCache = privateCache
         #if DEBUG
         assert(cfg.requestCachePolicy != .reloadIgnoringLocalAndRemoteCacheData, "Prod sessions should not be ephemeral when caching is required")
         #else
@@ -392,18 +523,22 @@ public final class NowPlayingService {
             cfg.requestCachePolicy = .useProtocolCachePolicy
         }
         #endif
+
         self.urlSession = URLSession(configuration: cfg, delegate: nil, delegateQueue: nil)
-        if self.urlSession.configuration.urlCache == nil {
-            #if DEBUG
-            assertionFailure("URLSession must have a URLCache for conditional GET validators.")
-            #endif
-        }
+        self.artworkURLCache = privateCache
+        #if DEBUG
+        assert(self.urlSession.configuration.urlCache === self.artworkURLCache, "URLSession must use the private artwork URLCache for conditional GET validators.")
+        #endif
+
+        // T11: Restore EWMA table from persistence
+        self.restoreEWMA()
 
         memoryWarningObserver = NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main) { [weak self] _ in
             self?.handleMemoryPressure()
         }
         bgObserver = NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
             self?.isBackgrounded = true
+            self?.persistEWMA()
         }
         fgObserver = NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
             self?.isBackgrounded = false
@@ -506,7 +641,6 @@ public final class NowPlayingService {
         let isLive = safeDuration <= 0
         if lastIsLive != isLive {
             lastIsLive = isLive
-            NotificationCenter.default.post(name: .nowPlayingLiveStreamStateDidChange, object: self, userInfo: ["isLive": isLive])
         }
 
         // Keep progress/rate trackers in sync when metadata is set
@@ -533,7 +667,17 @@ public final class NowPlayingService {
         suppressedMIMEUntil.removeAll()
     }
 
+    /// Set or clear the currently published artwork.
+    /// - Parameter urlString: HTTPS URL string to fetch artwork from. Pass `nil` to clear artwork.
+    /// - Important: Passing `nil` is treated as an alias for `clearArtwork()` and will cancel any in-flight
+    ///   artwork work, advance the generation token, and remove artwork from Now Playing coherently.
     public func setArtwork(from urlString: String?) {
+        // T-NP-025: setArtwork(nil) semantics — treat nil as clearArtwork()
+        if urlString == nil {
+            clearArtwork()
+            return
+        }
+
         // Cancel any in-flight artwork fetch/decode
         artworkTask?.cancel()
         artworkTask = nil
@@ -561,13 +705,15 @@ public final class NowPlayingService {
         request.setValue("image/*", forHTTPHeaderField: "Accept") // inserted as per instructions
 
         // Capture UI-related values on the main actor for use off-main
+        let originalHost = NowPlayingService.normalizeHostASCII(url.host ?? "")
+        let redirectAllowlist = self.allowedRedirectHosts?.compactMap { NowPlayingService.normalizeHostASCII($0) }
+        let orgDomains = self.allowedRedirectOrgDomains?.compactMap { NowPlayingService.normalizeHostASCII($0) }
         let screenScale = UIScreen.main.scale
+        // Added capture for compact layout per instructions
+        let isCompactLayout = { let tc = UIScreen.main.traitCollection; return tc.horizontalSizeClass == .compact || tc.verticalSizeClass == .compact }()
         let decodeCap = self.artworkMasterMaxPixelSize
         let allowedMimes = self.allowedImageMIMETypes
         let maxBytes = self.artworkMaxBytes
-        let originalHost = url.host?.lowercased()
-        let redirectAllowlist = self.allowedRedirectHosts?.map { $0.lowercased() }
-        let orgDomains = self.allowedRedirectOrgDomains?.map { $0.lowercased() }
         let runtimeSupportedMimes = self.runtimeSupportedMIMEs
         let decodeThreshold = self.decodeSuppressionThreshold
         let onCellular = self.isCellular
@@ -605,7 +751,7 @@ public final class NowPlayingService {
                                 // T-NP-002: Adapt first-attempt timeout using EWMA per-host
                                 let base = await MainActor.run { () -> TimeInterval in
                                     let h = host ?? ""
-                                    let est = (!h.isEmpty) ? (self.hostLatencyEWMA[h] ?? self.cellularFastTimeout) : self.cellularFastTimeout
+                                    let est = (!h.isEmpty) ? self.ewmaEstimate(for: h) : self.cellularFastTimeout
                                     return est
                                 }
                                 let clamped = min(max(base, self.minFirstAttemptCellularTimeout), self.maxFirstAttemptCellularTimeout)
@@ -632,23 +778,9 @@ public final class NowPlayingService {
                         return
                     }
                     // Enforce redirect/host policy: final URL must be https and same-host or allowlisted
-                    let finalURL = http.url
-                    let finalSchemeOK = finalURL?.scheme?.lowercased() == "https"
-                    let finalHost = finalURL?.host?.lowercased()
-                    let sameHost = (finalHost != nil && finalHost == originalHost)
-                    let inAllowlist = (finalHost != nil && (redirectAllowlist?.contains(finalHost!) ?? false))
-                    let inOrgDomain: Bool = {
-                        guard let finalHost, let orgs = orgDomains, !orgs.isEmpty else { return false }
-                        for p in orgs {
-                            if NowPlayingService.host(finalHost, isSubdomainOf: p) {
-                                return true
-                        }
-                        }
-                        return false
-                    }()
-                    if !(finalSchemeOK && (sameHost || inAllowlist || inOrgDomain)) {
-                        return
-                    }
+                    let validation = NowPlayingService.isFinalURLAllowed(finalURL: http.url, originalHostASCII: originalHost, redirectAllowlist: redirectAllowlist, orgDomains: orgDomains)
+                    if !validation.allowed { return }
+                    let finalHostASCII = validation.finalHostASCII
 
                     // Handle 304 Not Modified by loading cached response data
                     if http.statusCode == 304 {
@@ -680,39 +812,7 @@ public final class NowPlayingService {
                             data = cached.data
                             let fetchDuration = ProcessInfo.processInfo.systemUptime - fetchStart
 
-                            if let h = finalHost ?? originalHost {
-                                await MainActor.run { self.updateEWMA(for: h, sample: fetchDuration) }
-                            }
-
-                            fetchSucceeded = true
-                        } else if let cached = URLCache.shared.cachedResponse(for: req),
-                                  let cachedHTTP = cached.response as? HTTPURLResponse {
-                            // Validate cached MIME type
-                            if let ct = cachedHTTP.value(forHTTPHeaderField: "Content-Type")?.lowercased() {
-                                let cachedMime = ct.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: true).first.map(String.init) ?? ct
-                                currentMimeType = cachedMime
-                                let allowedMimesRuntime = allowedMimes.intersection(runtimeSupportedMimes)
-                                let isSuppressed = await MainActor.run { () -> Bool in
-                                    if let until = self.suppressedMIMEUntil[cachedMime], until > Date() {
-                                        return true
-                                    } else if let until = self.suppressedMIMEUntil[cachedMime], until <= Date() {
-                                        self.suppressedMIMEUntil.removeValue(forKey: cachedMime)
-                                        self.enforceMimeSuppressionCap()
-                                        return false
-                                    }
-                                    return false
-                                }
-                                guard allowedMimesRuntime.contains(cachedMime) else {
-                                    return
-                                }
-                                if isSuppressed {
-                                    return
-                                }
-                            }
-                            data = cached.data
-                            let fetchDuration = ProcessInfo.processInfo.systemUptime - fetchStart
-
-                            if let h = finalHost ?? originalHost {
+                            if let h = finalHostASCII ?? originalHost {
                                 await MainActor.run { self.updateEWMA(for: h, sample: fetchDuration) }
                             }
 
@@ -730,25 +830,38 @@ public final class NowPlayingService {
                             assert(session2.configuration.urlCache != nil, "URLSession must have a URLCache for conditional GET validators.")
                             #endif
 
+                            var finalHostASCIIForFallback: String? = nil
+
                             let (bytes2, resp2) = try await session2.bytes(for: fallbackReq, delegate: nil)
 
-                            // T-NP-013: Enforce redirect/HTTPS policy on 304 fallback as invariant
+                            // Enforce unified redirect/HTTPS policy on 304 fallback (T10)
                             if let http2 = resp2 as? HTTPURLResponse {
-                                let finalURL2 = http2.url
-                                let finalSchemeOK2 = finalURL2?.scheme?.lowercased() == "https"
-                                let finalHost2 = finalURL2?.host?.lowercased()
-                                let sameHost2 = (finalHost2 != nil && finalHost2 == originalHost)
-                                let inAllowlist2 = (finalHost2 != nil && (redirectAllowlist?.contains(finalHost2!) ?? false))
-                                let inOrgDomain2: Bool = {
-                                    guard let finalHost2, let orgs = orgDomains, !orgs.isEmpty else { return false }
-                                    for p in orgs { if NowPlayingService.host(finalHost2, isSubdomainOf: p) { return true } }
-                                    return false
-                                }()
-                                let respected = finalSchemeOK2 && (sameHost2 || inAllowlist2 || inOrgDomain2)
+                                let validation2 = NowPlayingService.isFinalURLAllowed(finalURL: http2.url, originalHostASCII: originalHost, redirectAllowlist: redirectAllowlist, orgDomains: orgDomains)
+                                finalHostASCIIForFallback = validation2.finalHostASCII
                                 #if DEBUG
-                                if !respected { assertionFailure("Redirect/HTTPS policy must be respected on 304 fallback") }
+                                if !validation2.allowed { assertionFailure("Redirect/HTTPS policy must be respected on 304 fallback") }
                                 #endif
-                                if !respected { return }
+                                if !validation2.allowed { return }
+                                // T12: Enforce MIME allowlist/suppression and Content-Length cap before streaming
+                                if let contentTypeHeader2 = http2.value(forHTTPHeaderField: "Content-Type")?.lowercased() {
+                                    let mimeType2 = contentTypeHeader2.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: true).first.map(String.init) ?? contentTypeHeader2
+                                    let allowedMimesRuntime2 = allowedMimes.intersection(runtimeSupportedMimes)
+                                    let isSuppressed2 = await MainActor.run { () -> Bool in
+                                        if let until = self.suppressedMIMEUntil[mimeType2], until > Date() {
+                                            return true
+                                        } else if let until = self.suppressedMIMEUntil[mimeType2], until <= Date() {
+                                            self.suppressedMIMEUntil.removeValue(forKey: mimeType2)
+                                            self.enforceMimeSuppressionCap()
+                                            return false
+                                        }
+                                        return false
+                                    }
+                                    guard allowedMimesRuntime2.contains(mimeType2) else { return }
+                                    if isSuppressed2 { return }
+                                }
+                                if let lenStr2 = http2.value(forHTTPHeaderField: "Content-Length"), let len2 = Int(lenStr2), len2 > maxBytes {
+                                    return
+                                }
                             }
 
                             // Stream with cap
@@ -761,7 +874,7 @@ public final class NowPlayingService {
                                 }
                             }
                             let fetchDuration2 = ProcessInfo.processInfo.systemUptime - fetchStart
-                            if let h = finalHost ?? originalHost {
+                            if let h = finalHostASCIIForFallback ?? originalHost {
                                 await MainActor.run { self.updateEWMA(for: h, sample: fetchDuration2) }
                             }
                             fetchSucceeded = true
@@ -815,7 +928,7 @@ public final class NowPlayingService {
 
                     let fetchDuration = ProcessInfo.processInfo.systemUptime - fetchStart
                     // Fallback if metrics are unavailable
-                    if let h = finalHost ?? originalHost {
+                    if let h = finalHostASCII ?? originalHost {
                         await MainActor.run { self.updateEWMA(for: h, sample: fetchDuration) }
                     }
 
@@ -852,8 +965,10 @@ public final class NowPlayingService {
                 return
             }
 
+            // Added kCGImageSourceCreateThumbnailWithTransform: true as per instructions
             let masterOpts: [CFString: Any] = [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
                 kCGImageSourceShouldCache: false,
                 kCGImageSourceShouldCacheImmediately: false,
                 kCGImageSourceThumbnailMaxPixelSize: decodeCap * screenScale
@@ -881,42 +996,58 @@ public final class NowPlayingService {
             // Helper to downscale a CGImage to a target pixel size using CoreGraphics (no UIKit)
             func cgImageScaled(_ image: CGImage, toPixelSize size: CGSize) -> CGImage? {
                 guard size.width > 0, size.height > 0 else { return nil }
+                // Round target pixels to nearest integer >= 1 for stable sampling
+                let targetW = max(1, Int(round(size.width)))
+                let targetH = max(1, Int(round(size.height)))
+                // Skip downscale if target equals master size
+                if targetW == image.width && targetH == image.height { return nil }
                 let colorSpace = CGColorSpaceCreateDeviceRGB()
                 let bytesPerPixel = 4
                 let bitsPerComponent = 8
-                let bytesPerRow = Int(size.width) * bytesPerPixel
+                let bytesPerRow = targetW * bytesPerPixel
                 guard let ctx = CGContext(data: nil,
-                                          width: Int(size.width),
-                                          height: Int(size.height),
+                                          width: targetW,
+                                          height: targetH,
                                           bitsPerComponent: bitsPerComponent,
                                           bytesPerRow: bytesPerRow,
                                           space: colorSpace,
                                           bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
                 ctx.interpolationQuality = .high
-                ctx.draw(image, in: CGRect(origin: .zero, size: size))
+                ctx.draw(image, in: CGRect(origin: .zero, size: CGSize(width: targetW, height: targetH)))
                 return ctx.makeImage()
             }
 
-            // Prepare bucketed CGImages off-main (256/512/1024 points), limited by master size
-            let bucketPoints: [Int]
             let strategy = await MainActor.run { self.bucketStrategy }
-            switch strategy {
-            case .one:  bucketPoints = [512]
-            case .two:  bucketPoints = [256, 512]
-            case .three: bucketPoints = [256, 512, 1024]
-            }
-            var cgBucketImages: [Int: CGImage] = [:]
             let masterMaxPixels = CGFloat(max(masterCG.width, masterCG.height))
             let masterMaxPoints = masterMaxPixels / screenScale
-            for bp in bucketPoints {
-                let bpPoints = CGFloat(bp)
-                // Skip buckets larger than master
-                if bpPoints > masterMaxPoints { continue }
-                let scale = min(bpPoints / max(boundsSize.width, boundsSize.height), 1.0)
-                let targetPixels = CGSize(width: boundsSize.width * scale * screenScale,
-                                          height: boundsSize.height * scale * screenScale)
-                if let scaled = cgImageScaled(masterCG, toPixelSize: targetPixels) {
-                    cgBucketImages[bp] = scaled
+            var cgBucketImages: [Int: CGImage] = [:]
+            // T6: local clamp for small masters
+            let effectiveStrategy: ArtworkBucketStrategy = (masterMaxPoints < 480) ? .one : strategy
+            // Adjusted bucketPoints generation and gating for 1024 as per instructions
+            var bucketPoints: [Int]
+            switch effectiveStrategy {
+            case .one:  bucketPoints = [NowPlayingService.bucketThresholds[1]]
+            case .two:  bucketPoints = [NowPlayingService.bucketThresholds[0], NowPlayingService.bucketThresholds[1]]
+            case .three: bucketPoints = NowPlayingService.bucketThresholds
+            }
+            // T9: Context-aware gating for 1024pt bucket
+            let allow1024 = (masterMaxPoints >= 900) && (!isCompactLayout)
+            if !allow1024 {
+                bucketPoints.removeAll { $0 == NowPlayingService.bucketThresholds.last }
+            }
+            // T4: Skip bucketization when master already meets largest target
+            if let largest = bucketPoints.max(), masterMaxPoints <= CGFloat(largest) {
+                // Do not generate buckets; provider will use master/placeholder
+            } else {
+                for bp in bucketPoints {
+                    let bpPoints = CGFloat(bp)
+                    if bpPoints > masterMaxPoints { continue }
+                    let scale = min(bpPoints / max(boundsSize.width, boundsSize.height), 1.0)
+                    let targetPixels = CGSize(width: boundsSize.width * scale * screenScale,
+                                              height: boundsSize.height * scale * screenScale)
+                    if let scaled = cgImageScaled(masterCG, toPixelSize: targetPixels) {
+                        cgBucketImages[bp] = scaled
+                    }
                 }
             }
 
@@ -1031,15 +1162,99 @@ public final class NowPlayingService {
     }
 
     deinit {
-        pathMonitor?.cancel()
-        pathMonitorIdleTimer?.cancel()
-        pathMonitorIdleTimer = nil
+        pathMonitorQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.pathMonitor?.cancel()
+            self.pathMonitor = nil
+            if let t = self.pathMonitorIdleTimer { t.cancel() }
+            self.pathMonitorIdleTimer = nil
+        }
         artworkTask?.cancel()
         if let token = memoryWarningObserver {
             NotificationCenter.default.removeObserver(token)
         }
         if let token = bgObserver { NotificationCenter.default.removeObserver(token) }
         if let token = fgObserver { NotificationCenter.default.removeObserver(token) }
+    }
+}
+
+// Memory purge control for provider closures; holds bucket cache to allow release under pressure
+private final class ArtworkCacheControl {
+    final class ProviderMetrics {
+        private let q = DispatchQueue(label: "NowPlayingService.ArtworkProviderMetrics", qos: .utility)
+        private var le256: Int = 0
+        private var le512: Int = 0
+        private var gt512: Int = 0
+        func record(requestedMaxDimension: CGFloat) {
+            q.async { [requestedMaxDimension] in
+                if requestedMaxDimension <= 256 { self.le256 += 1 }
+                else if requestedMaxDimension <= 512 { self.le512 += 1 }
+                else { self.gt512 += 1 }
+            }
+        }
+        func snapshot() -> (le256: Int, le512: Int, gt512: Int) {
+            return q.sync { (le256, le512, gt512) }
+        }
+        func reset() {
+            q.async { self.le256 = 0; self.le512 = 0; self.gt512 = 0 }
+        }
+    }
+    private let lock = NSLock()
+    private var _purge = false
+    private var _dropMaster = false
+    private var _buckets: [Int: UIImage]? = nil
+    private var _master: UIImage? = nil
+    private var _placeholder: UIImage? = nil
+    let metrics = ProviderMetrics()
+
+    // MARK: Thread-safe accessors
+    var purge: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return _purge }
+        set { lock.lock(); _purge = newValue; lock.unlock() }
+    }
+    var dropMaster: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return _dropMaster }
+        set { lock.lock(); _dropMaster = newValue; lock.unlock() }
+    }
+    var buckets: [Int: UIImage]? {
+        get { lock.lock(); defer { lock.unlock() }; return _buckets }
+        set { lock.lock(); _buckets = newValue; lock.unlock() }
+    }
+    var master: UIImage? {
+        get { lock.lock(); defer { lock.unlock() }; return _master }
+        set { lock.lock(); _master = newValue; lock.unlock() }
+    }
+    var placeholder: UIImage? {
+        get { lock.lock(); defer { lock.unlock() }; return _placeholder }
+        set { lock.lock(); _placeholder = newValue; lock.unlock() }
+    }
+
+    func imageFor(requested: CGSize, boundsSize: CGSize) -> UIImage? {
+        lock.lock()
+        let purge = _purge
+        let dropMaster = _dropMaster
+        let master = _master
+        let placeholder = _placeholder
+        let buckets = _buckets
+        lock.unlock()
+
+        if purge {
+            // On purge, avoid bucket usage. Optionally drop master if requested.
+            if dropMaster { return placeholder ?? master }
+            return master
+        }
+        // Exact match returns master
+        if requested.equalTo(boundsSize) { return master }
+        let maxDim = max(requested.width, requested.height)
+        // T6: Clamp bias within a conservative range; pick a single constant to reduce over-selection of larger buckets
+        let bias: CGFloat = NowPlayingService.bucketBias
+        let thresholds = NowPlayingService.bucketThresholds
+        let b: Int
+        if maxDim <= CGFloat(thresholds[0]) * bias { b = thresholds[0] }
+        else if maxDim <= CGFloat(thresholds[1]) * bias { b = thresholds[1] }
+        else { b = thresholds[2] }
+        if let img = buckets?[b] { return img }
+        return master
     }
 }
 

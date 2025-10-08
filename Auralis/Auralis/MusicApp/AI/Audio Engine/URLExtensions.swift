@@ -422,7 +422,7 @@ private func sniffGenericErrorBodyKind(_ data: Data) -> String? {
     // Best-effort decode to a string for inspection
     let s: String? = String(data: snippet, encoding: .utf8)
         ?? String(data: snippet, encoding: .isoLatin1)
-    guard var str = s?.trimmingCharacters(in: .whitespacesAndNewlines), !str.isEmpty else {
+    guard let str = s?.trimmingCharacters(in: .whitespacesAndNewlines), !str.isEmpty else {
         return nil
     }
     let lower = str.lowercased()
