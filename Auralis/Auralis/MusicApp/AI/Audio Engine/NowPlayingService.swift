@@ -274,14 +274,11 @@ public final class NowPlayingService {
         center.nowPlayingInfo = snapshot
     }
 
-    // NP-048: Start path monitor lazily
     private func startPathMonitorIfNeeded() {
         if !pathMonitorStarted {
             let monitor = NWPathMonitor()
             self.pathMonitor = monitor
 
-            // T-NP-016: Conservative priming — do NOT trust currentPath before start().
-            // Default to cellular-like behavior until the first path update arrives.
             self.isCellular = true
             self.hasPathUpdate = false
 
@@ -299,7 +296,6 @@ public final class NowPlayingService {
         schedulePathMonitorStop()
     }
 
-    // NP-048: Schedule stop after idle grace
     private func schedulePathMonitorStop() {
         pathMonitorQueue.async { [weak self] in
             guard let self = self else { return }
@@ -340,22 +336,16 @@ public final class NowPlayingService {
         lastMemoryWarningTime = now
         consecutiveMemoryWarnings += 1
 
-        // T-NP-018: Always extend bucket rehydration cooldown on every memory warning
         let wallNow = Date()
         self.bucketRehydrateUntil = wallNow.addingTimeInterval(self.bucketRehydrateCooldown)
 
         if let control = currentArtworkControl {
             control.purge = true
             control.buckets = nil
-            // NP-039/NP-042/NP-045/NP-055:
-            // Policy: Before allowing master-drop while paused/backgrounded with repeated warnings,
-            // ensure a placeholder exists so artwork never goes blank. We proactively create a
-            // lightweight placeholder if needed just-in-time, then allow dropping the master.
             let paused = (lastPublishedRate ?? 1.0) == 0.0
             if (isBackgrounded || paused) && consecutiveMemoryWarnings >= 2 {
                 self.ensurePlaceholderAvailable(on: control)
                 control.dropMaster = true
-                // T-NP-018: Cooldown already extended above for this warning; avoid oscillation
             }
         }
     }
@@ -508,7 +498,6 @@ public final class NowPlayingService {
         }
         self.runtimeSupportedMIMEs = NowPlayingService.detectRuntimeSupportedMIMEs()
 
-        // NP-035/T1: Use a private cache-enabled URLSession scoped to artwork
         let cfg = URLSessionConfiguration.default
         cfg.requestCachePolicy = .useProtocolCachePolicy
         // Create a dedicated cache sized for artwork needs; avoid URLCache.shared
@@ -530,7 +519,6 @@ public final class NowPlayingService {
         assert(self.urlSession.configuration.urlCache === self.artworkURLCache, "URLSession must use the private artwork URLCache for conditional GET validators.")
         #endif
 
-        // T11: Restore EWMA table from persistence
         self.restoreEWMA()
 
         memoryWarningObserver = NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main) { [weak self] _ in
@@ -580,7 +568,6 @@ public final class NowPlayingService {
             }
         }
 
-        // NP-050: Mirror default playback rate behavior in updateProgress
         let hasDefault = info[MPNowPlayingInfoPropertyDefaultPlaybackRate] != nil
 
         // Publish progress update now as a coherent bundle
@@ -590,11 +577,9 @@ public final class NowPlayingService {
             $0[MPNowPlayingInfoPropertyPlaybackRate] = rate
             if rate > 0 {
                 if !hasDefault {
-                    // NP-050: Ensure default rate exists when transitioning to playing
                     $0[MPNowPlayingInfoPropertyDefaultPlaybackRate] = 1.0
                 }
             } else {
-                // NP-050: Remove default when paused
                 $0.removeValue(forKey: MPNowPlayingInfoPropertyDefaultPlaybackRate)
             }
         }
@@ -628,16 +613,13 @@ public final class NowPlayingService {
                 if let defaultRate {
                     $0[MPNowPlayingInfoPropertyDefaultPlaybackRate] = defaultRate
                 } else {
-                    // NP-050: Ensure default rate is present when playing
                     $0[MPNowPlayingInfoPropertyDefaultPlaybackRate] = 1.0
                 }
             } else {
-                // NP-050: Omit default when paused to avoid confusing surfaces
                 $0.removeValue(forKey: MPNowPlayingInfoPropertyDefaultPlaybackRate)
             }
         }
 
-        // T-NP-011: Notify app UI about live stream state changes to align scrubber affordances
         let isLive = safeDuration <= 0
         if lastIsLive != isLive {
             lastIsLive = isLive
@@ -672,7 +654,6 @@ public final class NowPlayingService {
     /// - Important: Passing `nil` is treated as an alias for `clearArtwork()` and will cancel any in-flight
     ///   artwork work, advance the generation token, and remove artwork from Now Playing coherently.
     public func setArtwork(from urlString: String?) {
-        // T-NP-025: setArtwork(nil) semantics — treat nil as clearArtwork()
         if urlString == nil {
             clearArtwork()
             return
@@ -686,7 +667,6 @@ public final class NowPlayingService {
         // Enforce HTTPS only
         guard url.scheme?.lowercased() == "https" else { return }
 
-        // NP-048: Ensure path monitor is running for adaptive policy
         startPathMonitorIfNeeded()
 
         artworkGeneration += 1
@@ -709,7 +689,6 @@ public final class NowPlayingService {
         let redirectAllowlist = self.allowedRedirectHosts?.compactMap { NowPlayingService.normalizeHostASCII($0) }
         let orgDomains = self.allowedRedirectOrgDomains?.compactMap { NowPlayingService.normalizeHostASCII($0) }
         let screenScale = UIScreen.main.scale
-        // Added capture for compact layout per instructions
         let isCompactLayout = { let tc = UIScreen.main.traitCollection; return tc.horizontalSizeClass == .compact || tc.verticalSizeClass == .compact }()
         let decodeCap = self.artworkMasterMaxPixelSize
         let allowedMimes = self.allowedImageMIMETypes
@@ -739,7 +718,6 @@ public final class NowPlayingService {
                 data.removeAll(keepingCapacity: false)
 
                 do {
-                    // Apply adaptive timeout policy per attempt (NP-047 host-aware override)
                     let appliedTimeout: TimeInterval
                     if onCellular {
                         let host = originalHost
@@ -748,7 +726,6 @@ public final class NowPlayingService {
                             appliedTimeout = wifiTimeout
                         } else {
                             if attempt == 0 {
-                                // T-NP-002: Adapt first-attempt timeout using EWMA per-host
                                 let base = await MainActor.run { () -> TimeInterval in
                                     let h = host ?? ""
                                     let est = (!h.isEmpty) ? self.ewmaEstimate(for: h) : self.cellularFastTimeout
@@ -818,7 +795,6 @@ public final class NowPlayingService {
 
                             fetchSucceeded = true
                         } else {
-                            // NP-024: Perform one immediate re-request bypassing cache/validators
                             var fallbackReq = req
                             fallbackReq.cachePolicy = .reloadIgnoringLocalCacheData
                             fallbackReq.setValue(nil, forHTTPHeaderField: "If-None-Match")
@@ -834,7 +810,6 @@ public final class NowPlayingService {
 
                             let (bytes2, resp2) = try await session2.bytes(for: fallbackReq, delegate: nil)
 
-                            // Enforce unified redirect/HTTPS policy on 304 fallback (T10)
                             if let http2 = resp2 as? HTTPURLResponse {
                                 let validation2 = NowPlayingService.isFinalURLAllowed(finalURL: http2.url, originalHostASCII: originalHost, redirectAllowlist: redirectAllowlist, orgDomains: orgDomains)
                                 finalHostASCIIForFallback = validation2.finalHostASCII
@@ -842,7 +817,6 @@ public final class NowPlayingService {
                                 if !validation2.allowed { assertionFailure("Redirect/HTTPS policy must be respected on 304 fallback") }
                                 #endif
                                 if !validation2.allowed { return }
-                                // T12: Enforce MIME allowlist/suppression and Content-Length cap before streaming
                                 if let contentTypeHeader2 = http2.value(forHTTPHeaderField: "Content-Type")?.lowercased() {
                                     let mimeType2 = contentTypeHeader2.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: true).first.map(String.init) ?? contentTypeHeader2
                                     let allowedMimesRuntime2 = allowedMimes.intersection(runtimeSupportedMimes)
@@ -864,7 +838,6 @@ public final class NowPlayingService {
                                 }
                             }
 
-                            // Stream with cap
                             data.removeAll(keepingCapacity: false)
                             for try await chunk in bytes2 {
                                 if Task.isCancelled { return }
@@ -965,7 +938,6 @@ public final class NowPlayingService {
                 return
             }
 
-            // Added kCGImageSourceCreateThumbnailWithTransform: true as per instructions
             let masterOpts: [CFString: Any] = [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
@@ -1021,21 +993,21 @@ public final class NowPlayingService {
             let masterMaxPixels = CGFloat(max(masterCG.width, masterCG.height))
             let masterMaxPoints = masterMaxPixels / screenScale
             var cgBucketImages: [Int: CGImage] = [:]
-            // T6: local clamp for small masters
+
             let effectiveStrategy: ArtworkBucketStrategy = (masterMaxPoints < 480) ? .one : strategy
-            // Adjusted bucketPoints generation and gating for 1024 as per instructions
+
             var bucketPoints: [Int]
             switch effectiveStrategy {
             case .one:  bucketPoints = [NowPlayingService.bucketThresholds[1]]
             case .two:  bucketPoints = [NowPlayingService.bucketThresholds[0], NowPlayingService.bucketThresholds[1]]
             case .three: bucketPoints = NowPlayingService.bucketThresholds
             }
-            // T9: Context-aware gating for 1024pt bucket
+
             let allow1024 = (masterMaxPoints >= 900) && (!isCompactLayout)
             if !allow1024 {
                 bucketPoints.removeAll { $0 == NowPlayingService.bucketThresholds.last }
             }
-            // T4: Skip bucketization when master already meets largest target
+
             if let largest = bucketPoints.max(), masterMaxPoints <= CGFloat(largest) {
                 // Do not generate buckets; provider will use master/placeholder
             } else {
@@ -1075,7 +1047,6 @@ public final class NowPlayingService {
                 control.master = masterImage
                 control.placeholder = self.lastPlaceholderImage
 
-                // NP-041/NP-049: Adaptive bucket strategy with cool-down to avoid flapping
                 if let prev = self.currentArtworkControl {
                     let s = prev.metrics.snapshot()
                     let total = s.le256 + s.le512 + s.gt512
@@ -1107,12 +1078,6 @@ public final class NowPlayingService {
                     }
                 }
 
-                // Provider-closure invariants:
-                // - No UIKit rendering or blocking I/O inside the closure.
-                // - Only returns prebuilt UIImages (created on main above).
-                // - Cache is bounded (<= 3 buckets: 256/512/1024) and may be purged under memory pressure.
-                // - Safe to be called on any thread.
-
                 #if DEBUG
                 precondition((control.buckets?.count ?? 0) <= 3, "Artwork cache should be bounded to <= 3 buckets")
                 #endif
@@ -1120,12 +1085,10 @@ public final class NowPlayingService {
                 let providerFallbackImage = control.placeholder ?? control.master ?? self.tinyFallbackImage
 
                 let artwork = MPMediaItemArtwork(boundsSize: boundsSize) { requested in
-                    // Invariant checks (DEBUG only): do not add rendering or I/O here.
                     #if DEBUG
                     precondition((control.buckets?.count ?? 0) <= 3, "Artwork cache should be bounded to <= 3 buckets")
                     #endif
 
-                    // Record popularity by requested size class (thread-safe, off-main safe)
                     let maxDim = max(requested.width, requested.height)
                     control.metrics.record(requestedMaxDimension: maxDim)
 
@@ -1154,10 +1117,8 @@ public final class NowPlayingService {
             $0.removeValue(forKey: MPMediaItemPropertyArtwork)
         }
 
-        // NP-043: Clear provider state so buckets/master can be released immediately
         currentArtworkControl = nil
 
-        // NP-048: Service likely idle; schedule monitor stop after grace
         schedulePathMonitorStop()
     }
 
@@ -1246,7 +1207,6 @@ private final class ArtworkCacheControl {
         // Exact match returns master
         if requested.equalTo(boundsSize) { return master }
         let maxDim = max(requested.width, requested.height)
-        // T6: Clamp bias within a conservative range; pick a single constant to reduce over-selection of larger buckets
         let bias: CGFloat = NowPlayingService.bucketBias
         let thresholds = NowPlayingService.bucketThresholds
         let b: Int
@@ -1257,4 +1217,3 @@ private final class ArtworkCacheControl {
         return master
     }
 }
-
