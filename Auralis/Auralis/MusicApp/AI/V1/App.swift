@@ -101,11 +101,42 @@ struct NFTMusicPlayerApp: View {
     var body: some View {
         NavigationSplitView {
             // Sidebar
-            List(sidebarItems, selection: $selection) { item in
-                Label(item.title, systemImage: item.systemImage)
-                .tag(item)
+            ZStack(alignment: .bottom) {
+                GatewayBackgroundImage()
+                Color.background.opacity(0.3)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                
+                VStack {
+                    List(sidebarItems, selection: $selection) { item in
+                        Label(item.title, systemImage: item.systemImage)
+                            .listRowBackground(Color.clear)
+                            .tag(item)
+                    }
+                    .listStyle(.sidebar)
+                    .scrollContentBackground(.hidden)
+                    .background(.clear)
+                    .padding()
+                    .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
+                    Spacer()
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(sidebarItems) { item in
+                            Label(item.title, systemImage: item.systemImage)
+                                .padding()
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selection = item
+                                }
+                        }
+                    }
+                    .background(.clear)
+                    .padding()
+                    .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
+                    Spacer()
+                }
             }
             .navigationTitle("Browse")
+            .padding(.top)
         } detail: {
             VStack {
                 Group {
