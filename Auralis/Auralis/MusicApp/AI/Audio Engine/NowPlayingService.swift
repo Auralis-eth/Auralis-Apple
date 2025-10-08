@@ -4,23 +4,44 @@ import UIKit
 import CoreGraphics
 import ImageIO
 
+public enum ArtworkFailureReason: String {
+    case http_status
+    case http_5xx_retry
+    case mime_unsupported
+    case missing_content_type
+    case content_length
+    case stream_cap_exceeded
+    case network_error
+    case cache_miss_304
+    case decode_fail
+    case redirect_rejected
+}
+
 public protocol NowPlayingTelemetry {
     func artworkFetchAttempt(url: URL)
-    func artworkFetchFailed(reason: String)
+    func artworkFetchFailed(_ reason: ArtworkFailureReason)
     func artworkBytesReceived(_ bytes: Int)
     func artworkDecodeDuration(_ seconds: TimeInterval)
     func progressForcedUpdate()
     func progressThrottledSkip()
+    func artworkCacheHit()
+    func artworkCacheMiss()
+    func artworkMimeSeen(_ mime: String)
+    func artworkRedirectApplied(count: Int, finalHost: String)
 }
 
 public struct NoopNowPlayingTelemetry: NowPlayingTelemetry {
     public init() {}
     public func artworkFetchAttempt(url: URL) {}
-    public func artworkFetchFailed(reason: String) {}
+    public func artworkFetchFailed(_ reason: ArtworkFailureReason) {}
     public func artworkBytesReceived(_ bytes: Int) {}
     public func artworkDecodeDuration(_ seconds: TimeInterval) {}
     public func progressForcedUpdate() {}
     public func progressThrottledSkip() {}
+    public func artworkCacheHit() {}
+    public func artworkCacheMiss() {}
+    public func artworkMimeSeen(_ mime: String) {}
+    public func artworkRedirectApplied(count: Int, finalHost: String) {}
 }
 
 @MainActor
@@ -29,18 +50,34 @@ public final class NowPlayingService {
     private var info: [String: Any] = [:]
     private var lastProgressUptime: TimeInterval?
     private let cadence: TimeInterval
+    /// Minimum elapsed-time jump that bypasses progress throttling.
+    /// Tuned to 1.0s so micro-seeks (~1–2s) reflect immediately on system surfaces
+    /// while continuous playback still uses cadence for battery efficiency.
+    private let progressSignificantDelta: TimeInterval = 1.0
     private var artworkGeneration: Int = 0
     private var artworkTask: Task<Void, Never>?
     private let telemetry: NowPlayingTelemetry
 
+    private var failureCounts: [ArtworkFailureReason: Int] = [:]
+
+    // Sample and forward failure reasons to telemetry to avoid dashboard spam under fault storms.
+    // First 10 events per reason are forwarded, then every 10th thereafter.
+    private func sampleAndLogFailure(_ reason: ArtworkFailureReason) {
+        let next = (failureCounts[reason] ?? 0) + 1
+        failureCounts[reason] = next
+        if next <= 10 || next % 10 == 0 {
+            telemetry.artworkFetchFailed(reason)
+        }
+    }
+
     private var lastPublishedElapsed: TimeInterval?
     private var lastPublishedRate: Double?
-    private let progressSignificantDelta: TimeInterval = 3.0
 
     private let artworkRequestTimeout: TimeInterval = 5
     private let artworkMaxBytes: Int = 10 * 1024 * 1024 // 10 MB cap
     private let allowedImageMIMETypes: Set<String> = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"]
     private var artworkMasterMaxPixelSize: CGFloat = 1024
+    private let allowedRedirectHosts: Set<String>?
 
     // Apply a coherent Now Playing bundle in a single assignment to avoid partial state
     private func applyNowPlaying(_ build: (inout [String: Any]) -> Void) {
@@ -50,10 +87,11 @@ public final class NowPlayingService {
         center.nowPlayingInfo = snapshot
     }
 
-    public init(center: NowPlayingCentering = DefaultNowPlayingCenter(), cadence: TimeInterval = 5.0, telemetry: NowPlayingTelemetry = NoopNowPlayingTelemetry(), decodeMaxPixelSize: CGFloat? = nil) {
+    public init(center: NowPlayingCentering = DefaultNowPlayingCenter(), cadence: TimeInterval = 5.0, telemetry: NowPlayingTelemetry = NoopNowPlayingTelemetry(), decodeMaxPixelSize: CGFloat? = nil, allowedRedirectHosts: Set<String>? = nil) {
         self.center = center
         self.cadence = cadence
         self.telemetry = telemetry
+        self.allowedRedirectHosts = allowedRedirectHosts
         if let decodeMaxPixelSize, decodeMaxPixelSize > 0 {
             self.artworkMasterMaxPixelSize = decodeMaxPixelSize
         }
@@ -161,14 +199,17 @@ public final class NowPlayingService {
         artworkGeneration += 1
         let token = artworkGeneration
 
-        // Capture main-actor properties for use off the main actor
+        var request = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: artworkRequestTimeout)
+        request.httpMethod = "GET"
+
+        // Capture UI-related values on the main actor for use off-main
+        let screenScale = UIScreen.main.scale
         let decodeCap = self.artworkMasterMaxPixelSize
         let allowedMimes = self.allowedImageMIMETypes
         let maxBytes = self.artworkMaxBytes
         let telemetry = self.telemetry
-
-        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: artworkRequestTimeout)
-        request.httpMethod = "GET"
+        let originalHost = url.host?.lowercased()
+        let redirectAllowlist = self.allowedRedirectHosts?.map { $0.lowercased() }
 
         artworkTask = Task.detached(priority: .utility) { [weak self] in
             guard let self else { return }
@@ -190,33 +231,70 @@ public final class NowPlayingService {
                     let (bytes, resp) = try await URLSession.shared.bytes(for: request)
                     if Task.isCancelled { return }
                     guard let http = resp as? HTTPURLResponse else {
-                        telemetry.artworkFetchFailed(reason: "http-status")
+                        await MainActor.run { self.sampleAndLogFailure(.http_status) }
                         return
+                    }
+                    // Enforce redirect/host policy: final URL must be https and same-host or allowlisted
+                    let finalURL = http.url
+                    let finalSchemeOK = finalURL?.scheme?.lowercased() == "https"
+                    let finalHost = finalURL?.host?.lowercased()
+                    let sameHost = (finalHost != nil && finalHost == originalHost)
+                    let inAllowlist = (finalHost != nil && (redirectAllowlist?.contains(finalHost!) ?? false))
+                    if !(finalSchemeOK && (sameHost || inAllowlist)) {
+                        await MainActor.run { self.sampleAndLogFailure(.redirect_rejected) }
+                        return
+                    }
+                    // Best-effort redirect count estimation (0 if same host, 1 if different)
+                    let redirectCount = (sameHost ? 0 : 1)
+
+                    // Handle 304 Not Modified by loading cached response data
+                    if http.statusCode == 304 {
+                        if let cached = URLCache.shared.cachedResponse(for: request),
+                           let cachedHTTP = cached.response as? HTTPURLResponse {
+                            // Validate cached MIME type
+                            if let ct = cachedHTTP.value(forHTTPHeaderField: "Content-Type")?.lowercased() {
+                                let cachedMime = ct.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: true).first.map(String.init) ?? ct
+                                telemetry.artworkMimeSeen(cachedMime)
+                                guard allowedMimes.contains(cachedMime) else {
+                                    await MainActor.run { self.sampleAndLogFailure(.mime_unsupported) }
+                                    return
+                                }
+                            }
+                            data = cached.data
+                            telemetry.artworkCacheHit()
+                            telemetry.artworkRedirectApplied(count: redirectCount, finalHost: finalHost ?? "")
+                            fetchSucceeded = true
+                            break attemptLoop
+                        } else {
+                            await MainActor.run { self.sampleAndLogFailure(.cache_miss_304) }
+                            return
+                        }
                     }
                     // Non-success status handling with transient retry for 5xx only
                     guard (200...299).contains(http.statusCode) else {
                         if (500...599).contains(http.statusCode), attempt == 0 {
-                            telemetry.artworkFetchFailed(reason: "http-5xx-retry")
+                            await MainActor.run { self.sampleAndLogFailure(.http_5xx_retry) }
                             await shortBackoff()
                             continue attemptLoop
                         } else {
-                            telemetry.artworkFetchFailed(reason: "http-status")
+                            await MainActor.run { self.sampleAndLogFailure(.http_status) }
                             return
                         }
                     }
                     // Validate MIME type early
                     guard let contentTypeHeader = http.value(forHTTPHeaderField: "Content-Type")?.lowercased() else {
-                        telemetry.artworkFetchFailed(reason: "missing-content-type")
+                        await MainActor.run { self.sampleAndLogFailure(.missing_content_type) }
                         return
                     }
                     let mimeType = contentTypeHeader.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: true).first.map(String.init) ?? contentTypeHeader
+                    telemetry.artworkMimeSeen(mimeType)
                     guard allowedMimes.contains(mimeType) else {
-                        telemetry.artworkFetchFailed(reason: "mime-type")
+                        await MainActor.run { self.sampleAndLogFailure(.mime_unsupported) }
                         return
                     }
                     // Enforce Content-Length if provided
                     if let lenStr = http.value(forHTTPHeaderField: "Content-Length"), let len = Int(lenStr), len > maxBytes {
-                        telemetry.artworkFetchFailed(reason: "content-length")
+                        await MainActor.run { self.sampleAndLogFailure(.content_length) }
                         return
                     }
                     // Stream with hard cap
@@ -224,17 +302,20 @@ public final class NowPlayingService {
                         if Task.isCancelled { return }
                         data.append(chunk)
                         if data.count > maxBytes {
-                            telemetry.artworkFetchFailed(reason: "stream-cap-exceeded")
+                            await MainActor.run { self.sampleAndLogFailure(.stream_cap_exceeded) }
                             return
                         }
                     }
+
+                    telemetry.artworkRedirectApplied(count: redirectCount, finalHost: finalHost ?? "")
+                    telemetry.artworkCacheMiss()
 
                     // If we made it here, fetch succeeded
                     fetchSucceeded = true
                     break attemptLoop
                 } catch {
                     if Task.isCancelled { return }
-                    telemetry.artworkFetchFailed(reason: "network-error")
+                    await MainActor.run { self.sampleAndLogFailure(.network_error) }
                     // Retry once on transient network error
                     if attempt == 0 {
                         await shortBackoff()
@@ -250,9 +331,11 @@ public final class NowPlayingService {
 
             telemetry.artworkBytesReceived(data.count)
 
-            // Decode once into a bounded master image and discard raw bytes to reduce peak memory
-            guard let src = CGImageSourceCreateWithData(data as CFData, nil) else { return }
-            let screenScale = UIScreen.main.scale
+            // Decode once into a bounded master CGImage using ImageIO (no UIKit off-main)
+            guard let src = CGImageSourceCreateWithData(data as CFData, nil) else {
+                await MainActor.run { self.sampleAndLogFailure(.decode_fail) }
+                return
+            }
             let decodeStart = ProcessInfo.processInfo.systemUptime
             let masterOpts: [CFString: Any] = [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -260,63 +343,99 @@ public final class NowPlayingService {
                 kCGImageSourceShouldCacheImmediately: false,
                 kCGImageSourceThumbnailMaxPixelSize: decodeCap * screenScale
             ]
-            guard let masterCG = CGImageSourceCreateThumbnailAtIndex(src, 0, masterOpts as CFDictionary) else { return }
-            let masterImage = UIImage(cgImage: masterCG, scale: screenScale, orientation: .up)
+            guard let masterCG = CGImageSourceCreateThumbnailAtIndex(src, 0, masterOpts as CFDictionary) else {
+                await MainActor.run { self.sampleAndLogFailure(.decode_fail) }
+                return
+            }
             let decodeDuration = ProcessInfo.processInfo.systemUptime - decodeStart
             telemetry.artworkDecodeDuration(decodeDuration)
 
-            // Release raw data to avoid retaining large buffers in the provider closure
+            // Release raw data to avoid retaining large buffers
             data.removeAll(keepingCapacity: false)
 
-            let boundsSize = masterImage.size
-            // Small bounded cache by size bucket (in points): 256 / 512 / 1024
-            var thumbnailCache: [Int: UIImage] = [:]
-            let cacheLock = NSLock()
-            func bucket(for size: CGSize) -> Int {
-                let maxDim = max(size.width, size.height)
-                if maxDim <= 256 { return 256 }
-                else if maxDim <= 512 { return 512 }
-                else { return 1024 }
+            // Compute logical (points) size from pixel size
+            let boundsSize = CGSize(width: CGFloat(masterCG.width) / screenScale, height: CGFloat(masterCG.height) / screenScale)
+
+            // Helper to downscale a CGImage to a target pixel size using CoreGraphics (no UIKit)
+            func cgImageScaled(_ image: CGImage, toPixelSize size: CGSize) -> CGImage? {
+                guard size.width > 0, size.height > 0 else { return nil }
+                let colorSpace = CGColorSpaceCreateDeviceRGB()
+                let bytesPerPixel = 4
+                let bitsPerComponent = 8
+                let bytesPerRow = Int(size.width) * bytesPerPixel
+                guard let ctx = CGContext(data: nil,
+                                          width: Int(size.width),
+                                          height: Int(size.height),
+                                          bitsPerComponent: bitsPerComponent,
+                                          bytesPerRow: bytesPerRow,
+                                          space: colorSpace,
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+                ctx.interpolationQuality = .high
+                ctx.draw(image, in: CGRect(origin: .zero, size: size))
+                return ctx.makeImage()
             }
 
-            let artwork = MPMediaItemArtwork(boundsSize: boundsSize) { requested in
-                // If requested matches the master size, return it directly
-                if requested.equalTo(boundsSize) {
-                    return masterImage
+            // Prepare bucketed CGImages off-main (256/512/1024 points), limited by master size
+            let bucketPoints: [Int] = [256, 512, 1024]
+            var cgBucketImages: [Int: CGImage] = [:]
+            let masterMaxPixels = CGFloat(max(masterCG.width, masterCG.height))
+            let masterMaxPoints = masterMaxPixels / screenScale
+            for bp in bucketPoints {
+                let bpPoints = CGFloat(bp)
+                // Skip buckets larger than master
+                if bpPoints > masterMaxPoints { continue }
+                let scale = min(bpPoints / max(boundsSize.width, boundsSize.height), 1.0)
+                let targetPixels = CGSize(width: boundsSize.width * scale * screenScale,
+                                          height: boundsSize.height * scale * screenScale)
+                if let scaled = cgImageScaled(masterCG, toPixelSize: targetPixels) {
+                    cgBucketImages[bp] = scaled
                 }
-
-                let b = bucket(for: requested)
-                // Fast path: return cached bucket if available
-                cacheLock.lock()
-                if let cached = thumbnailCache[b] {
-                    cacheLock.unlock()
-                    return cached
-                }
-                cacheLock.unlock()
-
-                // Compute a target size that preserves aspect ratio and does not exceed master
-                let masterMax = max(boundsSize.width, boundsSize.height)
-                let scale = min(CGFloat(b) / masterMax, 1.0)
-                let targetSize = CGSize(width: boundsSize.width * scale, height: boundsSize.height * scale)
-
-                let format = UIGraphicsImageRendererFormat()
-                format.scale = UIScreen.main.scale
-                format.opaque = false
-                let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
-                let rendered = renderer.image { _ in
-                    masterImage.draw(in: CGRect(origin: .zero, size: targetSize))
-                }
-
-                // Store in cache under bucket key
-                cacheLock.lock()
-                thumbnailCache[b] = rendered
-                cacheLock.unlock()
-                return rendered
             }
 
             await MainActor.run {
                 guard token == self.artworkGeneration else { return }
                 if Task.isCancelled { return }
+
+                // Wrap CGImages as UIImages on the main actor only
+                let masterImage = UIImage(cgImage: masterCG, scale: screenScale, orientation: .up)
+
+                // Build an immutable, bounded cache (<= 3 buckets) of pre-rendered UIImages on main
+                let thumbnailCache: [Int: UIImage] = {
+                    var tmp: [Int: UIImage] = [:]
+                    for (k, v) in cgBucketImages {
+                        tmp[k] = UIImage(cgImage: v, scale: screenScale, orientation: .up)
+                    }
+                    return tmp
+                }()
+
+                // Provider-closure invariants:
+                // - No UIKit rendering or blocking I/O inside the closure.
+                // - Only returns prebuilt UIImages (created on main above).
+                // - Cache is immutable and bounded (<= 3 buckets: 256/512/1024).
+                // - Safe to be called on any thread.
+
+                #if DEBUG
+                precondition(thumbnailCache.count <= 3, "Artwork cache should be bounded to <= 3 buckets")
+                #endif
+
+                let artwork = MPMediaItemArtwork(boundsSize: boundsSize) { requested in
+                    // Invariant checks (DEBUG only): do not add rendering or I/O here.
+                    #if DEBUG
+                    precondition(thumbnailCache.count <= 3, "Artwork cache should be bounded to <= 3 buckets")
+                    #endif
+
+                    // Return prebuilt images only; no resizing or UIKit off-main here
+                    if requested.equalTo(boundsSize) {
+                        return masterImage
+                    }
+                    let maxDim = max(requested.width, requested.height)
+                    let b: Int
+                    if maxDim <= 256 { b = 256 }
+                    else if maxDim <= 512 { b = 512 }
+                    else { b = 1024 }
+                    return thumbnailCache[b] ?? masterImage
+                }
+
                 self.applyNowPlaying {
                     $0[MPMediaItemPropertyArtwork] = artwork
                 }
