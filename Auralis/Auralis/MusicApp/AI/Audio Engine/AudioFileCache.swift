@@ -39,7 +39,7 @@ actor AudioFileCache {
         let key = url.audioCacheKey
         if let existing = try? existingCachedURL(forKey: key, in: cacheDir) {
             // Attempt conditional revalidation with ETag/Last-Modified
-            let meta = metadataStore.load(forFileURL: existing)
+            let meta = await metadataStore.load(forFileURL: existing)
             do {
                 var request = URLRequest.audioGET(url)
                 request.applyConditionalHeaders(from: meta)
@@ -73,7 +73,7 @@ actor AudioFileCache {
         try? FileManager.default.removeItem(at: destURL)
         try FileManager.default.moveItem(at: tmpURL, to: destURL)
         // Save validators
-        metadataStore.save(from: response, forFileURL: destURL, originalURL: url)
+        await metadataStore.save(from: response, forFileURL: destURL, originalURL: url)
         // Enforce cache size
         await trimmer.trim(toMaxBytes: maxCacheBytes, in: cacheDir)
         return destURL

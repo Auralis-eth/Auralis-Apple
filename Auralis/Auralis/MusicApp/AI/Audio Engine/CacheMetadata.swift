@@ -64,13 +64,11 @@ struct CacheMetadataStore {
     let sidecarExtension: String
 
     private let ioQueue: DispatchQueue
-    private static let ioSpecificKey = DispatchSpecificKey<UInt8>()
     private static let maxSidecarBytes: Int = 32 * 1024 // 32KB cap for sidecar JSON
 
     init(sidecarExtension: String) {
         self.sidecarExtension = sidecarExtension
         self.ioQueue = DispatchQueue(label: "CacheMetadataStore.IO", qos: .utility)
-        self.ioQueue.setSpecific(key: Self.ioSpecificKey, value: 1)
     }
 
     func url(forFileURL fileURL: URL) -> URL {
@@ -178,41 +176,21 @@ struct CacheMetadataStore {
         try? FileManager.default.removeItem(at: url(forFileURL: fileURL))
     }
 
-    // MARK: - Deprecated synchronous wrappers (source compatibility)
-    @available(*, deprecated, message: "Use saveAsync(from:forFileURL:originalURL:) instead. This synchronous API may block the caller.")
-    func save(from response: URLResponse, forFileURL fileURL: URL, originalURL: URL) {
-        dispatchPrecondition(condition: .notOnQueue(DispatchQueue.main))
-        if DispatchQueue.getSpecific(key: Self.ioSpecificKey) != nil {
-            self.saveSync(from: response, forFileURL: fileURL, originalURL: originalURL)
-        } else {
-            ioQueue.sync {
-                self.saveSync(from: response, forFileURL: fileURL, originalURL: originalURL)
-            }
-        }
+    // MARK: - Public async API (non-blocking)
+    /// Async, non-blocking save that persists sidecar metadata.
+    /// Use from UI or background without risking priority inversion.
+    func save(from response: URLResponse, forFileURL fileURL: URL, originalURL: URL) async {
+        await saveAsync(from: response, forFileURL: fileURL, originalURL: originalURL)
     }
 
-    @available(*, deprecated, message: "Use loadAsync(forFileURL:) instead. This synchronous API may block the caller.")
-    func load(forFileURL fileURL: URL) -> CacheMetadata? {
-        dispatchPrecondition(condition: .notOnQueue(DispatchQueue.main))
-        if DispatchQueue.getSpecific(key: Self.ioSpecificKey) != nil {
-            return self.loadSync(forFileURL: fileURL)
-        } else {
-            return ioQueue.sync {
-                self.loadSync(forFileURL: fileURL)
-            }
-        }
+    /// Async, non-blocking load of sidecar metadata.
+    func load(forFileURL fileURL: URL) async -> CacheMetadata? {
+        return await loadAsync(forFileURL: fileURL)
     }
 
-    @available(*, deprecated, message: "Use deleteAsync(forFileURL:) instead. This synchronous API may block the caller.")
-    func delete(forFileURL fileURL: URL) {
-        dispatchPrecondition(condition: .notOnQueue(DispatchQueue.main))
-        if DispatchQueue.getSpecific(key: Self.ioSpecificKey) != nil {
-            self.deleteSync(forFileURL: fileURL)
-        } else {
-            ioQueue.sync {
-                self.deleteSync(forFileURL: fileURL)
-            }
-        }
+    /// Async, non-blocking delete of sidecar metadata.
+    func delete(forFileURL fileURL: URL) async {
+        await deleteAsync(forFileURL: fileURL)
     }
 
     // MARK: - Async I/O helpers
