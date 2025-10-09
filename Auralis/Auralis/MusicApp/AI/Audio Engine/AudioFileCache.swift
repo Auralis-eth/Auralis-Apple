@@ -75,7 +75,7 @@ actor AudioFileCache {
         // Save validators
         metadataStore.save(from: response, forFileURL: destURL, originalURL: url)
         // Enforce cache size
-        trimmer.trim(toMaxBytes: maxCacheBytes, in: cacheDir)
+        await trimmer.trim(toMaxBytes: maxCacheBytes, in: cacheDir)
         return destURL
     }
 

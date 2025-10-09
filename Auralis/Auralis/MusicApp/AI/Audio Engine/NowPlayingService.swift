@@ -13,6 +13,8 @@ public final class NowPlayingService {
     private let pathMonitorQueue = DispatchQueue(label: "NowPlayingService.PathMonitor", qos: .utility)
     private var pathMonitorIdleTimer: DispatchSourceTimer? = nil
     private let pathMonitorIdleGrace: TimeInterval = 30 // seconds of idle before stopping monitor
+    // Queue-serialized active flag to avoid start/stop races
+    private var pathMonitorActiveFlag: Bool = false
 
     // Path state captured from NWPathMonitor
     private var isCellular: Bool = false
@@ -22,6 +24,8 @@ public final class NowPlayingService {
     private var memoryWarningObserver: NSObjectProtocol? = nil
     private var bgObserver: NSObjectProtocol? = nil
     private var fgObserver: NSObjectProtocol? = nil
+    private var raObserver: NSObjectProtocol? = nil
+    private var termObserver: NSObjectProtocol? = nil
     private var isBackgrounded: Bool = false
 
     private var lastMemoryWarningTime: TimeInterval = 0
@@ -90,7 +94,7 @@ public final class NowPlayingService {
             // eTLD is two labels (e.g., co.uk); eTLD+1 is last three labels
             return labels.suffix(3).joined(separator: ".")
         } else {
-            // Default: eTLD is one label; eTLD+1 is last two labels
+            // Default for single-label TLDs: return the registrable domain (last two labels)
             return lastTwo
         }
     }
@@ -265,7 +269,15 @@ public final class NowPlayingService {
     }
 
     private func startPathMonitorIfNeeded() {
-        if !pathMonitorStarted {
+        // Serialize start using the pathMonitorQueue to avoid a window where the monitor was cancelled but flags aren't updated yet.
+        var shouldStart = false
+        pathMonitorQueue.sync {
+            if !self.pathMonitorActiveFlag {
+                self.pathMonitorActiveFlag = true
+                shouldStart = true
+            }
+        }
+        if shouldStart {
             let monitor = NWPathMonitor()
             self.pathMonitor = monitor
 
@@ -300,7 +312,8 @@ public final class NowPlayingService {
             timer.setEventHandler { [weak self] in
                 guard let self = self else { return }
                 // Stop monitor and tear down timer on the pathMonitorQueue
-                if let monitor = self.pathMonitor, self.pathMonitorStarted {
+                self.pathMonitorActiveFlag = false
+                if let monitor = self.pathMonitor {
                     monitor.cancel()
                     self.pathMonitor = nil
                 }
@@ -338,6 +351,7 @@ public final class NowPlayingService {
                 control.dropMaster = true
             }
         }
+        self.lastPlaceholderImage = nil
     }
 
     private static func detectRuntimeSupportedMIMEs() -> Set<String> {
@@ -479,8 +493,18 @@ public final class NowPlayingService {
                 allowedRedirectOrgDomains: Set<String>? = nil) {
         self.center = center
         self.cadence = max(0.5, cadence)
-        self.allowedRedirectHosts = allowedRedirectHosts
-        self.allowedRedirectOrgDomains = allowedRedirectOrgDomains
+        if let allowedRedirectHosts {
+            let ascii = Set(allowedRedirectHosts.compactMap { NowPlayingService.normalizeHostASCII($0) })
+            self.allowedRedirectHosts = ascii.isEmpty ? nil : ascii
+        } else {
+            self.allowedRedirectHosts = nil
+        }
+        if let allowedRedirectOrgDomains {
+            let ascii = Set(allowedRedirectOrgDomains.compactMap { NowPlayingService.normalizeHostASCII($0) })
+            self.allowedRedirectOrgDomains = ascii.isEmpty ? nil : ascii
+        } else {
+            self.allowedRedirectOrgDomains = nil
+        }
         self.bucketStrategy = bucketStrategy
         self.cellularTimeoutOverrideHosts = cellularTimeoutOverrideHosts
         if let decodeMaxPixelSize, decodeMaxPixelSize > 0 {
@@ -521,6 +545,12 @@ public final class NowPlayingService {
         fgObserver = NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
             self?.isBackgrounded = false
             self?.consecutiveMemoryWarnings = 0
+        }
+        raObserver = NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.persistEWMA()
+        }
+        termObserver = NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.persistEWMA()
         }
     }
     
@@ -676,10 +706,17 @@ public final class NowPlayingService {
 
         // Capture UI-related values on the main actor for use off-main
         let originalHost = NowPlayingService.normalizeHostASCII(url.host ?? "")
-        let redirectAllowlist = self.allowedRedirectHosts?.compactMap { NowPlayingService.normalizeHostASCII($0) }
-        let orgDomains = self.allowedRedirectOrgDomains?.compactMap { NowPlayingService.normalizeHostASCII($0) }
+        let redirectAllowlist = self.allowedRedirectHosts.map { Array($0) }
+        let orgDomains = self.allowedRedirectOrgDomains.map { Array($0) }
         let screenScale = UIScreen.main.scale
-        let isCompactLayout = { let tc = UIScreen.main.traitCollection; return tc.horizontalSizeClass == .compact || tc.verticalSizeClass == .compact }()
+        let isCompactLayout: Bool = {
+            if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }) {
+                let tc = scene.traitCollection
+                return tc.horizontalSizeClass == .compact || tc.verticalSizeClass == .compact
+            }
+            let tc = UIScreen.main.traitCollection
+            return tc.horizontalSizeClass == .compact || tc.verticalSizeClass == .compact
+        }()
         let decodeCap = self.artworkMasterMaxPixelSize
         let allowedMimes = self.allowedImageMIMETypes
         let maxBytes = self.artworkMaxBytes
@@ -776,6 +813,10 @@ public final class NowPlayingService {
                                     return
                                 }
                             }
+                            else {
+                                // Missing Content-Type on cached 304 entry; bail to avoid decode churn
+                                return
+                            }
                             data = cached.data
                             let fetchDuration = ProcessInfo.processInfo.systemUptime - fetchStart
 
@@ -822,6 +863,10 @@ public final class NowPlayingService {
                                     }
                                     guard allowedMimesRuntime2.contains(mimeType2) else { return }
                                     if isSuppressed2 { return }
+                                }
+                                else {
+                                    // Missing Content-Type on 304 fallback response; bail
+                                    return
                                 }
                                 if let lenStr2 = http2.value(forHTTPHeaderField: "Content-Length"), let len2 = Int(lenStr2), len2 > maxBytes {
                                     return
@@ -998,7 +1043,7 @@ public final class NowPlayingService {
                 bucketPoints.removeAll { $0 == NowPlayingService.bucketThresholds.last }
             }
 
-            if let largest = bucketPoints.max(), masterMaxPoints <= CGFloat(largest) {
+            if let smallest = bucketPoints.min(), masterMaxPoints < CGFloat(smallest) {
                 // Do not generate buckets; provider will use master/placeholder
             } else {
                 for bp in bucketPoints {
@@ -1126,6 +1171,8 @@ public final class NowPlayingService {
         }
         if let token = bgObserver { NotificationCenter.default.removeObserver(token) }
         if let token = fgObserver { NotificationCenter.default.removeObserver(token) }
+        if let token = raObserver { NotificationCenter.default.removeObserver(token) }
+        if let token = termObserver { NotificationCenter.default.removeObserver(token) }
     }
 }
 
