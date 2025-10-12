@@ -820,11 +820,11 @@ class Tag: Codable, Equatable, Hashable {
 }
 //-----------------------------------------------------------
 @Model
-class NFT: Codable {
+public class NFT: Codable {
     #Unique<NFT>([\.contract, \.tokenId, \.networkRawValue])
     #Index<NFT>([\.id], [\.acquiredAt], [\.collection], [\.tokenId])
 
-    @Attribute(.unique) var id: String
+    @Attribute(.unique) public var id: String
     
     var contract: Contract
     var tokenId: String
@@ -973,7 +973,7 @@ class NFT: Codable {
         self.tags = tags ?? []
     }
 
-    required init(from decoder: Decoder) throws {
+    required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         let tokenType = try container.decodeIfPresent(String.self, forKey: .tokenType)
@@ -999,7 +999,7 @@ class NFT: Codable {
         id = "\(networkPrefix):\(contractAddress):\(tokenId)"
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(contract, forKey: .contract)
         try container.encode(tokenId, forKey: .tokenId)
