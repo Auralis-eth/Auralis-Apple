@@ -141,7 +141,7 @@ final class AudioEngine: ObservableObject {
 
     func shutdown() {
         rcc.unregister()
-        session.deactivate()
+        try? session.deactivate()
         controller.stop()
         stopProgressTimer()
     }
