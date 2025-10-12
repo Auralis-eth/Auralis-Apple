@@ -26,8 +26,14 @@ public final class QueueManager {
 
     public struct Playlist: Sendable, Equatable {
         public var name: String
-        var tracks: [NFT]
+        public var tracks: [NFT]
         init(name: String, tracks: [NFT] = []) { self.name = name; self.tracks = tracks }
+        mutating func _append(_ nfts: [NFT]) { tracks.append(contentsOf: nfts) }
+        mutating func _insertFront(_ nft: NFT) { tracks.insert(nft, at: 0) }
+        mutating func _removeAll(where predicate: (NFT) -> Bool) { tracks.removeAll(where: predicate) }
+        mutating func _removeFirst() -> NFT { tracks.removeFirst() }
+        mutating func _remove(at index: Int) -> NFT { tracks.remove(at: index) }
+        mutating func _clear() { tracks.removeAll() }
     }
 
     private let defaults = UserDefaults.standard
@@ -36,7 +42,15 @@ public final class QueueManager {
     private var shuffleIndex: Int = 0
 
     public var previous = Playlist(name: "Previous")
-    public var next = Playlist(name: "Next")
+    public var next = Playlist(name: "Next") {
+        didSet {
+            // Detect any mutation to next (including nested track changes)
+            if isShuffleEnabled {
+                reconcileShuffleAfterNextChange()
+            }
+            validateInvariants(context: "next.didSet")
+        }
+    }
     public private(set) var current: NFT?
     public var isShuffleEnabled: Bool = false
     public var repeatMode: RepeatMode = .none
@@ -83,6 +97,7 @@ public final class QueueManager {
             // Immediately migrate to new blob format in the background
             persistShuffle()
         }
+        validateInvariants(context: "init")
     }
 
     /// Enables or disables shuffle mode.
@@ -102,6 +117,7 @@ public final class QueueManager {
             shuffleIndex = 0
             persistShuffle()
         }
+        validateInvariants(context: "setShuffleEnabled")
     }
 
     /// Sets the repeat mode for playback.
@@ -112,6 +128,7 @@ public final class QueueManager {
     /// ```
     public func setRepeatMode(_ mode: RepeatMode) {
         repeatMode = mode
+        validateInvariants(context: "setRepeatMode")
     }
 
     /// Sets the current item.
@@ -123,6 +140,7 @@ public final class QueueManager {
     /// ```
     public func setCurrent(_ nft: NFT?) {
         current = nft
+        validateInvariants(context: "setCurrent")
     }
 
     /// Persists the shuffle state asynchronously with debouncing and explicit synchronization.
@@ -190,19 +208,151 @@ public final class QueueManager {
         }
     }
 
+    /// Reconciles the shuffled order deterministically after modifications to `next.tracks`.
+    /// - Behavior:
+    ///   - Removes IDs from `shuffledOrder` that are no longer present in `next.tracks`.
+    ///   - Preserves the relative order of remaining IDs.
+    ///   - Appends any new IDs (present in `next.tracks` but not in `shuffledOrder`) at the end, in the order of `next.tracks`.
+    ///   - Keeps `shuffleIndex` as a position; if out of bounds after reconciliation, clamps to `newOrder.count`.
+    ///   - Persists changes asynchronously (debounced).
+    private func reconcileShuffleAfterNextChange() {
+        let nextIds = next.tracks.map { $0.id }
+        let nextSet = Set(nextIds)
+
+        // 1) Filter out removed ids while preserving order
+        var newOrder: [String] = []
+        newOrder.reserveCapacity(shuffledOrder.count)
+        for id in shuffledOrder where nextSet.contains(id) {
+            newOrder.append(id)
+        }
+
+        // 2) Append any new ids at the end in stable order of next.tracks
+        let existing = Set(newOrder)
+        for id in nextIds where !existing.contains(id) {
+            newOrder.append(id)
+        }
+
+        // 3) Adjust index: keep position; clamp if needed
+        if shuffleIndex < 0 { shuffleIndex = 0 }
+        if shuffleIndex > newOrder.count { shuffleIndex = newOrder.count }
+
+        shuffledOrder = newOrder
+        persistShuffle()
+    }
+
+    /// Validates and repairs queue/shuffle state.
+    /// - Returns: Array of human-readable notes describing any repairs performed. Empty if state was valid.
+    /// - Discussion: Defensive programming utility to detect and recover from invalid or corrupted state.
+    @discardableResult
+    public func validateAndRepairState() -> [String] {
+        var notes: [String] = []
+
+        if shuffleIndex < 0 {
+            notes.append("Clamped negative shuffleIndex to 0.")
+            shuffleIndex = 0
+        }
+        if shuffleIndex > shuffledOrder.count {
+            notes.append("Clamped shuffleIndex from \(shuffleIndex) to \(shuffledOrder.count).")
+            shuffleIndex = shuffledOrder.count
+        }
+
+        if isShuffleEnabled {
+            // Ensure shuffledOrder matches the multiset of next.tracks
+            let remainingSet = NSCountedSet(array: shuffledOrder)
+            let nextSet = NSCountedSet(array: next.tracks.map { $0.id })
+            if remainingSet != nextSet {
+                notes.append("Reconciled shuffledOrder to match next.tracks.")
+                reconcileShuffleAfterNextChange()
+            } else {
+                // Still persist clamped index if needed
+                persistShuffle()
+            }
+        }
+
+        return notes
+    }
+
+    /// Validates internal invariants and attempts graceful recovery if violated.
+    /// - Parameter context: Optional label to help identify when validation occurred.
+    /// - Discussion:
+    ///   In DEBUG builds, violations will trigger an assertion failure to surface bugs early.
+    ///   In production, we log and attempt to repair state deterministically.
+    private func validateInvariants(context: String = "") {
+        var violations: [String] = []
+
+        // 1) Index bounds
+        if shuffleIndex < 0 {
+            violations.append("shuffleIndex < 0; clamping to 0")
+            shuffleIndex = 0
+        }
+        if shuffleIndex > shuffledOrder.count {
+            violations.append("shuffleIndex > shuffledOrder.count; clamping to count")
+            shuffleIndex = shuffledOrder.count
+        }
+
+        // 2) Shuffle-enabled multiset consistency
+        if isShuffleEnabled {
+            let orderSet = NSCountedSet(array: shuffledOrder)
+            let nextSet = NSCountedSet(array: next.tracks.map { $0.id })
+            if orderSet != nextSet {
+                violations.append("shuffledOrder multiset != next.tracks ids; reconciling")
+                // Deterministically repair
+                reconcileShuffleAfterNextChange()
+            }
+            // Ensure the current pointed id (if any) actually exists after repair
+            if shuffleIndex < shuffledOrder.count {
+                let id = shuffledOrder[shuffleIndex]
+                if next.tracks.first(where: { $0.id == id }) == nil {
+                    violations.append("shuffleIndex points to missing id; reconciling and clamping")
+                    reconcileShuffleAfterNextChange()
+                    if shuffleIndex > shuffledOrder.count { shuffleIndex = shuffledOrder.count }
+                }
+            }
+        } else {
+            // When shuffle is disabled, index should be 0 or at most shuffledOrder.count.
+            // We already clamp above; optionally clear stale order to reduce confusion.
+            if !shuffledOrder.isEmpty {
+                // Keep non-empty order to allow quick re-enable, but ensure index is safe.
+            }
+        }
+
+        if !violations.isEmpty {
+            let prefix = context.isEmpty ? "[QueueManager] Invariant violations:" : "[QueueManager] Invariant violations (\(context)):"
+            print(prefix, violations.joined(separator: "; "))
+            #if DEBUG
+            assertionFailure(prefix + " " + violations.joined(separator: "; "))
+            #endif
+        }
+    }
+
+    /// Fisher–Yates shuffle (a.k.a. Knuth shuffle)
+    /// - Complexity: O(n)
+    /// - Reference: https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
+    /// - Note: Provides a reusable implementation to avoid duplication and reduce bug risk.
+    private static func fisherYatesShuffle<T, R: RandomNumberGenerator>(_ array: [T], using rng: inout R) -> [T] {
+        var a = array
+        if a.count > 1 {
+            var i = a.count - 1
+            while i > 0 {
+                let j = Int.random(in: 0...i, using: &rng)
+                if i != j { a.swapAt(i, j) }
+                i -= 1
+            }
+        }
+        return a
+    }
+
+    private static func fisherYatesShuffle<T>(_ array: [T]) -> [T] {
+        var rng = SystemRandomNumberGenerator()
+        return fisherYatesShuffle(array, using: &rng)
+    }
+
     private func rebuildShuffle() {
         shuffledOrder = next.tracks.map { $0.id }
-        // Fisher–Yates shuffle
-        var a = shuffledOrder
-        var i = a.count - 1
-        while i > 0 {
-            let j = Int.random(in: 0...i)
-            a.swapAt(i, j)
-            i -= 1
-        }
-        shuffledOrder = a
+        shuffledOrder = Self.fisherYatesShuffle(shuffledOrder)
         shuffleIndex = 0
         persistShuffle()
+        validateInvariants(context: "rebuildShuffle")
     }
 
     private func ensureShuffleValid() {
@@ -227,15 +377,7 @@ public final class QueueManager {
     private func rebuildShuffleMaintainingPosition() {
         let currentId: String? = shuffleIndex < shuffledOrder.count ? shuffledOrder[shuffleIndex] : nil
         shuffledOrder = next.tracks.map { $0.id }
-        // Fisher–Yates shuffle
-        var a = shuffledOrder
-        var i = a.count - 1
-        while i > 0 {
-            let j = Int.random(in: 0...i)
-            a.swapAt(i, j)
-            i -= 1
-        }
-        shuffledOrder = a
+        shuffledOrder = Self.fisherYatesShuffle(shuffledOrder)
         shuffleIndex = 0
 
         if let currentId = currentId, let newIndex = shuffledOrder.firstIndex(of: currentId) {
@@ -253,6 +395,7 @@ public final class QueueManager {
             }
         }
         persistShuffle()
+        validateInvariants(context: "rebuildShuffleMaintainingPosition")
     }
 
     /// Returns the next NFT without removing it.
@@ -265,57 +408,46 @@ public final class QueueManager {
     /// ```
     public func peekNext() -> NFT? {
         if repeatMode == .track, let c = current { return c }
-
         if !next.tracks.isEmpty {
-            if !isShuffleEnabled {
-                return next.tracks.first
-            } else {
-                ensureShuffleValid()
-                if shuffleIndex < shuffledOrder.count {
-                    let id = shuffledOrder[shuffleIndex]
-                    if let nft = next.tracks.first(where: { $0.id == id }) {
-                        return nft
-                    }
-                    // If not found (shouldn't happen), rebuild shuffle and try again
-                    rebuildShuffle()
-                    if let nft = next.tracks.first(where: { $0.id == shuffledOrder.first ?? "" }) {
-                        shuffleIndex = 0
-                        persistShuffle()
-                        return nft
-                    } else {
-                        return nil
-                    }
-                } else if repeatMode == .playlist {
-                    var rebuilt: [NFT] = []
-                    if let c = current { rebuilt.append(c) }
-                    if !previous.tracks.isEmpty { rebuilt.append(contentsOf: previous.tracks) }
-                    guard !rebuilt.isEmpty else { return nil }
-                    // Shuffle rebuilt temporarily in memory
-                    var tempOrder = rebuilt.map { $0.id }
-                    // Fisher–Yates shuffle
-                    var i = tempOrder.count - 1
-                    while i > 0 {
-                        let j = Int.random(in: 0...i)
-                        tempOrder.swapAt(i, j)
-                        i -= 1
-                    }
-                    guard let firstId = tempOrder.first else { return nil }
-                    return rebuilt.first(where: { $0.id == firstId })
-                } else {
-                    return nil
-                }
-            }
+            return isShuffleEnabled ? peekNextWithShuffle() : next.tracks.first
         }
-
         if repeatMode == .playlist {
-            var rebuilt: [NFT] = []
-            if let c = current { rebuilt.append(c) }
-            if !previous.tracks.isEmpty { rebuilt.append(contentsOf: previous.tracks) }
-            guard !rebuilt.isEmpty else { return nil }
-            return isShuffleEnabled ? rebuilt.randomElement() : rebuilt.first
+            return peekNextFromPlaylistRepeat()
         }
-
         return nil
+    }
+
+    private func peekNextWithShuffle() -> NFT? {
+        ensureShuffleValid()
+        guard shuffleIndex < shuffledOrder.count else {
+            // Defer to playlist repeat behavior if applicable
+            return repeatMode == .playlist ? peekNextFromPlaylistRepeat() : nil
+        }
+        let id = shuffledOrder[shuffleIndex]
+        if let nft = next.tracks.first(where: { $0.id == id }) {
+            return nft
+        }
+        // If not found, rebuild once and try again
+        rebuildShuffle()
+        guard let firstId = shuffledOrder.first,
+              let nft = next.tracks.first(where: { $0.id == firstId }) else { return nil }
+        shuffleIndex = 0
+        persistShuffle()
+        return nft
+    }
+
+    private func peekNextFromPlaylistRepeat() -> NFT? {
+        var rebuilt: [NFT] = []
+        if let c = current { rebuilt.append(c) }
+        if !previous.tracks.isEmpty { rebuilt.append(contentsOf: previous.tracks) }
+        guard !rebuilt.isEmpty else { return nil }
+        if isShuffleEnabled {
+            let tempOrder = Self.fisherYatesShuffle(rebuilt.map { $0.id })
+            guard let firstId = tempOrder.first else { return nil }
+            return rebuilt.first(where: { $0.id == firstId })
+        } else {
+            return rebuilt.first
+        }
     }
 
     /// Dequeues and returns the next NFT according to shuffle and repeat rules.
@@ -329,113 +461,100 @@ public final class QueueManager {
     @discardableResult
     public func dequeueNext() -> NFT? {
         if repeatMode == .track, let c = current { return c }
-
         if !next.tracks.isEmpty {
-            if !isShuffleEnabled {
-                return next.tracks.removeFirst()
-            } else {
-                ensureShuffleValid()
-                if shuffleIndex < shuffledOrder.count {
-                    let id = shuffledOrder[shuffleIndex]
-                    if let index = next.tracks.firstIndex(where: { $0.id == id }) {
-                        let nft = next.tracks.remove(at: index)
-                        shuffleIndex += 1
-                        persistShuffle()
-                        return nft
-                    } else {
-                        // Not found, rebuild shuffle and try again
-                        rebuildShuffle()
-                        if shuffleIndex < shuffledOrder.count,
-                           let idx = next.tracks.firstIndex(where: { $0.id == shuffledOrder[shuffleIndex] }) {
-                            let nft = next.tracks.remove(at: idx)
-                            shuffleIndex += 1
-                            persistShuffle()
-                            return nft
-                        } else {
-                            // Nothing to dequeue
-                            return nil
-                        }
-                    }
-                } else if repeatMode == .playlist {
-                    // rebuild next from current + previous
-                    var rebuilt: [NFT] = []
-                    if let c = current { rebuilt.append(c) }
-                    if !previous.tracks.isEmpty { rebuilt.append(contentsOf: previous.tracks) }
-                    guard !rebuilt.isEmpty else { return nil }
-                    previous.tracks.removeAll()
-                    next.tracks = rebuilt
-                    rebuildShuffle()
-                    // Now attempt to dequeue first in shuffle
-                    if shuffleIndex < shuffledOrder.count,
-                       let idx = next.tracks.firstIndex(where: { $0.id == shuffledOrder[shuffleIndex] }) {
-                        let nft = next.tracks.remove(at: idx)
-                        shuffleIndex += 1
-                        persistShuffle()
-                        return nft
-                    } else {
-                        return nil
-                    }
-                } else {
-                    return nil
-                }
-            }
+            let result = isShuffleEnabled ? dequeueNextWithShuffleFromNonEmpty() : dequeueNextWithoutShuffleFromNonEmpty()
+            validateInvariants(context: "dequeueNext")
+            return result
         }
-
         if repeatMode == .playlist {
-            var rebuilt: [NFT] = []
-            if let c = current { rebuilt.append(c) }
-            if !previous.tracks.isEmpty { rebuilt.append(contentsOf: previous.tracks) }
-            guard !rebuilt.isEmpty else { return nil }
-            previous.tracks.removeAll()
-            next.tracks = rebuilt
-            if !isShuffleEnabled {
-                return next.tracks.removeFirst()
-            } else {
-                rebuildShuffle()
-                if shuffleIndex < shuffledOrder.count,
-                   let idx = next.tracks.firstIndex(where: { $0.id == shuffledOrder[shuffleIndex] }) {
-                    let nft = next.tracks.remove(at: idx)
-                    shuffleIndex += 1
-                    persistShuffle()
-                    return nft
-                } else {
-                    return nil
-                }
-            }
+            let rebuilt = rebuildNextFromPlaylistSources()
+            guard rebuilt else { validateInvariants(context: "dequeueNext"); return nil }
+            let result = isShuffleEnabled ? dequeueNextWithShuffleFromNonEmpty() : dequeueNextWithoutShuffleFromNonEmpty()
+            validateInvariants(context: "dequeueNext")
+            return result
         }
-
+        validateInvariants(context: "dequeueNext")
         return nil
     }
 
-    private func pushToPrevious(_ nft: NFT) { previous.tracks.append(nft) }
-    public func pushToFrontOfNext(_ nft: NFT) { next.tracks.insert(nft, at: 0) }
+    private func dequeueNextWithoutShuffleFromNonEmpty() -> NFT? {
+        return next._removeFirst()
+    }
+
+    private func dequeueNextWithShuffleFromNonEmpty() -> NFT? {
+        ensureShuffleValid()
+        guard shuffleIndex < shuffledOrder.count else { return nil }
+        let id = shuffledOrder[shuffleIndex]
+        if let index = next.tracks.firstIndex(where: { $0.id == id }) {
+            let nft = next._remove(at: index)
+            shuffleIndex += 1
+            persistShuffle()
+            return nft
+        }
+        // Not found, rebuild and try once
+        rebuildShuffle()
+        guard shuffleIndex < shuffledOrder.count,
+              let idx = next.tracks.firstIndex(where: { $0.id == shuffledOrder[shuffleIndex] }) else { return nil }
+        let nft = next._remove(at: idx)
+        shuffleIndex += 1
+        persistShuffle()
+        return nft
+    }
+
+    private func rebuildNextFromPlaylistSources() -> Bool {
+        var rebuilt: [NFT] = []
+        if let c = current { rebuilt.append(c) }
+        if !previous.tracks.isEmpty { rebuilt.append(contentsOf: previous.tracks) }
+        guard !rebuilt.isEmpty else { return false }
+        previous.tracks.removeAll()
+        next.tracks = rebuilt
+        if isShuffleEnabled { rebuildShuffle() }
+        return true
+    }
+
+    private func pushToPrevious(_ nft: NFT) { 
+        previous.tracks.append(nft)
+        validateInvariants(context: "pushToPrevious")
+    }
+    public func pushToFrontOfNext(_ nft: NFT) { 
+        next._insertFront(nft)
+        validateInvariants(context: "pushToFrontOfNext")
+    }
 
     /// Appends items to the end of the upcoming queue.
     /// - Parameter nfts: Items to enqueue.
-    /// - Discussion: Maintains shuffle invariants by rebuilding shuffle when needed.
+    /// - Discussion: Maintains shuffle invariants by deterministically reconciling shuffle state when needed.
     /// - Example:
     /// ```swift
     /// queue.addToNext(newItems)
     /// ```
     public func addToNext(_ nfts: [NFT]) {
-        next.tracks.append(contentsOf: nfts)
+        next._append(nfts)
         if isShuffleEnabled {
-            rebuildShuffleMaintainingPosition()
+            reconcileShuffleAfterNextChange()
         }
+        validateInvariants(context: "addToNext")
     }
 
     /// Removes items from the upcoming queue matching the given predicate.
     /// - Parameter predicate: A closure that returns `true` for items to remove.
-    /// - Discussion: Maintains shuffle invariants by rebuilding shuffle when needed.
+    /// - Discussion:
+    ///   - Deterministic behavior: When shuffle is enabled, the internal `shuffledOrder` is reconciled by removing missing IDs and preserving relative order of remaining items. New items (if any) are appended in the order of `next.tracks`.
+    ///   - The `shuffleIndex` is preserved as a position. If the item at the current shuffle position was removed, the index now points to the item that shifted into that slot. If the index is beyond the end after reconciliation, it's clamped to the array's count.
+    ///   - This avoids random reshuffles, prevents skipped tracks, and ensures no crashes from out-of-bounds indices.
     /// - Example:
     /// ```swift
     /// queue.removeFromNext { $0.id == someId }
     /// ```
     public func removeFromNext(where predicate: (NFT) -> Bool) {
-        next.tracks.removeAll(where: predicate)
+        // Remove from upcoming list
+        next._removeAll(where: predicate)
+
+        // When shuffle is enabled, reconcile deterministically rather than rebuilding randomly
         if isShuffleEnabled {
-            rebuildShuffleMaintainingPosition()
+            reconcileShuffleAfterNextChange()
         }
+        validateInvariants(context: "removeFromNext")
     }
 }
 
