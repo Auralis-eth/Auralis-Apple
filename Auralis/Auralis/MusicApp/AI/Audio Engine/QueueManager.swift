@@ -7,7 +7,7 @@ import Foundation
 /// - All public property access and any method calls will hop to the main actor when called from other threads/tasks.
 /// - Access to `UserDefaults` occurs on the main actor to avoid concurrent mutations.
 /// - This design is appropriate because the playback queue is UI-bound. If heavy work is needed, consider offloading just that work to a background task and returning results to the main actor.
-/// - Persistence: Writes to UserDefaults are batched and debounced on a background queue; durability is eventual. Use `flushPersistShuffle()` for immediate sync when needed.
+/// - Persistence: Writes to UserDefaults are debounced on a background queue and guarded by a generation counter to prevent stale writes. Use `flushPersistShuffleNow()` for a synchronous write before termination, or `flushPersistShuffle(completion:)` / `await flushPersistShuffle()` to wait for completion.
 @MainActor
 public final class QueueManager {
     // Persistence constants and queue
@@ -15,12 +15,34 @@ public final class QueueManager {
     private static let stateVersion = 1
     private static let legacyOrderKey = "QueueManager.shuffledOrder"
     private static let legacyIndexKey = "QueueManager.shuffleIndex"
-
+    private static let legacyMigratedKey = "QueueManager.migratedToBlob"
+    
+    /// Controls whether invariant violations crash the process.
+    /// Enabled by default; define `QUEUE_MANAGER_DISABLE_STRICT_VALIDATION` to opt out (for special builds/tests).
+    private static var strictValidationEnabled: Bool {
+        #if QUEUE_MANAGER_DISABLE_STRICT_VALIDATION
+        return false
+        #else
+        return true
+        #endif
+    }
+    
+    /// Main-actor monotonic generation counter
+    private var stateGeneration: Int = 0
+    
     // Debounced, background persistence to avoid blocking the main actor.
     // Writes are eventual; see `persistShuffle()` docs.
     private let persistenceQueue = DispatchQueue(label: "QueueManager.persistence", qos: .utility)
     private var persistWorkItem: DispatchWorkItem?
     private let persistDebounceInterval: TimeInterval = 0.35
+
+    // Isolated storage for last-committed generation; only access on `persistenceQueue`.
+    private final class GenerationStorage {
+        private var value: Int = 0
+        func get() -> Int { value }
+        func set(_ newValue: Int) { value = newValue }
+    }
+    private let generationStore = GenerationStorage()
 
     public enum RepeatMode: Equatable, Sendable { case none, track, playlist }
 
@@ -34,6 +56,7 @@ public final class QueueManager {
         mutating func _removeFirst() -> NFT { tracks.removeFirst() }
         mutating func _remove(at index: Int) -> NFT { tracks.remove(at: index) }
         mutating func _clear() { tracks.removeAll() }
+        mutating func _replace(with tracks: [NFT]) { self.tracks = tracks }
     }
 
     private let defaults = UserDefaults.standard
@@ -42,28 +65,64 @@ public final class QueueManager {
     private var shuffleIndex: Int = 0
 
     public var previous = Playlist(name: "Previous")
-    public var next = Playlist(name: "Next") {
-        didSet {
-            // Detect any mutation to next (including nested track changes)
-            if isShuffleEnabled {
-                reconcileShuffleAfterNextChange()
-            }
-            validateInvariants(context: "next.didSet")
-        }
-    }
+    public var next = Playlist(name: "Next")
     public private(set) var current: NFT?
     public var isShuffleEnabled: Bool = false
     public var repeatMode: RepeatMode = .none
 
+    /// Maximum number of tracks to retain in the `previous` history. Set to `nil` for unlimited. Default: 50.
+    public var previousMaxCount: Int? = 50 {
+        didSet {
+            // Treat negative values as unlimited
+            if let v = previousMaxCount, v < 0 { previousMaxCount = nil }
+            enforcePreviousLimit()
+            validateInvariants(context: "previousMaxCount.didSet")
+        }
+    }
+
+    /// Read-only access to previously played tracks for UI display.
+    public var previousTracks: [NFT] { previous.tracks }
+
+    /// Clears the previously played history.
+    public func clearPreviousHistory() {
+        previous._clear()
+        validateInvariants(context: "clearPreviousHistory")
+    }
+
+    /// Ensures the `previous` history does not exceed `previousMaxCount`.
+    private func enforcePreviousLimit() {
+        guard let limit = previousMaxCount else { return }
+        if limit < 0 { return }
+        let count = previous.tracks.count
+        if count > limit {
+            let removeCount = count - limit
+            // Remove the oldest items (at the end) to keep most-recent-first ordering
+            previous.tracks.removeLast(removeCount)
+        }
+    }
+
+    /// Records the current track into `previous` (most-recent-first) and sets a new current.
+    private func recordPreviousAndSetCurrent(_ newCurrent: NFT) {
+        if let c = current {
+            // Insert most recent at the front
+            previous._insertFront(c)
+            enforcePreviousLimit()
+        }
+        current = newCurrent
+    }
+
     /// Initializes the queue manager on the main actor, restoring any persisted shuffle state from UserDefaults.
     /// All subsequent mutations and reads are serialized via the main actor to prevent data races.
     public init() {
+        // local store reference for generation
+        let store = self.generationStore
+        
         // Attempt to restore from versioned state blob first
         if let state = defaults.dictionary(forKey: Self.stateKey) {
             let version = state["version"] as? Int ?? 0
             let order = state["order"] as? [String] ?? []
             let index = state["index"] as? Int ?? 0
-
+            
             // Basic validation and clamping
             shuffledOrder = order
             if index < 0 {
@@ -73,11 +132,14 @@ public final class QueueManager {
             } else {
                 shuffleIndex = index
             }
-
+            
             if version != Self.stateVersion {
-                // Future migration hook: currently just log and continue
-                print("[QueueManager] Restored state version \(version); expected \(Self.stateVersion). No migration needed.")
+                // Future migration hook: version mismatch detected; no migration needed currently.
             }
+            // Read generation from state blob
+            let gen = state["generation"] as? Int ?? 0
+            persistenceQueue.sync { store.set(gen) }
+            defaults.set(true, forKey: Self.legacyMigratedKey)
         } else {
             // Fallback to legacy keys for backward compatibility
             if let saved = defaults.array(forKey: Self.legacyOrderKey) as? [String] {
@@ -96,16 +158,20 @@ public final class QueueManager {
 
             // Immediately migrate to new blob format in the background
             persistShuffle()
+            persistenceQueue.sync { store.set(0) }
         }
         validateInvariants(context: "init")
     }
 
     /// Enables or disables shuffle mode.
-    /// - Parameter enabled: New shuffle state.
-    /// - Discussion: When enabling, the shuffle order is rebuilt while maintaining the current position if possible. When disabling, the shuffle state is cleared.
+    ///
+    /// Thread-safety: `@MainActor` — calls from other threads hop to the main actor.
+    /// Mutation: Mutates internal shuffle state, may rebuild or clear shuffle order, and persists state (debounced).
+    /// - Parameter enabled: `true` to enable shuffle; `false` to disable.
+    /// - Discussion: When enabling, the shuffle order is rebuilt while maintaining the current position if possible. When disabling, the shuffle state is cleared and the index is reset.
     /// - Example:
     /// ```swift
-    /// queue.setShuffleEnabled(true)
+    /// await MainActor.run { queue.setShuffleEnabled(true) }
     /// ```
     public func setShuffleEnabled(_ enabled: Bool) {
         guard enabled != isShuffleEnabled else { return }
@@ -121,10 +187,13 @@ public final class QueueManager {
     }
 
     /// Sets the repeat mode for playback.
-    /// - Parameter mode: The desired repeat mode.
+    ///
+    /// Thread-safety: `@MainActor`.
+    /// Mutation: Updates repeat mode only.
+    /// - Parameter mode: The desired repeat mode (`.none`, `.track`, `.playlist`).
     /// - Example:
     /// ```swift
-    /// queue.setRepeatMode(.playlist)
+    /// await MainActor.run { queue.setRepeatMode(.playlist) }
     /// ```
     public func setRepeatMode(_ mode: RepeatMode) {
         repeatMode = mode
@@ -132,49 +201,62 @@ public final class QueueManager {
     }
 
     /// Sets the current item.
+    ///
+    /// Thread-safety: `@MainActor`.
+    /// Mutation: Sets the `current` item only; does not mutate `previous` or `next`.
     /// - Parameter nft: The item to set as current, or `nil` to clear.
-    /// - Discussion: Does not mutate `previous` or `next`. Callers should use `dequeueNext()` to advance.
+    /// - Discussion: Callers should use `dequeueNext()` to advance playback.
     /// - Example:
     /// ```swift
-    /// queue.setCurrent(currentNFT)
+    /// await MainActor.run { queue.setCurrent(currentNFT) }
     /// ```
     public func setCurrent(_ nft: NFT?) {
         current = nft
         validateInvariants(context: "setCurrent")
     }
 
-    /// Persists the shuffle state asynchronously with debouncing and explicit synchronization.
+    /// Persists the shuffle state asynchronously with debouncing.
     /// Persistence is eventual (not immediate) to minimize disk I/O and avoid blocking the main actor.
     /// Use `flushPersistShuffle()` for critical, immediate writes (e.g., app termination).
+    /// The work items carry a generation counter and stale writes are skipped based on it.
     private func persistShuffle() {
         // Capture current state on the main actor to avoid races.
         let orderSnapshot = self.shuffledOrder
         let indexSnapshot = self.shuffleIndex
+        
+        // Increment generation
+        stateGeneration += 1
+        let generation = stateGeneration
+        let store = self.generationStore
 
         // Cancel any pending work to debounce rapid changes
         persistWorkItem?.cancel()
 
         let work = DispatchWorkItem { [defaults] in
+            let last = store.get()
+            if generation <= last {
+                return
+            }
+            
             // Build a single versioned state payload to minimize I/O
             let payload: [String: Any] = [
                 "version": Self.stateVersion,
                 "order": orderSnapshot,
-                "index": indexSnapshot
+                "index": indexSnapshot,
+                "generation": generation
             ]
 
             // Write the blob under a single key to avoid multiple disk writes
             defaults.set(payload, forKey: Self.stateKey)
 
-            // Also write legacy keys for a short transition window (optional)
-            defaults.set(orderSnapshot, forKey: Self.legacyOrderKey)
-            defaults.set(indexSnapshot, forKey: Self.legacyIndexKey)
-
-            // Explicitly synchronize to reduce risk of data loss on termination
-            // Note: synchronize() is generally not necessary, but this project requests explicit sync.
-            let ok = defaults.synchronize()
-            if ok == false {
-                print("[QueueManager] Warning: UserDefaults synchronize() returned false.")
+            // Write legacy keys only once during migration
+            if defaults.bool(forKey: Self.legacyMigratedKey) == false {
+                defaults.set(orderSnapshot, forKey: Self.legacyOrderKey)
+                defaults.set(indexSnapshot, forKey: Self.legacyIndexKey)
+                defaults.set(true, forKey: Self.legacyMigratedKey)
             }
+            
+            store.set(generation)
         }
 
         persistWorkItem = work
@@ -182,28 +264,124 @@ public final class QueueManager {
         persistenceQueue.asyncAfter(deadline: .now() + persistDebounceInterval, execute: work)
     }
 
-    /// Forces an immediate persistence of the current shuffle state on a background queue.
-    /// This bypasses debouncing. Use sparingly (e.g., applicationWillTerminate / sceneWillResignActive).
-    public func flushPersistShuffle() {
+    /// Forces an immediate synchronous write of the current shuffle state.
+    ///
+    /// Thread-safety: `@MainActor` for snapshot; performs a blocking write on the persistence queue.
+    /// Mutation: Does not change logical queue state; persists it durably.
+    /// - Important: This call blocks until the write completes. Use for termination or backgrounding where durability is critical.
+    /// - Example:
+    /// ```swift
+    /// // In applicationWillTerminate or scene phase change
+    /// queue.flushPersistShuffleNow()
+    /// ```
+    public func flushPersistShuffleNow() {
+        // Capture snapshot on main actor
         let orderSnapshot = self.shuffledOrder
         let indexSnapshot = self.shuffleIndex
-
+        
+        // Increment generation
+        stateGeneration += 1
+        let generation = stateGeneration
+        
         // Cancel any pending debounced write and perform immediately
         persistWorkItem?.cancel()
         persistWorkItem = nil
-
-        persistenceQueue.async { [defaults] in
+        let store = self.generationStore
+        
+        persistenceQueue.sync {
+            let last = store.get()
+            if generation <= last {
+                return
+            }
+            
             let payload: [String: Any] = [
                 "version": Self.stateVersion,
                 "order": orderSnapshot,
-                "index": indexSnapshot
+                "index": indexSnapshot,
+                "generation": generation
             ]
             defaults.set(payload, forKey: Self.stateKey)
-            defaults.set(orderSnapshot, forKey: Self.legacyOrderKey)
-            defaults.set(indexSnapshot, forKey: Self.legacyIndexKey)
-            let ok = defaults.synchronize()
-            if ok == false {
-                print("[QueueManager] Warning: Immediate synchronize() failed.")
+            
+            // Write legacy keys only once during migration
+            if defaults.bool(forKey: Self.legacyMigratedKey) == false {
+                defaults.set(orderSnapshot, forKey: Self.legacyOrderKey)
+                defaults.set(indexSnapshot, forKey: Self.legacyIndexKey)
+                defaults.set(true, forKey: Self.legacyMigratedKey)
+            }
+            
+            store.set(generation)
+        }
+    }
+    
+    /// Forces an immediate asynchronous write of the current shuffle state and calls completion when done.
+    ///
+    /// Thread-safety: `@MainActor` for snapshot; write occurs on the persistence queue; completion is invoked on the main actor.
+    /// Mutation: Does not change logical queue state; persists it durably.
+    /// - Parameter completion: Invoked on the main actor after the write completes.
+    /// - Example:
+    /// ```swift
+    /// queue.flushPersistShuffle {
+    ///     // Safe to proceed; state is persisted
+    /// }
+    /// ```
+    public func flushPersistShuffle(completion: @escaping () -> Void) {
+        // Capture snapshot on main actor
+        let orderSnapshot = self.shuffledOrder
+        let indexSnapshot = self.shuffleIndex
+        
+        // Increment generation
+        stateGeneration += 1
+        let generation = stateGeneration
+        let store = self.generationStore
+        
+        // Cancel any pending debounced write and perform immediately async
+        persistWorkItem?.cancel()
+        persistWorkItem = nil
+        
+        persistenceQueue.async { [defaults] in
+            let last = store.get()
+            if generation <= last {
+                DispatchQueue.main.async {
+                    completion()
+                }
+                return
+            }
+            
+            let payload: [String: Any] = [
+                "version": Self.stateVersion,
+                "order": orderSnapshot,
+                "index": indexSnapshot,
+                "generation": generation
+            ]
+            defaults.set(payload, forKey: Self.stateKey)
+            
+            // Write legacy keys only once during migration
+            if defaults.bool(forKey: Self.legacyMigratedKey) == false {
+                defaults.set(orderSnapshot, forKey: Self.legacyOrderKey)
+                defaults.set(indexSnapshot, forKey: Self.legacyIndexKey)
+                defaults.set(true, forKey: Self.legacyMigratedKey)
+            }
+            
+            store.set(generation)
+            
+            DispatchQueue.main.async {
+                completion()
+            }
+        }
+    }
+    
+    /// Forces an immediate write of the current shuffle state and awaits completion.
+    ///
+    /// Thread-safety: `@MainActor` for snapshot; write occurs on the persistence queue.
+    /// Mutation: Does not change logical queue state; persists it durably.
+    /// - Example:
+    /// ```swift
+    /// await queue.flushPersistShuffle()
+    /// ```
+    public func flushPersistShuffle() async {
+        await withCheckedContinuation { continuation in
+            flushPersistShuffle {
+                continuation.resume()
             }
         }
     }
@@ -241,8 +419,15 @@ public final class QueueManager {
     }
 
     /// Validates and repairs queue/shuffle state.
-    /// - Returns: Array of human-readable notes describing any repairs performed. Empty if state was valid.
-    /// - Discussion: Defensive programming utility to detect and recover from invalid or corrupted state.
+    ///
+    /// Thread-safety: `@MainActor`.
+    /// Mutation: May reconcile shuffle state and clamp indices; persists if repairs were needed.
+    /// - Returns: An array of human-readable notes describing any repairs performed. Empty if state was valid.
+    /// - Example:
+    /// ```swift
+    /// let notes = await MainActor.run { queue.validateAndRepairState() }
+    /// if !notes.isEmpty { /* log or surface notes */ }
+    /// ```
     @discardableResult
     public func validateAndRepairState() -> [String] {
         var notes: [String] = []
@@ -257,11 +442,13 @@ public final class QueueManager {
         }
 
         if isShuffleEnabled {
-            // Ensure shuffledOrder matches the multiset of next.tracks
-            let remainingSet = NSCountedSet(array: shuffledOrder)
-            let nextSet = NSCountedSet(array: next.tracks.map { $0.id })
+            // Ensure the shuffled suffix (from shuffleIndex onward) matches next.tracks
+            let remainingShuffled = Array(shuffledOrder.dropFirst(shuffleIndex))
+            let nextIds = next.tracks.map { $0.id }
+            let remainingSet = NSCountedSet(array: remainingShuffled)
+            let nextSet = NSCountedSet(array: nextIds)
             if remainingSet != nextSet {
-                notes.append("Reconciled shuffledOrder to match next.tracks.")
+                notes.append("Reconciled shuffled suffix to match next.tracks.")
                 reconcileShuffleAfterNextChange()
             } else {
                 // Still persist clamped index if needed
@@ -292,10 +479,12 @@ public final class QueueManager {
 
         // 2) Shuffle-enabled multiset consistency
         if isShuffleEnabled {
-            let orderSet = NSCountedSet(array: shuffledOrder)
-            let nextSet = NSCountedSet(array: next.tracks.map { $0.id })
+            let remainingShuffled = Array(shuffledOrder.dropFirst(shuffleIndex))
+            let nextIds = next.tracks.map { $0.id }
+            let orderSet = NSCountedSet(array: remainingShuffled)
+            let nextSet = NSCountedSet(array: nextIds)
             if orderSet != nextSet {
-                violations.append("shuffledOrder multiset != next.tracks ids; reconciling")
+                violations.append("shuffled suffix multiset != next.tracks ids; reconciling")
                 // Deterministically repair
                 reconcileShuffleAfterNextChange()
             }
@@ -318,10 +507,10 @@ public final class QueueManager {
 
         if !violations.isEmpty {
             let prefix = context.isEmpty ? "[QueueManager] Invariant violations:" : "[QueueManager] Invariant violations (\(context)):"
-            print(prefix, violations.joined(separator: "; "))
-            #if DEBUG
-            assertionFailure(prefix + " " + violations.joined(separator: "; "))
-            #endif
+            let message = prefix + " " + violations.joined(separator: "; ")
+            if Self.strictValidationEnabled {
+                preconditionFailure(message)
+            }
         }
     }
 
@@ -399,12 +588,13 @@ public final class QueueManager {
     }
 
     /// Returns the next NFT without removing it.
+    ///
+    /// Thread-safety: `@MainActor`.
+    /// Mutation: Read-only.
     /// - Returns: The next `NFT` to be played, or `nil` when the queue is empty, when shuffle cannot determine a next item, or when repeat rules result in no available item.
-    /// - Thread-safety: Main-actor isolated.
-    /// - Note: This method avoids force unwraps and performs bounds checks to fail gracefully instead of crashing.
     /// - Example:
     /// ```swift
-    /// let upcoming = queue.peekNext()
+    /// let upcoming = await MainActor.run { queue.peekNext() }
     /// ```
     public func peekNext() -> NFT? {
         if repeatMode == .track, let c = current { return c }
@@ -451,18 +641,24 @@ public final class QueueManager {
     }
 
     /// Dequeues and returns the next NFT according to shuffle and repeat rules.
+    ///
+    /// Thread-safety: `@MainActor`.
+    /// Mutation: Removes the returned item from `next` (when applicable) and advances shuffle index.
     /// - Returns: The dequeued `NFT`, or `nil` if the queue is empty or no valid next item can be determined.
-    /// - Thread-safety: Main-actor isolated.
-    /// - Note: All array accesses are bounds-checked and the method fails gracefully rather than crashing.
     /// - Example:
     /// ```swift
-    /// if let next = queue.dequeueNext() { /* play next */ }
+    /// if let next = await MainActor.run({ queue.dequeueNext() }) {
+    ///     // play next
+    /// }
     /// ```
     @discardableResult
     public func dequeueNext() -> NFT? {
         if repeatMode == .track, let c = current { return c }
         if !next.tracks.isEmpty {
             let result = isShuffleEnabled ? dequeueNextWithShuffleFromNonEmpty() : dequeueNextWithoutShuffleFromNonEmpty()
+            if let newCurrent = result {
+                recordPreviousAndSetCurrent(newCurrent)
+            }
             validateInvariants(context: "dequeueNext")
             return result
         }
@@ -470,6 +666,9 @@ public final class QueueManager {
             let rebuilt = rebuildNextFromPlaylistSources()
             guard rebuilt else { validateInvariants(context: "dequeueNext"); return nil }
             let result = isShuffleEnabled ? dequeueNextWithShuffleFromNonEmpty() : dequeueNextWithoutShuffleFromNonEmpty()
+            if let newCurrent = result {
+                recordPreviousAndSetCurrent(newCurrent)
+            }
             validateInvariants(context: "dequeueNext")
             return result
         }
@@ -506,27 +705,35 @@ public final class QueueManager {
         if let c = current { rebuilt.append(c) }
         if !previous.tracks.isEmpty { rebuilt.append(contentsOf: previous.tracks) }
         guard !rebuilt.isEmpty else { return false }
-        previous.tracks.removeAll()
-        next.tracks = rebuilt
+        previous._clear()
+        next._replace(with: rebuilt)
         if isShuffleEnabled { rebuildShuffle() }
         return true
     }
 
-    private func pushToPrevious(_ nft: NFT) { 
-        previous.tracks.append(nft)
-        validateInvariants(context: "pushToPrevious")
-    }
+    /// Pushes an item to the front of the upcoming queue.
+    ///
+    /// Thread-safety: `@MainActor`.
+    /// Mutation: Inserts the item at the front of `next` and reconciles shuffle if enabled.
+    /// - Parameter nft: The item to enqueue at the front.
+    /// - Example:
+    /// ```swift
+    /// await MainActor.run { queue.pushToFrontOfNext(nft) }
+    /// ```
     public func pushToFrontOfNext(_ nft: NFT) { 
         next._insertFront(nft)
+        if isShuffleEnabled { reconcileShuffleAfterNextChange() }
         validateInvariants(context: "pushToFrontOfNext")
     }
 
     /// Appends items to the end of the upcoming queue.
+    ///
+    /// Thread-safety: `@MainActor`.
+    /// Mutation: Appends to `next` and reconciles shuffle if enabled.
     /// - Parameter nfts: Items to enqueue.
-    /// - Discussion: Maintains shuffle invariants by deterministically reconciling shuffle state when needed.
     /// - Example:
     /// ```swift
-    /// queue.addToNext(newItems)
+    /// await MainActor.run { queue.addToNext(newItems) }
     /// ```
     public func addToNext(_ nfts: [NFT]) {
         next._append(nfts)
@@ -537,6 +744,9 @@ public final class QueueManager {
     }
 
     /// Removes items from the upcoming queue matching the given predicate.
+    ///
+    /// Thread-safety: `@MainActor`.
+    /// Mutation: Removes matching items from `next` and reconciles shuffle if enabled.
     /// - Parameter predicate: A closure that returns `true` for items to remove.
     /// - Discussion:
     ///   - Deterministic behavior: When shuffle is enabled, the internal `shuffledOrder` is reconciled by removing missing IDs and preserving relative order of remaining items. New items (if any) are appended in the order of `next.tracks`.
@@ -544,7 +754,7 @@ public final class QueueManager {
     ///   - This avoids random reshuffles, prevents skipped tracks, and ensures no crashes from out-of-bounds indices.
     /// - Example:
     /// ```swift
-    /// queue.removeFromNext { $0.id == someId }
+    /// await MainActor.run { queue.removeFromNext { $0.id == someId } }
     /// ```
     public func removeFromNext(where predicate: (NFT) -> Bool) {
         // Remove from upcoming list
