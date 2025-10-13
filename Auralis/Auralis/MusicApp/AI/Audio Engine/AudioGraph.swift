@@ -84,11 +84,15 @@ public final class AudioGraph {
         }
     }
 
-    public var currentIsA = true
-    public var currentPlayer: AVAudioPlayerNode { currentIsA ? playerA : playerB }
-    public var nextPlayer: AVAudioPlayerNode { currentIsA ? playerB : playerA }
-    public var currentMixer: AVAudioMixerNode { currentIsA ? mixerA : mixerB }
-    public var nextMixer: AVAudioMixerNode { currentIsA ? mixerB : mixerA }
+    /// Indicates which path is current (A when true, B when false). Read-only to callers.
+    public private(set) var currentIsA = true
+
+    /// Warning: Do not mutate returned nodes from outside this type. Use the provided APIs (`playCurrent`, `playNext`, `setCurrentPathVolume`, `setNextPathVolume`, `ramp`) to avoid corrupting the graph.
+    /// Exposed as internal to discourage external interference from other modules.
+    internal var currentPlayer: AVAudioPlayerNode { currentIsA ? playerA : playerB }
+    internal var nextPlayer: AVAudioPlayerNode { currentIsA ? playerB : playerA }
+    internal var currentMixer: AVAudioMixerNode { currentIsA ? mixerA : mixerB }
+    internal var nextMixer: AVAudioMixerNode { currentIsA ? mixerB : mixerA }
 
     // Ramp infra: All access to rampTimers must occur on rampQueue. These are marked nonisolated(unsafe)
     // so we can mutate from rampQueue even though the class is @MainActor. Do NOT touch rampTimers
