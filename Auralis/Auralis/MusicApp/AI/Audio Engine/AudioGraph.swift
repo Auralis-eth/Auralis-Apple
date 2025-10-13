@@ -7,9 +7,30 @@ import AVFoundation
 /// - AVAudioEngine performs audio rendering on a real-time audio thread that is NOT the main thread.
 ///   Engine callbacks and internal processing may occur there; do not block that thread.
 /// - Avoid cross-thread AVAudioNode property access. This class updates node graphs and most properties
-///   on the main thread. The `ramp(…)` helper is a special case: it updates `AVAudioMixerNode.volume`
-///   from a dedicated high-priority queue for tighter timing. Ensure this matches your app’s tolerance;
-///   otherwise, prefer manual rendering or marshal updates to the main thread.
+///   on the main thread. The `ramp(…)` helper schedules volume updates on the main actor to avoid
+///   cross-isolation data races.
+///
+/// Audio render thread vs. main thread:
+/// - The audio render thread is a high-priority real-time thread used by AVAudioEngine to pull audio.
+///   Work on that thread must be extremely lightweight and must not block (no locks, allocations, or I/O).
+/// - The main thread (main actor) is where UI and most AVAudioEngine graph configuration should occur.
+///   Property mutations on nodes (e.g., `AVAudioMixerNode.volume`) should be performed from the main actor
+///   to avoid cross-thread access unless you're using manual rendering and fully control threading.
+/// - AVAudioEngine node tap/callbacks (e.g., `installTap`) execute on the audio render thread, not the main thread.
+///
+/// Why ramping from a background queue is not safe:
+/// - Mutating `AVAudioMixerNode.volume` from a non-main queue can cross the actor/thread boundary of this class
+///   and the audio system, introducing data races and potential audio glitches.
+/// - This implementation computes ramp timing on a dedicated high-priority queue but dispatches the actual
+///   `volume` mutation back to the main actor, preserving timing while respecting isolation.
+///
+/// Behavior when mixer is deallocated during a ramp:
+/// - The ramp holds a weak reference to the mixer. If the mixer deallocates while a ramp is in progress,
+///   further updates are skipped and the timer is cancelled early to avoid stray work.
+///
+/// References:
+/// - See "AVAudioEngine" and "AVAudioSession" documentation for threading best practices.
+/// - Refer to Apple’s audio programming guides for real-time audio constraints and avoiding work on the render thread.
 ///
 /// Safe usage patterns:
 /// - Create and use `AudioGraph` only on the main thread.
@@ -26,18 +47,17 @@ public final class AudioGraph {
     private var playerB = AVAudioPlayerNode()
     private let mixerA = AVAudioMixerNode()
     private let mixerB = AVAudioMixerNode()
-    private let engineLock = NSLock()
 
     /// Asserts the caller is on the main thread. All public APIs require main-thread access.
     @inline(__always) private func assertOnMainThread(file: StaticString = #fileID, line: UInt = #line) {
         precondition(Thread.isMainThread, "AudioGraph APIs must be called on the main thread.", file: file, line: line)
     }
 
-    /// Acquire `engineLock` before calling. Ensures the AVAudioEngine is fully stopped.
+    /// Ensures the AVAudioEngine is fully stopped.
     /// AVAudioEngine requires the engine to be stopped before any graph mutations
     /// (disconnect, detach, attach, reset). This method synchronously pauses and
     /// stops the engine and waits briefly for `isRunning` to reflect the stopped state.
-    private func stopEngineLocked() {
+    private func stopEngine() {
         if engine.isRunning {
             engine.pause()
             engine.stop()
@@ -50,10 +70,26 @@ public final class AudioGraph {
         }
     }
 
-    /// Must be called while holding `engineLock`.
     /// Asserts the engine is stopped before performing graph mutations.
-    private func assertEngineStoppedLocked(file: StaticString = #fileID, line: UInt = #line) {
+    private func assertEngineStopped(file: StaticString = #fileID, line: UInt = #line) {
         precondition(!engine.isRunning, "AVAudioEngine must be stopped before modifying the graph.", file: file, line: line)
+    }
+
+    /// Asserts that the engine is running before performing operations that require it.
+    private func assertEngineRunning(file: StaticString = #fileID, line: UInt = #line) {
+        precondition(engine.isRunning, "AVAudioEngine must be running for this operation.", file: file, line: line)
+    }
+
+    /// Asserts that the given node is attached to this engine.
+    private func assertNodeAttached(_ node: AVAudioNode, named name: String, file: StaticString = #fileID, line: UInt = #line) {
+        precondition(node.engine === engine, "AVAudioNode '\(name)' is not attached to the engine.", file: file, line: line)
+    }
+
+    /// Asserts that the given mixer is connected to the engine's main mixer node.
+    private func assertMixerConnectedToMain(_ mixer: AVAudioMixerNode, named name: String, file: StaticString = #fileID, line: UInt = #line) {
+        let outputs = engine.outputConnectionPoints(for: mixer, outputBus: 0)
+        let connected = outputs.contains { $0.node === engine.mainMixerNode }
+        precondition(connected, "Mixer '\(name)' is not connected to the engine's main mixer.", file: file, line: line)
     }
 
     /// Validates that the given AVAudioFile's processing format is compatible with this graph.
@@ -94,16 +130,14 @@ public final class AudioGraph {
     internal var currentMixer: AVAudioMixerNode { currentIsA ? mixerA : mixerB }
     internal var nextMixer: AVAudioMixerNode { currentIsA ? mixerB : mixerA }
 
-    // Ramp infra: All access to rampTimers must occur on rampQueue. These are marked nonisolated(unsafe)
-    // so we can mutate from rampQueue even though the class is @MainActor. Do NOT touch rampTimers
-    // outside of rampQueue.{sync,async} blocks.
-    nonisolated(unsafe) private let rampQueue = DispatchQueue(label: "audio.graph.ramp", qos: .userInteractive)
-    nonisolated(unsafe) private var rampTimers: [ObjectIdentifier: DispatchSourceTimer] = [:]
+    // Ramp infra:
+    // - `rampTimers` is main-actor isolated; all mutations happen on the main actor for compiler-verified safety.
+    // - `rampQueue` is used only for timer scheduling/timing work. Volume mutations and timer dictionary updates hop back to the main actor.
+    private let rampQueue = DispatchQueue(label: "audio.graph.ramp", qos: .userInteractive)
+    private var rampTimers: [ObjectIdentifier: DispatchSourceTimer] = [:]
 
     @MainActor deinit {
         // Thorough teardown to prevent timers firing post-deallocation and to release audio resources
-        engineLock.lock()
-        defer { engineLock.unlock() }
 
         // Cancel any active ramp timers first
         cancelAllRamps()
@@ -113,7 +147,7 @@ public final class AudioGraph {
         playerB.stop()
         mixerA.volume = 0
         mixerB.volume = 0
-        stopEngineLocked()
+        stopEngine()
 
         // Reset and dismantle the graph
         engine.reset()
@@ -128,14 +162,12 @@ public final class AudioGraph {
     }
 
     private func cancelAllRamps() {
-        // Cancel and clear any active ramp timers on the rampQueue to serialize access
-        rampQueue.sync {
-            for (_, timer) in rampTimers {
-                timer.setEventHandler(handler: {})
-                timer.cancel()
-            }
-            rampTimers.removeAll()
+        // Cancel and clear any active ramp timers on the main actor to respect isolation
+        for (_, timer) in rampTimers {
+            timer.setEventHandler(handler: {})
+            timer.cancel()
         }
+        rampTimers.removeAll()
     }
 
     /// Connections are created with format: nil to allow AVAudioEngine to negotiate formats and perform necessary sample-rate/channel conversions.
@@ -154,11 +186,9 @@ public final class AudioGraph {
         engine.prepare()
     }
 
-    /// Starts the engine if not already running. Serialized with engineLock; safe to call repeatedly.
+    /// Starts the engine if not already running. Safe to call repeatedly.
     public func start() throws {
         assertOnMainThread()
-        engineLock.lock()
-        defer { engineLock.unlock() }
         if engine.isRunning { return }
         do {
             try engine.start()
@@ -170,11 +200,9 @@ public final class AudioGraph {
         }
     }
 
-    /// Prepares and starts the engine if needed. Serialized with engineLock; safe to call repeatedly.
+    /// Prepares and starts the engine if needed. Safe to call repeatedly.
     public func ensureStarted() throws {
         assertOnMainThread()
-        engineLock.lock()
-        defer { engineLock.unlock() }
         if engine.isRunning { return }
         engine.prepare()
         do {
@@ -190,13 +218,10 @@ public final class AudioGraph {
         assertOnMainThread()
         // Stop playback and engine safely. Safe to call multiple times.
         // Ordering:
-        // 1) Lock to serialize with other engine operations
-        // 2) Cancel any volume ramps to avoid concurrent volume changes
-        // 3) Stop players (safe while engine is running)
-        // 4) Stop the engine synchronously
-        // 5) Clear volumes
-        engineLock.lock()
-        defer { engineLock.unlock() }
+        // 1) Cancel any volume ramps to avoid concurrent volume changes
+        // 2) Stop players (safe while engine is running)
+        // 3) Stop the engine synchronously
+        // 4) Clear volumes
 
         // Cancel ramps first to prevent concurrent UI/volume updates during teardown
         cancelAllRamps()
@@ -206,20 +231,18 @@ public final class AudioGraph {
         playerB.stop()
 
         // Ensure the engine is fully stopped before leaving
-        stopEngineLocked()
+        stopEngine()
 
         // Clear path volumes after engine is stopped
         mixerA.volume = 0
         mixerB.volume = 0
     }
 
-    /// Resets and rebuilds the audio graph. Requires main actor. Internally serializes with engineLock and guarantees the engine is stopped before any graph mutation to avoid AVAudioEngine assertions. Throws if the engine fails to start after rebuild so callers can handle recovery.
+    /// Resets and rebuilds the audio graph. Requires main actor. Guarantees the engine is stopped before any graph mutation to avoid AVAudioEngine assertions. Throws if the engine fails to start after rebuild so callers can handle recovery.
     public func resetGraph() throws {
         assertOnMainThread()
         // Rebuild the audio graph safely. This method guarantees the engine is stopped
         // before any graph mutations per AVAudioEngine threading rules.
-        engineLock.lock()
-        defer { engineLock.unlock() }
 
         // Cancel any active ramps to avoid concurrent volume updates
         cancelAllRamps()
@@ -229,8 +252,8 @@ public final class AudioGraph {
         playerB.stop()
 
         // Ensure engine is fully stopped before touching the graph
-        stopEngineLocked()
-        assertEngineStoppedLocked()
+        stopEngine()
+        assertEngineStopped()
 
         // Now it is safe to reset and rewire the graph
         engine.reset()
@@ -274,6 +297,9 @@ public final class AudioGraph {
     /// - Throws: `GraphError.incompatibleFormat` if the file format is not supported.
     public func scheduleFileValidated(_ file: AVAudioFile, onCurrentAt time: AVAudioTime? = nil, completion: (() -> Void)? = nil) throws {
         assertOnMainThread()
+        assertNodeAttached(currentPlayer, named: "currentPlayer")
+        assertNodeAttached(currentMixer, named: "currentMixer")
+        assertMixerConnectedToMain(currentMixer, named: "currentMixer")
         try validateFileFormat(file)
         currentPlayer.stop()
         currentPlayer.scheduleFile(file, at: time, completionHandler: completion)
@@ -283,6 +309,9 @@ public final class AudioGraph {
     /// - Throws: `GraphError.incompatibleFormat` if the file format is not supported.
     public func scheduleFileOnNextValidated(_ file: AVAudioFile, at time: AVAudioTime?) throws {
         assertOnMainThread()
+        assertNodeAttached(nextPlayer, named: "nextPlayer")
+        assertNodeAttached(nextMixer, named: "nextMixer")
+        assertMixerConnectedToMain(nextMixer, named: "nextMixer")
         try validateFileFormat(file)
         nextPlayer.stop()
         nextPlayer.scheduleFile(file, at: time, completionHandler: nil)
@@ -293,7 +322,7 @@ public final class AudioGraph {
         do {
             try scheduleFileValidated(file, onCurrentAt: time, completion: completion)
         } catch {
-            print("AudioGraph scheduleFile: format validation failed — \(error)")
+            // Silently ignore scheduling errors as per Ticket 4 (removed print)
         }
     }
 
@@ -302,16 +331,20 @@ public final class AudioGraph {
         do {
             try scheduleFileOnNextValidated(file, at: time)
         } catch {
-            print("AudioGraph scheduleFileOnNext: format validation failed — \(error)")
+            // Silently ignore scheduling errors as per Ticket 4 (removed print)
         }
     }
 
     public func playCurrent() {
         assertOnMainThread()
+        assertEngineRunning()
+        assertNodeAttached(currentPlayer, named: "currentPlayer")
         currentPlayer.play()
     }
     public func playNext() {
         assertOnMainThread()
+        assertEngineRunning()
+        assertNodeAttached(nextPlayer, named: "nextPlayer")
         nextPlayer.play()
     }
 
@@ -327,7 +360,7 @@ public final class AudioGraph {
         do {
             try scheduleFileOnNextValidated(newCurrentFile, at: nil)
         } catch {
-            print("AudioGraph flipToNext: format validation failed — \(error)")
+            // Silently ignore validation error and abort flip as per Ticket 4 (removed print)
             return
         }
 
@@ -335,9 +368,13 @@ public final class AudioGraph {
         let oldNextMixer = nextMixer
         let oldNextPlayer = nextPlayer
 
+        assertNodeAttached(oldNextPlayer, named: "nextPlayer")
+        assertNodeAttached(oldNextMixer, named: "nextMixer")
+        assertMixerConnectedToMain(oldNextMixer, named: "nextMixer")
+
         // Stop the current player and ensure engine is running before starting next.
         currentPlayer.stop()
-        do { try ensureStarted() } catch { print("AudioGraph flipToNext: ensureStarted failed — \(error)") }
+        do { try ensureStarted() } catch { /* Silently ignore ensureStarted failure as per Ticket 4 (removed print) */ }
 
         // Start next path at zero volume, then flip the roles.
         oldNextMixer.volume = 0
@@ -353,28 +390,37 @@ public final class AudioGraph {
 
     public func setCurrentPathVolume(_ v: Float) {
         assertOnMainThread()
+        assertNodeAttached(currentMixer, named: "currentMixer")
+        assertMixerConnectedToMain(currentMixer, named: "currentMixer")
         currentMixer.volume = v
     }
     public func setNextPathVolume(_ v: Float) {
         assertOnMainThread()
+        assertNodeAttached(nextMixer, named: "nextMixer")
+        assertMixerConnectedToMain(nextMixer, named: "nextMixer")
         nextMixer.volume = v
     }
 
     /// Smoothly ramps `mixer.volume` to `target` over `duration` seconds.
-    /// Threading: This method is `@MainActor`, but updates `mixer.volume` directly from the internal `rampQueue` timer without hopping to the main queue.
-    /// Ensure this aligns with your threading guarantees for AVAudioMixerNode or adopt manual rendering if stricter control is required.
+    ///
+    /// Threading and isolation:
+    /// - This type is `@MainActor`. The ramp timer runs on a dedicated background queue for timing accuracy,
+    ///   but all `volume` mutations are dispatched back to the main actor to avoid cross-isolation data races.
+    /// - Do not mutate the passed-in `mixer` concurrently from outside while a ramp is active.
+    ///   The `mixer` parameter must not escape the scope of this method in a way that causes concurrent mutations.
+    /// - If the `mixer` is deallocated during a ramp, updates are skipped and the timer is cancelled early.
     public func ramp(mixer: AVAudioMixerNode, to target: Float, duration: TimeInterval) {
         assertOnMainThread()
+        assertNodeAttached(mixer, named: "rampMixer")
+        assertMixerConnectedToMain(mixer, named: "rampMixer")
         let d = max(0.05, min(duration, 10.0))
         let id = ObjectIdentifier(mixer)
 
         // Cancel and remove any existing timer for this mixer before starting a new one
-        rampQueue.sync {
-            if let existing = rampTimers[id] {
-                existing.setEventHandler(handler: {})
-                existing.cancel()
-                rampTimers[id] = nil
-            }
+        if let existing = rampTimers[id] {
+            existing.setEventHandler(handler: {})
+            existing.cancel()
+            rampTimers[id] = nil
         }
 
         let startVol = mixer.volume
@@ -387,39 +433,44 @@ public final class AudioGraph {
         let timer = DispatchSource.makeTimerSource(queue: rampQueue)
         let start = DispatchTime.now()
 
-        // Ensure the timer always cleans itself up from the dictionary when cancelled (on rampQueue)
+        // Ensure the timer always cleans itself up from the dictionary when cancelled (on main actor)
         timer.setCancelHandler { [weak self] in
-            self?.rampQueue.async { [weak self] in
+            Task { @MainActor [weak self] in
                 self?.rampTimers[id] = nil
             }
         }
 
         timer.setEventHandler { [weak mixer, weak timer] in
+            // If the mixer has been released, stop the ramp early.
+            guard let strongMixer = mixer else {
+                timer?.cancel()
+                return
+            }
+
             let now = DispatchTime.now()
             let elapsed = Double(now.uptimeNanoseconds &- start.uptimeNanoseconds) / 1_000_000_000
 
             // If ramp duration reached or exceeded, set final volume and cancel the timer
             if elapsed >= d {
-                if let m = mixer {
-                    m.volume = target
+                Task { @MainActor in
+                    strongMixer.volume = target
                 }
-                // Cancel regardless of self's lifetime to stop the timer
                 timer?.cancel()
                 return
             }
 
             // Update volume progressively if mixer still exists
-            if let m = mixer {
-                let p = Float(elapsed / d)
-                let newVol = startVol + delta * p
-                m.volume = newVol
+            let p = Float(elapsed / d)
+            let newVol = startVol + delta * p
+            Task { @MainActor in
+                strongMixer.volume = newVol
             }
         }
 
         timer.schedule(deadline: .now(), repeating: .milliseconds(6), leeway: .milliseconds(1))
         timer.resume()
 
-        rampQueue.sync { rampTimers[id] = timer }
+        rampTimers[id] = timer
     }
 
     public var outputLatency: TimeInterval {
@@ -432,3 +483,4 @@ public final class AudioGraph {
         return (sampleTime: AVAudioFramePosition(p.sampleTime), sampleRate: p.sampleRate)
     }
 }
+
