@@ -21,6 +21,12 @@ public final class PlaybackController: ObservableObject {
     private var currentFile: AVAudioFile?
     private var seekPosition: TimeInterval = 0
 
+    // Transition / advance control
+    private var nextPending: (nft: NFT, file: AVAudioFile)?
+    private var isAdvancing: Bool = false
+    private var advanceSequence: Int = 0
+    private var crossfadeSwapWorkItem: DispatchWorkItem?
+
     internal init(graph: AudioGraph,
                 session: AudioSessionManager,
                 preloader: Preloader,
@@ -46,10 +52,12 @@ public final class PlaybackController: ObservableObject {
         do {
             try session.configureAndActivate()
         } catch {
-            
+            // Session activation failure; continue and let playback attempt proceed. Errors will surface in playback.
         }
         do {
             let file = try await openFile(for: nft)
+            // Fresh load: no crossfade path. Apply immediately as current.
+            nextPending = nil
             applyCurrent(nft: nft, file: file)
             try graph.ensureStarted()
             scheduleFromCurrentPosition()
@@ -94,33 +102,88 @@ public final class PlaybackController: ObservableObject {
 
     public func playNext() async {
         await cancelCrossfade()
-        // use self.queue directly
+
+        // Ensure single serialized advance
+        guard !isAdvancing else { return }
+        isAdvancing = true
+        advanceSequence &+= 1
+        let seq = advanceSequence
+
+        defer {
+            // Do not reset isAdvancing here if we scheduled a crossfade swap; it will be reset on swap/commit.
+            // If no crossfade path is taken, ensure we reset below.
+        }
+
+        // If currently playing, attempt crossfade into next
         if snapshot.state == .playing, let next = self.queue.dequeueNext() {
-            // Try preloaded consume first
+            // Load or consume preloaded next without altering currentFile yet
+            var nextFile: AVAudioFile?
             if let url = next.musicURL, let pre = await preloader.consume(nft: next, url: url) {
-                applyCurrent(nft: next, file: pre)
-                try? graph.ensureStarted()
-                graph.setNextPathVolume(0)
-                graph.scheduleFileOnNext(pre, at: nil)
-                graph.playNext()
-                crossfade.scheduleCrossfade(currentFile: currentFile!, nextFile: pre, overlap: cappedCrossfade(), startDelay: 0)
+                nextFile = pre
+            } else if let url = next.musicURL {
+                do {
+                    nextFile = try await openURL(url)
+                } catch {
+                    commitState(.error)
+                    isAdvancing = false
+                    return
+                }
+            }
+
+            guard let outgoing = self.currentFile, let incoming = nextFile else {
+                // If we cannot crossfade (no outgoing or no incoming), fall back to a direct load and play
+                isAdvancing = false
+                let fallback = self.queue.current ?? next
+                await loadAndPlay(nft: fallback)
                 return
             }
-            // Fallback: load and crossfade immediately
-            if let url = next.musicURL {
-                do {
-                    let file = try await openURL(url)
-                    applyCurrent(nft: next, file: file)
-                    try? graph.ensureStarted()
-                    graph.setNextPathVolume(0)
-                    graph.scheduleFileOnNext(file, at: nil)
-                    graph.playNext()
-                    crossfade.scheduleCrossfade(currentFile: currentFile!, nextFile: file, overlap: cappedCrossfade(), startDelay: 0)
-                } catch { commitState(.error) }
+
+            // Prepare next on graph without swapping our model state yet
+            do { try graph.ensureStarted() } catch { /* ignore and try to proceed */ }
+            graph.setNextPathVolume(0)
+            graph.scheduleFileOnNext(incoming, at: nil)
+            graph.playNext()
+
+            // Schedule crossfade safely without force unwraps
+            let overlap = cappedCrossfade()
+            crossfade.scheduleCrossfade(currentFile: outgoing, nextFile: incoming, overlap: overlap, startDelay: 0)
+
+            // Record pending swap and schedule commit after overlap
+            nextPending = (nft: next, file: incoming)
+            crossfadeSwapWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                Task { @MainActor in
+                    guard let self else { return }
+                    // Ensure this commit corresponds to the latest advance request
+                    guard self.advanceSequence == seq else { return }
+                    self.commitPendingSwap()
+                }
             }
-        } else {
-            if let next = self.queue.dequeueNext() { await loadAndPlay(nft: next) } else { stop() }
+            crossfadeSwapWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + overlap, execute: work)
+            // isAdvancing will be reset in commitPendingSwap
+            return
         }
+
+        // Not currently playing or no next available: load next or stop
+        if let next = self.queue.dequeueNext() {
+            isAdvancing = false
+            await loadAndPlay(nft: next)
+        } else {
+            isAdvancing = false
+            stop()
+        }
+    }
+    
+    private func commitPendingSwap() {
+        defer { isAdvancing = false }
+        guard let pending = nextPending else { return }
+        // Apply new current and clear pending
+        applyCurrent(nft: pending.nft, file: pending.file)
+        nextPending = nil
+        commitState(.playing)
+        pushNowPlaying()
+        maybePreloadNext()
     }
 
     public func playPrevious() async {
@@ -128,8 +191,11 @@ public final class PlaybackController: ObservableObject {
         // Simple previous: restart track if >1s else pop previous from queue
         if currentTime() > 1.0 { seek(to: 0); return }
         if !self.queue.previous.tracks.isEmpty {
+            // Pop previous safely; if structure changes in QueueManager, this guard prevents crashes
             let prev = self.queue.previous.tracks.removeLast()
-            if let current = self.queue.current { self.queue.pushToFrontOfNext(current) }
+            if let current = self.queue.current {
+                self.queue.pushToFrontOfNext(current)
+            }
             await loadAndPlay(nft: prev)
         } else {
             seek(to: 0)
@@ -162,12 +228,14 @@ public final class PlaybackController: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.currentFile = nil
+                // Use serialized advance to avoid re-entrancy
                 await self.playNext()
             }
         })
     }
 
     private func applyCurrent(nft: NFT, file: AVAudioFile) {
+        // Note: Only call applyCurrent for fresh loads or after crossfade swap commit.
         currentFile = file
         seekPosition = 0
         let track = Track(title: nft.name, artist: nft.artistName, duration: duration(of: file), imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl)
@@ -212,3 +280,4 @@ public final class PlaybackController: ObservableObject {
 
     private func cappedCrossfade() -> TimeInterval { min(crossfadeSeconds, max(0, (snapshot.track?.duration ?? 0) * 0.3)) }
 }
+
