@@ -35,6 +35,7 @@ public final class PlaybackController: ObservableObject {
     private var isAdvancing: Bool = false
     private var advanceSequence: Int = 0
     private var crossfadeSwapWorkItem: DispatchWorkItem?
+    private var swapSequence: Int = 0
 
     // System integration state
     private var wasPlayingBeforeInterruption: Bool = false
@@ -136,6 +137,7 @@ public final class PlaybackController: ObservableObject {
     public func pause() {
         guard snapshot.state == .playing else { return }
         seekPosition = currentTime()
+        cancelPendingSwap()
         graph.currentPlayer.stop(); graph.nextPlayer.stop()
         commitState(.paused)
         pushNowPlaying()
@@ -144,6 +146,7 @@ public final class PlaybackController: ObservableObject {
     public func resume() {
         guard snapshot.state == .paused else { return }
         // Cancel any crossfade and ensure a clean graph before resuming
+        cancelPendingSwap()
         Task { await cancelCrossfade() }
         graph.currentPlayer.stop(); graph.nextPlayer.stop()
         try? graph.ensureStarted()
@@ -157,6 +160,7 @@ public final class PlaybackController: ObservableObject {
         guard let file = currentFile else { return }
         let d = duration(of: file)
         seekPosition = max(0, min(time, d))
+        cancelPendingSwap()
 
         if snapshot.state == .playing {
             // Cancel crossfade and clear any scheduled playback to avoid overlap
@@ -179,6 +183,7 @@ public final class PlaybackController: ObservableObject {
 
     public func playNext() async {
         await cancelCrossfade()
+        cancelPendingSwap()
 
         // Ensure single serialized advance
         guard !isAdvancing else { return }
@@ -230,11 +235,12 @@ public final class PlaybackController: ObservableObject {
             // Record pending swap and schedule commit after overlap
             nextPending = (nft: next, file: incoming)
             crossfadeSwapWorkItem?.cancel()
+            let currentSwapSeq = swapSequence
             let work = DispatchWorkItem { [weak self] in
                 Task { @MainActor in
                     guard let self else { return }
-                    // Ensure this commit corresponds to the latest advance request
-                    guard self.advanceSequence == seq else { return }
+                    // Ensure this commit corresponds to the latest advance request and swap state
+                    guard self.advanceSequence == seq, self.swapSequence == currentSwapSeq else { return }
                     self.commitPendingSwap()
                 }
             }
@@ -284,6 +290,7 @@ public final class PlaybackController: ObservableObject {
     }
 
     public func stop() {
+        cancelPendingSwap()
         graph.currentPlayer.stop(); graph.nextPlayer.stop()
         graph.setCurrentPathVolume(0); graph.setNextPathVolume(0)
         currentFile = nil
@@ -347,6 +354,7 @@ public final class PlaybackController: ObservableObject {
     }
 
     private func handleFatalError(_ category: PlaybackError) {
+        cancelPendingSwap()
         lastError = category
         graph.currentPlayer.stop(); graph.nextPlayer.stop()
         graph.setCurrentPathVolume(0); graph.setNextPathVolume(0)
@@ -382,7 +390,24 @@ public final class PlaybackController: ObservableObject {
         }.value
     }
 
-    private func cancelCrossfade() async { crossfade.cancel() }
+    // Centralized cancellation for any pending crossfade swap and advancement lock
+    private func cancelPendingSwap() {
+        // Invalidate any scheduled swap work and clear pending state
+        crossfadeSwapWorkItem?.cancel()
+        crossfadeSwapWorkItem = nil
+        nextPending = nil
+        // Bump the swap sequence so any already queued work items will no-op
+        swapSequence &+= 1
+        // Ensure future advances are not blocked by a canceled swap
+        isAdvancing = false
+    }
+
+    private func cancelCrossfade() async {
+        // First invalidate controller-side pending swap to prevent late commits
+        cancelPendingSwap()
+        // Then cancel coordinator work; assumed to stop ramps promptly
+        await crossfade.cancel()
+    }
 
     private func cappedCrossfade() -> TimeInterval { min(crossfadeSeconds, max(0, (snapshot.track?.duration ?? 0) * 0.3)) }
 
