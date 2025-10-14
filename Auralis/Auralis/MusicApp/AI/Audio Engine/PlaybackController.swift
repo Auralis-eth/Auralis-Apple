@@ -88,13 +88,36 @@ public final class PlaybackController: ObservableObject {
         pushNowPlaying()
     }
 
-    public func resume() { guard snapshot.state == .paused else { return }; play() }
+    public func resume() {
+        guard snapshot.state == .paused else { return }
+        // Cancel any crossfade and ensure a clean graph before resuming
+        Task { await cancelCrossfade() }
+        graph.currentPlayer.stop(); graph.nextPlayer.stop()
+        try? graph.ensureStarted()
+        scheduleFromCurrentPosition()
+        graph.playCurrent()
+        commitState(.playing)
+        pushNowPlaying()
+    }
 
     public func seek(to time: TimeInterval) {
         guard let file = currentFile else { return }
         let d = duration(of: file)
         seekPosition = max(0, min(time, d))
-        if snapshot.state == .playing { play() } else { pushNowPlaying() }
+
+        if snapshot.state == .playing {
+            // Cancel crossfade and clear any scheduled playback to avoid overlap
+            Task { await cancelCrossfade() }
+            graph.currentPlayer.stop(); graph.nextPlayer.stop()
+            try? graph.ensureStarted()
+            scheduleFromCurrentPosition()
+            graph.playCurrent()
+            commitState(.playing)
+            pushNowPlaying()
+        } else {
+            // Paused or stopped: just update Now Playing with new elapsed time
+            pushNowPlaying()
+        }
     }
 
     public func skipForward(seconds: TimeInterval? = nil) { seek(to: currentTime() + (seconds ?? skipInterval)) }
@@ -269,15 +292,20 @@ public final class PlaybackController: ObservableObject {
     }
 
     private func openURL(_ url: URL) async throws -> AVAudioFile {
-        let local: URL
-        if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
-            local = try await AudioFileCache.shared.localURL(forRemote: url)
-        } else { local = url }
-        return try AVAudioFile(forReading: local)
+        return try await Task.detached(priority: .userInitiated) { () -> AVAudioFile in
+            let local: URL
+            if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+                // Perform cache lookup off the main actor
+                let resolved = try await AudioFileCache.shared.localURL(forRemote: url)
+                local = resolved
+            } else {
+                local = url
+            }
+            return try AVAudioFile(forReading: local)
+        }.value
     }
 
     private func cancelCrossfade() async { crossfade.cancel() }
 
     private func cappedCrossfade() -> TimeInterval { min(crossfadeSeconds, max(0, (snapshot.track?.duration ?? 0) * 0.3)) }
 }
-
