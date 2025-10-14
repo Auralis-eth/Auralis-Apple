@@ -40,6 +40,7 @@ public final class PlaybackController: ObservableObject {
     // System integration state
     private var wasPlayingBeforeInterruption: Bool = false
     private var notificationObservers: [NSObjectProtocol] = []
+    private var preloadTasks: [Task<Void, Never>] = []
 
     internal init(graph: AudioGraph,
                 session: AudioSessionManager,
@@ -67,6 +68,8 @@ public final class PlaybackController: ObservableObject {
             NotificationCenter.default.removeObserver(obs)
         }
         notificationObservers.removeAll()
+        for t in preloadTasks { t.cancel() }
+        preloadTasks.removeAll()
     }
 
     /*
@@ -137,23 +140,26 @@ public final class PlaybackController: ObservableObject {
     public func pause() {
         guard snapshot.state == .playing else { return }
         seekPosition = currentTime()
-        cancelPendingSwap()
-        graph.currentPlayer.stop(); graph.nextPlayer.stop()
-        commitState(.paused)
-        pushNowPlaying()
+        Task { @MainActor in
+            await cancelCrossfade()
+            graph.currentPlayer.stop(); graph.nextPlayer.stop()
+            cancelPendingSwap()
+            commitState(.paused)
+            pushNowPlaying()
+        }
     }
 
     public func resume() {
         guard snapshot.state == .paused else { return }
-        // Cancel any crossfade and ensure a clean graph before resuming
-        cancelPendingSwap()
-        Task { await cancelCrossfade() }
-        graph.currentPlayer.stop(); graph.nextPlayer.stop()
-        try? graph.ensureStarted()
-        scheduleFromCurrentPosition()
-        graph.playCurrent()
-        commitState(.playing)
-        pushNowPlaying()
+        Task { @MainActor in
+            await cancelCrossfade()
+            graph.currentPlayer.stop(); graph.nextPlayer.stop()
+            try? graph.ensureStarted()
+            scheduleFromCurrentPosition()
+            graph.playCurrent()
+            commitState(.playing)
+            pushNowPlaying()
+        }
     }
 
     public func seek(to time: TimeInterval) {
@@ -163,14 +169,15 @@ public final class PlaybackController: ObservableObject {
         cancelPendingSwap()
 
         if snapshot.state == .playing {
-            // Cancel crossfade and clear any scheduled playback to avoid overlap
-            Task { await cancelCrossfade() }
-            graph.currentPlayer.stop(); graph.nextPlayer.stop()
-            try? graph.ensureStarted()
-            scheduleFromCurrentPosition()
-            graph.playCurrent()
-            commitState(.playing)
-            pushNowPlaying()
+            Task { @MainActor in
+                await cancelCrossfade()
+                graph.currentPlayer.stop(); graph.nextPlayer.stop()
+                try? graph.ensureStarted()
+                scheduleFromCurrentPosition()
+                graph.playCurrent()
+                commitState(.playing)
+                pushNowPlaying()
+            }
         } else {
             // Paused or stopped: just update Now Playing with new elapsed time
             pushNowPlaying()
@@ -183,7 +190,6 @@ public final class PlaybackController: ObservableObject {
 
     public func playNext() async {
         await cancelCrossfade()
-        cancelPendingSwap()
 
         // Ensure single serialized advance
         guard !isAdvancing else { return }
@@ -269,7 +275,6 @@ public final class PlaybackController: ObservableObject {
         commitState(.playing)
         pushNowPlaying()
         maybePreloadNext()
-        pushNowPlaying()
     }
 
     public func playPrevious() async {
@@ -290,16 +295,21 @@ public final class PlaybackController: ObservableObject {
     }
 
     public func stop() {
-        cancelPendingSwap()
-        graph.currentPlayer.stop(); graph.nextPlayer.stop()
-        graph.setCurrentPathVolume(0); graph.setNextPathVolume(0)
-        currentFile = nil
-        seekPosition = 0
-        commitState(.stopped)
-        pushNowPlaying()
-        clearNowPlaying()
-        try? session.deactivate()
-        lastError = nil
+        Task { @MainActor in
+            await cancelCrossfade()
+            graph.currentPlayer.stop(); graph.nextPlayer.stop()
+            graph.setCurrentPathVolume(0); graph.setNextPathVolume(0)
+            currentFile = nil
+            seekPosition = 0
+            cancelPendingSwap()
+            commitState(.stopped)
+            pushNowPlaying()
+            clearNowPlaying()
+            try? session.deactivate()
+            lastError = nil
+            for t in preloadTasks { t.cancel() }
+            preloadTasks.removeAll()
+        }
     }
 
     // MARK: - Helpers
@@ -319,8 +329,9 @@ public final class PlaybackController: ObservableObject {
         graph.scheduleFile(file, onCurrentAt: nil, completion: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
+                // If a crossfade swap is pending or scheduled, do not also advance on completion.
+                guard self.nextPending == nil, self.crossfadeSwapWorkItem == nil else { return }
                 self.currentFile = nil
-                // Use serialized advance to avoid re-entrancy
                 await self.playNext()
                 self.pushNowPlaying()
             }
@@ -354,21 +365,25 @@ public final class PlaybackController: ObservableObject {
     }
 
     private func handleFatalError(_ category: PlaybackError) {
-        cancelPendingSwap()
-        lastError = category
-        graph.currentPlayer.stop(); graph.nextPlayer.stop()
-        graph.setCurrentPathVolume(0); graph.setNextPathVolume(0)
-        currentFile = nil
-        seekPosition = 0
-        commitState(.error)
-        pushNowPlaying()
-        clearNowPlaying()
-        try? session.deactivate()
+        Task { @MainActor in
+            await cancelCrossfade()
+            lastError = category
+            graph.currentPlayer.stop(); graph.nextPlayer.stop()
+            graph.setCurrentPathVolume(0); graph.setNextPathVolume(0)
+            currentFile = nil
+            seekPosition = 0
+            cancelPendingSwap()
+            commitState(.error)
+            pushNowPlaying()
+            clearNowPlaying()
+            try? session.deactivate()
+        }
     }
 
     private func maybePreloadNext() {
         guard let next = queue.peekNext(), let url = next.musicURL else { return }
-        Task { try? await preloader.preload(nft: next, url: url) }
+        let task: Task<Void, Never> = Task { _ = try? await preloader.preload(nft: next, url: url) }
+        preloadTasks.append(task)
     }
 
     private func openFile(for nft: NFT) async throws -> AVAudioFile {
@@ -462,33 +477,33 @@ public final class PlaybackController: ObservableObject {
 
         center.playCommand.isEnabled = true
         center.playCommand.addTarget { [weak self] _ in
-            self?.play()
+            Task { @MainActor in self?.play() }
             return .success
         }
 
         center.pauseCommand.isEnabled = true
         center.pauseCommand.addTarget { [weak self] _ in
-            self?.pause()
+            Task { @MainActor in self?.pause() }
             return .success
         }
 
         center.nextTrackCommand.isEnabled = true
         center.nextTrackCommand.addTarget { [weak self] _ in
-            Task { await self?.playNext() }
+            Task { @MainActor in await self?.playNext() }
             return .success
         }
 
         center.previousTrackCommand.isEnabled = true
         center.previousTrackCommand.addTarget { [weak self] _ in
-            Task { await self?.playPrevious() }
+            Task { @MainActor in await self?.playPrevious() }
             return .success
         }
 
         // Support scrubbing via Control Center / Lock Screen
         center.changePlaybackPositionCommand.isEnabled = true
         center.changePlaybackPositionCommand.addTarget { [weak self] event in
-            guard let self, let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            self.seek(to: e.positionTime)
+            guard let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            Task { @MainActor in self?.seek(to: e.positionTime) }
             return .success
         }
     }
