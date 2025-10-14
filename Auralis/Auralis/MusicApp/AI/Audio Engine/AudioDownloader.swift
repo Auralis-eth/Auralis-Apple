@@ -12,6 +12,11 @@ struct SystemAudioRNG: AudioRandomNumberGenerator {
 /// A handle to a temporary file that automatically cleans up the file on deallocation
 /// unless it has been marked as moved. This provides a safety net against temp file
 /// accumulation when callers forget to clean up or the app crashes before cleanup.
+///
+/// Important:
+/// - You MUST move or delete the temporary file promptly after a successful download.
+/// - If you don't move it, the file will be deleted when this handle is deinitialized.
+/// - This is a safety net to prevent storage bloat, not a persistence mechanism.
 final class TemporaryFileHandle: @unchecked Sendable {
     let url: URL
     private let fm = FileManager.default
@@ -127,14 +132,26 @@ struct AudioDownloader: Sendable {
 
     @inline(__always)
     func ensureNotCancelled() throws {
-        try Task.checkCancellation()
+        if Task.isCancelled { throw DownloadCancelledError() }
     }
 
     /// Downloads an audio resource with retries, honoring cancellation, server backoff hints,
     /// and selective retry policies.
     ///
     /// Total attempts = 1 initial attempt + `maxRetries` retries.
-    /// - Returns: A `TemporaryFileHandle` and the typed HTTP response. Caller must move the file.
+    /// - Returns: A `TemporaryFileHandle` and the typed HTTP response.
+    /// - Important: The caller MUST move or delete the returned temp file immediately after use.
+    ///   If you don't move it, the file will be removed automatically when the handle is
+    ///   deinitialized. This auto-cleanup is a safety net to prevent storage bloat and should
+    ///   not be relied upon for persistence.
+    ///
+    /// Example:
+    /// ```swift
+    /// let (handle, response) = try await downloader.downloadWithRetry(from: audioURL)
+    /// let destination = FileManager.default.temporaryDirectory.appendingPathComponent("track.mp3")
+    /// try handle.move(to: destination, replace: true)
+    /// // File is now durable at `destination`.
+    /// ```
     func downloadWithRetry(from url: URL) async throws -> (TemporaryFileHandle, HTTPURLResponse) {
         // Fail fast on unsupported schemes
         if let scheme = url.scheme?.lowercased(), scheme != "http" && scheme != "https" {
@@ -191,8 +208,8 @@ struct AudioDownloader: Sendable {
                 }
 
                 // If this is an explicit cancellation, rethrow immediately (no more retries)
-                if Task.isCancelled || error is CancellationError {
-                    throw error
+                if Task.isCancelled || error is CancellationError || error is DownloadCancelledError {
+                    throw DownloadCancelledError()
                 }
 
                 // Decide whether to retry based on error/response classification
@@ -205,8 +222,7 @@ struct AudioDownloader: Sendable {
 
                 // Compute next delay (single source of truth), honoring Retry-After when available.
                 // nextBackoffDelay owns the exponential growth and jitter.
-                let httpForRetryAfter = classification.extractHTTPResponse()
-                let nextDelay = nextBackoffDelay(current: delay, classification: classification, http: httpForRetryAfter)
+                let nextDelay = nextBackoffDelay(current: delay, classification: classification)
 
                 // Sleep in a cancellation-respecting way. If cancelled, this throws and exits.
                 try await Task.sleep(nanoseconds: nextDelay)
@@ -218,6 +234,24 @@ struct AudioDownloader: Sendable {
 
         // Explicit terminal outcome in case of unforeseen control flow
         throw URLError(.unknown)
+    }
+
+    /// Convenience: Download and move the file to a durable destination in one step.
+    ///
+    /// This API prevents callers from accidentally leaking temp files by performing the
+    /// move immediately after a successful download. If the move fails, the temporary file
+    /// is still cleaned up automatically when the handle is deinitialized.
+    ///
+    /// - Parameters:
+    ///   - url: The source URL to download.
+    ///   - destinationURL: The final file location to move the download to.
+    ///   - replace: If true, replaces any existing file at `destinationURL`.
+    /// - Returns: The typed HTTP response and the `destinationURL`.
+    /// - Throws: Any download or file move errors.
+    func downloadAndMove(from url: URL, to destinationURL: URL, replace: Bool = false) async throws -> (HTTPURLResponse, URL) {
+        let (handle, response) = try await downloadWithRetry(from: url)
+        try handle.move(to: destinationURL, replace: replace)
+        return (response, destinationURL)
     }
 }
 
@@ -250,7 +284,7 @@ private extension AudioDownloader {
 
     func classify(error: Error) -> RetryClassification {
         // Cancellation is never retried (handled by caller of this method)
-        if error is CancellationError { return .permanent }
+        if error is CancellationError || error is DownloadCancelledError { return .permanent }
 
         // URL errors — map common transient network failures
         if let urlError = error as? URLError {
@@ -285,11 +319,9 @@ private extension AudioDownloader {
         return attempt < totalAttempts
     }
 
-    func nextBackoffDelay(current: UInt64, classification: RetryClassification, http: HTTPURLResponse?) -> UInt64 {
+    func nextBackoffDelay(current: UInt64, classification: RetryClassification) -> UInt64 {
         var next = min(current * 2, maxDelay)
         if case .http(let resp) = classification, let override = retryAfterDelay(from: resp) {
-            next = min(override, maxDelay)
-        } else if let http = http, let override = retryAfterDelay(from: http) {
             next = min(override, maxDelay)
         }
         return applyJitter(to: next)
@@ -298,6 +330,11 @@ private extension AudioDownloader {
 
 // MARK: - Validation
 private extension AudioDownloader {
+    /// An explicit cancellation error for audio downloads.
+    struct DownloadCancelledError: LocalizedError, Sendable {
+        var errorDescription: String? { "Download was cancelled" }
+    }
+
     /// An error type that captures HTTP validation failures with access to the response.
     struct HTTPValidationError: LocalizedError, Sendable {
         let response: HTTPURLResponse
@@ -454,4 +491,3 @@ private extension URLRequest {
         return req
     }
 }
-
