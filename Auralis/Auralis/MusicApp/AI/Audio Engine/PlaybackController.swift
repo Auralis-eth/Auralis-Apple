@@ -42,6 +42,10 @@ public final class PlaybackController: ObservableObject {
     private var notificationObservers: [NSObjectProtocol] = []
     private var preloadTasks: [Task<Void, Never>] = []
 
+    // Remote command center state
+    private var remoteCommandTokens: [(command: MPRemoteCommand, token: Any)] = []
+    private var remoteCommandsRegistered: Bool = false
+
     internal init(graph: AudioGraph,
                 session: AudioSessionManager,
                 preloader: Preloader,
@@ -61,6 +65,7 @@ public final class PlaybackController: ObservableObject {
         self.snapshot = PlaybackSnapshot(state: .stopped, track: nil, elapsed: 0, duration: 0, canSkipNext: false, canSkipPrevious: false)
         setupNotifications()
         setupRemoteCommands()
+        updateRemoteCommandStates()
     }
 
     deinit {
@@ -70,6 +75,13 @@ public final class PlaybackController: ObservableObject {
         notificationObservers.removeAll()
         for t in preloadTasks { t.cancel() }
         preloadTasks.removeAll()
+
+        // Remove remote command targets to avoid duplicate handlers and leaks
+        for (command, token) in remoteCommandTokens {
+            command.removeTarget(token)
+        }
+        remoteCommandTokens.removeAll()
+        remoteCommandsRegistered = false
     }
 
     /*
@@ -309,6 +321,7 @@ public final class PlaybackController: ObservableObject {
             lastError = nil
             for t in preloadTasks { t.cancel() }
             preloadTasks.removeAll()
+            updateRemoteCommandStates()
         }
     }
 
@@ -345,6 +358,7 @@ public final class PlaybackController: ObservableObject {
         let track = Track(title: nft.name, artist: nft.artistName, duration: duration(of: file), imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl)
         snapshot.track = track
         pushNowPlaying()
+        updateRemoteCommandStates()
     }
 
     private func pushNowPlaying() {
@@ -362,6 +376,7 @@ public final class PlaybackController: ObservableObject {
         snapshot.canSkipNext = (self.queue.peekNext() != nil)
         snapshot.canSkipPrevious = (!self.queue.previous.tracks.isEmpty || currentTime() > 1.0)
         if state != .error { lastError = nil }
+        updateRemoteCommandStates()
     }
 
     private func handleFatalError(_ category: PlaybackError) {
@@ -377,6 +392,7 @@ public final class PlaybackController: ObservableObject {
             pushNowPlaying()
             clearNowPlaying()
             try? session.deactivate()
+            updateRemoteCommandStates()
         }
     }
 
@@ -452,7 +468,18 @@ public final class PlaybackController: ObservableObject {
         case .ended:
             let shouldResume = (info[AVAudioSessionInterruptionOptionKey] as? UInt).map { AVAudioSession.InterruptionOptions(rawValue: $0).contains(.shouldResume) } ?? false
             if shouldResume, wasPlayingBeforeInterruption {
-                resume()
+                do {
+                    try session.configureAndActivate()
+                    // Only resume if we still have a valid file; otherwise try to load the next item
+                    if currentFile != nil {
+                        resume()
+                    } else if let next = queue.peekNext() {
+                        Task { @MainActor in await self.loadAndPlay(nft: next) }
+                    }
+                } catch {
+                    // If we cannot reactivate, remain paused and surface the error state
+                    handleFatalError(.activationFailed)
+                }
             }
             wasPlayingBeforeInterruption = false
         @unknown default:
@@ -473,39 +500,60 @@ public final class PlaybackController: ObservableObject {
     }
 
     private func setupRemoteCommands() {
+        // Ensure idempotent registration across controller lifecycles
+        if remoteCommandsRegistered {
+            updateRemoteCommandStates()
+            return
+        }
+
         let center = MPRemoteCommandCenter.shared()
 
-        center.playCommand.isEnabled = true
-        center.playCommand.addTarget { [weak self] _ in
+        let playToken = center.playCommand.addTarget { [weak self] _ in
             Task { @MainActor in self?.play() }
             return .success
         }
+        remoteCommandTokens.append((command: center.playCommand, token: playToken))
 
-        center.pauseCommand.isEnabled = true
-        center.pauseCommand.addTarget { [weak self] _ in
+        let pauseToken = center.pauseCommand.addTarget { [weak self] _ in
             Task { @MainActor in self?.pause() }
             return .success
         }
+        remoteCommandTokens.append((command: center.pauseCommand, token: pauseToken))
 
-        center.nextTrackCommand.isEnabled = true
-        center.nextTrackCommand.addTarget { [weak self] _ in
+        let nextToken = center.nextTrackCommand.addTarget { [weak self] _ in
             Task { @MainActor in await self?.playNext() }
             return .success
         }
+        remoteCommandTokens.append((command: center.nextTrackCommand, token: nextToken))
 
-        center.previousTrackCommand.isEnabled = true
-        center.previousTrackCommand.addTarget { [weak self] _ in
+        let prevToken = center.previousTrackCommand.addTarget { [weak self] _ in
             Task { @MainActor in await self?.playPrevious() }
             return .success
         }
+        remoteCommandTokens.append((command: center.previousTrackCommand, token: prevToken))
 
-        // Support scrubbing via Control Center / Lock Screen
-        center.changePlaybackPositionCommand.isEnabled = true
-        center.changePlaybackPositionCommand.addTarget { [weak self] event in
+        let scrubToken = center.changePlaybackPositionCommand.addTarget { [weak self] event in
             guard let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
             Task { @MainActor in self?.seek(to: e.positionTime) }
             return .success
         }
+        remoteCommandTokens.append((command: center.changePlaybackPositionCommand, token: scrubToken))
+
+        remoteCommandsRegistered = true
+        updateRemoteCommandStates()
+    }
+
+    private func updateRemoteCommandStates() {
+        let center = MPRemoteCommandCenter.shared()
+        // Play is enabled when not already playing and we have something to play
+        center.playCommand.isEnabled = (snapshot.state != .playing) && (currentFile != nil || queue.peekNext() != nil)
+        // Pause is enabled only when currently playing
+        center.pauseCommand.isEnabled = (snapshot.state == .playing)
+        // Next/previous reflect queue and elapsed logic
+        center.nextTrackCommand.isEnabled = snapshot.canSkipNext
+        center.previousTrackCommand.isEnabled = snapshot.canSkipPrevious
+        // Scrubbing only when there is a current or loaded track
+        center.changePlaybackPositionCommand.isEnabled = (snapshot.track != nil)
     }
 
     private func clearNowPlaying() {
