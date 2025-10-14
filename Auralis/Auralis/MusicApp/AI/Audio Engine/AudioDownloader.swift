@@ -1,12 +1,59 @@
 import Foundation
 
+// Thread-safe randomness injection for jitter. Avoids mutable static state.
+protocol AudioRandomNumberGenerator: Sendable {
+    func random(in range: ClosedRange<UInt64>) -> UInt64
+}
+
+struct SystemAudioRNG: AudioRandomNumberGenerator {
+    func random(in range: ClosedRange<UInt64>) -> UInt64 { UInt64.random(in: range) }
+}
+
+/// A handle to a temporary file that automatically cleans up the file on deallocation
+/// unless it has been marked as moved. This provides a safety net against temp file
+/// accumulation when callers forget to clean up or the app crashes before cleanup.
+final class TemporaryFileHandle: @unchecked Sendable {
+    let url: URL
+    private let fm = FileManager.default
+    private var moved = false
+
+    init(url: URL) { self.url = url }
+
+    /// Access the underlying temporary file URL.
+    var fileURL: URL { url }
+
+    /// Move the temporary file to a durable destination.
+    /// - Parameters:
+    ///   - destinationURL: The final location to move the file to.
+    ///   - replace: If true, an existing item at `destinationURL` will be removed before moving.
+    /// - Important: On success, this marks the handle as moved to prevent cleanup on deinit.
+    func move(to destinationURL: URL, replace: Bool = false) throws {
+        if replace && fm.fileExists(atPath: destinationURL.path) {
+            try fm.removeItem(at: destinationURL)
+        }
+        try fm.moveItem(at: url, to: destinationURL)
+        moved = true
+    }
+
+    /// If you moved or deleted the file by other means, call this to prevent deinit cleanup.
+    func markMoved() { moved = true }
+
+    deinit {
+        if !moved {
+            try? fm.removeItem(at: url)
+        }
+    }
+}
+
 /// A downloader specialized for audio files with robust retry/backoff and cancellation handling.
 ///
 /// Contract:
-/// - On success, returns a temporary file URL plus the typed `HTTPURLResponse`.
-///   The caller is responsible for moving the temporary file to a durable location.
+/// - On success, returns a `TemporaryFileHandle` (auto-cleaning) plus the typed `HTTPURLResponse`.
+///   The handle deletes the temp file in `deinit` unless you move it or call `markMoved()`.
 /// - On any failure (including validation failures and retries), this type ensures any
 ///   temporary file created by the attempt is removed to prevent tmp bloat.
+/// - Crash-safety: If the caller crashes or forgets to clean up, the temp file is reclaimed when
+///   the handle is deallocated.
 /// - Total attempts = 1 initial attempt + `maxRetries` retries.
 /// - Cancellation: cancellation is checked once at the start of each attempt and the backoff sleep
 ///   is cancellation-aware (throws), so a cancelled parent task never causes an extra attempt.
@@ -48,6 +95,8 @@ struct AudioDownloader: Sendable {
     let maxDelay: UInt64
     /// Jitter behavior for backoff delays.
     let jitter: JitterStrategy
+    /// Randomness source for jitter (injected for testability).
+    let rng: any AudioRandomNumberGenerator
 
     /// Create a downloader with a specific `URLSession` and default retry/backoff configuration.
     init(session: URLSession) {
@@ -57,6 +106,7 @@ struct AudioDownloader: Sendable {
         self.initialDelay = i
         self.maxDelay = m
         self.jitter = .equal
+        self.rng = SystemAudioRNG()
     }
 
     /// Create a downloader with full configuration.
@@ -64,13 +114,15 @@ struct AudioDownloader: Sendable {
          maxRetries: Int,
          initialDelay: UInt64,
          maxDelay: UInt64,
-         jitter: JitterStrategy) {
+         jitter: JitterStrategy,
+         rng: any AudioRandomNumberGenerator = SystemAudioRNG()) {
         self.session = session
         let (r, i, m) = Self.normalize(maxRetries: maxRetries, initialDelay: initialDelay, maxDelay: maxDelay)
         self.maxRetries = r
         self.initialDelay = i
         self.maxDelay = m
         self.jitter = jitter
+        self.rng = rng
     }
 
     @inline(__always)
@@ -82,8 +134,8 @@ struct AudioDownloader: Sendable {
     /// and selective retry policies.
     ///
     /// Total attempts = 1 initial attempt + `maxRetries` retries.
-    /// - Returns: A temporary file URL and the typed HTTP response. Caller must move the file.
-    func downloadWithRetry(from url: URL) async throws -> (URL, HTTPURLResponse) {
+    /// - Returns: A `TemporaryFileHandle` and the typed HTTP response. Caller must move the file.
+    func downloadWithRetry(from url: URL) async throws -> (TemporaryFileHandle, HTTPURLResponse) {
         // Fail fast on unsupported schemes
         if let scheme = url.scheme?.lowercased(), scheme != "http" && scheme != "https" {
             throw URLError(.unsupportedURL)
@@ -110,19 +162,28 @@ struct AudioDownloader: Sendable {
                 // Header-level validation first (status/MIME)
                 try validateAudioHTTPResponse(http)
 
-                // Guard against zero-length file downloads (prefer header; fall back to disk check if header missing)
-                if let cl = http.value(forHTTPHeaderField: "Content-Length"),
-                   let clVal = Int64(cl.trimmingCharacters(in: .whitespaces)), clVal == 0 {
-                    throw HTTPValidationError(response: http, reason: "Zero Content-Length for file download")
-                } else if http.value(forHTTPHeaderField: "Content-Length") == nil {
-                    if let attrs = try? FileManager.default.attributesOfItem(atPath: tmpURL.path),
+                // Guard against zero-length file downloads (prefer header; fall back to disk check if header missing or invalid)
+                let contentLengthHeader = http.value(forHTTPHeaderField: "Content-Length")?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let parsedContentLength: Int64? = contentLengthHeader.flatMap(Int64.init)
+
+                if let cl = parsedContentLength {
+                    if cl < 0 {
+                        throw HTTPValidationError(response: http, reason: "Invalid negative Content-Length")
+                    }
+                    if cl == 0 {
+                        throw HTTPValidationError(response: http, reason: "Zero Content-Length for file download")
+                    }
+                } else {
+                    // Fall back to disk check only if header missing or invalid
+                    if let attrs = try? FileManager.default.attributesOfItem(atPath: tmpURL.path()),
                        let size = attrs[.size] as? NSNumber, size.int64Value == 0 {
                         throw HTTPValidationError(response: http, reason: "Downloaded file is empty")
                     }
                 }
 
                 // Passed validation — keep temp file and return typed response
-                return (tmpURL, http)
+                return (TemporaryFileHandle(url: tmpURL), http)
             } catch {
                 // Always cleanup temp file if we created one during this attempt
                 if let tmp = tmpURLForCleanup {
@@ -142,14 +203,16 @@ struct AudioDownloader: Sendable {
                     throw error
                 }
 
-                // Compute next delay (single source of truth)
-                let jittered = nextBackoffDelay(current: delay, classification: classification, http: nil)
+                // Compute next delay (single source of truth), honoring Retry-After when available.
+                // nextBackoffDelay owns the exponential growth and jitter.
+                let httpForRetryAfter = classification.extractHTTPResponse()
+                let nextDelay = nextBackoffDelay(current: delay, classification: classification, http: httpForRetryAfter)
 
                 // Sleep in a cancellation-respecting way. If cancelled, this throws and exits.
-                try await Task.sleep(nanoseconds: jittered)
+                try await Task.sleep(nanoseconds: nextDelay)
 
-                // Update base delay for next attempt (exponential)
-                delay = min(delay * 2, maxDelay)
+                // Record the computed delay for the next iteration (do not double again).
+                delay = nextDelay
             }
         }
 
@@ -176,6 +239,12 @@ private extension AudioDownloader {
                 }
             case .permanent: return false
             }
+        }
+
+        /// Extract the associated HTTPURLResponse if present.
+        func extractHTTPResponse() -> HTTPURLResponse? {
+            if case .http(let resp) = self { return resp }
+            return nil
         }
     }
 
@@ -282,29 +351,54 @@ private extension AudioDownloader {
         if let seconds = Double(rawValue), seconds.isFinite, seconds >= 0 {
             let nanosDouble = seconds * 1_000_000_000
             guard nanosDouble.isFinite && nanosDouble >= 0 else { return nil }
-            return UInt64(min(nanosDouble, Double(maxDelay)))
+            // Clamp first to configured maxDelay, then to UInt64.max before converting.
+            let clampedToMaxDelay = min(nanosDouble, Double(maxDelay))
+            let clampedToUInt = min(clampedToMaxDelay, Double(UInt64.max))
+            return UInt64(clampedToUInt)
         }
 
-        // Try common HTTP-date variants
-        for formatter in Self.httpDateFormatters {
-            if let date = formatter.date(from: rawValue) {
-                let delta = date.timeIntervalSinceNow
-                if delta.isFinite, delta > 0 {
-                    let nanosDouble = delta * 1_000_000_000
-                    guard nanosDouble.isFinite && nanosDouble > 0 else { return nil }
-                    return UInt64(min(nanosDouble, Double(maxDelay)))
-                } else {
-                    return nil
-                }
+        // Try common HTTP-date variants, most common first (RFC 1123), then fall back.
+        if let date = Self.rfc1123Formatter.date(from: rawValue) {
+            let delta = date.timeIntervalSinceNow
+            if delta.isFinite, delta >= 0 {
+                if delta == 0 { return 0 }
+                let nanosDouble = delta * 1_000_000_000
+                guard nanosDouble.isFinite && nanosDouble > 0 else { return nil }
+                let clampedToMaxDelay = min(nanosDouble, Double(maxDelay))
+                let clampedToUInt = min(clampedToMaxDelay, Double(UInt64.max))
+                return UInt64(clampedToUInt)
+            } else {
+                return nil
+            }
+        }
+        if let date = Self.rfc850Formatter.date(from: rawValue) {
+            let delta = date.timeIntervalSinceNow
+            if delta.isFinite, delta >= 0 {
+                if delta == 0 { return 0 }
+                let nanosDouble = delta * 1_000_000_000
+                guard nanosDouble.isFinite && nanosDouble > 0 else { return nil }
+                let clampedToMaxDelay = min(nanosDouble, Double(maxDelay))
+                let clampedToUInt = min(clampedToMaxDelay, Double(UInt64.max))
+                return UInt64(clampedToUInt)
+            } else {
+                return nil
+            }
+        }
+        if let date = Self.asctimeFormatter.date(from: rawValue) {
+            let delta = date.timeIntervalSinceNow
+            if delta.isFinite, delta >= 0 {
+                if delta == 0 { return 0 }
+                let nanosDouble = delta * 1_000_000_000
+                guard nanosDouble.isFinite && nanosDouble > 0 else { return nil }
+                let clampedToMaxDelay = min(nanosDouble, Double(maxDelay))
+                let clampedToUInt = min(clampedToMaxDelay, Double(UInt64.max))
+                return UInt64(clampedToUInt)
+            } else {
+                return nil
             }
         }
 
         return nil
-    }
-
-    // Injection point for deterministic tests
-    static var _randomInRange: (ClosedRange<UInt64>) -> UInt64 = { range in
-        return UInt64.random(in: range)
     }
 
     func applyJitter(to delay: UInt64) -> UInt64 {
@@ -315,29 +409,38 @@ private extension AudioDownloader {
         case .equal:
             // Random in [delay/2, delay]
             let half = delay / 2
-            let range = Self._randomInRange(0...half)
+            let range = rng.random(in: 0...half)
             return half + range
         case .full:
             // Random in [0, delay]
-            return Self._randomInRange(0...delay)
+            return rng.random(in: 0...delay)
         }
     }
 }
 
 private extension AudioDownloader {
-    static let httpDateFormatters: [DateFormatter] = {
+    static let rfc1123Formatter: DateFormatter = {
         let tz = TimeZone(secondsFromGMT: 0)
         let loc = Locale(identifier: "en_US_POSIX")
-        // RFC 1123 (preferred): Sun, 06 Nov 1994 08:49:37 GMT
-        let rfc1123 = DateFormatter()
-        rfc1123.locale = loc; rfc1123.timeZone = tz; rfc1123.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
-        // RFC 850 (obsolete): Sunday, 06-Nov-94 08:49:37 GMT
-        let rfc850 = DateFormatter()
-        rfc850.locale = loc; rfc850.timeZone = tz; rfc850.dateFormat = "EEEE',' dd-MMM-yy HH':'mm':'ss zzz"
-        // ANSI C's asctime() (obsolete): Sun Nov  6 08:49:37 1994
-        let asctime = DateFormatter()
-        asctime.locale = loc; asctime.timeZone = tz; asctime.dateFormat = "EEE MMM d HH':'mm':'ss yyyy"
-        return [rfc1123, rfc850, asctime]
+        let df = DateFormatter()
+        df.locale = loc; df.timeZone = tz; df.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
+        return df
+    }()
+
+    static let rfc850Formatter: DateFormatter = {
+        let tz = TimeZone(secondsFromGMT: 0)
+        let loc = Locale(identifier: "en_US_POSIX")
+        let df = DateFormatter()
+        df.locale = loc; df.timeZone = tz; df.dateFormat = "EEEE',' dd-MMM-yy HH':'mm':'ss zzz"
+        return df
+    }()
+
+    static let asctimeFormatter: DateFormatter = {
+        let tz = TimeZone(secondsFromGMT: 0)
+        let loc = Locale(identifier: "en_US_POSIX")
+        let df = DateFormatter()
+        df.locale = loc; df.timeZone = tz; df.dateFormat = "EEE MMM d HH':'mm':'ss yyyy"
+        return df
     }()
 }
 
@@ -351,3 +454,4 @@ private extension URLRequest {
         return req
     }
 }
+
