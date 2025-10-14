@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import Combine
+import MediaPlayer
 
 @MainActor
 public final class PlaybackController: ObservableObject {
@@ -27,6 +28,10 @@ public final class PlaybackController: ObservableObject {
     private var advanceSequence: Int = 0
     private var crossfadeSwapWorkItem: DispatchWorkItem?
 
+    // System integration state
+    private var wasPlayingBeforeInterruption: Bool = false
+    private var notificationObservers: [NSObjectProtocol] = []
+
     internal init(graph: AudioGraph,
                 session: AudioSessionManager,
                 preloader: Preloader,
@@ -44,6 +49,15 @@ public final class PlaybackController: ObservableObject {
         self.crossfadeSeconds = crossfadeSeconds
         self.skipInterval = skipInterval
         self.snapshot = PlaybackSnapshot(state: .stopped, track: nil, elapsed: 0, duration: 0, canSkipNext: false, canSkipPrevious: false)
+        setupNotifications()
+        setupRemoteCommands()
+    }
+
+    deinit {
+        for obs in notificationObservers {
+            NotificationCenter.default.removeObserver(obs)
+        }
+        notificationObservers.removeAll()
     }
 
     // MARK: - Public API
@@ -67,6 +81,8 @@ public final class PlaybackController: ObservableObject {
             maybePreloadNext()
         } catch {
             commitState(.error)
+            clearNowPlaying()
+            try? session.deactivate()
         }
     }
 
@@ -78,6 +94,7 @@ public final class PlaybackController: ObservableObject {
         graph.playCurrent()
         commitState(.playing)
         pushNowPlaying()
+        maybePreloadNext()
     }
 
     public func pause() {
@@ -117,6 +134,7 @@ public final class PlaybackController: ObservableObject {
         } else {
             // Paused or stopped: just update Now Playing with new elapsed time
             pushNowPlaying()
+            maybePreloadNext()
         }
     }
 
@@ -148,6 +166,9 @@ public final class PlaybackController: ObservableObject {
                     nextFile = try await openURL(url)
                 } catch {
                     commitState(.error)
+                    pushNowPlaying()
+                    clearNowPlaying()
+                    try? session.deactivate()
                     isAdvancing = false
                     return
                 }
@@ -207,6 +228,7 @@ public final class PlaybackController: ObservableObject {
         commitState(.playing)
         pushNowPlaying()
         maybePreloadNext()
+        pushNowPlaying()
     }
 
     public func playPrevious() async {
@@ -220,6 +242,7 @@ public final class PlaybackController: ObservableObject {
                 self.queue.pushToFrontOfNext(current)
             }
             await loadAndPlay(nft: prev)
+            pushNowPlaying()
         } else {
             seek(to: 0)
         }
@@ -231,6 +254,9 @@ public final class PlaybackController: ObservableObject {
         currentFile = nil
         seekPosition = 0
         commitState(.stopped)
+        pushNowPlaying()
+        clearNowPlaying()
+        try? session.deactivate()
     }
 
     // MARK: - Helpers
@@ -253,6 +279,7 @@ public final class PlaybackController: ObservableObject {
                 self.currentFile = nil
                 // Use serialized advance to avoid re-entrancy
                 await self.playNext()
+                self.pushNowPlaying()
             }
         })
     }
@@ -308,4 +335,93 @@ public final class PlaybackController: ObservableObject {
     private func cancelCrossfade() async { crossfade.cancel() }
 
     private func cappedCrossfade() -> TimeInterval { min(crossfadeSeconds, max(0, (snapshot.track?.duration ?? 0) * 0.3)) }
+
+    // MARK: - System Integration Helpers
+    private func setupNotifications() {
+        let center = NotificationCenter.default
+        let obs1 = center.addObserver(forName: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(), queue: .main) { [weak self] note in
+            self?.handleInterruption(note)
+        }
+        let obs2 = center.addObserver(forName: AVAudioSession.routeChangeNotification, object: AVAudioSession.sharedInstance(), queue: .main) { [weak self] note in
+            self?.handleRouteChange(note)
+        }
+        notificationObservers.append(contentsOf: [obs1, obs2])
+    }
+
+    private func handleInterruption(_ notification: Notification) {
+        guard let info = notification.userInfo,
+              let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+
+        switch type {
+        case .began:
+            wasPlayingBeforeInterruption = (snapshot.state == .playing)
+            if wasPlayingBeforeInterruption {
+                pause()
+            }
+        case .ended:
+            let shouldResume = (info[AVAudioSessionInterruptionOptionKey] as? UInt).map { AVAudioSession.InterruptionOptions(rawValue: $0).contains(.shouldResume) } ?? false
+            if shouldResume, wasPlayingBeforeInterruption {
+                resume()
+            }
+            wasPlayingBeforeInterruption = false
+        @unknown default:
+            break
+        }
+    }
+
+    private func handleRouteChange(_ notification: Notification) {
+        guard let info = notification.userInfo,
+              let reasonValue = info[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else { return }
+        // Common policy: if old device became unavailable (e.g., headphones unplugged), pause.
+        if reason == .oldDeviceUnavailable {
+            if snapshot.state == .playing {
+                pause()
+            }
+        }
+    }
+
+    private func setupRemoteCommands() {
+        let center = MPRemoteCommandCenter.shared()
+
+        center.playCommand.isEnabled = true
+        center.playCommand.addTarget { [weak self] _ in
+            self?.play()
+            return .success
+        }
+
+        center.pauseCommand.isEnabled = true
+        center.pauseCommand.addTarget { [weak self] _ in
+            self?.pause()
+            return .success
+        }
+
+        center.nextTrackCommand.isEnabled = true
+        center.nextTrackCommand.addTarget { [weak self] _ in
+            Task { await self?.playNext() }
+            return .success
+        }
+
+        center.previousTrackCommand.isEnabled = true
+        center.previousTrackCommand.addTarget { [weak self] _ in
+            Task { await self?.playPrevious() }
+            return .success
+        }
+
+        // Support scrubbing via Control Center / Lock Screen
+        center.changePlaybackPositionCommand.isEnabled = true
+        center.changePlaybackPositionCommand.addTarget { [weak self] event in
+            guard let self, let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            self.seek(to: e.positionTime)
+            return .success
+        }
+    }
+
+    private func clearNowPlaying() {
+        // Neutralize metadata/artwork/progress to avoid stale system surfaces
+        nowPlaying.setMetadata(title: nil, artist: nil, duration: 0, elapsed: 0, rate: 0)
+        nowPlaying.setArtwork(from: nil)
+        nowPlaying.updateProgress(elapsed: 0, rate: 0, duration: 0)
+    }
 }
