@@ -124,16 +124,11 @@ public final class PlaybackController: ObservableObject {
             try graph.ensureStarted()
             scheduleFromCurrentPosition()
             graph.playCurrent()
-            commitState(.playing)
+            if !commitState(.playing) { print("[PlaybackController] commitState(.playing) rejected in loadAndPlay") }
             pushNowPlaying()
             maybePreloadNext()
         } catch {
-            let category: PlaybackError
-            if let scheme = nft.musicURL?.scheme?.lowercased(), scheme == "http" || scheme == "https" {
-                category = .networkUnavailable
-            } else {
-                category = .fileUnreadable
-            }
+            let category = categorizePlaybackError(error)
             handleFatalError(category)
         }
     }
@@ -144,7 +139,7 @@ public final class PlaybackController: ObservableObject {
         try? graph.ensureStarted()
         scheduleFromCurrentPosition()
         graph.playCurrent()
-        commitState(.playing)
+        if !commitState(.playing) { print("[PlaybackController] commitState(.playing) rejected in play()") }
         pushNowPlaying()
         maybePreloadNext()
     }
@@ -156,7 +151,7 @@ public final class PlaybackController: ObservableObject {
             await cancelCrossfade()
             graph.currentPlayer.stop(); graph.nextPlayer.stop()
             cancelPendingSwap()
-            commitState(.paused)
+            if !commitState(.paused) { print("[PlaybackController] commitState(.paused) rejected in pause()") }
             pushNowPlaying()
         }
     }
@@ -169,7 +164,7 @@ public final class PlaybackController: ObservableObject {
             try? graph.ensureStarted()
             scheduleFromCurrentPosition()
             graph.playCurrent()
-            commitState(.playing)
+            if !commitState(.playing) { print("[PlaybackController] commitState(.playing) rejected in resume()") }
             pushNowPlaying()
         }
     }
@@ -187,7 +182,7 @@ public final class PlaybackController: ObservableObject {
                 try? graph.ensureStarted()
                 scheduleFromCurrentPosition()
                 graph.playCurrent()
-                commitState(.playing)
+                if !commitState(.playing) { print("[PlaybackController] commitState(.playing) rejected in seek()") }
                 pushNowPlaying()
             }
         } else {
@@ -224,8 +219,7 @@ public final class PlaybackController: ObservableObject {
                 do {
                     nextFile = try await openURL(url)
                 } catch {
-                    let scheme = next.musicURL?.scheme?.lowercased()
-                    let category: PlaybackError = (scheme == "http" || scheme == "https") ? .networkUnavailable : .fileUnreadable
+                    let category = categorizePlaybackError(error)
                     handleFatalError(category)
                     isAdvancing = false
                     return
@@ -284,7 +278,7 @@ public final class PlaybackController: ObservableObject {
         // Apply new current and clear pending
         applyCurrent(nft: pending.nft, file: pending.file)
         nextPending = nil
-        commitState(.playing)
+        if !commitState(.playing) { print("[PlaybackController] commitState(.playing) rejected in commitPendingSwap()") }
         pushNowPlaying()
         maybePreloadNext()
     }
@@ -314,10 +308,14 @@ public final class PlaybackController: ObservableObject {
             currentFile = nil
             seekPosition = 0
             cancelPendingSwap()
-            commitState(.stopped)
+            if !commitState(.stopped) { print("[PlaybackController] commitState(.stopped) rejected in stop()") }
             pushNowPlaying()
             clearNowPlaying()
-            try? session.deactivate()
+            do {
+                try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+            } catch {
+                print("[PlaybackController] AVAudioSession setActive(false) failed in stop(): \(error)")
+            }
             lastError = nil
             for t in preloadTasks { t.cancel() }
             preloadTasks.removeAll()
@@ -337,8 +335,18 @@ public final class PlaybackController: ObservableObject {
         guard let file = currentFile else { return }
         let sr = file.processingFormat.sampleRate
         let startFrame = AVAudioFramePosition(seekPosition * sr)
-        let frames = AVAudioFrameCount(max(0, file.length - startFrame))
-        if frames == 0 { return }
+        // If seek is at or beyond the end, advance without scheduling to avoid zero-frame loops
+        if startFrame >= file.length {
+            self.currentFile = nil
+            Task { @MainActor in
+                await self.playNext()
+                self.pushNowPlaying()
+            }
+            return
+        }
+        let remaining = file.length - startFrame
+        if remaining <= 0 { return }
+        let frames = AVAudioFrameCount(remaining)
         graph.scheduleFile(file, onCurrentAt: nil, completion: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
@@ -368,8 +376,13 @@ public final class PlaybackController: ObservableObject {
         nowPlaying.updateProgress(elapsed: currentTime(), rate: rate, duration: snapshot.track?.duration ?? 0)
     }
 
-    private func commitState(_ state: PlaybackState) {
-        guard canTransition(from: snapshot.state, to: state) else { return }
+    @discardableResult
+    private func commitState(_ state: PlaybackState) -> Bool {
+        let from = snapshot.state
+        guard canTransition(from: from, to: state) else {
+            print("[PlaybackController] Invalid state transition: \(from) -> \(state)")
+            return false
+        }
         snapshot.state = state
         snapshot.elapsed = currentTime()
         snapshot.duration = snapshot.track?.duration ?? 0
@@ -377,6 +390,7 @@ public final class PlaybackController: ObservableObject {
         snapshot.canSkipPrevious = (!self.queue.previous.tracks.isEmpty || currentTime() > 1.0)
         if state != .error { lastError = nil }
         updateRemoteCommandStates()
+        return true
     }
 
     private func handleFatalError(_ category: PlaybackError) {
@@ -388,10 +402,14 @@ public final class PlaybackController: ObservableObject {
             currentFile = nil
             seekPosition = 0
             cancelPendingSwap()
-            commitState(.error)
+            if !commitState(.error) { print("[PlaybackController] commitState(.error) rejected in handleFatalError") }
             pushNowPlaying()
             clearNowPlaying()
-            try? session.deactivate()
+            do {
+                try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+            } catch {
+                print("[PlaybackController] AVAudioSession setActive(false) failed in error state: \(error)")
+            }
             updateRemoteCommandStates()
         }
     }
@@ -419,6 +437,17 @@ public final class PlaybackController: ObservableObject {
             }
             return try AVAudioFile(forReading: local)
         }.value
+    }
+
+    // Map underlying errors to PlaybackError categories for accurate UX
+    private func categorizePlaybackError(_ error: Error) -> PlaybackError {
+        // Prefer network categorization for URL-related failures
+        if let urlErr = error as? URLError { return .networkUnavailable }
+        let nsErr = error as NSError
+        if nsErr.domain == NSURLErrorDomain { return .networkUnavailable }
+        // AVAudioFile and file IO typically surface as Cocoa/OSStatus errors; treat as unreadable
+        // Fallback to unknown if nothing matches
+        return .fileUnreadable
     }
 
     // Centralized cancellation for any pending crossfade swap and advancement lock
