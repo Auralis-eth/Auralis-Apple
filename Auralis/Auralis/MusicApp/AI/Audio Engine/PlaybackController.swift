@@ -3,6 +3,13 @@ import AVFoundation
 import Combine
 import MediaPlayer
 
+public enum PlaybackError: Equatable {
+    case activationFailed
+    case fileUnreadable
+    case networkUnavailable
+    case unknown
+}
+
 @MainActor
 public final class PlaybackController: ObservableObject {
     // Dependencies
@@ -19,6 +26,7 @@ public final class PlaybackController: ObservableObject {
 
     // State
     @Published public private(set) var snapshot: PlaybackSnapshot
+    @Published public private(set) var lastError: PlaybackError? = nil
     private var currentFile: AVAudioFile?
     private var seekPosition: TimeInterval = 0
 
@@ -60,13 +68,37 @@ public final class PlaybackController: ObservableObject {
         notificationObservers.removeAll()
     }
 
+    /*
+     State Machine — Allowed transitions
+       Stopped -> Playing, Paused, Error, Stopped (no-op)
+       Playing -> Paused, Stopped, Error, Playing (no-op)
+       Paused  -> Playing, Stopped, Error, Paused (no-op)
+       Error   -> Stopped, Playing (retry), Error (no-op)
+     All state changes must go through `commitState(_:)` which enforces the graph.
+    */
+    private func canTransition(from: PlaybackState, to: PlaybackState) -> Bool {
+        switch (from, to) {
+        case (.stopped, .playing), (.stopped, .paused), (.stopped, .error), (.stopped, .stopped):
+            return true
+        case (.playing, .paused), (.playing, .stopped), (.playing, .error), (.playing, .playing):
+            return true
+        case (.paused, .playing), (.paused, .stopped), (.paused, .error), (.paused, .paused):
+            return true
+        case (.error, .stopped), (.error, .playing), (.error, .error):
+            return true
+        default:
+            return false
+        }
+    }
+
     // MARK: - Public API
     func loadAndPlay(nft: NFT) async {
         await cancelCrossfade()
         do {
             try session.configureAndActivate()
         } catch {
-            // Session activation failure; continue and let playback attempt proceed. Errors will surface in playback.
+            handleFatalError(.activationFailed)
+            return
         }
         do {
             let file = try await openFile(for: nft)
@@ -80,9 +112,13 @@ public final class PlaybackController: ObservableObject {
             pushNowPlaying()
             maybePreloadNext()
         } catch {
-            commitState(.error)
-            clearNowPlaying()
-            try? session.deactivate()
+            let category: PlaybackError
+            if let scheme = nft.musicURL?.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+                category = .networkUnavailable
+            } else {
+                category = .fileUnreadable
+            }
+            handleFatalError(category)
         }
     }
 
@@ -165,10 +201,9 @@ public final class PlaybackController: ObservableObject {
                 do {
                     nextFile = try await openURL(url)
                 } catch {
-                    commitState(.error)
-                    pushNowPlaying()
-                    clearNowPlaying()
-                    try? session.deactivate()
+                    let scheme = next.musicURL?.scheme?.lowercased()
+                    let category: PlaybackError = (scheme == "http" || scheme == "https") ? .networkUnavailable : .fileUnreadable
+                    handleFatalError(category)
                     isAdvancing = false
                     return
                 }
@@ -257,6 +292,7 @@ public final class PlaybackController: ObservableObject {
         pushNowPlaying()
         clearNowPlaying()
         try? session.deactivate()
+        lastError = nil
     }
 
     // MARK: - Helpers
@@ -301,11 +337,25 @@ public final class PlaybackController: ObservableObject {
     }
 
     private func commitState(_ state: PlaybackState) {
+        guard canTransition(from: snapshot.state, to: state) else { return }
         snapshot.state = state
         snapshot.elapsed = currentTime()
         snapshot.duration = snapshot.track?.duration ?? 0
         snapshot.canSkipNext = (self.queue.peekNext() != nil)
         snapshot.canSkipPrevious = (!self.queue.previous.tracks.isEmpty || currentTime() > 1.0)
+        if state != .error { lastError = nil }
+    }
+
+    private func handleFatalError(_ category: PlaybackError) {
+        lastError = category
+        graph.currentPlayer.stop(); graph.nextPlayer.stop()
+        graph.setCurrentPathVolume(0); graph.setNextPathVolume(0)
+        currentFile = nil
+        seekPosition = 0
+        commitState(.error)
+        pushNowPlaying()
+        clearNowPlaying()
+        try? session.deactivate()
     }
 
     private func maybePreloadNext() {
