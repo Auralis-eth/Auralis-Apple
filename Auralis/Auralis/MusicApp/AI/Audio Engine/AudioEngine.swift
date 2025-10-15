@@ -36,9 +36,43 @@ final class AudioEngine: ObservableObject {
     @Published var errorState: PlaybackErrorState? = nil
 
     // User prefs
-    @Published var isShuffleEnabled: Bool = false { didSet { queue.isShuffleEnabled = isShuffleEnabled } }
-    @Published var repeatMode: QueueManager.RepeatMode = .none { didSet { queue.repeatMode = repeatMode } }
-    @Published var coarseSkipSeconds: TimeInterval = 10 { didSet { reconfigureRCC() } }
+    @Published var isShuffleEnabled: Bool = false { didSet { 
+        queue.isShuffleEnabled = isShuffleEnabled 
+        UserDefaults.standard.set(isShuffleEnabled, forKey: PreferencesKeys.shuffleEnabled)
+    } }
+    @Published var repeatMode: QueueManager.RepeatMode = .none { didSet { 
+        queue.repeatMode = repeatMode 
+        UserDefaults.standard.set(Self.encodeRepeatMode(repeatMode), forKey: PreferencesKeys.repeatMode)
+    } }
+    @Published var coarseSkipSeconds: TimeInterval = 10 { didSet { 
+        reconfigureRCC()
+        UserDefaults.standard.set(coarseSkipSeconds, forKey: PreferencesKeys.coarseSkipSeconds)
+    } }
+
+    // Persistence
+    private struct PreferencesKeys {
+        static let shuffleEnabled = "AudioEngine.shuffleEnabled"
+        static let repeatMode = "AudioEngine.repeatMode"
+        static let coarseSkipSeconds = "AudioEngine.coarseSkipSeconds"
+    }
+
+    private static func encodeRepeatMode(_ mode: QueueManager.RepeatMode) -> String {
+        switch mode {
+        case .none: return "none"
+        case .track:
+            return "track"
+        case .playlist:
+            return "playlist"
+        }
+    }
+
+    private static func decodeRepeatMode(_ raw: String) -> QueueManager.RepeatMode {
+        switch raw {
+        case "track": return .track
+        case "playlist": return .playlist
+        default: return .none
+        }
+    }
 
     // Combine subscriptions
     private var cancellables = Set<AnyCancellable>()
@@ -396,6 +430,18 @@ final class AudioEngine: ObservableObject {
     }
 
     init() {
+        // Load persisted user preferences
+        if UserDefaults.standard.object(forKey: PreferencesKeys.shuffleEnabled) != nil {
+            self.isShuffleEnabled = UserDefaults.standard.bool(forKey: PreferencesKeys.shuffleEnabled)
+        }
+        if let rawRepeat = UserDefaults.standard.string(forKey: PreferencesKeys.repeatMode) {
+            self.repeatMode = Self.decodeRepeatMode(rawRepeat)
+        }
+        if UserDefaults.standard.object(forKey: PreferencesKeys.coarseSkipSeconds) != nil {
+            let val = UserDefaults.standard.double(forKey: PreferencesKeys.coarseSkipSeconds)
+            if val > 0 { self.coarseSkipSeconds = val }
+        }
+
         // Wire RCC
         reconfigureRCC()
 
