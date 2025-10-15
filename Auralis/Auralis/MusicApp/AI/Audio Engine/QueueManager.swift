@@ -46,19 +46,6 @@ public final class QueueManager {
 
     public enum RepeatMode: Equatable, Sendable { case none, track, playlist }
 
-    public struct Playlist: Sendable, Equatable {
-        public var name: String
-        public var tracks: [NFT]
-        init(name: String, tracks: [NFT] = []) { self.name = name; self.tracks = tracks }
-        mutating func _append(_ nfts: [NFT]) { tracks.append(contentsOf: nfts) }
-        mutating func _insertFront(_ nft: NFT) { tracks.insert(nft, at: 0) }
-        mutating func _removeAll(where predicate: (NFT) -> Bool) { tracks.removeAll(where: predicate) }
-        mutating func _removeFirst() -> NFT { tracks.removeFirst() }
-        mutating func _remove(at index: Int) -> NFT { tracks.remove(at: index) }
-        mutating func _clear() { tracks.removeAll() }
-        mutating func _replace(with tracks: [NFT]) { self.tracks = tracks }
-    }
-
     private let defaults = UserDefaults.standard
 
     private var shuffledOrder: [String] = [] // store NFT ids

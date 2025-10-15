@@ -11,22 +11,6 @@ import MediaPlayer
 import AVFoundation
 import SwiftData
 
-@Model
-class Playlist {
-    var id: UUID
-    var name: String
-    var tracks: [NFT]
-    var dateCreated: Date
-    var textBlurb: String?
-    
-    init(name: String) {
-        self.id = UUID()
-        self.name = name
-        self.tracks = []
-        self.dateCreated = Date()
-    }
-}
-
 enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
     case library, playlists, downloads, settings
 
@@ -144,9 +128,7 @@ struct NFTMusicPlayerApp: View {
                     case .library:
                         NFTMusicPlayerLibraryView(audioEngine: audioEngine)
                     case .playlists:
-                        Text("\(selection?.title ?? "Playlists")")
-                            .font(.title)
-                            .padding()
+                        PlaylistListView()
                     case .none:
                         Text("Select something in the sidebar")
                             .foregroundStyle(.secondary)
@@ -163,6 +145,7 @@ struct NFTMusicPlayerApp: View {
                 }
                 .navigationTitle(selection?.title ?? "Detail")
             }
+            .modelContainer(for: Playlist.self)
         }
     }
 }
