@@ -91,36 +91,27 @@ struct NFTMusicPlayerApp: View {
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
                 
-                VStack {
-                    List(sidebarItems, selection: $selection) { item in
-                        Label(item.title, systemImage: item.systemImage)
-                            .listRowBackground(Color.clear)
-                            .tag(item)
-                    }
-                    .listStyle(.sidebar)
-                    .scrollContentBackground(.hidden)
-                    .background(.clear)
-                    .padding()
-                    .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
-                    Spacer()
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(sidebarItems) { item in
-                            Label(item.title, systemImage: item.systemImage)
-                                .padding()
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    selection = item
-                                }
-                        }
-                    }
-                    .background(.clear)
-                    .padding()
-                    .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
-                    Spacer()
+
+                List(sidebarItems, selection: $selection) { item in
+                    Label(item.title, systemImage: item.systemImage)
+                        .foregroundStyle(Color.textSecondary)
+                        .listRowBackground(Color.clear)
+                        .tag(item)
+                }
+                .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)
+                .background(.clear)
+                .padding()
+                .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
+                .safeAreaPadding(.all, 30)
+            }
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("")
                 }
             }
-            .navigationTitle("Browse")
-            .padding(.top)
+            .navigationBarTitleDisplayMode(.inline)
+            .padding(.vertical)
         } detail: {
             VStack {
                 Group {
@@ -160,6 +151,8 @@ struct NFTMusicPlayerLibraryView: View {
     private var musicNFTs: [NFT] {
         nfts.filter { $0.isMusic() }
     }
+    
+    @AppStorage("feature_recentlyPlayedLibrary") private var featureRecentlyPlayedLibrary: Bool = true
 
     @State private var errorMessage: String?
     @State private var showingError: Bool = false
@@ -176,6 +169,10 @@ struct NFTMusicPlayerLibraryView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 20) {
+                            if featureRecentlyPlayedLibrary {
+                                RecentlyPlayedSection(audioEngine: audioEngine)
+                                    .padding(.bottom, 8)
+                            }
                             // Format Support Testing
                             VStack(alignment: .leading) {
                                 Text("Format Support Test")
@@ -301,6 +298,68 @@ private struct MusicNFTCard: View {
         }
         .padding(12)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+// MARK: - Reusable Recently Played Card (for broader reuse in the app)
+struct RecentlyPlayedCard: View {
+    let nft: NFT
+    let imageURLString: String?
+    let title: String
+    let lastPlayed: Date?
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack(alignment: .bottomTrailing) {
+                    if let s = imageURLString, let url = URL(string: s) {
+                        AsyncImage(url: url) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.gray.opacity(0.25))
+                                .overlay { Image(systemName: "music.note").foregroundStyle(.gray) }
+                        }
+                        .frame(height: 120)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    } else {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.gray.opacity(0.25))
+                            .frame(height: 120)
+                            .overlay { Image(systemName: "music.note").foregroundStyle(.gray) }
+                    }
+                    Image(systemName: "play.circle.fill")
+                        .symbolRenderingMode(.hierarchical)
+                        .font(.system(size: 22))
+                        .foregroundStyle(.white.opacity(0.95))
+                        .shadow(radius: 2)
+                        .padding(8)
+                        .accessibilityHidden(true)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+                    if let lastPlayed {
+                        Text(lastPlayed, style: .relative)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    } else {
+                        Text("Recently played")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title.isEmpty ? "Unknown Track" : title)")
+        .accessibilityHint("Resume playback")
     }
 }
 

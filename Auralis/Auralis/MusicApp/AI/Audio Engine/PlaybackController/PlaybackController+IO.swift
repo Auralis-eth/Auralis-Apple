@@ -15,17 +15,15 @@ extension PlaybackController {
     }
 
     func openURL(_ url: URL) async throws -> AVAudioFile {
-        return try await Task.detached(priority: .userInitiated) { () -> AVAudioFile in
-            let local: URL
-            if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
-                // Perform cache lookup off the main actor
-                let resolved = try await AudioFileCache.shared.localURL(forRemote: url)
-                local = resolved
-            } else {
-                local = url
-            }
-            return try AVAudioFile(forReading: local)
-        }.value
+        let local: URL
+        if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            // Perform cache lookup off the main actor
+            let resolved = try await AudioFileCache.shared.localURL(forRemote: url)
+            local = resolved
+        } else {
+            local = url
+        }
+        return try AVAudioFile(forReading: local)
     }
 
     // Map underlying errors to PlaybackError categories for accurate UX

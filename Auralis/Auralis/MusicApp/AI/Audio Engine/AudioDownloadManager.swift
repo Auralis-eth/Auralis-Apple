@@ -487,58 +487,56 @@ public class AudioDownloadManager: NSObject, URLSessionDownloadDelegate {
     /// If a download for the URL is already in progress, the continuation will be appended.
     public func awaitDownload(from url: URL, policy: NetworkPolicy? = nil) async throws -> (URL, URLResponse) {
         try await withCheckedThrowingContinuation { continuation in
-            self.withStateAsync {
-                let key = self.canonicalKey(for: url)
-                if let _ = self.keyToTask[key] {
-                    #if DEBUG
-                    self.debugCoalescedListenerCount += 1
-                    #endif
-                    // Download in progress, append completion handler
-                    self.keyToCompletionHandlers[key, default: []].append { result in
-                        switch result {
-                        case let .success(value):
-                            continuation.resume(returning: value)
-                        case let .failure(error):
-                            continuation.resume(throwing: error)
-                        }
+            let key = self.canonicalKey(for: url)
+            if let _ = self.keyToTask[key] {
+                #if DEBUG
+                self.debugCoalescedListenerCount += 1
+                #endif
+                // Download in progress, append completion handler
+                self.keyToCompletionHandlers[key, default: []].append { result in
+                    switch result {
+                    case let .success(value):
+                        continuation.resume(returning: value)
+                    case let .failure(error):
+                        continuation.resume(throwing: error)
                     }
-                } else {
-                    if self.keyToTask[key] == nil && self.isRebinding {
-                        // Rebind in progress: queue listener and defer task creation to rebind drain
-                        self.pendingListenersByKey[key, default: []].append { result in
-                            switch result {
-                            case let .success(value):
-                                continuation.resume(returning: value)
-                            case let .failure(error):
-                                continuation.resume(throwing: error)
-                            }
-                        }
-                        // Record the most-permissive policy requested (prefer userInitiated if any)
-                        let requested = policy ?? self.defaultPolicy
-                        if let existing = self.pendingStartPolicyByKey[key] {
-                            if existing == .background && requested == .userInitiated { self.pendingStartPolicyByKey[key] = .userInitiated }
-                        } else {
-                            self.pendingStartPolicyByKey[key] = requested
-                        }
-                        return
-                    }
-                    // No download in progress, start new download
-                    let request = self.makeRequest(for: url, policy: policy ?? self.defaultPolicy)
-                    let sessionToUse = (policy ?? self.defaultPolicy) == .userInitiated ? self.userInitiatedSession : self.backgroundSession
-                    let task = sessionToUse.downloadTask(with: request)
-                    self.taskIdentifierToKey[task.taskIdentifier] = key
-                    self.keyToTask[key] = task
-                    self.keyToCompletionHandlers[key] = [{
-                        result in
-                        switch result {
-                        case let .success(value):
-                            continuation.resume(returning: value)
-                        case let .failure(error):
-                            continuation.resume(throwing: error)
-                        }
-                    }]
-                    task.resume()
                 }
+            } else {
+                if self.keyToTask[key] == nil && self.isRebinding {
+                    // Rebind in progress: queue listener and defer task creation to rebind drain
+                    self.pendingListenersByKey[key, default: []].append { result in
+                        switch result {
+                        case let .success(value):
+                            continuation.resume(returning: value)
+                        case let .failure(error):
+                            continuation.resume(throwing: error)
+                        }
+                    }
+                    // Record the most-permissive policy requested (prefer userInitiated if any)
+                    let requested = policy ?? self.defaultPolicy
+                    if let existing = self.pendingStartPolicyByKey[key] {
+                        if existing == .background && requested == .userInitiated { self.pendingStartPolicyByKey[key] = .userInitiated }
+                    } else {
+                        self.pendingStartPolicyByKey[key] = requested
+                    }
+                    return
+                }
+                // No download in progress, start new download
+                let request = self.makeRequest(for: url, policy: policy ?? self.defaultPolicy)
+                let sessionToUse = (policy ?? self.defaultPolicy) == .userInitiated ? self.userInitiatedSession : self.backgroundSession
+                let task = sessionToUse.downloadTask(with: request)
+                self.taskIdentifierToKey[task.taskIdentifier] = key
+                self.keyToTask[key] = task
+                self.keyToCompletionHandlers[key] = [{
+                    result in
+                    switch result {
+                    case let .success(value):
+                        continuation.resume(returning: value)
+                    case let .failure(error):
+                        continuation.resume(throwing: error)
+                    }
+                }]
+                task.resume()
             }
         }
     }

@@ -65,18 +65,18 @@ actor AudioFileCache {
         let mappedExt = response.mimeType.flatMap { AudioMIMEMapper.preferredExtension(for: $0) }
         let finalExt = urlExt ?? mappedExt
 
-        let destURL = destinationURL(forKey: key, ext: finalExt, in: cacheDir)
+//        let destURL = destinationURL(forKey: key, ext: finalExt, in: cacheDir)
 
         // Ensure destination parent exists
-        try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+//        try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
         // Remove any stale file (unlikely) then move
-        try? FileManager.default.removeItem(at: destURL)
-        try FileManager.default.moveItem(at: tmpURL, to: destURL)
+//        try? FileManager.default.removeItem(at: destURL)
+//        try FileManager.default.moveItem(at: tmpURL, to: destURL)
         // Save validators
-        await metadataStore.save(from: response, forFileURL: destURL, originalURL: url)
+        await metadataStore.save(from: response, forFileURL: tmpURL, originalURL: url)
         // Enforce cache size
         await trimmer.trim(toMaxBytes: maxCacheBytes, in: cacheDir)
-        return destURL
+        return tmpURL
     }
 
     /// Returns URL if already cached, otherwise nil.

@@ -52,6 +52,8 @@ public final class QueueManager {
     private var shuffleIndex: Int = 0
 
     public var previous = Playlist(name: "Previous")
+    // In-memory timestamps for when items were moved into `previous` (most recent play moment)
+    private var previousTimestamps: [String: Date] = [:]
     public var next = Playlist(name: "Next")
     public private(set) var current: NFT?
     public var isShuffleEnabled: Bool = false
@@ -78,10 +80,17 @@ public final class QueueManager {
         guard let limit, limit >= 0 else { return items }
         return Array(items.prefix(limit))
     }
+    
+    /// Returns the last time an NFT was recorded into `previous` during this app session.
+    /// This is in-memory only and does not persist across launches.
+    public func lastPlayedDate(for nftId: String) -> Date? {
+        return previousTimestamps[nftId]
+    }
 
     /// Clears the previously played history.
     public func clearPreviousHistory() {
         previous._clear()
+        previousTimestamps.removeAll()
         validateInvariants(context: "clearPreviousHistory")
     }
 
@@ -92,16 +101,25 @@ public final class QueueManager {
         let count = previous.tracks.count
         if count > limit {
             let removeCount = count - limit
+            // Collect IDs to remove timestamps for
+            let removedSlice = previous.tracks.suffix(removeCount)
+            let removedIds = removedSlice.map { $0.id }
             // Remove the oldest items (at the end) to keep most-recent-first ordering
             previous.tracks.removeLast(removeCount)
+            // Clean up timestamps for removed items
+            for id in removedIds { previousTimestamps.removeValue(forKey: id) }
         }
     }
 
     /// Records the current track into `previous` (most-recent-first) and sets a new current.
     private func recordPreviousAndSetCurrent(_ newCurrent: NFT) {
         if let c = current {
+            // Deduplicate: remove any existing occurrences of the current track from history
+            previous._removeAll(where: { $0.id == c.id })
             // Insert most recent at the front
             previous._insertFront(c)
+            // Stamp last played time
+            previousTimestamps[c.id] = Date()
             enforcePreviousLimit()
         }
         current = newCurrent
@@ -672,6 +690,103 @@ public final class QueueManager {
         return nil
     }
 
+    /// Advances to the next item but only records the previous track if the current
+    /// track has been played for at least `minSecondsPlayed`.
+    ///
+    /// Thread-safety: `@MainActor`.
+    /// Mutation:
+    /// - Mutates `next` (removes dequeued item), advances shuffle index when applicable.
+    /// - Updates `current` to the returned item.
+    /// - Records to `previous` only when `currentProgress >= minSecondsPlayed`.
+    /// - Persists shuffle state as needed via existing helpers.
+    /// - Returns: The advanced `NFT`, or `nil` if none is available under current rules.
+    @discardableResult
+    public func advanceNextRespectingThreshold(minSecondsPlayed: TimeInterval,
+                                               currentProgress: TimeInterval) -> NFT? {
+        // Repeat single track: do not change current, just return it
+        if repeatMode == .track, let c = current { return c }
+
+        // Fast path: non-empty next
+        if !next.tracks.isEmpty {
+            let result = isShuffleEnabled ? dequeueNextWithShuffleFromNonEmpty() : dequeueNextWithoutShuffleFromNonEmpty()
+            if let newCurrent = result {
+                if let _ = current, currentProgress >= minSecondsPlayed {
+                    // Record previous + set current
+                    recordPreviousAndSetCurrent(newCurrent)
+                } else {
+                    // Do not record previous; only set current
+                    setCurrent(newCurrent)
+                }
+            }
+            validateInvariants(context: "advanceNextRespectingThreshold")
+            return result
+        }
+
+        // Playlist repeat case when next is empty
+        if repeatMode == .playlist {
+            let rebuilt = rebuildNextFromPlaylistSources()
+            guard rebuilt else { validateInvariants(context: "advanceNextRespectingThreshold"); return nil }
+            let result = isShuffleEnabled ? dequeueNextWithShuffleFromNonEmpty() : dequeueNextWithoutShuffleFromNonEmpty()
+            if let newCurrent = result {
+                if let _ = current, currentProgress >= minSecondsPlayed {
+                    recordPreviousAndSetCurrent(newCurrent)
+                } else {
+                    setCurrent(newCurrent)
+                }
+            }
+            validateInvariants(context: "advanceNextRespectingThreshold")
+            return result
+        }
+
+        validateInvariants(context: "advanceNextRespectingThreshold")
+        return nil
+    }
+
+    /// Returns what `dequeueNext()` would return, but without performing any mutations or persistence.
+    ///
+    /// Thread-safety: `@MainActor`.
+    /// Side effects: None. This method does not modify `next`, `previous`, `current`, `shuffledOrder`, or `shuffleIndex`, and does not persist state.
+    /// - Returns: The NFT that would be dequeued next according to current settings, or `nil` if none is available.
+    /// - Discussion:
+    ///   - Unlike `peekNext()`, this method does not attempt to validate or repair shuffle state (no calls to `ensureShuffleValid()`),
+    ///     and will not rebuild shuffle order. If the `shuffleIndex` points to an ID not present in `next.tracks`, it simply returns `nil`.
+    ///   - This is intended as a pure, no-side-effects view into what `dequeueNext()` would choose.
+    @discardableResult
+    public func dequeueNextPreview() -> NFT? {
+        // Repeat single track
+        if repeatMode == .track, let c = current { return c }
+
+        // If upcoming queue has items
+        if !next.tracks.isEmpty {
+            if isShuffleEnabled {
+                // Pure read: do not validate or rebuild; just use current shuffled pointer if valid
+                guard shuffleIndex < shuffledOrder.count else { return nil }
+                let id = shuffledOrder[shuffleIndex]
+                return next.tracks.first(where: { $0.id == id })
+            } else {
+                return next.tracks.first
+            }
+        }
+
+        // Playlist repeat case when `next` is empty: compute a local, non-mutating view
+        if repeatMode == .playlist {
+            var rebuilt: [NFT] = []
+            if let c = current { rebuilt.append(c) }
+            if !previous.tracks.isEmpty { rebuilt.append(contentsOf: previous.tracks) }
+            guard !rebuilt.isEmpty else { return nil }
+            if isShuffleEnabled {
+                // Choose a candidate deterministically without mutating global shuffle state.
+                // We avoid randomization to keep this a stable, side-effect-free view.
+                // Here we simply return the first element as a predictable preview.
+                return rebuilt.first
+            } else {
+                return rebuilt.first
+            }
+        }
+
+        return nil
+    }
+
     private func dequeueNextWithoutShuffleFromNonEmpty() -> NFT? {
         return next._removeFirst()
     }
@@ -702,6 +817,7 @@ public final class QueueManager {
         if !previous.tracks.isEmpty { rebuilt.append(contentsOf: previous.tracks) }
         guard !rebuilt.isEmpty else { return false }
         previous._clear()
+        previousTimestamps.removeAll()
         next._replace(with: rebuilt)
         if isShuffleEnabled { rebuildShuffle() }
         return true
@@ -761,6 +877,14 @@ public final class QueueManager {
             reconcileShuffleAfterNextChange()
         }
         validateInvariants(context: "removeFromNext")
+    }
+
+    /// Removes a specific item from the previously played history.
+    /// - Parameter id: The NFT identifier to remove from `previous`.
+    public func removeFromPrevious(id: String) {
+        previous._removeAll(where: { $0.id == id })
+        previousTimestamps.removeValue(forKey: id)
+        validateInvariants(context: "removeFromPrevious")
     }
 }
 

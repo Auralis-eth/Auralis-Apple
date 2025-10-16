@@ -16,6 +16,11 @@ struct NowPlayingView: View {
     @State private var seekValue: Double = 0
     @State private var isDraggingSeek: Bool = false
 
+    // Neighbor previews
+    private var nextPreviewNFT: NFT? { audioEngine.queue.dequeueNextPreview() }
+    private var previousPreviewNFT: NFT? { audioEngine.queue.previous.tracks.last }
+    private let previousRestartThreshold: TimeInterval = 3.0
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -167,6 +172,38 @@ struct NowPlayingView: View {
                                     }
                                 }
                             }
+                            
+                            // Neighbor previews (Previous / Next)
+                            VStack(spacing: 8) {
+                                if let prev = previousPreviewNFT {
+                                    previewRow(title: prev.name ?? "Unknown Track",
+                                               artist: prev.artistName,
+                                               imageURLString: prev.image?.thumbnailUrl ?? prev.image?.originalUrl,
+                                               label: "Previous",
+                                               accessibilityPrefix: "Previous",
+                                               action: {
+                                                   if audioEngine.progress > previousRestartThreshold {
+                                                       try? audioEngine.seek(to: 0)
+                                                   } else {
+                                                       Task { await audioEngine.playPrevious() }
+                                                   }
+                                               })
+                                }
+
+                                if let next = nextPreviewNFT {
+                                    previewRow(title: next.name ?? "Unknown Track",
+                                               artist: next.artistName,
+                                               imageURLString: next.image?.thumbnailUrl ?? next.image?.originalUrl,
+                                               label: "Next",
+                                               accessibilityPrefix: "Next",
+                                               action: {
+                                                   Task { await audioEngine.playNext() }
+                                               })
+                                }
+                            }
+
+                            // Recently Played Section
+                            RecentlyPlayedSection(audioEngine: audioEngine)
 
                             // Details card
                             VStack(alignment: .leading, spacing: 12) {
@@ -274,6 +311,250 @@ struct NowPlayingView: View {
         let mins = s / 60
         let secs = s % 60
         return String(format: "%d:%02d", mins, secs)
+    }
+    
+    // MARK: - Compact Preview Row
+    @ViewBuilder
+    private func previewRow(title: String,
+                            artist: String?,
+                            imageURLString: String?,
+                            label: String,
+                            accessibilityPrefix: String,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // Artwork 44–48pt
+                if let urlStr = imageURLString, !urlStr.isEmpty, let url = URL(string: urlStr) {
+                    CachedAsyncImage(url: url)
+                        .frame(width: 48, height: 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.25))
+                        .frame(width: 48, height: 48)
+                        .overlay {
+                            Image(systemName: "music.note")
+                                .foregroundStyle(.gray)
+                        }
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.body.weight(.semibold))
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+                    if let artist, !artist.isEmpty {
+                        Text(artist)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer()
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(accessibilityPrefix): \(title.isEmpty ? "Unknown Track" : title)\(artist.map { ", by \($0)" } ?? "")")
+        .opacity(audioEngine.playbackState == .loading ? 0.85 : 1.0)
+    }
+}
+
+// MARK: - Recently Played Section (session-scoped via QueueManager.previous)
+struct RecentlyPlayedSection: View {
+    @ObservedObject var audioEngine: AudioEngine
+    private let initialLimit: Int = 20
+    @State private var isClearing = false
+
+    private var items: [NFT] {
+        audioEngine.queue.getRecentlyPlayed(limit: initialLimit)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(NSLocalizedString("Recently Played", comment: "Recently Played section header"))
+                    .font(.headline)
+                Spacer()
+                if !items.isEmpty {
+                    Button(NSLocalizedString("Clear All", comment: "Clear all recently played")) { isClearing = true }
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Clear all recently played")
+                }
+            }
+
+            if items.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 36))
+                        .foregroundStyle(.secondary)
+                    Text(NSLocalizedString("Nothing here yet—play something and it’ll show up.", comment: "Empty state for Recently Played"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(12)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(items, id: \.id) { nft in
+                            RecentlyPlayedMiniCard(nft: nft,
+                                                   lastPlayed: audioEngine.queue.lastPlayedDate(for: nft.id)) {
+                                playTapped(nft: nft)
+                            }
+                            .frame(width: 160)
+                            .contextMenu {
+                                Button {
+                                    playTapped(nft: nft)
+                                } label: {
+                                    Label(NSLocalizedString("Play", comment: "Play recently played item"), systemImage: "play.fill")
+                                }
+
+                                Button {
+                                    startOverTapped(nft: nft)
+                                } label: {
+                                    Label(NSLocalizedString("Start Over", comment: "Start recently played item from beginning"), systemImage: "arrow.counterclockwise")
+                                }
+
+                                Button(role: .destructive) {
+                                    audioEngine.queue.removeFromPrevious(id: nft.id)
+                                } label: {
+                                    Label(NSLocalizedString("Remove from Recently Played", comment: "Remove item from recently played"), systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text(String(format: NSLocalizedString("Recently Played, %d items", comment: "VoiceOver label for Recently Played section with count"), items.count)))
+        .confirmationDialog(NSLocalizedString("Clear all recently played items?", comment: "Confirm clear recently played"),
+                            isPresented: $isClearing,
+                            titleVisibility: .visible) {
+            Button(NSLocalizedString("Clear All", comment: "Confirm clear all"), role: .destructive) {
+                audioEngine.queue.clearPreviousHistory()
+                impact()
+            }
+            Button(NSLocalizedString("Cancel", comment: "Cancel"), role: .cancel) { }
+        }
+    }
+
+    private func startOverTapped(nft: NFT) {
+        impact()
+        Task {
+            if let currentId = audioEngine.queue.current?.id, currentId == nft.id {
+                // If it's the current track, seek to 0 and play
+                try? audioEngine.seek(to: 0)
+                try? audioEngine.play()
+            } else {
+                // Load and play from the beginning
+                await audioEngine.loadAndPlay(nft: nft)
+            }
+        }
+    }
+
+    private func playTapped(nft: NFT) {
+        impact()
+        Task {
+            if let currentId = audioEngine.queue.current?.id, currentId == nft.id {
+                try? audioEngine.resume()
+            } else {
+                await audioEngine.loadAndPlay(nft: nft)
+            }
+        }
+    }
+
+    private func impact() {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+    }
+}
+
+private struct RecentlyPlayedMiniCard: View {
+    let nft: NFT
+    let lastPlayed: Date?
+    let onTap: () -> Void
+
+    private func relativeDescription(for date: Date?) -> String {
+        guard let date else { return NSLocalizedString("Recently played", comment: "Fallback relative time") }
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .full
+        return f.localizedString(for: date, relativeTo: Date())
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack(alignment: .bottomTrailing) {
+                    if let s = (nft.image?.thumbnailUrl ?? nft.image?.originalUrl), let url = URL(string: s) {
+                        CachedAsyncImage(url: url)
+                            .aspectRatio(1, contentMode: .fill)
+                            .frame(height: 120)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    } else {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.gray.opacity(0.25))
+                            .frame(height: 120)
+                            .overlay {
+                                Image(systemName: "music.note").foregroundStyle(.gray)
+                            }
+                    }
+                    Image(systemName: "play.circle.fill")
+                        .symbolRenderingMode(.hierarchical)
+                        .font(.system(size: 22))
+                        .foregroundStyle(.white.opacity(0.95))
+                        .shadow(radius: 2)
+                        .padding(8)
+                        .accessibilityHidden(true)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(nft.name ?? NSLocalizedString("Unknown Track", comment: "Unknown track title"))
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(2)
+                        .foregroundStyle(.primary)
+                    if let artist = nft.artistName, !artist.isEmpty {
+                        Text(artist)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    if let lastPlayed {
+                        Text(lastPlayed, style: .relative)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    } else {
+                        Text(NSLocalizedString("Recently played", comment: "Fallback relative time"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
+        .accessibilityLabel({ () -> Text in
+            let title = nft.name ?? NSLocalizedString("Unknown Track", comment: "Unknown track title")
+            let artist = nft.artistName
+            let played = relativeDescription(for: lastPlayed)
+            if let artist, !artist.isEmpty {
+                return Text("\(title), \(artist), \(played)")
+            } else {
+                return Text("\(title), \(played)")
+            }
+        }())
+        .accessibilityHint(Text(NSLocalizedString("Double-tap to play", comment: "Hint to play recently played item")))
     }
 }
 
