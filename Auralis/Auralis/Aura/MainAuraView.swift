@@ -229,18 +229,3 @@ struct MainAuraView: View {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

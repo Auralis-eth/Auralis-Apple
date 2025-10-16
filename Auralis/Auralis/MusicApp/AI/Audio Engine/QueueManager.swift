@@ -70,6 +70,15 @@ public final class QueueManager {
     /// Read-only access to previously played tracks for UI display.
     public var previousTracks: [NFT] { previous.tracks }
 
+    /// Returns the recently played items (most-recent-first) from the in-memory history.
+    /// - Parameter limit: Optional maximum number of items to return. If nil, returns all.
+    /// - Returns: An array of `NFT` ordered most-recent-first.
+    public func getRecentlyPlayed(limit: Int? = nil) -> [NFT] {
+        let items = previous.tracks
+        guard let limit, limit >= 0 else { return items }
+        return Array(items.prefix(limit))
+    }
+
     /// Clears the previously played history.
     public func clearPreviousHistory() {
         previous._clear()
