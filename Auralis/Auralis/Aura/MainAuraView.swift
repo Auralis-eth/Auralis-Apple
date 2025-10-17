@@ -14,7 +14,7 @@ struct MainAuraView: View {
     @AppStorage("currentChainId") var currentChainId: String = Chain.ethMainnet.rawValue
     @Environment(\.modelContext) private var modelContext
     @State private var nftService = NFTService()
-    @StateObject private var audioEngine = AudioEngine()
+    @StateObject private var audioEngine: AudioEngine
     
     @State private var currentAccount: EOAccount?
     @State private var currentChain: Chain = .ethMainnet
@@ -167,6 +167,16 @@ struct MainAuraView: View {
                 let account = EOAccount(address: currentAddress)
                 currentAccount = account
             }
+        }
+    }
+    
+    init() {
+        do {
+            let engine = try AudioEngine()
+            _audioEngine = StateObject(wrappedValue: engine)
+        } catch {
+            // Fallback for initialization errors
+            fatalError("Failed to initialize AudioEngine: \(error)")
         }
     }
 }

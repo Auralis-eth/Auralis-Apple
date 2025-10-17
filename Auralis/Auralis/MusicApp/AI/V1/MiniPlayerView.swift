@@ -143,7 +143,7 @@ struct MiniPlayerContentView: View {
 }
 
 struct MiniPlayerPlayingView: View {
-    let currentTrack: Track
+    let currentTrack: AudioEngine.Track
     fileprivate let accessoryMode: MiniPlayerView.AccessoryMode
 
     var body: some View {
@@ -182,7 +182,7 @@ struct MiniPlayerPlayingView: View {
 
 struct PlaybackStateButton: View {
     // Source value provided by the parent
-    let sourceState: PlaybackState
+    let sourceState: AudioEngine.PlaybackState
 
     // Actions
     let play: () -> Void

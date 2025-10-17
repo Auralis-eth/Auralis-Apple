@@ -17,8 +17,8 @@ struct NowPlayingView: View {
     @State private var isDraggingSeek: Bool = false
 
     // Neighbor previews
-    private var nextPreviewNFT: NFT? { audioEngine.queue.dequeueNextPreview() }
-    private var previousPreviewNFT: NFT? { audioEngine.queue.previous.tracks.last }
+    private var nextPreviewNFT: NFT? { audioEngine.nextAudio.tracks.first }
+    private var previousPreviewNFT: NFT? { audioEngine.previousAudio.tracks.last }
     private let previousRestartThreshold: TimeInterval = 3.0
 
     var body: some View {
@@ -371,7 +371,7 @@ struct RecentlyPlayedSection: View {
     @State private var isClearing = false
 
     private var items: [NFT] {
-        audioEngine.queue.getRecentlyPlayed(limit: initialLimit)
+        audioEngine.getRecentlyPlayed(limit: initialLimit)
     }
 
     var body: some View {
@@ -405,7 +405,7 @@ struct RecentlyPlayedSection: View {
                     HStack(spacing: 12) {
                         ForEach(items, id: \.id) { nft in
                             RecentlyPlayedMiniCard(nft: nft,
-                                                   lastPlayed: audioEngine.queue.lastPlayedDate(for: nft.id)) {
+                                                   lastPlayed: audioEngine.lastPlayedDate(for: nft.id)) {
                                 playTapped(nft: nft)
                             }
                             .frame(width: 160)
@@ -423,7 +423,7 @@ struct RecentlyPlayedSection: View {
                                 }
 
                                 Button(role: .destructive) {
-                                    audioEngine.queue.removeFromPrevious(id: nft.id)
+                                    audioEngine.removeFromPrevious(id: nft.id)
                                 } label: {
                                     Label(NSLocalizedString("Remove from Recently Played", comment: "Remove item from recently played"), systemImage: "trash")
                                 }
@@ -439,7 +439,7 @@ struct RecentlyPlayedSection: View {
                             isPresented: $isClearing,
                             titleVisibility: .visible) {
             Button(NSLocalizedString("Clear All", comment: "Confirm clear all"), role: .destructive) {
-                audioEngine.queue.clearPreviousHistory()
+                audioEngine.clearPreviousHistory()
                 impact()
             }
             Button(NSLocalizedString("Cancel", comment: "Cancel"), role: .cancel) { }
@@ -449,13 +449,13 @@ struct RecentlyPlayedSection: View {
     private func startOverTapped(nft: NFT) {
         impact()
         Task {
-            if let currentId = audioEngine.queue.current?.id, currentId == nft.id {
+            if let currentId = audioEngine.currentTrack?.id, let nftUUID = UUID(uuidString: nft.id), currentId == nftUUID {
                 // If it's the current track, seek to 0 and play
                 try? audioEngine.seek(to: 0)
                 try? audioEngine.play()
             } else {
                 // Load and play from the beginning
-                await audioEngine.loadAndPlay(nft: nft)
+                try? await audioEngine.loadAndPlay(nft: nft)
             }
         }
     }
@@ -463,10 +463,10 @@ struct RecentlyPlayedSection: View {
     private func playTapped(nft: NFT) {
         impact()
         Task {
-            if let currentId = audioEngine.queue.current?.id, currentId == nft.id {
+            if let currentId = audioEngine.currentTrack?.id, let nftUUID = UUID(uuidString: nft.id), currentId == nftUUID {
                 try? audioEngine.resume()
             } else {
-                await audioEngine.loadAndPlay(nft: nft)
+                try? await audioEngine.loadAndPlay(nft: nft)
             }
         }
     }

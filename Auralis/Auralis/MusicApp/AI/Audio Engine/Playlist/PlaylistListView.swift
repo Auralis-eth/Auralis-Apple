@@ -7,6 +7,9 @@ struct PlaylistListView: View {
     @State private var searchText: String = ""
     @Query(sort: \Playlist.createdAt, order: .reverse) private var playlists: [Playlist]
 
+    @State private var showingNewPlaylist: Bool = false
+    @State private var successMessage: String? = nil
+
     private var filteredPlaylists: [Playlist] {
         let t = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return playlists }
@@ -18,6 +21,14 @@ struct PlaylistListView: View {
     var body: some View {
         NavigationStack {
             list
+        }
+        .sheet(isPresented: $showingNewPlaylist) {
+            NewPlaylistView { createdTitle in
+                successMessage = String(format: NSLocalizedString("Created \"%@\"", comment: "Success message after creating playlist"), createdTitle)
+            }}
+        }
+        .alert(isPresented: .init(get: { successMessage != nil }, set: { if !$0 { successMessage = nil } })) {
+            Alert(title: Text(successMessage ?? ""))
         }
         .toolbar { toolbar }
     }
@@ -47,7 +58,7 @@ struct PlaylistListView: View {
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
             Button {
-                addSample()
+                showingNewPlaylist = true
             } label: {
                 Label("Add", systemImage: "plus")
             }
@@ -55,11 +66,7 @@ struct PlaylistListView: View {
     }
 
     @MainActor private func addSample() {
-        do {
-            let _ = try modelContext.createPlaylist(title: "New Playlist", description: nil, imageRef: nil, tracks: [])
-        } catch {
-            Logger(subsystem: "Auralis", category: "PlaylistUI").error("Add failed: \(String(describing: error))")
-        }
+        showingNewPlaylist = true
     }
 
     @MainActor private func delete(_ pl: Playlist) {
