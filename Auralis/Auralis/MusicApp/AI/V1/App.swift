@@ -294,68 +294,6 @@ private struct MusicNFTCard: View {
     }
 }
 
-// MARK: - Reusable Recently Played Card (for broader reuse in the app)
-struct RecentlyPlayedCard: View {
-    let nft: NFT
-    let imageURLString: String?
-    let title: String
-    let lastPlayed: Date?
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                ZStack(alignment: .bottomTrailing) {
-                    if let s = imageURLString, let url = URL(string: s) {
-                        AsyncImage(url: url) { image in
-                            image.resizable().scaledToFill()
-                        } placeholder: {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.gray.opacity(0.25))
-                                .overlay { Image(systemName: "music.note").foregroundStyle(.gray) }
-                        }
-                        .frame(height: 120)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    } else {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.gray.opacity(0.25))
-                            .frame(height: 120)
-                            .overlay { Image(systemName: "music.note").foregroundStyle(.gray) }
-                    }
-                    Image(systemName: "play.circle.fill")
-                        .symbolRenderingMode(.hierarchical)
-                        .font(.system(size: 22))
-                        .foregroundStyle(.white.opacity(0.95))
-                        .shadow(radius: 2)
-                        .padding(8)
-                        .accessibilityHidden(true)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
-                        .foregroundStyle(.primary)
-                    if let lastPlayed {
-                        Text(lastPlayed, style: .relative)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    } else {
-                        Text("Recently played")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(title.isEmpty ? "Unknown Track" : title)")
-        .accessibilityHint("Resume playback")
-    }
-}
-
 // Display name helper for your Chain enum
 extension Chain {
     var displayName: String {

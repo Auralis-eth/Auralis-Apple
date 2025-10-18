@@ -25,7 +25,7 @@ struct PlaylistListView: View {
         .sheet(isPresented: $showingNewPlaylist) {
             NewPlaylistView { createdTitle in
                 successMessage = String(format: NSLocalizedString("Created \"%@\"", comment: "Success message after creating playlist"), createdTitle)
-            }}
+            }
         }
         .alert(isPresented: .init(get: { successMessage != nil }, set: { if !$0 { successMessage = nil } })) {
             Alert(title: Text(successMessage ?? ""))
@@ -63,10 +63,6 @@ struct PlaylistListView: View {
                 Label("Add", systemImage: "plus")
             }
         }
-    }
-
-    @MainActor private func addSample() {
-        showingNewPlaylist = true
     }
 
     @MainActor private func delete(_ pl: Playlist) {

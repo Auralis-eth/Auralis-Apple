@@ -2,672 +2,568 @@
 //  AudioEngine.swift
 //  Auralis
 //
-//  Refactored: Thin façade over modular playback stack.
+//  Created by Daniel Bell on 9/4/25.
 //
 
-import Foundation
+
+
 import AVFoundation
-import AVFAudio
-import MediaPlayer
-import Combine
+import Foundation
 
 @MainActor
-final class AudioEngine: ObservableObject {
-    // Published state exposed to UI
+public class AudioEngine: ObservableObject {
+    private var currentNFT: NFT?
+    private var audioEngine = AVAudioEngine()
+    private var playerNode = AVAudioPlayerNode()
+    
+    public var audioFile: AVAudioFile?
+    public var previousAudio = Playlist(name: "Previous")
+    public var nextAudio = Playlist(name: "Next")
+    
+    
+    private var pausedAt: TimeInterval = 0
+    private var seekPosition: TimeInterval = 0
+    private var tempAudioURL: URL? // Track temporary downloaded file
+
+    private var currentLoadTask: Task<Void, Error>?
+    private var activeLoadID = UUID()
+    
+    public enum PlaybackState: Equatable, Sendable, Codable  {
+        case stopped
+        case playing
+        case paused
+        case loading
+        case error
+    }
+
+    
+    public struct Track: Identifiable, Equatable, Hashable, Codable, Sendable {
+        public let id = UUID()
+        var title: String?
+        var artist: String?
+        var duration: TimeInterval
+        var imageUrl: String?
+    }
+
     @Published var currentTrack: Track? = nil
     @Published var playbackState: PlaybackState = .stopped
-    @Published var progress: TimeInterval = 0
-
-    // Error surfacing to UI
-    enum PlaybackErrorCategory: Equatable {
-        case permission
-        case network
-        case offline
-        case decoding
-        case queue
-        case unsupported
-        case unknown
-    }
-    struct PlaybackErrorState: Equatable {
-        let category: PlaybackErrorCategory
-        let message: String
-        let context: String
-    }
-    @Published var errorState: PlaybackErrorState? = nil
-
-    // User prefs
-    @Published var isShuffleEnabled: Bool = false { didSet { 
-        queue.isShuffleEnabled = isShuffleEnabled 
-        UserDefaults.standard.set(isShuffleEnabled, forKey: PreferencesKeys.shuffleEnabled)
-    } }
-    @Published var repeatMode: QueueManager.RepeatMode = .none { didSet { 
-        queue.repeatMode = repeatMode 
-        UserDefaults.standard.set(Self.encodeRepeatMode(repeatMode), forKey: PreferencesKeys.repeatMode)
-    } }
-    @Published var coarseSkipSeconds: TimeInterval = 10 { didSet { 
-        reconfigureRCC()
-        UserDefaults.standard.set(coarseSkipSeconds, forKey: PreferencesKeys.coarseSkipSeconds)
-    } }
-
-    // Persistence
-    private struct PreferencesKeys {
-        static let shuffleEnabled = "AudioEngine.shuffleEnabled"
-        static let repeatMode = "AudioEngine.repeatMode"
-        static let coarseSkipSeconds = "AudioEngine.coarseSkipSeconds"
-    }
-
-    private static func encodeRepeatMode(_ mode: QueueManager.RepeatMode) -> String {
-        switch mode {
-        case .none: return "none"
-        case .track:
-            return "track"
-        case .playlist:
-            return "playlist"
-        }
-    }
-
-    private static func decodeRepeatMode(_ raw: String) -> QueueManager.RepeatMode {
-        switch raw {
-        case "track": return .track
-        case "playlist": return .playlist
-        default: return .none
-        }
-    }
-
-    // Combine subscriptions
-    private var cancellables = Set<AnyCancellable>()
-
-    private var currentDuration: TimeInterval = 0
-
-    // Background-safe progress ticker
-    private var progressTimer: DispatchSourceTimer? = nil
-
-    // Configurable progress cadence (runtime adjustable)
-    @Published var progressUpdateInterval: TimeInterval = 0.25 { didSet { rearmProgressTimer() } }
-    // If nil, a sensible default leeway is derived from interval (50–100ms window)
-    @Published var progressUpdateLeeway: TimeInterval? = nil { didSet { rearmProgressTimer() } }
-
-    private func computedLeeway() -> DispatchTimeInterval {
-        // Default: 40% of interval, clamped to [50ms, 100ms]
-        let base = max(0.0, progressUpdateInterval) * 0.4
-        let clamped = min(0.100, max(0.050, base))
-        let leewaySeconds = progressUpdateLeeway ?? clamped
-        let ms = Int((leewaySeconds * 1000.0).rounded())
-        return .milliseconds(ms)
-    }
-
-    // Audio session observers
-    private var audioSessionObservers: [NSObjectProtocol] = []
-    private var wasPlayingBeforeInterruption: Bool = false
-    private var pausedDueToRouteChange: Bool = false
-
-    // Centralized audio session state
-    private var isSessionConfigured: Bool = false
-    private var isSessionActive: Bool = false
-    private var didSessionInitFail: Bool = false
-
-    // Services
-    private let graph = AudioGraph()
-    private let session = AudioSessionManager()
-    private lazy var preloader = Preloader()
-    private var queue = QueueManager()
-    private lazy var crossfade = CrossfadeCoordinator(graph: graph)
-    private let nowPlaying = NowPlayingService()
-    private lazy var controller = PlaybackController(graph: graph,
-                                                     session: session,
-                                                     preloader: preloader,
-                                                     queue: queue,
-                                                     crossfade: crossfade,
-                                                     nowPlaying: nowPlaying,
-                                                     crossfadeSeconds: 2.0,
-                                                     skipInterval: coarseSkipSeconds)
-
-    // RCC
-    private let rcc = RemoteCommandService()
     
-    // Cache last-known availability to avoid gaps during RCC reconfig
-    private var lastCanNext: Bool = false
-    private var lastCanPrevious: Bool = false
-    private var lastRCCSkipInterval: TimeInterval? = nil
-
-    // MARK: - Centralized Audio Session Ownership
-    private func configureAndActivateSessionWithRetry(maxAttempts: Int = 3) {
-        guard !didSessionInitFail else { return }
-        let av = AVAudioSession.sharedInstance()
-        var lastError: Error?
-        for attempt in 1...maxAttempts {
-            do {
-                if !isSessionConfigured {
-                    try av.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetooth])
-                    isSessionConfigured = true
-                }
-                if !isSessionActive {
-                    try av.setActive(true, options: [])
-                    isSessionActive = true
-                }
-                // Success
-                return
-            } catch {
-                lastError = error
-                // Exponential backoff: 0.2s, 0.4s, 0.8s
-                let delay = pow(2.0, Double(attempt - 1)) * 0.2
-                Thread.sleep(forTimeInterval: delay)
-            }
-        }
-        didSessionInitFail = true
-        if let err = lastError {
-            self.mapAndPublishError(err, context: "audioSession configureAndActivate")
-        } else {
-            self.publishError(.permission, message: "Unable to activate audio session. Check audio permissions and output.", context: "audioSession configureAndActivate")
-        }
-    }
-
-    private func activateSessionIfNeeded(context: String) {
-        guard !didSessionInitFail else { return }
-        if isSessionActive { return }
-        let av = AVAudioSession.sharedInstance()
-        do {
-            try av.setActive(true, options: [])
-            isSessionActive = true
-        } catch {
-            self.mapAndPublishError(error, context: context)
-        }
-    }
-
-    private func attemptResumeWithVerification(context: String, delay: TimeInterval = 0.4) {
-        // Ensure we have something to resume
-        guard currentTrack != nil else { return }
-        // Reactivate session if needed
-        activateSessionIfNeeded(context: context)
-        // First attempt: resume
-        controller.resume()
-        // Verify after a short delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            guard let self = self else { return }
-            if self.playbackState != .playing {
-                // Fallback attempt: explicit play
-                self.controller.play()
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                    guard let self = self else { return }
-                    if self.playbackState != .playing {
-                        // Surface a non-fatal error; state is preserved and user can retry
-                        self.publishError(.queue, message: "Failed to resume playback after interruption/route change.", context: context)
-                    }
-                }
-            }
-        }
-    }
-
-    private func deactivateSessionIfActive() {
-        guard isSessionActive else { return }
-        let av = AVAudioSession.sharedInstance()
-        do {
-            try av.setActive(false, options: [.notifyOthersOnDeactivation])
-            isSessionActive = false
-        } catch {
-            self.mapAndPublishError(error, context: "audioSession setActive false")
-        }
+    // Computed property to eliminate state redundancy
+    var isPlaying: Bool {
+        playbackState == .playing
     }
     
-    private func deactivateSessionIfActiveWithRetry(maxAttempts: Int = 3) {
-        guard isSessionActive else { return }
-        let av = AVAudioSession.sharedInstance()
-        var lastError: Error?
-        for attempt in 1...maxAttempts {
-            do {
-                try av.setActive(false, options: [.notifyOthersOnDeactivation])
-                isSessionActive = false
-                return
-            } catch {
-                lastError = error
-                // Exponential backoff: 0.1s, 0.2s, 0.4s
-                let delay = pow(2.0, Double(attempt - 1)) * 0.1
-                Thread.sleep(forTimeInterval: delay)
-            }
-        }
-        if let err = lastError {
-            // Surface deactivation error rather than failing silently
-            self.mapAndPublishError(err, context: "audioSession setActive false (retry)")
-        }
+    var progress: Double {
+        duration > 0 ? currentTime / duration : 0
     }
-
-    private func ensureOperational(_ context: String) -> Bool {
-        if didSessionInitFail {
-            publishError(.permission, message: "Audio session unavailable. Check device audio settings and permissions.", context: context)
-            return false
-        }
-        return true
-    }
-
-    private func publishError(_ category: PlaybackErrorCategory, message: String, context: String) {
-        errorState = PlaybackErrorState(category: category, message: message, context: context)
-    }
-
-    private func mapAndPublishError(_ error: Error, context: String) {
-        // Comprehensive mapping across AVError, AVAudioSession, URLError, Cocoa file/decoding, and app-internal fallbacks.
-        var category: PlaybackErrorCategory = .unknown
-        let nsError = error as NSError
-
-        // Fast-path: Network-related errors
-        if let urlError = error as? URLError {
-            switch urlError.code {
-            case .notConnectedToInternet, .timedOut:
-                category = .offline
-            case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed, .networkConnectionLost, .secureConnectionFailed, .badServerResponse, .dataNotAllowed:
-                category = .network
-            default:
-                category = .network
-            }
-            publishError(category, message: error.localizedDescription, context: context)
-            return
-        }
-
-        // Attempt to interpret as a typed AVAudioSession error first (rare but future-proof if thrown as such).
-        if let avError = error as? AVError {
-            switch avError.code {
-            case .deviceNotConnected:
-                category = .unknown // or create .audioSession if needed
-            case .fileFormatNotRecognized, .fileFailedToParse:
-                category = .decoding
-            case .contentIsNotAuthorized, .contentIsProtected:
-                category = .permission
-            case .noDataCaptured, .diskFull:
-                category = .unknown
-            case .invalidSourceMedia, .decoderNotFound:
-                category = .decoding
-            case .unsupportedOutputSettings, .encoderNotFound:
-                category = .unsupported
-            case .deviceIsNotAvailableInBackground:
-                category = .unknown
-            default:
-                category = .unknown
-            }
-        } else if nsError.domain == NSOSStatusErrorDomain {
-            if let avErrorCode = AVAudioSession.ErrorCode(rawValue: nsError.code) {
-                switch avErrorCode {
-                case .cannotStartRecording:
-                    category = .permission  // Often related to permission or configuration issues preventing recording
-                case .isBusy, .cannotInterruptOthers, .siriIsRecording:
-                    category = .queue  // Device or session is busy or in use
-                case .incompatibleCategory, .cannotStartPlaying:
-                    category = .unsupported
-                case .mediaServicesFailed, .missingEntitlement:
-                    category = .unknown
-                // Add other specific AVAudioSession.ErrorCode cases as needed
-                default:
-                    category = .unknown
-                }
-            } else {
-                category = .unknown
-            }
-        } else if nsError.domain == NSCocoaErrorDomain {
-            switch nsError.code {
-            case NSFileReadNoSuchFileError, NSFileNoSuchFileError, NSFileReadUnknownError:
-                category = .network // or decoding depending on source; treat as network/missing asset when remote-backed
-            case NSFileReadInapplicableStringEncodingError, NSFileReadCorruptFileError:
-                category = .decoding
-            case NSFileReadNoPermissionError, NSFileWriteNoPermissionError:
-                category = .permission
-            case NSFileWriteOutOfSpaceError:
-                category = .unknown
-            default:
-                category = .unsupported
-            }
-        } else if nsError.domain == NSURLErrorDomain {
-            switch nsError.code {
-            case NSURLErrorNotConnectedToInternet, NSURLErrorTimedOut:
-                category = .offline
-            case NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost, NSURLErrorDNSLookupFailed, NSURLErrorNetworkConnectionLost, NSURLErrorSecureConnectionFailed, NSURLErrorBadServerResponse, NSURLErrorDataNotAllowed:
-                category = .network
-            default:
-                category = .network
-            }
-        } else if nsError.domain == AVFoundationErrorDomain {
-            // Treat remaining AVFoundation errors as decoding/unsupported based on code ranges
-            if let avError = error as? AVError {
-                switch avError.code {
-                case .fileFormatNotRecognized, .fileFailedToParse, .invalidSourceMedia, .decoderNotFound:
-                    category = .decoding
-                case .unsupportedOutputSettings, .encoderNotFound:
-                    category = .unsupported
-                default:
-                    category = .queue
-                }
-            } else {
-                category = .queue
-            }
-        } else {
-            // Heuristic: Prefer queue-related category for app-internal failures
-            category = .queue
-        }
-
-        // Use the original error's localized description for messaging.
-        publishError(category, message: error.localizedDescription, context: context)
-    }
-
-    func clearError() { errorState = nil }
-
-    private func refreshRCCAvailability(canNext: Bool? = nil, canPrevious: Bool? = nil, duration: TimeInterval? = nil) {
-        let hasTrack = (currentTrack != nil) && (playbackState != .stopped)
-        let dur = duration ?? currentDuration
-        let canScrub = hasTrack && dur > 0
-        let canSkip = canScrub // coarse skip only valid for finite-duration tracks
-        // If explicit next/prev were provided (e.g., from a fresh snapshot), use them; otherwise be conservative.
-        let next = canNext ?? false
-        let prev = canPrevious ?? false
-        rcc.setAvailability(canNext: next, canPrevious: prev, canSkip: canSkip, canScrub: canScrub)
-    }
-
-    private func reconfigureRCC() {
-        // If the interval hasn't changed, avoid unregister/register churn
-        if let last = lastRCCSkipInterval, last == coarseSkipSeconds {
-            // Just ensure closures are wired and availability is refreshed with last-known state
-            rcc.onPlay = { [weak self] in self?.play() }
-            rcc.onPause = { [weak self] in self?.pause() }
-            rcc.onToggle = { [weak self] in
-                guard let self else { return }
-                if self.playbackState == .playing { self.pause() } else { self.play() }
-            }
-            rcc.onNext = { [weak self] in Task { await self?.playNext() } }
-            rcc.onPrevious = { [weak self] in Task { await self?.playPrevious() } }
-            rcc.onSeek = { [weak self] t in self?.seek(to: t) }
-            rcc.onSkipForward = { [weak self] d in self?.skipForward(seconds: d) }
-            rcc.onSkipBackward = { [weak self] d in self?.skipBackward(seconds: d) }
-            // Restore availability immediately using last-known state
-            refreshRCCAvailability(canNext: lastCanNext, canPrevious: lastCanPrevious, duration: currentDuration)
-            return
-        }
-
-        // Otherwise, perform a controlled re-registration with minimal gap
-        rcc.unregister()
-        rcc.register(skipInterval: coarseSkipSeconds)
-        lastRCCSkipInterval = coarseSkipSeconds
+    
+    enum AudioEngineError: Error {
+        case sessionSetupFailed
+        case engineStartFailed
+        case fileLoadFailed
+        case unsupportedFormat
+        case seekFailed
+        case downloadFailed
         
-        // Re-wire closures
-        rcc.onPlay = { [weak self] in self?.play() }
-        rcc.onPause = { [weak self] in self?.pause() }
-        rcc.onToggle = { [weak self] in
-            guard let self else { return }
-            if self.playbackState == .playing { self.pause() } else { self.play() }
+        var localizedDescription: String {
+            switch self {
+            case .sessionSetupFailed:
+                return "Failed to configure audio session"
+            case .engineStartFailed:
+                return "Failed to start audio engine"
+            case .fileLoadFailed:
+                return "Failed to load audio file"
+            case .unsupportedFormat:
+                return "Unsupported audio format"
+            case .seekFailed:
+                return "Failed to seek to position"
+            case .downloadFailed:
+                return "Failed to download remote audio file"
+            }
         }
-        rcc.onNext = { [weak self] in Task { await self?.playNext() } }
-        rcc.onPrevious = { [weak self] in Task { await self?.playPrevious() } }
-        rcc.onSeek = { [weak self] t in self?.seek(to: t) }
-        rcc.onSkipForward = { [weak self] d in self?.skipForward(seconds: d) }
-        rcc.onSkipBackward = { [weak self] d in self?.skipBackward(seconds: d) }
-
-        // Immediately reflect current availability using last-known queue state and duration
-        refreshRCCAvailability(canNext: lastCanNext, canPrevious: lastCanPrevious, duration: currentDuration)
     }
-
-    private func startProgressTimer() {
-        // Avoid duplicate timers
-        guard progressTimer == nil else { return }
-        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
-        let intervalNs = UInt64(progressUpdateInterval * 1_000_000_000)
-        timer.schedule(deadline: .now() + progressUpdateInterval,
-                       repeating: .nanoseconds(Int(intervalNs)),
-                       leeway: computedLeeway())
-        timer.setEventHandler { [weak self] in
-            guard let _ = self else { return }
-            // Cadence timer intentionally does not mutate progress. Authoritative updates come from controller snapshots.
-        }
-        progressTimer = timer
-        timer.resume()
+    
+    init() throws {
+        try setupAudioSession()
+        try setupAudioEngine()
+        setupInterruptionHandling()
     }
-
-    private func stopProgressTimer() {
-        progressTimer?.setEventHandler {}
-        progressTimer?.cancel()
-        progressTimer = nil
+    
+    // MARK: - Audio Session Configuration
+    private func setupAudioSession() throws {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            // Removed .mixWithOthers for proper music app behavior
+            try session.setCategory(.playback, mode: .default)
+            try session.setActive(true)
+        } catch {
+            throw AudioEngineError.sessionSetupFailed
+        }
     }
-
-    private func rearmProgressTimer() {
-        // Only rearm if a timer is currently active (to avoid starting it in stopped state)
-        let wasRunning = (progressTimer != nil)
-        if wasRunning { stopProgressTimer() }
-        if wasRunning { startProgressTimer() }
+    
+    // MARK: - Audio Engine Setup
+    private func setupAudioEngine() throws {
+        audioEngine.attach(playerNode)
+        audioEngine.connect(playerNode, to: audioEngine.mainMixerNode, format: nil)
+        
+        do {
+            try audioEngine.start()
+        } catch {
+            throw AudioEngineError.engineStartFailed
+        }
     }
-
-    init() {
-        // Load persisted user preferences
-        if UserDefaults.standard.object(forKey: PreferencesKeys.shuffleEnabled) != nil {
-            self.isShuffleEnabled = UserDefaults.standard.bool(forKey: PreferencesKeys.shuffleEnabled)
+    
+    // MARK: - Audio Interruption Handling
+    private func setupInterruptionHandling() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleInterruption),
+            name: AVAudioSession.interruptionNotification,
+            object: nil
+        )
+    }
+    
+    @discardableResult
+    private func beginNewLoad() async -> UUID {
+        // Capture and cancel any in-flight load task, then await its completion to avoid overlap
+        let previousTask = currentLoadTask
+        currentLoadTask = nil
+        previousTask?.cancel()
+        _ = try? await previousTask?.value
+        let id = UUID()
+        activeLoadID = id
+        return id
+    }
+    
+    @objc private func handleInterruption(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+            return
         }
-        if let rawRepeat = UserDefaults.standard.string(forKey: PreferencesKeys.repeatMode) {
-            self.repeatMode = Self.decodeRepeatMode(rawRepeat)
-        }
-        if UserDefaults.standard.object(forKey: PreferencesKeys.coarseSkipSeconds) != nil {
-            let val = UserDefaults.standard.double(forKey: PreferencesKeys.coarseSkipSeconds)
-            if val > 0 { self.coarseSkipSeconds = val }
-        }
-
-        // Wire RCC
-        reconfigureRCC()
-
-        // Configure audio session for background playback with retry
-        configureAndActivateSessionWithRetry(maxAttempts: 3)
-
-        // Observe interruptions to survive calls/alarms
-        let intObs = NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
-            guard let self = self else { return }
-            guard let info = note.userInfo,
-                  let typeRaw = info[AVAudioSessionInterruptionTypeKey] as? UInt,
-                  let type = AVAudioSession.InterruptionType(rawValue: typeRaw) else { return }
+        
+        Task { @MainActor in
             switch type {
             case .began:
-                // Record if we were playing and pause gracefully
-                self.wasPlayingBeforeInterruption = (self.playbackState == .playing)
-                if self.wasPlayingBeforeInterruption {
-                    self.controller.pause()
+                if playbackState == .playing {
+                    pause()
                 }
             case .ended:
-                let shouldResume = (info[AVAudioSessionInterruptionOptionKey] as? UInt).map { AVAudioSession.InterruptionOptions(rawValue: $0).contains(.shouldResume) } ?? false
-                if self.wasPlayingBeforeInterruption && shouldResume {
-                    self.attemptResumeWithVerification(context: "audioSession reactivationAfterInterruption")
+                // Reactivate the audio session first
+                do {
+                    try AVAudioSession.sharedInstance().setActive(true)
+                } catch {
+                    return
                 }
-                self.wasPlayingBeforeInterruption = false
+                
+                guard let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt else {
+                    return
+                }
+                let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+                if options.contains(.shouldResume) && playbackState == .paused {
+                    try? resume()
+                }
             @unknown default:
                 break
             }
         }
-        audioSessionObservers.append(intObs)
+    }
 
-        // Observe route changes (e.g., headphones unplugged)
-        let routeObs = NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] note in
-            guard let self = self else { return }
-            guard let reasonRaw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
-                  let reason = AVAudioSession.RouteChangeReason(rawValue: reasonRaw) else { return }
-            switch reason {
-            case .oldDeviceUnavailable:
-                // Pause when output disappears (e.g., headphone unplug)
-                self.controller.pause()
-                self.pausedDueToRouteChange = true
-            case .newDeviceAvailable, .routeConfigurationChange, .categoryChange, .override:
-                // Attempt to resume if we paused due to a prior route change
-                if self.pausedDueToRouteChange {
-                    self.attemptResumeWithVerification(context: "audioSession resumeAfterRouteChange")
-                    self.pausedDueToRouteChange = false
+    private func canPlayFormat(_ url: URL) -> Bool {
+        // File extensions supported by AVAudioFile/Core Audio
+        let supportedFormats: Set<String> = [
+            // Uncompressed / PCM
+            "wav",      // Waveform Audio
+            "aif", "aiff", "aifc", // AIFF / AIFC
+            "caf",      // Core Audio Format
+
+            // Compressed
+            "mp3",      // MPEG Layer III
+            "m4a",      // MPEG-4 Audio (AAC or ALAC)
+            "mp4",      // MPEG-4 container with audio
+            "aac", "adts", // AAC raw or ADTS
+
+            // Dolby
+            "ac3", "eac3", // AC-3 and Enhanced AC-3 (device support dependent)
+
+            // FLAC (iOS 11+ / macOS 10.13+)
+            "flac"
+        ]
+        
+        // Domains that serve audio content without file extensions
+        let audioServingDomains: Set<String> = [
+            "arweave.net",
+            "ipfs.io",
+            "gateway.pinata.cloud"
+        ]
+        
+        if let host = url.host?.lowercased(), audioServingDomains.contains(host) {
+            return true
+        }
+        
+        let fileExtension = url.pathExtension.lowercased()
+        return supportedFormats.contains(fileExtension)
+    }
+
+    
+    // MARK: - Remote File Download
+    private func downloadAudioFile(from url: URL) async throws -> URL {
+        let (tempURL, response) = try await URLSession.shared.download(from: url)
+        
+        try Task.checkCancellation()
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw AudioEngineError.downloadFailed
+        }
+        
+        // Create a permanent temp file with proper extension
+        let documentsPath = FileManager.default.temporaryDirectory
+        let fileName = url.lastPathComponent.isEmpty ? "audio.mp3" : url.lastPathComponent
+        let permanentURL = documentsPath.appendingPathComponent(fileName)
+        
+        // Remove existing file if it exists
+        try? FileManager.default.removeItem(at: permanentURL)
+        
+        // Move downloaded file to permanent location
+        try FileManager.default.moveItem(at: tempURL, to: permanentURL)
+        
+        return permanentURL
+    }
+    
+    // MARK: - Audio Loading and Playback
+    private func loadAudio(from url: URL, title: String?, artist: String?, imageUrl: String?, loadID: UUID) async throws {
+        playbackState = .loading
+        
+        // Respect task cancellation and staleness
+        try Task.checkCancellation()
+        guard loadID == activeLoadID else { throw CancellationError() }
+        
+        // Clean up previous temp file
+        if let tempURL = tempAudioURL {
+            try? FileManager.default.removeItem(at: tempURL)
+            tempAudioURL = nil
+        }
+        
+        let localURL: URL
+        
+        if url.scheme == "http" || url.scheme == "https" {
+            let downloadedURL = try await downloadAudioFile(from: url)
+            try Task.checkCancellation()
+            guard loadID == activeLoadID else {
+                // Clean up stale downloaded file
+                try? FileManager.default.removeItem(at: downloadedURL)
+                throw CancellationError()
+            }
+            localURL = downloadedURL
+            tempAudioURL = localURL
+        } else {
+            localURL = url
+        }
+        
+        try Task.checkCancellation()
+        guard loadID == activeLoadID else { throw CancellationError() }
+        
+        do {
+            audioFile = try AVAudioFile(forReading: localURL)
+            seekPosition = 0
+            pausedAt = 0
+            playbackState = .stopped
+            currentTrack = Track(title: title, artist: artist, duration: self.duration, imageUrl: imageUrl)
+        } catch {
+            playbackState = .stopped
+            throw AudioEngineError.fileLoadFailed
+        }
+    }
+    
+    public func play() throws {
+        // If no audio file is loaded, try to advance to the next queued item
+        guard let audioFile = audioFile else {
+            Task { @MainActor in
+                await self.playNext()
+            }
+            return
+        }
+
+        // Stop and clear any existing playback
+        playerNode.stop()
+
+        // Schedule from current seek position
+        let sampleRate = audioFile.processingFormat.sampleRate
+        let startFrame = AVAudioFramePosition(seekPosition * sampleRate)
+        let remainingFrames = AVAudioFrameCount(audioFile.length - startFrame)
+
+        // If we've reached the end or there's nothing to play, try next item
+        guard remainingFrames > 0 else {
+            Task { @MainActor in
+                await self.playNext()
+            }
+            return
+        }
+
+        playerNode.scheduleSegment(audioFile, startingFrame: startFrame, frameCount: remainingFrames, at: nil) {
+            Task { @MainActor in
+                if self.playbackState == .playing {
+                    self.playbackState = .stopped
+                    // Auto-advance to next item in the next queue if available
+                    await self.playNext()
                 }
-            default:
-                break
             }
         }
-        audioSessionObservers.append(routeObs)
 
-        // Bridge controller snapshot -> façade published vars
-        controller.$snapshot
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] snap in
-                guard let self = self else { return }
-                self.playbackState = snap.state
-                self.currentTrack = snap.track
-
-                // Keep a copy of duration for clamping
-                self.currentDuration = snap.duration
-
-                // Reset progress and availability when no track or stopped
-                if snap.track == nil || snap.state == .stopped {
-                    self.progress = 0
-                    self.stopProgressTimer()
-                    self.refreshRCCAvailability(canNext: false, canPrevious: false, duration: 0)
-                } else {
-                    // Drive progress from authoritative playback time (elapsed)
-                    let elapsed = snap.elapsed
-                    if self.currentDuration > 0 {
-                        self.progress = min(max(0, elapsed), self.currentDuration)
-                    } else {
-                        self.progress = max(0, elapsed)
-                    }
-                    
-                    // Ensure cadence timer is running while we have an active track
-                    self.startProgressTimer()
-
-                    // Derive RCC availability: next/prev from queue navigability, scrub/skip from finite duration
-                    let canNext = snap.canSkipNext
-                    let canPrev = snap.canSkipPrevious
-                    // Update last-known RCC state to avoid gaps during reconfiguration
-                    self.lastCanNext = canNext
-                    self.lastCanPrevious = canPrev
-                    self.refreshRCCAvailability(canNext: canNext, canPrevious: canPrev, duration: snap.duration)
-                }
-            }
-            .store(in: &cancellables)
-    }
-
-    // MARK: - Public API (compat)
-    func loadAndPlay(nft: NFT) async {
-        guard ensureOperational("loadAndPlay") else { return }
-        do {
-            try await controller.loadAndPlay(nft: nft)
-        } catch {
-            let details = String(describing: nft)
-            self.mapAndPublishError(error, context: "loadAndPlay nft=\(details)")
-        }
+        playerNode.play()
+        playbackState = .playing
     }
     
-    func play() {
-        guard ensureOperational("play") else { return }
-        if currentTrack == nil {
-            publishError(.queue, message: "Nothing to play. The queue is empty.", context: "play")
-            return
-        }
-        activateSessionIfNeeded(context: "audioSession activate for play")
-        controller.play()
+    // Fixed pause implementation - AVAudioPlayerNode doesn't have pause()
+    public func pause() {
+        guard playbackState == .playing else { return }
+        pausedAt = currentTime
+        playerNode.stop()
+        playbackState = .paused
     }
     
-    func pause() { controller.pause() }
-    
-    func resume() {
-        guard ensureOperational("resume") else { return }
-        if currentTrack == nil {
-            publishError(.queue, message: "Cannot resume: no current track.", context: "resume")
-            return
-        }
-        activateSessionIfNeeded(context: "audioSession activate for resume")
-        controller.resume()
+    public func resume() throws {
+        guard playbackState == .paused else { return }
+        seekPosition = pausedAt
+        try play()
     }
     
-    func seek(to time: TimeInterval) {
-        // Validate seekability
-        guard currentTrack != nil else {
-            publishError(.queue, message: "Cannot seek: no current track.", context: "seek")
-            return
-        }
-        // Always allow seeking to zero (and clamp negatives to zero) even for unknown durations
-        if time <= 0 {
-            controller.seek(to: 0)
-            return
-        }
-        // For positive seeks, require a known finite duration
-        if currentDuration <= 0 {
-            publishError(.unsupported, message: "Seeking is unavailable for this track.", context: "seek")
-            return
-        }
-        controller.seek(to: time)
-    }
-    
-    func skipForward(seconds: TimeInterval? = nil) { 
-        let delta = seconds ?? coarseSkipSeconds
-        controller.skipForward(seconds: delta)
-    }
-    
-    func skipBackward(seconds: TimeInterval? = nil) { 
-        let delta = seconds ?? coarseSkipSeconds
-        controller.skipBackward(seconds: delta)
-    }
-    
-    func playNext() async {
-        guard ensureOperational("playNext") else { return }
-        if currentTrack == nil {
-            publishError(.queue, message: "No next track: the queue is empty.", context: "playNext")
-            return
-        }
-        do {
-            try await controller.playNext()
-        } catch {
-            self.mapAndPublishError(error, context: "playNext")
-        }
-    }
-    
-    func playPrevious() async {
-        guard ensureOperational("playPrevious") else { return }
-        if currentTrack == nil {
-            publishError(.queue, message: "No previous track: the queue is empty.", context: "playPrevious")
-            return
-        }
-        do {
-            try await controller.playPrevious()
-        } catch {
-            self.mapAndPublishError(error, context: "playPrevious")
-        }
-    }
-
-    func shutdown() {
-        // Stop playback pipeline first to halt in-flight operations
-        controller.stop()
-        
-        // Cancel Combine subscriptions
-        cancellables.forEach { $0.cancel() }
-        cancellables.removeAll()
-        // Stop background progress timer
-        stopProgressTimer()
-        rcc.unregister()
-        
-        // Cancel crossfade timers to prevent lingering callbacks
-        crossfade.cancel()
-        
-        // Clear RCC closures to break retain cycles
-        rcc.onPlay = nil
-        rcc.onPause = nil
-        rcc.onToggle = nil
-        rcc.onNext = nil
-        rcc.onPrevious = nil
-        rcc.onSeek = nil
-        rcc.onSkipForward = nil
-        rcc.onSkipBackward = nil
-        
-        // Reset published and internal state to pristine stopped condition
+    private func stop() {
+        playerNode.stop()
+        seekPosition = 0
+        pausedAt = 0
         playbackState = .stopped
-        currentTrack = nil
-        progress = 0
-        currentDuration = 0
-        rcc.setAvailability(canNext: false, canPrevious: false, canSkip: false, canScrub: false)
-
-        // Remove audio session observers and deactivate session with retry
-        audioSessionObservers.forEach { NotificationCenter.default.removeObserver($0) }
-        audioSessionObservers.removeAll()
-        deactivateSessionIfActiveWithRetry(maxAttempts: 3)
-    }
-
-    func clearCachesAndRelease() {
-        Task { await AudioFileCache.shared.clearAll() }
     }
     
+    // MARK: - Fixed Seek Functionality
+    public func seek(to time: TimeInterval) throws {
+        guard let audioFile = audioFile else { return }
+        
+        let duration = self.duration
+        let clampedTime = max(0, min(time, duration))
+        
+        let wasPlaying = playbackState == .playing
+        
+        // Stop and clear buffers
+        playerNode.stop()
+        
+        // Update seek position
+        seekPosition = clampedTime
+        pausedAt = clampedTime
+        
+        // If we were playing, restart from new position
+        if wasPlaying {
+            try play()
+        }
+    }
+    
+    // MARK: - Playlist Navigation
     @MainActor
+    public func playNext() async {
+        // If there's an item queued in Next, play it
+        guard !nextAudio.tracks.isEmpty else {
+            stop()
+            return
+        }
+
+        let next = nextAudio.tracks.removeFirst()
+
+        // Move current item to Previous if available
+        if let current = currentNFT {
+            previousAudio.tracks.append(current)
+        }
+
+        do {
+            // loadAndPlay auto-starts playback; no need to call play() again
+            try await loadAndPlay(nft: next)
+        } catch {
+            // If the error is a cancellation (stale load), do nothing; a newer request will handle playback
+            if error is CancellationError { return }
+            // If playback fails, try the next item recursively, or stop if none
+            await playNextSafely()
+        }
+    }
+
+    @MainActor
+    private func playNextSafely() async {
+        if nextAudio.tracks.isEmpty {
+            stop()
+        } else {
+            await playNext()
+        }
+    }
+
+    @MainActor
+    public func playPrevious() async {
+        guard !previousAudio.tracks.isEmpty else {
+            // If nothing in previous, restart current or stop
+            seekPosition = 0
+            pausedAt = 0
+            if playbackState == .playing {
+                try? play()
+            }
+            return
+        }
+
+        let previous = previousAudio.tracks.removeLast()
+
+        // Put current on the front of Next so we can go forward again
+        if let current = currentNFT {
+            nextAudio.tracks.insert(current, at: 0)
+        }
+
+        do {
+            // loadAndPlay auto-starts playback; no need to call play() again
+            try await loadAndPlay(nft: previous)
+        } catch {
+            // If the error is a cancellation (stale load), do nothing; a newer request will handle playback
+            if error is CancellationError { return }
+            // If playback fails, attempt the previous again if available
+            await playPreviousSafely()
+        }
+    }
+
+    @MainActor
+    private func playPreviousSafely() async {
+        if previousAudio.tracks.isEmpty {
+            stop()
+        } else {
+            await playPrevious()
+        }
+    }
+    
+    // Note: This method loads the file and immediately starts playback (auto-play).
+    private func loadAndPlay(url: URL, title: String?, artist: String?, imageUrl: String?) async throws {
+        guard canPlayFormat(url) else {
+            throw AudioEngineError.unsupportedFormat
+        }
+        
+        // Use the current activeLoadID to guard against stale completions
+        let loadID = activeLoadID
+        
+        try await loadAudio(from: url, title: title, artist: artist, imageUrl: imageUrl, loadID: loadID)
+        try Task.checkCancellation()
+        guard loadID == activeLoadID else { throw CancellationError() }
+        try play()
+    }
+    
+    // Convenience: Play directly from an NFT and track current item for prev/next
+    public func loadAndPlay(nft: NFT) async throws {
+        let loadID = await beginNewLoad()
+        guard let url = nft.musicURL else {
+            throw AudioEngineError.fileLoadFailed
+        }
+
+        // Start a new load task on the current actor (MainActor)
+        let task = Task { [weak self] in
+            guard let self else { return }
+            try Task.checkCancellation()
+            try await self.loadAndPlay(
+                url: url,
+                title: nft.name,
+                artist: nft.artistName,
+                imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl
+            )
+            try Task.checkCancellation()
+            // Only set currentNFT if this load is still the active one
+            guard loadID == self.activeLoadID else { throw CancellationError() }
+            self.currentNFT = nft
+        }
+
+        // Track and await the task
+        currentLoadTask = task
+        defer { currentLoadTask = nil }
+        try await task.value
+    }
+    
+    // MARK: - Improved Playback Information
+    private var currentTime: TimeInterval {
+        switch playbackState {
+        case .playing:
+            // For playing state, calculate from node time + seek position
+            guard let audioFile = audioFile,
+                  let nodeTime = playerNode.lastRenderTime,
+                  let playerTime = playerNode.playerTime(forNodeTime: nodeTime) else {
+                return seekPosition
+            }
+            return seekPosition + (Double(playerTime.sampleTime) / playerTime.sampleRate)
+        case .paused:
+            return pausedAt
+        case .stopped, .loading:
+            return seekPosition
+        case .error:
+            return .zero
+        }
+    }
+    
+    private var duration: TimeInterval {
+        guard let audioFile = audioFile else { return 0 }
+        return Double(audioFile.length) / audioFile.processingFormat.sampleRate
+    }
+    
+    // MARK: - Resource Cleanup
     deinit {
-        // Guarantee robust cleanup on deallocation (idempotent)
-        shutdown()
+        NotificationCenter.default.removeObserver(self)
+        currentLoadTask?.cancel()
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        
+        audioEngine.detach(playerNode)
+        
+        // Clean up temp file
+        if let tempURL = tempAudioURL {
+            try? FileManager.default.removeItem(at: tempURL)
+        }
+        
+        do {
+            try AVAudioSession.sharedInstance().setActive(false)
+        } catch {
+            // Log cleanup error but don't throw in deinit
+        }
+    }
+    
+    func skipBackward() {
+        // If we're a few seconds into the current track, restart it; otherwise go to the previous track
+        let threshold: TimeInterval = 3
+        if currentTime > threshold {
+            try? seek(to: 0)
+        } else {
+            Task { @MainActor in
+                await self.playPrevious()
+            }
+        }
+    }
+
+    func skipForward() {
+        Task { @MainActor in
+            await self.playNext()
+        }
+    }
+
+    func getRecentlyPlayed(limit: Int) -> [NFT] {
+        // "previousAudio" appends the most recently finished/left track at the end.
+        // Return the most recent first, capped by the provided limit.
+        guard limit > 0 else { return [] }
+        let slice = previousAudio.tracks.suffix(limit)
+        return Array(slice.reversed())
+    }
+
+    func lastPlayedDate(for id: String) -> Date {
+        // No timestamp data is persisted in this engine; provide a sensible placeholder.
+        // If it's the current item, treat as now; otherwise, return distantPast.
+        if let current = currentNFT, current.id == id {
+            return Date()
+        }
+        return .distantPast
+    }
+
+    func removeFromPrevious(id: String) {
+        previousAudio.tracks.removeAll { $0.id == id }
+    }
+
+    func clearPreviousHistory() {
+        previousAudio.tracks.removeAll()
     }
 }
-

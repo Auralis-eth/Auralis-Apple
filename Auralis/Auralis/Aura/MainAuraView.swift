@@ -180,20 +180,6 @@ struct MainAuraView: View {
         }
     }
 }
-//
-//import ImagePlayground
-//@available(iOS 18.4, *)
-//func generateImageFromPlayground() async throws {
-//    let seletedStyle: ImagePlaygroundStyle = .animation
-//    let creator = try await ImageCreator()
-//    let images = creator.images(for: [.text("Aurora Borealis over the Arctic and Rocky Mounts")], style: seletedStyle, limit: 4)
-//
-//    for try await image in images {
-//        print("Generated image:")
-//        print(image.cgImage)
-//    }
-//}
-//
 //// TIPS
 ////      Break down the process/request
 //

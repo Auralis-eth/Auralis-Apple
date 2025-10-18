@@ -1,18 +1,35 @@
 import SwiftUI
 import PhotosUI
 import SwiftData
-import OSLog
+import ImagePlayground
+
+
+//func generateImageFromPlayground() async throws {
+//    let seletedStyle: ImagePlaygroundStyle = .animation
+//    let creator = try await ImageCreator()
+//    let images = creator.images(for: [.text("Aurora Borealis over the Arctic and Rocky Mounts")], style: seletedStyle, limit: 4)
+//
+//    for try await image in images {
+//        print("Generated image:")
+//        print(image.cgImage)
+//    }
+//}
+//
+
 
 struct NewPlaylistView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.supportsImagePlayground) private var supportsImagePlayground
     
     @State private var title: String = ""
     @State private var descriptionText: String = ""
     @State private var photoItem: PhotosPickerItem? = nil
+    @State private var playlistImage: Image? = nil
     @State private var selectedImageData: Data? = nil
     @State private var isSaving: Bool = false
     @State private var errorMessage: String? = nil
+    @State private var isShowingPlayground = false
     
     let onSuccess: (String) -> Void
     
@@ -51,13 +68,27 @@ struct NewPlaylistView: View {
                         }
                     }
                     HStack {
-                        PhotosPicker(
-                            selection: $photoItem,
-                            matching: .images,
-                            photoLibrary: .shared()) {
-                                Text(NSLocalizedString("Choose Cover", comment: "Button label to choose cover image"))
+                        
+                        Spacer()
+                        if supportsImagePlayground {
+                            Button {
+                                isShowingPlayground = true
+                            } label: {
+                                SystemImage("sparkles")
+                                    .padding()
+                                    .background(Color.surface)
                             }
-                            .accessibilityLabel(NSLocalizedString("Choose Cover Image", comment: "Accessibility label for choose cover image button"))
+
+                        } else {
+                            PhotosPicker(
+                                selection: $photoItem,
+                                matching: .images,
+                                photoLibrary: .shared()) {
+                                    Text(NSLocalizedString("Choose Cover", comment: "Button label to choose cover image"))
+                                }
+                                .accessibilityLabel(NSLocalizedString("Choose Cover Image", comment: "Accessibility label for choose cover image button"))
+                        }
+                        Spacer()
                     }
                 }
                 
@@ -120,7 +151,7 @@ struct NewPlaylistView: View {
             } message: {
                 Text(errorMessage ?? "")
             }
-            .onChange(of: photoItem) { newItem in
+            .onChange(of: photoItem) { oldItem, newItem in
                 Task {
                     if let item = newItem {
                         do {
@@ -128,18 +159,24 @@ struct NewPlaylistView: View {
                                 selectedImageData = data
                             }
                         } catch {
-                            Logger().error("Failed to load selected image data: \(error.localizedDescription)")
+                            print("Failed to load selected image data: \(error.localizedDescription)")
                         }
                     } else {
                         selectedImageData = nil
                     }
                 }
             }
+            .imagePlaygroundSheet(isPresented: $isShowingPlayground, concept: title) { url in
+                if let data = try? Data(contentsOf: url) {
+                    selectedImageData = data
+                }
+            }
+            .imagePlaygroundGenerationStyle(.illustration)
         }
     }
     
     @FocusState private var descriptionFieldFocus: Bool
-    
+
     private func saveTapped() {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
