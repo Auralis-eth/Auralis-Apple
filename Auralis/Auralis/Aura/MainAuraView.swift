@@ -21,8 +21,6 @@ struct MainAuraView: View {
 
     @Query private var accounts: [EOAccount]
 
-    @Namespace private var namespace
-    private let transitionID = "transition-id"
     @State private var isPresented: Bool = false
     @State private var isloading: Bool = false
     @State private var presentDialog: Bool = false
@@ -34,29 +32,11 @@ struct MainAuraView: View {
     var tabView: some View {
         TabView {
             Tab("Home", systemImage: "house") {
-                VStack {
-                    Text("HELLO \(currentAccount?.address ?? "")")
-                    Button("Logout") {
-                        try? modelContext.delete(model: NFT.self)
-                        try? modelContext.delete(model: EOAccount.self)
-                        try? modelContext.delete(model: Tag.self)
-                        self.currentAccount = nil
-                        currentAddress = ""
-                        currentChainId = ""
-                    }
-                }
-                .sheet(isPresented: $isPresented) {
-                    Button(action: {
-                        presentDialog = true
-                    }, label: {
-                        Text("hello")
-                    })
-                    .confirmationDialog("Delete?", isPresented: $presentDialog) {
-                        Text("not deleted")
-                    }
-                    .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
-
-                }
+                HomeTabView(
+                    currentAccount: $currentAccount,
+                    currentAddress: $currentAddress,
+                    currentChainId: $currentChainId
+                )
             }
 
             Tab("NewsFeed", systemImage: "bubble.right") {
@@ -200,6 +180,9 @@ struct MainAuraView: View {
 ////          what is it and could I use it
 ////      Revision???
 ////          what is it and could I use it
+
+
+
 
 
 
