@@ -16,13 +16,15 @@ struct HomeTabView: View {
     @State private var errorMessage: String? = nil
     @State private var showErrorAlert: Bool = false
     
+    @State private var selectedImage: UIImage? = nil
+    
     /// Simple memo cache to avoid recompute in hot paths
     @State private var promptCache = [String: [ImagePlaygroundConcept]]()
 
     
     var body: some View {
         ZStack {
-            if let firstImage = generatedImages?.randomElement() {
+            if let firstImage = selectedImage ?? generatedImages?.first {
                 Image(uiImage: firstImage)
                     .resizable()
                     .scaledToFill()
@@ -45,16 +47,33 @@ struct HomeTabView: View {
                     }
                 }
                 .disabled(isLoading) // Disable refresh button when loading
+                
+                Button("Show Image Preview") {
+                    isPresented = true
+                }
+                .disabled(generatedImages?.isEmpty != false)
+                .padding(.bottom, 8)
             }
             .sheet(isPresented: $isPresented) {
                 VStack {
-                    Button(action: {
-                        presentDialog = true
-                    }, label: {
-                        Text("hello")
-                    })
-                    .confirmationDialog("Delete?", isPresented: $presentDialog) {
-                        Text("not deleted")
+                    if let images = generatedImages {
+                        GalleryGrid(images: images) { picked in
+                            selectedImage = picked
+                            generatedImages = [picked]
+                            isPresented = false
+                        }
+                        .transition(.scale)
+                    } else {
+                        VStack(spacing: 24) {
+                            Image(systemName: "photo.on.rectangle")
+                                .font(.system(size: 60))
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(.secondary)
+                            Text("No images to select")
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
                     }
                 }
                 .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
@@ -362,4 +381,43 @@ private func hslToHex(h: CGFloat, s: CGFloat, l: CGFloat) -> String {
     let g = max(0, min(1, g1 + m))
     let b = max(0, min(1, b1 + m))
     return String(format:"#%02X%02X%02X", Int(r*255), Int(g*255), Int(b*255))
+}
+
+
+/// New GalleryGrid View added as requested
+struct GalleryGrid: View {
+    let images: [UIImage]
+    let onPick: (UIImage) -> Void
+    var body: some View {
+        if images.isEmpty {
+            VStack(spacing: 24) {
+                Image(systemName: "photo.on.rectangle")
+                    .font(.system(size: 60))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
+                Text("No images to select")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+        } else {
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
+                    ForEach(Array(images.enumerated()), id: \.offset) { idx, image in
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: 110)
+                            .frame(maxWidth: .infinity)
+                            .clipped()
+                            .cornerRadius(12)
+                            .onTapGesture {
+                                onPick(image)
+                            }
+                    }
+                }
+                .padding()
+            }
+        }
+    }
 }
