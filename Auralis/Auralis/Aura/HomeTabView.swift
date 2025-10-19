@@ -9,21 +9,29 @@ struct HomeTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Namespace var namespace
     let transitionID: String = "HomeTabView"
+    
+    // MARK: - Background image state
     @State private var isPresented: Bool = false
     @State private var presentDialog: Bool = false
     @State private var isLoading: Bool = false
     @State private var generatedImages: [UIImage]?
     @State private var errorMessage: String? = nil
     @State private var showErrorAlert: Bool = false
-    
     @State private var selectedImage: UIImage? = nil
     
     /// Simple memo cache to avoid recompute in hot paths
     @State private var promptCache = [String: [ImagePlaygroundConcept]]()
-
+    
+    // MARK: - Avatar image state & cache
+    @State private var avatarImage: UIImage? = nil
+    @State private var isLoadingAvatar: Bool = false
+    @State private var avatarErrorMessage: String? = nil
+    @State private var showAvatarErrorAlert: Bool = false
+    @State private var avatarPromptCache = [String: [ImagePlaygroundConcept]]()
     
     var body: some View {
         ZStack {
+            // Background image or avatar image overlay:
             if let firstImage = selectedImage ?? generatedImages?.first {
                 Image(uiImage: firstImage)
                     .resizable()
@@ -31,7 +39,32 @@ struct HomeTabView: View {
                     .ignoresSafeArea()
             }
             
-            VStack {
+            VStack(spacing: 16) {
+                // Avatar image display above greeting Text
+                if let avatarImage = avatarImage {
+                    Image(uiImage: avatarImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 96, height: 96)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 2))
+                        .shadow(radius: 6)
+                        .padding(.bottom, 4)
+                } else {
+                    // Placeholder avatar circle
+                    Circle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 96, height: 96)
+                        .overlay(
+                            Image(systemName: "person.crop.circle.fill")
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundColor(.gray)
+                                .padding(18)
+                        )
+                        .padding(.bottom, 4)
+                }
+                
                 Text("HELLO \(currentAccount?.address ?? "")")
                 Button("Logout") {
                     try? modelContext.delete(model: NFT.self)
@@ -40,6 +73,8 @@ struct HomeTabView: View {
                     self.currentAccount = nil
                     currentAddress = ""
                     currentChainId = ""
+                    avatarImage = nil
+                    generatedImages = nil
                 }
                 Button("refresh UI") {
                     Task { @MainActor in
@@ -86,7 +121,7 @@ struct HomeTabView: View {
                     .background(.ultraThinMaterial)
             }
             
-            // Overlay loading indicator blocking interaction
+            // Overlay loading indicator blocking interaction for background images
             if isLoading {
                 Color.black.opacity(0.25)
                     .ignoresSafeArea()
@@ -101,10 +136,35 @@ struct HomeTabView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            
+            // Overlay loading indicator blocking interaction for avatar generation
+            if isLoadingAvatar {
+                Color.black.opacity(0.25)
+                    .ignoresSafeArea()
+                VStack {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.5)
+                    Text("Generating Avatar...")
+                        .foregroundStyle(.white)
+                        .font(.headline)
+                        .padding(.top, 12)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .task {
             if generatedImages == nil {
                 await generateImage()
+            }
+            if avatarImage == nil {
+                await generateAvatarImage()
+            }
+        }
+        .onChange(of: currentAddress) { newAddress in
+            Task {
+                avatarImage = nil
+                await generateAvatarImage()
             }
         }
         .alert("Error", isPresented: $showErrorAlert, actions: {
@@ -116,7 +176,18 @@ struct HomeTabView: View {
                 Text(errorMessage)
             }
         })
+        .alert("Avatar Error", isPresented: $showAvatarErrorAlert, actions: {
+            Button("Dismiss", role: .cancel) {
+                showAvatarErrorAlert = false
+            }
+        }, message: {
+            if let avatarErrorMessage = avatarErrorMessage {
+                Text(avatarErrorMessage)
+            }
+        })
     }
+    
+    // MARK: - Background Image Prompt Generation
     
     /// Build a deterministic, personalized Northern Lights prompt.
     /// - Parameters:
@@ -245,6 +316,8 @@ struct HomeTabView: View {
         return concepts
     }
     
+    // MARK: - Background Image Generation
+    
     func generateImage() async {
         // Start loading and clear previous images
         isLoading = true
@@ -282,6 +355,103 @@ struct HomeTabView: View {
             return
         }
     }
+    
+    // MARK: - Avatar Prompt Generation
+    
+    /// Build a deterministic avatar prompt array for the given address and optional style.
+    /// - Parameters:
+    ///   - address: Wallet address string; will be normalized.
+    ///   - style: Avatar style: abstract, character, geometric (default: abstract)
+    /// - Returns: Array of ImagePlaygroundConcept text atoms for avatar generation
+    @discardableResult
+    func avatarPrompt(address: String, style: AvatarStyle = .abstract) -> [ImagePlaygroundConcept] {
+        let addr = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        
+        // Cache key includes style and address
+        let key = "\(addr)|\(style.rawValue)"
+        if let cached = avatarPromptCache[key] {
+            return cached
+        }
+        
+        // Seed bytes from address for deterministic variation
+        let bytes = seedBytes(addr)
+        
+        // Deterministic pick helper
+        @inline(__always)
+        func pick<T>(_ arr: [T], _ b: Int) -> T { arr[Int(bytes[b]) % arr.count] }
+        
+        // Style descriptor atoms
+        let styleAtoms: [String] = {
+            switch style {
+            case .abstract: return ["abstract", "colorful", "digital art", "modern style"]
+            case .character: return ["character portrait", "stylized face", "digital art", "vibrant colors"]
+            case .geometric: return ["geometric shapes", "symmetry", "digital art", "vivid palette"]
+            }
+        }()
+        
+        // Mood variants for avatar
+        let moods = ["friendly", "mysterious", "energetic", "calm", "bold"]
+        let moodAtom = pick(moods, 5)
+        
+        // Compose atoms
+        var atoms: [String] = [
+            "portrait", "profile picture", "digital art", "high detail", "vibrant colors",
+            "clean background", "sharp focus", "vector style"
+        ]
+        atoms.append(contentsOf: styleAtoms)
+        atoms.append("mood \(moodAtom)")
+        atoms.append("unique pattern derived from wallet address hash")
+        atoms.append(contentsOf: AuroraConfig.negatives)
+        
+        let concepts = atoms.map { ImagePlaygroundConcept.text($0) }
+        avatarPromptCache[key] = concepts
+        return concepts
+    }
+    
+    // MARK: - Avatar Image Generation
+    
+    func generateAvatarImage(style: AvatarStyle = .abstract) async {
+        guard !currentAddress.isEmpty else {
+            avatarImage = nil
+            return
+        }
+        
+        isLoadingAvatar = true
+        defer { isLoadingAvatar = false }
+        
+        let prompts = avatarPrompt(address: currentAddress, style: style)
+        
+        do {
+            let imageCreator = try await ImageCreator()
+            
+            // Generate only 1 avatar image with square aspect ratio
+            let images = imageCreator.images(for: prompts, style: .illustration, limit: 1)
+            
+            for try await image in images {
+                let uiImage = UIImage(cgImage: image.cgImage)
+                avatarImage = uiImage
+                break
+            }
+        }
+        catch ImageCreator.Error.notSupported {
+            avatarErrorMessage = "Avatar image creation is not supported on this device."
+            showAvatarErrorAlert = true
+            return
+        }
+        catch {
+            avatarErrorMessage = "Failed to generate avatar image. Please try again.\n\(error.localizedDescription)"
+            showAvatarErrorAlert = true
+            return
+        }
+    }
+}
+
+// MARK: - Avatar Style Enum
+
+public enum AvatarStyle: String {
+    case abstract
+    case character
+    case geometric
 }
 
 
