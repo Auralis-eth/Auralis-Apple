@@ -27,6 +27,7 @@ public final class Playlist: Sendable, Equatable {
     public var title: String
     public var descriptionText: String?
     public var imageRef: String?
+    @Attribute(.externalStorage) public var imageData: Data? = nil
     public var createdAt: Date = Date()
     public var updatedAt: Date = Date()
 
@@ -46,6 +47,7 @@ public final class Playlist: Sendable, Equatable {
         self.title = name
         self.descriptionText = nil
         self.imageRef = nil
+        self.imageData = nil
         self.tracks = []
         self.createdAt = Date()
         self.updatedAt = Date()
@@ -57,6 +59,7 @@ public final class Playlist: Sendable, Equatable {
         self.title = name
         self.descriptionText = textBlurb
         self.imageRef = nil
+        self.imageData = nil
         self.tracks = tracks
         self.createdAt = Date()
         self.updatedAt = Date()
@@ -67,6 +70,7 @@ public final class Playlist: Sendable, Equatable {
         title: String,
         description: String? = nil,
         imageRef: String? = nil,
+        imageData: Data? = nil,
         tracks: [NFT] = [],
         id: UUID = UUID(),
         createdAt: Date = Date(),
@@ -75,6 +79,7 @@ public final class Playlist: Sendable, Equatable {
         self.title = title
         self.descriptionText = description
         self.imageRef = imageRef
+        self.imageData = imageData
         self.id = id
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -94,6 +99,11 @@ public final class Playlist: Sendable, Equatable {
 
     public func setImageRef(_ new: String?) {
         imageRef = new
+        touch()
+    }
+
+    public func setImageData(_ new: Data?) {
+        imageData = new
         touch()
     }
 
@@ -129,6 +139,7 @@ public final class Playlist: Sendable, Equatable {
         lhs.title == rhs.title &&
         lhs.descriptionText == rhs.descriptionText &&
         lhs.imageRef == rhs.imageRef &&
+        lhs.imageData == rhs.imageData &&
         lhs.tracks == rhs.tracks &&
         lhs.createdAt == rhs.createdAt &&
         lhs.updatedAt == rhs.updatedAt

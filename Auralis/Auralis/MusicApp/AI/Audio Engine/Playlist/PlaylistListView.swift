@@ -36,12 +36,44 @@ struct PlaylistListView: View {
     private var list: some View {
         List {
             ForEach(filteredPlaylists) { pl in
-                VStack(alignment: .leading) {
-                    Text(pl.title).font(.headline)
-                    if let d = pl.descriptionText, !d.isEmpty {
-                        Text(d).font(.subheadline).foregroundStyle(.secondary)
+                HStack(alignment: .center, spacing: 12) {
+                    if let data = pl.imageData, let uiImage = UIImage(data: data) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 56, height: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                            )
+                            .accessibilityHidden(true)
+                    } else {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.secondary.opacity(0.1))
+                            .frame(width: 56, height: 56)
+                            .overlay(
+                                Image(systemName: "photo")
+                                    .font(.system(size: 20, weight: .regular))
+                                    .foregroundColor(.secondary)
+                            )
+                            .accessibilityHidden(true)
                     }
-                    Text("Items: \(pl.itemCount)")
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(pl.title)
+                            .font(.headline)
+                        if let d = pl.descriptionText, !d.isEmpty {
+                            Text(d)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        Text("Items: \(pl.itemCount)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
                 }
                 .swipeActions {
                     Button(role: .destructive) {

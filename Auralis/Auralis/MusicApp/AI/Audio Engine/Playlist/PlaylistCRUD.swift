@@ -49,6 +49,7 @@ public extension ModelContext {
         title: String,
         description: String? = nil,
         imageRef: String? = nil,
+        imageData: Data? = nil,
         tracks: [NFT] = []
     ) throws -> Playlist {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -59,6 +60,7 @@ public extension ModelContext {
             title: title,
             description: description,
             imageRef: imageRef,
+            imageData: imageData,
             tracks: tracks
         )
         insert(playlist)
@@ -197,3 +199,4 @@ public func deletePlaylist(
         throw PlaylistError.fetchFailed(underlying: error)
     }
 }
+

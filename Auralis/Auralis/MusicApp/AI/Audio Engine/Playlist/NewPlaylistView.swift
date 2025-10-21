@@ -192,6 +192,7 @@ struct NewPlaylistView: View {
                 title: trimmed,
                 description: descriptionText,
                 imageRef: nil,
+                imageData: selectedImageData,
                 tracks: []
             )
             onSuccess(trimmed)
@@ -208,3 +209,4 @@ struct NewPlaylistView: View {
     NewPlaylistView { _ in }
         .modelContainer(for: Playlist.self, inMemory: true)
 }
+

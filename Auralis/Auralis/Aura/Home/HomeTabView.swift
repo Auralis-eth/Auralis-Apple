@@ -18,6 +18,8 @@ struct HomeTabView: View {
     @State private var errorMessage: String? = nil
     @State private var showErrorAlert: Bool = false
     @State private var selectedImage: UIImage? = nil
+    @State private var scene: AuroraScene = .mountain
+
     
     /// Simple memo cache to avoid recompute in hot paths
     @State private var promptCache = [String: [ImagePlaygroundConcept]]()
@@ -44,12 +46,12 @@ struct HomeTabView: View {
                 if let avatarImage = avatarImage {
                     Image(uiImage: avatarImage)
                         .resizable()
-                        .scaledToFill()
-                        .frame(width: 96, height: 96)
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 2))
-                        .shadow(radius: 6)
-                        .padding(.bottom, 4)
+                        .scaledToFit()
+                        .frame(width: 250, height: 250)
+                        .clipShape(RoundedRectangle(cornerRadius: 30))
+                        .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.white.opacity(0.7), lineWidth: 2))
+                        .padding()
+                        .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
                 } else {
                     // Placeholder avatar circle
                     Circle()
@@ -92,12 +94,13 @@ struct HomeTabView: View {
             .sheet(isPresented: $isPresented) {
                 VStack {
                     if let images = generatedImages {
-                        GalleryGrid(images: images) { picked in
+                        GalleryGrid(images: images, selectedScene: $scene) { picked in
                             selectedImage = picked
                             generatedImages = [picked]
                             isPresented = false
+                        } onRegenerate: {
+                            await generateImage()
                         }
-                        .transition(.scale)
                     } else {
                         VStack(spacing: 24) {
                             Image(systemName: "photo.on.rectangle")
@@ -158,7 +161,9 @@ struct HomeTabView: View {
                 await generateImage()
             }
             if avatarImage == nil {
-                await generateAvatarImage()
+                await generateAvatarImage(
+                    style: .character//AvatarStyle.allCases.randomElement() ?? .character
+                )
             }
         }
         .onChange(of: currentAddress) { newAddress in
@@ -197,7 +202,6 @@ struct HomeTabView: View {
     ///   - mood: Optional mood override; falls back to deterministic pick if nil/empty.
     ///   - intensity: 0.0–1.0; if nil, derived deterministically (chain-biased).
     ///   - scene: Prairie/Mountain/Lake silhouettes.
-    ///   - snowyForeground: Adds snow/treeline cues when true.
     ///   - locationHint: Human hint (e.g., "Alberta night sky") to bias geography.
     ///
     /// - Returns: Array of ImagePlaygroundConcept.text atoms.
@@ -209,7 +213,6 @@ struct HomeTabView: View {
         mood: String? = nil,
         intensity: Double? = nil,
         scene: AuroraScene = .prairie,
-        snowyForeground: Bool = false,
         locationHint: String = "Alberta night sky"
     ) -> [ImagePlaygroundConcept] {
 
@@ -224,7 +227,7 @@ struct HomeTabView: View {
         let hasValidAddr = isValidEthAddress(addr)
 
         // Cache key (parameters included)
-        let key = "\(addr)|\(chain)|\(lane.rawValue)|\(mood ?? "-")|\(intensity?.description ?? "-")|\(scene.rawValue)|\(snowyForeground)|\(locationHint)"
+        let key = "\(addr)|\(chain)|\(lane.rawValue)|\(mood ?? "-")|\(intensity?.description ?? "-")|\(scene.rawValue)|\(locationHint)"
         if let cached = promptCache[key] { return cached }
 
         // Seed from address|chain (cryptographic, deterministic)
@@ -245,15 +248,54 @@ struct HomeTabView: View {
 
         // Composition, vibe, scene & optional snow
         let comp = pick(AuroraConfig.compositions, 3)
-        let vibe = pick(AuroraConfig.vibes, 11)
         let sceneAtom: String = {
             switch scene {
             case .prairie:  return "broad prairie horizon silhouette"
             case .mountain: return "Rocky Mountains silhouette"
             case .lake:     return "still lake reflection foreground"
+            case .coastline: return "rugged coastline, crashing waves, distant cliffs"
+            case .borealForest:
+                return "dense boreal forest silhouette, tall spruce and pine"
+            case .tundra:
+                return "open arctic tundra, low shrubs and permafrost hummocks"
+            case .fjord:
+                return "steep fjord walls descending to calm water"
+            case .glacier:
+                return "glacier tongue with fractured crevasses"
+            case .iceberg:
+                return "drifting icebergs on a cold dark sea"
+            case .riverValley:
+                return "meandering river valley, soft banks and oxbows"
+            case .waterfall:
+                return "waterfall plume rising from cliffside"
+            case .canyon:
+                return "deep canyon walls with layered rock"
+            case .badlands:
+                return "eroded badlands hoodoos and ridges"
+            case .island:
+                return "rocky island coastline, sparse wind-bent pines"
+            case .highlands:
+                return "rolling highlands and moorland"
+            case .citySkyline:
+                return "distant city skyline lights on the horizon"
+            case .ruralFarm:
+                return "quiet rural farmstead, barns and open fields"
+            case .cabin:
+                return "solitary cabin with warm window glow"
+            case .lighthouse:
+                return "coastal lighthouse perched on a promontory"
+            case .observatory:
+                return "hilltop observatory dome silhouette"
+            case .bridge:
+                return "iconic bridge span over dark water"
+            case .iceRoad:
+                return "frozen ice road stretching across a lake"
+            case .polarCamp:
+                return "polar expedition camp, low tents and gear"
+            case .researchStation:
+                return "arctic research station modules and antennae"
             }
         }()
-        let snowAtom = snowyForeground ? "snowy foreground, frosted treeline silhouettes" : nil
 
         // Advanced address-driven pattern (use first 12 hex of address body)
         let addrBody = hasValidAddr ? String(addr.dropFirst(2)) : ""         // strip "0x"
@@ -267,11 +309,23 @@ struct HomeTabView: View {
         let laneAtoms: [String] = {
             switch lane {
             case .poster:
-                return ["minimalist poster","bold negative space","silkscreen texture"]
+                return [
+                    "minimalist poster",
+                    "bold negative space",
+                    "silkscreen texture",
+                ]
             case .synthwave:
-                return ["neon glow","retro-futuristic gradient","high contrast","soft grain"]
+                return [
+                    "neon glow",
+                    "retro-futuristic gradient",
+                    "high contrast",
+                    "soft grain",
+                ]
             case .photoreal:
-                return ["long-exposure look","photoreal night landscape","physically plausible light scattering"]
+                return [
+                    "long-exposure look",
+                    "physically plausible light scattering"
+                ]
             }
         }()
 
@@ -284,29 +338,29 @@ struct HomeTabView: View {
             }
         }()
 
-        // Palette (deterministic HEX colors from seed)
-        let paletteAtom = deriveDeterministicPaletteAtom(bytes: bytes)
-
         // Secondary deterministic variant to avoid sameness
         let variants = ["wide panoramic framing","mid-altitude perspective","grounded horizon with silhouettes"]
         let variant = variants[Int(bytes[27]) % variants.count]
 
         // Assemble atoms
         var atoms: [String] = [
-            "northern lights (\(comp))", "aurora borealis",
-            paletteAtom, motif, vibe, sceneAtom, intensityAtom, "mood \(moodAtom)",
+            "northern lights (\(comp))",
+            motif,
+            sceneAtom,
+            intensityAtom,
+            "mood \(moodAtom)",
             locationHint,
-            "ultra-wide 16:9", variant, "starfield detail", "high dynamic range glow"
+            variant,
+            "high dynamic range glow"
         ]
         atoms.append(contentsOf: laneAtoms)
-        if let snowAtom { atoms.append(snowAtom) }
-        atoms.append(contentsOf: AuroraConfig.negatives)
 
         if hasValidAddr {
             let short = String(addrBody.prefix(6))
             atoms.append("personal signature encoded from \(short) (no visible text)")
             atoms.append(patternAtom)
         }
+        
         if !chain.isEmpty {
             atoms.append("digital asset chain \(chain) (metadata only)")
         }
@@ -325,7 +379,7 @@ struct HomeTabView: View {
         generatedImages = nil
         
         // Use the themedPrompt function to generate stylized prompt(s)
-        let prompts = themedPrompt(address: currentAddress, chainId: currentChainId, lane: .photoreal, scene: .mountain, snowyForeground: false)
+        let prompts = themedPrompt(address: currentAddress, chainId: currentChainId, lane: .poster, scene: scene)
         
         do {
             let imageCreator = try await ImageCreator()
@@ -333,7 +387,7 @@ struct HomeTabView: View {
             let images = imageCreator.images(
                 for: prompts,
                 style: .illustration,
-                limit: 3)
+                limit: 9)
             
             for try await image in images {
                 if let generatedImages = self.generatedImages {
@@ -383,9 +437,41 @@ struct HomeTabView: View {
         // Style descriptor atoms
         let styleAtoms: [String] = {
             switch style {
-            case .abstract: return ["abstract", "colorful", "digital art", "modern style"]
-            case .character: return ["character portrait", "stylized face", "digital art", "vibrant colors"]
-            case .geometric: return ["geometric shapes", "symmetry", "digital art", "vivid palette"]
+            case .abstract:
+                return [
+                "abstract",
+                "colorful",
+                "modern style",
+            ]
+            case .character: return [
+                "vibrant colors",
+            ] + [[
+                "dog",
+                "cat",
+                "penguin",
+                "robot",
+                "Rabbit",
+                "Turtle",
+                "Wolves",
+                "Foxes",
+                "Deer",
+                "Bighorn Sheep",
+                "Buffalo",
+                "Lion",
+                "Tiger",
+                "Giant Panda",
+                "Bengal Tiger",
+                "African Lion",
+                "Red Kangaroo",
+                "budgerigar",
+                "zebu",
+                "zebra"
+            ].randomElement() ?? "dog"]
+            case .geometric: return [
+                "geometric shapes",
+                "symmetry",
+                "vivid palette"
+            ]
             }
         }()
         
@@ -395,13 +481,15 @@ struct HomeTabView: View {
         
         // Compose atoms
         var atoms: [String] = [
-            "portrait", "profile picture", "digital art", "high detail", "vibrant colors",
-            "clean background", "sharp focus", "vector style"
+            "digital art",
+            "high detail",
+            "vibrant colors",
+            "clean background", 
+            "sharp focus",
+            "vector style"
         ]
         atoms.append(contentsOf: styleAtoms)
         atoms.append("mood \(moodAtom)")
-        atoms.append("unique pattern derived from wallet address hash")
-        atoms.append(contentsOf: AuroraConfig.negatives)
         
         let concepts = atoms.map { ImagePlaygroundConcept.text($0) }
         avatarPromptCache[key] = concepts
@@ -448,53 +536,8 @@ struct HomeTabView: View {
 
 // MARK: - Avatar Style Enum
 
-public enum AvatarStyle: String {
-    case abstract
-    case character
-    case geometric
-}
-
-
 import Foundation
 import CryptoKit
-import CoreGraphics
-
-
-/// Public knobs for style and scenery
-public enum AuroraLane: String { case poster, photoreal, synthwave }
-public enum AuroraScene: String { case prairie, mountain, lake }
-
-/// Centralized configuration for descriptors and themes
-private struct AuroraConfig {
-    static let compositions = [
-        "rayed arcs","curtain","banded horizon","corona overhead","diffuse veil","multi-band ripples"
-    ]
-    static let vibes = [
-        "crisp winter air","moonless sky","polar night clarity","gentle haze","ice-blue starlight"
-    ]
-    static let moods = [
-        "calm","mystical","dramatic","serene","electric"
-    ]
-    static let negatives = [
-        "no text","no watermark","no people","no buildings","no city lights",
-        "no extra moons","no cloudy overcast blocking aurora core"
-    ]
-    /// Tasteful chain motifs (no logos, no on-canvas text)
-    static let chainThemes: [String:String] = [
-        "1"    : "diamond-facet shimmer, prismatic refractions",
-        "mainnet":"diamond-facet shimmer, prismatic refractions",
-        "ethereum":"diamond-facet shimmer, prismatic refractions",
-        "10"   : "silky fast filaments, forward motion hints",
-        "8453" : "clean minimal gradients, architectural calm",
-        "42161": "layered ribbons, braided strands",
-        "137"  : "soft geometric tessellations in light"
-    ]
-}
-
-
-
-
-
 // MARK: - Utilities
 
 @inline(__always)
@@ -519,75 +562,6 @@ private func isValidEthAddress(_ s: String) -> Bool {
     return true
 }
 
-/// Deterministic HEX palette from seed bytes (HSL → HEX for aurora-friendly hues)
-private func deriveDeterministicPaletteAtom(bytes: [UInt8]) -> String {
-    // Two complementary hues with lively saturation & mid-high lightness
-    let h1 = CGFloat(bytes[0]) / 255.0
-    let h2 = CGFloat(bytes[7]) / 255.0
-    let s1 = 0.60 + 0.30 * CGFloat(bytes[13] % 100) / 100.0
-    let s2 = 0.55 + 0.35 * CGFloat(bytes[19] % 100) / 100.0
-    let c1 = hslToHex(h: h1, s: s1, l: 0.62)
-    let c2 = hslToHex(h: h2, s: s2, l: 0.72)
-    return "aurora palette \(c1), \(c2)"
-}
-
-/// Minimal HSL→HEX without external deps
-private func hslToHex(h: CGFloat, s: CGFloat, l: CGFloat) -> String {
-    let c = (1 - abs(2*l - 1)) * s
-    let hp = h * 6
-    let x = c * (1 - abs(hp.truncatingRemainder(dividingBy: 2) - 1))
-    let (r1,g1,b1): (CGFloat,CGFloat,CGFloat) = {
-        switch hp {
-        case 0..<1: return (c,x,0)
-        case 1..<2: return (x,c,0)
-        case 2..<3: return (0,c,x)
-        case 3..<4: return (0,x,c)
-        case 4..<5: return (x,0,c)
-        default:    return (c,0,x)
-        }
-    }()
-    let m = l - c/2
-    let r = max(0, min(1, r1 + m))
-    let g = max(0, min(1, g1 + m))
-    let b = max(0, min(1, b1 + m))
-    return String(format:"#%02X%02X%02X", Int(r*255), Int(g*255), Int(b*255))
-}
 
 
-/// New GalleryGrid View added as requested
-struct GalleryGrid: View {
-    let images: [UIImage]
-    let onPick: (UIImage) -> Void
-    var body: some View {
-        if images.isEmpty {
-            VStack(spacing: 24) {
-                Image(systemName: "photo.on.rectangle")
-                    .font(.system(size: 60))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.secondary)
-                Text("No images to select")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
-            .padding()
-        } else {
-            ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
-                    ForEach(Array(images.enumerated()), id: \.offset) { idx, image in
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(height: 110)
-                            .frame(maxWidth: .infinity)
-                            .clipped()
-                            .cornerRadius(12)
-                            .onTapGesture {
-                                onPick(image)
-                            }
-                    }
-                }
-                .padding()
-            }
-        }
-    }
-}
+
