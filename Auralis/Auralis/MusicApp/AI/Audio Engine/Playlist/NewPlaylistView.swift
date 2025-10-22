@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import PhotosUI
 import SwiftData
 import ImagePlayground
@@ -31,6 +32,12 @@ struct NewPlaylistView: View {
     @State private var errorMessage: String? = nil
     @State private var isShowingPlayground = false
     
+    @State private var sourceMenuPresented: Bool = false
+    @State private var showCameraSheet: Bool = false
+    @State private var showPhotoPickerSheet: Bool = false
+    @State private var shouldLaunchPlaygroundAfterPick: Bool = false
+    @State private var capturedImage: UIImage? = nil
+    
     let onSuccess: (String) -> Void
     
     @FocusState private var titleFieldFocused: Bool
@@ -56,15 +63,36 @@ struct NewPlaylistView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .accessibilityLabel(NSLocalizedString("Selected Cover Image", comment: "Accessibility label for selected cover image"))
                         } else {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.secondary.opacity(0.1))
-                                .frame(width: 150, height: 150)
-                                .overlay(
-                                    Image(systemName: "photo")
-                                        .font(.system(size: 50))
-                                        .foregroundColor(.secondary)
-                                )
-                                .accessibilityLabel(NSLocalizedString("No Cover Image Selected", comment: "Accessibility label for no cover image"))
+                            Button {
+                                sourceMenuPresented = true
+                            } label: {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.secondary.opacity(0.1))
+                                    .frame(width: 150, height: 150)
+                                    .overlay(
+                                        Image(systemName: "camera")
+                                            .font(.system(size: 50))
+                                            .foregroundColor(.secondary)
+                                    )
+                                    .accessibilityLabel(NSLocalizedString("No Cover Image Selected", comment: "Accessibility label for no cover image"))
+                            }
+                            .contextMenu {
+                                Button {
+                                    startFromCamera()
+                                } label: {
+                                    Label(NSLocalizedString("Start from Camera", comment: "Context menu option to start from camera"), systemImage: "camera")
+                                }
+                                Button {
+                                    startFromPhoto()
+                                } label: {
+                                    Label(NSLocalizedString("Start from Photo", comment: "Context menu option to start from photo"), systemImage: "photo")
+                                }
+                                Button {
+                                    startFromBlank()
+                                } label: {
+                                    Label(NSLocalizedString("Start from Blank", comment: "Context menu option to start from blank"), systemImage: "sparkles")
+                                }
+                            }
                         }
                     }
                     HStack {
@@ -119,6 +147,13 @@ struct NewPlaylistView: View {
                 }
             }
             .navigationTitle(NSLocalizedString("New Playlist", comment: "Navigation title for new playlist view"))
+            .navigationBarTitleDisplayMode(.inline)
+            .confirmationDialog(NSLocalizedString("Start From", comment: "Title for source selection dialog"), isPresented: $sourceMenuPresented, titleVisibility: .visible) {
+                Button(NSLocalizedString("Start from Camera", comment: "Dialog option")) { startFromCamera() }
+                Button(NSLocalizedString("Start from Photo", comment: "Dialog option")) { startFromPhoto() }
+                Button(NSLocalizedString("Start from Blank", comment: "Dialog option")) { startFromBlank() }
+                Button(NSLocalizedString("Cancel", comment: "Cancel button"), role: .cancel) { }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button {
@@ -151,12 +186,27 @@ struct NewPlaylistView: View {
             } message: {
                 Text(errorMessage ?? "")
             }
+            .photosPicker(isPresented: $showPhotoPickerSheet, selection: $photoItem, matching: .images, photoLibrary: .shared())
+            .sheet(isPresented: $showCameraSheet) {
+                ImagePicker(image: $capturedImage, sourceType: .camera)
+                    .ignoresSafeArea()
+            }
+            .onChange(of: capturedImage) { _, newImage in
+                if let uiImage = newImage, let data = uiImage.jpegData(compressionQuality: 0.9) {
+                    selectedImageData = data
+                    isShowingPlayground = true
+                }
+            }
             .onChange(of: photoItem) { oldItem, newItem in
                 Task {
                     if let item = newItem {
                         do {
                             if let data = try await item.loadTransferable(type: Data.self) {
                                 selectedImageData = data
+                                if shouldLaunchPlaygroundAfterPick {
+                                    isShowingPlayground = true
+                                    shouldLaunchPlaygroundAfterPick = false
+                                }
                             }
                         } catch {
                             print("Failed to load selected image data: \(error.localizedDescription)")
@@ -166,7 +216,7 @@ struct NewPlaylistView: View {
                     }
                 }
             }
-            .imagePlaygroundSheet(isPresented: $isShowingPlayground, concept: title) { url in
+            .imagePlaygroundSheet(isPresented: $isShowingPlayground, concept: title, sourceImage: sourceImage) { url in
                 if let data = try? Data(contentsOf: url) {
                     selectedImageData = data
                 }
@@ -175,8 +225,27 @@ struct NewPlaylistView: View {
         }
     }
     
+    var sourceImage: Image? {
+        guard let selectedImageData else { return nil }
+        guard let image = UIImage(data: selectedImageData) else { return nil }
+        return Image(uiImage: image)
+    }
+    
     @FocusState private var descriptionFieldFocus: Bool
 
+    private func startFromCamera() {
+        showCameraSheet = true
+    }
+
+    private func startFromPhoto() {
+        shouldLaunchPlaygroundAfterPick = true
+        showPhotoPickerSheet = true
+    }
+
+    private func startFromBlank() {
+        isShowingPlayground = true
+    }
+    
     private func saveTapped() {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -210,3 +279,33 @@ struct NewPlaylistView: View {
         .modelContainer(for: Playlist.self, inMemory: true)
 }
 
+struct ImagePicker: UIViewControllerRepresentable {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var image: UIImage?
+    var sourceType: UIImagePickerController.SourceType = .photoLibrary
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = sourceType
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let parent: ImagePicker
+        init(_ parent: ImagePicker) { self.parent = parent }
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let img = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage {
+                parent.image = img
+            }
+            parent.dismiss()
+        }
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
+    }
+}
