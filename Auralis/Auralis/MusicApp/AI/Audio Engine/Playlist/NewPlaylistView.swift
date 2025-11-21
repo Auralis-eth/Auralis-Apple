@@ -31,6 +31,7 @@ struct NewPlaylistView: View {
     @State private var isSaving: Bool = false
     @State private var errorMessage: String? = nil
     @State private var isShowingPlayground = false
+    @State private var isProcessingImage: Bool = false
     
     @State private var sourceMenuPresented: Bool = false
     @State private var showCameraSheet: Bool = false
@@ -146,6 +147,16 @@ struct NewPlaylistView: View {
                         .accessibilityLabel(NSLocalizedString("Description", comment: "Accessibility label for description field"))
                 }
             }
+            .overlay(alignment: .center) {
+                if isProcessingImage {
+                    ProgressView(NSLocalizedString("Processing…", comment: "Progress while processing image"))
+                        .padding(16)
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .accessibilityLabel(NSLocalizedString("Processing", comment: "Accessibility label for processing indicator"))
+                }
+            }
+            .disabled(isProcessingImage)
             .navigationTitle(NSLocalizedString("New Playlist", comment: "Navigation title for new playlist view"))
             .navigationBarTitleDisplayMode(.inline)
             .confirmationDialog(NSLocalizedString("Start From", comment: "Title for source selection dialog"), isPresented: $sourceMenuPresented, titleVisibility: .visible) {
@@ -192,6 +203,8 @@ struct NewPlaylistView: View {
                     .ignoresSafeArea()
             }
             .onChange(of: capturedImage) { _, newImage in
+                isProcessingImage = true
+                defer { isProcessingImage = false }
                 if let uiImage = newImage, let data = uiImage.jpegData(compressionQuality: 0.9) {
                     selectedImageData = data
                     isShowingPlayground = true
@@ -199,6 +212,8 @@ struct NewPlaylistView: View {
             }
             .onChange(of: photoItem) { oldItem, newItem in
                 Task {
+                    isProcessingImage = true
+                    defer { isProcessingImage = false }
                     if let item = newItem {
                         do {
                             if let data = try await item.loadTransferable(type: Data.self) {

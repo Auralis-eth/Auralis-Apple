@@ -40,7 +40,14 @@ struct HomeTabView: View {
                     .scaledToFill()
                     .ignoresSafeArea()
             }
-            
+
+            // Show placeholder when no images and not loading
+            if (generatedImages == nil || generatedImages?.isEmpty == true) && !isLoading {
+                ContentUnavailableView("No Images generated yet", systemImage: "photo.on.rectangle.angled")
+                    .symbolRenderingMode(.hierarchical)
+                    .background(.ultraThinMaterial)
+            }
+
             VStack(spacing: 16) {
                 // Avatar image display above greeting Text
                 if let avatarImage = avatarImage {
@@ -115,13 +122,6 @@ struct HomeTabView: View {
                     }
                 }
                 .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
-            }
-            
-            // Show placeholder when no images and not loading
-            if (generatedImages == nil || generatedImages?.isEmpty == true) && !isLoading {
-                ContentUnavailableView("No Images generated yet", systemImage: "photo.on.rectangle.angled")
-                    .symbolRenderingMode(.hierarchical)
-                    .background(.ultraThinMaterial)
             }
             
             // Overlay loading indicator blocking interaction for background images

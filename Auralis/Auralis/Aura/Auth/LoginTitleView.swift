@@ -15,15 +15,3 @@ struct LoginTitleView: View {
             .kerning(2)
     }
 }
-
-struct AddressEntryTitleView: View {
-    var body: some View {
-        HStack {
-            Text("Enter Address")
-                .font(.system(size: 42, weight: .light))
-                .foregroundStyle(Color.textPrimary)
-            Spacer()
-        }
-        .padding(.leading, 30)
-    }
-}

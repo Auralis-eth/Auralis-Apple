@@ -21,6 +21,7 @@ struct QRScannerView: View {
             SystemImage("qrcode.viewfinder")
                 .foregroundStyle(Color.accent)
                 .font(.system(size: 30, weight: .medium))
+                .accessibilityLabel("Scan wallet QR code")
         }
         .sheet(isPresented: $isScanning) {
             ZStack(alignment: .top) {
