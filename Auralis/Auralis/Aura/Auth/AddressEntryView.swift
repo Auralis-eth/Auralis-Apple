@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+// Uses GPSpacing & typography helpers from GuestPassTokens.swift
 
 struct AddressInputView: View {
     @State private var address: String = ""
@@ -16,8 +17,10 @@ struct AddressInputView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var currentAccount: EOAccount?
 
-    private struct DemoAccount: Identifiable {
-        let id = UUID()
+    struct DemoAccount: Identifiable, Hashable {
+        var id: String {
+            address
+        }
         let address: String
         let title: String
         let subtitle: String
@@ -113,31 +116,18 @@ struct AddressInputView: View {
             }
             .padding(.vertical)
             VStack(spacing: 6) {
-                Title2FontText("Guest passes")
-                    .fontWeight(.semibold)
-                    .multilineTextAlignment(.center)
+                Text("Guest passes").gpSectionTitleStyle().multilineTextAlignment(.center)
 
-                SubheadlineFontText("Try Auralis with curated public collections.")
-                    .multilineTextAlignment(.center)
+                Text("Try Auralis with curated public collections.").gpSectionSubtitleStyle().multilineTextAlignment(.center)
             }
             .padding(.horizontal, 20)
             .padding(.top, 10)
             .fixedSize(horizontal: false, vertical: true)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                ForEach(demoAccounts) { acct in
-                    Button {
-                        selectDemo(address: acct.address)
-                    } label: {
-                        DemoAccountChip(title: acct.title, subtitle: acct.subtitle)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text(acct.title))
-                    .accessibilityHint(Text("Opens Auralis with a demo account"))
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+            GuestPassCarousel(items: demoAccounts, select: { acct in
+                selectDemo(address: acct.address)
+            })
+            .padding(.bottom, GPSpacing.s)
 
         }
         .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 30))
@@ -218,33 +208,204 @@ struct AddressTextField: View {
     }
 }
 
-struct DemoAccountChip: View {
-    let title: String
-    let subtitle: String
+struct GuestPassCarousel: View {
+    let items: [AddressInputView.DemoAccount]
+    let select: (AddressInputView.DemoAccount) -> Void
+
+    @State private var currentIndex: Int? = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundStyle(Color.textPrimary)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
+        VStack(spacing: GPSpacing.m) {
+            ScrollView(.horizontal) {
+                HStack(spacing: GPSpacing.m) {
+                    ForEach(items) { acct in
+                        Button {
+                            select(acct)
+                        } label: {
+                            GuestPassCardView(
+                                pillLeft: "LABEL",
+                                ensRight: extractENS(from: acct.title),
+                                title: stripENS(from: acct.title),
+                                subtitle: acct.subtitle,
+                                metadata: [
+                                    MetadataChunk(systemImage: "music.note", text: "Public collection"),
+                                    MetadataChunk(systemImage: "link", text: "Ethereum")
+                                ],
+                                ctaTitle: "Start with \(stripENS(from: acct.title)) ▸",
+                                brandColor: .accentColor
+                            )
+                            .id(acct)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text(acct.title))
+                        .accessibilityHint(Text("Opens Auralis with a demo account"))
+                    }
+                }
+                .scrollTargetLayout()
+                .contentMargins(.horizontal, GPSpacing.xl, for: .scrollContent)
+            }
+            .scrollIndicators(.hidden)
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $currentIndex)
 
-            Text(subtitle)
-                .font(.footnote)
-                .foregroundStyle(Color.textSecondary)
-                .lineLimit(3)
-                .multilineTextAlignment(.leading)
+            // Page indicator
+            HStack(spacing: GPSpacing.s) {
+                ForEach(items.indices, id: \.self) { idx in
+                    Circle()
+                        .fill(idx == currentIndex ? Color.white.opacity(0.9) : Color.white.opacity(0.35))
+                        .frame(width: 6, height: 6)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white.opacity(0.6), lineWidth: idx == currentIndex ? 0 : 1)
+                        )
+                }
+            }
+            .padding(.top, GPSpacing.s)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surface.opacity(0.75), in: .rect(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.textSecondary.opacity(0.12))
-        )
-        .contentShape(.rect)
     }
 }
 
+// MARK: - Guest Pass Card Support
+
+struct MetadataChunk: Identifiable {
+    let id = UUID()
+    let systemImage: String
+    let text: String
+}
+
+private func extractENS(from title: String) -> String? {
+    // Extracts text within parentheses e.g., "Coop Records (cooprecords.eth)" -> "cooprecords.eth"
+    guard let open = title.firstIndex(of: "("), let close = title.firstIndex(of: ")"), open < close else {
+        return nil
+    }
+    let ens = title[title.index(after: open)..<close]
+    return String(ens)
+}
+
+private func stripENS(from title: String) -> String {
+    // Removes parenthetical ENS from title for cleaner display
+    guard let open = title.firstIndex(of: "("), let close = title.firstIndex(of: ")"), open < close else {
+        return title
+    }
+    var base = title
+    base.removeSubrange(open...close)
+    return base.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+struct GuestPassCardView: View {
+    let pillLeft: String
+    let ensRight: String?
+    let title: String
+    let subtitle: String
+    let metadata: [MetadataChunk]
+    let ctaTitle: String
+    let brandColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Content area
+            VStack(alignment: .leading, spacing: 0) {
+                // Pill row
+                HStack {
+                    Text(pillLeft)
+                        .gpPillLabelStyle()
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(brandColor.opacity(0.30))
+                        .clipShape(Capsule())
+                    Spacer()
+                    if let ens = ensRight {
+                        Text(ens)
+                            .gpPillLabelStyle()
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.10))
+                            .clipShape(Capsule())
+                    }
+                }
+                .padding(.bottom, GPSpacing.s)
+
+                // Title
+                Text(title)
+                    .gpCardTitleStyle()
+                    .lineLimit(2)
+                    .padding(.bottom, GPSpacing.xs)
+
+                // Subtitle
+                Text(subtitle)
+                    .gpCardSubtitleStyle()
+                    .lineLimit(3)
+                    .padding(.bottom, GPSpacing.m)
+
+                // Metadata row
+                if !metadata.isEmpty {
+                    HStack(spacing: GPSpacing.s) {
+                        ForEach(metadata) { md in
+                            HStack(spacing: 6) {
+                                Image(systemName: md.systemImage)
+                                Text(md.text)
+                            }
+                            .gpMetadataStyle()
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.bottom, GPSpacing.m)
+                }
+            }
+            .padding(.horizontal, GPSpacing.l)
+            .padding(.top, GPSpacing.m)
+
+            // CTA strip (min 44 pt height)
+            HStack {
+                Spacer()
+                Text(ctaTitle)
+                    .gpCTAStyle()
+                Spacer()
+            }
+            .frame(minHeight: 44)
+            .padding(.vertical, 4)
+            .padding(.horizontal, GPSpacing.l)
+            .background(brandColor.opacity(0.25))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal, GPSpacing.l)
+            .padding(.bottom, GPSpacing.m)
+        }
+        .background(Color.surface.opacity(0.75), in: .rect(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.textSecondary.opacity(0.12))
+        )
+        .shadow(color: brandColor.opacity(0.35), radius: 12, x: 0, y: 6) // soft glow
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+//struct DemoAccountChip: View {
+//    let title: String
+//    let subtitle: String
+//
+//    var body: some View {
+//        VStack(alignment: .leading, spacing: GPSpacing.s) {
+//            Text(title)
+//                .gpCardTitleStyle()
+//                .lineLimit(2)
+//                .multilineTextAlignment(.leading)
+//                .padding(.bottom, GPSpacing.xs)
+//
+//            Text(subtitle)
+//                .gpCardSubtitleStyle()
+//                .lineLimit(3)
+//                .multilineTextAlignment(.leading)
+//        }
+//        .padding(.horizontal, GPSpacing.l)
+//        .padding(.vertical, GPSpacing.m)
+//        .frame(maxWidth: .infinity, alignment: .leading)
+//        .background(Color.surface.opacity(0.75), in: .rect(cornerRadius: 14))
+//        .overlay(
+//            RoundedRectangle(cornerRadius: 14)
+//                .stroke(Color.textSecondary.opacity(0.12))
+//        )
+//        .contentShape(.rect)
+//    }
+//}
