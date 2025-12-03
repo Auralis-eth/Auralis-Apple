@@ -12,75 +12,32 @@ import SwiftData
 struct MainAuraView: View {
     @AppStorage("currentAccountAddress") var currentAddress: String = ""
     @AppStorage("currentChainId") var currentChainId: String = Chain.ethMainnet.rawValue
+    @State private var currentAccount: EOAccount?
+    @State private var currentChain: Chain = .ethMainnet
+    @Query private var accounts: [EOAccount]
+    
     @Environment(\.modelContext) private var modelContext
     @State private var nftService = NFTService()
     @StateObject private var audioEngine: AudioEngine
     
-    @State private var currentAccount: EOAccount?
-    @State private var currentChain: Chain = .ethMainnet
-
-    @Query private var accounts: [EOAccount]
-
-    @State private var isPresented: Bool = false
     @State private var isloading: Bool = false
-    @State private var presentDialog: Bool = false
 
     var nftsAreLoading: Bool {
         nftService.isLoading || isloading
     }
 
-    var tabView: some View {
-        TabView {
-            Tab("Home", systemImage: "house") {
-                HomeTabView(
-                    currentAccount: $currentAccount,
-                    currentAddress: $currentAddress,
-                    currentChainId: $currentChainId
-                )
-            }
-
-            Tab("NewsFeed", systemImage: "bubble.right") {
-                NewsFeedView(currentAccount: $currentAccount, nftService: $nftService, currentChain: $currentChain)
-            }
-
-            Tab("Gas", systemImage: "fuelpump") {
-                ZStack(alignment: .bottom) {
-                    GatewayBackgroundImage()
-                    Color.background.opacity(0.3)
-                        .ignoresSafeArea()
-                        .contentShape(Rectangle())
-                    GasPriceEstimateView(chain: $currentChain)
-                }
-            }
-            
-            Tab("Music", systemImage: "play.circle") {
-                VStack {
-                    //                MusicPlayerView()
-                    NFTMusicPlayerApp(audioEngine: audioEngine)
-                }
-            }
-
-            Tab("Profile", systemImage: "person.circle") {
-                Text("SentView()")
-                Text("ENS")
-            }
-
-            Tab("Search", systemImage: "magnifyingglass", role: .search) {
-                Button(action: {}) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(Color.textPrimary)
-                        .font(.headline)
-                }
-
-            }
-        }
-        .tint(.accent)
-    }
 
     var body: some View {
         Group {
-            if !nftsAreLoading, let currentAccount {
-                tabView
+            if !nftsAreLoading, currentAccount != .none {
+                MainTabView(
+                    currentAccount: $currentAccount,
+                    currentAddress: $currentAddress,
+                    currentChainId: $currentChainId,
+                    currentChain: $currentChain,
+                    nftService: $nftService,
+                    audioEngine: audioEngine
+                )
                     .tabBarMinimizeBehavior(.onScrollDown)
                     .tabViewBottomAccessory {
                         // Wrap the accessory in a container so it gets proper padding and material.
@@ -160,51 +117,3 @@ struct MainAuraView: View {
         }
     }
 }
-//// TIPS
-////      Break down the process/request
-//
-////  USE CASES
-////      Content Generation???
-////          splash image
-////      summarization
-////          in the NFT newsfeed view summarize NFT text blurb
-////      In-app  user guides
-////          have a ? button on each screen and do a help bot
-////      Classification
-////          start with the "stash" page for NFTs, then migrate to ERC-20s
-////      Tag generation
-////          start with the "stash" page for NFTs, then migrate to ERC-20s
-//
-//
-////      Composition???
-////          what is it and could I use it
-////      Revision???
-////          what is it and could I use it
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

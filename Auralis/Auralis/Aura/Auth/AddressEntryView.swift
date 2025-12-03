@@ -8,6 +8,10 @@
 import SwiftUI
 import SwiftData
 // Uses GPSpacing & typography helpers from GuestPassTokens.swift
+public enum GPSpacing {
+    public static let s: CGFloat = 8
+    public static let m: CGFloat = 12
+}
 
 struct AddressInputView: View {
     @State private var address: String = ""
@@ -16,48 +20,6 @@ struct AddressInputView: View {
     @State private var alertMessage: String = ""
     @Environment(\.modelContext) private var modelContext
     @Binding var currentAccount: EOAccount?
-
-    struct DemoAccount: Identifiable, Hashable {
-        var id: String {
-            address
-        }
-        let address: String
-        let title: String
-        let subtitle: String
-    }
-
-    private let demoAccounts: [DemoAccount] = [
-        DemoAccount(
-            address: "0x9266f125fb2ecb730d9953b46de9c32e2fa83e4a",
-            title: "Coop Records (cooprecords.eth)",
-            subtitle: "Modern music label with on-chain collection"
-        ),
-        DemoAccount(
-            address: "0x5b93ff82faaf241c15997ea3975419dddd8362c5",
-            title: "Coopahtroopa (coopahtroopa.eth)",
-            subtitle: "Collector of many notable music NFTs"
-        ),
-        DemoAccount(
-            address: "0x86e2a5a7176a3ff9079e41363d9160b80d0b8134",
-            title: "Catalog Records Treasury",
-            subtitle: "Label vault focused on unique 1-of-1s"
-        ),
-        DemoAccount(
-            address: "0x8fa39d1db57f95a79e45c0663efd09ba17f7ea5b",
-            title: "Sound Protocol Treasury",
-            subtitle: "Big Sound.xyz editions and protocol mints"
-        ),
-        DemoAccount(
-            address: "0xd08b97329d7Ef689E71d384c4E5001952Dd15b00",
-            title: "Good Karma Records DAO (goodkarmarecords.eth)",
-            subtitle: "Community label wallet with shared splits"
-        ),
-        DemoAccount(
-            address: "0xb1adceddb2941033a090dd166a62b6317d5a3b94",
-            title: "10:22PM / KINGSHIP (UMG)",
-            subtitle: "Major label project with Bored Ape band"
-        )
-    ]
 
     private func selectDemo(address: String) {
         self.address = address
@@ -75,14 +37,14 @@ struct AddressInputView: View {
                 Title2FontText("Check in with your Ethereum address")
                     .fontWeight(.semibold)
                     .multilineTextAlignment(.center)
-
+                
                 SubheadlineFontText("Paste an address or ENS name, or scan a QR code to get started.")
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 20)
             .padding(.top, 10)
             .fixedSize(horizontal: false, vertical: true)
-
+            
             HStack {
                 QRScannerView(account: $currentAccount)
                     .transition(.opacity)
@@ -90,7 +52,7 @@ struct AddressInputView: View {
             }
             .padding(.horizontal, 15)
             .padding(.vertical, 18)
-
+            
             Button {
                 handleSubmit()
             } label: {
@@ -102,7 +64,7 @@ struct AddressInputView: View {
                     .background(Color.accent.gradient, in: .capsule)
             }
             .padding(.horizontal, 30)
-
+            
             HStack {
                 Rectangle()
                     .fill(Color.textSecondary.opacity(0.2))
@@ -116,19 +78,22 @@ struct AddressInputView: View {
             }
             .padding(.vertical)
             VStack(spacing: 6) {
-                Text("Guest passes").gpSectionTitleStyle().multilineTextAlignment(.center)
-
-                Text("Try Auralis with curated public collections.").gpSectionSubtitleStyle().multilineTextAlignment(.center)
+                Title2FontText("Guest passes")
+                    .fontWeight(.semibold)
+                    .multilineTextAlignment(.center)
+                
+                SubheadlineFontText("Try Auralis with curated public collections.")
+                    .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 20)
             .padding(.top, 10)
             .fixedSize(horizontal: false, vertical: true)
-
-            GuestPassCarousel(items: demoAccounts, select: { acct in
+            
+            GuestPassCarousel(items: DemoAccount.accounts) { acct in
                 selectDemo(address: acct.address)
-            })
+            }
             .padding(.bottom, GPSpacing.s)
-
+            
         }
         .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 30))
         .safeAreaPadding(15)
@@ -209,203 +174,193 @@ struct AddressTextField: View {
 }
 
 struct GuestPassCarousel: View {
-    let items: [AddressInputView.DemoAccount]
-    let select: (AddressInputView.DemoAccount) -> Void
-
-    @State private var currentIndex: Int? = 0
+    let items: [DemoAccount]
+    let select: (DemoAccount) -> Void
 
     var body: some View {
-        VStack(spacing: GPSpacing.m) {
             ScrollView(.horizontal) {
                 HStack(spacing: GPSpacing.m) {
                     ForEach(items) { acct in
-                        Button {
-                            select(acct)
-                        } label: {
-                            GuestPassCardView(
-                                pillLeft: "LABEL",
-                                ensRight: extractENS(from: acct.title),
-                                title: stripENS(from: acct.title),
-                                subtitle: acct.subtitle,
-                                metadata: [
-                                    MetadataChunk(systemImage: "music.note", text: "Public collection"),
-                                    MetadataChunk(systemImage: "link", text: "Ethereum")
-                                ],
-                                ctaTitle: "Start with \(stripENS(from: acct.title)) ▸",
-                                brandColor: .accentColor
-                            )
-                            .id(acct)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(Text(acct.title))
-                        .accessibilityHint(Text("Opens Auralis with a demo account"))
-                    }
+                        LiquidGlassCard(account: acct, onTap: { select(acct) })
+                        .padding(.vertical, 8)
+                        .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 30))
+                        .padding()
+                            .id(acct.id)
+                            .accessibilityLabel(Text(acct.title))
+                            .accessibilityHint(Text("Opens Auralis with a demo account"))
                 }
                 .scrollTargetLayout()
-                .contentMargins(.horizontal, GPSpacing.xl, for: .scrollContent)
+//                .contentMargins(.horizontal, GPSpacing.xl, for: .scrollContent)
             }
             .scrollIndicators(.hidden)
-            .scrollTargetBehavior(.paging)
-            .scrollPosition(id: $currentIndex)
-
-            // Page indicator
-            HStack(spacing: GPSpacing.s) {
-                ForEach(items.indices, id: \.self) { idx in
-                    Circle()
-                        .fill(idx == currentIndex ? Color.white.opacity(0.9) : Color.white.opacity(0.35))
-                        .frame(width: 6, height: 6)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.white.opacity(0.6), lineWidth: idx == currentIndex ? 0 : 1)
-                        )
-                }
-            }
-            .padding(.top, GPSpacing.s)
+//            .scrollTargetBehavior(.paging)
         }
     }
 }
 
 // MARK: - Guest Pass Card Support
 
-struct MetadataChunk: Identifiable {
-    let id = UUID()
-    let systemImage: String
-    let text: String
-}
+struct LiquidGlassCard: View {
+    let account: DemoAccount
+    var onTap: (() -> Void)? = nil
 
-private func extractENS(from title: String) -> String? {
-    // Extracts text within parentheses e.g., "Coop Records (cooprecords.eth)" -> "cooprecords.eth"
-    guard let open = title.firstIndex(of: "("), let close = title.firstIndex(of: ")"), open < close else {
-        return nil
+    @State private var isAnimating = false
+    @State private var dragOffset: CGSize = .zero
+
+    private var shortAddress: String {
+        let trimmed = account.address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let start = trimmed.prefix(6)
+        let end = trimmed.suffix(4)
+        return "\(start)…\(end)"
     }
-    let ens = title[title.index(after: open)..<close]
-    return String(ens)
-}
-
-private func stripENS(from title: String) -> String {
-    // Removes parenthetical ENS from title for cleaner display
-    guard let open = title.firstIndex(of: "("), let close = title.firstIndex(of: ")"), open < close else {
-        return title
-    }
-    var base = title
-    base.removeSubrange(open...close)
-    return base.trimmingCharacters(in: .whitespacesAndNewlines)
-}
-
-struct GuestPassCardView: View {
-    let pillLeft: String
-    let ensRight: String?
-    let title: String
-    let subtitle: String
-    let metadata: [MetadataChunk]
-    let ctaTitle: String
-    let brandColor: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Content area
-            VStack(alignment: .leading, spacing: 0) {
-                // Pill row
+        // The Card
+        VStack(spacing: 10) {
+            // Header Icons + Pill
+            HStack(alignment: .center) {
+                    SystemImage(account.role.image)
+                    .font(.system(size: 20))
+                Spacer()
+                if let ens = account.ens {
+                    Caption2FontText(ens.uppercased())
+                        .textCase(.uppercase)
+                        .monospaced()
+                }
+                Spacer()
+                
+                // Metadata row (compact)
                 HStack {
-                    Text(pillLeft)
-                        .gpPillLabelStyle()
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(brandColor.opacity(0.30))
-                        .clipShape(Capsule())
-                    Spacer()
-                    if let ens = ensRight {
-                        Text(ens)
-                            .gpPillLabelStyle()
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Color.white.opacity(0.10))
-                            .clipShape(Capsule())
+                    ForEach(account.metadata) { md in
+                            SystemImage(md.systemImage)
+                                .font(.footnote)
+                                .foregroundStyle(Color.textPrimary.opacity(0.75))
                     }
                 }
-                .padding(.bottom, GPSpacing.s)
+            }
+            .foregroundStyle(Color.textPrimary.opacity(0.85))
+            .padding(.top, 20)
+            .padding(.horizontal, 24)
 
-                // Title
-                Text(title)
-                    .gpCardTitleStyle()
+            Spacer(minLength: 0)
+
+            // Main Text
+            VStack {
+                // Primary title (monospaced heavy)
+                Text(account.title)
+                    .font(.largeTitle)
+                    .fontWeight(.black)
+                    .monospaced()
+                    .tracking(2)
                     .lineLimit(2)
-                    .padding(.bottom, GPSpacing.xs)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color.textPrimary)
 
-                // Subtitle
-                Text(subtitle)
-                    .gpCardSubtitleStyle()
-                    .lineLimit(3)
-                    .padding(.bottom, GPSpacing.m)
+                // Secondary title (thin monospaced)
+                Text(account.subtitle)
+                    .font(.body)
+                    .fontWeight(.thin)
+                    .monospaced()
+                    .tracking(2)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color.textSecondary)
+            }
+            .padding(.horizontal)
 
-                // Metadata row
-                if !metadata.isEmpty {
-                    HStack(spacing: GPSpacing.s) {
-                        ForEach(metadata) { md in
-                            HStack(spacing: 6) {
-                                Image(systemName: md.systemImage)
-                                Text(md.text)
-                            }
-                            .gpMetadataStyle()
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.bottom, GPSpacing.m)
+            Spacer(minLength: 0)
+
+            // Footer Data
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("ADDRESS")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.5))
+                    Text(shortAddress)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundStyle(Color.textSecondary)
+                        .accessibilityLabel("Ethereum address \(account.address)")
                 }
-            }
-            .padding(.horizontal, GPSpacing.l)
-            .padding(.top, GPSpacing.m)
 
-            // CTA strip (min 44 pt height)
-            HStack {
                 Spacer()
-                Text(ctaTitle)
-                    .gpCTAStyle()
-                Spacer()
+
+                // Faux Barcode
+                Image(systemName: "barcode")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 40)
+                    .foregroundStyle(.white.opacity(0.7))
             }
-            .frame(minHeight: 44)
-            .padding(.vertical, 4)
-            .padding(.horizontal, GPSpacing.l)
-            .background(brandColor.opacity(0.25))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal, GPSpacing.l)
-            .padding(.bottom, GPSpacing.m)
+            .padding(.bottom, 30)
+            .padding(.horizontal, 24)
         }
-        .background(Color.surface.opacity(0.75), in: .rect(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.textSecondary.opacity(0.12))
+        .frame(width: 320, height: 500)
+        .background {
+            // 1. The Glass Material
+            RoundedRectangle(cornerRadius: 30)
+                .fill(.ultraThinMaterial)
+                .opacity(0.9)
+        }
+        .overlay {
+            // 2. The Liquid Shimmer Overlay
+            RoundedRectangle(cornerRadius: 30)
+                .strokeBorder(.white.opacity(0.2), lineWidth: 1)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 30)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.clear, .accent.opacity(0.8), .white, .accent.opacity(0.8), .clear],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 2
+                        )
+                        // Animate the gradient mask
+                        .mask(
+                            LinearGradient(
+                                colors: [.clear, .black, .clear],
+                                startPoint: isAnimating ? .topLeading : .bottomTrailing,
+                                endPoint: isAnimating ? .bottomTrailing : .topLeading
+                            )
+                            .frame(width: 800, height: 800)
+                            .offset(x: isAnimating ? 200 : -200, y: isAnimating ? 200 : -200)
+                        )
+                )
+        }
+        .overlay {
+            // 3. Inner White Specular Highlight (Liquid edge effect)
+            RoundedRectangle(cornerRadius: 30)
+                .stroke(.white.opacity(0.5), lineWidth: 1)
+                .blendMode(.overlay)
+                .blur(radius: 1)
+        }
+        .shadow(color: .accent.opacity(0.4), radius: 20, x: 0, y: 10)
+        .rotation3DEffect(
+            .degrees(Double(dragOffset.width) / 15),
+            axis: (x: 0, y: 1, z: 0)
         )
-        .shadow(color: brandColor.opacity(0.35), radius: 12, x: 0, y: 6) // soft glow
+        .rotation3DEffect(
+            .degrees(Double(dragOffset.height) / 15),
+            axis: (x: 1, y: 0, z: 0)
+        )
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    dragOffset = value.translation
+                }
+                .onEnded { _ in
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        dragOffset = .zero
+                    }
+                }
+        )
         .contentShape(.rect)
-        .accessibilityElement(children: .combine)
+        .onTapGesture {
+            onTap?()
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
+                isAnimating = true
+            }
+        }
     }
 }
-
-//struct DemoAccountChip: View {
-//    let title: String
-//    let subtitle: String
-//
-//    var body: some View {
-//        VStack(alignment: .leading, spacing: GPSpacing.s) {
-//            Text(title)
-//                .gpCardTitleStyle()
-//                .lineLimit(2)
-//                .multilineTextAlignment(.leading)
-//                .padding(.bottom, GPSpacing.xs)
-//
-//            Text(subtitle)
-//                .gpCardSubtitleStyle()
-//                .lineLimit(3)
-//                .multilineTextAlignment(.leading)
-//        }
-//        .padding(.horizontal, GPSpacing.l)
-//        .padding(.vertical, GPSpacing.m)
-//        .frame(maxWidth: .infinity, alignment: .leading)
-//        .background(Color.surface.opacity(0.75), in: .rect(cornerRadius: 14))
-//        .overlay(
-//            RoundedRectangle(cornerRadius: 14)
-//                .stroke(Color.textSecondary.opacity(0.12))
-//        )
-//        .contentShape(.rect)
-//    }
-//}
