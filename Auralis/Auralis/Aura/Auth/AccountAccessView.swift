@@ -11,10 +11,6 @@ struct AccountAccessView: View {
     @Binding var currentAccount: EOAccount?
 
     var body: some View {
-        GlassEffectContainer(spacing: 10.0) {
-            AddressInputView(currentAccount: $currentAccount)
-        }
-        .padding(.horizontal, 32)
-        .padding(.bottom, 160)
+        AddressInputView(currentAccount: $currentAccount)
     }
 }

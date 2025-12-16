@@ -22,6 +22,23 @@ extension String {
 }
 
 extension String {
+    var extractedEthereumAddress: String? {
+        let address = trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !address.isEmpty else { return nil }
+        let addressPattern = #"^0x[a-fA-F0-9]{40}$"#
+        if let match = address.range(of: addressPattern, options: .regularExpression) {
+            return String(address[match])
+        }
+        // If the input is a 40-character hex string without the 0x prefix, prepend it and accept.
+        let noPrefixPattern = #"^[a-fA-F0-9]{40}$"#
+        if let match = address.range(of: noPrefixPattern, options: .regularExpression) {
+            return "0x" + String(address[match])
+        }
+        return nil
+    }
+}
+
+extension String {
     var displayAddress: String {
         if count > 10 {
             let start = prefix(6)

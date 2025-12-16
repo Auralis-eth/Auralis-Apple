@@ -24,7 +24,7 @@ struct TorchToggleButton: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
-        .buttonStyle(.glassProminent) // Apply custom button style for subtle animation
+        .buttonStyle(.glass) // Apply custom button style for subtle animation
         .tint(.surface.opacity(0.5))
     }
 }
