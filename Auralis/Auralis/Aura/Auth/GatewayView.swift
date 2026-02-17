@@ -11,26 +11,9 @@ struct GatewayView: View {
     @Binding var currentAccount: EOAccount?
 
     var body: some View {
-        VStack {
-            
-//            LoginTitleView()
-//            VStack {
-//                Spacer()
-//                Text("Connect a signal to reveal your personal on-chain aurora.")//living
-//                    .font(.subheadline)
-//                    .foregroundStyle(Color.textPrimary)
-//                    .kerning(2)
-//                    .multilineTextAlignment(.center)
-//                    .fixedSize(horizontal: false, vertical: true)
-//                    .padding(.horizontal, 30)
-//                
-//                Spacer()
-//            }
-            AccountAccessView(
-                currentAccount: $currentAccount
-            )
-            
-        }
+        AddressInputView(
+            currentAccount: $currentAccount
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             GatewayBackgroundImage()

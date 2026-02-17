@@ -44,18 +44,19 @@ struct MainAuraView: View {
                         MiniPlayerView(audioEngine: audioEngine)
                     }
             } else if nftsAreLoading {
-                ZStack(alignment: .bottom) {
+                NFTNewsfeedLoadingView(
+                    itemsLoaded: nftService.itemsLoaded,
+                    total: nftService.total
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal)
+                .background {
                     GatewayBackgroundImage()
+                        .ignoresSafeArea()
+
                     Color.background.opacity(0.3)
                         .ignoresSafeArea()
-                        .contentShape(Rectangle())
-                    NFTNewsfeedLoadingView(
-                        itemsLoaded: nftService.itemsLoaded,
-                        total: nftService.total
-                    )
                 }
-
-                
             } else {
                 GatewayView(currentAccount: $currentAccount)
             }

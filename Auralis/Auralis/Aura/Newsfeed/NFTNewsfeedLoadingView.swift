@@ -31,7 +31,7 @@ struct NFTNewsfeedLoadingView: View {
         }
         .padding(.vertical)
         .frame(maxWidth: size == .large ? .infinity : 200)
-        .glassEffect(.regular.tint(.surface.opacity(0.2)), in: .rect(cornerRadius: 32))
+        .glassEffect(.clear.tint(.surface), in: .containerRelative)
     }
 }
 

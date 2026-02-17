@@ -1,0 +1,236 @@
+//
+//  ProfileCardView.swift
+//  Auralis
+//
+//  Created by Daniel Bell on 2/8/26.
+//
+
+import ImagePlayground
+import SwiftUI
+
+struct ProfileCardView: View {
+    @Binding var currentAccount: EOAccount?
+    @Binding var currentAddress: String
+    @Binding var avatarImage: UIImage?
+    @State private var isLoadingAvatar: Bool = false
+    @State private var avatarErrorMessage: String? = nil
+    @State private var showAvatarErrorAlert: Bool = false
+    @State private var avatarPromptCache = [String: [ImagePlaygroundConcept]]()
+    
+    var body: some View {
+        HStack {
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            if let avatarImage = avatarImage {
+                Image(uiImage: avatarImage)
+                    .resizable()
+                    .scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: 30))
+                    .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.white.opacity(0.7), lineWidth: 2))
+                
+                
+                    .frame(width: 250, height: 250)
+                    .padding()
+                    //is this glass effect still needed
+                    .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
+            } else if isLoadingAvatar {
+                ZStack {
+                    Color.black.opacity(0.25)
+                        .ignoresSafeArea()
+                    VStack {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+                        Text("Generating Avatar...")
+                            .foregroundStyle(.white)
+                            .font(.headline)
+                            .padding(.top, 12)
+                    }
+                    .frame(width: 96, height: 96)
+                }
+            } else {
+                // Placeholder avatar circle
+                Circle()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 96, height: 96)
+                    .overlay(
+                        Image(systemName: "person.crop.circle.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .foregroundColor(.gray)
+                            .padding(18)
+                    )
+                    .padding(.bottom, 4)
+            }
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            VStack {
+                SecondaryText("ProfileCard")
+                SecondaryText("HELLO \(currentAccount?.address ?? "")")
+                SecondaryText("ProfileCard")
+            }
+            Image(systemName: "square.and.pencil")
+        }
+        .task {
+            if avatarImage == nil {
+                await generateAvatarImage(
+                    style: .character//AvatarStyle.allCases.randomElement() ?? .character
+                )
+            }
+        }
+        .onChange(of: currentAddress) { newAddress in
+            Task {
+                avatarImage = nil
+                await generateAvatarImage()
+            }
+        }
+        .alert("Avatar Error", isPresented: $showAvatarErrorAlert, actions: {
+            Button("Dismiss", role: .cancel) {
+                showAvatarErrorAlert = false
+            }
+        }, message: {
+            if let avatarErrorMessage = avatarErrorMessage {
+                Text(avatarErrorMessage)
+            }
+        })
+        .padding()
+    }
+    
+    
+    // MARK: - Avatar Image Generation
+    
+    func generateAvatarImage(style: AvatarStyle = .abstract) async {
+        guard !currentAddress.isEmpty else {
+            avatarImage = nil
+            return
+        }
+        
+        isLoadingAvatar = true
+        defer { isLoadingAvatar = false }
+        
+        let prompts = avatarPrompt(address: currentAddress, style: style)
+        
+        do {
+            let imageCreator = try await ImageCreator()
+            
+            // Generate only 1 avatar image with square aspect ratio
+            let images = imageCreator.images(for: prompts, style: .illustration, limit: 1)
+            
+            for try await image in images {
+                let uiImage = UIImage(cgImage: image.cgImage)
+                avatarImage = uiImage
+                break
+            }
+        }
+        catch ImageCreator.Error.notSupported {
+            avatarImage = nil
+            return
+        }
+        catch {
+            avatarErrorMessage = "Failed to generate avatar image. Please try again.\n\(error.localizedDescription)"
+            showAvatarErrorAlert = true
+            return
+        }
+    }
+    
+    
+    /// Build a deterministic avatar prompt array for the given address and optional style.
+    /// - Parameters:
+    ///   - address: Wallet address string; will be normalized.
+    ///   - style: Avatar style: abstract, character, geometric (default: abstract)
+    /// - Returns: Array of ImagePlaygroundConcept text atoms for avatar generation
+    @discardableResult
+    func avatarPrompt(address: String, style: AvatarStyle = .abstract) -> [ImagePlaygroundConcept] {
+        let addr = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        
+        // Cache key includes style and address
+        let key = "\(addr)|\(style.rawValue)"
+        if let cached = avatarPromptCache[key] {
+            return cached
+        }
+
+        // Style descriptor atoms
+        let styleAtoms: [String] = {
+            switch style {
+            case .abstract:
+                return [
+                "abstract",
+                "colorful",
+                "modern style",
+            ]
+            case .character: return [
+                "vibrant colors",
+            ] + [[
+                "dog",
+                "cat",
+                "penguin",
+                "robot",
+                "Rabbit",
+                "Turtle",
+                "Wolves",
+                "Foxes",
+                "Deer",
+                "Bighorn Sheep",
+                "Buffalo",
+                "Lion",
+                "Tiger",
+                "Giant Panda",
+                "Bengal Tiger",
+                "African Lion",
+                "Red Kangaroo",
+                "budgerigar",
+                "zebu",
+                "zebra"
+            ].randomElement() ?? "dog"]
+            case .geometric: return [
+                "geometric shapes",
+                "symmetry",
+                "vivid palette"
+            ]
+            }
+        }()
+        
+        // Mood variants for avatar
+        let moods = ["friendly", "mysterious", "energetic", "calm", "bold"]
+        // Deterministic pick helper
+        @inline(__always)
+        func pick<T>(_ arr: [T], _ b: Int) -> T {
+            arr[Int(addr.seedBytes[b]) % arr.count]
+        }
+        
+        let moodAtom = pick(moods, 5)
+        
+        // Compose atoms
+        var atoms: [String] = [
+            "digital art",
+            "high detail",
+            "vibrant colors",
+            "clean background",
+            "sharp focus",
+            "vector style"
+        ]
+        atoms.append(contentsOf: styleAtoms)
+        atoms.append("mood \(moodAtom)")
+        
+        let concepts = atoms.map { ImagePlaygroundConcept.text($0) }
+        avatarPromptCache[key] = concepts
+        return concepts
+    }
+}
