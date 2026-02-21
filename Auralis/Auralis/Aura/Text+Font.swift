@@ -268,3 +268,114 @@ struct AccentTextSystemImage: View {
     }
 }
 
+#Preview("Text Styles") {
+    ScrollView {
+        VStack(alignment: .leading, spacing: 12) {
+            Group {
+                TitleFontText(text: "TitleFontText • .title bold")
+                Title2FontText("Title2FontText • .title2 bold")
+                HeadlineFontText("HeadlineFontText • .headline")
+                SubheadlineFontText("SubheadlineFontText • .subheadline")
+                CalloutFontText("CalloutFontText • .callout")
+                FootnoteFontText("FootnoteFontText • .footnote")
+                Caption2FontText("Caption2FontText • .caption2 semibold")
+                PrimaryCaptionFontText("PrimaryCaptionFontText • .caption")
+                SecondaryCaptionFontText("SecondaryCaptionFontText • .caption")
+                ErrorText("ErrorText • .caption • error color")
+                SuccessText("SuccessText • .caption • success color")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 2)
+
+            Divider().padding(.vertical, 8)
+
+            Group {
+                PrimaryText("PrimaryText")
+                    .padding()
+                    .background(Color.black)
+                SecondaryText("SecondaryText")
+                SystemFontText(text: "SystemFontText size 18 regular", size: 18)
+                SystemFontText(text: "SystemFontText size 22 semibold", size: 22, weight: .semibold)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 2)
+
+            Divider().padding(.vertical, 8)
+
+            Group {
+                HStack(spacing: 16) {
+                    PrimaryTextSystemImage("star.fill")
+                    SecondaryTextSystemImage("star")
+                    SecondarySystemImage("heart")
+                    SuccessTextSystemImage("checkmark.circle.fill")
+                    AccentTextSystemImage("bolt.fill")
+                }
+                .imageScale(.large)
+            }
+
+            Divider().padding(.vertical, 8)
+
+            Group {
+                PrimaryTextButton("PrimaryTextButton") {}
+            }
+        }
+        .padding(20)
+    }
+}
+
+#Preview("Text Styles • Dark") {
+    ScrollView {
+        VStack(alignment: .leading, spacing: 12) {
+            Group {
+                TitleFontText(text: "TitleFontText • .title bold")
+                Title2FontText("Title2FontText • .title2 bold")
+                HeadlineFontText("HeadlineFontText • .headline")
+                SubheadlineFontText("SubheadlineFontText • .subheadline")
+                CalloutFontText("CalloutFontText • .callout")
+                FootnoteFontText("FootnoteFontText • .footnote")
+                Caption2FontText("Caption2FontText • .caption2 semibold")
+                PrimaryCaptionFontText("PrimaryCaptionFontText • .caption")
+                SecondaryCaptionFontText("SecondaryCaptionFontText • .caption")
+                ErrorText("ErrorText • .caption • error color")
+                SuccessText("SuccessText • .caption • success color")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 2)
+
+            Divider().padding(.vertical, 8)
+
+            Group {
+                PrimaryText("PrimaryText")
+                    .padding()
+                    .background(Color.black)
+                SecondaryText("SecondaryText")
+                SystemFontText(text: "SystemFontText size 18 regular", size: 18)
+                SystemFontText(text: "SystemFontText size 22 semibold", size: 22, weight: .semibold)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 2)
+
+            Divider().padding(.vertical, 8)
+
+            Group {
+                HStack(spacing: 16) {
+                    PrimaryTextSystemImage("star.fill")
+                    SecondaryTextSystemImage("star")
+                    SecondarySystemImage("heart")
+                    SuccessTextSystemImage("checkmark.circle.fill")
+                    AccentTextSystemImage("bolt.fill")
+                }
+                .imageScale(.large)
+            }
+
+            Divider().padding(.vertical, 8)
+
+            Group {
+                PrimaryTextButton("PrimaryTextButton") {}
+            }
+        }
+        .padding(20)
+    }
+    .preferredColorScheme(.dark)
+}
+

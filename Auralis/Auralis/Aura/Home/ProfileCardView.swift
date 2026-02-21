@@ -18,7 +18,7 @@ struct ProfileCardView: View {
     @State private var avatarPromptCache = [String: [ImagePlaygroundConcept]]()
     
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
             
             
             
@@ -43,33 +43,26 @@ struct ProfileCardView: View {
                     .padding()
                     //is this glass effect still needed
                     .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
-            } else if isLoadingAvatar {
-                ZStack {
-                    Color.black.opacity(0.25)
-                        .ignoresSafeArea()
-                    VStack {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(1.5)
-                        Text("Generating Avatar...")
-                            .foregroundStyle(.white)
-                            .font(.headline)
-                            .padding(.top, 12)
-                    }
-                    .frame(width: 96, height: 96)
-                }
             } else {
                 // Placeholder avatar circle
                 Circle()
-                    .fill(Color.gray.opacity(0.3))
+                    .fill(Color.textSecondary.opacity(0.3))
                     .frame(width: 96, height: 96)
-                    .overlay(
-                        Image(systemName: "person.crop.circle.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .foregroundColor(.gray)
-                            .padding(18)
-                    )
+                    .overlay {
+                        if isLoadingAvatar {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.5)
+                        } else {
+                            Image(systemName: "person.crop.circle.fill")
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundColor(.deepBlue)
+                                .padding(18)
+                        }
+                        
+                        
+                    }
                     .padding(.bottom, 4)
             }
             
@@ -77,16 +70,21 @@ struct ProfileCardView: View {
             
             
             
-            
-            
-            
-            
-            VStack {
-                SecondaryText("ProfileCard")
-                SecondaryText("HELLO \(currentAccount?.address ?? "")")
-                SecondaryText("ProfileCard")
+            Spacer()
+            VStack(alignment: .leading) {
+                Title2FontText("HELLO")
+                SecondaryText("\(currentAccount?.address.displayAddress ?? "")")
             }
-            Image(systemName: "square.and.pencil")
+            Spacer()
+            VStack(spacing: 12) {
+                SystemImage("square.and.pencil")
+                    .accessibilityLabel("Edit Account")
+                SystemImage("qrcode.viewfinder")
+                    .accessibilityLabel("Scan wallet QR code")
+            }
+            .foregroundStyle(Color.accent)
+            .font(.system(size: 30, weight: .medium))
+            .padding(.horizontal)
         }
         .task {
             if avatarImage == nil {

@@ -16,6 +16,8 @@ struct MainAuraView: View {
     @State private var currentChain: Chain = .ethMainnet
     @Query private var accounts: [EOAccount]
     
+    @State private var selectedTab: AppTab = .home
+    
     @Environment(\.modelContext) private var modelContext
     @State private var nftService = NFTService()
     @StateObject private var audioEngine: AudioEngine
@@ -36,6 +38,7 @@ struct MainAuraView: View {
                     currentChainId: $currentChainId,
                     currentChain: $currentChain,
                     nftService: $nftService,
+                    selectedTab: $selectedTab,
                     audioEngine: audioEngine
                 )
                     .tabBarMinimizeBehavior(.onScrollDown)

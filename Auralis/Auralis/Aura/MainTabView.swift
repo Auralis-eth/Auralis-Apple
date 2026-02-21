@@ -1,28 +1,42 @@
 import SwiftUI
 
+// Represents each tab in the main TabView
+enum AppTab: Hashable {
+    case home
+    case news
+    case gas
+    case music
+    case profile
+    case search
+    case tokens
+    case reciepts
+}
+
 struct MainTabView: View {
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     @Binding var currentChainId: String
     @Binding var currentChain: Chain
     @Binding var nftService: NFTService
+    @Binding var selectedTab: AppTab
     let audioEngine: AudioEngine
 
     var body: some View {
-        TabView {
-            Tab("Home", systemImage: "house") {
+        TabView(selection: $selectedTab) {
+            Tab("Home", systemImage: "house", value: AppTab.home) {
                 HomeTabView(
                     currentAccount: $currentAccount,
                     currentAddress: $currentAddress,
-                    currentChainId: $currentChainId
+                    currentChainId: $currentChainId,
+                    selectedTab: $selectedTab
                 )
             }
 
-            Tab("NewsFeed", systemImage: "bubble.right") {
+            Tab("NewsFeed", systemImage: "bubble.right", value: AppTab.news) {
                 NewsFeedView(currentAccount: $currentAccount, nftService: $nftService, currentChain: $currentChain)
             }
 
-            Tab("Gas", systemImage: "fuelpump") {
+            Tab("Gas", systemImage: "fuelpump", value: AppTab.gas) {
                 ZStack(alignment: .bottom) {
                     GatewayBackgroundImage()
                     Color.background.opacity(0.3)
@@ -32,18 +46,18 @@ struct MainTabView: View {
                 }
             }
 
-            Tab("Music", systemImage: "play.circle") {
+            Tab("Music", systemImage: "play.circle", value: AppTab.music) {
                 VStack {
                     NFTMusicPlayerApp(audioEngine: audioEngine)
                 }
             }
 
-            Tab("Profile", systemImage: "person.circle") {
+            Tab("Profile", systemImage: "person.circle", value: AppTab.profile) {
                 Text("SentView()")
                 Text("ENS")
             }
 
-            Tab("Search", systemImage: "magnifyingglass", role: .search) {
+            Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
                 Button(action: {}) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(Color.textPrimary)
@@ -65,6 +79,7 @@ struct MainTabView: View {
         @State private var currentChainId: String = Chain.ethMainnet.rawValue
         @State private var currentChain: Chain = .ethMainnet
         @State private var nftService = NFTService()
+        @State private var selectedTab: AppTab = .home
         let audioEngine: AudioEngine = try! AudioEngine()
 
         var body: some View {
@@ -74,6 +89,7 @@ struct MainTabView: View {
                 currentChainId: $currentChainId,
                 currentChain: $currentChain,
                 nftService: $nftService,
+                selectedTab: $selectedTab,
                 audioEngine: audioEngine
             )
         }

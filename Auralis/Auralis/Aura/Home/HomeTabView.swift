@@ -6,6 +6,7 @@ struct HomeTabView: View {
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     @Binding var currentChainId: String
+    @Binding var selectedTab: AppTab
     @Environment(\.modelContext) private var modelContext
     @Namespace var namespace
     let transitionID: String = "HomeTabView"
@@ -46,6 +47,11 @@ struct HomeTabView: View {
                 FinanceTileView()
                     .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
                     .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
+                
+                Button("Open News Feed") {
+                    selectedTab = .news
+                }
+
             }
             .padding()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -64,7 +70,7 @@ struct HomeTabView: View {
                     .ignoresSafeArea()
             }
 
-            VStack(spacing: 16) {
+            VStack {
                 Button("Logout") {
                     try? modelContext.delete(model: NFT.self)
                     try? modelContext.delete(model: EOAccount.self)
@@ -75,12 +81,6 @@ struct HomeTabView: View {
                     avatarImage = nil
                     generatedImages = nil
                 }
-                Button("refresh UI") {
-                    Task { @MainActor in
-                        await generateImage()
-                    }
-                }
-                .disabled(isLoading) // Disable refresh button when loading
                 
                 Button("Show Image Preview") {
                     isPresented = true
