@@ -20,55 +20,35 @@ struct ProfileCardView: View {
     var body: some View {
         HStack(spacing: 12) {
             
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            if let avatarImage = avatarImage {
-                Image(uiImage: avatarImage)
-                    .resizable()
-                    .scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: 30))
-                    .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.white.opacity(0.7), lineWidth: 2))
-                
-                
-                    .frame(width: 250, height: 250)
-                    .padding()
-                    //is this glass effect still needed
-                    .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
-            } else {
-                // Placeholder avatar circle
-                Circle()
-                    .fill(Color.textSecondary.opacity(0.3))
-                    .frame(width: 96, height: 96)
-                    .overlay {
-                        if isLoadingAvatar {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(1.5)
-                        } else {
-                            Image(systemName: "person.crop.circle.fill")
-                                .resizable()
-                                .scaledToFit()
-                                .foregroundColor(.deepBlue)
-                                .padding(18)
-                        }
+            Group {
+                if let avatarImage = avatarImage {
+                    Image(uiImage: avatarImage)
+                        .resizable()
+                        .scaledToFit()
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 2))
+                } else {
+                    // Placeholder avatar circle
+                    Circle()
+                        .fill(Color.textSecondary.opacity(0.3))
                         
-                        
-                    }
-                    .padding(.bottom, 4)
+                }
             }
-            
-            
-            
-            
+            .frame(width: 96, height: 96)
+            .overlay {
+                if isLoadingAvatar {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.5)
+                } else {
+                    Image(systemName: "person.crop.circle.fill")
+                        .resizable()
+                        .scaledToFit()
+                        .foregroundColor(.deepBlue)
+                        .padding(18)
+                }
+            }
+            .padding(.bottom, 4)
             
             Spacer()
             VStack(alignment: .leading) {
@@ -88,9 +68,19 @@ struct ProfileCardView: View {
         }
         .task {
             if avatarImage == nil {
-                await generateAvatarImage(
-                    style: .character//AvatarStyle.allCases.randomElement() ?? .character
-                )
+                isLoadingAvatar = true
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                let idx = Int.random(in: 1...8)
+                let suffix = String(format: "%02d", idx)
+
+                if let assetImage = UIImage(named: "testProfile-\(suffix)") {
+                    isLoadingAvatar = false
+                    avatarImage = assetImage
+                } else {
+                    await generateAvatarImage(
+                        style: .character
+                    )
+                }
             }
         }
         .onChange(of: currentAddress) { newAddress in
@@ -232,3 +222,4 @@ struct ProfileCardView: View {
         return concepts
     }
 }
+

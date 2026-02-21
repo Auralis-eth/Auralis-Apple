@@ -30,7 +30,7 @@ struct HomeTabView: View {
     
     var body: some View {
         VStack {
-            VStack {
+            VStack(spacing: 12) {
                 ProfileCardView(
                     currentAccount: $currentAccount,
                     currentAddress: $currentAddress,
@@ -38,7 +38,7 @@ struct HomeTabView: View {
                 )
                     .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
                     .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
-                EnergyCardView()
+                EnergyCardView(time: Date())
                     .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
                     .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
                 MusicTileView()
@@ -180,7 +180,7 @@ struct HomeTabView: View {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
 
-        let hasValidAddr = isValidEthAddress(addr)
+        let hasValidAddr = addr.isValidEthAddress()
 
         // Cache key (parameters included)
         let key = "\(addr)|\(chain)|\(lane.rawValue)|\(mood ?? "-")|\(intensity?.description ?? "-")|\(scene.rawValue)|\(locationHint)"
@@ -200,8 +200,9 @@ struct HomeTabView: View {
         let motif = AuroraConfig.chainThemes[chain] ?? "natural light physics emphasis"
         let chainBias: Double = ["1","mainnet","ethereum","10","42161","8453","137"].contains(chain) ? 0.15 : 0.0
         let seededIntensity = Double(bytes[9]) / 255.0
-        let kpi = clamped((intensity ?? seededIntensity) + chainBias, 0, 1)
-
+        
+        let kpi = max(0, min(1, (intensity ?? seededIntensity) + chainBias))
+        
         // Composition, vibe, scene & optional snow
         let comp = pick(AuroraConfig.compositions, 3)
         let sceneAtom: String = {
@@ -371,41 +372,22 @@ struct HomeTabView: View {
 import Foundation
 import CryptoKit
 // MARK: - Utilities
-
-private func clamped<T: Comparable>(_ v: T, _ lo: T, _ hi: T) -> T {
-    max(lo, min(hi, v))
-}
-
-/// Basic ETH address validator: "0x" + 40 hex chars (case-insensitive)
-private func isValidEthAddress(_ s: String) -> Bool {
-    let t = s.lowercased()
-    guard t.hasPrefix("0x"), t.count == 42 else { return false }
-    for ch in t.dropFirst(2) {
-        let isHex = ("0"..."9").contains(ch) || ("a"..."f").contains(ch)
-        if !isHex { return false }
-    }
-    return true
-}
-
 extension String {
     /// SHA-256 → byte array
     var seedBytes: [UInt8] {
         let h = SHA256.hash(data: Data(utf8))
         return Array(h)
     }
-}
-
-struct EnergyCardView: View {
-    var body: some View {
-        SecondaryText("EnergyCard")
-    }
-}
-
-struct HomeAppCardView: View {
-    var body: some View {
-        VStack {
-            SecondaryText("HomeAppCard")
+    
+    /// Basic ETH address validator: "0x" + 40 hex chars (case-insensitive)
+    func isValidEthAddress() -> Bool {
+        let t = lowercased()
+        guard t.hasPrefix("0x"), t.count == 42 else { return false }
+        for ch in t.dropFirst(2) {
+            let isHex = ("0"..."9").contains(ch) || ("a"..."f").contains(ch)
+            if !isHex { return false }
         }
+        return true
     }
 }
 
