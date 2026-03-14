@@ -41,13 +41,15 @@ struct HomeTabView: View {
                 EnergyCardView(time: Date())
                     .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
                     .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
-                MusicTileView()
-                    .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
-                    .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
-                FinanceTileView()
-                    .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
-                    .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
                 
+                HStack {
+                    MusicTileView()
+                        .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
+                        .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
+                    FinanceTileView()
+                        .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
+                        .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
+                }
                 Button("Open News Feed") {
                     selectedTab = .news
                 }
@@ -392,18 +394,71 @@ extension String {
 }
 
 struct MusicTileView: View {
+    var onOpenPlayer: (() -> Void)? = nil
+
     var body: some View {
-        VStack {
-            SecondaryText("MusicTile")
+        VStack(alignment: .leading, spacing: 12) {
+            SubheadlineFontText("Music")
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HeadlineFontText("Let's start with a focus mix")
+                    .fontWeight(.semibold)
+
+                Button(action: { onOpenPlayer?() }) {
+                    SubheadlineFontText("Open player")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.textPrimary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color.deepBlue.opacity(0.35))
+                        )
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(.white.opacity(0.25), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 2)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open music player")
+            }
         }
+        .padding(20)
     }
 }
 
 struct FinanceTileView: View {
     var body: some View {
-        VStack {
-            SecondaryText("FinanceTile")
+        VStack(alignment: .leading, spacing: 12) {
+            SubheadlineFontText("Finance AI")
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HeadlineFontText("Ask about ETH, SOL, BTC performance")
+                    .fontWeight(.semibold)
+
+                HStack {
+                    SubheadlineFontText("Coming soon")
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.black.opacity(0.15))
+                        )
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(.white.opacity(0.2), lineWidth: 1)
+                        )
+                    Spacer()
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Finance AI coming soon")
+            }
         }
+        .padding(20)
     }
 }
 
