@@ -80,7 +80,7 @@ struct DetailView: View {
 struct NFTMusicPlayerApp: View {
     @ObservedObject var audioEngine: AudioEngine
     let onOpenNFT: (NFT) -> Void
-    @State private var selection: SidebarItem? = nil
+    @State private var selection: SidebarItem? = .library
     let sidebarItems = SidebarItem.allCases
 
     var body: some View {
@@ -99,6 +99,7 @@ struct NFTMusicPlayerApp: View {
                         .listRowBackground(Color.clear)
                         .tag(item)
                 }
+                .accessibilityIdentifier("music.sidebar")
                 .listStyle(.sidebar)
                 .scrollContentBackground(.hidden)
                 .background(.clear)
@@ -201,6 +202,7 @@ struct NFTMusicPlayerLibraryView: View {
                                                 .padding(.horizontal)
                                         }
                                         .buttonStyle(.plain)
+                                        .accessibilityIdentifier("music.nft.\(nft.id)")
                                     }
                                 }
                             }
@@ -210,6 +212,7 @@ struct NFTMusicPlayerLibraryView: View {
                 }
             }
             .navigationTitle("Music NFTs")
+            .accessibilityIdentifier("music.library.root")
             .alert("Audio Engine Error", isPresented: $showingError) {
                 Button("OK") { }
             } message: {
@@ -299,6 +302,8 @@ private struct MusicNFTCard: View {
         }
         .padding(12)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("music.card.\(nft.id)")
     }
 }
 

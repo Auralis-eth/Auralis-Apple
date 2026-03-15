@@ -46,17 +46,20 @@ struct HomeTabView: View {
                     MusicTileView {
                         router.showMusicLibrary()
                     }
+                        .accessibilityIdentifier("home.openMusic")
                         .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
                         .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
                     FinanceTileView {
                         router.showNFTTokens()
                     }
+                        .accessibilityIdentifier("home.openNFTTokens")
                         .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
                         .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
                 }
                 Button("Open News Feed") {
                     router.selectedTab = .news
                 }
+                .accessibilityIdentifier("home.openNews")
 
             }
             .padding()
@@ -87,10 +90,12 @@ struct HomeTabView: View {
                     avatarImage = nil
                     generatedImages = nil
                 }
+                .accessibilityIdentifier("home.logout")
                 
                 Button("Show Image Preview") {
                     isPresented = true
                 }
+                .accessibilityIdentifier("home.showImagePreview")
                 .disabled(generatedImages?.isEmpty != false)
                 .padding(.bottom, 8)
             }
@@ -427,6 +432,7 @@ struct MusicTileView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Open music player")
+                .accessibilityIdentifier("home.musicTile.button")
             }
         }
         .padding(20)
@@ -462,6 +468,7 @@ struct FinanceTileView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.nftTokens.button")
                     Spacer()
                 }
                 .accessibilityElement(children: .ignore)
@@ -471,4 +478,3 @@ struct FinanceTileView: View {
         .padding(20)
     }
 }
-

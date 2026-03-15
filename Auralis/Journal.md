@@ -186,6 +186,57 @@ That requires the link to behave less like a button tap and more like an itinera
 
 This is the kind of detail that prevents "works on warm app, fails on cold launch" bugs from becoming folklore.
 
+### 2026-03-15: Routing finally got tests that check the timing traps
+
+The routing work is now covered from two angles:
+
+- Swift Testing covers parser behavior and invalid payload handling
+- XCUI covers route flows, cold-start replay, and account-switch invalidation
+
+That split matters. Parser tests are the quiet librarians: they check that `account/...`, `nft/...`, `token/...`, and `receipt/...` links mean what we think they mean. XCUI is the fire drill: it checks what happens when the app is launched cold, when a route is pushed, when the user backs out, and when the active account changes under an existing detail stack.
+
+One testing preference is now worth stating out loud because it fits this codebase well:
+
+- prefer Swift Testing for unit and integration-style tests
+- prefer parameterized tests over a pile of near-duplicates
+- use XCTest/XCUI only where the Apple UI automation stack requires it
+
+That keeps the fast tests expressive and compact, while still leaving room for realistic end-to-end UI coverage where timing and navigation behavior are the real product risk.
+
+### 2026-03-15: Deep-link timing logic moved out of the view and into a referee
+
+`MainAuraView` had a classic shell-state problem: it knew how to do the right thing, but only if you mentally executed the timing in your head.
+
+That is a fragile arrangement. A view should not need a Ouija board.
+
+The fix was to extract the pending deep-link decision tree into a small pure resolver:
+
+- `PendingDeepLinkResolver` answers "wait, switch account, route, go home, or fail safely?"
+- `MainAuraView` now applies the result instead of improvising the rules inline
+- route-flow unit tests can hit the decision logic directly without spinning up the whole app shell
+
+This paid off immediately because it exposed a subtle cold-start trap: top-level destination links like `nft/...` or `token/...` should wait until initial restore finishes, not fail early just because the shell is still putting its shoes on.
+
+That is a useful general lesson for stateful SwiftUI shells:
+
+- if a decision depends on timing, make the decision layer pure
+- if the UI applies the decision, test the decision separately
+- if a route can arrive before restoration finishes, "wait" is often the correct behavior, not "error"
+
+### 2026-03-15: The shell stopped repeating itself about accounts
+
+There was another smaller but very real routing smell in `MainAuraView`: the app shell was resolving accounts and reacting to account/address changes in multiple places with near-duplicate logic.
+
+That kind of duplication is how state propagation bugs get promoted from "annoying" to "legendary."
+
+The cleanup was straightforward:
+
+- extract account restoration and account/address transition rules into `MainAuraShellLogic`
+- let the view apply those decisions instead of re-deriving them in three different closures
+- add unit tests for the transitions that actually matter: restore, address changes, account changes, route reset timing
+
+This is the boring kind of refactor that saves future weekends. The shell now has one source of truth for "what happens when identity changes," which is exactly the kind of thing a stateful tab app should not improvise.
+
 ### War Story: stale async loads are a real danger in audio apps
 
 `AudioEngine` already shows the scars of a real class of bugs: stale async playback requests stomping on newer ones. The `beginNewLoad()`, `currentLoadTask`, and `activeLoadID` flow is basically a nightclub bouncer checking wristbands. If an old task tries to re-enter after a newer request started, it gets thrown out.
@@ -277,6 +328,10 @@ The playlist suite mostly checks outcomes and invariants. That ages better than 
 ### 6. Prefer Swift-shaped design over utility-bucket design
 
 This repo should lean toward instance methods, injected collaborators, and types that own their own behavior. If a proposed change wants a pile of `static` helpers, that is usually a signal to step back and ask whether the design is flattening too much context.
+
+### 7. Route timing deserves first-class engineering attention
+
+Routing bugs are often timing bugs wearing a fake mustache. Cold start, account restoration, data refresh, and deep-link replay all compete for the same moment in the app lifecycle. Treating routing as a shell-level concern with explicit invalidation rules is not over-engineering here; it is how you avoid the haunted-house version of navigation where the same link works three times and fails on the fourth.
 
 ## If I Were Starting Over...
 

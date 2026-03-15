@@ -39,7 +39,7 @@ struct NewsFeedView: View {
         }
         .onChange(of: selectedNFT) { oldValue, newValue in
             guard let newValue else { return }
-            router.newsPath.append(.detail(id: newValue.id))
+            router.showNewsNFTDetail(id: newValue.id)
             selectedNFT = nil
         }
     }

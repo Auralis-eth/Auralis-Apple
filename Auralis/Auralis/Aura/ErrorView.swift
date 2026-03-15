@@ -70,12 +70,14 @@ struct RouteErrorScreen: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("routeError.dismiss")
 
                 Spacer()
             }
             .padding()
             .navigationTitle("Routing Error")
             .navigationBarTitleDisplayMode(.inline)
+            .accessibilityIdentifier("routeError.screen")
         }
     }
 }

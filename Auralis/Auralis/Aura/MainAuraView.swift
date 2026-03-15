@@ -23,10 +23,13 @@ struct MainAuraView: View {
     @State private var nftService = NFTService()
     @StateObject private var audioEngine: AudioEngine
     @State private var pendingDeepLink: AppDeepLink?
+    @State private var didFinishInitialStateRestore = false
 
     @State private var isloading: Bool = false
     private let routeLogger = Logger(subsystem: "Auralis", category: "Routing")
     private let deepLinkParser = AppDeepLinkParser()
+    private let pendingDeepLinkResolver = PendingDeepLinkResolver()
+    private let shellLogic = MainAuraShellLogic()
 
     var nftsAreLoading: Bool {
         nftService.isLoading || isloading
@@ -69,27 +72,31 @@ struct MainAuraView: View {
             }
         }
         .onAppear {
-            currentChain = Chain(rawValue: currentChainId) ?? .ethMainnet
+            let result = shellLogic.restoreInitialState(
+                currentAddress: currentAddress,
+                currentChainId: currentChainId,
+                accounts: accounts
+            )
 
-            guard !currentAddress.isEmpty else {
-                currentAccount = nil
-                return
-            }
+            currentChain = result.currentChain
+            currentAccount = result.currentAccount
+            didFinishInitialStateRestore = result.didFinishInitialStateRestore
 
-            let fetchResult = accounts.filter { $0.address == currentAddress }
-            if let first = fetchResult.first {
-                currentAccount = first
-            } else {
-                let account = EOAccount(address: currentAddress)
-                currentAccount = account
+            if result.shouldProcessPendingDeepLink {
+                processPendingDeepLinkIfPossible()
             }
         }
         .onOpenURL { url in
             handleIncomingURL(url)
         }
         .onChange(of: currentAccount) { oldValue, newValue in
-            if currentAccount?.address != currentAddress, currentAccount != nil {
+            let result = shellLogic.accountDidChange(newAccount: newValue, persistedAddress: currentAddress)
+
+            if result.shouldResetRoutes {
                 router.resetAllPaths()
+            }
+
+            if result.shouldRefreshNFTs {
                 isloading = true
                 Task {
                     await nftService.refreshNFTs(for: currentAccount, chain: currentChain, modelContext: modelContext)
@@ -100,27 +107,25 @@ struct MainAuraView: View {
                 }
             }
 
-            currentAddress = newValue?.address ?? ""
-            processPendingDeepLinkIfPossible()
+            currentAddress = result.currentAddress
+            if result.shouldProcessPendingDeepLink {
+                processPendingDeepLinkIfPossible()
+            }
         }
         .onChange(of: currentChain) { oldValue, newValue in
             currentChainId = newValue.rawValue
         }
         .onChange(of: currentAddress) { oldValue, newValue in
-            router.resetAllPaths()
-            guard !newValue.isEmpty else {
-                currentAccount = nil
+            let result = shellLogic.addressDidChange(newAddress: newValue, accounts: accounts)
+
+            if result.shouldResetRoutes {
+                router.resetAllPaths()
+            }
+
+            currentAccount = result.currentAccount
+            if result.shouldProcessPendingDeepLink {
                 processPendingDeepLinkIfPossible()
-                return
             }
-            let fetchResult = accounts.filter { $0.address == newValue }
-            if let first = fetchResult.first {
-                currentAccount = first
-            } else {
-                let account = EOAccount(address: currentAddress)
-                currentAccount = account
-            }
-            processPendingDeepLinkIfPossible()
         }
         .onChange(of: nftsAreLoading) { _, _ in
             processPendingDeepLinkIfPossible()
@@ -156,60 +161,37 @@ struct MainAuraView: View {
     private func processPendingDeepLinkIfPossible() {
         guard let pendingDeepLink else { return }
 
-        switch pendingDeepLink {
-        case .account(let address, let chain, let destination):
-            if let chain {
-                currentChain = chain
-                currentChainId = chain.rawValue
-            }
+        let resolution = pendingDeepLinkResolver.resolve(
+            pendingDeepLink,
+            context: PendingDeepLinkContext(
+                currentAddress: currentAddress,
+                currentAccountAddress: currentAccount?.address,
+                canResolveDeferredLink: canResolveDeferredLink,
+                shouldFailDeferredLink: shouldFailDeferredLink
+            )
+        )
 
-            if currentAddress != address {
-                router.resetAllPaths()
-                router.selectedTab = .home
-                currentAddress = address
-                return
-            }
+        if let chain = resolution.chainOverride {
+            currentChain = chain
+            currentChainId = chain.rawValue
+        }
 
-            guard canResolveDeferredLink else {
-                if shouldFailDeferredLink {
-                    let message = destination == nil
-                        ? "Open or restore an account before using this account link."
-                        : "Open or restore an account before routing this deep link."
-                    router.showRouteError(
-                        title: "No Active Account",
-                        message: message,
-                        urlString: nil
-                    )
-                    self.pendingDeepLink = nil
-                }
-                return
-            }
-
-            guard currentAccount?.address == address else { return }
-
-            if let destination {
-                route(to: destination, inheritedChain: chain)
-            } else {
-                router.resetAllPaths()
-                router.selectedTab = .home
-            }
-
+        switch resolution.action {
+        case .wait:
+            return
+        case .switchAccount(let address):
+            router.resetAllPaths()
+            router.selectedTab = .home
+            currentAddress = address
+        case .showHome:
+            router.resetAllPaths()
+            router.selectedTab = .home
             self.pendingDeepLink = nil
-
-        case .destination(let destination):
-            guard canResolveDeferredLink else {
-                if shouldFailDeferredLink {
-                    router.showRouteError(
-                        title: "No Active Account",
-                        message: "Open or restore an account before routing this deep link.",
-                        urlString: nil
-                    )
-                    self.pendingDeepLink = nil
-                }
-                return
-            }
-
-            route(to: destination, inheritedChain: nil)
+        case .route(let destination, let inheritedChain):
+            route(to: destination, inheritedChain: inheritedChain)
+            self.pendingDeepLink = nil
+        case .showError(let routeError):
+            router.presentedRouteError = routeError
             self.pendingDeepLink = nil
         }
     }
@@ -264,6 +246,6 @@ struct MainAuraView: View {
     }
 
     private var shouldFailDeferredLink: Bool {
-        currentAccount == nil && currentAddress.isEmpty && !nftsAreLoading
+        didFinishInitialStateRestore && currentAccount == nil && currentAddress.isEmpty && !nftsAreLoading
     }
 }
