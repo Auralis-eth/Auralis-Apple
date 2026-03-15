@@ -150,6 +150,42 @@ Why? Because too much `static` in Swift starts to smell like JavaScript utility-
 
 That does not mean `static` is banned. Real type-level constants and genuinely type-owned APIs still have a place. But in Auralis, the default should be instance-oriented code, small value types, injected dependencies, and local helpers before reaching for `static` as a convenience move.
 
+### 2026-03-14: Routing stopped being "just selected tab"
+
+The app shell now has the beginning of a proper routing model instead of treating navigation as a single selected-tab toggle.
+
+The important idea is this:
+
+- `AppTab` is only for top-level destinations
+- pushed detail state lives in per-tab path arrays
+- Home is a launcher, not a second navigation universe
+
+That is a healthy boundary. Home can send the user into Music or NFT Tokens, but the back stack belongs to the destination tab. It keeps the app from turning into a maze where every tab can secretly impersonate every other tab.
+
+### 2026-03-14: Deep links got a waiting room
+
+Cold-start deep links are one of those bugs that only appear when the app is half-awake and least able to defend itself.
+
+The fix is not glamorous, but it is correct:
+
+- parse the link up front
+- keep it pending if the app shell is still restoring account/data state
+- replay it only when the app is actually ready to resolve it
+- route invalid links to a safe error screen instead of pretending nothing happened
+
+That turns deep links from "maybe this will work if timing is lucky" into a controlled handoff. Much better.
+
+### 2026-03-14: Deep links can now carry a second stop
+
+Plain deep links are easy. The more interesting case is something like:
+
+- switch to this account
+- then, once the app has actually loaded that account's data, open this NFT
+
+That requires the link to behave less like a button tap and more like an itinerary. The parser now supports nested destinations under `account/...`, and the shell keeps that itinerary alive until the account switch and refresh are finished. Only then does it fire the child route.
+
+This is the kind of detail that prevents "works on warm app, fails on cold launch" bugs from becoming folklore.
+
 ### War Story: stale async loads are a real danger in audio apps
 
 `AudioEngine` already shows the scars of a real class of bugs: stale async playback requests stomping on newer ones. The `beginNewLoad()`, `currentLoadTask`, and `activeLoadID` flow is basically a nightclub bouncer checking wristbands. If an old task tries to re-enter after a newer request started, it gets thrown out.

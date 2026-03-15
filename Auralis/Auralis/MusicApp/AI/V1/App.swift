@@ -79,6 +79,7 @@ struct DetailView: View {
 
 struct NFTMusicPlayerApp: View {
     @ObservedObject var audioEngine: AudioEngine
+    let onOpenNFT: (NFT) -> Void
     @State private var selection: SidebarItem? = nil
     let sidebarItems = SidebarItem.allCases
 
@@ -117,7 +118,10 @@ struct NFTMusicPlayerApp: View {
                 Group {
                     switch selection {
                     case .library:
-                        NFTMusicPlayerLibraryView(audioEngine: audioEngine)
+                        NFTMusicPlayerLibraryView(
+                            audioEngine: audioEngine,
+                            onOpenNFT: onOpenNFT
+                        )
                     case .playlists:
                         PlaylistListView()
                     case .none:
@@ -147,6 +151,7 @@ struct NFTMusicPlayerApp: View {
 
 struct NFTMusicPlayerLibraryView: View {
     @ObservedObject var audioEngine: AudioEngine
+    let onOpenNFT: (NFT) -> Void
     @Query private var nfts: [NFT]
     private var musicNFTs: [NFT] {
         nfts.filter { $0.isMusic() }
@@ -180,19 +185,22 @@ struct NFTMusicPlayerLibraryView: View {
                                 
                                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
                                     ForEach(musicNFTs) { nft in
-                                        MusicNFTCard(nft: nft)
-                                            .padding(.horizontal)
-                                            .onTapGesture {
-                                                Task {
-                                                    do {
-                                                        try await audioEngine.loadAndPlay(nft: nft)
-                                                    } catch {
-                                                        let message = "Failed to load \(nft.name): \(error.localizedDescription)"
-                                                        errorMessage = message
-                                                        showingError = true
-                                                    }
+                                        Button {
+                                            Task {
+                                                do {
+                                                    try await audioEngine.loadAndPlay(nft: nft)
+                                                    onOpenNFT(nft)
+                                                } catch {
+                                                    let message = "Failed to load \(nft.name): \(error.localizedDescription)"
+                                                    errorMessage = message
+                                                    showingError = true
                                                 }
                                             }
+                                        } label: {
+                                            MusicNFTCard(nft: nft)
+                                                .padding(.horizontal)
+                                        }
+                                        .buttonStyle(.plain)
                                     }
                                 }
                             }
@@ -307,4 +315,3 @@ extension Chain {
         }
     }
 }
-

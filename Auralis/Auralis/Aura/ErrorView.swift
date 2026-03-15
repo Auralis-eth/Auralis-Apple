@@ -39,3 +39,43 @@ struct ErrorView: View {
         .padding(.horizontal)
     }
 }
+
+struct RouteErrorScreen: View {
+    let routeError: AppRouteError
+    let dismiss: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        SystemImage("exclamationmark.triangle.fill")
+                            .foregroundStyle(Color.error)
+                        HeadlineFontText(routeError.title)
+                    }
+
+                    SecondaryText(routeError.message)
+                        .font(.body)
+
+                    if let urlString = routeError.urlString {
+                        SecondaryCaptionFontText(urlString)
+                            .textSelection(.enabled)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .glassEffect(.regular.tint(.error.opacity(0.2)), in: .rect(cornerRadius: 16))
+
+                Button("Dismiss") {
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Routing Error")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}

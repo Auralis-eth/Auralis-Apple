@@ -6,7 +6,7 @@ struct HomeTabView: View {
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     @Binding var currentChainId: String
-    @Binding var selectedTab: AppTab
+    let router: AppRouter
     @Environment(\.modelContext) private var modelContext
     @Namespace var namespace
     let transitionID: String = "HomeTabView"
@@ -43,15 +43,19 @@ struct HomeTabView: View {
                     .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
                 
                 HStack {
-                    MusicTileView()
+                    MusicTileView {
+                        router.showMusicLibrary()
+                    }
                         .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
                         .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
-                    FinanceTileView()
+                    FinanceTileView {
+                        router.showNFTTokens()
+                    }
                         .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
                         .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
                 }
                 Button("Open News Feed") {
-                    selectedTab = .news
+                    router.selectedTab = .news
                 }
 
             }
@@ -430,32 +434,38 @@ struct MusicTileView: View {
 }
 
 struct FinanceTileView: View {
+    var onOpenTokens: (() -> Void)? = nil
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SubheadlineFontText("Finance AI")
+            SubheadlineFontText("NFT Tokens")
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 12) {
-                HeadlineFontText("Ask about ETH, SOL, BTC performance")
+                HeadlineFontText("Browse NFT tokens and jump into detail")
                     .fontWeight(.semibold)
 
                 HStack {
-                    SubheadlineFontText("Coming soon")
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(Color.black.opacity(0.15))
-                        )
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(.white.opacity(0.2), lineWidth: 1)
-                        )
+                    Button(action: { onOpenTokens?() }) {
+                        SubheadlineFontText("Open tokens")
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.textPrimary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(Color.black.opacity(0.15))
+                            )
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(.white.opacity(0.2), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
                     Spacer()
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Finance AI coming soon")
+                .accessibilityLabel("Open NFT tokens")
             }
         }
         .padding(20)

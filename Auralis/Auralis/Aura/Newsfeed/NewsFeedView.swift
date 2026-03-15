@@ -14,24 +14,21 @@ import SwiftUI
 
 struct NewsFeedView: View {
     @Environment(\.modelContext) private var modelContext
-    
+
     @Binding var currentAccount: EOAccount?
     @State private var selectedNFT: NFT?
     @Binding var nftService: NFTService
     @Binding var currentChain: Chain
+    let router: AppRouter
 
     var body: some View {
-        NavigationStack {
-            // Main content - NFT list
-            NewsFeedListView(
-                currentAccount: $currentAccount,
-                selectedNFT: $selectedNFT,
-                currentChain: $currentChain,
-                nftService: nftService
-            )
-            .frame(maxWidth: .infinity)
-            .background(Color.background)
-        }
+        NewsFeedListView(
+            currentAccount: $currentAccount,
+            selectedNFT: $selectedNFT,
+            currentChain: $currentChain,
+            nftService: nftService
+        )
+        .frame(maxWidth: .infinity)
         .background(Color.background)
         .refreshable {
             await nftService.refreshNFTs(
@@ -39,6 +36,11 @@ struct NewsFeedView: View {
                 chain: currentChain,
                 modelContext: modelContext
             )
+        }
+        .onChange(of: selectedNFT) { oldValue, newValue in
+            guard let newValue else { return }
+            router.newsPath.append(.detail(id: newValue.id))
+            selectedNFT = nil
         }
     }
 }
