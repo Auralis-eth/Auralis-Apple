@@ -121,6 +121,17 @@ Status:
 - Add select/remove actions.
 - On deleting the active account with other accounts remaining, show the account selection screen.
 
+Status:
+
+- completed in code
+- added an in-app account switcher sheet at [`Auralis/Auralis/Aura/Home/AccountSwitcherSheet.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/AccountSwitcherSheet.swift)
+- wired the home profile card edit action to open the switcher from inside the app
+- the switcher now:
+  - lists persisted accounts in `lastSelectedAt` then newest-added order
+  - lets the user select an account through `AccountStore.selectAccount(...)`
+  - lets the user remove an account through `AccountStore.removeAccount(...)`
+  - keeps the user in account-selection context when the active account is removed and other accounts remain by switching to the computed fallback while leaving the switcher open
+
 ### Step 7: Separate logout from deletion
 
 - Update logout to clear active selection and cached NFT data.
@@ -144,14 +155,15 @@ Status:
   - `EOAccount` evolves in place
   - logout and account deletion are separate operations
   - `P0-201` is not blocked on `P0-501`
-- Steps 1 through 5 are now implemented in code:
+- Steps 1 through 6 are now implemented in code:
   - `EOAccount` carries the locked Phase 0 metadata
   - `AccountStore` and `AccountEventRecorder` centralize the account seam
   - `AccountStoreTests` now cover create/remove/select/list, duplicate overwrite, lookup normalization, error paths, and ordering rules
   - shell restore/account-change logic now resolves persisted accounts without fake fallback models
   - gateway typed entry and QR flows now create/select accounts through the store seam
+  - in-app account switching and removal UI now exists on the home surface
 
-## Files touched through Step 5:
+## Files touched through Step 6:
 
 Planning artifacts:
 
@@ -168,6 +180,9 @@ Implemented app and test files so far:
 - [`Auralis/Auralis/Aura/MainAuraView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraView.swift)
 - [`Auralis/Auralis/Aura/Auth/AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)
 - [`Auralis/Auralis/Aura/Auth/QRScannerView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/QRScannerView.swift)
+- [`Auralis/Auralis/Aura/Home/AccountSwitcherSheet.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/AccountSwitcherSheet.swift)
+- [`Auralis/Auralis/Aura/Home/HomeTabView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/HomeTabView.swift)
+- [`Auralis/Auralis/Aura/Home/ProfileCardView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/ProfileCardView.swift)
 - [`Auralis/AuralisTests/EOAccountTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/EOAccountTests.swift)
 - [`Auralis/AuralisTests/AccountStoreTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/AccountStoreTests.swift)
 - [`Auralis/AuralisTests/MainAuraShellLogicTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/MainAuraShellLogicTests.swift)
@@ -184,16 +199,19 @@ Implemented app and test files so far:
 - `MainAuraView.swift` diagnostics: clean
 - `AddressEntryView.swift` diagnostics: clean
 - `QRScannerView.swift` diagnostics: clean
+- `AccountSwitcherSheet.swift` diagnostics: clean
+- `ProfileCardView.swift` diagnostics: clean
 - `MainAuraShellLogicTests` targeted run: 10 passed, 0 failed
 - `AccountStoreTests` targeted run: 9 passed, 0 failed
 - full project build: succeeded
+- `HomeTabView.swift` editor diagnostics still show a stale \"Cannot find 'AccountSwitcherSheet' in scope\" indexing error even though the file is in project structure and the full project build succeeds
 - `AccountStoreTests.swift` and `MainAuraShellLogicTests.swift` editor diagnostics currently show a duplicate Xcode Testing macro plugin-path conflict from two installed Xcode app paths; the actual test runs and project build both pass
 
 ## Next Session Handoff
 
-If a new session picks this up, start with Step 6.
+If a new session picks this up, start with Step 7.
 
-Steps 1 through 5 are complete in code. The next working session should add the in-app account management surface for listing, selecting, and removing persisted accounts.
+Steps 1 through 6 are complete in code. The next working session should separate logout from deletion so clearing the active session stops wiping the saved account roster.
 
 Do not touch yet:
 
@@ -218,15 +236,15 @@ Read first:
 
 Then implement:
 
-- account list UI for persisted accounts
-- select and remove actions from that UI
-- active-account deletion behavior that routes the user to account selection when other accounts remain
+- logout behavior that clears active selection and cached NFT data without deleting persisted `EOAccount` records
+- account/session reset behavior that preserves the local roster
+- any tests needed to lock the new logout semantics in place
 
 Then validate in this order:
 
-- file diagnostics for the new account-management view(s)
 - file diagnostics for [`HomeTabView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/HomeTabView.swift)
 - file diagnostics for [`ProfileCardView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/ProfileCardView.swift)
+- file diagnostics for [`MainAuraView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraView.swift)
 - targeted tests for `AccountStoreTests`
 - targeted tests for [`MainAuraShellLogicTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/MainAuraShellLogicTests.swift)
 - full project build

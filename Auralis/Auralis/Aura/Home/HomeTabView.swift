@@ -20,6 +20,7 @@ struct HomeTabView: View {
     @State private var showErrorAlert: Bool = false
     @State private var selectedImage: UIImage? = nil
     @State private var scene: AuroraScene = .mountain
+    @State private var showAccountSwitcher = false
 
     
     /// Simple memo cache to avoid recompute in hot paths
@@ -34,7 +35,10 @@ struct HomeTabView: View {
                 ProfileCardView(
                     currentAccount: $currentAccount,
                     currentAddress: $currentAddress,
-                    avatarImage: $avatarImage
+                    avatarImage: $avatarImage,
+                    onOpenAccountSwitcher: {
+                        showAccountSwitcher = true
+                    }
                 )
                     .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
                     .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
@@ -123,6 +127,12 @@ struct HomeTabView: View {
                     }
                 }
                 .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
+            }
+            .sheet(isPresented: $showAccountSwitcher) {
+                AccountSwitcherSheet(
+                    currentAccount: $currentAccount,
+                    currentAddress: $currentAddress
+                )
             }
             .overlay {
                 

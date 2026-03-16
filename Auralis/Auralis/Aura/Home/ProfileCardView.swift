@@ -12,6 +12,7 @@ struct ProfileCardView: View {
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     @Binding var avatarImage: UIImage?
+    let onOpenAccountSwitcher: () -> Void
     @State private var isLoadingAvatar: Bool = false
     @State private var avatarErrorMessage: String? = nil
     @State private var showAvatarErrorAlert: Bool = false
@@ -57,8 +58,13 @@ struct ProfileCardView: View {
             }
             Spacer()
             VStack(spacing: 12) {
-                SystemImage("square.and.pencil")
-                    .accessibilityLabel("Edit Account")
+                Button(action: onOpenAccountSwitcher) {
+                    SystemImage("square.and.pencil")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Manage accounts")
+                .accessibilityIdentifier("home.accounts.open")
+
                 SystemImage("qrcode.viewfinder")
                     .accessibilityLabel("Scan wallet QR code")
             }
@@ -83,7 +89,7 @@ struct ProfileCardView: View {
                 }
             }
         }
-        .onChange(of: currentAddress) { newAddress in
+        .onChange(of: currentAddress) { _, _ in
             Task {
                 avatarImage = nil
                 await generateAvatarImage()
@@ -222,4 +228,3 @@ struct ProfileCardView: View {
         return concepts
     }
 }
-

@@ -162,6 +162,30 @@ There is also a subtle product improvement hiding in the duplicate path. Instead
 
 That is a much better handshake for a watch-only account roster than pretending duplicates are exceptional cosmic events.
 
+### 2025-11-21: P0-201 Step 6, the app finally gets an actual account switcher
+
+Step 6 is where the roster stopped being theoretical.
+
+Up to this point, the app could *have* multiple persisted accounts, but there was no proper in-app way to act like that was a feature instead of an accident. The home screen had an edit icon, but it was basically decorative. That is the UI equivalent of installing a door handle on a painted wall.
+
+Now the home profile card opens a real account switcher sheet.
+
+That sheet does three important jobs:
+
+- shows the saved account roster in meaningful order
+- lets the user switch accounts explicitly
+- lets the user remove accounts explicitly
+
+The interesting edge case was active-account deletion. If the current account disappears and there are others left, the app should not strand the user in a void or quietly pretend nothing happened. The compromise for Phase 0 is pragmatic:
+
+- remove the active account
+- promote the computed fallback account
+- keep the switcher open so the user is still in account-selection context
+
+That last part matters. It preserves the feeling of “you are managing accounts right now” instead of punting the user into a totally different surface and hoping they infer what just happened.
+
+There was also a classic Xcode side quest here: the new switcher view built fine, but `HomeTabView` diagnostics kept insisting the type did not exist. The project graph knew the file. The build knew the file. The index was just late to the meeting. That is why build results matter more than one stubborn editor error.
+
 ## Engineer's Wisdom
 
 Good engineers separate “we decided this” from “we implemented everything around it.” Step 1 of `P0-201` is exactly that move. The model is now opinionated enough to support the rest of the work, but the shell and UI logic are still intentionally untouched until the account seam exists.
@@ -177,6 +201,8 @@ Tests are not garnish for a domain seam. If a store owns normalization, duplicat
 The shell should orchestrate identity, not manufacture it. If a persisted model is missing, the right answer is usually to recover, fall back, or fail safely, not to create a lookalike object and hope nobody notices.
 
 If two entry points are supposed to mean the same thing, give them the same domain method. Duplicate business rules copied into two views are not “flexibility.” They are just future bugs arriving early.
+
+UI affordances that hint at account management should do real account management. Placeholder controls are harmless only until users start trusting them.
 
 ## If I Were Starting Over...
 
