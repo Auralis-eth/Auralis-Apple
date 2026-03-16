@@ -113,6 +113,30 @@ This is the kind of step that feels less glamorous than UI work, but it is the d
 
 There was also a mildly cursed tooling footnote: Xcode file diagnostics reported a storm of `Testing` macro errors, but the errors were coming from two installed Xcode app bundles loading the macro plugin from different paths. In other words, the smoke alarm was complaining about the house next door. The real signal was the targeted `AccountStoreTests` run and the full project build, and both passed cleanly.
 
+### 2025-11-21: P0-201 Step 4, the shell stops making up imaginary people
+
+Step 4 was a cleanup of identity semantics in the app shell.
+
+Previously, `MainAuraShellLogic` would do something that seems convenient right up until it becomes a debugging nightmare: if `currentAccountAddress` existed but no persisted `EOAccount` matched it yet, the shell would just invent one in memory with `EOAccount(address:)`.
+
+That fake account looked real enough to keep the UI moving, but it blurred an important line:
+
+- persisted identity
+- transient wishful thinking
+
+For `P0-201`, that distinction matters. Duplicate handling, deletion behavior, restore safety, and account switching all get muddy if the shell can silently conjure identities that SwiftData has never heard of.
+
+So Step 4 changed the rules:
+
+- restore only resolves persisted accounts
+- stale saved selection on cold start falls back to the preferred persisted account when one exists
+- stale saved selection clears to onboarding when no accounts remain
+- runtime `currentAddress` changes keep the requested selection string, but `currentAccount` only becomes non-`nil` when persistence can actually back it up
+
+That last bullet is the subtle one. It keeps deep-link flows from spinning in circles. If an account deep link asks for an address the app does not currently have persisted, the shell no longer lies by minting a fake account object. It keeps the requested address as intent, waits for a real persisted match, and otherwise fails safely later.
+
+This is one of those fixes that makes the product feel less magical in the best possible way. The app is no longer “being helpful” by hallucinating state.
+
 ## Engineer's Wisdom
 
 Good engineers separate “we decided this” from “we implemented everything around it.” Step 1 of `P0-201` is exactly that move. The model is now opinionated enough to support the rest of the work, but the shell and UI logic are still intentionally untouched until the account seam exists.
@@ -124,6 +148,8 @@ Another lesson: when a ticket says “minimal metadata,” believe the word “m
 Backward compatibility deserves the same seriousness as new features. If older encoded accounts can no longer decode, the app has traded progress for fragility.
 
 Tests are not garnish for a domain seam. If a store owns normalization, duplicate policy, fallback policy, and ordering, then those rules should be pinned down in tests before the UI starts depending on them. Otherwise the seam is just a rumor.
+
+The shell should orchestrate identity, not manufacture it. If a persisted model is missing, the right answer is usually to recover, fall back, or fail safely, not to create a lookalike object and hope nobody notices.
 
 ## If I Were Starting Over...
 

@@ -78,6 +78,7 @@ struct MainAuraView: View {
                 accounts: accounts
             )
 
+            currentAddress = result.currentAddress
             currentChain = result.currentChain
             currentAccount = result.currentAccount
             didFinishInitialStateRestore = result.didFinishInitialStateRestore
@@ -122,6 +123,9 @@ struct MainAuraView: View {
                 router.resetAllPaths()
             }
 
+            if result.currentAddress != currentAddress {
+                currentAddress = result.currentAddress
+            }
             currentAccount = result.currentAccount
             if result.shouldProcessPendingDeepLink {
                 processPendingDeepLinkIfPossible()

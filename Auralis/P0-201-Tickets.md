@@ -87,6 +87,17 @@ Status:
 - Remove transient fallback `EOAccount(address:)` behavior.
 - Preserve app bootstrapping via `currentAccountAddress`, but treat it as active selection state.
 
+Status:
+
+- completed in code
+- `MainAuraShellLogic` now resolves persisted accounts only and no longer fabricates transient `EOAccount(address:)` values
+- cold-start restore now:
+  - keeps the saved selection when it resolves to a persisted account
+  - falls back to the preferred persisted account when the saved address is stale
+  - clears the saved address when no persisted accounts remain
+- runtime `currentAddress` changes now keep selection intent in `currentAccountAddress` while resolving `currentAccount` only from persisted accounts
+- `MainAuraView` now applies the restore result’s resolved selection state during startup
+
 ### Step 5: Wire gateway and QR entry through the store
 
 - Update typed-entry flow to stop inserting `EOAccount` directly.
@@ -122,12 +133,13 @@ Status:
   - `EOAccount` evolves in place
   - logout and account deletion are separate operations
   - `P0-201` is not blocked on `P0-501`
-- Steps 1 through 3 are now implemented in code:
+- Steps 1 through 4 are now implemented in code:
   - `EOAccount` carries the locked Phase 0 metadata
   - `AccountStore` and `AccountEventRecorder` centralize the account seam
   - `AccountStoreTests` now cover create/remove/select/list, duplicate overwrite, lookup normalization, error paths, and ordering rules
+  - shell restore/account-change logic now resolves persisted accounts without fake fallback models
 
-## Files touched through Step 3:
+## Files touched through Step 4:
 
 Planning artifacts:
 
@@ -140,8 +152,11 @@ Implemented app and test files so far:
 - [`Auralis/Auralis/DataModels/EOAccount.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/DataModels/EOAccount.swift)
 - [`Auralis/Auralis/Accounts/AccountStore.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Accounts/AccountStore.swift)
 - [`Auralis/Auralis/Accounts/AccountEventRecorder.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Accounts/AccountEventRecorder.swift)
+- [`Auralis/Auralis/Aura/MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
+- [`Auralis/Auralis/Aura/MainAuraView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraView.swift)
 - [`Auralis/AuralisTests/EOAccountTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/EOAccountTests.swift)
 - [`Auralis/AuralisTests/AccountStoreTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/AccountStoreTests.swift)
+- [`Auralis/AuralisTests/MainAuraShellLogicTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/MainAuraShellLogicTests.swift)
 
 ## Validation already done:
 
@@ -150,14 +165,18 @@ Implemented app and test files so far:
 - `AccountStore.swift` diagnostics: clean
 - `AccountEventRecorder.swift` diagnostics: clean
 - `AccountStoreTests` targeted run: 8 passed, 0 failed
+- `EOAccount.swift` diagnostics: clean
+- `MainAuraShell.swift` diagnostics: clean
+- `MainAuraView.swift` diagnostics: clean
+- `MainAuraShellLogicTests` targeted run: 10 passed, 0 failed
 - full project build: succeeded
-- `AccountStoreTests.swift` editor diagnostics currently show a duplicate Xcode Testing macro plugin-path conflict from two installed Xcode app paths; the actual test run and project build both pass
+- `AccountStoreTests.swift` and `MainAuraShellLogicTests.swift` editor diagnostics currently show a duplicate Xcode Testing macro plugin-path conflict from two installed Xcode app paths; the actual test runs and project build both pass
 
 ## Next Session Handoff
 
-If a new session picks this up, start with Step 4.
+If a new session picks this up, start with Step 5.
 
-Steps 1 through 3 are complete in code. The next working session should integrate persisted-account-only shell identity behavior before wiring the gateway and QR flows onto the store seam.
+Steps 1 through 4 are complete in code. The next working session should wire typed entry and QR flows through `AccountStore` so account creation stops bypassing the seam.
 
 Do not touch yet:
 
@@ -182,16 +201,17 @@ Read first:
 
 Then implement:
 
-- shell restore and account-change logic that resolves persisted accounts only
-- removal of transient fallback `EOAccount(address:)` behavior from shell logic
-- active selection handling that keeps `currentAccountAddress` as bootstrap state, not source-of-truth account existence
+- typed-entry flow that creates/selects accounts through `AccountStore`
+- QR flow that creates/selects accounts through `AccountStore`
+- duplicate handling that routes through one deterministic store path instead of ad hoc SwiftData inserts
 
 Then validate in this order:
 
-- file diagnostics for [`EOAccount.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/DataModels/EOAccount.swift)
-- file diagnostics for [`MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
+- file diagnostics for `AccountStore.swift`
+- file diagnostics for `AccountEventRecorder.swift`
 - file diagnostics for [`AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)
 - file diagnostics for [`QRScannerView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/QRScannerView.swift)
+- targeted tests for `AccountStoreTests`
 - targeted tests for [`MainAuraShellLogicTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/MainAuraShellLogicTests.swift)
 - full project build
 
