@@ -33,6 +33,20 @@ Phase 0 decisions already locked:
 - Keep address persistence behavior aligned with the current app.
 - Treat "most recent activity" as `lastSelectedAt`.
 
+Status:
+
+- completed in code
+- `EOAccount` now carries the locked Phase 0 metadata set:
+  - `address`
+  - `name`
+  - `access`
+  - `source`
+  - `addedAt`
+  - `lastSelectedAt`
+  - `trackedNFTCount`
+- address storage behavior was intentionally left unchanged in this step
+- ordering can now use `lastSelectedAt ?? addedAt`, with `lastSelectedAt` as the primary activity signal
+
 ### Step 2: Add account domain seam
 
 - Create `AccountStore` and account event recording seam.
@@ -114,9 +128,9 @@ Expected app files to be touched once implementation starts:
 
 ## Next Session Handoff
 
-If a new session picks this up, start with Step 5 only.
+If a new session picks this up, start with Step 2.
 
-Steps 1 through 4 are already settled at the planning level. The next working session should begin by implementing the gateway and QR flows on top of the new account seam, assuming Steps 1 through 4 have been completed in code first or are being landed in the same branch in sequence.
+Step 1 is complete in code. The next working session should create the account seam and centralize create/remove/list/select logic before touching gateway or QR flows.
 
 Do not touch yet:
 
@@ -129,6 +143,7 @@ Do not touch yet:
 Read first:
 
 - [`Auralis/Auralis/DataModels/EOAccount.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/DataModels/EOAccount.swift)
+- `Auralis/AuralisTests/EOAccountTests.swift`
 - [`Auralis/Auralis/Aura/MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
 - [`Auralis/Auralis/Aura/MainAuraView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraView.swift)
 - [`Auralis/Auralis/Aura/Auth/AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)
@@ -137,7 +152,8 @@ Read first:
 
 Then implement:
 
-- typed-entry and QR-based account creation through `AccountStore`
+- `AccountStore` and `AccountEventRecorder`
+- centralized create/remove/list/select logic
 - duplicate detection and overwrite flow using delete-and-recreate semantics
 - no-op account event recording hook
 
