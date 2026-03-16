@@ -53,6 +53,18 @@ Status:
 - Centralize create/remove/list/select logic.
 - Centralize duplicate detection and duplicate overwrite handling.
 
+Status:
+
+- completed in code
+- added `AccountStore` as the SwiftData-backed seam for:
+  - address normalization
+  - list ordering
+  - create/select/remove operations
+  - case-insensitive duplicate detection
+  - delete-and-recreate overwrite behavior
+  - active-account deletion fallback calculation
+- added `AccountEventRecorder` with a no-op default implementation for the future `P0-501` receipt seam
+
 ### Step 3: Add tests for the store seam
 
 - Add tests for create/remove/select/list behavior.
@@ -113,6 +125,9 @@ At the moment, only planning artifacts have changed:
 Expected app files to be touched once implementation starts:
 
 - [`Auralis/Auralis/DataModels/EOAccount.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/DataModels/EOAccount.swift)
+- `Auralis/Auralis/Accounts/AccountStore.swift`
+- `Auralis/Auralis/Accounts/AccountEventRecorder.swift`
+- `Auralis/AuralisTests/AccountStoreTests.swift`
 - [`Auralis/Auralis/Aura/MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
 - [`Auralis/Auralis/Aura/MainAuraView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraView.swift)
 - `Auralis/Auralis/Accounts/AccountStore.swift`
@@ -128,9 +143,9 @@ Expected app files to be touched once implementation starts:
 
 ## Next Session Handoff
 
-If a new session picks this up, start with Step 2.
+If a new session picks this up, start with Step 3.
 
-Step 1 is complete in code. The next working session should create the account seam and centralize create/remove/list/select logic before touching gateway or QR flows.
+Steps 1 and 2 are complete in code. The next working session should expand store-level tests around edge cases and ordering guarantees before wiring the shell and auth flows onto the seam.
 
 Do not touch yet:
 
@@ -143,7 +158,10 @@ Do not touch yet:
 Read first:
 
 - [`Auralis/Auralis/DataModels/EOAccount.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/DataModels/EOAccount.swift)
+- `Auralis/Auralis/Accounts/AccountStore.swift`
+- `Auralis/Auralis/Accounts/AccountEventRecorder.swift`
 - `Auralis/AuralisTests/EOAccountTests.swift`
+- `Auralis/AuralisTests/AccountStoreTests.swift`
 - [`Auralis/Auralis/Aura/MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
 - [`Auralis/Auralis/Aura/MainAuraView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraView.swift)
 - [`Auralis/Auralis/Aura/Auth/AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)
@@ -152,13 +170,15 @@ Read first:
 
 Then implement:
 
-- `AccountStore` and `AccountEventRecorder`
-- centralized create/remove/list/select logic
-- duplicate detection and overwrite flow using delete-and-recreate semantics
-- no-op account event recording hook
+- store tests for create/remove/select/list behavior
+- store tests for duplicate detection and delete-and-recreate overwrite behavior
+- store tests for ordering using `lastSelectedAt` then newest-added
 
 Then validate in this order:
 
+- file diagnostics for `AccountStore.swift`
+- file diagnostics for `AccountEventRecorder.swift`
+- targeted tests for `AccountStoreTests`
 - file diagnostics for [`EOAccount.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/DataModels/EOAccount.swift)
 - file diagnostics for [`MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
 - file diagnostics for [`AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)

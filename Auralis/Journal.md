@@ -65,9 +65,33 @@ The subtle but important decision: address persistence behavior did *not* change
 
 Also worth noting: legacy decoding now backfills sane defaults. That is one of those quiet engineering chores that feels boring until an older payload crashes the app and ruins everyone’s afternoon.
 
+### 2025-11-21: P0-201 Step 2, the account bouncer gets a clipboard
+
+Step 2 was about taking account rules out of random view files and giving them a single adult in the room.
+
+That adult is `AccountStore`.
+
+It now owns:
+
+- address normalization
+- persisted account lookup
+- create/select/remove operations
+- sorted account listing
+- duplicate detection
+- duplicate overwrite using delete-and-recreate
+- fallback selection after deleting the active account
+
+This matters because before the seam existed, account creation logic was duplicated across typed entry and QR scan flows. That setup works right up until one path lowercases an address, another path does not, and a third path quietly creates a duplicate that looks “basically the same” to a human but absolutely not to persistence.
+
+The nice engineering detail here is the event seam. `AccountEventRecorder` is intentionally tiny and intentionally boring. Right now the default implementation does nothing, which is perfect. It means `P0-201` can move without pretending `P0-501` is already finished. Future receipt logging gets a plug-in point instead of a rewrite.
+
+There was one small bug war story during implementation: the first normalization pass was still too strict and treated inputs like `0Xabc...` as invalid. That immediately showed up in the store tests. The fix was to make normalization lowercased and regex-backed before duplicate checks, so the store now behaves like an actual domain layer instead of a picky string comparer.
+
 ## Engineer's Wisdom
 
 Good engineers separate “we decided this” from “we implemented everything around it.” Step 1 of `P0-201` is exactly that move. The model is now opinionated enough to support the rest of the work, but the shell and UI logic are still intentionally untouched until the account seam exists.
+
+Once the seam exists, keep it authoritative. A store that centralizes rules only helps if the app actually stops bypassing it.
 
 Another lesson: when a ticket says “minimal metadata,” believe the word “minimal.” You do not win points by stuffing ten speculative fields into a model because they might be useful one day. That is how simple account records become junk drawers.
 

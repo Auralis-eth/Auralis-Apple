@@ -98,6 +98,13 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		6F81C0E92F68394900A6EA77 /* Accounts */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Accounts;
+			sourceTree = "<group>";
+		};
 		6FB1D9B02D8D117E00CD1B30 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -116,6 +123,7 @@
 				6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */,
 				6F81C0752F67551F00A6EA77 /* P0-201-Strategy.md */,
 				6F81C0E52F678AE300A6EA77 /* P0-201-Tickets.md */,
+				6F81C0E92F68394900A6EA77 /* Accounts */,
 			);
 			sourceTree = "<group>";
 		};
