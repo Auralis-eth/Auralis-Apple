@@ -204,6 +204,24 @@ This is one of those changes that sounds obvious once stated plainly, which is e
 
 The implementation detail worth keeping: the logout rule was pulled behind a tiny `HomeTabLogic` seam and covered with a focused test. It is a small seam, but it gives the codebase a place to keep the meaning of logout explicit instead of letting it drift back into button-handler folklore.
 
+### 2025-11-21: P0-201 Step 8, the ticket graduates from “probably works” to “actually exercised”
+
+Step 8 was the last sanity pass: not just verifying that each gear in the machine spins, but verifying that the gears mesh.
+
+The new `P0201FlowValidationTests` suite runs the Phase 0 watch-account story as an actual sequence:
+
+- add accounts
+- switch selection
+- reuse an existing account through the duplicate path
+- delete the active account and fall back safely
+- restore state after that change
+- logout while keeping the roster
+- restore again without an active session
+
+That is the important shift. Earlier steps proved that each subsystem had the right rules. Step 8 proves the subsystems can hand the baton to each other without dropping it.
+
+There is still a difference between “tested in code” and “felt in the UI,” so the last remaining recommendations are manual smoke checks for real typed entry, actual camera-backed QR scanning, and true app relaunch in Simulator or on device. But at this point `P0-201` is no longer a pile of loosely related improvements. It is a coherent feature with a tested lifecycle.
+
 ## Engineer's Wisdom
 
 Good engineers separate “we decided this” from “we implemented everything around it.” Step 1 of `P0-201` is exactly that move. The model is now opinionated enough to support the rest of the work, but the shell and UI logic are still intentionally untouched until the account seam exists.
@@ -220,9 +238,44 @@ The shell should orchestrate identity, not manufacture it. If a persisted model 
 
 If two entry points are supposed to mean the same thing, give them the same domain method. Duplicate business rules copied into two views are not “flexibility.” They are just future bugs arriving early.
 
+### 2025-11-21: Planning P0-501, or how to build a receipt system before the walls are finished
+
+`P0-501` has an awkward dependency story on paper. It wants a clean logger interface from `P0-701`, but `P0-701` is the “real module boundaries” ticket, and that kind of structural cleanup tends to arrive later than everyone hopes.
+
+The trap here would be to shrug and say “fine, we’ll wait,” or worse, to go in the opposite direction and build a giant global logger that everybody can call from everywhere like it is a help-yourself snack table.
+
+The better answer is narrower and much less dramatic:
+
+- build the receipt system now
+- keep it behind a small injected seam
+- refuse to pretend compile-time boundaries already exist
+
+That is the central planning decision for `P0-501`.
+
+The receipt system is broad in scope for Phase 0, but its shape should still be disciplined:
+
+- SwiftData-backed persistence
+- append-only semantics
+- caller-owned correlation IDs
+- JSON export as one array
+- explicit full reset
+- sanitization for raw RPC URLs and raw error strings before persistence
+
+The key engineering lesson is that dependencies are not all the same kind of dependency. `P0-701` is still required for real enforcement:
+
+- module separation
+- UI and Provider boundary rules
+- stronger dependency-direction guarantees
+
+But it is *not* required for the basic truth of `P0-501`, which is “record facts durably without letting every view and helper start freelancing as a logger.”
+
+In other words, `P0-501` can build the ledger now. `P0-701` later gets to install the locks on the doors.
+
 UI affordances that hint at account management should do real account management. Placeholder controls are harmless only until users start trusting them.
 
 Words like \"logout,\" \"remove account,\" and \"delete data\" are not interchangeable. Good product code treats those as different contracts, because users definitely do.
+
+Feature work is not finished when the implementation compiles. It is finished when the lifecycle makes sense end to end: creation, selection, duplication, recovery, deletion, and return after relaunch.
 
 ## If I Were Starting Over...
 
