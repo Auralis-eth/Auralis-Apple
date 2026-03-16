@@ -7,11 +7,15 @@
 
 import CodeScanner
 import SwiftUI
+import SwiftData
 
 struct QRScannerView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var isScanning = false
     @State private var torchOn = false
+    @State private var alertTitle = ""
+    @State private var alertMessage = ""
+    @State private var showingAlert = false
     @Binding var account: EOAccount?
 
     var body: some View {
@@ -25,56 +29,56 @@ struct QRScannerView: View {
         }
         .sheet(isPresented: $isScanning) {
             ZStack(alignment: .top) {
-                CodeScannerView(codeTypes: [.qr], requiresPhotoOutput: false, isTorchOn: torchOn) { result in
-                    switch result {
-                        case .success(let code):
-                            let scannedCode = code.string
-                            if scannedCode.count == 42 && scannedCode.hasPrefix("0x") {
-                                let eoAccount = EOAccount(address: scannedCode, access: .readonly)
-                                modelContext.insert(eoAccount)
-                                self.account = eoAccount
-                            } else if scannedCode.hasPrefix("ethereum:") {
-                                let newCode = String(scannedCode.dropFirst("ethereum:".count))
-                                if newCode.count == 42 && newCode.hasPrefix("0x") {
-                                    let eoAccount = EOAccount(address: newCode, access: .readonly)
-                                    modelContext.insert(eoAccount)
-                                    self.account = eoAccount
-                                } else if newCode.hasPrefix("0x") {
-                                    if let ethereumAddress = extractEthereumAddress(newCode) {
-                                        let eoAccount = EOAccount(address: ethereumAddress, access: .readonly)
-                                        modelContext.insert(eoAccount)
-                                        self.account = eoAccount
-                                    } else {
-                                        print("")
-                                    }
-                                } else {
-                                    print("")
-                                }
-                                try? modelContext.save()
-                            }
-                        case .failure(let error):
-                            //                               self.scannedCode = error.localizedDescription
-                            print(error)
-                    }
-                    isScanning = false
-
-                }
+                CodeScannerView(codeTypes: [.qr], requiresPhotoOutput: false, isTorchOn: torchOn, completion: handleScan)
                 .ignoresSafeArea()
 
                 TorchToggleButton(torchOn: $torchOn)
                     .padding(.top)
             }
         }
+        .alert(alertTitle, isPresented: $showingAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
+        }
     }
 
-    func extractEthereumAddress(_ input: String) -> String? {
-        // Use regular expression to match Ethereum address pattern
-        let addressPattern = #"(0x[a-fA-F0-9]{40})"#
+    private func handleScan(_ result: Result<ScanResult, ScanError>) {
+        defer { isScanning = false }
 
-        if let match = input.range(of: addressPattern, options: .regularExpression) {
-            return String(input[match])
+        switch result {
+        case .success(let code):
+            do {
+                let store = AccountStore(modelContext: modelContext)
+                let activation = try store.activateWatchAccount(
+                    from: code.string,
+                    source: .qrScan
+                )
+                account = activation.account
+
+                if !activation.wasCreated {
+                    showAlert(
+                        title: "Account Already Added",
+                        message: "Switched to the existing saved account for that scanned address."
+                    )
+                }
+            } catch {
+                showAlert(
+                    title: "Scan Failed",
+                    message: error.localizedDescription
+                )
+            }
+        case .failure(let error):
+            showAlert(
+                title: "Scan Failed",
+                message: error.localizedDescription
+            )
         }
+    }
 
-        return nil
+    private func showAlert(title: String, message: String) {
+        alertTitle = title
+        alertMessage = message
+        showingAlert = true
     }
 }

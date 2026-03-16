@@ -23,6 +23,11 @@ struct AccountRemovalResult {
     let fallbackAccount: EOAccount?
 }
 
+struct AccountActivationResult {
+    let account: EOAccount
+    let wasCreated: Bool
+}
+
 @MainActor
 struct AccountStore {
     private let modelContext: ModelContext
@@ -115,6 +120,43 @@ struct AccountStore {
         try modelContext.save()
         eventRecorder.record(.added(address: normalizedAddress))
         return account
+    }
+
+    func activateWatchAccount(
+        from rawAddress: String,
+        name: String? = nil,
+        source: EOAccountSource = .manualEntry,
+        selectedAt: Date = .now
+    ) throws -> AccountActivationResult {
+        do {
+            let createdAccount = try createWatchAccount(
+                from: rawAddress,
+                name: name,
+                source: source,
+                now: selectedAt
+            )
+            let selectedAccount = try selectAccount(
+                address: createdAccount.address,
+                selectedAt: selectedAt
+            )
+
+            return AccountActivationResult(account: selectedAccount, wasCreated: true)
+        } catch let error as AccountStoreError {
+            guard case .duplicateAddress = error else {
+                throw error
+            }
+
+            guard let existingAccount = try account(for: rawAddress) else {
+                throw error
+            }
+
+            let selectedAccount = try selectAccount(
+                address: existingAccount.address,
+                selectedAt: selectedAt
+            )
+
+            return AccountActivationResult(account: selectedAccount, wasCreated: false)
+        }
     }
 
     func selectAccount(address rawAddress: String, selectedAt: Date = .now) throws -> EOAccount {

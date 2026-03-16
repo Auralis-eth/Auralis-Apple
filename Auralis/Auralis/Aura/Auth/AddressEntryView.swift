@@ -16,10 +16,6 @@ struct AddressInputView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var currentAccount: EOAccount?
 
-    private var isAddressValid: Bool {
-        address.extractedEthereumAddress != nil
-    }
-
     var body: some View {
         AddressEntryContentView(
             address: $address,
@@ -43,28 +39,42 @@ struct AddressInputView: View {
 
     private func selectDemo(address: String) {
         self.address = address
-        handleSubmit()
+        handleSubmit(source: .guestPass)
     }
 
     private func handleSubmit() {
+        handleSubmit(source: .manualEntry)
+    }
+
+    private func handleSubmit(source: EOAccountSource) {
         guard !address.isEmpty else {
             showAlert(title: "Address Required",
                       message: "Please enter your Ethereum address or use a guest pass.")
             return
         }
 
-        guard let normalized = address.extractedEthereumAddress else {
+        let store = AccountStore(modelContext: modelContext)
+
+        guard store.normalizeAddress(address) != nil else {
             showAlert(title: "Invalid Address",
                       message: "That doesn’t look like a valid address or ENS. Try again or use a guest pass.")
             return
         }
 
-        let eoAccount = EOAccount(address: normalized, access: .readonly)
-        modelContext.insert(eoAccount)
         do {
-            try modelContext.save()
+            let activation = try store.activateWatchAccount(
+                from: address,
+                source: source
+            )
             address = ""
-            currentAccount = eoAccount
+            currentAccount = activation.account
+
+            if !activation.wasCreated {
+                showAlert(
+                    title: "Account Already Added",
+                    message: "Switched to the existing saved account for that address."
+                )
+            }
         } catch {
             showAlert(title: "Save Failed",
                       message: "Failed to save account: \(error.localizedDescription)")

@@ -137,6 +137,31 @@ That last bullet is the subtle one. It keeps deep-link flows from spinning in ci
 
 This is one of those fixes that makes the product feel less magical in the best possible way. The app is no longer “being helpful” by hallucinating state.
 
+### 2025-11-21: P0-201 Step 5, the front desk finally uses the reservation system
+
+Step 5 was less about adding new capability and more about stopping the gateway from freelancing.
+
+Before this pass, both entry points into the app were doing their own improvised account creation:
+
+- typed entry created `EOAccount` directly
+- QR scanning created `EOAccount` directly
+
+That meant the shiny new `AccountStore` existed, but the bouncers at the front door were still waving people in through the side entrance.
+
+The fix was to give `AccountStore` one shared activation path:
+
+- if the address is new, create it and select it
+- if the address already exists, reuse it and select it
+
+That sounds small, but it matters. Now typed entry, guest passes, and QR scanning all agree on what “use this account” means.
+
+There is also a subtle product improvement hiding in the duplicate path. Instead of throwing a duplicate error like a grumpy database admin, the app now treats “this account already exists” as a real user action:
+
+- switch to the existing persisted account
+- tell the user what happened
+
+That is a much better handshake for a watch-only account roster than pretending duplicates are exceptional cosmic events.
+
 ## Engineer's Wisdom
 
 Good engineers separate “we decided this” from “we implemented everything around it.” Step 1 of `P0-201` is exactly that move. The model is now opinionated enough to support the rest of the work, but the shell and UI logic are still intentionally untouched until the account seam exists.
@@ -150,6 +175,8 @@ Backward compatibility deserves the same seriousness as new features. If older e
 Tests are not garnish for a domain seam. If a store owns normalization, duplicate policy, fallback policy, and ordering, then those rules should be pinned down in tests before the UI starts depending on them. Otherwise the seam is just a rumor.
 
 The shell should orchestrate identity, not manufacture it. If a persisted model is missing, the right answer is usually to recover, fall back, or fail safely, not to create a lookalike object and hope nobody notices.
+
+If two entry points are supposed to mean the same thing, give them the same domain method. Duplicate business rules copied into two views are not “flexibility.” They are just future bugs arriving early.
 
 ## If I Were Starting Over...
 

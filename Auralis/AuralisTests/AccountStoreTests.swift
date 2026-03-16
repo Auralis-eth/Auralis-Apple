@@ -94,6 +94,39 @@ struct AccountStoreTests {
         #expect(recorder.events.last == .selected(address: first.address))
     }
 
+    @Test("activate creates a new account once and selects an existing duplicate deterministically")
+    @MainActor
+    func activateWatchAccountCreatesOrSelects() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let recorder = RecordingAccountEventRecorder()
+        let store = AccountStore(modelContext: context, eventRecorder: recorder)
+
+        let created = try store.activateWatchAccount(
+            from: "0x1212121212121212121212121212121212121212",
+            source: .manualEntry,
+            selectedAt: Date(timeIntervalSince1970: 100)
+        )
+        let reused = try store.activateWatchAccount(
+            from: "0X1212121212121212121212121212121212121212",
+            source: .qrScan,
+            selectedAt: Date(timeIntervalSince1970: 200)
+        )
+
+        let accounts = try store.listAccounts()
+
+        #expect(created.wasCreated)
+        #expect(reused.wasCreated == false)
+        #expect(created.account.address == reused.account.address)
+        #expect(reused.account.lastSelectedAt == Date(timeIntervalSince1970: 200))
+        #expect(accounts.count == 1)
+        #expect(recorder.events == [
+            .added(address: created.account.address),
+            .selected(address: created.account.address),
+            .selected(address: created.account.address)
+        ])
+    }
+
     @Test("duplicate create is case-insensitive and requires explicit overwrite")
     @MainActor
     func duplicateCreateAndOverwrite() throws {

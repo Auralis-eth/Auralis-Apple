@@ -104,6 +104,17 @@ Status:
 - Update QR flow to stop inserting `EOAccount` directly.
 - Route duplicate handling through one deterministic path.
 
+Status:
+
+- completed in code
+- `AddressEntryView` now routes typed entry and guest-pass selection through `AccountStore.activateWatchAccount(...)`
+- `QRScannerView` now routes scanned addresses through the same store activation path instead of inserting `EOAccount` directly
+- duplicate add behavior is now deterministic in one seam:
+  - new account: create then select
+  - existing account: reuse and select the persisted account
+  - both entry surfaces show a user-facing alert when the scanned or pasted account already existed
+- `AccountStoreTests` now cover the shared create-or-select activation path
+
 ### Step 6: Add in-app account management UI
 
 - Add account list surface.
@@ -133,13 +144,14 @@ Status:
   - `EOAccount` evolves in place
   - logout and account deletion are separate operations
   - `P0-201` is not blocked on `P0-501`
-- Steps 1 through 4 are now implemented in code:
+- Steps 1 through 5 are now implemented in code:
   - `EOAccount` carries the locked Phase 0 metadata
   - `AccountStore` and `AccountEventRecorder` centralize the account seam
   - `AccountStoreTests` now cover create/remove/select/list, duplicate overwrite, lookup normalization, error paths, and ordering rules
   - shell restore/account-change logic now resolves persisted accounts without fake fallback models
+  - gateway typed entry and QR flows now create/select accounts through the store seam
 
-## Files touched through Step 4:
+## Files touched through Step 5:
 
 Planning artifacts:
 
@@ -154,6 +166,8 @@ Implemented app and test files so far:
 - [`Auralis/Auralis/Accounts/AccountEventRecorder.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Accounts/AccountEventRecorder.swift)
 - [`Auralis/Auralis/Aura/MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
 - [`Auralis/Auralis/Aura/MainAuraView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraView.swift)
+- [`Auralis/Auralis/Aura/Auth/AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)
+- [`Auralis/Auralis/Aura/Auth/QRScannerView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/QRScannerView.swift)
 - [`Auralis/AuralisTests/EOAccountTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/EOAccountTests.swift)
 - [`Auralis/AuralisTests/AccountStoreTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/AccountStoreTests.swift)
 - [`Auralis/AuralisTests/MainAuraShellLogicTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/MainAuraShellLogicTests.swift)
@@ -168,15 +182,18 @@ Implemented app and test files so far:
 - `EOAccount.swift` diagnostics: clean
 - `MainAuraShell.swift` diagnostics: clean
 - `MainAuraView.swift` diagnostics: clean
+- `AddressEntryView.swift` diagnostics: clean
+- `QRScannerView.swift` diagnostics: clean
 - `MainAuraShellLogicTests` targeted run: 10 passed, 0 failed
+- `AccountStoreTests` targeted run: 9 passed, 0 failed
 - full project build: succeeded
 - `AccountStoreTests.swift` and `MainAuraShellLogicTests.swift` editor diagnostics currently show a duplicate Xcode Testing macro plugin-path conflict from two installed Xcode app paths; the actual test runs and project build both pass
 
 ## Next Session Handoff
 
-If a new session picks this up, start with Step 5.
+If a new session picks this up, start with Step 6.
 
-Steps 1 through 4 are complete in code. The next working session should wire typed entry and QR flows through `AccountStore` so account creation stops bypassing the seam.
+Steps 1 through 5 are complete in code. The next working session should add the in-app account management surface for listing, selecting, and removing persisted accounts.
 
 Do not touch yet:
 
@@ -201,16 +218,15 @@ Read first:
 
 Then implement:
 
-- typed-entry flow that creates/selects accounts through `AccountStore`
-- QR flow that creates/selects accounts through `AccountStore`
-- duplicate handling that routes through one deterministic store path instead of ad hoc SwiftData inserts
+- account list UI for persisted accounts
+- select and remove actions from that UI
+- active-account deletion behavior that routes the user to account selection when other accounts remain
 
 Then validate in this order:
 
-- file diagnostics for `AccountStore.swift`
-- file diagnostics for `AccountEventRecorder.swift`
-- file diagnostics for [`AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)
-- file diagnostics for [`QRScannerView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/QRScannerView.swift)
+- file diagnostics for the new account-management view(s)
+- file diagnostics for [`HomeTabView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/HomeTabView.swift)
+- file diagnostics for [`ProfileCardView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/ProfileCardView.swift)
 - targeted tests for `AccountStoreTests`
 - targeted tests for [`MainAuraShellLogicTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/MainAuraShellLogicTests.swift)
 - full project build
