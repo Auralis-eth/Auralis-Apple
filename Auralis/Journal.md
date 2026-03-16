@@ -237,6 +237,41 @@ The cleanup was straightforward:
 
 This is the boring kind of refactor that saves future weekends. The shell now has one source of truth for "what happens when identity changes," which is exactly the kind of thing a stateful tab app should not improvise.
 
+### 2026-03-15: Watch-only accounts need a real front desk, not a side door
+
+`P0-201` looks simple when written as a ticket:
+
+- add account
+- remove account
+- list accounts
+- switch active account
+
+But the current code reveals the trap. Auralis already has an `EOAccount` model and already persists watch-only addresses, yet account behavior is still being decided in scattered UI code like a restaurant where the host, the bartender, and the dishwasher all think they control the reservation book.
+
+The current pressure points are very specific:
+
+- typed entry creates `EOAccount` directly
+- QR scanning creates `EOAccount` directly
+- the shell stores active identity as a raw address string
+- shell logic can fabricate fallback `EOAccount(address:)` values that were never persisted
+- logout currently deletes the whole account roster, which is the software equivalent of burning down the coat check because one guest left early
+
+That means `P0-201` is not really “add persistence.” Persistence already exists. The real job is to promote accounts into a proper subsystem with one referee for:
+
+- address normalization
+- duplicate detection
+- active-account selection
+- deletion fallback
+- event logging
+
+There is also a dependency knot with `P0-501` for receipt logging. The correct move is not to wait politely forever. The correct move is to put a narrow protocol seam in place now, use a no-op implementation for Phase 0, and plug the receipt store in later when the other side of the bridge exists.
+
+That is one of those senior-engineer habits worth keeping:
+
+- when dependencies are circular, introduce a seam
+- when identity matters, centralize the rules
+- when UI code starts writing models from multiple places, stop and give the domain a real owner
+
 ### War Story: stale async loads are a real danger in audio apps
 
 `AudioEngine` already shows the scars of a real class of bugs: stale async playback requests stomping on newer ones. The `beginNewLoad()`, `currentLoadTask`, and `activeLoadID` flow is basically a nightclub bouncer checking wristbands. If an old task tries to re-enter after a newer request started, it gets thrown out.

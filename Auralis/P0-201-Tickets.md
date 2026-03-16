@@ -1,0 +1,163 @@
+# P0-201 Tickets And Session Handoff
+
+This document converts the strategy in [`P0-201-Strategy.md`](/Users/danielbell/Dev/Auralis-Apple/Auralis/P0-201-Strategy.md) into execution-oriented steps that can be handed from session to session.
+
+## Scope
+
+`P0-201` implements watch-only account support with local persistence:
+
+- create account
+- remove account
+- list persisted accounts
+- select active account
+- persist account state across relaunch
+
+Phase 0 decisions already locked:
+
+- evolve `EOAccount` in place
+- keep new metadata fields minimal
+- nickname/display name is in scope
+- metadata also includes minimal timestamps, source/flags, and very basic holdings
+- duplicate detection is case-insensitive
+- duplicate overwrite means delete-and-recreate
+- logout is separate from account deletion
+- account management must be available from an in-app switcher
+- account ordering is `lastSelectedAt` descending, then newest-added first
+- receipt logging is behind a no-op seam until `P0-501` is ready
+
+## Step Plan
+
+### Step 1: Lock model and domain decisions
+
+- Finalize the minimal `EOAccount` Phase 0 field set.
+- Keep address persistence behavior aligned with the current app.
+- Treat "most recent activity" as `lastSelectedAt`.
+
+### Step 2: Add account domain seam
+
+- Create `AccountStore` and account event recording seam.
+- Centralize create/remove/list/select logic.
+- Centralize duplicate detection and duplicate overwrite handling.
+
+### Step 3: Add tests for the store seam
+
+- Add tests for create/remove/select/list behavior.
+- Add tests for duplicate detection and delete-and-recreate overwrite behavior.
+- Add tests for ordering using `lastSelectedAt` then newest-added.
+
+### Step 4: Integrate shell identity flow
+
+- Update shell logic to resolve persisted accounts only.
+- Remove transient fallback `EOAccount(address:)` behavior.
+- Preserve app bootstrapping via `currentAccountAddress`, but treat it as active selection state.
+
+### Step 5: Wire gateway and QR entry through the store
+
+- Update typed-entry flow to stop inserting `EOAccount` directly.
+- Update QR flow to stop inserting `EOAccount` directly.
+- Route duplicate handling through one deterministic path.
+
+### Step 6: Add in-app account management UI
+
+- Add account list surface.
+- Add select/remove actions.
+- On deleting the active account with other accounts remaining, show the account selection screen.
+
+### Step 7: Separate logout from deletion
+
+- Update logout to clear active selection and cached NFT data.
+- Do not wipe all persisted accounts on logout.
+
+### Step 8: Validate end-to-end behavior
+
+- add address
+- remove address
+- switch active account
+- duplicate add flow
+- delete active account flow
+- relaunch persistence
+
+## What already changed:
+
+- [`P0-201-Strategy.md`](/Users/danielbell/Dev/Auralis-Apple/Auralis/P0-201-Strategy.md) was created and refined into a durable implementation strategy.
+- Product and architecture decisions that were previously ambiguous are now documented:
+  - duplicate overwrite is delete-and-recreate
+  - active-account ordering is `lastSelectedAt` descending, then newest-added first
+  - `EOAccount` evolves in place
+  - logout and account deletion are separate operations
+  - `P0-201` is not blocked on `P0-501`
+- No app code for `P0-201` has been implemented yet.
+
+## Files touched through Step 0:
+
+At the moment, only planning artifacts have changed:
+
+- [`P0-201-Strategy.md`](/Users/danielbell/Dev/Auralis-Apple/Auralis/P0-201-Strategy.md)
+- [`P0-201-Tickets.md`](/Users/danielbell/Dev/Auralis-Apple/Auralis/P0-201-Tickets.md)
+- [`Journal.md`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Journal.md)
+
+Expected app files to be touched once implementation starts:
+
+- [`Auralis/Auralis/DataModels/EOAccount.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/DataModels/EOAccount.swift)
+- [`Auralis/Auralis/Aura/MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
+- [`Auralis/Auralis/Aura/MainAuraView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraView.swift)
+- `Auralis/Auralis/Accounts/AccountStore.swift`
+- `Auralis/Auralis/Accounts/AccountEventRecorder.swift`
+- [`Auralis/AuralisTests/MainAuraShellLogicTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/MainAuraShellLogicTests.swift)
+- `Auralis/AuralisTests/AccountStoreTests.swift`
+
+## Validation already done:
+
+- Strategy review completed against the current shell/account code.
+- Scope decisions for `P0-201` are documented and no longer waiting on open product questions.
+- No build, diagnostics, or tests have been run for implementation yet because no product code has been changed.
+
+## Next Session Handoff
+
+If a new session picks this up, start with Step 5 only.
+
+Steps 1 through 4 are already settled at the planning level. The next working session should begin by implementing the gateway and QR flows on top of the new account seam, assuming Steps 1 through 4 have been completed in code first or are being landed in the same branch in sequence.
+
+Do not touch yet:
+
+- advanced holdings derivation beyond the minimal Phase 0 metadata
+- receipt-backed event persistence for `P0-501`
+- broader account analytics/history features
+- non-essential migration/recovery UX beyond the Phase 0 safe path
+- any redesign of unrelated tab navigation or NFT refresh behavior
+
+Read first:
+
+- [`Auralis/Auralis/DataModels/EOAccount.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/DataModels/EOAccount.swift)
+- [`Auralis/Auralis/Aura/MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
+- [`Auralis/Auralis/Aura/MainAuraView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraView.swift)
+- [`Auralis/Auralis/Aura/Auth/AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)
+- [`Auralis/Auralis/Aura/Auth/QRScannerView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/QRScannerView.swift)
+- [`Auralis/AuralisTests/MainAuraShellLogicTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/MainAuraShellLogicTests.swift)
+
+Then implement:
+
+- typed-entry and QR-based account creation through `AccountStore`
+- duplicate detection and overwrite flow using delete-and-recreate semantics
+- no-op account event recording hook
+
+Then validate in this order:
+
+- file diagnostics for [`EOAccount.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/DataModels/EOAccount.swift)
+- file diagnostics for [`MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
+- file diagnostics for [`AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)
+- file diagnostics for [`QRScannerView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/QRScannerView.swift)
+- targeted tests for `AccountStoreTests`
+- targeted tests for [`MainAuraShellLogicTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/MainAuraShellLogicTests.swift)
+- full project build
+
+## Execution Rule
+
+For every remaining step:
+
+- implement the change
+- add or update tests
+- run Xcode diagnostics
+- run targeted tests
+- run a full build
+- only then continue

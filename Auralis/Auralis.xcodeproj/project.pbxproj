@@ -10,6 +10,8 @@
 		6F4179322DA96363002A78F5 /* web3.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 6F4179312DA96363002A78F5 /* web3.swift */; };
 		6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */; };
 		6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = 6F7B76032D962FE800DF0AD7 /* CodeScanner */; };
+		6F81C0762F67551F00A6EA77 /* P0-201-Strategy.md in Resources */ = {isa = PBXBuildFile; fileRef = 6F81C0752F67551F00A6EA77 /* P0-201-Strategy.md */; };
+		6F81C0E62F678AE300A6EA77 /* P0-201-Tickets.md in Resources */ = {isa = PBXBuildFile; fileRef = 6F81C0E52F678AE300A6EA77 /* P0-201-Tickets.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -31,6 +33,8 @@
 
 /* Begin PBXFileReference section */
 		6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AuralisIcon.icon; sourceTree = "<group>"; };
+		6F81C0752F67551F00A6EA77 /* P0-201-Strategy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "P0-201-Strategy.md"; sourceTree = "<group>"; };
+		6F81C0E52F678AE300A6EA77 /* P0-201-Tickets.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "P0-201-Tickets.md"; sourceTree = "<group>"; };
 		6FB455DB2CC5BEBB009A055C /* Auralis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Auralis.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6FB455EF2CC5BEBD009A055C /* AuralisTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AuralisTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6FB455F92CC5BEBD009A055C /* AuralisUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AuralisUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -110,6 +114,8 @@
 				6FB1D9B02D8D117E00CD1B30 /* Frameworks */,
 				6FB455DC2CC5BEBB009A055C /* Products */,
 				6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */,
+				6F81C0752F67551F00A6EA77 /* P0-201-Strategy.md */,
+				6F81C0E52F678AE300A6EA77 /* P0-201-Tickets.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -250,6 +256,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */,
+				6F81C0E62F678AE300A6EA77 /* P0-201-Tickets.md in Resources */,
+				6F81C0762F67551F00A6EA77 /* P0-201-Strategy.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
