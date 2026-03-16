@@ -87,6 +87,32 @@ The nice engineering detail here is the event seam. `AccountEventRecorder` is in
 
 There was one small bug war story during implementation: the first normalization pass was still too strict and treated inputs like `0Xabc...` as invalid. That immediately showed up in the store tests. The fix was to make normalization lowercased and regex-backed before duplicate checks, so the store now behaves like an actual domain layer instead of a picky string comparer.
 
+### 2025-11-21: P0-201 Step 3, the test net under the account seam gets real
+
+Step 3 was where `AccountStore` had to prove it was not just a neat abstraction wearing a nice jacket.
+
+The existing tests already covered the headline moves:
+
+- create
+- select
+- duplicate overwrite
+- active-account removal fallback
+
+But that still left the sneaky edge cases, which is where bugs usually stash their camping gear.
+
+So the store coverage now also locks down:
+
+- canonical lookup from raw hex without the `0x` prefix
+- canonical lookup from embedded text that contains an address
+- invalid lookup returning `nil` instead of pretending
+- invalid create/select/remove error paths
+- deleting a non-active account without inventing a fallback
+- explicit ordering behavior where `lastSelectedAt` beats `addedAt`, and `addedAt` breaks ties for unselected accounts
+
+This is the kind of step that feels less glamorous than UI work, but it is the difference between “the rules seem obvious” and “the rules are executable.”
+
+There was also a mildly cursed tooling footnote: Xcode file diagnostics reported a storm of `Testing` macro errors, but the errors were coming from two installed Xcode app bundles loading the macro plugin from different paths. In other words, the smoke alarm was complaining about the house next door. The real signal was the targeted `AccountStoreTests` run and the full project build, and both passed cleanly.
+
 ## Engineer's Wisdom
 
 Good engineers separate “we decided this” from “we implemented everything around it.” Step 1 of `P0-201` is exactly that move. The model is now opinionated enough to support the rest of the work, but the shell and UI logic are still intentionally untouched until the account seam exists.
@@ -96,6 +122,8 @@ Once the seam exists, keep it authoritative. A store that centralizes rules only
 Another lesson: when a ticket says “minimal metadata,” believe the word “minimal.” You do not win points by stuffing ten speculative fields into a model because they might be useful one day. That is how simple account records become junk drawers.
 
 Backward compatibility deserves the same seriousness as new features. If older encoded accounts can no longer decode, the app has traded progress for fragility.
+
+Tests are not garnish for a domain seam. If a store owns normalization, duplicate policy, fallback policy, and ordering, then those rules should be pinned down in tests before the UI starts depending on them. Otherwise the seam is just a rumor.
 
 ## If I Were Starting Over...
 

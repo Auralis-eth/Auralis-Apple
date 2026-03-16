@@ -71,6 +71,16 @@ Status:
 - Add tests for duplicate detection and delete-and-recreate overwrite behavior.
 - Add tests for ordering using `lastSelectedAt` then newest-added.
 
+Status:
+
+- completed in code
+- expanded `AccountStoreTests` to cover:
+  - canonical lookup for raw, embedded, and invalid address inputs
+  - invalid create/select/remove error paths
+  - inactive-account deletion without fallback selection
+  - ordering guarantees for `lastSelectedAt` first, then newest-added
+- existing duplicate overwrite, selection, fallback removal, and list-order tests remain in place and now form the full Step 3 seam coverage set
+
 ### Step 4: Integrate shell identity flow
 
 - Update shell logic to resolve persisted accounts only.
@@ -112,40 +122,42 @@ Status:
   - `EOAccount` evolves in place
   - logout and account deletion are separate operations
   - `P0-201` is not blocked on `P0-501`
-- No app code for `P0-201` has been implemented yet.
+- Steps 1 through 3 are now implemented in code:
+  - `EOAccount` carries the locked Phase 0 metadata
+  - `AccountStore` and `AccountEventRecorder` centralize the account seam
+  - `AccountStoreTests` now cover create/remove/select/list, duplicate overwrite, lookup normalization, error paths, and ordering rules
 
-## Files touched through Step 0:
+## Files touched through Step 3:
 
-At the moment, only planning artifacts have changed:
+Planning artifacts:
 
 - [`P0-201-Strategy.md`](/Users/danielbell/Dev/Auralis-Apple/Auralis/P0-201-Strategy.md)
 - [`P0-201-Tickets.md`](/Users/danielbell/Dev/Auralis-Apple/Auralis/P0-201-Tickets.md)
 - [`Journal.md`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Journal.md)
 
-Expected app files to be touched once implementation starts:
+Implemented app and test files so far:
 
 - [`Auralis/Auralis/DataModels/EOAccount.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/DataModels/EOAccount.swift)
-- `Auralis/Auralis/Accounts/AccountStore.swift`
-- `Auralis/Auralis/Accounts/AccountEventRecorder.swift`
-- `Auralis/AuralisTests/AccountStoreTests.swift`
-- [`Auralis/Auralis/Aura/MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
-- [`Auralis/Auralis/Aura/MainAuraView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraView.swift)
-- `Auralis/Auralis/Accounts/AccountStore.swift`
-- `Auralis/Auralis/Accounts/AccountEventRecorder.swift`
-- [`Auralis/AuralisTests/MainAuraShellLogicTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/MainAuraShellLogicTests.swift)
-- `Auralis/AuralisTests/AccountStoreTests.swift`
+- [`Auralis/Auralis/Accounts/AccountStore.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Accounts/AccountStore.swift)
+- [`Auralis/Auralis/Accounts/AccountEventRecorder.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Accounts/AccountEventRecorder.swift)
+- [`Auralis/AuralisTests/EOAccountTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/EOAccountTests.swift)
+- [`Auralis/AuralisTests/AccountStoreTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/AccountStoreTests.swift)
 
 ## Validation already done:
 
 - Strategy review completed against the current shell/account code.
 - Scope decisions for `P0-201` are documented and no longer waiting on open product questions.
-- No build, diagnostics, or tests have been run for implementation yet because no product code has been changed.
+- `AccountStore.swift` diagnostics: clean
+- `AccountEventRecorder.swift` diagnostics: clean
+- `AccountStoreTests` targeted run: 8 passed, 0 failed
+- full project build: succeeded
+- `AccountStoreTests.swift` editor diagnostics currently show a duplicate Xcode Testing macro plugin-path conflict from two installed Xcode app paths; the actual test run and project build both pass
 
 ## Next Session Handoff
 
-If a new session picks this up, start with Step 3.
+If a new session picks this up, start with Step 4.
 
-Steps 1 and 2 are complete in code. The next working session should expand store-level tests around edge cases and ordering guarantees before wiring the shell and auth flows onto the seam.
+Steps 1 through 3 are complete in code. The next working session should integrate persisted-account-only shell identity behavior before wiring the gateway and QR flows onto the store seam.
 
 Do not touch yet:
 
@@ -170,20 +182,16 @@ Read first:
 
 Then implement:
 
-- store tests for create/remove/select/list behavior
-- store tests for duplicate detection and delete-and-recreate overwrite behavior
-- store tests for ordering using `lastSelectedAt` then newest-added
+- shell restore and account-change logic that resolves persisted accounts only
+- removal of transient fallback `EOAccount(address:)` behavior from shell logic
+- active selection handling that keeps `currentAccountAddress` as bootstrap state, not source-of-truth account existence
 
 Then validate in this order:
 
-- file diagnostics for `AccountStore.swift`
-- file diagnostics for `AccountEventRecorder.swift`
-- targeted tests for `AccountStoreTests`
 - file diagnostics for [`EOAccount.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/DataModels/EOAccount.swift)
 - file diagnostics for [`MainAuraShell.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainAuraShell.swift)
 - file diagnostics for [`AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)
 - file diagnostics for [`QRScannerView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/QRScannerView.swift)
-- targeted tests for `AccountStoreTests`
 - targeted tests for [`MainAuraShellLogicTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/MainAuraShellLogicTests.swift)
 - full project build
 

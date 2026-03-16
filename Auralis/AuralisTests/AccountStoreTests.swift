@@ -42,6 +42,29 @@ struct AccountStoreTests {
         ])
     }
 
+    @Test("account lookup uses canonical normalization for raw and embedded addresses")
+    @MainActor
+    func accountLookupNormalizesInput() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let store = AccountStore(modelContext: context)
+
+        let account = try store.createWatchAccount(
+            from: "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
+            now: Date(timeIntervalSince1970: 100)
+        )
+
+        let lookedUpWithoutPrefix = try store.account(for: "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD")
+        let lookedUpFromEmbeddedText = try store.account(
+            for: "wallet: \(account.address.uppercased())"
+        )
+        let invalidLookup = try store.account(for: "not-an-address")
+
+        #expect(lookedUpWithoutPrefix?.address == account.address)
+        #expect(lookedUpFromEmbeddedText?.address == account.address)
+        #expect(invalidLookup == nil)
+    }
+
     @Test("select updates lastSelectedAt and moves the account to the front")
     @MainActor
     func selectAccount() throws {
@@ -121,6 +144,26 @@ struct AccountStoreTests {
         ])
     }
 
+    @Test("invalid create and missing account operations fail with deterministic errors")
+    @MainActor
+    func invalidAndMissingAccountErrors() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let store = AccountStore(modelContext: context)
+
+        #expect(throws: AccountStoreError.invalidAddress) {
+            try store.createWatchAccount(from: "definitely not an address")
+        }
+
+        #expect(throws: AccountStoreError.accountNotFound("0x9999999999999999999999999999999999999999")) {
+            try store.selectAccount(address: "0x9999999999999999999999999999999999999999")
+        }
+
+        #expect(throws: AccountStoreError.accountNotFound("0x9999999999999999999999999999999999999999")) {
+            try store.removeAccount(address: "0x9999999999999999999999999999999999999999")
+        }
+    }
+
     @Test("remove returns the sorted fallback only when removing the active account")
     @MainActor
     func removeAccountAndFallback() throws {
@@ -153,6 +196,74 @@ struct AccountStoreTests {
         #expect(result.fallbackAccount?.address == second.address)
         #expect(remaining.map(\.address) == [second.address])
         #expect(recorder.events.last == .removed(address: first.address))
+    }
+
+    @Test("remove does not compute a fallback when deleting an inactive account")
+    @MainActor
+    func removeInactiveAccountDoesNotFallback() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let recorder = RecordingAccountEventRecorder()
+        let store = AccountStore(modelContext: context, eventRecorder: recorder)
+
+        let active = try store.createWatchAccount(
+            from: "0x6666666666666666666666666666666666666666",
+            now: Date(timeIntervalSince1970: 100)
+        )
+        let inactive = try store.createWatchAccount(
+            from: "0x7777777777777777777777777777777777777777",
+            now: Date(timeIntervalSince1970: 200)
+        )
+        _ = try store.selectAccount(
+            address: active.address,
+            selectedAt: Date(timeIntervalSince1970: 300)
+        )
+
+        let result = try store.removeAccount(
+            address: inactive.address,
+            activeAddress: active.address
+        )
+
+        let remaining = try store.listAccounts()
+
+        #expect(result.removedAddress == inactive.address)
+        #expect(result.fallbackAccount == nil)
+        #expect(remaining.map(\.address) == [active.address])
+        #expect(recorder.events.last == .removed(address: inactive.address))
+    }
+
+    @Test("list orders by lastSelectedAt first and then newest added for ties")
+    @MainActor
+    func listAccountsUsesSelectionThenAddedAtOrdering() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let store = AccountStore(modelContext: context)
+
+        let oldestSelected = try store.createWatchAccount(
+            from: "0x8888888888888888888888888888888888888888",
+            now: Date(timeIntervalSince1970: 100)
+        )
+        let newestUnselected = try store.createWatchAccount(
+            from: "0x9999999999999999999999999999999999999999",
+            now: Date(timeIntervalSince1970: 300)
+        )
+        let olderUnselected = try store.createWatchAccount(
+            from: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            now: Date(timeIntervalSince1970: 200)
+        )
+
+        _ = try store.selectAccount(
+            address: oldestSelected.address,
+            selectedAt: Date(timeIntervalSince1970: 400)
+        )
+
+        let accounts = try store.listAccounts()
+
+        #expect(accounts.map(\.address) == [
+            oldestSelected.address,
+            newestUnselected.address,
+            olderUnselected.address
+        ])
     }
 }
 
