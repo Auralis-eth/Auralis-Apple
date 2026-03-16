@@ -186,6 +186,24 @@ That last part matters. It preserves the feeling of “you are managing accounts
 
 There was also a classic Xcode side quest here: the new switcher view built fine, but `HomeTabView` diagnostics kept insisting the type did not exist. The project graph knew the file. The build knew the file. The index was just late to the meeting. That is why build results matter more than one stubborn editor error.
 
+### 2025-11-21: P0-201 Step 7, logout stops behaving like a wrecking ball
+
+Step 7 fixed one of the least subtle mismatches in the app: the logout button was deleting every saved account on the device.
+
+That is not logout. That is a small-scale demolition event.
+
+For `P0-201`, logout is now explicitly session-scoped:
+
+- clear the active account
+- clear the persisted active-address bootstrap key
+- clear cached NFT and tag data
+- clear local generated media tied to the session
+- keep the saved account roster intact
+
+This is one of those changes that sounds obvious once stated plainly, which is exactly why it needed to be pinned down in code. Before this fix, the app technically supported a watch-only roster while also shredding that roster the moment the user hit logout. That is the kind of contradiction that makes a feature look flaky even when each individual line of code seems \"reasonable\" in isolation.
+
+The implementation detail worth keeping: the logout rule was pulled behind a tiny `HomeTabLogic` seam and covered with a focused test. It is a small seam, but it gives the codebase a place to keep the meaning of logout explicit instead of letting it drift back into button-handler folklore.
+
 ## Engineer's Wisdom
 
 Good engineers separate “we decided this” from “we implemented everything around it.” Step 1 of `P0-201` is exactly that move. The model is now opinionated enough to support the rest of the work, but the shell and UI logic are still intentionally untouched until the account seam exists.
@@ -203,6 +221,8 @@ The shell should orchestrate identity, not manufacture it. If a persisted model 
 If two entry points are supposed to mean the same thing, give them the same domain method. Duplicate business rules copied into two views are not “flexibility.” They are just future bugs arriving early.
 
 UI affordances that hint at account management should do real account management. Placeholder controls are harmless only until users start trusting them.
+
+Words like \"logout,\" \"remove account,\" and \"delete data\" are not interchangeable. Good product code treats those as different contracts, because users definitely do.
 
 ## If I Were Starting Over...
 

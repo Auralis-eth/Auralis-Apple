@@ -2,6 +2,24 @@ import SwiftUI
 import SwiftData
 import ImagePlayground
 
+struct HomeLogoutPlan {
+    let shouldDeleteNFTs: Bool
+    let shouldDeleteAccounts: Bool
+    let shouldDeleteTags: Bool
+    let nextCurrentAddress: String
+}
+
+struct HomeTabLogic {
+    func logoutPlan() -> HomeLogoutPlan {
+        HomeLogoutPlan(
+            shouldDeleteNFTs: true,
+            shouldDeleteAccounts: false,
+            shouldDeleteTags: true,
+            nextCurrentAddress: ""
+        )
+    }
+}
+
 struct HomeTabView: View {
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
@@ -21,6 +39,7 @@ struct HomeTabView: View {
     @State private var selectedImage: UIImage? = nil
     @State private var scene: AuroraScene = .mountain
     @State private var showAccountSwitcher = false
+    private let logic = HomeTabLogic()
 
     
     /// Simple memo cache to avoid recompute in hot paths
@@ -85,14 +104,7 @@ struct HomeTabView: View {
 
             VStack {
                 Button("Logout") {
-                    try? modelContext.delete(model: NFT.self)
-                    try? modelContext.delete(model: EOAccount.self)
-                    try? modelContext.delete(model: Tag.self)
-                    self.currentAccount = nil
-                    currentAddress = ""
-                    currentChainId = ""
-                    avatarImage = nil
-                    generatedImages = nil
+                    logout()
                 }
                 .accessibilityIdentifier("home.logout")
                 
@@ -385,6 +397,27 @@ struct HomeTabView: View {
             showErrorAlert = true
             return
         }
+    }
+
+    private func logout() {
+        let plan = logic.logoutPlan()
+
+        if plan.shouldDeleteNFTs {
+            try? modelContext.delete(model: NFT.self)
+        }
+
+        if plan.shouldDeleteAccounts {
+            try? modelContext.delete(model: EOAccount.self)
+        }
+
+        if plan.shouldDeleteTags {
+            try? modelContext.delete(model: Tag.self)
+        }
+
+        currentAccount = nil
+        currentAddress = plan.nextCurrentAddress
+        avatarImage = nil
+        generatedImages = nil
     }
 }
 
