@@ -104,12 +104,19 @@ Session notes:
 
 Status:
 
-- pending
+- completed
 
 Exit criteria:
 
 - sensitive fields covered by this ticket are redacted before persistence
 - export JSON is valid and consistent
+
+Session notes:
+
+- added `DefaultReceiptPayloadSanitizer` under `Auralis/Auralis/Receipts/DefaultReceiptPayloadSanitizer.swift`
+- implemented recursive redaction for the locked Phase 0 fields only: raw RPC URL fields and raw error string fields
+- made JSON export use sorted keys for more stable output
+- added sanitizer tests and export validation proving exported payloads match sanitized persisted payloads
 
 ### Step 5: Replace the no-op account receipt seam
 

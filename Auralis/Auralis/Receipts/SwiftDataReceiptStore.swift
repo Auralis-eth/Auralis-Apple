@@ -76,7 +76,9 @@ final class SwiftDataReceiptStore: ReceiptStore {
         )
 
         let records = try modelContext.fetch(descriptor).map { try $0.asReceiptRecord() }
-        return try JSONEncoder().encode(records)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(records)
     }
 
     func resetAll() throws {

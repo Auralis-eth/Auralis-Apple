@@ -59,6 +59,14 @@ The subtle part is ordering. Timestamps look trustworthy right up until two rece
 
 There was also a small reminder that tooling has moods. The store compiled cleanly and runtime validation proved the behavior, but the Xcode test runner in this session started canceling tests broadly instead of giving crisp per-test results. That is annoying, but it is not the same thing as the store being wrong. When the harness gets dramatic, a direct executable check is the engineering equivalent of tapping the mic yourself.
 
+### Step 4 of `P0-501`: Install the shredder before anyone stores secrets
+
+The receipt sanitizer is now a real thing instead of a polite protocol waiting for adulthood. `DefaultReceiptPayloadSanitizer` walks the payload recursively and only redacts the two Phase 0 categories we explicitly promised to handle: raw RPC URL fields and raw error string fields. Nothing else gets “helpfully” scrubbed just because it looks suspicious. That restraint matters. Privacy code that redacts too much becomes untrustworthy in a different way because it quietly destroys useful context.
+
+Export also got a small hardening pass: JSON now uses sorted keys so the output is steadier for tests, diffs, and future debugging. Not glamorous, but this is exactly the kind of thing that turns an export feature from “technically works” into “actually usable.”
+
+The war story here is mostly about tooling, again. The project build succeeded and Xcode discovered the new sanitizer/export tests, but the runner kept timing out before returning results. That is a validation limitation of the session, not a sign that the sanitizer contract is vague. The code path itself is straightforward, narrow, and now lives in one place instead of becoming a repo-wide scavenger hunt for string replacement.
+
 ## Engineer's Wisdom
 
 Good architecture is often a story about refusing convenience in the right places. A global logger would have been convenient. Letting `AccountStore` write SwiftData receipt rows directly would also have been convenient. Both would have made `P0-701` uglier later.

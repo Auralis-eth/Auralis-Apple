@@ -155,6 +155,37 @@ struct ReceiptStoreTests {
         #expect(records.map(\.kind) == ["account.added", "account.selected"])
     }
 
+    @Test("exportAll emits the sanitized payloads exactly as persisted")
+    @MainActor
+    func exportAllUsesSanitizedPersistedPayloads() throws {
+        let store = try makeStore()
+        let sanitizer = DefaultReceiptPayloadSanitizer()
+        let sanitizedPayload = sanitizer.sanitize(
+            RawReceiptPayload(
+                values: [
+                    "rpcURL": .string("https://rpc.example/secret"),
+                    "error": .string("provider failure")
+                ]
+            )
+        )
+
+        _ = try store.append(
+            ReceiptDraft(
+                createdAt: Date(timeIntervalSince1970: 100),
+                category: "networking",
+                kind: "refresh.failed",
+                payload: sanitizedPayload
+            )
+        )
+
+        let exportedData = try store.exportAll()
+        let records = try JSONDecoder().decode([ReceiptRecord].self, from: exportedData)
+
+        #expect(records.count == 1)
+        #expect(records.first?.payload.values["rpcURL"] == .string("<redacted-rpc-url>"))
+        #expect(records.first?.payload.values["error"] == .string("<redacted-error>"))
+    }
+
     @Test("resetAll wipes the receipt store without introducing any per-item delete API")
     @MainActor
     func resetAllRemovesEverything() throws {
