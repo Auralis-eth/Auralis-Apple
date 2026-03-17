@@ -35,13 +35,20 @@ Phase 0 decisions already locked:
 
 Status:
 
-- pending
+- completed
 
 Exit criteria:
 
 - the receipt model shape is agreed in code comments or doc comments
 - append-only rules are encoded in API shape
 - no mutable update path exists
+
+Session notes:
+
+- added receipt contract types under `Auralis/Auralis/Receipts/ReceiptContracts.swift`
+- encoded the append-only API as `ReceiptStore` with append, bounded reads, export, and full reset only
+- split raw payload input from persisted/export-safe `ReceiptPayload` through `ReceiptPayloadSanitizing`
+- added `ReceiptContractTests` to lock the contract shape without starting SwiftData persistence yet
 
 ### Step 2: Add the SwiftData receipt model
 
@@ -224,7 +231,7 @@ These items should be called out as not solved by `P0-501` alone:
 
 ## Next Session Handoff
 
-Start with Step 1, then Step 2.
+Start with Step 2.
 
 Do not do yet:
 
