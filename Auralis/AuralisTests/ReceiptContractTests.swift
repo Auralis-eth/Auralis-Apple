@@ -100,9 +100,9 @@ private struct StubReceiptPayloadSanitizer: ReceiptPayloadSanitizing {
         let sanitizedValues = payload.values.mapValues { value in
             switch value {
             case .string(let string) where string == "https://rpc.example":
-                return .string("<redacted-rpc-url>")
+                return ReceiptJSONValue.string("<redacted-rpc-url>")
             case .string(let string) where string == "Boom":
-                return .string("<redacted-error>")
+                return ReceiptJSONValue.string("<redacted-error>")
             default:
                 return value
             }

@@ -58,12 +58,19 @@ Session notes:
 
 Status:
 
-- pending
+- completed
 
 Exit criteria:
 
 - receipts persist in the same local stack as the app’s other Phase 0 models
 - model container builds with the new type included
+
+Session notes:
+
+- added `StoredReceipt` under `Auralis/Auralis/DataModels/StoredReceipt.swift`
+- persisted the sanitized receipt payload as JSON `Data` so export-safe payloads can round-trip without introducing a second SwiftData mapping layer yet
+- included `StoredReceipt` in the main app model container and the in-memory account-flow test containers
+- added `StoredReceiptTests` to lock payload round-tripping and persisted field coverage
 
 ### Step 3: Implement the append-only store
 

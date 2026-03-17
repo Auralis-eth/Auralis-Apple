@@ -13,7 +13,7 @@ struct AuralisApp: App {
     var body: some Scene {
         WindowGroup {
             MainAuraView()
-                .modelContainer(for: [NFT.self, EOAccount.self, Tag.self])
+                .modelContainer(for: [NFT.self, EOAccount.self, Tag.self, StoredReceipt.self])
 //                .task {
 //                    await runMetadataAnalysis()
 //                }

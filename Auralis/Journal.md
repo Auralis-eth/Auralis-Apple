@@ -43,6 +43,14 @@ The contract now says:
 
 That last point matters. If raw payloads go straight into storage and someone promises to redact them later, that promise will eventually lose a fight with a deadline.
 
+### Step 2 of `P0-501`: Give receipts a real filing cabinet
+
+This step was less glamorous and more important. A receipt contract living only in pure Swift types is like designing an archive room on a whiteboard and then discovering the building has no shelves.
+
+The new `StoredReceipt` model is the shelf. It stores the locked contract fields in SwiftData and keeps the payload as JSON `Data`. That choice is intentionally boring in the good way. Instead of teaching SwiftData how to natively persist a recursive JSON enum on day one, we store the already-sanitized payload as export-safe bytes and decode it when needed. Fewer moving parts, fewer “why is this transformable field angry?” afternoons.
+
+The key lesson here: persistence shape and API shape are cousins, not twins. The append-only contract still lives at the API boundary. The model just needs to preserve the facts faithfully so the later store implementation can enforce behavior without performing archaeology.
+
 ## Engineer's Wisdom
 
 Good architecture is often a story about refusing convenience in the right places. A global logger would have been convenient. Letting `AccountStore` write SwiftData receipt rows directly would also have been convenient. Both would have made `P0-701` uglier later.
@@ -52,9 +60,12 @@ The better move was to keep the seam narrow:
 - product code speaks in product events
 - receipt infrastructure speaks in generic append-only records
 - sanitization has a named boundary
+- persistence can use a simple stable representation even when the domain type is richer in memory
 
 That is senior-engineer behavior in a nutshell: make the next change easier, not just today’s diff shorter.
 
 ## If I Were Starting Over...
 
 I would carve out the receipts area earlier. The app already had a good account seam from `P0-201`, but without a dedicated home for receipt concepts it would be too easy for event history to become “just one more helper” buried in unrelated files. That path usually ends with a junk drawer and a future refactor with a thousand-yard stare.
+
+I would also decide earlier which parts of a domain model deserve a first-class SwiftData mapping and which parts should stay encoded at the storage edge. Recursive JSON payloads are a classic trap: very expressive in memory, much less fun once a persistence framework wants every corner sanded down.

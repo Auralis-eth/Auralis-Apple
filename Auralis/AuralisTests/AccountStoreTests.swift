@@ -7,7 +7,7 @@ import Testing
 struct AccountStoreTests {
     @MainActor
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([EOAccount.self, NFT.self, Tag.self])
+        let schema = Schema([EOAccount.self, NFT.self, Tag.self, StoredReceipt.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
     }
