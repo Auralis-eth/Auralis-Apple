@@ -174,12 +174,18 @@ Session notes:
 
 Status:
 
-- pending
+- completed
 
 Exit criteria:
 
 - receipts can be fully wiped in one explicit operation
 - there is still no partial delete API
+
+Session notes:
+
+- added `ReceiptResetService` under `Auralis/Auralis/Receipts/ReceiptResetService.swift` as the explicit destructive reset seam above the store
+- kept reset as a dedicated operation instead of adding any partial delete helper or mutable receipt management API
+- added `ReceiptResetServiceTests` to prove the wipe is complete and that the store can start a fresh sequence timeline afterward
 
 ### Step 8: Validate end-to-end behavior
 

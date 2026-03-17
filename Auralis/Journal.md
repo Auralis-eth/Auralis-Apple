@@ -83,6 +83,12 @@ The key architectural move was resisting magic. `NFTService` does not silently m
 
 There was also a useful Swift Concurrency lesson buried in the cleanup. `NFTService` was the correct place to draw a `@MainActor` line because it owns UI-facing observable state and a `ModelContext`. Once that boundary was explicit, a bunch of awkward `MainActor.run` closure juggling disappeared, and the code got simpler instead of more ceremonial. That is usually a good sign you picked the right isolation boundary.
 
+### Step 7 of `P0-501`: Add the big red reset button, but behind glass
+
+By this point the store already knew how to forget everything, but Step 7 was about making that forgetfulness feel intentional instead of incidental. `ReceiptResetService` is that extra layer of ceremony on purpose. A full wipe of receipt history is a destructive operation, and destructive operations should look a little different in code. They should not hide in the same mental bucket as “give me the latest 20 items.”
+
+The useful nuance here is what did *not* get added: no single-receipt delete, no mutable admin API, no cute helper that quietly chips away at the archive one row at a time. The reset seam does one thing, loudly: erase the whole ledger. That keeps the append-only story honest instead of letting it die by a thousand “just this one helper” cuts.
+
 ## Engineer's Wisdom
 
 Good architecture is often a story about refusing convenience in the right places. A global logger would have been convenient. Letting `AccountStore` write SwiftData receipt rows directly would also have been convenient. Both would have made `P0-701` uglier later.
