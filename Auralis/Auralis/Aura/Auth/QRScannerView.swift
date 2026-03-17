@@ -49,7 +49,10 @@ struct QRScannerView: View {
         switch result {
         case .success(let code):
             do {
-                let store = AccountStore(modelContext: modelContext)
+                let store = AccountStore(
+                    modelContext: modelContext,
+                    eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
+                )
                 let activation = try store.activateWatchAccount(
                     from: code.string,
                     source: .qrScan

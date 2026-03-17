@@ -106,7 +106,10 @@ struct AccountSwitcherSheet: View {
     }
 
     private func select(_ account: EOAccount) {
-        let store = AccountStore(modelContext: modelContext)
+        let store = AccountStore(
+            modelContext: modelContext,
+            eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
+        )
 
         do {
             let selectedAccount = try store.selectAccount(address: account.address)
@@ -123,7 +126,10 @@ struct AccountSwitcherSheet: View {
 
     private func remove(_ account: EOAccount) {
         pendingRemovalAccount = nil
-        let store = AccountStore(modelContext: modelContext)
+        let store = AccountStore(
+            modelContext: modelContext,
+            eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
+        )
 
         do {
             let result = try store.removeAccount(

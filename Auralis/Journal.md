@@ -67,6 +67,14 @@ Export also got a small hardening pass: JSON now uses sorted keys so the output 
 
 The war story here is mostly about tooling, again. The project build succeeded and Xcode discovered the new sanitizer/export tests, but the runner kept timing out before returning results. That is a validation limitation of the session, not a sign that the sanitizer contract is vague. The code path itself is straightforward, narrow, and now lives in one place instead of becoming a repo-wide scavenger hunt for string replacement.
 
+### Step 5 of `P0-501`: Swap the fake receptionist for a real clerk
+
+`AccountEventRecorder` finally stopped being a cardboard cutout. The new receipt-backed implementation translates account events into generic receipts and hands them to the store, which is exactly the division of labor we wanted from the start. `AccountStore` still speaks in account events. The receipt layer still speaks in append-only records. Nobody had to pretend those are the same language.
+
+The important design move here was not shoving SwiftData receipt details into `AccountStore`. Instead, the views that already create `AccountStore` now ask for the live account recorder seam. That keeps the dependency pointing the right way: product code depends on the seam, and the seam decides how facts get filed away.
+
+The runtime validation was the satisfying part. A create-select-remove sequence produced three persisted receipts in the expected order: `account.added`, `account.selected`, `account.removed` once you read the timeline oldest-to-newest, or the reverse if you ask for latest-first. That is the kind of check that tells you the seam is no longer decorative.
+
 ## Engineer's Wisdom
 
 Good architecture is often a story about refusing convenience in the right places. A global logger would have been convenient. Letting `AccountStore` write SwiftData receipt rows directly would also have been convenient. Both would have made `P0-701` uglier later.

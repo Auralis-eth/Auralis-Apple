@@ -125,12 +125,19 @@ Session notes:
 
 Status:
 
-- pending
+- completed
 
 Exit criteria:
 
 - account add/remove/select flows can emit real receipts
 - `AccountStore` still does not own receipt persistence details directly
+
+Session notes:
+
+- added `ReceiptBackedAccountEventRecorder` under `Auralis/Auralis/Accounts/AccountEventRecorder.swift`
+- kept account-domain receipt behavior behind the existing `AccountEventRecorder` seam, with a live factory that hides SwiftData receipt details from view call sites
+- updated the auth and account-switcher flows to construct `AccountStore` with the live recorder seam
+- added `AccountReceiptRecorderTests` to prove add/select/remove flows emit real persisted receipts without teaching `AccountStore` about SwiftData receipt internals
 
 ### Step 6: Add correlated flow support in one orchestration path
 

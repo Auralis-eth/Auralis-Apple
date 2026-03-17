@@ -53,7 +53,10 @@ struct AddressInputView: View {
             return
         }
 
-        let store = AccountStore(modelContext: modelContext)
+        let store = AccountStore(
+            modelContext: modelContext,
+            eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
+        )
 
         guard store.normalizeAddress(address) != nil else {
             showAlert(title: "Invalid Address",
