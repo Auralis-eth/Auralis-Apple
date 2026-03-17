@@ -198,12 +198,25 @@ Session notes:
 
 Status:
 
-- pending
+- completed
 
 Exit criteria:
 
 - the `P0-501` test plan is covered in code
 - build and targeted tests pass
+
+Session notes:
+
+- added persistent-container coverage in `StoredReceiptTests` to simulate relaunch and prove receipt persistence survives container recreation
+- the receipt validation surface now covers:
+  - contract shape
+  - SwiftData persistence
+  - append-only store behavior
+  - sanitization
+  - account receipt integration
+  - correlated NFT refresh flow receipts
+  - explicit reset behavior
+- full project build succeeds with the receipt system in place
 
 ## P0-201 Dependency Input
 

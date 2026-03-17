@@ -89,6 +89,12 @@ By this point the store already knew how to forget everything, but Step 7 was ab
 
 The useful nuance here is what did *not* get added: no single-receipt delete, no mutable admin API, no cute helper that quietly chips away at the archive one row at a time. The reset seam does one thing, loudly: erase the whole ledger. That keeps the append-only story honest instead of letting it die by a thousand “just this one helper” cuts.
 
+### Step 8 of `P0-501`: Prove the system behaves after the whiteboard meeting ends
+
+The last step was less about inventing code and more about proving the pieces actually form a machine. By this point the repo already had tests for the contract, storage, sanitization, account integration, correlated refresh flow, and reset behavior. The one missing ingredient was the “close the app, come back later” check, so the suite now recreates a real SwiftData container against a temporary on-disk store and confirms the receipt is still there after the second boot.
+
+That kind of test matters because persistence bugs are sneaky. In-memory tests can make you feel like a genius right up until the app relaunches and your so-called history evaporates like stage fog. The relaunch check is the boring friend who insists on verifying the car still starts the next morning. You want that friend around.
+
 ## Engineer's Wisdom
 
 Good architecture is often a story about refusing convenience in the right places. A global logger would have been convenient. Letting `AccountStore` write SwiftData receipt rows directly would also have been convenient. Both would have made `P0-701` uglier later.
