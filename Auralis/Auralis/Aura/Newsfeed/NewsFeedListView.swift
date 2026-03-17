@@ -48,10 +48,12 @@ struct NewsFeedListView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
                     Task {
+                        let correlationID = UUID().uuidString
                         await nftService.refreshNFTs(
                             for: currentAccount,
                             chain: currentChain,
-                            modelContext: modelContext
+                            modelContext: modelContext,
+                            correlationID: correlationID
                         )
                     }
                 }) {

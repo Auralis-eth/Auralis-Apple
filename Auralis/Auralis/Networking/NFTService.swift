@@ -8,13 +8,25 @@
 import Foundation
 import SwiftData
 
+@MainActor
 @Observable
 class NFTService {
-    private let nftFetcher = NFTFetcher()
+    private let nftFetcher: any NFTFetching
+    private let eventRecorderFactory: @MainActor (ModelContext) -> any NFTRefreshEventRecording
     var isLoading: Bool { nftFetcher.loading }
     var itemsLoaded: Int? { nftFetcher.itemsLoaded }
     var total: Int? { nftFetcher.total }
     var error: Error? { nftFetcher.error }
+
+    init(
+        nftFetcher: (any NFTFetching)? = nil,
+        eventRecorderFactory: @escaping @MainActor (ModelContext) -> any NFTRefreshEventRecording = {
+            NFTRefreshEventRecorders.live(modelContext: $0)
+        }
+    ) {
+        self.nftFetcher = nftFetcher ?? NFTFetcher()
+        self.eventRecorderFactory = eventRecorderFactory
+    }
 
     //TODO: re-arch for getting ModelContainer instead of ModelContext
 //    func fetchAllNFTs(for accountAddress: String, chain: Chain, container: ModelContainer) async {
@@ -22,43 +34,79 @@ class NFTService {
 //        await fetchAllNFTs(for: accountAddress, chain: chain, modelContext: newContext)
 //    }
 
-    func fetchAllNFTs(for accountAddress: String, chain: Chain, modelContext: ModelContext) async {
+    func fetchAllNFTs(
+        for accountAddress: String,
+        chain: Chain,
+        modelContext: ModelContext,
+        correlationID: String
+    ) async {
+        let eventRecorder = eventRecorderFactory(modelContext)
+
+        await eventRecorder.recordRefreshStarted(
+            accountAddress: accountAddress,
+            chain: chain,
+            correlationID: correlationID
+        )
+
         do {
-            let nfts = try await nftFetcher.fetchAllNFTs(for: accountAddress, chain: chain)
+            let nfts = try await nftFetcher.fetchAllNFTs(
+                for: accountAddress,
+                chain: chain,
+                correlationID: correlationID,
+                eventRecorder: eventRecorder
+            )
 
             nfts.forEach {
                 $0.parseMetadata()
             }
 
             if (nftFetcher.itemsLoaded ?? 0) > (nftFetcher.total ?? 0) - 200 || nftFetcher.currentCursor == nil {
-                await cleanupOldNFTs(currentNFTIDs: nfts.map(\.id), modelContext: modelContext)
+                try await cleanupOldNFTs(
+                    currentNFTIDs: nfts.map(\.id),
+                    modelContext: modelContext,
+                    accountAddress: accountAddress,
+                    chain: chain,
+                    correlationID: correlationID,
+                    eventRecorder: eventRecorder
+                )
             } else if let currentCursor = nftFetcher.currentCursor {
                 UserDefaults.standard.set(currentCursor, forKey: "currentCursor")
             }
 
             do {
-                try await MainActor.run {
-                    for nft in nfts {
-                        modelContext.insert(nft)
-                    }
-                    try modelContext.save()
+                for nft in nfts {
+                    modelContext.insert(nft)
                 }
+                try modelContext.save()
+                await eventRecorder.recordPersistenceCompleted(
+                    accountAddress: accountAddress,
+                    chain: chain,
+                    correlationID: correlationID,
+                    persistedCount: nfts.count
+                )
             } catch {
+                await eventRecorder.recordPersistenceFailed(
+                    accountAddress: accountAddress,
+                    chain: chain,
+                    correlationID: correlationID,
+                    error: error
+                )
                 print("Error updating NFT in SwiftData: \(error)")
             }
 
         } catch {
-            await MainActor.run {
-                nftFetcher.error = error
-            }
+            nftFetcher.error = error
         }
 
-        await MainActor.run {
-            nftFetcher.reset()
-        }
+        nftFetcher.reset()
     }
 
-    func refreshNFTs(for currentAccount: EOAccount?, chain: Chain, modelContext: ModelContext) async {
+    func refreshNFTs(
+        for currentAccount: EOAccount?,
+        chain: Chain,
+        modelContext: ModelContext,
+        correlationID: String
+    ) async {
         guard let accountAddress = currentAccount?.address else {
             return
         }
@@ -66,25 +114,37 @@ class NFTService {
         await fetchAllNFTs(
             for: accountAddress,
             chain: chain,
-            modelContext: modelContext
+            modelContext: modelContext,
+            correlationID: correlationID
         )
     }
 
-    private func cleanupOldNFTs(currentNFTIDs: [String], modelContext: ModelContext) async {
+    private func cleanupOldNFTs(
+        currentNFTIDs: [String],
+        modelContext: ModelContext,
+        accountAddress: String,
+        chain: Chain,
+        correlationID: String,
+        eventRecorder: any NFTRefreshEventRecording
+    ) async throws {
         let descriptor = FetchDescriptor<NFT>(
             predicate: #Predicate<NFT> { !currentNFTIDs.contains($0.id) }
         )
-
-        await MainActor.run {
-            do {
-                try modelContext.enumerate(descriptor) { nft in
-                    modelContext.delete(nft)
-                }
-                try modelContext.save()
-            } catch {
-                print("Failed to cleanup old NFTs from SwiftData: \(error)")
-                nftFetcher.error = error
+        do {
+            try modelContext.enumerate(descriptor) { nft in
+                modelContext.delete(nft)
             }
+            try modelContext.save()
+        } catch {
+            print("Failed to cleanup old NFTs from SwiftData: \(error)")
+            nftFetcher.error = error
+            await eventRecorder.recordPersistenceFailed(
+                accountAddress: accountAddress,
+                chain: chain,
+                correlationID: correlationID,
+                error: error
+            )
+            throw error
         }
     }
 

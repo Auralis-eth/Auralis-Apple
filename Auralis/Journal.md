@@ -75,6 +75,14 @@ The important design move here was not shoving SwiftData receipt details into `A
 
 The runtime validation was the satisfying part. A create-select-remove sequence produced three persisted receipts in the expected order: `account.added`, `account.selected`, `account.removed` once you read the timeline oldest-to-newest, or the reverse if you ask for latest-first. That is the kind of check that tells you the seam is no longer decorative.
 
+### Step 6 of `P0-501`: Put a baggage tag on one real async journey
+
+This was the first moment the receipt system had to prove it could follow a story instead of just logging isolated sentences. The chosen story was the NFT refresh flow: caller kicks off a refresh, fetcher does network work, service persists the results. One correlation ID now rides along that whole trip like a luggage tag that nobody downstream is allowed to replace with their own handwriting.
+
+The key architectural move was resisting magic. `NFTService` does not silently mint IDs. `NFTFetcher` definitely does not. The caller creates the correlation ID explicitly, then the service passes it down into the fetcher and into the networking receipt recorder seam. That is exactly the kind of discipline that keeps “correlation” from turning into “somewhere a UUID happened.”
+
+There was also a useful Swift Concurrency lesson buried in the cleanup. `NFTService` was the correct place to draw a `@MainActor` line because it owns UI-facing observable state and a `ModelContext`. Once that boundary was explicit, a bunch of awkward `MainActor.run` closure juggling disappeared, and the code got simpler instead of more ceremonial. That is usually a good sign you picked the right isolation boundary.
+
 ## Engineer's Wisdom
 
 Good architecture is often a story about refusing convenience in the right places. A global logger would have been convenient. Letting `AccountStore` write SwiftData receipt rows directly would also have been convenient. Both would have made `P0-701` uglier later.

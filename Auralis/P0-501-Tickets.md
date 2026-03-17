@@ -151,12 +151,20 @@ Good first candidate:
 
 Status:
 
-- pending
+- completed
 
 Exit criteria:
 
 - a real multi-step flow emits multiple receipts with the same explicit correlation ID
 - no lower layer auto-generates IDs
+
+Session notes:
+
+- added `NFTRefreshEventRecorder` under `Auralis/Auralis/Networking/NFTRefreshEventRecorder.swift` as the networking-specific receipt facade
+- threaded a caller-provided `correlationID` from `NFTService.refreshNFTs` into `NFTService.fetchAllNFTs` and down into `NFTFetcher.fetchAllNFTs`
+- updated live refresh entry points to create the correlation ID at the caller boundary before invoking the flow
+- added `NFTServiceReceiptTests` with a stub fetcher to prove one caller-owned correlation ID survives the service, fetcher, and persistence receipt path
+- kept correlation ID creation out of lower layers; they only receive and forward the ID they are given
 
 ### Step 7: Add reset support
 

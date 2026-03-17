@@ -48,6 +48,7 @@ struct MetadataAnalysisResult {
 }
 
 // MARK: - Main Analysis Function
+@MainActor
 class NFTMetadataAnalyzer {
     private let nftService = NFTService()
 
@@ -101,10 +102,12 @@ class NFTMetadataAnalyzer {
 
             do {
                 // Fetch NFTs for this address
+                let correlationID = UUID().uuidString
                 await nftService.fetchAllNFTs(
                     for: address,
                     chain: chain,
-                    modelContext: modelContext
+                    modelContext: modelContext,
+                    correlationID: correlationID
                 )
 
                 // Get NFTs from the model context
@@ -254,6 +257,7 @@ class NFTMetadataAnalyzer {
 }
 
 // MARK: - Usage Example
+@MainActor
 func runMetadataAnalysis() async {
     let testAddresses: [String] = [
         "0xe0036fb4b5a3b232acfc01fec3bd1d787a93da75",

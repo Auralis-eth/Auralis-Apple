@@ -9,8 +9,25 @@ import SwiftUI
 import SwiftData
 import RegexBuilder
 
+protocol NFTFetching: AnyObject {
+    var total: Int? { get set }
+    var itemsLoaded: Int? { get set }
+    var loading: Bool { get set }
+    var error: Error? { get set }
+    var currentCursor: String? { get set }
+
+    func fetchAllNFTs(
+        for account: String,
+        chain: Chain,
+        correlationID: String?,
+        eventRecorder: any NFTRefreshEventRecording
+    ) async throws -> [NFT]
+
+    func reset()
+}
+
 @Observable
-class NFTFetcher {
+class NFTFetcher: NFTFetching {
 
     enum FetcherError: Error, LocalizedError {
         case missingAPIKey
@@ -115,19 +132,51 @@ class NFTFetcher {
         return false
     }
 
-    func fetchAllNFTs(for account: String, chain: Chain) async throws -> [NFT] {
+    func fetchAllNFTs(
+        for account: String,
+        chain: Chain,
+        correlationID: String?,
+        eventRecorder: any NFTRefreshEventRecording
+    ) async throws -> [NFT] {
 //        return NFTExamples.allExamples
-        
         guard let apiKey = Secrets.apiKeyOrNil(.alchemy) else {
+            if let correlationID {
+                await eventRecorder.recordFetchFailed(
+                    accountAddress: account,
+                    chain: chain,
+                    correlationID: correlationID,
+                    error: FetcherError.missingAPIKey
+                )
+            }
             throw FetcherError.missingAPIKey
         }
-        
+
         guard !loading else {
+            if let correlationID {
+                await eventRecorder.recordFetchFailed(
+                    accountAddress: account,
+                    chain: chain,
+                    correlationID: correlationID,
+                    error: FetcherError.loadingAlreadyInProgress
+                )
+            }
             throw FetcherError.loadingAlreadyInProgress
         }
-        
-        try validateAccount(account)
-        
+
+        do {
+            try validateAccount(account)
+        } catch {
+            if let correlationID {
+                await eventRecorder.recordFetchFailed(
+                    accountAddress: account,
+                    chain: chain,
+                    correlationID: correlationID,
+                    error: error
+                )
+            }
+            throw error
+        }
+
         loading = true
         defer { loading = false }
         error = nil
@@ -202,11 +251,29 @@ class NFTFetcher {
                     try await Task.sleep(nanoseconds: delay)
                 } else {
                     print("Not retrying error: \(error)")
+                    if let correlationID {
+                        await eventRecorder.recordFetchFailed(
+                            accountAddress: account,
+                            chain: chain,
+                            correlationID: correlationID,
+                            error: wrappedError
+                        )
+                    }
                     throw wrappedError
                 }
             }
             
         } while cursor != nil
+
+        if let correlationID {
+            await eventRecorder.recordFetchSucceeded(
+                accountAddress: account,
+                chain: chain,
+                correlationID: correlationID,
+                itemCount: nftMetaData.count,
+                totalCount: total
+            )
+        }
 
         return nftMetaData
     }

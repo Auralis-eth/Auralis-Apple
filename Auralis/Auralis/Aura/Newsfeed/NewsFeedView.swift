@@ -31,10 +31,12 @@ struct NewsFeedView: View {
         .frame(maxWidth: .infinity)
         .background(Color.background)
         .refreshable {
+            let correlationID = UUID().uuidString
             await nftService.refreshNFTs(
                 for: currentAccount,
                 chain: currentChain,
-                modelContext: modelContext
+                modelContext: modelContext,
+                correlationID: correlationID
             )
         }
         .onChange(of: selectedNFT) { oldValue, newValue in
