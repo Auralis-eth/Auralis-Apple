@@ -51,6 +51,14 @@ The new `StoredReceipt` model is the shelf. It stores the locked contract fields
 
 The key lesson here: persistence shape and API shape are cousins, not twins. The append-only contract still lives at the API boundary. The model just needs to preserve the facts faithfully so the later store implementation can enforce behavior without performing archaeology.
 
+### Step 3 of `P0-501`: Teach the filing cabinet some manners
+
+With the shelf built, the next job was making sure people use it correctly. `SwiftDataReceiptStore` is the librarian here: it decides the next sequence number, hands back recent receipts in bounded slices, exports everything in a deterministic order, and only allows one destructive move: burn the whole archive down with `resetAll()`.
+
+The subtle part is ordering. Timestamps look trustworthy right up until two receipts share the same second or a system clock does something theatrical. That is why the store sorts everyday reads by newest `createdAt` and then newest `sequenceID`, while export walks the other direction so the JSON array reads like a stable timeline instead of a shuffled deck.
+
+There was also a small reminder that tooling has moods. The store compiled cleanly and runtime validation proved the behavior, but the Xcode test runner in this session started canceling tests broadly instead of giving crisp per-test results. That is annoying, but it is not the same thing as the store being wrong. When the harness gets dramatic, a direct executable check is the engineering equivalent of tapping the mic yourself.
+
 ## Engineer's Wisdom
 
 Good architecture is often a story about refusing convenience in the right places. A global logger would have been convenient. Letting `AccountStore` write SwiftData receipt rows directly would also have been convenient. Both would have made `P0-701` uglier later.

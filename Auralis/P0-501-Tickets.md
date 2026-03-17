@@ -80,13 +80,21 @@ Session notes:
 
 Status:
 
-- pending
+- completed
 
 Exit criteria:
 
 - normal reads are bounded
 - export returns all receipts in deterministic order
 - there is still no update or per-item delete path
+
+Session notes:
+
+- added `SwiftDataReceiptStore` under `Auralis/Auralis/Receipts/SwiftDataReceiptStore.swift`
+- implemented append with monotonic `sequenceID` assignment from persisted rows
+- implemented bounded latest and correlation reads with descending created-at ordering and sequence fallback for ties
+- implemented deterministic ascending export and explicit full reset
+- added `ReceiptStoreTests` to lock append, bounded reads, export order, and reset behavior
 
 ### Step 4: Add sanitization and export
 
