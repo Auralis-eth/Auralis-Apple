@@ -22,6 +22,7 @@ struct AuraPill: View {
             if let systemImage {
                 Image(systemName: systemImage)
                     .font(.caption)
+                    .accessibilityHidden(true)
             }
 
             Text(title)
@@ -39,6 +40,8 @@ struct AuraPill: View {
             Capsule()
                 .strokeBorder(borderColor, lineWidth: 1)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
     }
 
     private var foregroundColor: Color {

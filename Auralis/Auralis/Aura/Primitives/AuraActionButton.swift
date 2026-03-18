@@ -29,6 +29,7 @@ struct AuraActionButton: View {
                 if let systemImage {
                     Image(systemName: systemImage)
                         .font(.headline)
+                        .accessibilityHidden(true)
                 }
 
                 Text(title)
@@ -45,6 +46,7 @@ struct AuraActionButton: View {
         }
         .buttonStyle(.plain)
         .contentShape(.capsule)
+        .accessibilityLabel(title)
     }
 
     private var foregroundStyle: Color {

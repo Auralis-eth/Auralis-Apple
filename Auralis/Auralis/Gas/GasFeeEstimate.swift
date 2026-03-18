@@ -322,11 +322,22 @@ extension GasPriceEstimateView {
                 }
             }
             .padding(.top, 8)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(chainName) gas tracker")
+            .accessibilityValue(accessibilityValue)
         }
 
         private var lastUpdatedText: String? {
             guard let lastUpdated else { return nil }
             return "Last updated: \(lastUpdated.formatted(.dateTime.hour().minute()))"
+        }
+
+        private var accessibilityValue: String {
+            if let lastUpdatedText {
+                return "\(isLoading ? "Updating" : "Live"). \(lastUpdatedText)"
+            }
+
+            return isLoading ? "Updating" : "Live"
         }
     }
 
@@ -343,6 +354,7 @@ extension GasPriceEstimateView {
                     SecondaryText("Fetching gas prices...")
                 }
                 .frame(maxWidth: .infinity, minHeight: 200)
+                .accessibilityElement(children: .combine)
             }
         }
     }

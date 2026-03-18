@@ -137,6 +137,7 @@ struct AddressEntryHeaderView: View {
         .padding(.horizontal, 20)
         .padding(.top, 10)
         .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -146,6 +147,7 @@ struct GuestExploreDividerView: View {
             Rectangle()
                 .fill(Color.textSecondary.opacity(0.2))
                 .frame(width: 72, height: 1)
+                .accessibilityHidden(true)
             SubheadlineFontText("Or explore Auralis as a guest")
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
@@ -153,6 +155,7 @@ struct GuestExploreDividerView: View {
             Rectangle()
                 .fill(Color.textSecondary.opacity(0.2))
                 .frame(width: 72, height: 1)
+                .accessibilityHidden(true)
         }
         .padding(.vertical)
     }
@@ -171,5 +174,6 @@ struct GuestPassesHeaderView: View {
         .padding(.horizontal, 20)
         .padding(.top, 10)
         .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
     }
 }
