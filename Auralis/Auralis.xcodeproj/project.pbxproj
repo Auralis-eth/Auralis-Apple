@@ -12,7 +12,7 @@
 		6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = 6F7B76032D962FE800DF0AD7 /* CodeScanner */; };
 		6F81C0762F67551F00A6EA77 /* P0-201-Strategy.md in Resources */ = {isa = PBXBuildFile; fileRef = 6F81C0752F67551F00A6EA77 /* P0-201-Strategy.md */; };
 		6F81C0E62F678AE300A6EA77 /* P0-201-Dependency-Report.md in Resources */ = {isa = PBXBuildFile; fileRef = 6F81C0E52F678AE300A6EA77 /* P0-201-Dependency-Report.md */; };
-		6F81C0F92F68B6FC00A6EA77 /* P0-501-Tickets.md in Resources */ = {isa = PBXBuildFile; fileRef = 6F81C0F82F68B6FC00A6EA77 /* P0-501-Tickets.md */; };
+		6F81C0F92F68B6FC00A6EA77 /* P0-501-Dependency-Report.md in Resources */ = {isa = PBXBuildFile; fileRef = 6F81C0F82F68B6FC00A6EA77 /* P0-501-Dependency-Report.md */; };
 		6F81C0FA2F68B6FC00A6EA77 /* P0-501-Strategy.md in Resources */ = {isa = PBXBuildFile; fileRef = 6F81C0F72F68B6FC00A6EA77 /* P0-501-Strategy.md */; };
 /* End PBXBuildFile section */
 
@@ -38,7 +38,7 @@
 		6F81C0752F67551F00A6EA77 /* P0-201-Strategy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "P0-201-Strategy.md"; sourceTree = "<group>"; };
 		6F81C0E52F678AE300A6EA77 /* P0-201-Dependency-Report.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "P0-201-Dependency-Report.md"; sourceTree = "<group>"; };
 		6F81C0F72F68B6FC00A6EA77 /* P0-501-Strategy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "P0-501-Strategy.md"; sourceTree = "<group>"; };
-		6F81C0F82F68B6FC00A6EA77 /* P0-501-Tickets.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "P0-501-Tickets.md"; sourceTree = "<group>"; };
+		6F81C0F82F68B6FC00A6EA77 /* P0-501-Dependency-Report.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "P0-501-Dependency-Report.md"; sourceTree = "<group>"; };
 		6FB455DB2CC5BEBB009A055C /* Auralis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Auralis.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6FB455EF2CC5BEBD009A055C /* AuralisTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AuralisTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6FB455F92CC5BEBD009A055C /* AuralisUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AuralisUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -128,7 +128,7 @@
 				6F81C0752F67551F00A6EA77 /* P0-201-Strategy.md */,
 				6F81C0E52F678AE300A6EA77 /* P0-201-Dependency-Report.md */,
 				6F81C0F72F68B6FC00A6EA77 /* P0-501-Strategy.md */,
-				6F81C0F82F68B6FC00A6EA77 /* P0-501-Tickets.md */,
+				6F81C0F82F68B6FC00A6EA77 /* P0-501-Dependency-Report.md */,
 				6F81C0E92F68394900A6EA77 /* Accounts */,
 			);
 			sourceTree = "<group>";
@@ -270,7 +270,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */,
-				6F81C0F92F68B6FC00A6EA77 /* P0-501-Tickets.md in Resources */,
+				6F81C0F92F68B6FC00A6EA77 /* P0-501-Dependency-Report.md in Resources */,
 				6F81C0FA2F68B6FC00A6EA77 /* P0-501-Strategy.md in Resources */,
 				6F81C0E62F678AE300A6EA77 /* P0-201-Dependency-Report.md in Resources */,
 				6F81C0762F67551F00A6EA77 /* P0-201-Strategy.md in Resources */,
