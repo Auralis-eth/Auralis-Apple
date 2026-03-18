@@ -26,6 +26,8 @@ struct HomeTabView: View {
     @Binding var currentChainId: String
     let router: AppRouter
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Namespace var namespace
     let transitionID: String = "HomeTabView"
     
@@ -65,20 +67,7 @@ struct HomeTabView: View {
                     EnergyCardView(time: Date())
                 }
                 
-                HStack {
-                    AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-                        MusicTileView {
-                            router.showMusicLibrary()
-                        }
-                    }
-                        .accessibilityIdentifier("home.openMusic")
-                    AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-                        FinanceTileView {
-                            router.showNFTTokens()
-                        }
-                    }
-                        .accessibilityIdentifier("home.openNFTTokens")
-                }
+                tileLayout
                 AuraActionButton("Open News Feed", systemImage: "bubble.right") {
                     router.selectedTab = .news
                 }
@@ -179,6 +168,43 @@ struct HomeTabView: View {
                 }
             })
         }
+    }
+
+    @ViewBuilder
+    private var tileLayout: some View {
+        if shouldStackTiles {
+            VStack(spacing: 12) {
+                musicTile
+                financeTile
+            }
+        } else {
+            HStack(spacing: 12) {
+                musicTile
+                financeTile
+            }
+        }
+    }
+
+    private var musicTile: some View {
+        AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+            MusicTileView {
+                router.showMusicLibrary()
+            }
+        }
+        .accessibilityIdentifier("home.openMusic")
+    }
+
+    private var financeTile: some View {
+        AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+            FinanceTileView {
+                router.showNFTTokens()
+            }
+        }
+        .accessibilityIdentifier("home.openNFTTokens")
+    }
+
+    private var shouldStackTiles: Bool {
+        horizontalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize
     }
     
     // MARK: - Background Image Prompt Generation

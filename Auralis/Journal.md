@@ -107,6 +107,20 @@ Gas was the best honesty test. Utility screens are where fake design systems oft
 
 There is also a nice cultural lesson in the Gateway migration. The submit action now goes through the same primitive family as the card actions, but not the same exact style. That distinction matters. Reuse does not mean flattening every interaction into one interchangeable blob. It means recognizing the shared skeleton while still letting the hero moment dress like the hero moment.
 
+### Step 5 of `P0-101E`: Stress the layout before users do it for us
+
+This step was the usual reminder that a component can compile perfectly while still behaving like a diva the moment text gets bigger or width gets smaller.
+
+Three practical fixes came out of the validation pass:
+
+- the gateway CTA had accidentally become a button inside a button, which is the kind of thing that looks innocent in code and turns into nonsense in interaction semantics
+- the Home tile row needed an escape hatch for compact-width and accessibility-size layouts, so it now stacks vertically when the screen or type size stops being generous
+- the new primitives were still a little too optimistic about one-line text, so buttons, pills, and section headers now wrap more honestly instead of clinging to the single-line fantasy
+
+The preview tooling was a bit moody on the heavier full-screen renders, but the smaller primitive previews came back clean and were actually more useful than they sound. They showed the hero CTA, compact CTA, header-plus-pill layout, and energy card composition without clipping or contrast surprises. Then the full project build passed, which is the software equivalent of tightening every bolt after shaking the ladder.
+
+The good lesson here is that accessibility support is often about giving layouts permission to admit reality. Text grows. Width shrinks. Headers need to fall into vertical stacks sometimes. A UI that handles that gracefully is usually not “more complicated.” It is just less in denial.
+
 ### Step 1 of `P0-501`: Lock the receipt contract
 
 The first trap here was obvious: it would have been easy to jump straight into a SwiftData model and call that “progress.” That would have skipped the hard part, which is defining what a receipt actually is before the persistence layer starts making decisions for us.

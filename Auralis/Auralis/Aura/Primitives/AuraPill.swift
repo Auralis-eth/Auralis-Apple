@@ -27,8 +27,9 @@ struct AuraPill: View {
             Text(title)
                 .font(.caption)
                 .fontWeight(.semibold)
-                .lineLimit(1)
-                .minimumScaleFactor(0.9)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(foregroundColor)
         .padding(.horizontal, 10)

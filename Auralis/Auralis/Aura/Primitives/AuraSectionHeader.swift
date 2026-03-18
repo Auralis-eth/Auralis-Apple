@@ -17,11 +17,16 @@ struct AuraSectionHeader<Trailing: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: subtitle == nil ? 0 : 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                SubheadlineFontText(title)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            ViewThatFits(in: .vertical) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    titleView
+                    trailing
+                }
 
-                trailing
+                VStack(alignment: .leading, spacing: 8) {
+                    titleView
+                    trailing
+                }
             }
 
             if let subtitle, !subtitle.isEmpty {
@@ -30,6 +35,13 @@ struct AuraSectionHeader<Trailing: View>: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private var titleView: some View {
+        SubheadlineFontText(title)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .layoutPriority(1)
     }
 }
 

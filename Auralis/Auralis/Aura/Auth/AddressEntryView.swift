@@ -109,12 +109,8 @@ private struct AddressEntryContentView: View {
             .padding(.horizontal, 15)
             .padding(.vertical, 18)
             
-            Button {
+            AuraActionButton("Enter Auralis", style: .hero) {
                 handleSubmit()
-            } label: {
-                AuraActionButton("Enter Auralis", style: .hero) {
-                    handleSubmit()
-                }
             }
             .padding(.horizontal, 30)
             

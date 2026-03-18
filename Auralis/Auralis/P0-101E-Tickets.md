@@ -226,6 +226,27 @@ Exit criteria:
 
 - no obvious overflow, clipping, or unreadable contrast problems remain in the migrated surfaces
 
+Step 5 validation result:
+
+- dynamic type and compact-width hardening applied:
+  - [`Auralis/Auralis/Aura/Auth/AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift) no longer nests the hero primitive inside an extra `Button`
+  - [`Auralis/Auralis/Aura/Home/HomeTabView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/HomeTabView.swift) now stacks the Home module tiles vertically in compact-width and accessibility-size conditions instead of forcing a two-column row
+  - [`Auralis/Auralis/Aura/Primitives/AuraActionButton.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Primitives/AuraActionButton.swift), [`Auralis/Auralis/Aura/Primitives/AuraPill.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Primitives/AuraPill.swift), and [`Auralis/Auralis/Aura/Primitives/AuraSectionHeader.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Primitives/AuraSectionHeader.swift) now allow multi-line wrapping and vertical fallback behavior instead of assuming single-line space
+
+Validation performed:
+
+- rendered previews for:
+  - [`Auralis/Auralis/Aura/Primitives/AuraActionButton.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Primitives/AuraActionButton.swift)
+  - [`Auralis/Auralis/Aura/Primitives/AuraSectionHeader.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Primitives/AuraSectionHeader.swift)
+  - [`Auralis/Auralis/Aura/Home/EnergyCardView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/EnergyCardView.swift)
+- checked the rendered snapshots for obvious clipping, overflow, and contrast regressions in the primitive-backed layouts
+- ran live diagnostics on the migrated Gateway and Home files
+- full project build succeeded after the Step 5 fixes
+
+Session limitation:
+
+- heavier full-screen preview renders were unreliable in this session, so compact-width and large-type confidence comes from the applied adaptive layout rules plus successful smaller preview checks and project build verification
+
 ## Testing Expectations
 
 Minimum validation:
