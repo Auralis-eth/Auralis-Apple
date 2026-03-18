@@ -30,9 +30,7 @@ struct EnergyCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header
-            SubheadlineFontText(title)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            AuraSectionHeader(title: title)
 
             // Content
             HStack(alignment: .center) {
@@ -59,7 +57,6 @@ struct EnergyCardView: View {
                 }
             }
         }
-        .padding(20)
     }
 }
 #Preview("Energy Card") {
@@ -75,4 +72,3 @@ struct EnergyCardView: View {
     .padding()
     .preferredColorScheme(.dark)
 }
-

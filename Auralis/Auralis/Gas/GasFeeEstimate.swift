@@ -309,49 +309,41 @@ extension GasPriceEstimateView {
         let isLoading: Bool
         
         var body: some View {
-            VStack(spacing: 4) {
-                HStack {
-                    HeadlineFontText("\(chainName) Gas Tracker")
-                    
-                    Spacer()
-                    
-                    HStack(spacing: 8) {
-                        if isLoading {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        }
-                        
-                        AccentTextSystemImage("fuelpump")
-                            .accessibilityLabel("\(chainName) gas tracker icon")
-                    }
-                }
-                
-                if let lastUpdated = lastUpdated {
-                    HStack {
-                        Text("Last updated: \(lastUpdated, format: .dateTime.hour().minute())")
-                            .foregroundStyle(Color.textSecondary)
-                        Spacer()
-                    }
+            VStack(spacing: 8) {
+                AuraSectionHeader(
+                    title: "\(chainName) Gas Tracker",
+                    subtitle: lastUpdatedText
+                ) {
+                    AuraPill(
+                        isLoading ? "Updating" : "Live",
+                        systemImage: isLoading ? "arrow.triangle.2.circlepath" : "fuelpump",
+                        emphasis: isLoading ? .neutral : .accent
+                    )
                 }
             }
             .padding(.top, 8)
+        }
+
+        private var lastUpdatedText: String? {
+            guard let lastUpdated else { return nil }
+            return "Last updated: \(lastUpdated.formatted(.dateTime.hour().minute()))"
         }
     }
 
     // MARK: - Loading View
     struct LoadingView: View {
         var body: some View {
-            VStack(spacing: 16) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle())
-                    .tint(.accent)
-                    .scaleEffect(1.2)
+            AuraSurfaceCard {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                        .tint(.accent)
+                        .scaleEffect(1.2)
 
-                SecondaryText("Fetching gas prices...")
+                    SecondaryText("Fetching gas prices...")
+                }
+                .frame(maxWidth: .infinity, minHeight: 200)
             }
-            .frame(maxWidth: .infinity, minHeight: 200)
-            .padding()
-            .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
         }
     }
 
@@ -361,21 +353,21 @@ extension GasPriceEstimateView {
         let onRetry: () async -> Void
         
         var body: some View {
-            ContentUnavailableView {
-                Label("Gas Price Data Unavailable", systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(Color.error)
-            } description: {
-                SecondaryText(errorMessage)
-            } actions: {
-                PrimaryTextButton("Try Again") {
-                    Task {
-                        await onRetry()
+            AuraSurfaceCard {
+                ContentUnavailableView {
+                    Label("Gas Price Data Unavailable", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(Color.error)
+                } description: {
+                    SecondaryText(errorMessage)
+                } actions: {
+                    AuraActionButton("Try Again", systemImage: "arrow.clockwise") {
+                        Task {
+                            await onRetry()
+                        }
                     }
                 }
+                .frame(maxWidth: .infinity, minHeight: 200)
             }
-            .frame(maxWidth: .infinity, minHeight: 200)
-            .padding()
-            .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
         }
         
         private var errorMessage: String {
@@ -397,17 +389,16 @@ extension GasPriceEstimateView {
         }
         
         var body: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                SubheadlineFontText(title)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            AuraSurfaceCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    AuraSectionHeader(title: title)
 
-                Divider()
-                    .background(Color.textSecondary.opacity(0.3))
+                    Divider()
+                        .background(Color.textSecondary.opacity(0.3))
 
-                content
+                    content
+                }
             }
-            .padding()
-            .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
         }
     }
 

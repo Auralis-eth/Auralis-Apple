@@ -51,35 +51,35 @@ struct HomeTabView: View {
     var body: some View {
         VStack {
             VStack(spacing: 12) {
-                ProfileCardView(
-                    currentAccount: $currentAccount,
-                    currentAddress: $currentAddress,
-                    avatarImage: $avatarImage,
-                    onOpenAccountSwitcher: {
-                        showAccountSwitcher = true
-                    }
-                )
-                    .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
-                    .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
-                EnergyCardView(time: Date())
-                    .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
-                    .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
+                AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+                    ProfileCardView(
+                        currentAccount: $currentAccount,
+                        currentAddress: $currentAddress,
+                        avatarImage: $avatarImage,
+                        onOpenAccountSwitcher: {
+                            showAccountSwitcher = true
+                        }
+                    )
+                }
+                AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+                    EnergyCardView(time: Date())
+                }
                 
                 HStack {
-                    MusicTileView {
-                        router.showMusicLibrary()
+                    AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+                        MusicTileView {
+                            router.showMusicLibrary()
+                        }
                     }
                         .accessibilityIdentifier("home.openMusic")
-                        .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
-                        .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
-                    FinanceTileView {
-                        router.showNFTTokens()
+                    AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+                        FinanceTileView {
+                            router.showNFTTokens()
+                        }
                     }
                         .accessibilityIdentifier("home.openNFTTokens")
-                        .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
-                        .glassEffect(.clear.tint(.surface), in: .rect(cornerRadius: 25, style: .continuous))
                 }
-                Button("Open News Feed") {
+                AuraActionButton("Open News Feed", systemImage: "bubble.right") {
                     router.selectedTab = .news
                 }
                 .accessibilityIdentifier("home.openNews")
@@ -450,35 +450,19 @@ struct MusicTileView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SubheadlineFontText("Music")
-                .frame(maxWidth: .infinity, alignment: .leading)
+            AuraSectionHeader(title: "Music")
 
             VStack(alignment: .leading, spacing: 12) {
                 HeadlineFontText("Let's start with a focus mix")
                     .fontWeight(.semibold)
 
-                Button(action: { onOpenPlayer?() }) {
-                    SubheadlineFontText("Open player")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color.textPrimary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(Color.deepBlue.opacity(0.35))
-                        )
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(.white.opacity(0.25), lineWidth: 1)
-                        )
-                        .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 2)
+                AuraActionButton("Open player", systemImage: "play.fill") {
+                    onOpenPlayer?()
                 }
-                .buttonStyle(.plain)
                 .accessibilityLabel("Open music player")
                 .accessibilityIdentifier("home.musicTile.button")
             }
         }
-        .padding(20)
     }
 }
 
@@ -487,30 +471,16 @@ struct FinanceTileView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SubheadlineFontText("NFT Tokens")
-                .frame(maxWidth: .infinity, alignment: .leading)
+            AuraSectionHeader(title: "NFT Tokens")
 
             VStack(alignment: .leading, spacing: 12) {
                 HeadlineFontText("Browse NFT tokens and jump into detail")
                     .fontWeight(.semibold)
 
                 HStack {
-                    Button(action: { onOpenTokens?() }) {
-                        SubheadlineFontText("Open tokens")
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.textPrimary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(Color.black.opacity(0.15))
-                            )
-                            .overlay(
-                                Capsule()
-                                    .strokeBorder(.white.opacity(0.2), lineWidth: 1)
-                            )
+                    AuraActionButton("Open tokens", systemImage: "square.stack") {
+                        onOpenTokens?()
                     }
-                    .buttonStyle(.plain)
                     .accessibilityIdentifier("home.nftTokens.button")
                     Spacer()
                 }
@@ -518,6 +488,5 @@ struct FinanceTileView: View {
                 .accessibilityLabel("Open NFT tokens")
             }
         }
-        .padding(20)
     }
 }

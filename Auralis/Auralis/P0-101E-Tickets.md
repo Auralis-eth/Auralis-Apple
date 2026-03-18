@@ -187,6 +187,30 @@ Exit criteria:
 - at least a few production views use the primitives
 - duplicated styling is reduced where the new abstraction clearly helps
 
+Step 4 implementation result:
+
+- Gateway proving surface:
+  - [`Auralis/Auralis/Aura/Auth/GatewayView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/GatewayView.swift) now uses `AuraScenicScreen`
+  - [`Auralis/Auralis/Aura/Auth/AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift) now uses `AuraActionButton(style: .hero)` for the primary gateway CTA
+- Home proving surface:
+  - [`Auralis/Auralis/Aura/Home/HomeTabView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/HomeTabView.swift) now wraps the profile, energy, music, and NFT token modules in `AuraSurfaceCard`
+  - [`Auralis/Auralis/Aura/Home/HomeTabView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/HomeTabView.swift) now uses `AuraSectionHeader` and `AuraActionButton` inside `MusicTileView` and `FinanceTileView`
+  - [`Auralis/Auralis/Aura/Home/EnergyCardView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/EnergyCardView.swift) now uses `AuraSectionHeader`
+- Gas proving surface:
+  - [`Auralis/Auralis/Aura/MainTabView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/MainTabView.swift) now uses `AuraScenicScreen` for the Gas tab shell
+  - [`Auralis/Auralis/Gas/GasFeeEstimate.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Gas/GasFeeEstimate.swift) now uses `AuraSectionHeader`, `AuraSurfaceCard`, `AuraActionButton`, and `AuraPill`
+
+What this proved:
+
+- the scenic shell primitive works for both unauth and utility surfaces
+- the surface card and section header primitives replace repeated glass-card markup cleanly in Home and Gas
+- the action button primitive supports both gateway hero CTA usage and compact card actions without feature-specific naming
+- the pill primitive is practical for small status treatments in utility headers
+
+Validation for Step 4:
+
+- project build succeeded after migrating Gateway, Home, and Gas
+
 ### Step 5. Validate accessibility and layout behavior
 
 Run the ticket’s stated checks:

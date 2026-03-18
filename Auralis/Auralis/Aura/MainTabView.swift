@@ -189,11 +189,7 @@ struct MainTabView: View {
             }
 
             Tab("Gas", systemImage: "fuelpump", value: AppTab.gas) {
-                ZStack(alignment: .bottom) {
-                    GatewayBackgroundImage()
-                    Color.background.opacity(0.3)
-                        .ignoresSafeArea()
-                        .contentShape(Rectangle())
+                AuraScenicScreen {
                     GasPriceEstimateView(chain: $currentChain)
                 }
             }

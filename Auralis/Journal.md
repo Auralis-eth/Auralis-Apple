@@ -91,6 +91,22 @@ There was one small build war story, which is exactly the kind of thing primitiv
 
 The broader lesson: reusable UI code should be narrow in behavior and boring in type shape. If a primitive needs a detective novel to explain its generic model, it probably is not ready to be shared yet.
 
+### Step 4 of `P0-101E`: Make the primitives earn their rent
+
+This is where the abstractions had to stop looking good in previews and start paying rent in production code.
+
+The proving set stayed aligned with the reference surfaces:
+
+- Gateway proved `AuraScenicScreen` and the hero version of `AuraActionButton`
+- Home proved `AuraSurfaceCard`, `AuraSectionHeader`, and compact actions
+- Gas proved the full stack: scenic shell, surface cards, section headers, pills, and retry actions
+
+The useful result is not that every screen now worships the primitives. It is that the duplicated glass-card markup started disappearing without making the call sites uglier. That is the whole game. If a shared primitive shortens the repeated code *and* preserves the existing visual language, it is helping. If it forces every screen to speak in riddles, it is not.
+
+Gas was the best honesty test. Utility screens are where fake design systems often fall apart because the components only really understand “marketing card” and panic when asked to display structured data or an updating status. The new header-plus-pill combination held up there, which is a good sign the primitives are small in the right way.
+
+There is also a nice cultural lesson in the Gateway migration. The submit action now goes through the same primitive family as the card actions, but not the same exact style. That distinction matters. Reuse does not mean flattening every interaction into one interchangeable blob. It means recognizing the shared skeleton while still letting the hero moment dress like the hero moment.
+
 ### Step 1 of `P0-501`: Lock the receipt contract
 
 The first trap here was obvious: it would have been easy to jump straight into a SwiftData model and call that “progress.” That would have skipped the hard part, which is defining what a receipt actually is before the persistence layer starts making decisions for us.

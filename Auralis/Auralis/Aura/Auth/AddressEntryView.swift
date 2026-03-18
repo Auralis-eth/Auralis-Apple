@@ -24,7 +24,6 @@ struct AddressInputView: View {
             selectDemo: selectDemo
         )
         .glassEffect(.clear.tint(.surface), in: .containerRelative)
-        .safeAreaPadding(15)
         .transition(.scale.combined(with: .opacity))
         .alert(alertTitle, isPresented: $showingAlert) {
             Button("OK", role: .cancel) { }
@@ -113,12 +112,9 @@ private struct AddressEntryContentView: View {
             Button {
                 handleSubmit()
             } label: {
-                Text("Enter Auralis")
-                    .foregroundStyle(Color.textPrimary)
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .background(Color.accent.gradient, in: .capsule)
+                AuraActionButton("Enter Auralis", style: .hero) {
+                    handleSubmit()
+                }
             }
             .padding(.horizontal, 30)
             
@@ -155,7 +151,8 @@ struct GuestExploreDividerView: View {
                 .fill(Color.textSecondary.opacity(0.2))
                 .frame(width: 72, height: 1)
             SubheadlineFontText("Or explore Auralis as a guest")
-                .lineLimit(1)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             Rectangle()
                 .fill(Color.textSecondary.opacity(0.2))
