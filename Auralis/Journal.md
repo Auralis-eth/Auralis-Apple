@@ -30,6 +30,67 @@ Swift Testing is the right fit for this repo because the test suite wants clear,
 
 ## The Journey
 
+### Step 1 of `P0-101E`: Stop pretending repeated UI is just a coincidence
+
+This step was the architectural version of walking through a room and noticing four different chairs that are obviously cousins pretending not to know each other. Home and Newsfeed already repeat the same layout rhythm, glass-card shell, capsule CTA treatment, and empty-state structure. The duplication is not catastrophic yet, but it is absolutely on the path toward every new ticket hand-mixing its own paddings and corner radii like a barista making up house rules.
+
+The useful discovery was that the first primitive slice does not need to be clever. It just needs to cover the things the codebase is already doing with a straight face:
+
+- a screen container for outer padding and width behavior
+- a surface card for the rounded glass shell used by Home tiles and empty states
+- a pill treatment for lightweight badges and capsule actions
+- a shared action button for primary and secondary CTA shapes
+- a section header row for the repeated label-plus-content card pattern
+
+One nice restraint came out of the read-through: do not rush an `EmptyStateView` just because the ticket mentions it. Right now the repeated shape is really “glass surface plus icon plus title plus body plus CTA.” If `AuraSurfaceCard` and `AuraActionButton` cover most of that honestly, then the empty-state wrapper can wait until Step 3 proves it deserves to exist. That is a good Phase 0 lesson in general: abstractions should arrive because the code is repeating, not because a checklist looks lonely.
+
+### Step 1, second pass of `P0-101E`: Use the right family members as the reference set
+
+The first inventory pass was directionally right but a little too eager to let Newsfeed vote on the family portrait. The better anchors are the surfaces you have already pushed furthest: the unauth gateway, Home, and Gas.
+
+That changed the primitive read in two useful ways.
+
+First, the app clearly has a scenic-shell pattern. Gateway, Home, and Gas all want the same stage setup: full-bleed background image, soft dark wash, then foreground content that floats above it with breathing room. That means the outer container is not just “screen padding.” It is part layout primitive, part presentation contract.
+
+Second, the CTA story is not one button with too many costumes. There are really two respectable relatives here:
+
+- the hero gateway CTA, like `Enter Auralis`
+- the smaller surface action that lives inside cards and utility panels
+
+Trying to mash those into one universal button too early would be like forcing a winter coat and a blazer onto the same hanger and calling it organization.
+
+There was also a healthy scope correction: `GuestPassCard` is beautiful, opinionated, and completely unsuited to becoming a generic primitive. That card is a headline act, not stage scaffolding. Good design-system work is partly knowing which components should stay gloriously specific.
+
+### Step 2 of `P0-101E`: Give the primitives an address before they start wandering
+
+This was a small step, but it is the kind that saves a project from future archaeological digs. The primitive home is now `Auralis/Aura/Primitives/`.
+
+That location does a few quiet but important jobs:
+
+- it sits next to the real feature surfaces instead of hiding in `Helpers/` like a screwdriver tossed into the junk drawer
+- it does not belong to `Auth`, `Home`, or `Gas`, which matters because the point of these primitives is that all three can use them without feeling like houseguests
+- it makes the next step mechanical instead of philosophical because everyone now knows where `AuraScenicScreen`, `AuraSurfaceCard`, and friends are supposed to land
+
+There is also a nice naming truth here: these are not “framework components.” They are Aura components. Putting them under `Aura/Primitives/` keeps that honest.
+
+### Step 3 of `P0-101E`: Build the scaffolding, not the whole house
+
+This step finally put real components on disk:
+
+- `AuraScenicScreen`
+- `AuraSurfaceCard`
+- `AuraSectionHeader`
+- `AuraActionButton`
+- `AuraPill`
+
+The important part is not just that they exist. It is that each one has a narrow job description.
+
+`AuraScenicScreen` owns the stage lighting: northern-lights background, dark wash, and safe-area-aware content placement. `AuraSurfaceCard` owns the glass panel treatment without pretending every card in the product is the same species. `AuraSectionHeader` handles the repeated “title, maybe subtitle, maybe small trailing thing” pattern that keeps showing up in Home and Gas. `AuraActionButton` deliberately recognizes that a gateway hero CTA and a small in-card action are cousins, not clones. `AuraPill` handles the lightweight badge cases without dragging a whole card API into the room.
+
+There was one small build war story, which is exactly the kind of thing primitives should flush out early. The first pass nested the surface style enum inside the generic `AuraSurfaceCard` type, then tried to reference it from a helper modifier as if the generic parameter did not exist. Swift politely refused. Moving that style enum to a top-level Aura-specific type fixed the problem and kept the primitive generic instead of accidentally stapling it to one concrete specialization.
+
+The broader lesson: reusable UI code should be narrow in behavior and boring in type shape. If a primitive needs a detective novel to explain its generic model, it probably is not ready to be shared yet.
+
 ### Step 1 of `P0-501`: Lock the receipt contract
 
 The first trap here was obvious: it would have been easy to jump straight into a SwiftData model and call that “progress.” That would have skipped the hard part, which is defining what a receipt actually is before the persistence layer starts making decisions for us.
