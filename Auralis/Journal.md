@@ -121,6 +121,24 @@ The preview tooling was a bit moody on the heavier full-screen renders, but the 
 
 The good lesson here is that accessibility support is often about giving layouts permission to admit reality. Text grows. Width shrinks. Headers need to fall into vertical stacks sometimes. A UI that handles that gracefully is usually not “more complicated.” It is just less in denial.
 
+### `P0-101B`: Put the OS chrome in one place and let the rest of the app breathe
+
+This ticket could have gone badly in a very familiar way: copy the same header into Home, News, Music, Tokens, and detail screens until the codebase starts looking like a flyer that got run through the office copier six times. That would have “shipped chrome,” but it would also have guaranteed a miserable follow-up ticket the first time one badge or button changed.
+
+The better move was to mount the chrome once at the `MainTabView` layer using a top safe-area inset. That gives the app one always-visible OS chrome bar instead of many cousins pretending to be synchronized by telepathy. It also means routed detail flows inherit the same chrome automatically instead of needing special case glue in every navigation destination.
+
+The first pass keeps the mode badge fixed to `Observe`, exactly as planning said it should. That is not a compromise. It is discipline. `P0-601` is where mode ownership gets formalized. Letting `P0-101B` smuggle that logic in early would have been the architectural version of hiding a raccoon in the drywall and hoping future-you does not hear scratching.
+
+The nicest bit of practical engineering here is the freshness signal. Instead of inventing fake “synced” UI copy, the chrome now reads from a real `lastSuccessfulRefreshAt` value on `NFTService`. That is a small state addition, but it makes the freshness pill honest. Honest UI ages better than decorative UI.
+
+There is still deliberate placeholder territory:
+
+- search now opens from the chrome into a real fixed placeholder surface instead of a useless stub
+- the context inspector exists as a sheet seam without pretending `P0-403` is already done
+- receipts stay out of this ticket instead of becoming accidental scope sprawl
+
+That is what a healthy Phase 0 ticket looks like: visible progress, clean seams, and a refusal to “finish” three future tickets by accident.
+
 ### Step 1 of `P0-501`: Lock the receipt contract
 
 The first trap here was obvious: it would have been easy to jump straight into a SwiftData model and call that “progress.” That would have skipped the hard part, which is defining what a receipt actually is before the persistence layer starts making decisions for us.

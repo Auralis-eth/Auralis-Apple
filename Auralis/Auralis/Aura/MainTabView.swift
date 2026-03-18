@@ -161,6 +161,8 @@ struct MainTabView: View {
     @Binding var nftService: NFTService
     @Bindable var router: AppRouter
     let audioEngine: AudioEngine
+    @State private var showAccountSwitcher = false
+    @State private var showContextInspector = false
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
@@ -217,12 +219,7 @@ struct MainTabView: View {
             }
 
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
-                Button(action: {}) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(Color.textPrimary)
-                        .font(.headline)
-                }
-
+                SearchRootPlaceholderView()
             }
 
             Tab("ERC-20", systemImage: "dollarsign.circle", value: AppTab.erc20Tokens) {
@@ -246,6 +243,34 @@ struct MainTabView: View {
             }
         }
         .tint(.accent)
+        .safeAreaInset(edge: .top) {
+            GlobalChromeView(
+                currentAccount: $currentAccount,
+                currentAddress: $currentAddress,
+                currentChain: currentChain,
+                nftService: nftService,
+                router: router,
+                onOpenAccountSwitcher: { showAccountSwitcher = true },
+                onOpenContextInspector: { showContextInspector = true }
+            )
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .background(.clear)
+        }
+        .sheet(isPresented: $showAccountSwitcher) {
+            AccountSwitcherSheet(
+                currentAccount: $currentAccount,
+                currentAddress: $currentAddress
+            )
+        }
+        .sheet(isPresented: $showContextInspector) {
+            ChromeContextInspectorSheet(
+                currentAccount: currentAccount,
+                currentAddress: currentAddress,
+                currentChain: currentChain,
+                nftService: nftService
+            )
+        }
     }
 }
 
@@ -299,57 +324,50 @@ private struct SharedNFTDetailView: View {
         return nil
     }
 
+    private var titleText: String {
+        nft?.name ?? "Untitled NFT"
+    }
+
+    private var collectionName: String? {
+        nft?.collection?.name ?? nft?.collectionName
+    }
+
+    private var descriptionText: String? {
+        guard let description = nft?.nftDescription, !description.isEmpty else {
+            return nil
+        }
+
+        return description
+    }
+
     var body: some View {
         Group {
             if let nft {
                 VStack {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
-                            AsyncImage(url: imageURL) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                            } placeholder: {
-                                RoundedRectangle(cornerRadius: 20)
-                                    .fill(Color.secondary.opacity(0.2))
-                                    .overlay {
-                                        Image(systemName: "photo")
-                                            .font(.largeTitle)
-                                            .foregroundStyle(.secondary)
-                                    }
-                            }
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 280)
-                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            nftImage
 
                             VStack(alignment: .leading, spacing: 12) {
-                                HeadlineFontText(nft.name ?? "Untitled NFT")
+                                HeadlineFontText(titleText)
                                     .fontWeight(.semibold)
                                     .accessibilityIdentifier("nft.detail.title")
 
-                                if let collectionName = nft.collection?.name ?? nft.collectionName {
+                                if let collectionName {
                                     SubheadlineFontText(collectionName)
                                 }
 
-                                if let description = nft.nftDescription, !description.isEmpty {
+                                if let description = descriptionText {
                                     SecondaryText(description)
                                 }
 
-                                HStack(spacing: 12) {
-                                    if let chain = nft.network {
-                                        BadgeLabel(title: chain.routingDisplayName)
-                                    }
-
-                                    if nft.isMusic() {
-                                        BadgeLabel(title: "Music NFT")
-                                    }
-                                }
+                                badgeRow(for: nft)
                             }
                         }
                         .padding()
                     }
                 }
-                .navigationTitle(nft.name ?? "NFT Detail")
+                .navigationTitle(titleText)
                 .navigationBarTitleDisplayMode(.inline)
                 .background(Color.background)
                 .accessibilityIdentifier("nft.detail.screen")
@@ -361,6 +379,38 @@ private struct SharedNFTDetailView: View {
                 )
                 .navigationTitle("NFT Detail")
                 .accessibilityIdentifier("nft.detail.unavailable")
+            }
+        }
+    }
+
+    private var nftImage: some View {
+        AsyncImage(url: imageURL) { image in
+            image
+                .resizable()
+                .scaledToFill()
+        } placeholder: {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.secondary.opacity(0.2))
+                .overlay {
+                    Image(systemName: "photo")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 280)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func badgeRow(for nft: NFT) -> some View {
+        HStack(spacing: 12) {
+            if let chain = nft.network {
+                BadgeLabel(title: chain.routingDisplayName)
+            }
+
+            if nft.isMusic() {
+                BadgeLabel(title: "Music NFT")
             }
         }
     }
@@ -432,6 +482,22 @@ private struct ERC20TokenDetailView: View {
     }
 }
 
+private struct SearchRootPlaceholderView: View {
+    var body: some View {
+        AuraScenicScreen(contentAlignment: .center) {
+            AuraSurfaceCard(style: .soft, cornerRadius: 30) {
+                ContentUnavailableView {
+                    Label("Search", systemImage: "magnifyingglass")
+                } description: {
+                    Text("Global search entry is now wired into the chrome. Search results and resolution flow land in the next ticket slice.")
+                }
+            }
+            .padding(.horizontal, 12)
+        }
+        .accessibilityIdentifier("search.root")
+    }
+}
+
 private struct BadgeLabel: View {
     let title: String
 
@@ -449,23 +515,5 @@ private struct BadgeLabel: View {
                 Capsule()
                     .strokeBorder(.white.opacity(0.18), lineWidth: 1)
             )
-    }
-}
-private extension Chain {
-    var routingDisplayName: String {
-        switch self {
-        case .ethMainnet:
-            return "Ethereum"
-        case .polygonMainnet:
-            return "Polygon"
-        case .arbMainnet:
-            return "Arbitrum"
-        case .optMainnet:
-            return "Optimism"
-        case .baseMainnet:
-            return "Base"
-        default:
-            return rawValue.capitalized
-        }
     }
 }

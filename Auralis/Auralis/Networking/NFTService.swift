@@ -17,6 +17,7 @@ class NFTService {
     var itemsLoaded: Int? { nftFetcher.itemsLoaded }
     var total: Int? { nftFetcher.total }
     var error: Error? { nftFetcher.error }
+    var lastSuccessfulRefreshAt: Date?
 
     init(
         nftFetcher: (any NFTFetching)? = nil,
@@ -78,6 +79,7 @@ class NFTService {
                     modelContext.insert(nft)
                 }
                 try modelContext.save()
+                lastSuccessfulRefreshAt = .now
                 await eventRecorder.recordPersistenceCompleted(
                     accountAddress: accountAddress,
                     chain: chain,
