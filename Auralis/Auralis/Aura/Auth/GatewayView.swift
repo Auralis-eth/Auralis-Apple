@@ -12,9 +12,13 @@ struct GatewayView: View {
 
     var body: some View {
         AuraScenicScreen(contentAlignment: .center) {
-            AddressInputView(
-                currentAccount: $currentAccount
-            )
+            VStack(spacing: 16) {
+                ShellFirstRunStateView()
+
+                AddressInputView(
+                    currentAccount: $currentAccount
+                )
+            }
         }
     }
 }

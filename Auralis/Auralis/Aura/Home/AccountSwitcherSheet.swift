@@ -30,12 +30,15 @@ struct AccountSwitcherSheet: View {
         NavigationStack {
             List {
                 if orderedAccounts.isEmpty {
-                    ContentUnavailableView(
-                        "No Saved Accounts",
+                    ShellStatusCard(
+                        eyebrow: "First Run",
+                        title: "No Saved Accounts",
+                        message: "Add or scan a wallet address to build your local roster. Guest passes stay in demo territory until you decide to save an account on this device.",
                         systemImage: "person.crop.circle.badge.exclamationmark",
-                        description: Text("Add or scan an address to build your local account roster.")
+                        tone: .neutral
                     )
                     .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 } else {
                     Section("Saved Accounts") {
                         ForEach(orderedAccounts) { account in

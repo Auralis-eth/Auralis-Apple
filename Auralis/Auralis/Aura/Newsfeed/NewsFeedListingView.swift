@@ -55,21 +55,39 @@ struct NewsFeedListingView: View {
                 )
             }
         } else {
-            GeometryReader { geometry in
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 0) {
-                        ForEach(displayNFTs) { metaData in
-                            NewsFeedCardView(nft: metaData)
-                                .frame(width: geometry.size.width,
-                                       height: geometry.size.height)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    selectedNFT = metaData
-                                }
+            VStack(spacing: 12) {
+                if let error = nftService.error {
+                    ShellStatusBanner(
+                        title: "Showing Last Sync",
+                        message: error.localizedDescription,
+                        systemImage: "exclamationmark.triangle",
+                        tone: .warning,
+                        action: ShellStatusAction(
+                            title: "Retry",
+                            systemImage: "arrow.clockwise",
+                            handler: refresh
+                        )
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+                }
+
+                GeometryReader { geometry in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        LazyVStack(spacing: 0) {
+                            ForEach(displayNFTs) { metaData in
+                                NewsFeedCardView(nft: metaData)
+                                    .frame(width: geometry.size.width,
+                                           height: geometry.size.height)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        selectedNFT = metaData
+                                    }
+                            }
                         }
                     }
+                    .scrollTargetBehavior(.paging)
                 }
-                .scrollTargetBehavior(.paging)
             }
             .background(Color.background)
             .ignoresSafeArea(.all)
@@ -93,6 +111,16 @@ struct NewsFeedListingView: View {
         _currentChain = currentChain
     }
 
+    private func refresh() {
+        Task {
+            let correlationID = UUID().uuidString
+            await nftService.refreshNFTs(
+                for: currentAccount,
+                chain: currentChain,
+                modelContext: modelContext,
+                correlationID: correlationID
+            )
+        }
+    }
+
 }
-
-

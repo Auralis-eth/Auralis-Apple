@@ -447,22 +447,30 @@ private struct NFTTokensRootView: View {
     let router: AppRouter
 
     var body: some View {
-        VStack(spacing: 0) {
-            List(nfts) { nft in
-                Button {
-                    router.showNFTTokensDetail(id: nft.id)
-                } label: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(nft.name ?? "Untitled NFT")
-                            .foregroundStyle(Color.textPrimary)
+        Group {
+            if nfts.isEmpty {
+                AuraScenicScreen(contentAlignment: .center) {
+                    ShellEmptyLibraryStateView(kind: .nft)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    List(nfts) { nft in
+                        Button {
+                            router.showNFTTokensDetail(id: nft.id)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(nft.name ?? "Untitled NFT")
+                                    .foregroundStyle(Color.textPrimary)
 
-                        Text(nft.collection?.name ?? nft.collectionName ?? nft.tokenId)
-                            .font(.caption)
-                            .foregroundStyle(Color.textSecondary)
+                                Text(nft.collection?.name ?? nft.collectionName ?? nft.tokenId)
+                                    .font(.caption)
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("nftTokens.row.\(nft.id)")
                     }
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("nftTokens.row.\(nft.id)")
             }
         }
         .navigationTitle("NFT Tokens")

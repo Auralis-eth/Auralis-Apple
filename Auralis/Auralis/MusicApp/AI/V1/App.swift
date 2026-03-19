@@ -167,11 +167,8 @@ struct NFTMusicPlayerLibraryView: View {
         NavigationStack {
             Group {
                 if musicNFTs.isEmpty {
-                    ContentUnavailableView {
-                        Label("No Music NFTs", systemImage: "music.note")
-                    } description: {
-                        Text("Your music NFT collection will appear here.")
-                    }
+                    ShellEmptyLibraryStateView(kind: .music)
+                        .padding()
                 } else {
                     ScrollView {
                         VStack(spacing: 20) {

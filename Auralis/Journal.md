@@ -31,10 +31,22 @@ Inside `MainAuraView`, there was a button constructing an `Expense` with an empt
 
 Lesson learned: if a debug or seed-data control exists in the shell, make it complete enough to behave like real app code. Half-finished sample actions tend to calcify into mysterious landmines.
 
+## War Story: The Empty State Hydra
+
+`P0-101D` exposed a classic product-shell problem: empty and error states had started reproducing like gremlins after midnight. The account switcher had one style, the newsfeed had another, the music library had a third, and provider failures were one bad refresh away from wiping the whole mood of the screen. That is how apps end up feeling stitched together from unrelated prototypes.
+
+The fix was to introduce a shared shell status language in `Auralis/Auralis/Aura/ShellStatusView.swift`. Think of it like finally giving the hotel front desk a script instead of letting every employee improvise. First-run guidance, provider failure, no-receipts, and empty-library states now come from the same family of views, and the newsfeed gained a compact failure banner so cached content can stay on screen while refreshes fail in the background.
+
+The useful lesson: not every error should become a full-screen eviction notice. If the user still has good cached content, show the bruise, not the funeral. A small banner saying "we're showing your last sync" is far less destructive than tearing down the whole surface just because the network sneezed.
+
 # Engineer's Wisdom
 
 Good engineers keep demo paths honest. If a button says it creates data, it should create valid data, use the real model path, and avoid editor placeholders that compile only in imagination. Small correctness fixes like that prevent the weirdest future bugs, because test scaffolding has a habit of becoming production-adjacent faster than anyone expects.
 
+Another recurring pattern from this project: shared UI states are architecture, not decoration. A consistent empty or error pattern does more than look tidy. It keeps future tickets from inventing bespoke behavior, reduces contradictory messaging, and makes edge cases like cached-content fallback much easier to reason about. Senior engineers tend to spot that earlier and invest in the seam before the app grows three more surfaces.
+
 # If I Were Starting Over...
 
 I would move `Expense` out of `AuralisApp.swift` into a dedicated model file before it grows teeth. Right now it works, but keeping app-entry code and data models in the same room is how "temporary" structure turns into permanent clutter.
+
+I would also establish the shell-state pattern library earlier. Once a product has gateway, tabs, data fetches, and offline-ish behavior, empty and failure states stop being polish work and start becoming core navigation language. Waiting too long means spending extra time undoing a dozen slightly different "nothing here" cards later.

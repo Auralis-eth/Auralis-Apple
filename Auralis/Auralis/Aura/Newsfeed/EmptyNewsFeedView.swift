@@ -14,41 +14,41 @@ struct EmptyNewsFeedView: View {
 
     let nftService: NFTService
 
-    var content: some View {
-        VStack(spacing: 20) {
-            AccentTextSystemImage("photo.artframe")
-                .font(.system(size: 60))
-
-            Title2FontText("No NFTs Found")
-
-            SecondaryText("We couldn't find any NFTs in this wallet address")
-                .multilineTextAlignment(.center)
-
-            Button {
-                Task {
-                    let correlationID = UUID().uuidString
-                    await nftService.refreshNFTs(
-                        for: currentAccount,
-                        chain: currentChain,
-                        modelContext: modelContext,
-                        correlationID: correlationID
+    var body: some View {
+        Group {
+            if nftService.error != nil {
+                ShellProviderFailureStateView(
+                    error: nftService.error,
+                    isShowingCachedContent: false,
+                    retry: refresh
+                )
+            } else {
+                ShellStatusCard(
+                    eyebrow: "Collection",
+                    title: "No NFTs Found",
+                    message: "We could not find NFTs for this wallet on the current chain yet. Try refreshing or switch to another saved account.",
+                    systemImage: "photo.artframe",
+                    tone: .neutral,
+                    primaryAction: ShellStatusAction(
+                        title: "Refresh",
+                        systemImage: "arrow.clockwise",
+                        handler: refresh
                     )
-                }
-            } label: {
-                PrimaryText("Refresh")
-                    .fontWeight(.medium)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 24)
-                    .background(Color.secondary)
-                    .cornerRadius(12)
+                )
             }
-            .disabled(nftService.isLoading)
         }
+        .disabled(nftService.isLoading)
     }
 
-    var body: some View {
-        content
-        .padding()
-        .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: 30, style: .continuous))
+    private func refresh() {
+        Task {
+            let correlationID = UUID().uuidString
+            await nftService.refreshNFTs(
+                for: currentAccount,
+                chain: currentChain,
+                modelContext: modelContext,
+                correlationID: correlationID
+            )
+        }
     }
 }

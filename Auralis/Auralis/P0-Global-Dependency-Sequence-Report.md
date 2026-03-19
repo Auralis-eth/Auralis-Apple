@@ -5,6 +5,9 @@ This report reflects the corrected planning assumptions for the current Phase 0 
 Known completed foundations:
 
 - `P0-101A` root navigation structure
+- `P0-101B` global chrome UI first pass with fixed Observe presentation
+- `P0-101D` global error and empty-state patterns
+- `P0-101E` design system primitives
 - `P0-201` account model and persistence
 - `P0-501` receipt schema, storage, sanitization, export, and reset foundation
 
@@ -12,14 +15,14 @@ The rest of the tickets in this batch are treated as not started.
 
 ## Ready Now
 
-- `P0-101E` design system primitives
-- `P0-101B` global chrome UI, implemented first with fixed Observe presentation
+- `P0-202` address validation + normalization
+- `P0-601` mode system Observe v0
 
-## Recommended Parallel Foundation
+## Newly Completed Foundation
 
 - `P0-101D` global error and empty-state patterns
 
-This should inform later tickets, but it is not a hard blocker for everything that references it.
+This now exists as a shared shell-status layer and should be reused by downstream tickets instead of replaced with one-off surfaces.
 
 ## Corrected Sequencing Rules
 
@@ -106,10 +109,10 @@ Allowed early-start rules:
 
 - `P0-101E`
 - `P0-101B`
+- `P0-101D`
 
 ### Tier 2
 
-- `P0-101D`
 - `P0-202`
 - `P0-601`
 

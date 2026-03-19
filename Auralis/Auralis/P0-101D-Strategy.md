@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially blocked
+Implemented
 
 ## Ticket
 
@@ -28,6 +28,22 @@ Avoid banner stacking, preserve partial cached content on refresh failure, and c
 - The ticket outcome is visible in product behavior.
 - The ticket integrates cleanly with its immediate dependencies.
 - The stated test plan can be run without inventing extra architecture.
+
+## Completion Note
+
+Implemented as a shared shell-status foundation in `Aura/ShellStatusView.swift` and integrated into:
+
+- gateway first-run guidance
+- account-switcher empty state
+- newsfeed empty state and provider-failure fallback banner
+- music library empty state
+- NFT library empty state
+
+The current Phase 0 result is intentionally narrow:
+
+- no standalone receipts screen was added here
+- a reusable no-receipts state exists for later `P0-503` integration
+- cached content is preserved on newsfeed refresh failure instead of replacing the entire surface with a hard error
 
 ## Validation Target
 
