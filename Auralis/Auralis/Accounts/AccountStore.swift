@@ -41,7 +41,7 @@ struct AccountStore {
         self.eventRecorder = eventRecorder
     }
 
-    func normalizeAddress(_ rawAddress: String) -> String? {
+    static func normalizeAddress(_ rawAddress: String) -> String? {
         let trimmed = rawAddress.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         if let extractedAddress = trimmed.extractedEthereumAddress {
@@ -56,8 +56,7 @@ struct AccountStore {
     }
 
     func listAccounts() throws -> [EOAccount] {
-        let descriptor = FetchDescriptor<EOAccount>()
-        let accounts = try modelContext.fetch(descriptor)
+        let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
 
         return accounts.sorted { lhs, rhs in
             if lhs.mostRecentActivityAt != rhs.mostRecentActivityAt {
@@ -73,7 +72,7 @@ struct AccountStore {
     }
 
     func account(for rawAddress: String) throws -> EOAccount? {
-        guard let normalizedAddress = normalizeAddress(rawAddress) else {
+        guard let normalizedAddress = AccountStore.normalizeAddress(rawAddress) else {
             return nil
         }
 
@@ -93,7 +92,7 @@ struct AccountStore {
         overwriteExisting: Bool = false,
         now: Date = .now
     ) throws -> EOAccount {
-        guard let normalizedAddress = normalizeAddress(rawAddress) else {
+        guard let normalizedAddress = AccountStore.normalizeAddress(rawAddress) else {
             throw AccountStoreError.invalidAddress
         }
 
@@ -161,7 +160,7 @@ struct AccountStore {
 
     func selectAccount(address rawAddress: String, selectedAt: Date = .now) throws -> EOAccount {
         guard let account = try account(for: rawAddress) else {
-            let normalizedAddress = normalizeAddress(rawAddress) ?? rawAddress
+            let normalizedAddress = AccountStore.normalizeAddress(rawAddress) ?? rawAddress
             throw AccountStoreError.accountNotFound(normalizedAddress)
         }
 
@@ -173,12 +172,12 @@ struct AccountStore {
 
     func removeAccount(address rawAddress: String, activeAddress: String? = nil) throws -> AccountRemovalResult {
         guard let account = try account(for: rawAddress) else {
-            let normalizedAddress = normalizeAddress(rawAddress) ?? rawAddress
+            let normalizedAddress = AccountStore.normalizeAddress(rawAddress) ?? rawAddress
             throw AccountStoreError.accountNotFound(normalizedAddress)
         }
 
         let removedAddress = account.address
-        let normalizedActiveAddress = activeAddress.flatMap(normalizeAddress)
+        let normalizedActiveAddress = activeAddress.flatMap(AccountStore.normalizeAddress)
 
         modelContext.delete(account)
         try modelContext.save()

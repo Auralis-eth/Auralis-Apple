@@ -165,6 +165,46 @@ struct MainTabView: View {
     @State private var showContextInspector = false
 
     var body: some View {
+        VStack(spacing: 0) {
+            chromeContainer
+
+            tabContent
+        }
+        .background {
+            chromeBackground
+        }
+        .sheet(isPresented: $showAccountSwitcher) {
+            AccountSwitcherSheet(
+                currentAccount: $currentAccount,
+                currentAddress: $currentAddress
+            )
+        }
+        .sheet(isPresented: $showContextInspector) {
+            ChromeContextInspectorSheet(
+                currentAccount: currentAccount,
+                currentAddress: currentAddress,
+                currentChain: currentChain,
+                nftService: nftService
+            )
+        }
+    }
+
+    private var chromeContainer: some View {
+        GlobalChromeView(
+            currentAccount: $currentAccount,
+            currentAddress: $currentAddress,
+            currentChain: currentChain,
+            nftService: nftService,
+            router: router,
+            onOpenAccountSwitcher: { showAccountSwitcher = true },
+            onOpenContextInspector: { showContextInspector = true }
+        )
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+    }
+
+    private var tabContent: some View {
         TabView(selection: $router.selectedTab) {
             Tab("Home", systemImage: "house", value: AppTab.home) {
                 HomeTabView(
@@ -243,33 +283,19 @@ struct MainTabView: View {
             }
         }
         .tint(.accent)
-        .safeAreaInset(edge: .top) {
-            GlobalChromeView(
-                currentAccount: $currentAccount,
-                currentAddress: $currentAddress,
-                currentChain: currentChain,
-                nftService: nftService,
-                router: router,
-                onOpenAccountSwitcher: { showAccountSwitcher = true },
-                onOpenContextInspector: { showContextInspector = true }
-            )
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .background(.clear)
-        }
-        .sheet(isPresented: $showAccountSwitcher) {
-            AccountSwitcherSheet(
-                currentAccount: $currentAccount,
-                currentAddress: $currentAddress
-            )
-        }
-        .sheet(isPresented: $showContextInspector) {
-            ChromeContextInspectorSheet(
-                currentAccount: currentAccount,
-                currentAddress: currentAddress,
-                currentChain: currentChain,
-                nftService: nftService
-            )
+    }
+
+    @ViewBuilder
+    private var chromeBackground: some View {
+        switch router.selectedTab {
+        case .home, .gas:
+            GatewayBackgroundImage()
+                .ignoresSafeArea()
+            Color.background.opacity(0.3)
+                .ignoresSafeArea()
+        default:
+            Color.background
+                .ignoresSafeArea()
         }
     }
 }

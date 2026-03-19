@@ -7,8 +7,15 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 ## Known Completed Foundations
 
 - `P0-101A` Root navigation structure
+- `P0-101B` Global Chrome UI first pass with fixed Observe presentation
+- `P0-101E` Design system primitives
 - `P0-201` Account model + persistence
 - `P0-501` Receipt schema, append-only store, sanitization, export, and reset foundation
+
+## Current Status Note
+
+- `P0-101B` is implemented and builds, but the global chrome layout is still being tuned so it reads as part of the shell instead of covering feature content.
+- Do not reorder the sprint sequence because of that tuning work; treat it as follow-up refinement inside the completed first-pass chrome ticket.
 
 ## Planning Rules
 

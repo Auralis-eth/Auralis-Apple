@@ -100,23 +100,23 @@ struct MainAuraView: View {
             if result.shouldRefreshNFTs {
                 isloading = true
                 Task {
-                    let correlationID = UUID().uuidString
                     await nftService.refreshNFTs(
                         for: currentAccount,
                         chain: currentChain,
                         modelContext: modelContext,
-                        correlationID: correlationID
+                        correlationID: UUID().uuidString
                     )
                     await MainActor.run {
                         isloading = false
+                        currentAddress = result.currentAddress
                         processPendingDeepLinkIfPossible()
                     }
                 }
-            }
-
-            currentAddress = result.currentAddress
-            if result.shouldProcessPendingDeepLink {
-                processPendingDeepLinkIfPossible()
+            } else {
+                currentAddress = result.currentAddress
+                if result.shouldProcessPendingDeepLink {
+                    processPendingDeepLinkIfPossible()
+                }
             }
         }
         .onChange(of: currentChain) { oldValue, newValue in

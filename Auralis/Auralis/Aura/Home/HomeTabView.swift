@@ -51,122 +51,124 @@ struct HomeTabView: View {
     @State private var avatarImage: UIImage? = nil
     
     var body: some View {
-        VStack {
-            VStack(spacing: 12) {
-                AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-                    ProfileCardView(
-                        currentAccount: $currentAccount,
-                        currentAddress: $currentAddress,
-                        avatarImage: $avatarImage,
-                        onOpenAccountSwitcher: {
-                            showAccountSwitcher = true
+        ScrollView {
+            VStack {
+                VStack(spacing: 12) {
+                    AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+                        ProfileCardView(
+                            currentAccount: $currentAccount,
+                            currentAddress: $currentAddress,
+                            avatarImage: $avatarImage,
+                            onOpenAccountSwitcher: {
+                                showAccountSwitcher = true
+                            }
+                        )
+                    }
+                    AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+                        EnergyCardView(time: Date())
+                    }
+                    
+                    tileLayout
+                    AuraActionButton("Open News Feed", systemImage: "bubble.right") {
+                        router.selectedTab = .news
+                    }
+                    .accessibilityIdentifier("home.openNews")
+                    
+                }
+                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background {
+                    // Background image or avatar image overlay:
+                    if let firstImage = selectedImage ?? generatedImages?.first {
+                        Image(uiImage: firstImage)
+                            .resizable()
+                            .scaledToFill()
+                            .ignoresSafeArea()
+                    } else {
+                        GatewayBackgroundImage()
+                            .ignoresSafeArea()
+                    }
+                    Color.background.opacity(0.3)
+                        .ignoresSafeArea()
+                }
+                
+                VStack {
+                    Button("Logout") {
+                        logout()
+                    }
+                    .accessibilityIdentifier("home.logout")
+                    
+                    Button("Show Image Preview") {
+                        isPresented = true
+                    }
+                    .accessibilityIdentifier("home.showImagePreview")
+                    .disabled(generatedImages?.isEmpty != false)
+                    .padding(.bottom, 8)
+                }
+                .sheet(isPresented: $isPresented) {
+                    VStack {
+                        if let images = generatedImages {
+                            GalleryGrid(images: images, selectedScene: $scene) { picked in
+                                selectedImage = picked
+                                generatedImages = [picked]
+                                isPresented = false
+                            } onRegenerate: {
+                                await generateImage()
+                            }
+                        } else {
+                            VStack(spacing: 24) {
+                                Image(systemName: "photo.on.rectangle")
+                                    .font(.system(size: 60))
+                                    .symbolRenderingMode(.hierarchical)
+                                    .foregroundStyle(.secondary)
+                                Text("No images to select")
+                                    .font(.title3)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding()
                         }
+                    }
+                    .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
+                }
+                .sheet(isPresented: $showAccountSwitcher) {
+                    AccountSwitcherSheet(
+                        currentAccount: $currentAccount,
+                        currentAddress: $currentAddress
                     )
                 }
-                AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-                    EnergyCardView(time: Date())
-                }
-                
-                tileLayout
-                AuraActionButton("Open News Feed", systemImage: "bubble.right") {
-                    router.selectedTab = .news
-                }
-                .accessibilityIdentifier("home.openNews")
-
-            }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                // Background image or avatar image overlay:
-                if let firstImage = selectedImage ?? generatedImages?.first {
-                    Image(uiImage: firstImage)
-                        .resizable()
-                        .scaledToFill()
-                        .ignoresSafeArea()
-                } else {
-                    GatewayBackgroundImage()
-                        .ignoresSafeArea()
-                }
-                Color.background.opacity(0.3)
-                    .ignoresSafeArea()
-            }
-
-            VStack {
-                Button("Logout") {
-                    logout()
-                }
-                .accessibilityIdentifier("home.logout")
-                
-                Button("Show Image Preview") {
-                    isPresented = true
-                }
-                .accessibilityIdentifier("home.showImagePreview")
-                .disabled(generatedImages?.isEmpty != false)
-                .padding(.bottom, 8)
-            }
-            .sheet(isPresented: $isPresented) {
-                VStack {
-                    if let images = generatedImages {
-                        GalleryGrid(images: images, selectedScene: $scene) { picked in
-                            selectedImage = picked
-                            generatedImages = [picked]
-                            isPresented = false
-                        } onRegenerate: {
-                            await generateImage()
+                .overlay {
+                    
+                    // Overlay loading indicator blocking interaction for background images
+                    if isLoading {
+                        Color.black.opacity(0.25)
+                            .ignoresSafeArea()
+                        VStack {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(2)
+                            Text("Generating Images...")
+                                .foregroundStyle(.white)
+                                .font(.headline)
+                                .padding(.top, 16)
                         }
-                    } else {
-                        VStack(spacing: 24) {
-                            Image(systemName: "photo.on.rectangle")
-                                .font(.system(size: 60))
-                                .symbolRenderingMode(.hierarchical)
-                                .foregroundStyle(.secondary)
-                            Text("No images to select")
-                                .font(.title3)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
-                .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
-            }
-            .sheet(isPresented: $showAccountSwitcher) {
-                AccountSwitcherSheet(
-                    currentAccount: $currentAccount,
-                    currentAddress: $currentAddress
-                )
-            }
-            .overlay {
-                
-                // Overlay loading indicator blocking interaction for background images
-                if isLoading {
-                    Color.black.opacity(0.25)
-                        .ignoresSafeArea()
-                    VStack {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(2)
-                        Text("Generating Images...")
-                            .foregroundStyle(.white)
-                            .font(.headline)
-                            .padding(.top, 16)
+                .task {
+                    if generatedImages == nil {
+                        await generateImage()
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .alert("Error", isPresented: $showErrorAlert, actions: {
+                    Button("Dismiss", role: .cancel) {
+                        showErrorAlert = false
+                    }
+                }, message: {
+                    if let errorMessage = errorMessage {
+                        Text(errorMessage)
+                    }
+                })
             }
-            .task {
-                if generatedImages == nil {
-                    await generateImage()
-                }
-            }
-            .alert("Error", isPresented: $showErrorAlert, actions: {
-                Button("Dismiss", role: .cancel) {
-                    showErrorAlert = false
-                }
-            }, message: {
-                if let errorMessage = errorMessage {
-                    Text(errorMessage)
-                }
-            })
         }
     }
 

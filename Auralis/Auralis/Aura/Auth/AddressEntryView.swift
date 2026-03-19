@@ -14,6 +14,7 @@ struct AddressInputView: View {
     @State private var alertTitle: String = ""
     @State private var alertMessage: String = ""
     @Environment(\.modelContext) private var modelContext
+    @Query private var accounts: [EOAccount]
     @Binding var currentAccount: EOAccount?
 
     var body: some View {
@@ -57,7 +58,7 @@ struct AddressInputView: View {
             eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
         )
 
-        guard store.normalizeAddress(address) != nil else {
+        guard AccountStore.normalizeAddress(address) != nil else {
             showAlert(title: "Invalid Address",
                       message: "That doesn’t look like a valid address or ENS. Try again or use a guest pass.")
             return
