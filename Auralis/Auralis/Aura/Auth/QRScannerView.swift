@@ -48,6 +48,22 @@ struct QRScannerView: View {
 
         switch result {
         case .success(let code):
+            let validationResult = AccountStore.validateAddressInput(code.string)
+
+            switch validationResult {
+            case .empty:
+                showAlert(title: "Scan Failed", message: validationResult.userFacingMessage)
+                return
+            case .unsupportedENS:
+                showAlert(title: "ENS Not Supported Yet", message: validationResult.userFacingMessage)
+                return
+            case .invalidFormat:
+                showAlert(title: "Scan Failed", message: validationResult.userFacingMessage)
+                return
+            case .valid:
+                break
+            }
+
             do {
                 let store = AccountStore(
                     modelContext: modelContext,

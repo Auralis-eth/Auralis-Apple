@@ -17,10 +17,24 @@ struct AddressInputView: View {
     @Query private var accounts: [EOAccount]
     @Binding var currentAccount: EOAccount?
 
+    private var validationResult: AccountAddressValidationResult {
+        AccountStore.validateAddressInput(address)
+    }
+
+    private var validationMessage: String? {
+        switch validationResult {
+        case .empty, .valid:
+            return nil
+        case .unsupportedENS, .invalidFormat:
+            return validationResult.userFacingMessage
+        }
+    }
+
     var body: some View {
         AddressEntryContentView(
             address: $address,
             currentAccount: $currentAccount,
+            validationMessage: validationMessage,
             handleSubmit: handleSubmit,
             selectDemo: selectDemo
         )
@@ -47,22 +61,24 @@ struct AddressInputView: View {
     }
 
     private func handleSubmit(source: EOAccountSource) {
-        guard !address.isEmpty else {
-            showAlert(title: "Address Required",
-                      message: "Please enter your Ethereum address or use a guest pass.")
+        switch validationResult {
+        case .empty:
+            showAlert(title: "Address Required", message: validationResult.userFacingMessage)
             return
+        case .unsupportedENS:
+            showAlert(title: "ENS Not Supported Yet", message: validationResult.userFacingMessage)
+            return
+        case .invalidFormat:
+            showAlert(title: "Invalid Address", message: validationResult.userFacingMessage)
+            return
+        case .valid:
+            break
         }
 
         let store = AccountStore(
             modelContext: modelContext,
             eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
         )
-
-        guard AccountStore.normalizeAddress(address) != nil else {
-            showAlert(title: "Invalid Address",
-                      message: "That doesn’t look like a valid address or ENS. Try again or use a guest pass.")
-            return
-        }
 
         do {
             let activation = try store.activateWatchAccount(
@@ -94,6 +110,7 @@ struct AddressInputView: View {
 private struct AddressEntryContentView: View {
     @Binding var address: String
     @Binding var currentAccount: EOAccount?
+    let validationMessage: String?
     let handleSubmit: () -> Void
     let selectDemo: (String) -> Void
 
@@ -109,6 +126,13 @@ private struct AddressEntryContentView: View {
             }
             .padding(.horizontal, 15)
             .padding(.vertical, 18)
+
+            if let validationMessage {
+                ErrorText(validationMessage)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             
             AuraActionButton("Enter Auralis", style: .hero) {
                 handleSubmit()
@@ -132,7 +156,7 @@ struct AddressEntryHeaderView: View {
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
             
-            SubheadlineFontText("Paste an address or ENS name, or scan a QR code to get started.")
+            SubheadlineFontText("Paste an EVM wallet address or scan a QR code to get started.")
                 .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 20)

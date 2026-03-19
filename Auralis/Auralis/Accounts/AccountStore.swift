@@ -18,6 +18,34 @@ enum AccountStoreError: LocalizedError, Equatable {
     }
 }
 
+enum AccountAddressValidationResult: Equatable {
+    case empty
+    case valid(String)
+    case unsupportedENS
+    case invalidFormat
+
+    var normalizedAddress: String? {
+        guard case .valid(let address) = self else {
+            return nil
+        }
+
+        return address
+    }
+
+    var userFacingMessage: String {
+        switch self {
+        case .empty:
+            return "Please enter your Ethereum address or use a guest pass."
+        case .valid:
+            return ""
+        case .unsupportedENS:
+            return "ENS names are not supported in this field yet. Enter the wallet address directly for now."
+        case .invalidFormat:
+            return "Enter a valid EVM wallet address using 0x plus 40 hexadecimal characters."
+        }
+    }
+}
+
 struct AccountRemovalResult {
     let removedAddress: String
     let fallbackAccount: EOAccount?
@@ -42,17 +70,25 @@ struct AccountStore {
     }
 
     static func normalizeAddress(_ rawAddress: String) -> String? {
-        let trimmed = rawAddress.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        validateAddressInput(rawAddress).normalizedAddress
+    }
 
-        if let extractedAddress = trimmed.extractedEthereumAddress {
-            return extractedAddress.lowercased()
+    static func validateAddressInput(_ rawAddress: String) -> AccountAddressValidationResult {
+        let trimmed = rawAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmed.isEmpty else {
+            return .empty
         }
 
-        if let match = trimmed.range(of: #"0x[a-f0-9]{40}"#, options: .regularExpression) {
-            return String(trimmed[match])
+        if looksLikeENSName(trimmed) {
+            return .unsupportedENS
         }
 
-        return nil
+        guard let normalizedAddress = strictEthereumAddress(from: trimmed) else {
+            return .invalidFormat
+        }
+
+        return .valid(normalizedAddress)
     }
 
     func listAccounts() throws -> [EOAccount] {
@@ -194,5 +230,28 @@ struct AccountStore {
             removedAddress: removedAddress,
             fallbackAccount: fallbackAccount
         )
+    }
+}
+
+private extension AccountStore {
+    static func strictEthereumAddress(from candidate: String) -> String? {
+        let lowered = candidate.lowercased()
+
+        if lowered.range(of: #"^0x[a-f0-9]{40}$"#, options: .regularExpression) != nil {
+            return lowered
+        }
+
+        if lowered.range(of: #"^[a-f0-9]{40}$"#, options: .regularExpression) != nil {
+            return "0x" + lowered
+        }
+
+        return nil
+    }
+
+    static func looksLikeENSName(_ candidate: String) -> Bool {
+        candidate.range(
+            of: #"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.eth$"#,
+            options: .regularExpression
+        ) != nil
     }
 }

@@ -1,5 +1,9 @@
 # P0-202 Tickets And Session Handoff
 
+## Status
+
+Implemented
+
 ## Summary
 
 Validate and normalize EVM addresses early, present them consistently across the UI, and reject invalid formats before persistence.
@@ -19,6 +23,18 @@ Trim whitespace, reject non-hex and non-EVM formats, and decide whether ENS in a
 
 Block invalid addresses, save valid normalized addresses, copy normalized values exactly, and trim pasted whitespace before validation.
 
+## Completion Summary
+
+- Added strict address validation and canonical normalization in `Accounts/AccountStore.swift`.
+- Rejected `.eth` ENS names explicitly in account-entry and QR flows for this phase.
+- Updated auth UI copy so the text field and header promise wallet addresses instead of unsupported ENS input.
+- Added unit coverage for whitespace trimming, lowercase normalization, no-prefix normalization, ENS rejection, and embedded-text rejection.
+
+## Validation Result
+
+- Live Xcode diagnostics for touched source and test files returned no issues.
+- Long-running Xcode build/test actions timed out at the tool boundary in this session, so ticket validation is currently based on clean file diagnostics plus the added unit coverage.
+
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+This ticket is complete. Treat ENS resolution as deferred to `P0-203`; do not quietly reintroduce ENS acceptance into account-entry surfaces before that ticket is implemented.

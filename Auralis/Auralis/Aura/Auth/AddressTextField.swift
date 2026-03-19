@@ -14,7 +14,7 @@ struct AddressTextField: View {
         TextField(
             "Ethereum Address",
             text: $address,
-            prompt: Text("0x… or ENS name").foregroundColor(.textSecondary)
+            prompt: Text("0x… wallet address").foregroundColor(.textSecondary)
         )
         .autocapitalization(.none)
         .disableAutocorrection(true)

@@ -3,6 +3,7 @@ import SwiftData
 import Testing
 @testable import Auralis
 
+@MainActor
 @Suite
 struct AccountStoreTests {
     @MainActor
@@ -42,7 +43,7 @@ struct AccountStoreTests {
         ])
     }
 
-    @Test("account lookup uses canonical normalization for raw and embedded addresses")
+    @Test("account lookup uses canonical normalization for raw addresses")
     @MainActor
     func accountLookupNormalizesInput() throws {
         let container = try makeContainer()
@@ -55,14 +56,25 @@ struct AccountStoreTests {
         )
 
         let lookedUpWithoutPrefix = try store.account(for: "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD")
-        let lookedUpFromEmbeddedText = try store.account(
-            for: "wallet: \(account.address.uppercased())"
-        )
         let invalidLookup = try store.account(for: "not-an-address")
 
         #expect(lookedUpWithoutPrefix?.address == account.address)
-        #expect(lookedUpFromEmbeddedText?.address == account.address)
         #expect(invalidLookup == nil)
+    }
+
+    @Test("validation trims whitespace, normalizes case, and rejects ENS and embedded text")
+    func validatesAddressInputDeterministically() {
+        #expect(
+            AccountStore.validateAddressInput("  0xABCDEF1234567890ABCDEF1234567890ABCDEF12  ")
+                == .valid("0xabcdef1234567890abcdef1234567890abcdef12")
+        )
+        #expect(
+            AccountStore.validateAddressInput("ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+                == .valid("0xabcdef1234567890abcdef1234567890abcdef12")
+        )
+        #expect(AccountStore.validateAddressInput("vitalik.eth") == .unsupportedENS)
+        #expect(AccountStore.validateAddressInput("wallet: 0xabcdef1234567890abcdef1234567890abcdef12") == .invalidFormat)
+        #expect(AccountStore.validateAddressInput("   ") == .empty)
     }
 
     @Test("select updates lastSelectedAt and moves the account to the front")

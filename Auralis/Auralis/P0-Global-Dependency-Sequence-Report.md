@@ -8,6 +8,7 @@ Known completed foundations:
 - `P0-101B` global chrome UI first pass with fixed Observe presentation
 - `P0-101D` global error and empty-state patterns
 - `P0-101E` design system primitives
+- `P0-202` address validation + normalization
 - `P0-201` account model and persistence
 - `P0-501` receipt schema, storage, sanitization, export, and reset foundation
 
@@ -15,8 +16,8 @@ The rest of the tickets in this batch are treated as not started.
 
 ## Ready Now
 
-- `P0-202` address validation + normalization
 - `P0-601` mode system Observe v0
+- `P0-204` chain scope settings per account
 
 ## Newly Completed Foundation
 

@@ -39,14 +39,26 @@ The fix was to introduce a shared shell status language in `Auralis/Auralis/Aura
 
 The useful lesson: not every error should become a full-screen eviction notice. If the user still has good cached content, show the bruise, not the funeral. A small banner saying "we're showing your last sync" is far less destructive than tearing down the whole surface just because the network sneezed.
 
+## War Story: The ENS Mirage
+
+`P0-202` turned up a subtler trap: the UI said "address or ENS name," but the actual account-entry contract was fuzzy. The store would happily fish an address out of surrounding text, the QR flow accepted whatever stumbled into `activateWatchAccount`, and the product language implied ENS support before the ENS ticket existed. That is how state bugs get invited in wearing a helpful smile.
+
+The fix was to make account entry boring in the best possible way. `AccountStore` now performs strict address validation for account-entry normalization: trim whitespace, accept canonical `0x...` or 40 hex characters without the prefix, lowercase the result, and reject everything else. Most importantly, `.eth` names are now rejected explicitly in this phase instead of being left in a Schrödinger state where the UI says yes and the architecture says "maybe later."
+
+This is one of those moments where good product behavior comes from saying "no" clearly. A sharp rejection is better than a soft lie. If ENS resolution belongs to `P0-203`, then `P0-202` should not pretend otherwise.
+
 # Engineer's Wisdom
 
 Good engineers keep demo paths honest. If a button says it creates data, it should create valid data, use the real model path, and avoid editor placeholders that compile only in imagination. Small correctness fixes like that prevent the weirdest future bugs, because test scaffolding has a habit of becoming production-adjacent faster than anyone expects.
 
 Another recurring pattern from this project: shared UI states are architecture, not decoration. A consistent empty or error pattern does more than look tidy. It keeps future tickets from inventing bespoke behavior, reduces contradictory messaging, and makes edge cases like cached-content fallback much easier to reason about. Senior engineers tend to spot that earlier and invest in the seam before the app grows three more surfaces.
 
+The same goes for validation. Normalize at the boundary, not halfway through a persistence flow. If user input is supposed to represent an EVM address, capture that contract in one place and make every entry path play by it. "Helpful" permissiveness is usually just delayed ambiguity.
+
 # If I Were Starting Over...
 
 I would move `Expense` out of `AuralisApp.swift` into a dedicated model file before it grows teeth. Right now it works, but keeping app-entry code and data models in the same room is how "temporary" structure turns into permanent clutter.
 
 I would also establish the shell-state pattern library earlier. Once a product has gateway, tabs, data fetches, and offline-ish behavior, empty and failure states stop being polish work and start becoming core navigation language. Waiting too long means spending extra time undoing a dozen slightly different "nothing here" cards later.
+
+I would also split "address parsing" from "address extraction" earlier. Those are cousins, not twins. Parsing a user-entered account field should be strict. Extracting an address from a deep link or some wrapped payload can be more permissive. Mixing those jobs in the same helper is how you end up accidentally accepting inputs you never meant to support.

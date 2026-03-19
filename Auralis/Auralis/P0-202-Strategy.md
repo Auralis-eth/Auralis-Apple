@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially blocked
+Implemented
 
 ## Ticket
 
@@ -27,6 +27,16 @@ Whitespace trimming, non-EVM formats, and ambiguous ENS-in-address-field behavio
 - Invalid addresses are blocked early.
 - Valid addresses are normalized consistently.
 - Shared visual messaging can later converge with `P0-101D`.
+
+## Completion Note
+
+Implemented as a strict account-entry validation pass:
+
+- `AccountStore` now treats account input normalization as strict EVM address validation instead of permissive embedded-address extraction
+- whitespace trimming and lowercase canonicalization are deterministic
+- 40-hex inputs without `0x` are normalized to canonical `0x...`
+- ENS names in account-entry surfaces are explicitly rejected in this ticket and deferred to `P0-203`
+- auth copy and QR validation now match the actual supported input contract
 
 ## Validation Target
 

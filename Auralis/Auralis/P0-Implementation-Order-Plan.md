@@ -10,6 +10,7 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-101B` Global Chrome UI first pass with fixed Observe presentation
 - `P0-101D` Global error + empty-state patterns
 - `P0-101E` Design system primitives
+- `P0-202` Address validation + normalization
 - `P0-201` Account model + persistence
 - `P0-501` Receipt schema, append-only store, sanitization, export, and reset foundation
 
@@ -18,6 +19,7 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-101B` is implemented and builds, but the global chrome layout is still being tuned so it reads as part of the shell instead of covering feature content.
 - Do not reorder the sprint sequence because of that tuning work; treat it as follow-up refinement inside the completed first-pass chrome ticket.
 - `P0-101D` is implemented as the shared shell-status layer for first-run, provider failure, no-receipts, and empty-library states.
+- `P0-202` is implemented as strict account-entry EVM address validation with deterministic trimming, normalization, and explicit ENS rejection until `P0-203`.
 
 ## Planning Rules
 
