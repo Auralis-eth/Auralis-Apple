@@ -1,6 +1,7 @@
 import Foundation
 import OSLog
 import SwiftData
+import SwiftUI
 
 protocol NFTRefreshEventRecording {
     func recordRefreshStarted(
@@ -188,7 +189,9 @@ private extension ReceiptBackedNFTRefreshEventRecorder {
         correlationID: String,
         rawPayload: RawReceiptPayload
     ) {
-        let payload = payloadSanitizer.sanitize(rawPayload)
+        var values = rawPayload.values
+        values["mode"] = .string(AppMode.observe.rawValue)
+        let payload = payloadSanitizer.sanitize(RawReceiptPayload(values: values))
 
         do {
             _ = try receiptStore.append(
@@ -211,3 +214,4 @@ private extension ReceiptBackedNFTRefreshEventRecorder {
         ]
     }
 }
+

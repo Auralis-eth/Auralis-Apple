@@ -24,6 +24,7 @@ The following behaviors are now treated as stable Phase 0 contracts:
 - receipt persistence is SwiftData-backed
 - the persisted receipt model is `StoredReceipt`
 - receipt payloads are persisted only after sanitization
+- receipts include the current app mode (Phase 0: "Observe"), attached at recorder seams before sanitization and persistence
 - sanitization in `P0-501` covers only:
   - raw RPC URL fields
   - raw error string fields
@@ -59,6 +60,7 @@ These are the primary integration points other tickets should use instead of rei
 - [`Auralis/Auralis/Networking/NFTRefreshEventRecorder.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Networking/NFTRefreshEventRecorder.swift)
 - [`Auralis/Auralis/Networking/NFTService.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Networking/NFTService.swift)
 - [`Auralis/Auralis/Networking/NFTFetcher.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Networking/NFTFetcher.swift)
+- Account and networking recorders attach `mode` to payloads before sanitization (see `AccountEventRecorder` and `NFTRefreshEventRecorder`)
 
 ## Specifically Relevant To Downstream Receipt Work
 
@@ -136,4 +138,5 @@ If a later ticket depends on `P0-501`, it should extend the existing receipt sea
 - adding mutable update helpers to receipt persistence
 - adding partial delete helpers that undermine the append-only model
 - treating reset as anything other than an explicit full-store wipe
+
 

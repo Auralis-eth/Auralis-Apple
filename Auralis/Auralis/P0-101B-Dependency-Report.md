@@ -51,6 +51,7 @@ Delivered chrome behaviors:
 - the freshness indicator is backed by a real `lastSuccessfulRefreshAt` value on `NFTService`
 - the search entry routes into the existing search tab
 - the context inspector exists as a safe placeholder sheet seam
+- the mode badge now reads from the global `modeState` provided by `P0-601` (replacing the earlier fixed label)
 
 ## Production Mounting
 
@@ -80,7 +81,7 @@ Context inspector first pass:
 
 Still owned by later tickets:
 
-- final mode-state ownership belongs to `P0-601`
+- final mode-state ownership is provided by `P0-601`; the chrome now reads from this source of truth
 - full context inspector behavior belongs to `P0-403`
 - real search resolution/results flow belongs to the search ticket chain
 - receipts UI remains outside this first-pass chrome ticket
@@ -112,3 +113,4 @@ Residual limitation:
 - account switching, search entry, freshness display, and context-inspector entry are all wired with explicit seams
 - the mode badge is correctly fixed to `Observe`
 - the ticket avoids smuggling `P0-601` or `P0-403` into the chrome layer
+

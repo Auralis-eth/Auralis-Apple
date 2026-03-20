@@ -163,6 +163,7 @@ struct MainTabView: View {
     let audioEngine: AudioEngine
     @State private var showAccountSwitcher = false
     @State private var showContextInspector = false
+    @StateObject private var modeState = ModeState()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -187,6 +188,7 @@ struct MainTabView: View {
                 nftService: nftService
             )
         }
+        .environment(\.modeState, modeState)
     }
 
     private var chromeContainer: some View {

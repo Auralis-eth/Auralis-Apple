@@ -8,6 +8,7 @@ struct GlobalChromeView: View {
     let router: AppRouter
     let onOpenAccountSwitcher: () -> Void
     let onOpenContextInspector: () -> Void
+    @Environment(\.modeState) private var modeState
 
     var body: some View {
         AuraSurfaceCard(style: .soft, cornerRadius: 26, padding: 16) {
@@ -17,8 +18,8 @@ struct GlobalChromeView: View {
 
                     Spacer(minLength: 8)
 
-                    AuraPill("Observe", systemImage: "eye", emphasis: .accent)
-                        .accessibilityHint("Mode badge is fixed to Observe in this phase.")
+                    AuraPill(modeState.mode.rawValue, systemImage: "eye", emphasis: .accent)
+                        .accessibilityHint("Mode badge is provided by global mode state.")
                 }
 
                 HStack(spacing: 12) {
@@ -204,6 +205,7 @@ extension Chain {
 
 struct ChromeContextInspectorSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modeState) private var modeState
 
     let currentAccount: EOAccount?
     let currentAddress: String
@@ -214,7 +216,7 @@ struct ChromeContextInspectorSheet: View {
         NavigationStack {
             List {
                 Section("Mode") {
-                    LabeledContent("Current Mode", value: "Observe")
+                    LabeledContent("Current Mode", value: modeState.mode.rawValue)
                 }
 
                 Section("Scope") {
