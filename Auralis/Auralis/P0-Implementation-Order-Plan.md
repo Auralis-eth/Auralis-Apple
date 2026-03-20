@@ -13,6 +13,7 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-202` Address validation + normalization
 - `P0-201` Account model + persistence
 - `P0-501` Receipt schema, append-only store, sanitization, export, and reset foundation
+- `P0-601` Mode system Observe v0 (global mode-state ownership, chrome integration, receipt inclusion)
 
 ## Current Status Note
 
@@ -20,6 +21,7 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - Do not reorder the sprint sequence because of that tuning work; treat it as follow-up refinement inside the completed first-pass chrome ticket.
 - `P0-101D` is implemented as the shared shell-status layer for first-run, provider failure, no-receipts, and empty-library states.
 - `P0-202` is implemented as strict account-entry EVM address validation with deterministic trimming, normalization, and explicit ENS rejection until `P0-203`.
+- `P0-601` is implemented; the chrome and context inspector read mode from the formal `modeState`, and receipts include `mode=Observe`.
 
 ## Planning Rules
 
@@ -150,30 +152,12 @@ If the goal is to start implementation immediately with the least churn, begin h
 1. `P0-101E`
 2. `P0-101B`
 3. `P0-101D`
-4. `P0-202`
-5. `P0-601`
 
 That gives the project:
 
 - reusable UI primitives
 - global chrome
 - shared empty/error patterns
-- locked input validation behavior
-- formal Observe mode ownership
-
-## Suggested Next Concrete Sprint
-
-With `P0-101D` now complete, the next recommended sprint is:
-
-1. `P0-202`
-2. `P0-601`
-3. `P0-204`
-
-Why:
-
-- `P0-202` can now converge onto the shared shell messaging instead of keeping auth-specific one-off alerts
-- `P0-601` is the next shell-adjacent cross-cutting state formalization
-- `P0-204` is the clean entry into the context/provider spine once shell-adjacent follow-up is settled
 
 ## Suggested Second Sprint
 
@@ -191,3 +175,4 @@ After that, move directly into the context spine:
 - If a ticket can begin with placeholder-backed data without violating safety or architecture goals, start it rather than waiting for a perfect dependency chain.
 - If a ticket defines enforcement or cleanup, delay it until the thing being enforced or cleaned up is real.
 - If a ticket adds UI but depends on a missing source of truth, prefer a fixed safe presentation only when that sequencing decision has already been made explicitly, as with `P0-101B` before `P0-601`.
+
