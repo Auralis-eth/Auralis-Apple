@@ -214,21 +214,24 @@ struct ChromeContextInspectorSheet: View {
     let currentAddress: String
     let currentChain: Chain
     let nftService: NFTService
+    let contextSource: ContextSource
 
     var body: some View {
-        NavigationStack {
+        let ctx = contextSource.snapshot()
+
+        return NavigationStack {
             List {
                 Section("Mode") {
-                    LabeledContent("Current Mode", value: modeState.mode.rawValue)
+                    LabeledContent("Current Mode", value: ctx.mode)
                 }
 
                 Section("Scope") {
-                    LabeledContent("Account", value: currentAccount?.name ?? currentAddress.displayAddress)
-                    LabeledContent("Chain", value: currentChain.routingDisplayName)
+                    LabeledContent("Account", value: ctx.accountDisplay)
+                    LabeledContent("Chain", value: ctx.chainDisplay)
                 }
 
                 Section("Freshness") {
-                    LabeledContent("Refresh State", value: freshnessValue)
+                    LabeledContent("Refresh State", value: ctx.freshnessLabel)
                 }
             }
             .navigationTitle("Context Inspector")
@@ -240,17 +243,5 @@ struct ChromeContextInspectorSheet: View {
                 }
             }
         }
-    }
-
-    private var freshnessValue: String {
-        if nftService.isLoading {
-            return "Refreshing now"
-        }
-
-        if let refreshedAt = nftService.lastSuccessfulRefreshAt {
-            return refreshedAt.formatted(.dateTime.hour().minute())
-        }
-
-        return "No completed refresh"
     }
 }

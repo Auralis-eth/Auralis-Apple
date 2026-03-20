@@ -62,3 +62,19 @@ I would move `Expense` out of `AuralisApp.swift` into a dedicated model file bef
 I would also establish the shell-state pattern library earlier. Once a product has gateway, tabs, data fetches, and offline-ish behavior, empty and failure states stop being polish work and start becoming core navigation language. Waiting too long means spending extra time undoing a dozen slightly different "nothing here" cards later.
 
 I would also split "address parsing" from "address extraction" earlier. Those are cousins, not twins. Parsing a user-entered account field should be strict. Extracting an address from a deep link or some wrapped payload can be more permissive. Mixing those jobs in the same helper is how you end up accidentally accepting inputs you never meant to support.
+
+## War Story: The Planning Map Started Lying
+
+There is a special kind of project drift where the code moves faster than the planning docs, and then the planning docs start gaslighting the next engineer. That happened here. The implementation-order plan correctly treated `P0-101B`, `P0-101D`, `P0-202`, and `P0-601` as complete, and the current project state also says `P0-204` is done. Meanwhile, some ticket-specific notes still insisted `P0-601` and `P0-204` were blocked. That is how a team loses a day to arguing with yesterday's paperwork.
+
+The fix was not glamorous, but it was necessary: promote the implementation-order plan back to the source of truth, mark `P0-204` as completed there, and move the recommended next sprint to `P0-401` -> `P0-301` -> `P0-701A` instead of pretending we still need to build the shell baseline. Think of it like updating the trail markers after the bridge has already been built. If the sign still says "river impassable," people will keep packing boats for no reason.
+
+The lesson is painfully reusable: dependency docs are architecture tools, not souvenirs. Once they stop matching reality, they start generating fake blockers. When a ticket moves from "blocked" to "done," the planning artifacts need the same state transition the code just went through.
+
+## War Story: The Chrome Inspector Broke The Build
+
+This one was classic shell drift. The chrome inspector in `GlobalChromeView` was already trying to read `accountDisplay`, `chainDisplay`, and `freshnessLabel` from `AppContext`, but `AppContext` itself still looked like an earlier draft. It stored `chain` and `mode` as `String`, then got fed a real `Chain` and `AppMode`, and it never grew the computed display properties the inspector expected. The result was the software equivalent of a hotel front desk printing badges for guests who do not exist yet: instant compiler revolt.
+
+The right fix was small and local. Instead of pushing more conversion glue into the view, `AppContext` was upgraded to be the thing the chrome thought it already was. The snapshot layer now stores `chain.rawValue` and `mode.rawValue`, and `AppContext` itself exposes the display helpers for account, chain, and freshness. Once that happened, the build went green again.
+
+The lesson is simple: view models and context snapshots are contracts, not buckets. If a view consumes a shaped UI-facing model, keep that shaping in the model layer. Otherwise every screen starts growing its own tiny adapter logic, and eventually one of them forgets a field and takes the build down with it.

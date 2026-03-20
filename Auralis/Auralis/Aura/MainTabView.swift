@@ -165,6 +165,17 @@ struct MainTabView: View {
     @State private var showContextInspector = false
     @StateObject private var modeState = ModeState()
 
+    private var contextSource: ContextSource {
+        LiveContextSource(
+            accountProvider: { currentAccount },
+            addressProvider: { currentAddress },
+            chainProvider: { currentChain },
+            modeProvider: { modeState.mode },
+            loadingProvider: { nftService.isLoading },
+            refreshedAtProvider: { nftService.lastSuccessfulRefreshAt }
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             chromeContainer
@@ -185,7 +196,8 @@ struct MainTabView: View {
                 currentAccount: currentAccount,
                 currentAddress: currentAddress,
                 currentChain: currentChain,
-                nftService: nftService
+                nftService: nftService,
+                contextSource: contextSource
             )
         }
         .onChange(of: currentAccount) { _, newAccount in

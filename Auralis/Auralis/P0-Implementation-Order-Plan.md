@@ -14,6 +14,7 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-201` Account model + persistence
 - `P0-501` Receipt schema, append-only store, sanitization, export, and reset foundation
 - `P0-601` Mode system Observe v0 (global mode-state ownership, chrome integration, receipt inclusion)
+- `P0-204` Chain scope settings per account
 
 ## Current Status Note
 
@@ -22,6 +23,8 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-101D` is implemented as the shared shell-status layer for first-run, provider failure, no-receipts, and empty-library states.
 - `P0-202` is implemented as strict account-entry EVM address validation with deterministic trimming, normalization, and explicit ENS rejection until `P0-203`.
 - `P0-601` is implemented; the chrome and context inspector read mode from the formal `modeState`, and receipts include `mode=Observe`.
+- `P0-204` is implemented for the current Phase 0 baseline and should be treated as the completed bridge from shell/account state into the upcoming context and provider work.
+- Some ticket-specific planning docs still mark `P0-601` and `P0-204` as blocked. Treat this implementation-order file as the current source of truth until those ticket docs are reconciled.
 
 ## Planning Rules
 
@@ -42,6 +45,8 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 
 ### Phase 1: UI baseline and shell chrome
 
+Completed
+
 1. `P0-101E` Design system primitives
 2. `P0-101B` Global Chrome UI with fixed Observe presentation
 3. `P0-101D` Global error + empty-state patterns
@@ -53,6 +58,8 @@ Why:
 
 ### Phase 2: Immediate shell-adjacent follow-up
 
+Completed
+
 4. `P0-202` Address validation + normalization
 5. `P0-601` Mode system Observe v0
 
@@ -63,13 +70,16 @@ Why:
 
 ### Phase 3: Context and provider spine setup
 
-6. `P0-204` Chain scope settings per account
+In progress baseline complete
+
+6. `P0-204` Chain scope settings per account (Completed)
 7. `P0-401` Context schema v0
 8. `P0-301` Provider abstraction
 9. `P0-701A` Layered boundaries structural scaffolding
 
 Why:
 
+- `P0-204` is now done, so the next real start point is `P0-401`
 - this is the minimum structure needed before context orchestration becomes real
 
 ### Phase 4: Fetch, cache, and context assembly
@@ -145,30 +155,29 @@ Why:
 
 - these are most valuable once the feature surface is broad enough to measure and harden meaningfully
 
-## Suggested First Concrete Sprint
+## Suggested Next Concrete Sprint
 
-If the goal is to start implementation immediately with the least churn, begin here:
+If the goal is to continue implementation immediately with the least churn, begin here:
 
-1. `P0-101E`
-2. `P0-101B`
-3. `P0-101D`
+1. `P0-401`
+2. `P0-301`
+3. `P0-701A`
 
 That gives the project:
 
-- reusable UI primitives
-- global chrome
-- shared empty/error patterns
+- a real context snapshot contract
+- a provider-facing seam for read-only fetches
+- early structural boundaries before the service layer spreads
 
-## Suggested Second Sprint
+## Suggested Following Sprint
 
-After that, move directly into the context spine:
+After that, move directly into fetch/cache assembly:
 
-1. `P0-204`
-2. `P0-401`
-3. `P0-301`
-4. `P0-701A`
-5. `P0-302`
-6. `P0-402`
+1. `P0-502` initial slices
+2. `P0-302`
+3. `P0-402`
+4. `P0-303`
+5. `P0-203`
 
 ## Notes On Interpretation
 
