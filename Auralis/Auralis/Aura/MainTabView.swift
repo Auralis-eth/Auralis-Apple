@@ -188,6 +188,15 @@ struct MainTabView: View {
                 nftService: nftService
             )
         }
+        .onChange(of: currentAccount) { _, newAccount in
+            if let acct = newAccount {
+                currentChain = acct.currentChain
+                currentChainId = acct.currentChain.rawValue
+            }
+        }
+        .onChange(of: currentChain) { _, newValue in
+            currentChainId = newValue.rawValue
+        }
         .environment(\.modeState, modeState)
     }
 

@@ -22,6 +22,9 @@ class EOAccount: Codable, Identifiable {
     var lastSelectedAt: Date?
     var trackedNFTCount: Int
 
+    var preferredChainRawValue: String = Chain.ethMainnet.rawValue
+    var currentChainRawValue: String = Chain.ethMainnet.rawValue
+
     @Relationship(deleteRule: .cascade) var nfts: [NFT] = []
 
     init(
@@ -41,6 +44,8 @@ class EOAccount: Codable, Identifiable {
         self.addedAt = addedAt
         self.lastSelectedAt = lastSelectedAt
         self.trackedNFTCount = trackedNFTCount
+        self.preferredChainRawValue = Chain.ethMainnet.rawValue
+        self.currentChainRawValue = Chain.ethMainnet.rawValue
     }
 
     enum CodingKeys: String, CodingKey {
@@ -51,6 +56,8 @@ class EOAccount: Codable, Identifiable {
         case addedAt
         case lastSelectedAt
         case trackedNFTCount
+        case preferredChainRawValue
+        case currentChainRawValue
     }
 
     required init(from decoder: Decoder) throws {
@@ -69,6 +76,9 @@ class EOAccount: Codable, Identifiable {
             decodedName = EOAccount.defaultName(for: decodedAddress)
         }
 
+        let decodedPreferred = try container.decodeIfPresent(String.self, forKey: .preferredChainRawValue) ?? Chain.ethMainnet.rawValue
+        let decodedCurrent = try container.decodeIfPresent(String.self, forKey: .currentChainRawValue) ?? Chain.ethMainnet.rawValue
+
         address = decodedAddress
         access = decodedAccess
         name = decodedName
@@ -76,6 +86,8 @@ class EOAccount: Codable, Identifiable {
         addedAt = decodedAddedAt
         lastSelectedAt = decodedLastSelectedAt
         trackedNFTCount = decodedTrackedNFTCount
+        preferredChainRawValue = decodedPreferred
+        currentChainRawValue = decodedCurrent
     }
 
     func encode(to encoder: Encoder) throws {
@@ -87,6 +99,8 @@ class EOAccount: Codable, Identifiable {
         try container.encode(addedAt, forKey: .addedAt)
         try container.encodeIfPresent(lastSelectedAt, forKey: .lastSelectedAt)
         try container.encode(trackedNFTCount, forKey: .trackedNFTCount)
+        try container.encode(preferredChainRawValue, forKey: .preferredChainRawValue)
+        try container.encode(currentChainRawValue, forKey: .currentChainRawValue)
     }
 
     var mostRecentActivityAt: Date {
@@ -96,6 +110,10 @@ class EOAccount: Codable, Identifiable {
     static func defaultName(for address: String) -> String {
         "Account \(String(address.prefix(4)))"
     }
+
+    var preferredChain: Chain { get { Chain(rawValue: preferredChainRawValue) ?? .ethMainnet } set { preferredChainRawValue = newValue.rawValue } }
+
+    var currentChain: Chain { get { Chain(rawValue: currentChainRawValue) ?? .ethMainnet } set { currentChainRawValue = newValue.rawValue } }
 }
 
 

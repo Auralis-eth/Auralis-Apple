@@ -18,6 +18,9 @@ struct GlobalChromeView: View {
 
                     Spacer(minLength: 8)
 
+                    AuraPill(currentChain.routingDisplayName, systemImage: "link", emphasis: .neutral)
+                        .accessibilityLabel("Active chain")
+
                     AuraPill(modeState.mode.rawValue, systemImage: "eye", emphasis: .accent)
                         .accessibilityHint("Mode badge is provided by global mode state.")
                 }

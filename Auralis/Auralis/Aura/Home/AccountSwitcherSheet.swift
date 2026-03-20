@@ -50,6 +50,32 @@ struct AccountSwitcherSheet: View {
                             )
                         }
                     }
+
+                    if let selected = currentAccount {
+                        Section("Chain Scope") {
+                            ChainPickerRow(
+                                title: "Preferred Chain",
+                                selection: Binding(
+                                    get: { selected.preferredChain },
+                                    set: { newValue in
+                                        selected.preferredChain = newValue
+                                        try? modelContext.save()
+                                    }
+                                )
+                            )
+
+                            ChainPickerRow(
+                                title: "Current Chain",
+                                selection: Binding(
+                                    get: { selected.currentChain },
+                                    set: { newValue in
+                                        selected.currentChain = newValue
+                                        try? modelContext.save()
+                                    }
+                                )
+                            )
+                        }
+                    }
                 }
             }
             .navigationTitle("Accounts")
@@ -225,3 +251,23 @@ private struct AccountSwitcherAlert: Identifiable {
     let title: String
     let message: String
 }
+private struct ChainPickerRow: View {
+    let title: String
+    @Binding var selection: Chain
+
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Picker(title, selection: $selection) {
+                Text("Ethereum").tag(Chain.ethMainnet)
+                Text("Polygon").tag(Chain.polygonMainnet)
+                Text("Arbitrum").tag(Chain.arbMainnet)
+                Text("Optimism").tag(Chain.optMainnet)
+                Text("Base").tag(Chain.baseMainnet)
+            }
+            .pickerStyle(.menu)
+        }
+    }
+}
+
