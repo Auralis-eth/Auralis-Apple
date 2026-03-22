@@ -87,9 +87,11 @@ struct AddressInputView: View {
         )
 
         do {
+            let correlationID = UUID().uuidString
             let activation = try store.activateWatchAccount(
                 from: address,
-                source: source
+                source: source,
+                correlationID: correlationID
             )
             address = ""
             currentAccount = activation.account

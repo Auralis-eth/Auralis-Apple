@@ -287,6 +287,29 @@ struct AccountStoreTests {
         #expect(recorder.events.last == .removed(address: inactive.address))
     }
 
+    @Test("activate reuses one caller-provided correlation ID across chained add and select events")
+    @MainActor
+    func activateWatchAccountPreservesCorrelationID() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let recorder = RecordingAccountEventRecorder()
+        let store = AccountStore(modelContext: context, eventRecorder: recorder)
+        let correlationID = "account-activation-123"
+
+        _ = try store.activateWatchAccount(
+            from: "0xabababababababababababababababababababab",
+            source: .manualEntry,
+            selectedAt: Date(timeIntervalSince1970: 100),
+            correlationID: correlationID
+        )
+
+        #expect(recorder.events == [
+            .added(address: "0xabababababababababababababababababababab"),
+            .selected(address: "0xabababababababababababababababababababab")
+        ])
+        #expect(recorder.recordedEvents.map(\.correlationID) == [correlationID, correlationID])
+    }
+
     @Test("list orders by lastSelectedAt first and then newest added for ties")
     @MainActor
     func listAccountsUsesSelectionThenAddedAtOrdering() throws {
@@ -323,9 +346,20 @@ struct AccountStoreTests {
 }
 
 private final class RecordingAccountEventRecorder: AccountEventRecorder {
-    private(set) var events: [AccountEvent] = []
+    struct RecordedEvent: Equatable {
+        let event: AccountEvent
+        let correlationID: String?
+    }
 
-    func record(_ event: AccountEvent) {
-        events.append(event)
+    private(set) var recordedEvents: [RecordedEvent] = []
+
+    var events: [AccountEvent] {
+        recordedEvents.map(\.event)
+    }
+
+    func record(_ event: AccountEvent, correlationID: String?) {
+        recordedEvents.append(
+            RecordedEvent(event: event, correlationID: correlationID)
+        )
     }
 }

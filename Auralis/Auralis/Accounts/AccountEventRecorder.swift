@@ -12,12 +12,18 @@ enum AccountEvent: Equatable {
 
 @MainActor
 protocol AccountEventRecorder {
-    func record(_ event: AccountEvent)
+    func record(_ event: AccountEvent, correlationID: String?)
+}
+
+extension AccountEventRecorder {
+    func record(_ event: AccountEvent) {
+        record(event, correlationID: nil)
+    }
 }
 
 @MainActor
 struct NoOpAccountEventRecorder: AccountEventRecorder {
-    func record(_ event: AccountEvent) { }
+    func record(_ event: AccountEvent, correlationID: String?) { }
 }
 
 @MainActor
@@ -34,9 +40,9 @@ struct ReceiptBackedAccountEventRecorder: AccountEventRecorder {
         self.payloadSanitizer = payloadSanitizer
     }
 
-    func record(_ event: AccountEvent) {
+    func record(_ event: AccountEvent, correlationID: String?) {
         do {
-            _ = try receiptStore.append(makeDraft(for: event))
+            _ = try receiptStore.append(makeDraft(for: event, correlationID: correlationID))
         } catch {
             logger.error("Failed to append account receipt: \(error.localizedDescription, privacy: .public)")
         }
@@ -53,7 +59,7 @@ enum AccountEventRecorders {
 }
 
 private extension ReceiptBackedAccountEventRecorder {
-    func makeDraft(for event: AccountEvent) -> ReceiptDraft {
+    func makeDraft(for event: AccountEvent, correlationID: String?) -> ReceiptDraft {
         let (kind, summary, payloadValues): (String, String, [String: ReceiptJSONValue]) = switch event {
         case .added(let address):
             (
@@ -107,6 +113,7 @@ private extension ReceiptBackedAccountEventRecorder {
             summary: summary,
             provenance: "user_provided",
             isSuccess: true,
+            correlationID: correlationID,
             details: payload
         )
     }

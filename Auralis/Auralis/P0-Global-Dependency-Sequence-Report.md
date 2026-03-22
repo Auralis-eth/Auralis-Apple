@@ -83,6 +83,7 @@ Allowed early-start rules:
 
 ### Identity, provider, and context spine
 
+- Phase 3 is not complete yet. Only the baseline slices for `P0-301`, `P0-401`, and `P0-701A` are in place.
 - `P0-203` blocked by `P0-301`, `P0-302`, and the needed `P0-502` slice
 - `P0-204` closed for the current chain-scope baseline; later context-service integration continues in `P0-401` and `P0-402`
 - `P0-301` is startable now and should align to `P0-701A` without waiting for later enforcement

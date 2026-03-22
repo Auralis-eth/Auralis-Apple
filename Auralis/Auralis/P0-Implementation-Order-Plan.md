@@ -95,7 +95,13 @@ Why:
 
 ### Phase 3: Context and provider spine setup
 
-In progress
+Partially complete
+
+Current phase status:
+
+- `P0-204` is complete.
+- `P0-401`, `P0-301`, and `P0-701A` have shipped baseline slices, but the phase is not complete yet.
+- Full Phase 3 completion still depends on the remaining completion boundaries recorded in those ticket docs.
 
 6. `P0-204` Chain scope settings per account (Completed)
 7. `P0-401` Context schema v0 (Schema-first slice in progress)
@@ -106,11 +112,12 @@ Why:
 
 - `P0-204` is now done, so the next real start point is `P0-401`
 - `P0-401` can now move ahead as a typed schema without waiting for final freshness policy
+- `P0-301` and `P0-701A` now have real baseline seams, but they still hand off important follow-on ownership to later tickets
 - this is the minimum structure needed before context orchestration becomes real
 
 ### Phase 4: Fetch, cache, and context assembly
 
-10. `P0-502` initial receipt slices for the active work
+10. `P0-502` initial receipt slices for the active work (Completed for active account/chain slice)
 11. `P0-302` Caching + freshness primitives
 12. `P0-402` Context service + dependency boundaries
 13. `P0-303` Error handling + degraded mode
@@ -121,7 +128,7 @@ Why:
 
 ==================================== 
 
-do another remediation
+do another remediation + Unit tests
 
 ====================================
 

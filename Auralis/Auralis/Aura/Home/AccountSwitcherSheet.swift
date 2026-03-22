@@ -9,7 +9,7 @@ struct AccountSwitcherSheet: View {
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     @Binding var currentChain: Chain
-    let onCurrentChainChanged: @MainActor (Chain) -> Void
+    let onCurrentChainChanged: @MainActor (Chain, String) -> Void
 
     @State private var pendingRemovalAccount: EOAccount?
     @State private var feedbackAlert: AccountSwitcherAlert?
@@ -121,7 +121,11 @@ struct AccountSwitcherSheet: View {
         )
 
         do {
-            let selectedAccount = try store.selectAccount(address: account.address)
+            let correlationID = UUID().uuidString
+            let selectedAccount = try store.selectAccount(
+                address: account.address,
+                correlationID: correlationID
+            )
             currentAccount = selectedAccount
             currentAddress = selectedAccount.address
             dismiss()
@@ -141,9 +145,11 @@ struct AccountSwitcherSheet: View {
         )
 
         do {
+            let correlationID = UUID().uuidString
             let result = try store.removeAccount(
                 address: account.address,
-                activeAddress: currentAddress
+                activeAddress: currentAddress,
+                correlationID: correlationID
             )
 
             if currentAddress == result.removedAddress {
@@ -182,6 +188,8 @@ struct AccountSwitcherSheet: View {
             return
         }
 
+        let correlationID = UUID().uuidString
+
         switch plan.kind {
         case .preferred:
             account.preferredChain = plan.to
@@ -193,10 +201,13 @@ struct AccountSwitcherSheet: View {
         }
 
         try? modelContext.save()
-        AccountEventRecorders.live(modelContext: modelContext).record(event)
+        AccountEventRecorders.live(modelContext: modelContext).record(
+            event,
+            correlationID: correlationID
+        )
 
         if plan.shouldRefreshActiveScope {
-            onCurrentChainChanged(plan.to)
+            onCurrentChainChanged(plan.to, correlationID)
         }
     }
 

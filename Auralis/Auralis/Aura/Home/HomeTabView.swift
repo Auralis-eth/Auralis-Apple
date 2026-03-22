@@ -25,7 +25,7 @@ struct HomeTabView: View {
     @Binding var currentAddress: String
     @Binding var currentChainId: String
     @Binding var currentChain: Chain
-    let onCurrentChainChanged: @MainActor (Chain) -> Void
+    let onCurrentChainChanged: @MainActor (Chain, String) -> Void
     let router: AppRouter
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass

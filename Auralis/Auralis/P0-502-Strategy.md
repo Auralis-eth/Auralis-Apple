@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially blocked
+Completed for the active account and chain-scope slice
 
 ## Ticket
 
@@ -30,6 +30,20 @@ Avoid double-logging, preserve receipts in failure paths, and carry correlation 
 
 - Feature-level receipt integration lands incrementally.
 - Broad verification and cleanup are explicitly separated into `P0-502B`.
+
+## Completion Note
+
+The active Phase 0 receipt slice is now complete for:
+
+- account activation, selection, and removal flows
+- account chain-scope changes
+- correlation continuity between current-chain change receipts and the follow-on NFT refresh flow
+
+What remains intentionally deferred:
+
+- broad cross-feature audit
+- deduping and naming cleanup
+- repo-wide verification beyond the active delivered slice
 
 ## Validation Target
 

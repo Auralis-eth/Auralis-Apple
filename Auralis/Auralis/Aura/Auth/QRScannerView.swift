@@ -69,9 +69,11 @@ struct QRScannerView: View {
                     modelContext: modelContext,
                     eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
                 )
+                let correlationID = UUID().uuidString
                 let activation = try store.activateWatchAccount(
                     from: code.string,
-                    source: .qrScan
+                    source: .qrScan,
+                    correlationID: correlationID
                 )
                 account = activation.account
 

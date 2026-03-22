@@ -266,7 +266,7 @@ struct MainTabView: View {
     }
 
     @MainActor
-    private func refreshActiveChainScope(_ chain: Chain) {
+    private func refreshActiveChainScope(_ chain: Chain, correlationID: String) {
         guard let activeAccount = currentAccount else {
             return
         }
@@ -276,7 +276,7 @@ struct MainTabView: View {
                 for: activeAccount,
                 chain: chain,
                 modelContext: modelContext,
-                correlationID: UUID().uuidString
+                correlationID: correlationID
             )
         }
     }

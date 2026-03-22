@@ -19,6 +19,14 @@ Failure-path receipts and correlation continuity matter as much as happy-path co
 
 Run the local feature flow, verify receipts are present, and confirm correlation and naming are correct for that slice.
 
+## Completion Summary
+
+- threaded caller-owned correlation IDs through the account receipt seam
+- covered account activation, selection, and removal receipt chains
+- covered chain-scope receipt emission for preferred/current changes
+- reused the current-chain correlation ID for the triggered NFT refresh flow
+- left broad audit and cleanup work explicitly deferred to `P0-502B`
+
 ## Handoff Rule
 
 Do not turn `P0-502` into a giant end-stage integration blob. Use `P0-502B` for broad verification and cleanup later.

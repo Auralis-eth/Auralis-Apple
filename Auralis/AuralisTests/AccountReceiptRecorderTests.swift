@@ -52,6 +52,35 @@ struct AccountReceiptRecorderTests {
         })
     }
 
+    @Test("account activation receipts share one correlation ID across chained account events")
+    @MainActor
+    func accountActivationReceiptsShareCorrelationID() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let recorder = ReceiptBackedAccountEventRecorder(
+            receiptStore: receiptStore,
+            payloadSanitizer: DefaultReceiptPayloadSanitizer()
+        )
+        let accountStore = AccountStore(modelContext: context, eventRecorder: recorder)
+        let correlationID = "account-activation-correlation"
+
+        _ = try accountStore.activateWatchAccount(
+            from: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            source: .manualEntry,
+            selectedAt: Date(timeIntervalSince1970: 100),
+            correlationID: correlationID
+        )
+
+        let receipts = try receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
+
+        #expect(receipts.map(\.kind) == [
+            "account.selected",
+            "account.added"
+        ])
+        #expect(receipts.allSatisfy { $0.correlationID == correlationID })
+    }
+
     @Test("observe-mode policy gate denies blocked actions and records a denial receipt")
     @MainActor
     func observeModePolicyGateWritesReceipt() throws {
@@ -115,6 +144,34 @@ struct AccountReceiptRecorderTests {
         #expect(receipts.allSatisfy { $0.scope == "accounts.chain_scope" })
         #expect(receipts.first?.details.values["from_chain"] == .string(Chain.baseMainnet.rawValue))
         #expect(receipts.first?.details.values["to_chain"] == .string(Chain.baseSepoliaTestnet.rawValue))
+    }
+
+    @Test("chain-scope account receipts preserve caller correlation IDs for follow-on refresh chaining")
+    @MainActor
+    func chainScopeReceiptsPreserveCorrelationID() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let recorder = ReceiptBackedAccountEventRecorder(
+            receiptStore: receiptStore,
+            payloadSanitizer: DefaultReceiptPayloadSanitizer()
+        )
+        let correlationID = "chain-scope-correlation"
+
+        recorder.record(
+            .currentChainChanged(
+                address: "0x1234567890abcdef1234567890abcdef12345678",
+                from: .ethMainnet,
+                to: .baseMainnet
+            ),
+            correlationID: correlationID
+        )
+
+        let receipts = try receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
+
+        #expect(receipts.count == 1)
+        #expect(receipts.first?.trigger == "account.chain.current.changed")
+        #expect(receipts.first?.correlationID == correlationID)
     }
 
     @Test("chain-scope planner suppresses redundant writes and only refreshes the active scope")

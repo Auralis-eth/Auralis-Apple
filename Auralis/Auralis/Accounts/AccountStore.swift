@@ -133,7 +133,8 @@ struct AccountStore {
         name: String? = nil,
         source: EOAccountSource = .manualEntry,
         overwriteExisting: Bool = false,
-        now: Date = .now
+        now: Date = .now,
+        correlationID: String? = nil
     ) throws -> EOAccount {
         guard let normalizedAddress = AccountStore.normalizeAddress(rawAddress) else {
             throw AccountStoreError.invalidAddress
@@ -145,7 +146,7 @@ struct AccountStore {
             }
 
             modelContext.delete(existingAccount)
-            eventRecorder.record(.removed(address: normalizedAddress))
+            eventRecorder.record(.removed(address: normalizedAddress), correlationID: correlationID)
         }
 
         let account = EOAccount(
@@ -160,7 +161,7 @@ struct AccountStore {
 
         modelContext.insert(account)
         try modelContext.save()
-        eventRecorder.record(.added(address: normalizedAddress))
+        eventRecorder.record(.added(address: normalizedAddress), correlationID: correlationID)
         return account
     }
 
@@ -168,18 +169,21 @@ struct AccountStore {
         from rawAddress: String,
         name: String? = nil,
         source: EOAccountSource = .manualEntry,
-        selectedAt: Date = .now
+        selectedAt: Date = .now,
+        correlationID: String? = nil
     ) throws -> AccountActivationResult {
         do {
             let createdAccount = try createWatchAccount(
                 from: rawAddress,
                 name: name,
                 source: source,
-                now: selectedAt
+                now: selectedAt,
+                correlationID: correlationID
             )
             let selectedAccount = try selectAccount(
                 address: createdAccount.address,
-                selectedAt: selectedAt
+                selectedAt: selectedAt,
+                correlationID: correlationID
             )
 
             return AccountActivationResult(account: selectedAccount, wasCreated: true)
@@ -194,14 +198,19 @@ struct AccountStore {
 
             let selectedAccount = try selectAccount(
                 address: existingAccount.address,
-                selectedAt: selectedAt
+                selectedAt: selectedAt,
+                correlationID: correlationID
             )
 
             return AccountActivationResult(account: selectedAccount, wasCreated: false)
         }
     }
 
-    func selectAccount(address rawAddress: String, selectedAt: Date = .now) throws -> EOAccount {
+    func selectAccount(
+        address rawAddress: String,
+        selectedAt: Date = .now,
+        correlationID: String? = nil
+    ) throws -> EOAccount {
         guard let account = try account(for: rawAddress) else {
             let normalizedAddress = AccountStore.normalizeAddress(rawAddress) ?? rawAddress
             throw AccountStoreError.accountNotFound(normalizedAddress)
@@ -209,11 +218,15 @@ struct AccountStore {
 
         account.lastSelectedAt = selectedAt
         try modelContext.save()
-        eventRecorder.record(.selected(address: account.address))
+        eventRecorder.record(.selected(address: account.address), correlationID: correlationID)
         return account
     }
 
-    func removeAccount(address rawAddress: String, activeAddress: String? = nil) throws -> AccountRemovalResult {
+    func removeAccount(
+        address rawAddress: String,
+        activeAddress: String? = nil,
+        correlationID: String? = nil
+    ) throws -> AccountRemovalResult {
         guard let account = try account(for: rawAddress) else {
             let normalizedAddress = AccountStore.normalizeAddress(rawAddress) ?? rawAddress
             throw AccountStoreError.accountNotFound(normalizedAddress)
@@ -224,7 +237,7 @@ struct AccountStore {
 
         modelContext.delete(account)
         try modelContext.save()
-        eventRecorder.record(.removed(address: removedAddress))
+        eventRecorder.record(.removed(address: removedAddress), correlationID: correlationID)
 
         let fallbackAccount: EOAccount?
         if normalizedActiveAddress == removedAddress {
