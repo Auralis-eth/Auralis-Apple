@@ -23,13 +23,13 @@ struct EmptyNewsFeedView: View {
                     retry: refresh
                 )
             } else {
-                ShellStatusCard(
+                AuraEmptyState(
                     eyebrow: "Collection",
                     title: "No NFTs Found",
                     message: "We could not find NFTs for this wallet on the current chain yet. Try refreshing or switch to another saved account.",
                     systemImage: "photo.artframe",
                     tone: .neutral,
-                    primaryAction: ShellStatusAction(
+                    primaryAction: AuraFeedbackAction(
                         title: "Refresh",
                         systemImage: "arrow.clockwise",
                         handler: refresh

@@ -1,5 +1,9 @@
 # P0-501 Strategy: Receipt Schema + Append-Only Store
 
+## Status
+
+Implemented and closed at the foundation layer
+
 ## Ticket
 
 `P0-501` defines a broad Phase 0 receipt system for the app:
@@ -11,6 +15,25 @@
 - full local receipt reset support
 
 This strategy is intentionally scoped to what can be implemented now without inventing the full module-boundary enforcement promised by `P0-701`.
+
+## Completion Note
+
+`P0-501` is now treated as complete at the foundation layer for Phase 0.
+
+What that means:
+
+- the receipt schema exists
+- the append-only SwiftData store exists
+- sanitization exists for the locked Phase 0 fields
+- export exists as a store capability
+- full reset exists as a store capability
+
+What that does not mean:
+
+- there is no requirement in the current Phase 0 closure decision for user-facing export UI
+- there is no requirement in the current Phase 0 closure decision for user-facing reset UI
+
+If a later phase wants those product-surface controls, that should be treated as new scoped work rather than unfinished `P0-501`.
 
 ## Locked Decisions
 

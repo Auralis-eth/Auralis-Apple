@@ -57,12 +57,12 @@ struct NewsFeedListingView: View {
         } else {
             VStack(spacing: 12) {
                 if let error = nftService.error {
-                    ShellStatusBanner(
+                    AuraErrorBanner(
                         title: "Showing Last Sync",
                         message: error.localizedDescription,
                         systemImage: "exclamationmark.triangle",
                         tone: .warning,
-                        action: ShellStatusAction(
+                        action: AuraFeedbackAction(
                             title: "Retry",
                             systemImage: "arrow.clockwise",
                             handler: refresh

@@ -62,58 +62,15 @@ struct ShellStatusCard: View {
     }
 
     var body: some View {
-        AuraSurfaceCard(style: .regular, cornerRadius: 30, padding: 20) {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .top, spacing: 14) {
-                    SystemImage(systemImage)
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(tone.tintColor)
-                        .frame(width: 36, height: 36)
-                        .background(tone.tintColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .accessibilityHidden(true)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        if let eyebrow, !eyebrow.isEmpty {
-                            Text(eyebrow.uppercased())
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(tone.secondaryTintColor)
-                        }
-
-                        Text(title)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(Color.textPrimary)
-
-                        Text(message)
-                            .font(.body)
-                            .foregroundStyle(Color.textSecondary)
-                    }
-                }
-
-                if primaryAction != nil || secondaryAction != nil {
-                    HStack(spacing: 10) {
-                        if let primaryAction {
-                            AuraActionButton(primaryAction.title, systemImage: primaryAction.systemImage, style: .surface) {
-                                primaryAction.handler()
-                            }
-                        }
-
-                        if let secondaryAction {
-                            Button(action: secondaryAction.handler) {
-                                Label(secondaryAction.title, systemImage: secondaryAction.systemImage)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(Color.textPrimary)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
-                                    .background(Color.surface.opacity(0.35), in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
-        }
+        AuraEmptyState(
+            eyebrow: eyebrow,
+            title: title,
+            message: message,
+            systemImage: systemImage,
+            tone: tone.feedbackTone,
+            primaryAction: primaryAction?.feedbackAction,
+            secondaryAction: secondaryAction?.feedbackAction
+        )
     }
 }
 
@@ -125,41 +82,36 @@ struct ShellStatusBanner: View {
     let action: ShellStatusAction?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            SystemImage(systemImage)
-                .font(.headline)
-                .foregroundStyle(tone.tintColor)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.textPrimary)
-
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(Color.textSecondary)
-            }
-
-            Spacer(minLength: 8)
-
-            if let action {
-                Button(action: action.handler) {
-                    Label(action.title, systemImage: action.systemImage)
-                        .font(.caption.weight(.semibold))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.textPrimary)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(Color.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(tone.tintColor.opacity(0.18), lineWidth: 1)
+        AuraErrorBanner(
+            title: title,
+            message: message,
+            systemImage: systemImage,
+            tone: tone.feedbackTone,
+            action: action?.feedbackAction
         )
-        .accessibilityElement(children: .combine)
+    }
+}
+
+private extension ShellStatusTone {
+    var feedbackTone: AuraFeedbackTone {
+        switch self {
+        case .neutral:
+            return .neutral
+        case .warning:
+            return .warning
+        case .critical:
+            return .critical
+        }
+    }
+}
+
+private extension ShellStatusAction {
+    var feedbackAction: AuraFeedbackAction {
+        AuraFeedbackAction(
+            title: title,
+            systemImage: systemImage,
+            handler: handler
+        )
     }
 }
 

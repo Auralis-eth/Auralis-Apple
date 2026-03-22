@@ -142,3 +142,19 @@ By the time the remediation work reached the chrome audit, `P0-101B` and `P0-101
 The fix here was mostly intellectual honesty. `P0-101B` was re-validated as complete because the chrome itself is doing its Phase 0 job now. `P0-101C` stayed blocked because the current inspector is still a summary sheet, not the full context behavior promised by that ticket. In other words: the front desk is built, the sign for the back office exists, but the back office is not staffed yet.
 
 The lesson is that neighboring tickets often try to merge when an interface seam starts to look polished. Good engineering means resisting that drift. A visible entry point is not the same thing as a completed workflow. If you mark both done just because the UI looks tidy, you turn the next dependency ticket into a scavenger hunt.
+
+## War Story: "Complete" Was Doing Too Much Work
+
+This pass was less about writing app code and more about interrogating the paperwork with a flashlight. Several Phase 0 tickets had already been marked complete in strategy docs or the implementation-order plan, and some of them really were done. But a few others were "complete" in the way a moving box is labeled "Kitchen" even though someone stuffed a phone charger and a screwdriver in there too. Close enough for transport, not close enough for truth.
+
+The practical fix was to write two new control documents at the project root: `P0-Remediation-Checklist.md` and `P0-Remediation-Tasks.md`. The checklist is the blunt instrument. It says, ticket by ticket, what is actually complete, what is only complete under a narrowed scope note, and what still needs code. The task list is the wrench set next to it: concrete implementation tasks, likely file touch points, and validation expectations. Just as important, the checklist also records document gaps, like the missing dedicated `P0-101A` repo doc, because missing planning docs are how oral tradition sneaks into architecture.
+
+The lesson is simple and annoyingly universal: "complete" is not a feeling. It is an agreement between code, tests, and docs. When any one of those three wanders off, the team starts paying interest on ambiguity.
+
+## War Story: The Shell Status Views Were Secretly The Primitives
+
+`P0-101E` had one of those sneaky gaps where the app looked more reusable than it really was. The shell already had decent empty and error patterns in `ShellStatusView.swift`, so at a glance it felt like the design-system work was basically done. But that was a bit like saying a restaurant has a public menu because the chef keeps the recipes in his apron pocket. The patterns existed, but they were trapped inside shell-specific wrappers instead of being first-class Aura primitives that other surfaces could use directly.
+
+The fix was to promote the shared shapes into real primitives: `AuraEmptyState` and `AuraErrorBanner`. Then the shell wrappers were rebuilt on top of those primitives, and the newsfeed was switched to consume them directly for its empty and error states. That matters because it changes the relationship between the shell and the rest of the product. The shell is no longer the only place that knows how to render those patterns; it is just one client of the shared Aura language.
+
+The lesson is that reusable UI is not defined by visual similarity alone. A pattern becomes a primitive when other features can actually reach for it without importing half the shell as emotional support.

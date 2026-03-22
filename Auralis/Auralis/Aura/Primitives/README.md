@@ -16,3 +16,5 @@ Expected first slice:
 - `AuraSectionHeader`
 - `AuraActionButton`
 - `AuraPill`
+- `AuraEmptyState`
+- `AuraErrorBanner`
