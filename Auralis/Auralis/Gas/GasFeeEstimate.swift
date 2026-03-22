@@ -393,11 +393,11 @@ extension GasPriceEstimateView {
     // MARK: - Reusable Card Component
     struct CardView<Content: View>: View {
         let title: String
-        let content: Content
+        let content: () -> Content
         
-        init(title: String, @ViewBuilder content: () -> Content) {
+        init(title: String, @ViewBuilder content: @escaping () -> Content) {
             self.title = title
-            self.content = content()
+            self.content = content
         }
         
         var body: some View {
@@ -408,7 +408,7 @@ extension GasPriceEstimateView {
                     Divider()
                         .background(Color.textSecondary.opacity(0.3))
 
-                    content
+                    content()
                 }
             }
         }
@@ -590,7 +590,7 @@ extension GasPriceEstimateView {
                     PrimaryText(value)
                     
                     if let trend = trend, trend != .stable {
-                        Image(systemName: trend.icon)
+                        SystemImage(trend.icon)
                             .foregroundStyle(trend.color)
                             .font(.caption)
                     }

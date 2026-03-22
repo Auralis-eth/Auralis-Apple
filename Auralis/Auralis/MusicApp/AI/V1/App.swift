@@ -44,7 +44,7 @@ struct DetailView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: iconForItem(item))
+            SystemImage(iconForItem(item))
                 .font(.system(size: 60))
                 .foregroundColor(.blue)
             
@@ -254,7 +254,7 @@ private struct MusicNFTCard: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.gray.opacity(0.25))
                     .overlay {
-                        Image(systemName: "music.note").foregroundStyle(.gray)
+                        SystemImage("music.note").foregroundStyle(.gray)
                     }
             }
             .frame(width: 80, height: 80)
@@ -272,7 +272,7 @@ private struct MusicNFTCard: View {
                 }
 
                 HStack(spacing: 6) {
-                    Image(systemName: (nft.isMusic()) ? "speaker.wave.2.fill" : "music.note")
+                    SystemImage((nft.isMusic()) ? "speaker.wave.2.fill" : "music.note")
                         .foregroundStyle(.blue)
                         .imageScale(.small)
 
@@ -288,7 +288,7 @@ private struct MusicNFTCard: View {
 
             if let network = nft.network {
                 VStack(spacing: 4) {
-                    Image(systemName: "link")
+                    SystemImage("link")
                         .foregroundStyle(.secondary)
                         .imageScale(.small)
                     Text(network.displayName)

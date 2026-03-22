@@ -65,7 +65,7 @@ struct ShellStatusCard: View {
         AuraSurfaceCard(style: .regular, cornerRadius: 30, padding: 20) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top, spacing: 14) {
-                    Image(systemName: systemImage)
+                    SystemImage(systemImage)
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(tone.tintColor)
                         .frame(width: 36, height: 36)
@@ -126,7 +126,7 @@ struct ShellStatusBanner: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: systemImage)
+            SystemImage(systemImage)
                 .font(.headline)
                 .foregroundStyle(tone.tintColor)
                 .accessibilityHidden(true)

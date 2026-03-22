@@ -20,8 +20,8 @@ struct AuraPill: View {
     var body: some View {
         HStack(spacing: 6) {
             if let systemImage {
-                Image(systemName: systemImage)
-                    .font(.caption)
+                SystemImage(systemImage)
+                    .font(imageSize)
                     .accessibilityHidden(true)
             }
 

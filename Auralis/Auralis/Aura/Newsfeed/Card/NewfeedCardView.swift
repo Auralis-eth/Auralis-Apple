@@ -28,7 +28,7 @@ struct NewsFeedCardView: View {
                     .ignoresSafeArea()
                 
                 VStack {
-                    Image(systemName: "photo")
+                    SystemImage("photo")
                         .font(.system(size: 50))
                     
                     if let urlString = nft.image?.originalUrl,
@@ -289,7 +289,7 @@ struct NewsFeedCardDetailsView: View {
                     SubheadlineFontText(isExpanded ? "Show Less Info" : "Show More Info")
                         .fontWeight(.medium)
 
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    SystemImage(isExpanded ? "chevron.up" : "chevron.down")
                         .font(.caption)
                         .fontWeight(.semibold)
                 }

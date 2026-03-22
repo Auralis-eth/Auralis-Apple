@@ -235,7 +235,7 @@ private struct AccountRow: View {
             }
 
             Button(role: .destructive, action: onRemove) {
-                Image(systemName: "trash")
+                SystemImage("trash")
                     .font(.headline)
             }
             .buttonStyle(.plain)

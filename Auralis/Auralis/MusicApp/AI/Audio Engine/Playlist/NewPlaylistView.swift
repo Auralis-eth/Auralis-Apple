@@ -71,7 +71,7 @@ struct NewPlaylistView: View {
                                     .fill(Color.secondary.opacity(0.1))
                                     .frame(width: 150, height: 150)
                                     .overlay(
-                                        Image(systemName: "camera")
+                                        SystemImage("camera")
                                             .font(.system(size: 50))
                                             .foregroundColor(.secondary)
                                     )

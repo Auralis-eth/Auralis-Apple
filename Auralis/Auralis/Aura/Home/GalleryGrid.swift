@@ -44,7 +44,7 @@ struct GalleryGrid: View {
 
             if images.isEmpty {
                 VStack(spacing: 24) {
-                    Image(systemName: "photo.on.rectangle")
+                    SystemImage("photo.on.rectangle")
                         .font(.system(size: 60))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.secondary)

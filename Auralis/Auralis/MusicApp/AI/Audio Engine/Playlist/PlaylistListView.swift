@@ -53,7 +53,7 @@ struct PlaylistListView: View {
                             .fill(Color.secondary.opacity(0.1))
                             .frame(width: 56, height: 56)
                             .overlay(
-                                Image(systemName: "photo")
+                                SystemImage("photo")
                                     .font(.system(size: 20, weight: .regular))
                                     .foregroundColor(.secondary)
                             )

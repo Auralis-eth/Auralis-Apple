@@ -164,7 +164,7 @@ struct TagMutatingView: View {
                     Button {
                         showingCreateSheet = true
                     } label: {
-                        Image(systemName: "plus")
+                        SystemImage("plus")
                     }
                 }
             }

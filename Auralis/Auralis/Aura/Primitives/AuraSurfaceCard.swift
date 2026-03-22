@@ -9,22 +9,22 @@ struct AuraSurfaceCard<Content: View>: View {
     private let style: AuraSurfaceCardStyle
     private let cornerRadius: CGFloat
     private let padding: CGFloat
-    private let content: Content
+    private let content: () -> Content
 
     init(
         style: AuraSurfaceCardStyle = .regular,
         cornerRadius: CGFloat = 30,
         padding: CGFloat = 20,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping () -> Content
     ) {
         self.style = style
         self.cornerRadius = cornerRadius
         self.padding = padding
-        self.content = content()
+        self.content = content
     }
 
     var body: some View {
-        content
+        content()
             .padding(padding)
             .modifier(AuraSurfaceGlass(style: style, cornerRadius: cornerRadius))
     }

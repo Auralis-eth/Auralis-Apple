@@ -27,7 +27,7 @@ struct AuraActionButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 if let systemImage {
-                    Image(systemName: systemImage)
+                    SystemImage(systemImage)
                         .font(.headline)
                         .accessibilityHidden(true)
                 }
