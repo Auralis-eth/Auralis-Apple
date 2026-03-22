@@ -82,24 +82,46 @@ struct ChromeContextInspectorSheet: View {
     let nftService: NFTService
     let contextSource: ContextSource
 
-    var ctx: AppContext {
+    private var snapshot: ContextSnapshot {
         contextSource.snapshot()
     }
-    
+
     var body: some View {
         NavigationStack {
             List {
+                Section("Schema") {
+                    LabeledContent("Version", value: snapshot.version.rawValue)
+                }
+
                 Section("Mode") {
-                    LabeledContent("Current Mode", value: ctx.mode)
+                    LabeledContent("Current Mode", value: snapshot.modeDisplay)
+                    LabeledContent("Mode Provenance", value: snapshot.mode.provenance.displayLabel)
                 }
 
                 Section("Scope") {
-                    LabeledContent("Account", value: ctx.accountDisplay)
-                    LabeledContent("Chain", value: ctx.chainDisplay)
+                    LabeledContent("Account", value: snapshot.accountDisplay)
+                    LabeledContent("Account Provenance", value: snapshot.scope.accountAddress.provenance.displayLabel)
+                    LabeledContent("Chains", value: snapshot.selectedChainDisplayNames)
+                    LabeledContent("Chain Provenance", value: snapshot.scope.selectedChains.provenance.displayLabel)
+                }
+
+                Section("Library Pointers") {
+                    LabeledContent(
+                        "Tracked NFTs",
+                        value: snapshot.libraryPointers.trackedNFTCount.value.map(String.init) ?? "Not loaded yet"
+                    )
                 }
 
                 Section("Freshness") {
-                    LabeledContent("Refresh State", value: ctx.freshnessLabel)
+                    LabeledContent("Refresh State", value: snapshot.freshnessLabel)
+                    LabeledContent(
+                        "Last Refresh Provenance",
+                        value: snapshot.freshness.lastSuccessfulRefreshProvenance.displayLabel
+                    )
+                    LabeledContent(
+                        "Last Successful Refresh",
+                        value: formattedTimestamp(snapshot.freshness.lastSuccessfulRefreshAt)
+                    )
                 }
             }
             .navigationTitle("Context Inspector")
@@ -111,5 +133,19 @@ struct ChromeContextInspectorSheet: View {
                 }
             }
         }
+    }
+
+    private func formattedTimestamp(_ date: Date?) -> String {
+        guard let date else {
+            return "Unknown"
+        }
+
+        return date.formatted(date: .abbreviated, time: .shortened)
+    }
+}
+
+private extension ContextProvenance {
+    var displayLabel: String {
+        rawValue.replacingOccurrences(of: "_", with: " ").capitalized
     }
 }

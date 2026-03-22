@@ -2,24 +2,33 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependencies
 
 - P0-201
 - P0-204
 - P0-302
 
-## Why It Is Blocked
+## Dependency Read
 
-Blocked on chain scope selection and freshness primitives.
+- `P0-201` is complete enough for the current schema inputs.
+- `P0-204` is complete enough to provide a real chain-scope field.
+- `P0-302` is still not ready, so freshness can only be modeled as metadata, not final TTL-driven state.
 
-## Safe Pre-Work
+## Safe Work Now
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
+- Define the typed `ContextSnapshot` schema and version it.
+- Move the shell inspector to the new snapshot contract.
+- Model provenance and timestamps using existing local values.
+- Keep balance and module sections placeholder-safe instead of fabricating provider-backed data.
 
-## Unblock Condition
+## Still Deferred
 
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+- TTL policy and stale evaluation from `P0-302`
+- Real provider-backed balance summary from `P0-301`
+- Context-build orchestration and receipt linkage from `P0-402`
+
+## Full Completion Condition
+
+The ticket is fully complete when the schema no longer relies on ad hoc freshness behavior and the remaining deferred fields are fed by the real context/provider stack instead of placeholder-safe empty values.

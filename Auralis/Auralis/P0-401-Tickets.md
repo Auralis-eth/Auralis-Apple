@@ -7,9 +7,9 @@ Define the scoped ContextSnapshot schema for active account, chain scope, summar
 ## Execution Order
 
 1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
+2. Implement the schema-first slice that proves the ticket is real without inventing provider data.
 3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+4. Run the ticket-specific validation path and record the remaining `P0-302` / `P0-402` blockers explicitly.
 
 ## Critical Edge Case
 
@@ -21,4 +21,4 @@ Build minimal valid snapshots, verify provenance and timestamps for populated fi
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+Do not build throwaway scaffolding. It is acceptable to ship the typed schema and compatibility layer now, but any missing balance, receipt-link, or TTL behavior must remain clearly documented as deferred downstream work.

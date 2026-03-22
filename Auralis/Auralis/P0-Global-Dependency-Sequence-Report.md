@@ -12,12 +12,13 @@ Known completed foundations:
 - `P0-201` account model and persistence
 - `P0-501` receipt schema, storage, sanitization, export, and reset foundation
 
-The rest of the tickets in this batch are treated as not started.
+The rest of the tickets in this batch are treated as not started unless noted below.
 
 ## Ready Now
 
 - `P0-601` mode system Observe v0
 - `P0-204` chain scope settings per account
+- `P0-401` context schema v0 as a schema-first slice
 
 ## Newly Completed Foundation
 
@@ -81,11 +82,11 @@ Allowed early-start rules:
 ### Identity, provider, and context spine
 
 - `P0-203` blocked by `P0-301`, `P0-302`, and the needed `P0-502` slice
-- `P0-204` blocked by `P0-401`, `P0-402`
+- `P0-204` closed for the current chain-scope baseline; later context-service integration continues in `P0-401` and `P0-402`
 - `P0-301` depends on `P0-204` and benefits from `P0-701A`
 - `P0-302` blocked by `P0-301`, `P0-401`, and the needed `P0-502` slice
 - `P0-303` blocked by `P0-301`, `P0-302`, and the needed `P0-502` slice
-- `P0-401` blocked by `P0-204`, `P0-302`
+- `P0-401` is startable now; full completion still depends on `P0-302`
 - `P0-402` blocked by `P0-401`, `P0-301`, `P0-302`, `P0-701A`, and the needed `P0-502` slice
 - `P0-403` blocked by `P0-101C`, `P0-402`, `P0-503`
 

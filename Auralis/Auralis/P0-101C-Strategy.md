@@ -40,11 +40,11 @@ Tap freshness pill to open inspector, force stale timestamps, refresh from chrom
 What exists now:
 
 - a shell-level context-inspector entry is available from chrome
-- scope, mode, and freshness summary values can be shown from `AppContext`
+- scope, mode, freshness, and provenance summary values can be shown from `ContextSnapshot`
 
 What is still missing for this ticket:
 
 - tapping the freshness pill itself does not open the inspector
-- the inspector does not yet show provenance or last fetch receipt linkage
+- the inspector does not yet show last fetch receipt linkage
 - stale-state UI does not offer a dedicated refresh affordance from chrome
 - the behavior is not yet wired to the downstream Context Builder / Context Service tickets this work depends on

@@ -26,6 +26,7 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-601` is implemented; the chrome and context inspector read mode from the formal `modeState`, denied placeholder actions go through the policy gate seam, and receipts include `mode=Observe`.
 - `P0-204` is implemented for the current Phase 0 baseline: per-account chain scope persists, drives the visible shell state, emits receipts, and triggers the active refresh hook.
 - `P0-101B` has been re-validated as complete after the shell, mode, and chain remediation passes.
+- `P0-401` is now in progress as a schema-first slice: `ContextSnapshot` exists, the shell inspector reads it, and provenance-bearing scope/freshness fields are formalized.
 - `P0-101C` remains blocked on `P0-302`, `P0-401`, `P0-402`, and `P0-403`.
 
 ## Remediation Closeout
@@ -43,6 +44,7 @@ Closeout summary:
 - `P0-202`: complete with lowercase canonical normalization contract
 - `P0-601`: complete for Phase 0 Observe-mode ownership
 - `P0-204`: complete for the current per-account chain-scope baseline
+- `P0-401`: in progress as a schema-first baseline; full freshness completion remains deferred to `P0-302`
 - `P0-101C`: still blocked pending the real context/freshness stack
 
 ## Planning Rules
@@ -89,16 +91,17 @@ Why:
 
 ### Phase 3: Context and provider spine setup
 
-In progress baseline complete
+In progress
 
 6. `P0-204` Chain scope settings per account (Completed)
-7. `P0-401` Context schema v0
+7. `P0-401` Context schema v0 (Schema-first slice in progress)
 8. `P0-301` Provider abstraction
 9. `P0-701A` Layered boundaries structural scaffolding
 
 Why:
 
 - `P0-204` is now done, so the next real start point is `P0-401`
+- `P0-401` can now move ahead as a typed schema without waiting for final freshness policy
 - this is the minimum structure needed before context orchestration becomes real
 
 ### Phase 4: Fetch, cache, and context assembly
