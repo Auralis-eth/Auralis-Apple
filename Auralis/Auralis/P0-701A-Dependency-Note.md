@@ -20,6 +20,10 @@ This ticket can start earlier than full enforcement, but it still needs enough r
 - Prefer explicit dependency injection in new work.
 - Avoid direct UI-to-provider shortcuts even before enforcement exists.
 
+## Current Note
+
+`P0-301` now provides an early injected provider seam, which means `P0-701A` no longer has to invent that layer from scratch. What is still missing is the broader context-service ownership from `P0-402`.
+
 ## Unblock Condition
 
 There is enough provider and context-service shape to scaffold the structure without inventing a fake architecture.

@@ -10,17 +10,23 @@ import Foundation
 // Define AlchemyNFTResponse elsewhere in your project
 // struct AlchemyNFTResponse: Decodable { ... }
 
-final class AlchemyNFTService {
-    private let baseURL: String
-    private let apiKey: String
+final class AlchemyNFTService: NFTInventoryProviding {
+    private let baseURL: URL
     private let network: String
 
     // MARK: - Initialization
 
-    init(network: String = "eth-mainnet", apiKey: String = "docs-demo") {
-        self.network = network
-        self.apiKey = apiKey
-        self.baseURL = "https://\(network).g.alchemy.com/nft/v3/\(apiKey)"
+    init(
+        chain: Chain,
+        configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver()
+    ) throws {
+        let configuration = try configurationResolver.configuration(for: chain)
+        guard let baseURL = configuration.alchemyNFTBaseURL else {
+            throw ProviderAbstractionError.missingAPIKey(.alchemy)
+        }
+
+        self.network = chain.rawValue
+        self.baseURL = baseURL
     }
 
     // MARK: - Types
@@ -131,6 +137,13 @@ final class AlchemyNFTService {
 
     // MARK: - Public API
 
+    func nftsForOwner(
+        owner: String,
+        pageKey: String?
+    ) async throws -> AlchemyNFTResponse {
+        try await getNFTsForOwner(owner: owner, pageKey: pageKey)
+    }
+
     func getNFTsForOwner(
         owner: String,
         contractAddresses: [String]? = nil,
@@ -199,8 +212,8 @@ final class AlchemyNFTService {
         }
 
         // URL and components
-        guard let url = URL(string: "\(baseURL)/getNFTsForOwner"),
-              var components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+        let url = baseURL.appending(path: "getNFTsForOwner")
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
             throw APIError.badURL
         }
 
@@ -293,16 +306,15 @@ final class AlchemyNFTService {
             items.append(contentsOf: includeFilters.map { URLQueryItem(name: "includeFilters[]", value: $0.rawValue) })
         }
 
-        // Default spam level if not provided (per-network)
-        let effectiveSpamLevel: SpamConfidenceLevel? = {
-            if let provided = spamConfidenceLevel { return provided }
-            switch network {
-            case "eth-mainnet": return .veryHigh
-            case "polygon-mainnet": return .medium
-            default: return nil
-            }
-        }()
-
+//        let effectiveSpamLevel: SpamConfidenceLevel? = {
+//            if let provided = spamConfidenceLevel { return provided }
+//            switch network {
+//            case "eth-mainnet": return .veryHigh
+//            case "polygon-mainnet": return .medium
+//            default: return nil
+//            }
+//        }()
+//
 //        if let level = effectiveSpamLevel {
 //            items.append(URLQueryItem(name: "spamConfidenceLevel", value: level.rawValue))
 //        }

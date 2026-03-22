@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Infura {
+struct Infura: GasPricingProviding {
     // MARK: - Errors
     enum InfuraError: Error {
         case invalidKey
@@ -30,9 +30,21 @@ struct Infura {
     
     private let requestThrottler = RequestThrottler(minimumInterval: 0.1)
     private static let nanosecondsPerSecond: UInt64 = 1_000_000_000
+    private let configurationResolver: any ProviderConfigurationResolving
+
+    init(
+        configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver()
+    ) {
+        self.configurationResolver = configurationResolver
+    }
 
     // Public API -------------------------------------------------------------
-    func getGasPrice(chainId: Int = 1) async throws -> GasPriceEstimate {
+    func gasPriceEstimate(for chain: Chain) async throws -> GasPriceEstimate {
+        try await getGasPrice(chain: chain)
+    }
+
+    func getGasPrice(chain: Chain = .ethMainnet) async throws -> GasPriceEstimate {
+        let chainId = chain.chainId
         let cacheResult = await GasPriceCache.shared.getGasPrice(for: chainId)
         
         switch cacheResult {
@@ -42,7 +54,7 @@ struct Infura {
         case .expired(let estimate):
             do {
                 try await requestThrottler.throttle()
-                let freshEstimate = try await fetchWithRetry(chainId: chainId, maxAttempts: 3)
+                let freshEstimate = try await fetchWithRetry(chain: chain, maxAttempts: 3)
                 await GasPriceCache.shared.setGasPrice(freshEstimate, for: chainId)
                 return freshEstimate
             } catch {
@@ -51,28 +63,26 @@ struct Infura {
             
         case .miss:
             try await requestThrottler.throttle()
-            let estimate = try await fetchWithRetry(chainId: chainId, maxAttempts: 3)
+            let estimate = try await fetchWithRetry(chain: chain, maxAttempts: 3)
             await GasPriceCache.shared.setGasPrice(estimate, for: chainId)
             return estimate
         }
     }
     
     // Immutable helpers ------------------------------------------------------
-    private func buildURL(for chain: Int) throws -> URL {
-        guard let key = Secrets.apiKeyOrNil(.infura) else { throw InfuraError.invalidKey }
-        guard let url = URL(
-            string: "https://gas.api.infura.io/v3/\(key)/networks/\(chain)/suggestedGasFees"
-        ) else { throw InfuraError.invalidURL }
+    private func buildURL(for chain: Chain) throws -> URL {
+        let configuration = try configurationResolver.configuration(for: chain)
+        guard let url = configuration.infuraGasURL else { throw InfuraError.invalidKey }
         return url
     }
     
     // Retry wrapper with intelligent rate limit handling
-    private func fetchWithRetry(chainId: Int, maxAttempts: Int) async throws -> GasPriceEstimate {
+    private func fetchWithRetry(chain: Chain, maxAttempts: Int) async throws -> GasPriceEstimate {
         var delayNS: UInt64 = Self.nanosecondsPerSecond
         
         for attempt in 1...maxAttempts {
             do {
-                return try await fetchOnce(chainId: chainId)
+                return try await fetchOnce(chain: chain)
             } catch {
                 guard attempt < maxAttempts,
                       let infErr = error as? InfuraError,
@@ -123,8 +133,8 @@ struct Infura {
     }
     
     // Single request ---------------------------------------------------------
-    private func fetchOnce(chainId: Int) async throws -> GasPriceEstimate {
-        let url = try buildURL(for: chainId)
+    private func fetchOnce(chain: Chain) async throws -> GasPriceEstimate {
+        let url = try buildURL(for: chain)
         let req = URLRequest(url: url)
         
         let (data, resp): (Data, URLResponse)

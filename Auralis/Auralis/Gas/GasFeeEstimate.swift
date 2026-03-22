@@ -169,9 +169,13 @@ final class GasPriceEstimateViewModel: ObservableObject {
     @Published private(set) var currentChain: Chain?
     @Published private(set) var lastUpdated: Date?
     
-    private let service = Infura()
+    private let provider: any GasPricingProviding
     private var currentTask: Task<Void, Never>?
     private var refreshTimer: Timer?
+
+    init(provider: any GasPricingProviding = Infura()) {
+        self.provider = provider
+    }
     
     deinit {
         currentTask?.cancel()
@@ -231,7 +235,7 @@ final class GasPriceEstimateViewModel: ObservableObject {
         }
         
         do {
-            let result = try await service.getGasPrice(chainId: chain.chainId)
+            let result = try await provider.gasPriceEstimate(for: chain)
             
             // Only update if we're still on the same chain and not cancelled
             if !Task.isCancelled && currentChain?.chainId == chain.chainId {

@@ -19,6 +19,7 @@ The rest of the tickets in this batch are treated as not started unless noted be
 - `P0-601` mode system Observe v0
 - `P0-204` chain scope settings per account
 - `P0-401` context schema v0 as a schema-first slice
+- `P0-301` provider abstraction as an injected baseline slice
 
 ## Newly Completed Foundation
 
@@ -83,7 +84,7 @@ Allowed early-start rules:
 
 - `P0-203` blocked by `P0-301`, `P0-302`, and the needed `P0-502` slice
 - `P0-204` closed for the current chain-scope baseline; later context-service integration continues in `P0-401` and `P0-402`
-- `P0-301` depends on `P0-204` and benefits from `P0-701A`
+- `P0-301` is startable now and should align to `P0-701A` without waiting for later enforcement
 - `P0-302` blocked by `P0-301`, `P0-401`, and the needed `P0-502` slice
 - `P0-303` blocked by `P0-301`, `P0-302`, and the needed `P0-502` slice
 - `P0-401` is startable now; full completion still depends on `P0-302`

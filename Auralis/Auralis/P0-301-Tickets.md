@@ -7,9 +7,9 @@ Create the injected, read-only provider interface for chain-aware balance and me
 ## Execution Order
 
 1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
+2. Implement the minimum injected provider slice that proves the ticket is real.
 3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+4. Run the ticket-specific validation path and record the remaining downstream blockers explicitly.
 
 ## Critical Edge Case
 
@@ -21,4 +21,4 @@ Fetch native balance on a known chain, surface structured failures, enforce use 
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+Do not build throwaway scaffolding. It is acceptable to land injectable provider seams and centralized config now, but any missing context-service ownership, freshness behavior, or token-surface consumers must be recorded as deferred follow-on work.

@@ -28,6 +28,7 @@ protocol NFTFetching: AnyObject {
 
 @Observable
 class NFTFetcher: NFTFetching {
+    typealias NFTProviderFactory = (Chain) throws -> any NFTInventoryProviding
 
     enum FetcherError: Error, LocalizedError {
         case missingAPIKey
@@ -71,6 +72,7 @@ class NFTFetcher: NFTFetching {
     private let maxRetryCount: Int
     private let baseDelayNanoseconds: UInt64
     private let maxDelayNanoseconds: UInt64
+    private let nftProviderFactory: NFTProviderFactory
     
     private static let hexAddressRegex = Regex {
         Anchor.startOfSubject
@@ -83,10 +85,12 @@ class NFTFetcher: NFTFetching {
     
     init(maxRetryCount: Int = 10,
          baseDelayNanoseconds: UInt64 = 100_000_000,
-         maxDelayNanoseconds: UInt64 = 5_000_000_000) {
+         maxDelayNanoseconds: UInt64 = 5_000_000_000,
+         nftProviderFactory: @escaping NFTProviderFactory = { try AlchemyNFTService(chain: $0) }) {
         self.maxRetryCount = maxRetryCount
         self.baseDelayNanoseconds = baseDelayNanoseconds
         self.maxDelayNanoseconds = maxDelayNanoseconds
+        self.nftProviderFactory = nftProviderFactory
     }
     
     private func validateAccount(_ account: String) throws {
@@ -139,18 +143,6 @@ class NFTFetcher: NFTFetching {
         eventRecorder: any NFTRefreshEventRecording
     ) async throws -> [NFT] {
 //        return NFTExamples.allExamples
-        guard let apiKey = Secrets.apiKeyOrNil(.alchemy) else {
-            if let correlationID {
-                await eventRecorder.recordFetchFailed(
-                    accountAddress: account,
-                    chain: chain,
-                    correlationID: correlationID,
-                    error: FetcherError.missingAPIKey
-                )
-            }
-            throw FetcherError.missingAPIKey
-        }
-
         guard !loading else {
             if let correlationID {
                 await eventRecorder.recordFetchFailed(
@@ -185,7 +177,20 @@ class NFTFetcher: NFTFetching {
         var seenItems: Int = 0
 
         var attempt = 0
-        let service = AlchemyNFTService(network: chain.rawValue, apiKey: apiKey)
+        let service: any NFTInventoryProviding
+        do {
+            service = try nftProviderFactory(chain)
+        } catch {
+            if let correlationID {
+                await eventRecorder.recordFetchFailed(
+                    accountAddress: account,
+                    chain: chain,
+                    correlationID: correlationID,
+                    error: error
+                )
+            }
+            throw error
+        }
         var cursor: String? = nil
         
         var totalAttempts = 0
@@ -201,7 +206,7 @@ class NFTFetcher: NFTFetching {
             }
             
             do {
-                let nfts = try await service.getNFTsForOwner(owner: account, pageKey: cursor)
+                let nfts = try await service.nftsForOwner(owner: account, pageKey: cursor)
 
                 seenItems += nfts.ownedNfts.count
                 itemsLoaded = seenItems
