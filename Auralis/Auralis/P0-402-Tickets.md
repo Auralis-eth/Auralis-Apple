@@ -19,6 +19,15 @@ Cancel and isolate rapid account switches, coalesce concurrent context requests,
 
 Request context from UI, observe cached-then-refresh updates, switch active account without stale overwrites, and verify UI has no direct provider access.
 
+## Completion Summary
+
+- added a real `ContextService` seam as the shell UI entry point
+- removed direct `ContextSource` usage from `MainTabView` and the context inspector
+- gave the service cached snapshot ownership for the active shell context
+- coalesced duplicate in-flight context requests for the same scope
+- prevented stale context overwrites during rapid account switches with generation-based isolation
+- covered coalescing and rapid-switch protection with focused tests
+
 ## Handoff Rule
 
 If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocked
+Completed for the active shell context slice
 
 ## Ticket
 
@@ -27,6 +27,22 @@ Rapid account switches, coalesced requests, and partial snapshot failure must wo
 - ContextService is the intended UI-facing entry point.
 - Its shape fits early structural scaffolding.
 - Later enforcement can lock the boundaries down without redesigning the service.
+
+## Completion Note
+
+The active Phase 0 context-service slice is now complete for:
+
+- `ContextService` as the shell-facing UI entry point instead of direct `ContextSource` access
+- cached snapshot ownership inside the service
+- coalesced concurrent context requests for the same scope
+- rapid account-switch isolation so stale requests do not overwrite the latest scope
+- service-backed context inspection in the shell
+
+What remains intentionally downstream:
+
+- broader provider-backed substeps and partial-failure assembly beyond the current shell context inputs
+- richer receipt-linked inspector behavior in `P0-403`
+- stricter compile-time boundary enforcement in `P0-701B`
 
 ## Validation Target
 

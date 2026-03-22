@@ -190,23 +190,56 @@ struct MainTabView: View {
     let services: ShellServiceHub
     @State private var showAccountSwitcher = false
     @State private var showContextInspector = false
-
-    private var contextSource: ContextSource {
-        services.contextSourceBuilder.makeContextSource(
-            accountProvider: { currentAccount },
-            addressProvider: { currentAddress },
-            chainProvider: { currentChain },
-            modeProvider: { modeState.mode },
-            loadingProvider: { nftService.isLoading },
-            refreshedAtProvider: { nftService.lastSuccessfulRefreshAt },
-            freshnessTTLProvider: { nftService.refreshTTL },
-            trackedNFTCountProvider: { currentAccount?.trackedNFTCount },
-            prefersDemoDataProvider: { false }
-        )
-    }
+    @State private var contextService: ContextService
 
     private var policyActionHandler: any ObservePolicyActionHandling {
         services.policyActionHandlerFactory(modelContext, modeState)
+    }
+
+    private var contextRefreshKey: ContextRefreshKey {
+        ContextRefreshKey(
+            accountAddress: currentAccount?.address ?? currentAddress,
+            chain: currentChain,
+            mode: modeState.mode,
+            isLoading: nftService.isLoading,
+            refreshedAt: nftService.lastSuccessfulRefreshAt,
+            trackedNFTCount: currentAccount?.trackedNFTCount
+        )
+    }
+
+    init(
+        currentAccount: Binding<EOAccount?>,
+        currentAddress: Binding<String>,
+        currentChainId: Binding<String>,
+        currentChain: Binding<Chain>,
+        nftService: Binding<NFTService>,
+        router: AppRouter,
+        audioEngine: AudioEngine,
+        modeState: ModeState,
+        services: ShellServiceHub
+    ) {
+        self._currentAccount = currentAccount
+        self._currentAddress = currentAddress
+        self._currentChainId = currentChainId
+        self._currentChain = currentChain
+        self._nftService = nftService
+        self.router = router
+        self.audioEngine = audioEngine
+        self.modeState = modeState
+        self.services = services
+        _contextService = State(
+            initialValue: services.contextServiceBuilder.makeContextService(
+                accountProvider: { currentAccount.wrappedValue },
+                addressProvider: { currentAddress.wrappedValue },
+                chainProvider: { currentChain.wrappedValue },
+                modeProvider: { modeState.mode },
+                loadingProvider: { nftService.wrappedValue.isLoading },
+                refreshedAtProvider: { nftService.wrappedValue.lastSuccessfulRefreshAt },
+                freshnessTTLProvider: { nftService.wrappedValue.refreshTTL },
+                trackedNFTCountProvider: { currentAccount.wrappedValue?.trackedNFTCount },
+                prefersDemoDataProvider: { false }
+            )
+        )
     }
 
     var body: some View {
@@ -232,8 +265,11 @@ struct MainTabView: View {
                 currentAddress: currentAddress,
                 currentChain: currentChain,
                 nftService: nftService,
-                contextSource: contextSource
+                contextService: contextService
             )
+        }
+        .task(id: contextRefreshKey) {
+            await contextService.refresh()
         }
         .onChange(of: currentAccount) { _, newAccount in
             if let acct = newAccount {
@@ -387,6 +423,15 @@ struct MainTabView: View {
                 .ignoresSafeArea()
         }
     }
+}
+
+private struct ContextRefreshKey: Hashable {
+    let accountAddress: String
+    let chain: Chain
+    let mode: AppMode
+    let isLoading: Bool
+    let refreshedAt: Date?
+    let trackedNFTCount: Int?
 }
 
 #Preview {

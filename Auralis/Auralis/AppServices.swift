@@ -15,6 +15,21 @@ protocol ShellContextSourceBuilding {
     ) -> any ContextSource
 }
 
+@MainActor
+protocol ShellContextServiceBuilding {
+    func makeContextService(
+        accountProvider: @escaping () -> EOAccount?,
+        addressProvider: @escaping () -> String,
+        chainProvider: @escaping () -> Chain,
+        modeProvider: @escaping () -> AppMode,
+        loadingProvider: @escaping () -> Bool,
+        refreshedAtProvider: @escaping () -> Date?,
+        freshnessTTLProvider: @escaping () -> TimeInterval?,
+        trackedNFTCountProvider: @escaping () -> Int?,
+        prefersDemoDataProvider: @escaping () -> Bool?
+    ) -> ContextService
+}
+
 struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
     func makeContextSource(
         accountProvider: @escaping () -> EOAccount?,
@@ -28,6 +43,40 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
         prefersDemoDataProvider: @escaping () -> Bool?
     ) -> any ContextSource {
         LiveContextSource(
+            accountProvider: accountProvider,
+            addressProvider: addressProvider,
+            chainProvider: chainProvider,
+            modeProvider: modeProvider,
+            loadingProvider: loadingProvider,
+            refreshedAtProvider: refreshedAtProvider,
+            freshnessTTLProvider: freshnessTTLProvider,
+            trackedNFTCountProvider: trackedNFTCountProvider,
+            prefersDemoDataProvider: prefersDemoDataProvider
+        )
+    }
+}
+
+@MainActor
+struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
+    private let contextSourceBuilder: any ShellContextSourceBuilding
+
+    init(contextSourceBuilder: any ShellContextSourceBuilding = LiveShellContextSourceBuilder()) {
+        self.contextSourceBuilder = contextSourceBuilder
+    }
+
+    func makeContextService(
+        accountProvider: @escaping () -> EOAccount?,
+        addressProvider: @escaping () -> String,
+        chainProvider: @escaping () -> Chain,
+        modeProvider: @escaping () -> AppMode,
+        loadingProvider: @escaping () -> Bool,
+        refreshedAtProvider: @escaping () -> Date?,
+        freshnessTTLProvider: @escaping () -> TimeInterval?,
+        trackedNFTCountProvider: @escaping () -> Int?,
+        prefersDemoDataProvider: @escaping () -> Bool?
+    ) -> ContextService {
+        ContextService(
+            contextSourceBuilder: contextSourceBuilder,
             accountProvider: accountProvider,
             addressProvider: addressProvider,
             chainProvider: chainProvider,
@@ -72,14 +121,14 @@ struct ObservePolicyActionService: ObservePolicyActionHandling {
 struct ShellServiceHub {
     let modeStateFactory: @MainActor () -> ModeState
     let nftServiceFactory: @MainActor () -> NFTService
-    let contextSourceBuilder: any ShellContextSourceBuilding
+    let contextServiceBuilder: any ShellContextServiceBuilding
     let receiptStoreFactory: @MainActor (ModelContext) -> any ReceiptStore
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any ObservePolicyActionHandling
 
     static let live = ShellServiceHub(
         modeStateFactory: { ModeState() },
         nftServiceFactory: { NFTService() },
-        contextSourceBuilder: LiveShellContextSourceBuilder(),
+        contextServiceBuilder: LiveShellContextServiceBuilder(),
         receiptStoreFactory: { modelContext in
             ReceiptStores.live(modelContext: modelContext)
         },

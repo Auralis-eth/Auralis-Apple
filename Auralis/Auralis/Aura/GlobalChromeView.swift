@@ -80,10 +80,10 @@ struct ChromeContextInspectorSheet: View {
     let currentAddress: String
     let currentChain: Chain
     let nftService: NFTService
-    let contextSource: ContextSource
+    let contextService: ContextService
 
     private var snapshot: ContextSnapshot {
-        contextSource.snapshot()
+        contextService.snapshot
     }
 
     var body: some View {
