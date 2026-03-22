@@ -10,6 +10,7 @@ struct MainAuraRestoreResult {
 
 struct MainAuraAccountChangeResult {
     let currentAddress: String
+    let currentChain: Chain
     let shouldResetRoutes: Bool
     let shouldRefreshNFTs: Bool
     let shouldProcessPendingDeepLink: Bool
@@ -18,6 +19,7 @@ struct MainAuraAccountChangeResult {
 struct MainAuraAddressChangeResult {
     let currentAddress: String
     let currentAccount: EOAccount?
+    let currentChain: Chain
     let shouldResetRoutes: Bool
     let shouldProcessPendingDeepLink: Bool
 }
@@ -29,10 +31,13 @@ struct MainAuraShellLogic {
         accounts: [EOAccount]
     ) -> MainAuraRestoreResult {
         let resolvedSelection = resolveInitialSelection(for: currentAddress, accounts: accounts)
+        let resolvedChain = resolvedSelection.currentAccount?.currentChain
+            ?? Chain(rawValue: currentChainId)
+            ?? .ethMainnet
 
         return MainAuraRestoreResult(
             currentAddress: resolvedSelection.currentAddress,
-            currentChain: Chain(rawValue: currentChainId) ?? .ethMainnet,
+            currentChain: resolvedChain,
             currentAccount: resolvedSelection.currentAccount,
             didFinishInitialStateRestore: true,
             shouldProcessPendingDeepLink: true
@@ -42,21 +47,29 @@ struct MainAuraShellLogic {
     func accountDidChange(newAccount: EOAccount?, persistedAddress: String) -> MainAuraAccountChangeResult {
         let nextAddress = newAccount?.address ?? ""
         let shouldRefreshNFTs = newAccount != nil && nextAddress != persistedAddress
+        let currentChain = newAccount?.currentChain ?? .ethMainnet
 
         return MainAuraAccountChangeResult(
             currentAddress: nextAddress,
+            currentChain: currentChain,
             shouldResetRoutes: shouldRefreshNFTs,
             shouldRefreshNFTs: shouldRefreshNFTs,
             shouldProcessPendingDeepLink: true
         )
     }
 
-    func addressDidChange(newAddress: String, accounts: [EOAccount]) -> MainAuraAddressChangeResult {
+    func addressDidChange(
+        newAddress: String,
+        currentChain: Chain,
+        accounts: [EOAccount]
+    ) -> MainAuraAddressChangeResult {
         let resolvedAccount = resolvePersistedAccount(for: newAddress, accounts: accounts)
+        let resolvedChain = resolvedAccount?.currentChain ?? currentChain
 
         return MainAuraAddressChangeResult(
             currentAddress: newAddress,
             currentAccount: resolvedAccount,
+            currentChain: resolvedChain,
             shouldResetRoutes: true,
             shouldProcessPendingDeepLink: true
         )

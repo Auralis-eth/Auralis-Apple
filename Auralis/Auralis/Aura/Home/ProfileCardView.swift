@@ -21,42 +21,47 @@ struct ProfileCardView: View {
     var body: some View {
         HStack(spacing: 12) {
             
-            Group {
-                if let avatarImage = avatarImage {
-                    Image(uiImage: avatarImage)
-                        .resizable()
-                        .scaledToFit()
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 2))
-                } else {
-                    // Placeholder avatar circle
-                    Circle()
-                        .fill(Color.textSecondary.opacity(0.3))
+            HStack {
+                Group {
+                    if let avatarImage = avatarImage {
+                        Image(uiImage: avatarImage)
+                            .resizable()
+                            .scaledToFit()
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 2))
+                    } else {
+                        // Placeholder avatar circle
+                        Circle()
+                            .fill(Color.textSecondary.opacity(0.3))
                         
+                    }
+                }
+                .frame(width: 96, height: 96)
+                .overlay {
+                    if isLoadingAvatar {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+                    } else {
+                        Image(systemName:"person.crop.circle.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .foregroundColor(.deepBlue)
+                            .padding(18)
+                    }
+                }
+                .padding(.bottom, 4)
+                
+                Spacer()
+                
+                VStack(alignment: .leading) {
+                    Title2FontText("HELLO")
+                    SecondaryText("\(currentAccount?.address.displayAddress ?? "")")
                 }
             }
-            .frame(width: 96, height: 96)
-            .overlay {
-                if isLoadingAvatar {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(1.5)
-                } else {
-                    Image(systemName: "person.crop.circle.fill")
-                        .resizable()
-                        .scaledToFit()
-                        .foregroundColor(.deepBlue)
-                        .padding(18)
-                }
-            }
-            .padding(.bottom, 4)
             
             Spacer()
-            VStack(alignment: .leading) {
-                Title2FontText("HELLO")
-                SecondaryText("\(currentAccount?.address.displayAddress ?? "")")
-            }
-            Spacer()
+            
             VStack(spacing: 12) {
                 Button(action: onOpenAccountSwitcher) {
                     SystemImage("square.and.pencil")
@@ -70,7 +75,6 @@ struct ProfileCardView: View {
             }
             .foregroundStyle(Color.accent)
             .font(.system(size: 30, weight: .medium))
-            .padding(.horizontal)
         }
         .task {
             if avatarImage == nil {

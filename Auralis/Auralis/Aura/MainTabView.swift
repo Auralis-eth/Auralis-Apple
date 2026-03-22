@@ -7,6 +7,7 @@ enum AppTab: Hashable {
     case news
     case gas
     case music
+    case receipts
     case profile
     case search
     case erc20Tokens
@@ -23,11 +24,16 @@ struct ERC20TokenRoute: Hashable {
     let symbol: String
 }
 
+struct ReceiptRoute: Hashable {
+    let id: String
+}
+
 @Observable
 final class AppRouter {
     var selectedTab: AppTab = .home
     var newsPath: [NFTDetailRoute] = []
     var musicPath: [NFTDetailRoute] = []
+    var receiptsPath: [ReceiptRoute] = []
     var nftTokensPath: [NFTDetailRoute] = []
     var erc20TokensPath: [ERC20TokenRoute] = []
     var presentedRouteError: AppRouteError?
@@ -35,6 +41,7 @@ final class AppRouter {
     func resetAllPaths() {
         newsPath.removeAll()
         musicPath.removeAll()
+        receiptsPath.removeAll()
         nftTokensPath.removeAll()
         erc20TokensPath.removeAll()
     }
@@ -81,6 +88,15 @@ final class AppRouter {
         ]
     }
 
+    func showReceipts() {
+        selectedTab = .receipts
+    }
+
+    func showReceipt(id: String) {
+        selectedTab = .receipts
+        receiptsPath = [.init(id: id)]
+    }
+
     func showRouteError(title: String, message: String, urlString: String? = nil) {
         presentedRouteError = AppRouteError(
             title: title,
@@ -103,6 +119,8 @@ final class AppRouter {
             return "gas"
         case .music:
             return "music"
+        case .receipts:
+            return "receipts"
         case .profile:
             return "profile"
         case .search:
@@ -120,6 +138,8 @@ final class AppRouter {
             return newsPath.count
         case .music:
             return musicPath.count
+        case .receipts:
+            return receiptsPath.count
         case .erc20Tokens:
             return erc20TokensPath.count
         case .nftTokens:
@@ -139,6 +159,10 @@ final class AppRouter {
             if !musicPath.isEmpty {
                 musicPath.removeLast()
             }
+        case .receipts:
+            if !receiptsPath.isEmpty {
+                receiptsPath.removeLast()
+            }
         case .erc20Tokens:
             if !erc20TokensPath.isEmpty {
                 erc20TokensPath.removeLast()
@@ -154,6 +178,7 @@ final class AppRouter {
 }
 
 struct MainTabView: View {
+    @Environment(\.modelContext) private var modelContext
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     @Binding var currentChainId: String
@@ -188,7 +213,9 @@ struct MainTabView: View {
         .sheet(isPresented: $showAccountSwitcher) {
             AccountSwitcherSheet(
                 currentAccount: $currentAccount,
-                currentAddress: $currentAddress
+                currentAddress: $currentAddress,
+                currentChain: $currentChain,
+                onCurrentChainChanged: refreshActiveChainScope
             )
         }
         .sheet(isPresented: $showContextInspector) {
@@ -208,6 +235,13 @@ struct MainTabView: View {
         }
         .onChange(of: currentChain) { _, newValue in
             currentChainId = newValue.rawValue
+
+            guard let currentAccount, currentAccount.currentChain != newValue else {
+                return
+            }
+
+            currentAccount.currentChain = newValue
+            try? modelContext.save()
         }
         .environment(\.modeState, modeState)
     }
@@ -216,15 +250,28 @@ struct MainTabView: View {
         GlobalChromeView(
             currentAccount: $currentAccount,
             currentAddress: $currentAddress,
-            currentChain: currentChain,
-            nftService: nftService,
-            router: router,
             onOpenAccountSwitcher: { showAccountSwitcher = true },
             onOpenContextInspector: { showContextInspector = true }
         )
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 8)
+    }
+
+    @MainActor
+    private func refreshActiveChainScope(_ chain: Chain) {
+        guard let activeAccount = currentAccount else {
+            return
+        }
+
+        Task {
+            await nftService.refreshNFTs(
+                for: activeAccount,
+                chain: chain,
+                modelContext: modelContext,
+                correlationID: UUID().uuidString
+            )
+        }
     }
 
     private var tabContent: some View {
@@ -234,6 +281,8 @@ struct MainTabView: View {
                     currentAccount: $currentAccount,
                     currentAddress: $currentAddress,
                     currentChainId: $currentChainId,
+                    currentChain: $currentChain,
+                    onCurrentChainChanged: refreshActiveChainScope,
                     router: router
                 )
             }
@@ -276,9 +325,18 @@ struct MainTabView: View {
                 .accessibilityIdentifier("tab.music")
             }
 
+            Tab("Receipts", systemImage: "doc.text", value: AppTab.receipts) {
+                NavigationStack(path: $router.receiptsPath) {
+                    ReceiptsRootView(router: router)
+                        .navigationDestination(for: ReceiptRoute.self) { route in
+                            ReceiptDetailView(route: route)
+                        }
+                }
+                .accessibilityIdentifier("tab.receipts")
+            }
+
             Tab("Profile", systemImage: "person.circle", value: AppTab.profile) {
-                Text("SentView()")
-                Text("ENS")
+                ObserveModePolicyView(modeState: modeState)
             }
 
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
@@ -441,7 +499,7 @@ private struct SharedNFTDetailView: View {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color.secondary.opacity(0.2))
                 .overlay {
-                    Image(systemName: "photo")
+                    SystemImage("photo")
                         .font(.largeTitle)
                         .foregroundStyle(.secondary)
                 }
@@ -498,6 +556,193 @@ private struct NFTTokensRootView: View {
         }
         .navigationTitle("NFT Tokens")
         .accessibilityIdentifier("nftTokens.root")
+    }
+}
+
+private struct ReceiptsRootView: View {
+    @Query(
+        sort: [
+            SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
+            SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
+        ]
+    ) private var receipts: [StoredReceipt]
+
+    let router: AppRouter
+
+    var body: some View {
+        Group {
+            if receipts.isEmpty {
+                AuraScenicScreen(contentAlignment: .center) {
+                    ShellNoReceiptsStateView()
+                }
+            } else {
+                List(receipts, id: \.id) { receipt in
+                    Button {
+                        router.showReceipt(id: receipt.id.uuidString)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(receipt.kind)
+                                .foregroundStyle(Color.textPrimary)
+
+                            HStack(spacing: 8) {
+                                Text(receipt.category)
+                                Text("•")
+                                Text(receipt.createdAt, style: .relative)
+                            }
+                            .font(.caption)
+                            .foregroundStyle(Color.textSecondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("receipts.row.\(receipt.id.uuidString)")
+                }
+            }
+        }
+        .navigationTitle("Receipts")
+        .accessibilityIdentifier("receipts.root")
+    }
+}
+
+private struct ReceiptDetailView: View {
+    let route: ReceiptRoute
+
+    @Query private var receipts: [StoredReceipt]
+
+    private var receipt: StoredReceipt? {
+        guard let receiptID = UUID(uuidString: route.id) else {
+            return nil
+        }
+
+        return receipts.first(where: { $0.id == receiptID })
+    }
+
+    var body: some View {
+        Group {
+            if let receipt {
+                List {
+                    Section("Summary") {
+                        LabeledContent("Kind", value: receipt.kind)
+                        LabeledContent("Category", value: receipt.category)
+                        LabeledContent("Sequence", value: String(receipt.sequenceID))
+                        LabeledContent("Created", value: receipt.createdAt.formatted(date: .abbreviated, time: .standard))
+
+                        if let correlationID = receipt.correlationID, !correlationID.isEmpty {
+                            LabeledContent("Correlation ID", value: correlationID)
+                        }
+                    }
+
+                    Section("Payload") {
+                        Text(payloadText(for: receipt))
+                            .font(.footnote.monospaced())
+                            .textSelection(.enabled)
+                    }
+                }
+                .accessibilityIdentifier("receipts.detail")
+            } else {
+                ContentUnavailableView(
+                    "Receipt Unavailable",
+                    systemImage: "doc.text.magnifyingglass",
+                    description: Text("The requested receipt could not be found in local storage.")
+                )
+                .accessibilityIdentifier("receipts.detail.unavailable")
+            }
+        }
+        .navigationTitle("Receipt")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func payloadText(for receipt: StoredReceipt) -> String {
+        do {
+            let payload = try receipt.decodedPayload()
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(payload)
+            return String(decoding: data, as: UTF8.self)
+        } catch {
+            return "Payload unavailable"
+        }
+    }
+}
+
+private struct ObserveModePolicyView: View {
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var denialMessage: String?
+
+    let modeState: ModeState
+
+    private let blockedActions: [ObserveBlockedAction] = [
+        .signMessage,
+        .approveSpending,
+        .draftTransaction,
+        .runPlugin
+    ]
+
+    var body: some View {
+        AuraScenicScreen(contentAlignment: .top) {
+            VStack(alignment: .leading, spacing: 16) {
+                ShellStatusCard(
+                    eyebrow: "Observe Mode",
+                    title: "Execution Is Locked",
+                    message: "Auralis is currently read-only. Signing, approvals, transaction drafting, and plugin execution stay blocked until a later phase unlocks them intentionally.",
+                    systemImage: "eye.slash",
+                    tone: .warning
+                )
+
+                ForEach(blockedActions, id: \.rawValue) { action in
+                    AuraSurfaceCard(style: .soft, cornerRadius: 24, padding: 16) {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(action.title)
+                                    .font(.headline)
+                                    .foregroundStyle(Color.textPrimary)
+
+                                Text(action.summary)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+
+                            Spacer(minLength: 8)
+
+                            AuraActionButton("Try", style: .surface) {
+                                attempt(action)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Profile")
+        .alert("Not available in Observe mode", isPresented: denialAlertBinding) {
+            Button("OK", role: .cancel) {
+                denialMessage = nil
+            }
+        } message: {
+            Text(denialMessage ?? "This action is not available right now.")
+        }
+    }
+
+    private var denialAlertBinding: Binding<Bool> {
+        Binding(
+            get: { denialMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    denialMessage = nil
+                }
+            }
+        )
+    }
+
+    private func attempt(_ action: ObserveBlockedAction) {
+        let result = ExecutePolicyGate.attempt(
+            action,
+            modeState: modeState,
+            receiptStore: SwiftDataReceiptStore(modelContext: modelContext)
+        )
+
+        if !result.isAllowed {
+            denialMessage = result.userMessage
+        }
     }
 }
 

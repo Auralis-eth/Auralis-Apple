@@ -7,14 +7,18 @@ struct AuraPill: View {
         case success
     }
 
-    private let title: String
+    private let title: String?
     private let systemImage: String?
     private let emphasis: Emphasis
+    private let imageSize: Font
+    private let aceessibilityLabel: String?
 
-    init(_ title: String, systemImage: String? = nil, emphasis: Emphasis = .neutral) {
+    init(_ title: String? = nil, systemImage: String? = nil, emphasis: Emphasis = .neutral, imageSize: Font = .caption, aceessibilityLabel: String? = nil) {
         self.title = title
         self.systemImage = systemImage
         self.emphasis = emphasis
+        self.imageSize = imageSize
+        self.aceessibilityLabel = aceessibilityLabel
     }
 
     var body: some View {
@@ -25,12 +29,14 @@ struct AuraPill: View {
                     .accessibilityHidden(true)
             }
 
-            Text(title)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+            if let title {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .foregroundStyle(foregroundColor)
         .padding(.horizontal, 10)
@@ -41,7 +47,7 @@ struct AuraPill: View {
                 .strokeBorder(borderColor, lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
+        .accessibilityLabel(title ?? aceessibilityLabel ?? "")
     }
 
     private var foregroundColor: Color {

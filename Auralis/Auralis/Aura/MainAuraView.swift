@@ -93,6 +93,9 @@ struct MainAuraView: View {
         .onChange(of: currentAccount) { oldValue, newValue in
             let result = shellLogic.accountDidChange(newAccount: newValue, persistedAddress: currentAddress)
 
+            currentChain = result.currentChain
+            currentChainId = result.currentChain.rawValue
+
             if result.shouldResetRoutes {
                 router.resetAllPaths()
             }
@@ -123,7 +126,11 @@ struct MainAuraView: View {
             currentChainId = newValue.rawValue
         }
         .onChange(of: currentAddress) { oldValue, newValue in
-            let result = shellLogic.addressDidChange(newAddress: newValue, accounts: accounts)
+            let result = shellLogic.addressDidChange(
+                newAddress: newValue,
+                currentChain: currentChain,
+                accounts: accounts
+            )
 
             if result.shouldResetRoutes {
                 router.resetAllPaths()
@@ -133,6 +140,8 @@ struct MainAuraView: View {
                 currentAddress = result.currentAddress
             }
             currentAccount = result.currentAccount
+            currentChain = result.currentChain
+            currentChainId = result.currentChain.rawValue
             if result.shouldProcessPendingDeepLink {
                 processPendingDeepLinkIfPossible()
             }
@@ -242,12 +251,7 @@ struct MainAuraView: View {
             )
 
         case .receipt(let id):
-            routeLogger.error("Receipt deep link is unsupported in Phase 0: \(id, privacy: .public)")
-            router.showRouteError(
-                title: "Receipt Link Unsupported",
-                message: "Receipt deep links are not supported in this phase yet.",
-                urlString: nil
-            )
+            router.showReceipt(id: id)
         }
     }
 

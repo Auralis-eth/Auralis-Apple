@@ -8,6 +8,8 @@ struct AccountSwitcherSheet: View {
 
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
+    @Binding var currentChain: Chain
+    let onCurrentChainChanged: @MainActor (Chain) -> Void
 
     @State private var pendingRemovalAccount: EOAccount?
     @State private var feedbackAlert: AccountSwitcherAlert?
@@ -52,29 +54,7 @@ struct AccountSwitcherSheet: View {
                     }
 
                     if let selected = currentAccount {
-                        Section("Chain Scope") {
-                            ChainPickerRow(
-                                title: "Preferred Chain",
-                                selection: Binding(
-                                    get: { selected.preferredChain },
-                                    set: { newValue in
-                                        selected.preferredChain = newValue
-                                        try? modelContext.save()
-                                    }
-                                )
-                            )
-
-                            ChainPickerRow(
-                                title: "Current Chain",
-                                selection: Binding(
-                                    get: { selected.currentChain },
-                                    set: { newValue in
-                                        selected.currentChain = newValue
-                                        try? modelContext.save()
-                                    }
-                                )
-                            )
-                        }
+                        chainScopeSection(for: selected)
                     }
                 }
             }
@@ -196,6 +176,76 @@ struct AccountSwitcherSheet: View {
             )
         }
     }
+
+    private func applyChainScopeChange(_ plan: ChainScopeChangePlan, to account: EOAccount) {
+        guard plan.shouldApply, let event = plan.event else {
+            return
+        }
+
+        switch plan.kind {
+        case .preferred:
+            account.preferredChain = plan.to
+        case .current:
+            account.currentChain = plan.to
+            if currentAccount?.address == account.address {
+                currentChain = plan.to
+            }
+        }
+
+        try? modelContext.save()
+        AccountEventRecorders.live(modelContext: modelContext).record(event)
+
+        if plan.shouldRefreshActiveScope {
+            onCurrentChainChanged(plan.to)
+        }
+    }
+
+    @ViewBuilder
+    private func chainScopeSection(for account: EOAccount) -> some View {
+        Section("Chain Scope") {
+            ChainPickerRow(
+                title: "Preferred Chain",
+                selection: preferredChainBinding(for: account)
+            )
+
+            ChainPickerRow(
+                title: "Current Chain",
+                selection: currentChainBinding(for: account)
+            )
+        }
+    }
+
+    private func preferredChainBinding(for account: EOAccount) -> Binding<Chain> {
+        Binding(
+            get: { account.preferredChain },
+            set: { newValue in
+                applyChainScopeChange(
+                    ChainScopeChangePlanner().planPreferredChange(
+                        address: account.address,
+                        from: account.preferredChain,
+                        to: newValue
+                    ),
+                    to: account
+                )
+            }
+        )
+    }
+
+    private func currentChainBinding(for account: EOAccount) -> Binding<Chain> {
+        Binding(
+            get: { account.currentChain },
+            set: { newValue in
+                applyChainScopeChange(
+                    ChainScopeChangePlanner().planCurrentChange(
+                        address: account.address,
+                        from: account.currentChain,
+                        to: newValue
+                    ),
+                    to: account
+                )
+            }
+        )
+    }
 }
 
 private struct AccountRow: View {
@@ -208,13 +258,20 @@ private struct AccountRow: View {
         HStack(spacing: 12) {
             Button(action: onSelect) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(account.name ?? account.address.displayAddress)
-                        .foregroundStyle(Color.textPrimary)
-                        .fontWeight(.semibold)
+                    if let name = account.name {
+                        Text(name)
+                            .foregroundStyle(Color.textSecondary)
+                            .fontWeight(.semibold)
 
-                    Text(account.address.displayAddress)
-                        .font(.caption)
-                        .foregroundStyle(Color.textSecondary)
+                        Text(account.address.displayAddress)
+                            .font(.caption)
+                            .foregroundStyle(Color.textSecondary)
+                    } else {
+                        Text(account.address.displayAddress)
+                            .foregroundStyle(Color.textSecondary)
+                            .fontWeight(.semibold)                        
+                    }
+                    
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -251,6 +308,72 @@ private struct AccountSwitcherAlert: Identifiable {
     let title: String
     let message: String
 }
+
+enum ChainScopeChangeKind: Equatable {
+    case preferred
+    case current
+}
+
+struct ChainScopeChangePlan: Equatable {
+    let kind: ChainScopeChangeKind
+    let to: Chain
+    let shouldApply: Bool
+    let shouldRefreshActiveScope: Bool
+    let event: AccountEvent?
+}
+
+struct ChainScopeChangePlanner {
+    func planPreferredChange(address: String, from: Chain, to: Chain) -> ChainScopeChangePlan {
+        makePlan(
+            kind: .preferred,
+            address: address,
+            from: from,
+            to: to
+        )
+    }
+
+    func planCurrentChange(address: String, from: Chain, to: Chain) -> ChainScopeChangePlan {
+        makePlan(
+            kind: .current,
+            address: address,
+            from: from,
+            to: to
+        )
+    }
+
+    private func makePlan(
+        kind: ChainScopeChangeKind,
+        address: String,
+        from: Chain,
+        to: Chain
+    ) -> ChainScopeChangePlan {
+        guard from != to else {
+            return ChainScopeChangePlan(
+                kind: kind,
+                to: to,
+                shouldApply: false,
+                shouldRefreshActiveScope: false,
+                event: nil
+            )
+        }
+
+        let event: AccountEvent = switch kind {
+        case .preferred:
+            .preferredChainChanged(address: address, from: from, to: to)
+        case .current:
+            .currentChainChanged(address: address, from: from, to: to)
+        }
+
+        return ChainScopeChangePlan(
+            kind: kind,
+            to: to,
+            shouldApply: true,
+            shouldRefreshActiveScope: kind == .current,
+            event: event
+        )
+    }
+}
+
 private struct ChainPickerRow: View {
     let title: String
     @Binding var selection: Chain
@@ -270,4 +393,3 @@ private struct ChainPickerRow: View {
         }
     }
 }
-

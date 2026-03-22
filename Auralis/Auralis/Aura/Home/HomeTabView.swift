@@ -24,6 +24,8 @@ struct HomeTabView: View {
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     @Binding var currentChainId: String
+    @Binding var currentChain: Chain
+    let onCurrentChainChanged: @MainActor (Chain) -> Void
     let router: AppRouter
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -54,7 +56,7 @@ struct HomeTabView: View {
         ScrollView {
             VStack {
                 VStack(spacing: 12) {
-                    AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+                    AuraSurfaceCard(style: .soft, cornerRadius: 25, padding: 8) {
                         ProfileCardView(
                             currentAccount: $currentAccount,
                             currentAddress: $currentAddress,
@@ -133,7 +135,9 @@ struct HomeTabView: View {
                 .sheet(isPresented: $showAccountSwitcher) {
                     AccountSwitcherSheet(
                         currentAccount: $currentAccount,
-                        currentAddress: $currentAddress
+                        currentAddress: $currentAddress,
+                        currentChain: $currentChain,
+                        onCurrentChainChanged: onCurrentChainChanged
                     )
                 }
                 .overlay {
