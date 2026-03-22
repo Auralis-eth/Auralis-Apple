@@ -9,6 +9,7 @@ protocol ShellContextSourceBuilding {
         modeProvider: @escaping () -> AppMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
+        freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
         prefersDemoDataProvider: @escaping () -> Bool?
     ) -> any ContextSource
@@ -22,6 +23,7 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
         modeProvider: @escaping () -> AppMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
+        freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
         prefersDemoDataProvider: @escaping () -> Bool?
     ) -> any ContextSource {
@@ -32,6 +34,7 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
             modeProvider: modeProvider,
             loadingProvider: loadingProvider,
             refreshedAtProvider: refreshedAtProvider,
+            freshnessTTLProvider: freshnessTTLProvider,
             trackedNFTCountProvider: trackedNFTCountProvider,
             prefersDemoDataProvider: prefersDemoDataProvider
         )

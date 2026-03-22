@@ -118,7 +118,7 @@ Why:
 ### Phase 4: Fetch, cache, and context assembly
 
 10. `P0-502` initial receipt slices for the active work (Completed for active account/chain slice)
-11. `P0-302` Caching + freshness primitives
+11. `P0-302` Caching + freshness primitives (Completed for active NFT freshness slice)
 12. `P0-402` Context service + dependency boundaries
 13. `P0-303` Error handling + degraded mode
 14. `P0-203` ENS resolution + reverse lookup

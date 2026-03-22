@@ -23,6 +23,7 @@ import Testing
             modeProvider: { .observe },
             loadingProvider: { false },
             refreshedAtProvider: { refreshDate },
+            freshnessTTLProvider: { 300 },
             prefersDemoDataProvider: { true }
         )
 
@@ -39,6 +40,7 @@ import Testing
         #expect(snapshot.localPreferences.prefersDemoData.value == true)
         #expect(snapshot.freshness.refreshState == .idle)
         #expect(snapshot.freshness.lastSuccessfulRefreshAt == refreshDate)
+        #expect(snapshot.freshness.ttl == 300)
     }
 
     @Test("context snapshot remains valid when optional provider-backed values are absent")
@@ -63,5 +65,42 @@ import Testing
         #expect(appContext.accountDisplay == "No active account")
         #expect(appContext.chainDisplay == "Ethereum")
         #expect(appContext.freshnessLabel == "Refreshing now")
+    }
+
+    @Test("freshness becomes stale after the configured TTL expires")
+    func contextSnapshotUsesTTLBackedStaleEvaluation() {
+        let source = LiveContextSource(
+            accountProvider: { nil },
+            addressProvider: { "" },
+            chainProvider: { .ethMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { false },
+            refreshedAtProvider: { Date().addingTimeInterval(-600) },
+            freshnessTTLProvider: { 300 }
+        )
+
+        let snapshot = source.snapshot()
+
+        #expect(snapshot.freshness.isStale)
+        #expect(snapshot.freshnessLabel == "Stale")
+    }
+
+    @Test("future refresh timestamps clamp to a non-negative age instead of looking stale")
+    func contextSnapshotClampsFutureRefreshTimestamps() {
+        let source = LiveContextSource(
+            accountProvider: { nil },
+            addressProvider: { "" },
+            chainProvider: { .ethMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { false },
+            refreshedAtProvider: { Date().addingTimeInterval(600) },
+            freshnessTTLProvider: { 300 }
+        )
+
+        let snapshot = source.snapshot()
+
+        #expect(snapshot.freshness.age == 0)
+        #expect(snapshot.freshness.isStale == false)
+        #expect(snapshot.freshnessLabel == "Fresh now")
     }
 }

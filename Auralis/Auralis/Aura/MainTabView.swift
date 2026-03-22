@@ -199,6 +199,7 @@ struct MainTabView: View {
             modeProvider: { modeState.mode },
             loadingProvider: { nftService.isLoading },
             refreshedAtProvider: { nftService.lastSuccessfulRefreshAt },
+            freshnessTTLProvider: { nftService.refreshTTL },
             trackedNFTCountProvider: { currentAccount?.trackedNFTCount },
             prefersDemoDataProvider: { false }
         )

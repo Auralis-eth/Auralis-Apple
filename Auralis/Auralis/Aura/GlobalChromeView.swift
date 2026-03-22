@@ -114,6 +114,12 @@ struct ChromeContextInspectorSheet: View {
 
                 Section("Freshness") {
                     LabeledContent("Refresh State", value: snapshot.freshnessLabel)
+                    if let ttl = snapshot.freshness.ttl {
+                        LabeledContent(
+                            "TTL",
+                            value: Duration.seconds(ttl).formatted(.units(allowed: [.minutes, .seconds]))
+                        )
+                    }
                     LabeledContent(
                         "Last Refresh Provenance",
                         value: snapshot.freshness.lastSuccessfulRefreshProvenance.displayLabel

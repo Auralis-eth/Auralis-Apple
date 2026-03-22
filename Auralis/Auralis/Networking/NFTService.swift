@@ -11,21 +11,32 @@ import SwiftData
 @MainActor
 @Observable
 class NFTService {
+    private struct RefreshScope: Equatable {
+        let accountAddress: String
+        let chain: Chain
+    }
+
     private let nftFetcher: any NFTFetching
     private let eventRecorderFactory: @MainActor (ModelContext) -> any NFTRefreshEventRecording
+    let refreshTTL: TimeInterval
     var isLoading: Bool { nftFetcher.loading }
     var itemsLoaded: Int? { nftFetcher.itemsLoaded }
     var total: Int? { nftFetcher.total }
     var error: Error? { nftFetcher.error }
     var lastSuccessfulRefreshAt: Date?
+    private var inFlightRefreshScope: RefreshScope?
+    private var inFlightRefreshTask: Task<Void, Never>?
+    private var inFlightRefreshToken: UUID?
 
     init(
         nftFetcher: (any NFTFetching)? = nil,
+        refreshTTL: TimeInterval = 300,
         eventRecorderFactory: @escaping @MainActor (ModelContext) -> any NFTRefreshEventRecording = {
             NFTRefreshEventRecorders.live(modelContext: $0)
         }
     ) {
         self.nftFetcher = nftFetcher ?? NFTFetcher()
+        self.refreshTTL = refreshTTL
         self.eventRecorderFactory = eventRecorderFactory
     }
 
@@ -100,7 +111,11 @@ class NFTService {
             nftFetcher.error = error
         }
 
+        let terminalError = nftFetcher.error
         nftFetcher.reset()
+        if let terminalError {
+            nftFetcher.error = terminalError
+        }
     }
 
     func refreshNFTs(
@@ -113,12 +128,38 @@ class NFTService {
             return
         }
 
-        await fetchAllNFTs(
-            for: accountAddress,
-            chain: chain,
-            modelContext: modelContext,
-            correlationID: correlationID
-        )
+        let requestedScope = RefreshScope(accountAddress: accountAddress, chain: chain)
+
+        if let inFlightRefreshTask {
+            if inFlightRefreshScope == requestedScope {
+                await inFlightRefreshTask.value
+                return
+            }
+
+            await inFlightRefreshTask.value
+        }
+
+        let refreshToken = UUID()
+        let task = Task { [self] in
+            await fetchAllNFTs(
+                for: accountAddress,
+                chain: chain,
+                modelContext: modelContext,
+                correlationID: correlationID
+            )
+        }
+
+        inFlightRefreshScope = requestedScope
+        inFlightRefreshTask = task
+        inFlightRefreshToken = refreshToken
+
+        await task.value
+
+        if inFlightRefreshToken == refreshToken {
+            inFlightRefreshScope = nil
+            inFlightRefreshTask = nil
+            inFlightRefreshToken = nil
+        }
     }
 
     private func cleanupOldNFTs(
@@ -151,6 +192,10 @@ class NFTService {
     }
 
     func reset() {
+        inFlightRefreshTask?.cancel()
+        inFlightRefreshTask = nil
+        inFlightRefreshScope = nil
+        inFlightRefreshToken = nil
         nftFetcher.reset()
     }
 

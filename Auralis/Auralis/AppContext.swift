@@ -58,6 +58,22 @@ struct ContextFreshness: Equatable {
     let lastSuccessfulRefreshAt: Date?
     let lastSuccessfulRefreshProvenance: ContextProvenance
     let ttl: TimeInterval?
+
+    var age: TimeInterval? {
+        guard let lastSuccessfulRefreshAt else {
+            return nil
+        }
+
+        return max(0, Date().timeIntervalSince(lastSuccessfulRefreshAt))
+    }
+
+    var isStale: Bool {
+        guard refreshState != .refreshing, let ttl, let age else {
+            return false
+        }
+
+        return age >= ttl
+    }
 }
 
 struct ContextSnapshot: Equatable {
@@ -79,6 +95,7 @@ struct AppContext: Equatable {
     let mode: String
     let isLoading: Bool
     let lastSuccessfulRefreshAt: Date?
+    let freshnessTTL: TimeInterval?
 }
 
 extension ContextSnapshot {
@@ -89,7 +106,8 @@ extension ContextSnapshot {
             chain: scope.selectedChains.value?.first?.rawValue ?? "",
             mode: mode.value ?? "",
             isLoading: freshness.refreshState == .refreshing,
-            lastSuccessfulRefreshAt: freshness.lastSuccessfulRefreshAt
+            lastSuccessfulRefreshAt: freshness.lastSuccessfulRefreshAt,
+            freshnessTTL: freshness.ttl
         )
     }
 
@@ -152,7 +170,11 @@ extension AppContext {
             return "Unknown"
         }
 
-        let age = Date().timeIntervalSince(lastSuccessfulRefreshAt)
+        let age = max(0, Date().timeIntervalSince(lastSuccessfulRefreshAt))
+        if let freshnessTTL, age >= freshnessTTL {
+            return "Stale"
+        }
+
         if age < 60 {
             return "Fresh now"
         }
@@ -187,6 +209,7 @@ struct LiveContextSource: ContextSource {
     let modeProvider: () -> AppMode
     let loadingProvider: () -> Bool
     let refreshedAtProvider: () -> Date?
+    let freshnessTTLProvider: () -> TimeInterval?
     let trackedNFTCountProvider: () -> Int?
     let prefersDemoDataProvider: () -> Bool?
 
@@ -197,6 +220,7 @@ struct LiveContextSource: ContextSource {
         modeProvider: @escaping () -> AppMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
+        freshnessTTLProvider: @escaping () -> TimeInterval? = { nil },
         trackedNFTCountProvider: @escaping () -> Int? = { nil },
         prefersDemoDataProvider: @escaping () -> Bool? = { nil }
     ) {
@@ -206,6 +230,7 @@ struct LiveContextSource: ContextSource {
         self.modeProvider = modeProvider
         self.loadingProvider = loadingProvider
         self.refreshedAtProvider = refreshedAtProvider
+        self.freshnessTTLProvider = freshnessTTLProvider
         self.trackedNFTCountProvider = trackedNFTCountProvider
         self.prefersDemoDataProvider = prefersDemoDataProvider
     }
@@ -274,7 +299,7 @@ struct LiveContextSource: ContextSource {
                 refreshState: loadingProvider() ? .refreshing : .idle,
                 lastSuccessfulRefreshAt: refreshTimestamp,
                 lastSuccessfulRefreshProvenance: .localCache,
-                ttl: nil
+                ttl: freshnessTTLProvider()
             )
         )
     }
