@@ -16,10 +16,9 @@ struct EmptyNewsFeedView: View {
 
     var body: some View {
         Group {
-            if nftService.error != nil {
+            if let failure = nftService.providerFailurePresentation(isShowingCachedContent: false) {
                 ShellProviderFailureStateView(
-                    error: nftService.error,
-                    isShowingCachedContent: false,
+                    failure: failure,
                     retry: refresh
                 )
             } else {

@@ -78,8 +78,12 @@ struct NFTServiceReceiptTests {
 
         #expect(service.lastSuccessfulRefreshAt == firstSuccessTimestamp)
         #expect(service.error != nil)
+        #expect(service.providerFailure?.kind == .offline)
         let failureReceipts = try receiptStore.receipts(forCorrelationID: "failure-pass", limit: 10)
         #expect(failureReceipts.contains(where: { $0.kind == "nft.fetch.failed" }))
+        let fetchFailure = try #require(failureReceipts.first(where: { $0.kind == "nft.fetch.failed" }))
+        #expect(fetchFailure.details.values["errorKind"] == .string(NFTProviderFailureKind.offline.rawValue))
+        #expect(fetchFailure.details.values["isRetryable"] == .bool(true))
     }
 
     @Test("duplicate in-flight refreshes coalesce into one fetch for the same account scope")
@@ -113,6 +117,28 @@ struct NFTServiceReceiptTests {
         _ = await (first, second)
 
         #expect(fetcher.fetchCallCount == 1)
+    }
+
+    @Test("provider failures map rate-limited and degraded states without relying on raw localized errors")
+    @MainActor
+    func providerFailuresExposeTypedPresentation() {
+        let rateLimitedFailure = NFTProviderFailure(error: NFTFetcher.FetcherError.rateLimited)
+        let degradedPresentation = rateLimitedFailure?.presentation(mode: .degraded)
+
+        #expect(rateLimitedFailure?.kind == .rateLimited)
+        #expect(rateLimitedFailure?.isRetryable == true)
+        #expect(degradedPresentation?.title == "Showing Last Sync")
+        #expect(degradedPresentation?.systemImage == "bolt.horizontal.circle")
+
+        let offlineFailure = NFTProviderFailure(
+            error: NFTFetcher.FetcherError.networkError(URLError(.notConnectedToInternet))
+        )
+        let blockingPresentation = offlineFailure?.presentation(mode: .blocking)
+
+        #expect(offlineFailure?.kind == .offline)
+        #expect(blockingPresentation?.title == "Collection Unavailable")
+        #expect(blockingPresentation?.systemImage == "wifi.slash")
+        #expect(blockingPresentation?.isRetryable == true)
     }
 }
 

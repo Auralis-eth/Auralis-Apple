@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocked
+Completed for the active NFT provider-failure and degraded-mode slice
 
 ## Ticket
 
@@ -27,6 +27,13 @@ Partial failures must preserve usable UI, and retry or refresh behavior must not
 - The degraded-mode semantics are clear and stable.
 - UI remains navigable through partial or offline failure.
 - Final shell presentation can align with `P0-101D`.
+
+## Completed Slice
+
+- `NFTService` now exposes typed provider-failure semantics instead of forcing shell UI to branch on raw `Error?`.
+- Newsfeed empty and cached-content states now read from the same degraded-mode contract for offline, rate-limit, invalid-response, and unavailable failures.
+- NFT refresh failure receipts now persist structured failure metadata (`errorKind`, retryability) alongside the sanitized error string.
+- Focused tests cover offline classification, rate-limit presentation, retained cached-content behavior, and receipt payload recording.
 
 ## Validation Target
 

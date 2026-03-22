@@ -136,6 +136,10 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
     ) async {
         var payload = basePayload(accountAddress: accountAddress, chain: chain)
         payload["error"] = .string(String(describing: error))
+        if let providerFailure = NFTProviderFailure(error: error) {
+            payload["errorKind"] = .string(providerFailure.kind.rawValue)
+            payload["isRetryable"] = .bool(providerFailure.isRetryable)
+        }
 
         append(
             kind: "nft.fetch.failed",

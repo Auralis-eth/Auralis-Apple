@@ -120,17 +120,15 @@ Why:
 10. `P0-502` initial receipt slices for the active work (Completed for active account/chain slice)
 11. `P0-302` Caching + freshness primitives (Completed for active NFT freshness slice)
 12. `P0-402` Context service + dependency boundaries (Completed for active shell context slice)
-13. `P0-303` Error handling + degraded mode
+13. `P0-303` Error handling + degraded mode (Completed for active NFT provider-failure and degraded-mode slice)
+==================================== 
+do another remediation + Unit tests
+====================================
 14. `P0-203` ENS resolution + reverse lookup
 
 Why:
 - this produces the real scoped read-only spine used by chrome, Home, and later search
 
-==================================== 
-
-do another remediation + Unit tests
-
-====================================
 
 ### Phase 5: Receipts UI and early product surfaces
 

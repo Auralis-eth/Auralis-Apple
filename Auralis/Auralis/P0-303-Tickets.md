@@ -19,6 +19,13 @@ Partial failures must not blank whole screens, retry loops must be bounded, and 
 
 Simulate offline and rate-limit conditions, verify receipts for failures, and confirm partial UI remains available without crashes.
 
+## Completed Slice
+
+- introduced a typed `NFTProviderFailure` contract and degraded/blocking presentation mapping for the active NFT refresh path
+- updated newsfeed empty and cached-content surfaces to stay navigable without branching on raw localized provider errors
+- recorded structured provider failure metadata in NFT refresh failure receipts
+- validated with focused `NFTServiceReceiptTests` plus a successful project build
+
 ## Handoff Rule
 
 If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.

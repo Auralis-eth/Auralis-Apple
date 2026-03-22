@@ -128,31 +128,22 @@ struct ShellFirstRunStateView: View {
 }
 
 struct ShellProviderFailureStateView: View {
-    let error: Error?
-    let isShowingCachedContent: Bool
+    let failure: NFTProviderFailurePresentation
     let retry: () -> Void
 
     var body: some View {
         ShellStatusCard(
-            eyebrow: isShowingCachedContent ? "Degraded Mode" : "Provider Error",
-            title: isShowingCachedContent ? "Refresh Paused" : "Collection Unavailable",
-            message: message,
-            systemImage: isShowingCachedContent ? "bolt.horizontal.circle" : "exclamationmark.triangle",
-            tone: .warning,
-            primaryAction: ShellStatusAction(
+            eyebrow: failure.mode == .degraded ? "Degraded Mode" : "Provider Error",
+            title: failure.title,
+            message: failure.message,
+            systemImage: failure.systemImage,
+            tone: failure.mode == .degraded ? .warning : .critical,
+            primaryAction: failure.isRetryable ? ShellStatusAction(
                 title: "Try Again",
                 systemImage: "arrow.clockwise",
                 handler: retry
-            )
+            ) : nil
         )
-    }
-
-    private var message: String {
-        if isShowingCachedContent {
-            return "Auralis could not refresh the provider just now. Your last synced collection is still visible so you can keep browsing safely."
-        }
-
-        return error?.localizedDescription ?? "Auralis could not reach the collection provider. Try again in a moment."
     }
 }
 
@@ -215,10 +206,16 @@ struct ShellNoReceiptsStateView: View {
 }
 
 #Preview("Shell Statuses") {
+    let previewFailure = NFTProviderFailure(
+        error: NFTFetcher.FetcherError.networkError(URLError(.notConnectedToInternet))
+    )?.presentation(mode: .degraded)
+
     AuraScenicScreen(contentAlignment: .top) {
         VStack(spacing: 16) {
             ShellFirstRunStateView()
-            ShellProviderFailureStateView(error: nil, isShowingCachedContent: true) { }
+            if let previewFailure {
+                ShellProviderFailureStateView(failure: previewFailure) { }
+            }
             ShellEmptyLibraryStateView(kind: .music)
             ShellNoReceiptsStateView()
         }
