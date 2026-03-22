@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct AddressInputView: View {
     @State private var address: String = ""
@@ -30,11 +31,16 @@ struct AddressInputView: View {
         }
     }
 
+    private var normalizedAddress: String? {
+        validationResult.normalizedAddress
+    }
+
     var body: some View {
         AddressEntryContentView(
             address: $address,
             currentAccount: $currentAccount,
             validationMessage: validationMessage,
+            normalizedAddress: normalizedAddress,
             handleSubmit: handleSubmit,
             selectDemo: selectDemo
         )
@@ -111,6 +117,7 @@ private struct AddressEntryContentView: View {
     @Binding var address: String
     @Binding var currentAccount: EOAccount?
     let validationMessage: String?
+    let normalizedAddress: String?
     let handleSubmit: () -> Void
     let selectDemo: (String) -> Void
 
@@ -132,6 +139,26 @@ private struct AddressEntryContentView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let normalizedAddress {
+                VStack(spacing: 10) {
+                    SubheadlineFontText("canonical form")
+                        .foregroundStyle(Color.textSecondary)
+
+                    Text(normalizedAddress)
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(Color.textPrimary)
+                        .textSelection(.enabled)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color.surface.opacity(0.55))
+                        )
+                }
+                .padding(.horizontal, 20)
             }
             
             AuraActionButton("Enter Auralis", style: .hero) {

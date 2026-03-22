@@ -99,7 +99,9 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         append(
             kind: "nft.refresh.started",
             correlationID: correlationID,
-            rawPayload: RawReceiptPayload(values: basePayload(accountAddress: accountAddress, chain: chain))
+            rawPayload: RawReceiptPayload(values: basePayload(accountAddress: accountAddress, chain: chain)),
+            summary: "Started NFT refresh",
+            isSuccess: true
         )
     }
 
@@ -120,7 +122,9 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         append(
             kind: "nft.fetch.succeeded",
             correlationID: correlationID,
-            rawPayload: RawReceiptPayload(values: payload)
+            rawPayload: RawReceiptPayload(values: payload),
+            summary: "Fetched NFT page successfully",
+            isSuccess: true
         )
     }
 
@@ -136,7 +140,9 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         append(
             kind: "nft.fetch.failed",
             correlationID: correlationID,
-            rawPayload: RawReceiptPayload(values: payload)
+            rawPayload: RawReceiptPayload(values: payload),
+            summary: "NFT fetch failed",
+            isSuccess: false
         )
     }
 
@@ -152,7 +158,9 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         append(
             kind: "nft.persistence.completed",
             correlationID: correlationID,
-            rawPayload: RawReceiptPayload(values: payload)
+            rawPayload: RawReceiptPayload(values: payload),
+            summary: "Persisted refreshed NFTs",
+            isSuccess: true
         )
     }
 
@@ -168,7 +176,9 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         append(
             kind: "nft.persistence.failed",
             correlationID: correlationID,
-            rawPayload: RawReceiptPayload(values: payload)
+            rawPayload: RawReceiptPayload(values: payload),
+            summary: "Persisting refreshed NFTs failed",
+            isSuccess: false
         )
     }
 }
@@ -187,19 +197,24 @@ private extension ReceiptBackedNFTRefreshEventRecorder {
     func append(
         kind: String,
         correlationID: String,
-        rawPayload: RawReceiptPayload
+        rawPayload: RawReceiptPayload,
+        summary: String,
+        isSuccess: Bool
     ) {
-        var values = rawPayload.values
-        values["mode"] = .string(AppMode.observe.rawValue)
-        let payload = payloadSanitizer.sanitize(RawReceiptPayload(values: values))
+        let payload = payloadSanitizer.sanitize(rawPayload)
 
         do {
             _ = try receiptStore.append(
                 ReceiptDraft(
-                    category: "networking",
-                    kind: kind,
+                    actor: .system,
+                    mode: .observe,
+                    trigger: kind,
+                    scope: "networking",
+                    summary: summary,
+                    provenance: "on_chain",
+                    isSuccess: isSuccess,
                     correlationID: correlationID,
-                    payload: payload
+                    details: payload
                 )
             )
         } catch {
@@ -214,4 +229,3 @@ private extension ReceiptBackedNFTRefreshEventRecorder {
         ]
     }
 }
-

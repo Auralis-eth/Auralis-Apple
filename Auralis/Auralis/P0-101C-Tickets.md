@@ -22,3 +22,15 @@ Tap freshness pill to open inspector, force stale timestamps, refresh from chrom
 ## Handoff Rule
 
 If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+
+## Current Blocker Note
+
+The recent chrome re-validation confirms this ticket should remain blocked.
+
+Why:
+
+- the chrome has a separate Context button, but the freshness pill itself is not the inspector trigger yet
+- the current inspector is a shell summary and does not provide provenance breakdown or last fetch receipt linking
+- stale-state chrome behavior still lacks the explicit refresh affordance described in the original ticket
+
+Treat the existing inspector as dependency-friendly scaffolding for `P0-403`, not as a completed `P0-101C` implementation.

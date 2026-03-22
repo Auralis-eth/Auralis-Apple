@@ -19,6 +19,14 @@ Prevent empty chain scope, handle out-of-scope detail screens gracefully, and de
 
 Persist chain scope per account, trigger context rebuild and receipts on scope change, and verify library surfaces respect the selected scope.
 
+## Completion Summary
+
+- Unified persisted per-account chain scope with the live shell `currentChain`
+- updated shell restore and selection flows so the active account owns the visible chain scope
+- added receipt-backed preferred-chain and current-chain change events
+- suppressed no-op chain reselections before persistence, receipt writes, or refresh hooks run
+- wired current-chain changes to a single NFT refresh callback for the active scope
+
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+Treat this ticket as complete for the current Phase 0 shell baseline. Future work should extend it through `P0-401` / `P0-402`, not reintroduce parallel chain-state ownership.

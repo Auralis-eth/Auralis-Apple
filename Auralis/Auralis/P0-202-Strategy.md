@@ -26,6 +26,8 @@ Whitespace trimming, non-EVM formats, and ambiguous ENS-in-address-field behavio
 
 - Invalid addresses are blocked early.
 - Valid addresses are normalized consistently.
+- Phase 0 stores and copies lowercase canonical `0x...` addresses.
+- EIP-55 checksum display is explicitly deferred beyond Phase 0.
 - Shared visual messaging can later converge with `P0-101D`.
 
 ## Completion Note
@@ -37,6 +39,8 @@ Implemented as a strict account-entry validation pass:
 - 40-hex inputs without `0x` are normalized to canonical `0x...`
 - ENS names in account-entry surfaces are explicitly rejected in this ticket and deferred to `P0-203`
 - auth copy and QR validation now match the actual supported input contract
+- the auth entry surface exposes the exact normalized address that Phase 0 will persist and copy
+- checksum display is intentionally not part of the Phase 0 contract
 
 ## Validation Target
 

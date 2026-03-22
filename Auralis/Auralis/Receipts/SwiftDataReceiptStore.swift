@@ -14,10 +14,15 @@ final class SwiftDataReceiptStore: ReceiptStore {
         let storedReceipt = try StoredReceipt(
             sequenceID: nextSequenceID,
             createdAt: receipt.createdAt,
-            category: receipt.category,
-            kind: receipt.kind,
+            actor: receipt.actor,
+            mode: receipt.mode,
+            trigger: receipt.trigger,
+            scope: receipt.scope,
+            summary: receipt.summary,
+            provenance: receipt.provenance,
+            isSuccess: receipt.isSuccess,
             correlationID: receipt.correlationID,
-            payload: receipt.payload
+            details: receipt.details
         )
 
         modelContext.insert(storedReceipt)
@@ -106,10 +111,15 @@ private extension StoredReceipt {
             id: id,
             sequenceID: sequenceID,
             createdAt: createdAt,
-            category: category,
-            kind: kind,
+            actor: actor,
+            mode: mode,
+            trigger: trigger,
+            scope: scope,
+            summary: summary,
+            provenance: provenance,
+            isSuccess: isSuccess,
             correlationID: correlationID,
-            payload: try decodedPayload()
+            details: try decodedDetails()
         )
     }
 }

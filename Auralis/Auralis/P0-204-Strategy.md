@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocked
+Implemented for the Phase 0 shell baseline
 
 ## Ticket
 
@@ -10,7 +10,7 @@ Add per-account chain scope settings that drive Context Builder and downstream l
 
 ## Dependencies
 
-P0-201, P0-401, P0-402, P0-501
+P0-201, P0-501
 
 ## Strategy
 
@@ -28,6 +28,21 @@ Prevent empty chain scope, handle out-of-scope detail screens gracefully, and de
 - The ticket outcome is visible in product behavior.
 - The ticket integrates cleanly with its immediate dependencies.
 - The stated test plan can be run without inventing extra architecture.
+
+## Completion Note
+
+Implemented as the current Phase 0 chain-scope baseline:
+
+- chain scope now persists per account through `EOAccount`
+- shell restore and account switching adopt the active account's persisted `currentChain`
+- changing the active chain updates the visible shell scope immediately
+- current-chain changes now emit receipts and trigger a single NFT refresh hook
+- preferred-chain changes emit receipts without triggering unnecessary rebuild loops
+
+What is intentionally deferred:
+
+- context-builder-driven scope semantics remain part of `P0-401` / `P0-402`
+- richer context-inspector reasoning remains outside this ticket
 
 ## Validation Target
 

@@ -62,26 +62,76 @@ struct RawReceiptPayload: Equatable, Sendable {
     let values: [String: ReceiptJSONValue]
 }
 
+enum ReceiptActor: String, Codable, Equatable, Sendable {
+    case user
+    case system
+}
+
+enum ReceiptMode: String, Codable, Equatable, Sendable {
+    case observe = "Observe"
+}
+
 /// Phase 0 append requests are immutable facts. The store adds identifiers and ordering metadata.
 struct ReceiptDraft: Equatable, Sendable {
     let createdAt: Date
-    let category: String
-    let kind: String
+    let actor: ReceiptActor
+    let mode: ReceiptMode
+    let trigger: String
+    let scope: String
+    let summary: String
+    let provenance: String
+    let isSuccess: Bool
     let correlationID: String?
-    let payload: ReceiptPayload
+    let details: ReceiptPayload
+
+    init(
+        createdAt: Date = .now,
+        actor: ReceiptActor = .system,
+        mode: ReceiptMode = .observe,
+        trigger: String,
+        scope: String,
+        summary: String,
+        provenance: String,
+        isSuccess: Bool,
+        correlationID: String? = nil,
+        details: ReceiptPayload
+    ) {
+        self.createdAt = createdAt
+        self.actor = actor
+        self.mode = mode
+        self.trigger = trigger
+        self.scope = scope
+        self.summary = summary
+        self.provenance = provenance
+        self.isSuccess = isSuccess
+        self.correlationID = correlationID
+        self.details = details
+    }
 
     init(
         createdAt: Date = .now,
         category: String,
         kind: String,
         correlationID: String? = nil,
-        payload: ReceiptPayload
+        payload: ReceiptPayload,
+        actor: ReceiptActor = .system,
+        mode: ReceiptMode = .observe,
+        summary: String? = nil,
+        provenance: String = "local",
+        isSuccess: Bool = true
     ) {
-        self.createdAt = createdAt
-        self.category = category
-        self.kind = kind
-        self.correlationID = correlationID
-        self.payload = payload
+        self.init(
+            createdAt: createdAt,
+            actor: actor,
+            mode: mode,
+            trigger: kind,
+            scope: category,
+            summary: summary ?? kind,
+            provenance: provenance,
+            isSuccess: isSuccess,
+            correlationID: correlationID,
+            details: payload
+        )
     }
 }
 
@@ -90,10 +140,27 @@ struct ReceiptRecord: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     let sequenceID: Int
     let createdAt: Date
-    let category: String
-    let kind: String
+    let actor: ReceiptActor
+    let mode: ReceiptMode
+    let trigger: String
+    let scope: String
+    let summary: String
+    let provenance: String
+    let isSuccess: Bool
     let correlationID: String?
-    let payload: ReceiptPayload
+    let details: ReceiptPayload
+}
+
+extension ReceiptDraft {
+    var category: String { scope }
+    var kind: String { trigger }
+    var payload: ReceiptPayload { details }
+}
+
+extension ReceiptRecord {
+    var category: String { scope }
+    var kind: String { trigger }
+    var payload: ReceiptPayload { details }
 }
 
 /// Sanitization must happen before persistence so export can use persisted payloads directly.
@@ -109,6 +176,7 @@ protocol ReceiptPayloadSanitizing {
 /// - `exportAll` is the only bulk-read path
 /// - `resetAll` is a separate destructive operation, not a convenience delete helper
 /// - stores must not invent correlation IDs
+@MainActor
 protocol ReceiptStore {
     func append(_ receipt: ReceiptDraft) throws -> ReceiptRecord
     func latest(limit: Int) throws -> [ReceiptRecord]

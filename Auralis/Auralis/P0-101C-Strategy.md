@@ -32,3 +32,19 @@ Context build failure, TTL expiry mid-navigation, and rapid account switching mu
 ## Validation Target
 
 Tap freshness pill to open inspector, force stale timestamps, refresh from chrome, and switch accounts rapidly without showing duplicated or incorrect context.
+
+## Current Blocker Note
+
+`P0-101C` is still blocked after the chrome re-validation pass.
+
+What exists now:
+
+- a shell-level context-inspector entry is available from chrome
+- scope, mode, and freshness summary values can be shown from `AppContext`
+
+What is still missing for this ticket:
+
+- tapping the freshness pill itself does not open the inspector
+- the inspector does not yet show provenance or last fetch receipt linkage
+- stale-state UI does not offer a dedicated refresh affordance from chrome
+- the behavior is not yet wired to the downstream Context Builder / Context Service tickets this work depends on

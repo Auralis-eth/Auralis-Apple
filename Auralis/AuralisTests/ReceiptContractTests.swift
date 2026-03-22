@@ -16,17 +16,27 @@ struct ReceiptContractTests {
 
         let draft = ReceiptDraft(
             createdAt: Date(timeIntervalSince1970: 123),
-            category: "accounts",
-            kind: "account.selected",
+            actor: .user,
+            mode: .observe,
+            trigger: "account.selected",
+            scope: "accounts",
+            summary: "Selected active account",
+            provenance: "user_provided",
+            isSuccess: true,
             correlationID: "flow-123",
-            payload: payload
+            details: payload
         )
 
         #expect(draft.createdAt == Date(timeIntervalSince1970: 123))
-        #expect(draft.category == "accounts")
-        #expect(draft.kind == "account.selected")
+        #expect(draft.actor == .user)
+        #expect(draft.mode == .observe)
+        #expect(draft.scope == "accounts")
+        #expect(draft.trigger == "account.selected")
+        #expect(draft.summary == "Selected active account")
+        #expect(draft.provenance == "user_provided")
+        #expect(draft.isSuccess)
         #expect(draft.correlationID == "flow-123")
-        #expect(draft.payload == payload)
+        #expect(draft.details == payload)
     }
 
     @Test("receipt records capture immutable append-only metadata including sequence fallback ordering fields")
@@ -35,10 +45,15 @@ struct ReceiptContractTests {
             id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
             sequenceID: 42,
             createdAt: Date(timeIntervalSince1970: 456),
-            category: "networking",
-            kind: "nft.refresh.started",
+            actor: .system,
+            mode: .observe,
+            trigger: "nft.refresh.started",
+            scope: "networking",
+            summary: "Started NFT refresh",
+            provenance: "on_chain",
+            isSuccess: true,
             correlationID: "refresh-1",
-            payload: ReceiptPayload(
+            details: ReceiptPayload(
                 values: [
                     "chain": .string("base"),
                     "page": .number(1)
@@ -49,8 +64,13 @@ struct ReceiptContractTests {
         #expect(record.id == UUID(uuidString: "11111111-1111-1111-1111-111111111111")!)
         #expect(record.sequenceID == 42)
         #expect(record.createdAt == Date(timeIntervalSince1970: 456))
-        #expect(record.category == "networking")
-        #expect(record.kind == "nft.refresh.started")
+        #expect(record.actor == .system)
+        #expect(record.mode == .observe)
+        #expect(record.scope == "networking")
+        #expect(record.trigger == "nft.refresh.started")
+        #expect(record.summary == "Started NFT refresh")
+        #expect(record.provenance == "on_chain")
+        #expect(record.isSuccess)
         #expect(record.correlationID == "refresh-1")
     }
 

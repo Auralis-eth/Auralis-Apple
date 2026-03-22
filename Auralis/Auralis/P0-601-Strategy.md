@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocked
+Implemented
 
 ## Ticket
 
@@ -27,6 +27,18 @@ Avoid incorrect mode state after restore and avoid confusing users with disabled
 - Global mode-state ownership is explicit.
 - The chrome uses the formal mode source of truth.
 - Receipts include mode=Observe where required.
+
+## Completion Note
+
+Implemented as the current Phase 0 Observe baseline:
+
+- `ModeState` is the formal owner of the global mode value
+- Phase 0 mode is hard-locked to `Observe`
+- the chrome reads mode from the shared mode-state source of truth
+- denied action attempts now go through the policy gate seam and write receipts
+- receipts use explicit `mode` fields rather than recorder-specific payload folklore
+
+`P0-602` remains the later expansion point for broader action-entry coverage.
 
 ## Validation Target
 

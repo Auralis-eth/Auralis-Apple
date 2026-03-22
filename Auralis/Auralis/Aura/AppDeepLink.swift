@@ -137,7 +137,7 @@ struct AppDeepLinkParser {
                 url: url,
                 routeName: "Token"
             )
-        case "receipt":
+        case "receipt", "receipts":
             return wrapTopLevelDestination(
                 parseDestination(url: url, segments: segments, requireTokenChain: true),
                 url: url,
@@ -273,7 +273,7 @@ struct AppDeepLinkParser {
             case .failure(let error):
                 return .failure(error)
             }
-        case "receipt":
+        case "receipt", "receipts":
             switch parseReceiptDestination(url: url, segments: segments) {
             case .success(let destination):
                 return .success(destination)

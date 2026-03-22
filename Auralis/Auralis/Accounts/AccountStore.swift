@@ -61,9 +61,16 @@ struct AccountStore {
     private let modelContext: ModelContext
     private let eventRecorder: any AccountEventRecorder
 
+    init(modelContext: ModelContext) {
+        self.init(
+            modelContext: modelContext,
+            eventRecorder: NoOpAccountEventRecorder()
+        )
+    }
+
     init(
         modelContext: ModelContext,
-        eventRecorder: any AccountEventRecorder = NoOpAccountEventRecorder()
+        eventRecorder: any AccountEventRecorder
     ) {
         self.modelContext = modelContext
         self.eventRecorder = eventRecorder

@@ -35,10 +35,15 @@ struct StoredReceiptTests {
             id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
             sequenceID: 7,
             createdAt: Date(timeIntervalSince1970: 789),
-            category: "networking",
-            kind: "nft.refresh.failed",
+            actor: .system,
+            mode: .observe,
+            trigger: "nft.refresh.failed",
+            scope: "networking",
+            summary: "NFT fetch failed",
+            provenance: "on_chain",
+            isSuccess: false,
             correlationID: "refresh-7",
-            payload: payload
+            details: payload
         )
 
         context.insert(receipt)
@@ -55,10 +60,15 @@ struct StoredReceiptTests {
         #expect(storedReceipt.id == UUID(uuidString: "22222222-2222-2222-2222-222222222222")!)
         #expect(storedReceipt.sequenceID == 7)
         #expect(storedReceipt.createdAt == Date(timeIntervalSince1970: 789))
-        #expect(storedReceipt.category == "networking")
-        #expect(storedReceipt.kind == "nft.refresh.failed")
+        #expect(storedReceipt.actor == .system)
+        #expect(storedReceipt.mode == .observe)
+        #expect(storedReceipt.scope == "networking")
+        #expect(storedReceipt.trigger == "nft.refresh.failed")
+        #expect(storedReceipt.summary == "NFT fetch failed")
+        #expect(storedReceipt.provenance == "on_chain")
+        #expect(storedReceipt.isSuccess == false)
         #expect(storedReceipt.correlationID == "refresh-7")
-        #expect(try storedReceipt.decodedPayload() == payload)
+        #expect(try storedReceipt.decodedDetails() == payload)
     }
 
     @Test("stored receipts persist across container recreation to simulate app relaunch")
@@ -79,10 +89,15 @@ struct StoredReceiptTests {
                 id: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
                 sequenceID: 11,
                 createdAt: Date(timeIntervalSince1970: 999),
-                category: "accounts",
-                kind: "account.selected",
+                actor: .user,
+                mode: .observe,
+                trigger: "account.selected",
+                scope: "accounts",
+                summary: "Selected active account",
+                provenance: "user_provided",
+                isSuccess: true,
                 correlationID: "flow-11",
-                payload: ReceiptPayload(values: [
+                details: ReceiptPayload(values: [
                     "address": .string("0x1234567890abcdef1234567890abcdef12345678")
                 ])
             )
@@ -104,8 +119,8 @@ struct StoredReceiptTests {
 
         #expect(receipt.id == UUID(uuidString: "33333333-3333-3333-3333-333333333333")!)
         #expect(receipt.sequenceID == 11)
-        #expect(receipt.kind == "account.selected")
+        #expect(receipt.trigger == "account.selected")
         #expect(receipt.correlationID == "flow-11")
-        #expect(try receipt.decodedPayload().values["address"] == .string("0x1234567890abcdef1234567890abcdef12345678"))
+        #expect(try receipt.decodedDetails().values["address"] == .string("0x1234567890abcdef1234567890abcdef12345678"))
     }
 }

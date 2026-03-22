@@ -19,6 +19,14 @@ Avoid incorrect mode state after restore and avoid confusing users with disabled
 
 Mode badge always shows Observe, receipts include mode=Observe, and any execute placeholder is denied and logged.
 
+## Completion Summary
+
+- formalized `ModeState` as the global mode owner
+- locked Phase 0 mode to `Observe`
+- routed denied placeholder actions through `ExecutePolicyGate`
+- added receipt coverage for Observe-mode denials
+- kept the chrome mode badge backed by the shared mode state
+
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+Treat this ticket as complete for Phase 0. Use `P0-602` for broader policy-gate rollout rather than reopening the Observe-mode ownership decision.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready now
+Re-validated complete
 
 ## Ticket
 
@@ -32,3 +32,15 @@ Handle long ENS or nickname truncation, address fallback, compact multi-chain di
 ## Validation Target
 
 Verify chrome appears on Home, Music, Tokens, Details, and Receipts; account switching updates scope; mode badge stays Observe; search opens from every surface; freshness updates after refresh.
+
+## Re-validation Note
+
+`P0-101B` now clears its Phase 0 acceptance bar after the shell-routing, Observe-mode, and chain-scope remediation passes:
+
+- the chrome is mounted once at the shell level and remains visible across the primary tab surfaces
+- account switching and chain changes now update the visible scope and trigger the intended shell follow-up behavior
+- the Observe badge remains fixed and backed by the locked Phase 0 mode state
+- freshness reflects `NFTService.lastSuccessfulRefreshAt`
+- search and context entry remain reachable from the chrome
+
+Context-inspector depth, provenance display, and stale-refresh behavior remain part of `P0-101C` / `P0-403`, not this ticket.

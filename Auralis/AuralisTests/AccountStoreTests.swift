@@ -77,6 +77,16 @@ struct AccountStoreTests {
         #expect(AccountStore.validateAddressInput("   ") == .empty)
     }
 
+    @Test("phase 0 normalization contract uses lowercase canonical copyable addresses")
+    func normalizationContractIsLowercaseCanonical() {
+        let valid = AccountStore.validateAddressInput("ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+        let invalid = AccountStore.validateAddressInput("not-an-address")
+
+        #expect(valid.normalizedAddress == "0xabcdef1234567890abcdef1234567890abcdef12")
+        #expect(AccountStore.normalizeAddress("ABCDEF1234567890ABCDEF1234567890ABCDEF12") == "0xabcdef1234567890abcdef1234567890abcdef12")
+        #expect(invalid.normalizedAddress == nil)
+    }
+
     @Test("select updates lastSelectedAt and moves the account to the front")
     @MainActor
     func selectAccount() throws {

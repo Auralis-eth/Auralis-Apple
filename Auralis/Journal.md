@@ -78,3 +78,67 @@ This one was classic shell drift. The chrome inspector in `GlobalChromeView` was
 The right fix was small and local. Instead of pushing more conversion glue into the view, `AppContext` was upgraded to be the thing the chrome thought it already was. The snapshot layer now stores `chain.rawValue` and `mode.rawValue`, and `AppContext` itself exposes the display helpers for account, chain, and freshness. Once that happened, the build went green again.
 
 The lesson is simple: view models and context snapshots are contracts, not buckets. If a view consumes a shaped UI-facing model, keep that shaping in the model layer. Otherwise every screen starts growing its own tiny adapter logic, and eventually one of them forgets a field and takes the build down with it.
+
+## War Story: Receipts Were A Ghost Route
+
+The shell talked about receipts like they were already part of the building, but they were really more like a name on an empty office door. The deep-link parser could recognize receipt links, yet `MainAuraView` immediately turned around and said receipt routing was unsupported. At the same time, root navigation had no Receipts surface at all. That is the kind of half-wired feature that makes planning docs sound more complete than the product actually is.
+
+The fix for the first remediation slice was intentionally narrow: give receipts a real home in the root shell and stop pretending the route is unsupported. `MainTabView` now has a Receipts tab, the router can navigate to receipt detail, and the shell routes receipt deep links into a placeholder receipts surface instead of throwing an error. It is not the full `P0-503` timeline yet, but it is at least a real hallway instead of a painted-on door.
+
+The lesson here is that route support is binary in product terms. If a parser accepts a destination, the shell needs a real place to send the user. Anything else is just a deferred crash in nicer clothes.
+
+## War Story: The Receipt Schema Was Pretending To Be Broader Than It Was
+
+The receipt system had a familiar Phase 0 smell: the docs described a broad audit trail, but the actual stored model was still carrying a much thinner backpack. In practice, receipts had `category`, `kind`, a correlation ID, and a payload. Useful, yes. But if you claim the schema includes actor, mode, trigger, scope, summary, provenance, and success or failure as real fields, then hiding half of that inside arbitrary payload keys is just paperwork cosplay.
+
+The fix was to make the contract honest. `ReceiptDraft`, `ReceiptRecord`, and `StoredReceipt` now carry those fields explicitly, while compatibility aliases keep older call sites from exploding all at once. The account and networking recorder seams were then upgraded to populate those fields on purpose instead of relying on old `category` and `kind` shorthand plus payload folklore.
+
+The important lesson is that schemas are promises. If a field matters to downstream filtering, export, or reasoning, it should exist as a field. Once teams start saying "well technically it’s in the payload," they are usually one sprint away from rebuilding the same meaning three different ways.
+
+## War Story: Default Arguments Are Sneaky In Actor-Isolated Code
+
+The Swift 6 concurrency cleanup looked simple at first: `SwiftDataReceiptStore` is main-actor-bound because it touches `ModelContext`, and `ReceiptBackedAccountEventRecorder` is main-actor-bound because it writes through that store. So the obvious move was to put the protocols on `@MainActor` too. That part was correct. Then Swift helpfully pointed out the less obvious trap: `AccountStore` had a default argument `NoOpAccountEventRecorder()`, and default arguments are evaluated from a nonisolated context. Translation: a tiny convenience initializer had quietly become a concurrency landmine.
+
+The fix was to stop being cute with the default parameter. `AccountStore` now has an overload that explicitly injects the no-op recorder from within the actor-isolated initializer path, which keeps the concurrency contract honest and avoids weakening the actor boundary just to preserve a shorthand.
+
+The lesson is worth remembering because it shows up all over Swift 6 migration work: the real problem is often not the actor annotation itself. It is the little convenience feature sitting next to it that was written before isolation rules got teeth. Default parameters, static helpers, and “harmless” protocol boundaries are where a lot of migration friction actually hides.
+
+## War Story: Observe Mode Was A Badge Without Teeth
+
+For a while, Observe mode looked more official than it really was. The chrome badge said "Observe," which was nice branding, but the underlying `ModeState` still exposed a public mutation seam and the policy gate logic mostly existed as an idea waiting for a future ticket. That is the software version of putting up a "No Entry" sign on a door you forgot to lock.
+
+The fix for the remediation pass was to make the contract real. `ModeState` is now hard-locked to `.observe` in Phase 0, the public mutation path is gone, and `ExecutePolicyGate` now produces a concrete denial result that also writes a receipt with explicit policy metadata. To keep this from becoming another invisible seam, the shell also gained a small Observe-mode policy demo surface so blocked actions can be exercised through real UI and not just through hopeful comments. A focused test now confirms that denied actions log the expected receipt.
+
+The lesson is that policy state should behave like a circuit breaker, not a sticker. If the UI says the app is in a constrained mode, the code needs to enforce that constraint at the action boundary and leave an audit trail when it does. Otherwise "mode" is just typography cosplaying as architecture.
+
+## War Story: The Active Chain Lived In Two Places And Only One Of Them Was On Screen
+
+The chain-scope bug was a classic split-brain problem. `EOAccount` already persisted a `currentChain`, which made it look like chain scope was per-account. But the shell also kept its own `@State currentChain`, and that was the value the chrome, gas surface, news flow, and token views were actually reading. The account switcher updated the persisted model, saved it, and then quietly walked away. The UI kept showing the old chain like nothing had happened. That is the architecture equivalent of updating the hotel reservation system but forgetting to tell the front desk.
+
+The fix was to choose a real authority chain and wire the seams to respect it. When an account is restored or selected, the shell now adopts that account's persisted `currentChain` instead of blindly trusting the old app-wide `currentChainId`. When the active chain changes in the switcher, it now updates the live shell binding immediately. And when the shell's `currentChain` changes for any reason, it writes that value back into the active account record so persistence and UI stay in lockstep.
+
+The lesson is that duplicated state is not automatically evil, but it is always guilty until proven coordinated. If one copy drives rendering and the other copy drives persistence, you need an explicit synchronization contract or the app will eventually start arguing with itself. In this case, the safest contract is simple: the selected account owns the chain scope, and the shell is the live projection of that choice.
+
+## War Story: Chain Scope Was Changing Quietly Enough To Look Broken
+
+After the Task 5 state unification, the visible chain finally updated when someone changed it. Better, but still not good enough. The change was happening almost like a whisper: SwiftData got a new value, the UI reacted, but there was no receipt proving it happened and no rebuild hook telling the rest of the app to refresh the scoped data. That kind of half-fix is dangerous because it makes the product look alive while the audit trail still sees nothing.
+
+The remediation was to make chain changes behave like real system events. The account receipt seam now has explicit events for preferred-chain and current-chain changes, and the account switcher runs those through a small planner that asks one boring but critical question first: did the chain actually change? If the answer is no, nothing gets written, nothing gets refreshed, and no duplicate loop gets a chance to start. If the answer is yes, the preferred-chain path records a receipt and persists the change, while the current-chain path does that and also triggers a single refresh callback for the active scope.
+
+The lesson here is that state changes with product meaning deserve three things: persistence, observability, and side-effect discipline. If you skip the first, the state disappears. If you skip the second, the system becomes unauditable. If you skip the third, every picker turns into a bug generator. Good engineering is often just refusing to accept any two out of three.
+
+## War Story: The Address Contract Needed A Verdict, Not More Ambiguity
+
+`P0-202` had reached that awkward stage where the code and the original ticket language were politely disagreeing in public. The implementation already normalized everything to lowercase canonical `0x...` form, which is great for persistence, duplicate detection, and deterministic comparisons. But the older acceptance wording still sounded like EIP-55 checksum display might be required. That is how teams end up wasting time debating whether a mismatch is a bug or just an outdated promise.
+
+The right move here was to stop hedging and pick a contract. Phase 0 now explicitly stores and copies lowercase canonical addresses, and the auth entry UI shows that exact normalized value when the input is valid so the user can copy what the app will actually persist. No checksum theater, no half-implemented display rule, and no pretending ENS belongs in this phase. Checksum display can come back later if a future ticket truly needs it, but it should arrive as a deliberate product decision, not as a surprise side effect.
+
+The lesson is that normalization rules are product rules. They affect persistence, deduping, copy behavior, and what users trust as the "real" value. Once a system has already converged on one practical contract, good engineering is often about writing that contract down clearly and exposing it in the UI, not reopening the debate because an older sentence sounded more ambitious.
+
+## War Story: The Chrome Ticket Was Done, But The Context Ticket Was Trying To Hitchhike
+
+By the time the remediation work reached the chrome audit, `P0-101B` and `P0-101C` were starting to blur together in the paperwork. The shell clearly had a real chrome now: account switcher, Observe badge, freshness, search, and context entry all lived at the shell layer and followed the user across the main surfaces. But the context-inspector ticket wanted more than a doorway. It wanted the actual room behind the door: provenance, last fetch receipt linkage, stale handling, and refresh behavior tied to the future context stack.
+
+The fix here was mostly intellectual honesty. `P0-101B` was re-validated as complete because the chrome itself is doing its Phase 0 job now. `P0-101C` stayed blocked because the current inspector is still a summary sheet, not the full context behavior promised by that ticket. In other words: the front desk is built, the sign for the back office exists, but the back office is not staffed yet.
+
+The lesson is that neighboring tickets often try to merge when an interface seam starts to look polished. Good engineering means resisting that drift. A visible entry point is not the same thing as a completed workflow. If you mark both done just because the UI looks tidy, you turn the next dependency ticket into a scavenger hunt.

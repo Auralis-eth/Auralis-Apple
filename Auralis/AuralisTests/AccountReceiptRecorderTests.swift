@@ -51,4 +51,114 @@ struct AccountReceiptRecorderTests {
             $0.payload.values["address"] == .string("0x1234567890abcdef1234567890abcdef12345678")
         })
     }
+
+    @Test("observe-mode policy gate denies blocked actions and records a denial receipt")
+    @MainActor
+    func observeModePolicyGateWritesReceipt() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let modeState = ModeState()
+
+        let result = ExecutePolicyGate.attempt(
+            .draftTransaction,
+            modeState: modeState,
+            receiptStore: receiptStore
+        )
+
+        let receipts = try receiptStore.latest(limit: 10)
+
+        #expect(result.isAllowed == false)
+        #expect(result.userMessage == "Not available in Observe mode")
+        #expect(receipts.count == 1)
+        #expect(receipts.first?.trigger == "policy.denied")
+        #expect(receipts.first?.scope == "policy")
+        #expect(receipts.first?.mode == .observe)
+        #expect(receipts.first?.isSuccess == false)
+        #expect(receipts.first?.details.values["action"] == .string("draft_transaction"))
+        #expect(receipts.first?.details.values["policy_denied"] == .bool(true))
+    }
+
+    @Test("chain-scope account events emit one receipt per real preferred and current change")
+    @MainActor
+    func chainScopeEventsWriteReceipts() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let recorder = ReceiptBackedAccountEventRecorder(
+            receiptStore: receiptStore,
+            payloadSanitizer: DefaultReceiptPayloadSanitizer()
+        )
+
+        recorder.record(
+            .preferredChainChanged(
+                address: "0x1234567890abcdef1234567890abcdef12345678",
+                from: .ethMainnet,
+                to: .baseMainnet
+            )
+        )
+        recorder.record(
+            .currentChainChanged(
+                address: "0x1234567890abcdef1234567890abcdef12345678",
+                from: .baseMainnet,
+                to: .baseSepoliaTestnet
+            )
+        )
+
+        let receipts = try receiptStore.latest(limit: 10)
+
+        #expect(receipts.count == 2)
+        #expect(receipts.map(\.trigger) == [
+            "account.chain.current.changed",
+            "account.chain.preferred.changed"
+        ])
+        #expect(receipts.allSatisfy { $0.scope == "accounts.chain_scope" })
+        #expect(receipts.first?.details.values["from_chain"] == .string(Chain.baseMainnet.rawValue))
+        #expect(receipts.first?.details.values["to_chain"] == .string(Chain.baseSepoliaTestnet.rawValue))
+    }
+
+    @Test("chain-scope planner suppresses redundant writes and only refreshes the active scope")
+    func chainScopePlannerAvoidsNoOpChanges() {
+        let planner = ChainScopeChangePlanner()
+
+        let unchangedPlan = planner.planCurrentChange(
+            address: "0x1234567890abcdef1234567890abcdef12345678",
+            from: .ethMainnet,
+            to: .ethMainnet
+        )
+        let preferredPlan = planner.planPreferredChange(
+            address: "0x1234567890abcdef1234567890abcdef12345678",
+            from: .ethMainnet,
+            to: .baseMainnet
+        )
+        let currentPlan = planner.planCurrentChange(
+            address: "0x1234567890abcdef1234567890abcdef12345678",
+            from: .ethMainnet,
+            to: .baseMainnet
+        )
+
+        #expect(unchangedPlan.shouldApply == false)
+        #expect(unchangedPlan.event == nil)
+        #expect(unchangedPlan.shouldRefreshActiveScope == false)
+
+        #expect(preferredPlan.shouldApply)
+        #expect(preferredPlan.shouldRefreshActiveScope == false)
+        #expect(
+            preferredPlan.event == .preferredChainChanged(
+                address: "0x1234567890abcdef1234567890abcdef12345678",
+                from: .ethMainnet,
+                to: .baseMainnet
+            )
+        )
+
+        #expect(currentPlan.shouldApply)
+        #expect(currentPlan.shouldRefreshActiveScope)
+        #expect(
+            currentPlan.event == .currentChainChanged(
+                address: "0x1234567890abcdef1234567890abcdef12345678",
+                from: .ethMainnet,
+                to: .baseMainnet
+            )
+        )
+    }
 }

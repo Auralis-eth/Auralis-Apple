@@ -2,18 +2,21 @@
 
 ## Status
 
-Blocked
+Implemented for the current Phase 0 baseline
 
 ## Blocking Dependencies
 
-- P0-201
-- P0-401
-- P0-402
-- P0-501
+- none for the current shell/account baseline
 
-## Why It Is Blocked
+## Why It Was Previously Blocked
 
-Blocked on the context schema and service layer.
+The original concern was that chain scope would need the context schema and service layer before it could be made real.
+
+The current implementation now covers the safe Phase 0 shell slice without inventing a disposable context model:
+
+- per-account chain scope persists
+- the shell reflects the active account's scope
+- chain changes emit receipts and trigger the active refresh hook
 
 ## Safe Pre-Work
 
@@ -21,6 +24,6 @@ Blocked on the context schema and service layer.
 - Avoid shipping placeholder logic that will be replaced by the real dependency.
 - Only do pre-work that directly lowers future integration risk.
 
-## Unblock Condition
+## Follow-on Dependencies
 
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+`P0-401` and `P0-402` are still required for richer context-aware behavior, but they are no longer blockers for closing the current `P0-204` scope.

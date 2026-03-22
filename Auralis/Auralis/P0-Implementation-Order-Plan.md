@@ -18,13 +18,32 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 
 ## Current Status Note
 
-- `P0-101B` is implemented and builds, but the global chrome layout is still being tuned so it reads as part of the shell instead of covering feature content.
-- Do not reorder the sprint sequence because of that tuning work; treat it as follow-up refinement inside the completed first-pass chrome ticket.
+- `P0-101A` is now closed for the current shell baseline: the app exposes Receipts as a root destination and routes receipt deep links through the live shell.
 - `P0-101D` is implemented as the shared shell-status layer for first-run, provider failure, no-receipts, and empty-library states.
 - `P0-202` is implemented as strict account-entry EVM address validation with deterministic trimming, normalization, and explicit ENS rejection until `P0-203`.
-- `P0-601` is implemented; the chrome and context inspector read mode from the formal `modeState`, and receipts include `mode=Observe`.
-- `P0-204` is implemented for the current Phase 0 baseline and should be treated as the completed bridge from shell/account state into the upcoming context and provider work.
-- Some ticket-specific planning docs still mark `P0-601` and `P0-204` as blocked. Treat this implementation-order file as the current source of truth until those ticket docs are reconciled.
+- `P0-202` is now explicitly a lowercase canonical `0x...` storage-and-copy contract for Phase 0; checksum display remains deferred.
+- `P0-501` now includes explicit receipt fields for actor, mode, trigger, scope, summary, provenance, success/failure, and details, plus the Swift 6 actor-isolation cleanup needed to keep the store build-clean.
+- `P0-601` is implemented; the chrome and context inspector read mode from the formal `modeState`, denied placeholder actions go through the policy gate seam, and receipts include `mode=Observe`.
+- `P0-204` is implemented for the current Phase 0 baseline: per-account chain scope persists, drives the visible shell state, emits receipts, and triggers the active refresh hook.
+- `P0-101B` has been re-validated as complete after the shell, mode, and chain remediation passes.
+- `P0-101C` remains blocked on `P0-302`, `P0-401`, `P0-402`, and `P0-403`.
+
+## Remediation Closeout
+
+The remediation checklist has been retired. Its durable outcomes now live in the ticket docs and this implementation-order plan.
+
+Closeout summary:
+
+- `P0-101A`: complete for the current root-shell contract
+- `P0-201`: verified complete; keep `AccountStore` as the account CRUD seam
+- `P0-501`: complete for the current receipt foundation baseline
+- `P0-101E`: complete; keep in maintenance mode
+- `P0-101B`: complete after chrome re-validation
+- `P0-101D`: complete; keep in maintenance mode
+- `P0-202`: complete with lowercase canonical normalization contract
+- `P0-601`: complete for Phase 0 Observe-mode ownership
+- `P0-204`: complete for the current per-account chain-scope baseline
+- `P0-101C`: still blocked pending the real context/freshness stack
 
 ## Planning Rules
 
@@ -184,4 +203,3 @@ After that, move directly into fetch/cache assembly:
 - If a ticket can begin with placeholder-backed data without violating safety or architecture goals, start it rather than waiting for a perfect dependency chain.
 - If a ticket defines enforcement or cleanup, delay it until the thing being enforced or cleaned up is real.
 - If a ticket adds UI but depends on a missing source of truth, prefer a fixed safe presentation only when that sequencing decision has already been made explicitly, as with `P0-101B` before `P0-601`.
-

@@ -6,12 +6,16 @@ enum AccountEvent: Equatable {
     case added(address: String)
     case removed(address: String)
     case selected(address: String)
+    case preferredChainChanged(address: String, from: Chain, to: Chain)
+    case currentChainChanged(address: String, from: Chain, to: Chain)
 }
 
+@MainActor
 protocol AccountEventRecorder {
     func record(_ event: AccountEvent)
 }
 
+@MainActor
 struct NoOpAccountEventRecorder: AccountEventRecorder {
     func record(_ event: AccountEvent) { }
 }
@@ -32,7 +36,7 @@ struct ReceiptBackedAccountEventRecorder: AccountEventRecorder {
 
     func record(_ event: AccountEvent) {
         do {
-            try receiptStore.append(makeDraft(for: event))
+            _ = try receiptStore.append(makeDraft(for: event))
         } catch {
             logger.error("Failed to append account receipt: \(error.localizedDescription, privacy: .public)")
         }
@@ -50,25 +54,60 @@ enum AccountEventRecorders {
 
 private extension ReceiptBackedAccountEventRecorder {
     func makeDraft(for event: AccountEvent) -> ReceiptDraft {
-        let (kind, address) = switch event {
+        let (kind, summary, payloadValues): (String, String, [String: ReceiptJSONValue]) = switch event {
         case .added(let address):
-            ("account.added", address)
+            (
+                "account.added",
+                "Added watch-only account",
+                ["address": .string(address)]
+            )
         case .removed(let address):
-            ("account.removed", address)
+            (
+                "account.removed",
+                "Removed watch-only account",
+                ["address": .string(address)]
+            )
         case .selected(let address):
-            ("account.selected", address)
+            (
+                "account.selected",
+                "Selected active account",
+                ["address": .string(address)]
+            )
+        case .preferredChainChanged(let address, let from, let to):
+            (
+                "account.chain.preferred.changed",
+                "Updated preferred chain scope",
+                [
+                    "address": .string(address),
+                    "from_chain": .string(from.rawValue),
+                    "to_chain": .string(to.rawValue)
+                ]
+            )
+        case .currentChainChanged(let address, let from, let to):
+            (
+                "account.chain.current.changed",
+                "Updated active chain scope",
+                [
+                    "address": .string(address),
+                    "from_chain": .string(from.rawValue),
+                    "to_chain": .string(to.rawValue)
+                ]
+            )
         }
 
         let payload = payloadSanitizer.sanitize(
-            RawReceiptPayload(values: [
-                "address": .string(address)
-            ])
+            RawReceiptPayload(values: payloadValues)
         )
 
         return ReceiptDraft(
-            category: "accounts",
-            kind: kind,
-            payload: payload
+            actor: .user,
+            mode: .observe,
+            trigger: kind,
+            scope: kind.contains(".chain.") ? "accounts.chain_scope" : "accounts",
+            summary: summary,
+            provenance: "user_provided",
+            isSuccess: true,
+            details: payload
         )
     }
 }

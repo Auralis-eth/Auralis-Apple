@@ -2,19 +2,20 @@
 
 ## Status
 
-Blocked by sequencing, not deadlock
+Implemented
 
 ## Blocking Dependencies
 
-- P0-101B
-- P0-501
+- none
 
-## Why It Is Blocked
+## Why It Was Previously Blocked
 
-The agreed order is:
+The agreed order was:
 
 1. deliver `P0-101B` first with fixed Observe presentation
 2. formalize mode-state ownership and receipt inclusion here
+
+That sequencing work is now complete.
 
 ## Safe Pre-Work
 
@@ -22,6 +23,6 @@ The agreed order is:
 - define how mode is represented in receipts
 - avoid spreading pseudo-mode state across feature views
 
-## Unblock Condition
+## Current State
 
-The chrome exists and the system is ready to replace fixed Observe presentation with formal mode-state ownership.
+The chrome exists, `ModeState` owns the formal Observe value, and receipt/policy seams now use that mode explicitly.

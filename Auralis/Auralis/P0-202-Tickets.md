@@ -28,7 +28,9 @@ Block invalid addresses, save valid normalized addresses, copy normalized values
 - Added strict address validation and canonical normalization in `Accounts/AccountStore.swift`.
 - Rejected `.eth` ENS names explicitly in account-entry and QR flows for this phase.
 - Updated auth UI copy so the text field and header promise wallet addresses instead of unsupported ENS input.
-- Added unit coverage for whitespace trimming, lowercase normalization, no-prefix normalization, ENS rejection, and embedded-text rejection.
+- Added a visible auth copy path for the exact lowercase canonical address Phase 0 persists.
+- Locked the Phase 0 contract to lowercase canonical `0x...` storage and copy behavior rather than EIP-55 checksum display.
+- Added unit coverage for whitespace trimming, lowercase normalization, no-prefix normalization, ENS rejection, embedded-text rejection, and the explicit lowercase canonical contract.
 
 ## Validation Result
 
@@ -37,4 +39,4 @@ Block invalid addresses, save valid normalized addresses, copy normalized values
 
 ## Handoff Rule
 
-This ticket is complete. Treat ENS resolution as deferred to `P0-203`; do not quietly reintroduce ENS acceptance into account-entry surfaces before that ticket is implemented.
+This ticket is complete. Treat ENS resolution as deferred to `P0-203`; do not quietly reintroduce ENS acceptance into account-entry surfaces before that ticket is implemented. Treat checksum display as out of scope for Phase 0 unless a later ticket reopens the contract explicitly.

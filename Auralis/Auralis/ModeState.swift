@@ -16,20 +16,9 @@ public final class ModeState: ObservableObject {
     @Published public private(set) var mode: AppMode = .observe
 
     public init() {
-        // Ensure stored value is valid; otherwise reset to .observe
-        if let parsed = AppMode(rawValue: storedModeRaw) {
-            mode = parsed
-        } else {
-            storedModeRaw = AppMode.observe.rawValue
-            mode = .observe
-        }
-    }
-
-    /// Internal setter to keep storage in sync. Exposed for future phases.
-    public func setMode(_ newMode: AppMode) {
-        // In Phase 0, we still allow setting for future-proofing, but callers shouldn't expose UI.
-        mode = newMode
-        storedModeRaw = newMode.rawValue
+        // Phase 0 is hard-locked to Observe even if storage somehow contains another value.
+        storedModeRaw = AppMode.observe.rawValue
+        mode = .observe
     }
 }
 
@@ -66,13 +55,86 @@ public struct ModeReceiptAugmentor {
 
 // MARK: - Execute policy gate (Phase 0)
 
-/// Denies any execute/action behavior while in Observe mode. Logs a message for diagnostics.
-public enum ExecutePolicyGate {
-    public static func canExecute(modeState: ModeState, log: (String) -> Void = { print($0) }) -> Bool {
-        if modeState.mode == .observe {
-            log("Execute denied: app is in Observe mode (P0)")
-            return false
+enum ObserveBlockedAction: String, CaseIterable, Sendable {
+    case signMessage = "sign_message"
+    case approveSpending = "approve_spending"
+    case draftTransaction = "draft_transaction"
+    case runPlugin = "run_plugin"
+
+    var title: String {
+        switch self {
+        case .signMessage:
+            return "Sign Message"
+        case .approveSpending:
+            return "Approve Spending"
+        case .draftTransaction:
+            return "Draft Transaction"
+        case .runPlugin:
+            return "Run Plugin"
         }
-        return true
+    }
+
+    var summary: String {
+        switch self {
+        case .signMessage:
+            return "Signing messages is not available in Observe mode."
+        case .approveSpending:
+            return "Token approvals are not available in Observe mode."
+        case .draftTransaction:
+            return "Transaction drafting is not available in Observe mode."
+        case .runPlugin:
+            return "External plugin execution is not available in Observe mode."
+        }
+    }
+}
+
+struct PolicyGateResult: Equatable, Sendable {
+    let isAllowed: Bool
+    let userMessage: String
+}
+
+/// Denies execution-style behavior while the app is locked to Observe and records the denial.
+@MainActor
+enum ExecutePolicyGate {
+    static func attempt(
+        _ action: ObserveBlockedAction,
+        modeState: ModeState,
+        receiptStore: any ReceiptStore,
+        payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer(),
+        log: (String) -> Void = { print($0) }
+    ) -> PolicyGateResult {
+        guard modeState.mode == .observe else {
+            return PolicyGateResult(isAllowed: true, userMessage: "")
+        }
+
+        let userMessage = "Not available in Observe mode"
+        log("Policy denied: \(action.rawValue)")
+
+        let payload = payloadSanitizer.sanitize(
+            RawReceiptPayload(values: [
+                "action": .string(action.rawValue),
+                "policy_denied": .bool(true),
+                "message": .string(userMessage)
+            ])
+        )
+
+        do {
+            _ = try receiptStore.append(
+                ReceiptDraft(
+                    actor: .user,
+                    mode: .observe,
+                    trigger: "policy.denied",
+                    scope: "policy",
+                    summary: action.summary,
+                    provenance: "policy",
+                    isSuccess: false,
+                    details: payload
+                )
+            )
+        } catch {
+            log("Policy denial receipt append failed: \(error.localizedDescription)")
+        }
+
+        return PolicyGateResult(isAllowed: false, userMessage: userMessage)
     }
 }

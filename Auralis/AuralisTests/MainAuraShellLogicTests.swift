@@ -27,10 +27,11 @@ import Testing
             access: .readonly,
             name: "Saved"
         )
+        savedAccount.currentChain = .baseMainnet
 
         let result = logic.restoreInitialState(
             currentAddress: savedAccount.address,
-            currentChainId: Chain.baseMainnet.rawValue,
+            currentChainId: Chain.ethMainnet.rawValue,
             accounts: [savedAccount]
         )
 
@@ -48,6 +49,7 @@ import Testing
             addedAt: Date(timeIntervalSince1970: 100),
             lastSelectedAt: Date(timeIntervalSince1970: 300)
         )
+        fallback.currentChain = .baseSepoliaTestnet
         let older = EOAccount(
             address: "0x1234567890abcdef1234567890abcdef12345678",
             access: .readonly,
@@ -62,7 +64,7 @@ import Testing
         )
 
         #expect(result.currentAddress == fallback.address)
-        #expect(result.currentChain == .ethMainnet)
+        #expect(result.currentChain == .baseSepoliaTestnet)
         #expect(result.currentAccount === fallback)
     }
 
@@ -81,6 +83,7 @@ import Testing
     @Test("account change to a different address requests route reset and NFT refresh")
     func accountChangeTriggersRefreshForDifferentAddress() {
         let newAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
+        newAccount.currentChain = .baseMainnet
 
         let result = logic.accountDidChange(
             newAccount: newAccount,
@@ -88,6 +91,7 @@ import Testing
         )
 
         #expect(result.currentAddress == newAccount.address)
+        #expect(result.currentChain == .baseMainnet)
         #expect(result.shouldResetRoutes)
         #expect(result.shouldRefreshNFTs)
         #expect(result.shouldProcessPendingDeepLink)
@@ -96,6 +100,7 @@ import Testing
     @Test("account change to the same address does not trigger a redundant refresh")
     func accountChangeDoesNotRefreshForSameAddress() {
         let newAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
+        newAccount.currentChain = .baseSepoliaTestnet
 
         let result = logic.accountDidChange(
             newAccount: newAccount,
@@ -103,6 +108,7 @@ import Testing
         )
 
         #expect(result.currentAddress == newAccount.address)
+        #expect(result.currentChain == .baseSepoliaTestnet)
         #expect(!result.shouldResetRoutes)
         #expect(!result.shouldRefreshNFTs)
         #expect(result.shouldProcessPendingDeepLink)
@@ -116,6 +122,7 @@ import Testing
         )
 
         #expect(result.currentAddress.isEmpty)
+        #expect(result.currentChain == .ethMainnet)
         #expect(!result.shouldResetRoutes)
         #expect(!result.shouldRefreshNFTs)
         #expect(result.shouldProcessPendingDeepLink)
@@ -124,14 +131,17 @@ import Testing
     @Test("address change resolves a persisted account and resets routes")
     func addressChangeUsesPersistedAccount() {
         let savedAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
+        savedAccount.currentChain = .baseMainnet
 
         let result = logic.addressDidChange(
             newAddress: savedAccount.address,
+            currentChain: .ethMainnet,
             accounts: [savedAccount]
         )
 
         #expect(result.currentAddress == savedAccount.address)
         #expect(result.currentAccount === savedAccount)
+        #expect(result.currentChain == .baseMainnet)
         #expect(result.shouldResetRoutes)
         #expect(result.shouldProcessPendingDeepLink)
     }
@@ -140,11 +150,13 @@ import Testing
     func addressChangeKeepsRequestedAddressWhenMissing() {
         let result = logic.addressDidChange(
             newAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+            currentChain: .baseSepoliaTestnet,
             accounts: []
         )
 
         #expect(result.currentAddress == "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
         #expect(result.currentAccount == nil)
+        #expect(result.currentChain == .baseSepoliaTestnet)
         #expect(result.shouldResetRoutes)
         #expect(result.shouldProcessPendingDeepLink)
     }
@@ -153,11 +165,13 @@ import Testing
     func addressChangeToEmptyClearsAccount() {
         let result = logic.addressDidChange(
             newAddress: "",
+            currentChain: .baseMainnet,
             accounts: []
         )
 
         #expect(result.currentAddress.isEmpty)
         #expect(result.currentAccount == nil)
+        #expect(result.currentChain == .baseMainnet)
         #expect(result.shouldResetRoutes)
         #expect(result.shouldProcessPendingDeepLink)
     }

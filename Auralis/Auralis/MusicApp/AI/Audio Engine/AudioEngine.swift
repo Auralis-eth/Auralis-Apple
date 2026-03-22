@@ -84,9 +84,9 @@ public class AudioEngine: ObservableObject {
     }
     
     init() throws {
-        try setupAudioSession()
-        try setupAudioEngine()
-        setupInterruptionHandling()
+//        try setupAudioSession()
+//        try setupAudioEngine()
+//        setupInterruptionHandling()
     }
     
     // MARK: - Audio Session Configuration
