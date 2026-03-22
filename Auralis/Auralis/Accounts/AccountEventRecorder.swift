@@ -47,7 +47,7 @@ struct ReceiptBackedAccountEventRecorder: AccountEventRecorder {
 enum AccountEventRecorders {
     static func live(modelContext: ModelContext) -> any AccountEventRecorder {
         ReceiptBackedAccountEventRecorder(
-            receiptStore: SwiftDataReceiptStore(modelContext: modelContext)
+            receiptStore: ReceiptStores.live(modelContext: modelContext)
         )
     }
 }

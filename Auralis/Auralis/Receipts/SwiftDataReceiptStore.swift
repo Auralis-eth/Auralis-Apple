@@ -95,6 +95,13 @@ final class SwiftDataReceiptStore: ReceiptStore {
     }
 }
 
+@MainActor
+enum ReceiptStores {
+    static func live(modelContext: ModelContext) -> any ReceiptStore {
+        SwiftDataReceiptStore(modelContext: modelContext)
+    }
+}
+
 private extension SwiftDataReceiptStore {
     func nextSequenceID() throws -> Int {
         let descriptor = FetchDescriptor<StoredReceipt>(

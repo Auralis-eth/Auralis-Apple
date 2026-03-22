@@ -23,7 +23,7 @@ struct ReceiptResetService: ReceiptResetting {
 enum ReceiptResetServices {
     static func live(modelContext: ModelContext) -> ReceiptResetService {
         ReceiptResetService(
-            receiptStore: SwiftDataReceiptStore(modelContext: modelContext)
+            receiptStore: ReceiptStores.live(modelContext: modelContext)
         )
     }
 }

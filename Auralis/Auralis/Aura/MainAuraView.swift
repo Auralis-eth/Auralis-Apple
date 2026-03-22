@@ -20,12 +20,14 @@ struct MainAuraView: View {
     @State private var router = AppRouter()
 
     @Environment(\.modelContext) private var modelContext
-    @State private var nftService = NFTService()
+    @State private var nftService: NFTService
+    @StateObject private var modeState: ModeState
     @StateObject private var audioEngine: AudioEngine
     @State private var pendingDeepLink: AppDeepLink?
     @State private var didFinishInitialStateRestore = false
 
     @State private var isloading: Bool = false
+    private let services: ShellServiceHub
     private let routeLogger = Logger(subsystem: "Auralis", category: "Routing")
     private let deepLinkParser = AppDeepLinkParser()
     private let pendingDeepLinkResolver = PendingDeepLinkResolver()
@@ -46,7 +48,9 @@ struct MainAuraView: View {
                     currentChain: $currentChain,
                     nftService: $nftService,
                     router: router,
-                    audioEngine: audioEngine
+                    audioEngine: audioEngine,
+                    modeState: modeState,
+                    services: services
                 )
                     .tabBarMinimizeBehavior(.onScrollDown)
                     .tabViewBottomAccessory {
@@ -156,7 +160,10 @@ struct MainAuraView: View {
         }
     }
     
-    init() {
+    init(services: ShellServiceHub = .live) {
+        self.services = services
+        _nftService = State(initialValue: services.nftServiceFactory())
+        _modeState = StateObject(wrappedValue: services.modeStateFactory())
         do {
             let engine = try AudioEngine()
             _audioEngine = StateObject(wrappedValue: engine)

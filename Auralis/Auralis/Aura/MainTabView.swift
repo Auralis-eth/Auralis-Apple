@@ -186,19 +186,26 @@ struct MainTabView: View {
     @Binding var nftService: NFTService
     @Bindable var router: AppRouter
     let audioEngine: AudioEngine
+    let modeState: ModeState
+    let services: ShellServiceHub
     @State private var showAccountSwitcher = false
     @State private var showContextInspector = false
-    @StateObject private var modeState = ModeState()
 
     private var contextSource: ContextSource {
-        LiveContextSource(
+        services.contextSourceBuilder.makeContextSource(
             accountProvider: { currentAccount },
             addressProvider: { currentAddress },
             chainProvider: { currentChain },
             modeProvider: { modeState.mode },
             loadingProvider: { nftService.isLoading },
-            refreshedAtProvider: { nftService.lastSuccessfulRefreshAt }
+            refreshedAtProvider: { nftService.lastSuccessfulRefreshAt },
+            trackedNFTCountProvider: { currentAccount?.trackedNFTCount },
+            prefersDemoDataProvider: { false }
         )
+    }
+
+    private var policyActionHandler: any ObservePolicyActionHandling {
+        services.policyActionHandlerFactory(modelContext, modeState)
     }
 
     var body: some View {
@@ -243,7 +250,7 @@ struct MainTabView: View {
             currentAccount.currentChain = newValue
             try? modelContext.save()
         }
-        .environment(\.modeState, modeState)
+        .modeState(modeState)
     }
 
     private var chromeContainer: some View {
@@ -336,7 +343,7 @@ struct MainTabView: View {
             }
 
             Tab("Profile", systemImage: "person.circle", value: AppTab.profile) {
-                ObserveModePolicyView(modeState: modeState)
+                ObserveModePolicyView(modeState: modeState, services: services)
             }
 
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
@@ -390,6 +397,8 @@ struct MainTabView: View {
         @State private var nftService = NFTService()
         @State private var router = AppRouter()
         let audioEngine: AudioEngine = try! AudioEngine()
+        @StateObject private var modeState = ModeState()
+        private let services = ShellServiceHub.live
 
         var body: some View {
             MainTabView(
@@ -399,7 +408,9 @@ struct MainTabView: View {
                 currentChain: $currentChain,
                 nftService: $nftService,
                 router: router,
-                audioEngine: audioEngine
+                audioEngine: audioEngine,
+                modeState: modeState,
+                services: services
             )
         }
     }
@@ -670,6 +681,7 @@ private struct ObserveModePolicyView: View {
     @State private var denialMessage: String?
 
     let modeState: ModeState
+    let services: ShellServiceHub
 
     private let blockedActions: [ObserveBlockedAction] = [
         .signMessage,
@@ -734,11 +746,7 @@ private struct ObserveModePolicyView: View {
     }
 
     private func attempt(_ action: ObserveBlockedAction) {
-        let result = ExecutePolicyGate.attempt(
-            action,
-            modeState: modeState,
-            receiptStore: SwiftDataReceiptStore(modelContext: modelContext)
-        )
+        let result = services.policyActionHandlerFactory(modelContext, modeState).attempt(action)
 
         if !result.isAllowed {
             denialMessage = result.userMessage

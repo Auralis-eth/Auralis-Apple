@@ -28,6 +28,7 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-101B` has been re-validated as complete after the shell, mode, and chain remediation passes.
 - `P0-401` is now in progress as a schema-first slice: `ContextSnapshot` exists, the shell inspector reads it, and provenance-bearing scope/freshness fields are formalized.
 - `P0-301` is now in progress as a provider-seam slice: endpoint resolution is centralized, NFT fetching is injected, gas pricing is protocol-backed, and native balance support exists at the provider layer.
+- `P0-701A` is now in progress as a structural scaffolding slice: root-owned mode state, a shell service hub, and shared receipt-store factories are in place.
 - `P0-101C` remains blocked on `P0-302`, `P0-401`, `P0-402`, and `P0-403`.
 
 ## Remediation Closeout
@@ -47,6 +48,7 @@ Closeout summary:
 - `P0-204`: complete for the current per-account chain-scope baseline
 - `P0-401`: in progress as a schema-first baseline; full freshness completion remains deferred to `P0-302`
 - `P0-301`: in progress as an injected provider baseline; full service ownership remains deferred to `P0-402`
+- `P0-701A`: in progress as a shell/service scaffolding baseline; strict boundary enforcement remains deferred to `P0-701B`
 - `P0-101C`: still blocked pending the real context/freshness stack
 
 ## Planning Rules
@@ -98,7 +100,7 @@ In progress
 6. `P0-204` Chain scope settings per account (Completed)
 7. `P0-401` Context schema v0 (Schema-first slice in progress)
 8. `P0-301` Provider abstraction (Injected baseline in progress)
-9. `P0-701A` Layered boundaries structural scaffolding
+9. `P0-701A` Layered boundaries structural scaffolding (Baseline slice in progress)
 
 Why:
 

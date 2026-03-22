@@ -187,7 +187,7 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
 enum NFTRefreshEventRecorders {
     static func live(modelContext: ModelContext) -> any NFTRefreshEventRecording {
         ReceiptBackedNFTRefreshEventRecorder(
-            receiptStore: SwiftDataReceiptStore(modelContext: modelContext)
+            receiptStore: ReceiptStores.live(modelContext: modelContext)
         )
     }
 }
