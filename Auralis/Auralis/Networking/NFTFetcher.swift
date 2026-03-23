@@ -36,12 +36,13 @@ class NFTFetcher: NFTFetching {
         case invalidAccount(reason: String)
         case rateLimited
         case networkError(Error)
+        case retryExhausted(lastError: Error?)
         
         var isRetryable: Bool {
             switch self {
             case .rateLimited, .networkError:
                 return true
-            case .missingAPIKey, .loadingAlreadyInProgress, .invalidAccount:
+            case .missingAPIKey, .loadingAlreadyInProgress, .invalidAccount, .retryExhausted:
                 return false
             }
         }
@@ -58,6 +59,11 @@ class NFTFetcher: NFTFetching {
                 return "Too many requests. Please try again later."
             case .networkError(let error):
                 return "Network error occurred: \(error.localizedDescription)"
+            case .retryExhausted(let lastError):
+                if let lastError {
+                    return "NFT refresh exhausted its retry budget: \(lastError.localizedDescription)"
+                }
+                return "NFT refresh exhausted its retry budget."
             }
         }
     }
@@ -97,13 +103,13 @@ class NFTFetcher: NFTFetching {
         guard account.hasPrefix("0x") else {
             throw FetcherError.invalidAccount(reason: "Address must start with 0x")
         }
-        
-        guard account.count >= 40 && account.count <= 42 else {
-            throw FetcherError.invalidAccount(reason: "Invalid address length. Expected 40-42 characters, got \(account.count)")
+
+        guard account.count == 42 else {
+            throw FetcherError.invalidAccount(reason: "Address must be exactly 42 characters: 0x followed by 40 hexadecimal characters")
         }
-        
+
         guard account.wholeMatch(of: Self.hexAddressRegex) != nil else {
-            throw FetcherError.invalidAccount(reason: "Address contains invalid characters. Only hexadecimal characters (0-9, a-f, A-F) are allowed")
+            throw FetcherError.invalidAccount(reason: "Address must be 0x followed by 40 hexadecimal characters")
         }
     }
     
@@ -201,8 +207,17 @@ class NFTFetcher: NFTFetching {
             
             totalAttempts += 1
             if totalAttempts >= maxTotalAttempts {
-                print("Reached maximum total attempts (\(maxTotalAttempts)), stopping")
-                break
+                let wrappedError = FetcherError.retryExhausted(lastError: self.error)
+                self.error = wrappedError
+                if let correlationID {
+                    await eventRecorder.recordFetchFailed(
+                        accountAddress: account,
+                        chain: chain,
+                        correlationID: correlationID,
+                        error: wrappedError
+                    )
+                }
+                throw wrappedError
             }
             
             do {

@@ -143,7 +143,7 @@ public extension PlaylistStore {
         try ensurePlaylistExists(playlist)
         let count = playlist.tracks.count
         guard sourceIndex >= 0 && sourceIndex < count else { throw PlaylistItemError.indexOutOfBounds }
-        guard destinationIndex >= 0 && destinationIndex < count else { throw PlaylistItemError.indexOutOfBounds }
+        guard destinationIndex >= 0 && destinationIndex <= count else { throw PlaylistItemError.indexOutOfBounds }
         guard sourceIndex != destinationIndex else { return playlist }
 
         let previous = playlist.tracks
@@ -152,7 +152,7 @@ public extension PlaylistStore {
         // Perform stable move similar to SwiftUI List move behavior
         var items = playlist.tracks
         let moving = items.remove(at: sourceIndex)
-        items.insert(moving, at: destinationIndex)
+        items.insert(moving, at: min(destinationIndex, items.count))
         playlist.tracks = items
         playlist.updatedAt = Date()
 
@@ -254,4 +254,3 @@ public extension PlaylistStore {
         }
     }
 }
-

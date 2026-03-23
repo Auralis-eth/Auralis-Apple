@@ -8,28 +8,49 @@
 import SwiftUI
 
 extension Color {
-    init(hexString hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (1, 1, 1, 0)
+    static func rgbaComponents(from hex: String) -> (red: UInt64, green: UInt64, blue: UInt64, alpha: UInt64)? {
+        let cleanedHex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var value: UInt64 = 0
+        guard Scanner(string: cleanedHex).scanHexInt64(&value) else {
+            return nil
         }
+
+        switch cleanedHex.count {
+        case 3:
+            return (
+                red: (value >> 8) * 17,
+                green: (value >> 4 & 0xF) * 17,
+                blue: (value & 0xF) * 17,
+                alpha: 255
+            )
+        case 6:
+            return (
+                red: value >> 16,
+                green: value >> 8 & 0xFF,
+                blue: value & 0xFF,
+                alpha: 255
+            )
+        case 8:
+            return (
+                red: value >> 24,
+                green: value >> 16 & 0xFF,
+                blue: value >> 8 & 0xFF,
+                alpha: value & 0xFF
+            )
+        default:
+            return nil
+        }
+    }
+
+    init(hexString hex: String) {
+        let components = Self.rgbaComponents(from: hex) ?? (red: 1, green: 1, blue: 1, alpha: 0)
 
         self.init(
             .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue: Double(b) / 255,
-            opacity: Double(a) / 255
+            red: Double(components.red) / 255,
+            green: Double(components.green) / 255,
+            blue: Double(components.blue) / 255,
+            opacity: Double(components.alpha) / 255
         )
     }
 }
@@ -77,25 +98,17 @@ extension Color {
 extension String {
     func toColor() -> Color {
         let hex = self.hasPrefix("#") ? String(dropFirst()) : self
-        
-        // Fast path validation
-        guard (hex.count == 6 || hex.count == 8),
-              let value = UInt64(hex, radix: 16) else {
+
+        guard let components = Color.rgbaComponents(from: hex) else {
             return .clear
         }
-        
-        if hex.count == 8 {
-            return Color(.sRGB,
-                        red: Double((value >> 24) & 0xFF) / 255,
-                        green: Double((value >> 16) & 0xFF) / 255,
-                        blue: Double((value >> 8) & 0xFF) / 255,
-                        opacity: Double(value & 0xFF) / 255)
-        } else {
-            return Color(.sRGB,
-                        red: Double((value >> 16) & 0xFF) / 255,
-                        green: Double((value >> 8) & 0xFF) / 255,
-                        blue: Double(value & 0xFF) / 255,
-                        opacity: 1.0)
-        }
+
+        return Color(
+            .sRGB,
+            red: Double(components.red) / 255,
+            green: Double(components.green) / 255,
+            blue: Double(components.blue) / 255,
+            opacity: Double(components.alpha) / 255
+        )
     }
 }

@@ -11,14 +11,14 @@ struct AuraPill: View {
     private let systemImage: String?
     private let emphasis: Emphasis
     private let imageSize: Font
-    private let aceessibilityLabel: String?
+    private let accessibilityLabel: String?
 
-    init(_ title: String? = nil, systemImage: String? = nil, emphasis: Emphasis = .neutral, imageSize: Font = .caption, aceessibilityLabel: String? = nil) {
+    init(_ title: String? = nil, systemImage: String? = nil, emphasis: Emphasis = .neutral, imageSize: Font = .caption, accessibilityLabel: String? = nil) {
         self.title = title
         self.systemImage = systemImage
         self.emphasis = emphasis
         self.imageSize = imageSize
-        self.aceessibilityLabel = aceessibilityLabel
+        self.accessibilityLabel = accessibilityLabel
     }
 
     var body: some View {
@@ -47,7 +47,7 @@ struct AuraPill: View {
                 .strokeBorder(borderColor, lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title ?? aceessibilityLabel ?? "")
+        .accessibilityLabel(title ?? accessibilityLabel ?? "")
     }
 
     private var foregroundColor: Color {

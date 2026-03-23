@@ -399,14 +399,17 @@ struct TagCreateUpdateView: View {
         
         let trimmedName = tagName.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanColor = tagColor.replacingOccurrences(of: "#", with: "").uppercased()
-        
+
+        let didSave: Bool
         if existingTag != nil {
-            updateTag(name: trimmedName, color: cleanColor)
+            didSave = updateTag(name: trimmedName, color: cleanColor)
         } else {
-            createTag(name: trimmedName, color: cleanColor)
+            didSave = createTag(name: trimmedName, color: cleanColor)
         }
-        
-        dismiss()
+
+        if didSave {
+            dismiss()
+        }
     }
     
     
@@ -455,7 +458,7 @@ struct TagCreateUpdateView: View {
         return validated
     }
     
-    private func createTag(name: String, color: String) {
+    private func createTag(name: String, color: String) -> Bool {
         validationError = nil
         
         do {
@@ -466,6 +469,7 @@ struct TagCreateUpdateView: View {
             
             self.modelContext.insert(tag)
             try self.modelContext.save()
+            return true
         } catch let error as TagError {
             validationError = error
         } catch {
@@ -473,13 +477,14 @@ struct TagCreateUpdateView: View {
             validationError = tagError
         }
 
+        return false
     }
     
-    private func updateTag(name: String, color: String) {
+    private func updateTag(name: String, color: String) -> Bool {
         validationError = nil
         
         guard let tag = existingTag else {
-            return
+            return false
         }
         do {
             // Use Tag model's update methods
@@ -491,12 +496,15 @@ struct TagCreateUpdateView: View {
             try colorResult.get()
             
             try self.modelContext.save()
+            return true
         } catch let error as TagError {
             validationError = error
         } catch {
             let tagError = TagError.operationFailed(underlying: error)
             validationError = tagError
         }
+
+        return false
     }
 }
 
@@ -821,8 +829,8 @@ class Tag: Codable, Equatable, Hashable {
 //-----------------------------------------------------------
 @Model
 public class NFT: Codable {
-    #Unique<NFT>([\.contract, \.tokenId, \.networkRawValue])
-    #Index<NFT>([\.id], [\.acquiredAt], [\.collection], [\.tokenId])
+    #Unique<NFT>([\.contract, \.tokenId, \.networkRawValue, \.accountAddressRawValue])
+    #Index<NFT>([\.id], [\.acquiredAt], [\.collection], [\.tokenId], [\.accountAddressRawValue, \.networkRawValue])
 
     @Attribute(.unique) public var id: String
     
@@ -838,6 +846,7 @@ public class NFT: Codable {
     var timeLastUpdated: String?
     var acquiredAt: AcquiredAt?
     var networkRawValue: String
+    var accountAddressRawValue: String
     var contentType: String?
     var collectionName: String?
     var artistName: String?
@@ -917,11 +926,22 @@ public class NFT: Codable {
         }
     }
 
-    func applyRefreshScope(chain: Chain) {
+    @Transient var accountAddress: String? {
+        get {
+            Self.normalizedScopeComponent(accountAddressRawValue)
+        }
+        set {
+            accountAddressRawValue = Self.normalizedScopeComponent(newValue) ?? ""
+        }
+    }
+
+    func applyRefreshScope(accountAddress: String?, chain: Chain) {
+        accountAddressRawValue = Self.normalizedScopeComponent(accountAddress) ?? ""
         networkRawValue = chain.rawValue
         contract.updateScope(chain: chain)
         collection?.updateScope(chain: chain, contractAddress: contract.address)
         id = Self.makeScopedNFTID(
+            accountAddress: accountAddress,
             chain: chain,
             contractAddress: contract.address,
             tokenId: tokenId,
@@ -929,6 +949,11 @@ public class NFT: Codable {
             name: name,
             tokenUri: tokenUri
         )
+    }
+
+    func matchesScope(accountAddress: String?, chain: Chain) -> Bool {
+        let normalizedAccountAddress = Self.normalizedScopeComponent(accountAddress) ?? ""
+        return accountAddressRawValue == normalizedAccountAddress && networkRawValue == chain.rawValue
     }
     
     func isMusic() -> Bool {
@@ -963,7 +988,7 @@ public class NFT: Codable {
         case acquiredAt
     }
     
-    init(id: String, contract: Contract, tokenId: String, tokenType: String? = nil, name: String? = nil, nftDescription: String? = nil, image: Image? = nil, raw: Raw? = nil, collection: Collection?, tokenUri: String? = nil, timeLastUpdated: String? = nil, acquiredAt: AcquiredAt? = nil, network: Chain = .ethMainnet, contentType: String? = nil, collectionName: String? = nil, artistName: String? = nil, animationUrl: String? = nil, secureAnimationUrl: String? = nil, audioUrl: String? = nil, tags: [Tag]? = nil) {
+    init(id: String, contract: Contract, tokenId: String, tokenType: String? = nil, name: String? = nil, nftDescription: String? = nil, image: Image? = nil, raw: Raw? = nil, collection: Collection?, tokenUri: String? = nil, timeLastUpdated: String? = nil, acquiredAt: AcquiredAt? = nil, network: Chain = .ethMainnet, accountAddress: String? = nil, contentType: String? = nil, collectionName: String? = nil, artistName: String? = nil, animationUrl: String? = nil, secureAnimationUrl: String? = nil, audioUrl: String? = nil, tags: [Tag]? = nil) {
         self.id = id
         self.contract = contract
         self.tokenId = tokenId
@@ -977,6 +1002,7 @@ public class NFT: Codable {
         self.timeLastUpdated = timeLastUpdated
         self.acquiredAt = acquiredAt
         self.networkRawValue = network.rawValue
+        self.accountAddressRawValue = Self.normalizedScopeComponent(accountAddress) ?? ""
         self.contentType = contentType
         self.collectionName = collectionName
         self.artistName = artistName
@@ -984,7 +1010,7 @@ public class NFT: Codable {
         self.secureAnimationUrl = secureAnimationUrl
         self.audioUrl = audioUrl
         self.tags = tags ?? []
-        applyRefreshScope(chain: network)
+        applyRefreshScope(accountAddress: accountAddress, chain: network)
     }
 
     required public init(from decoder: Decoder) throws {
@@ -1003,12 +1029,14 @@ public class NFT: Codable {
         timeLastUpdated = try container.decodeIfPresent(String.self, forKey: .timeLastUpdated)
         acquiredAt = try container.decodeIfPresent(AcquiredAt.self, forKey: .acquiredAt)
         networkRawValue = Chain.ethMainnet.rawValue
+        accountAddressRawValue = ""
 
         let tokenId = try container.decode(String.self, forKey: .tokenId)
         self.tokenId = tokenId
         let contract = try container.decode(Contract.self, forKey: .contract)
         self.contract = contract
         id = Self.makeScopedNFTID(
+            accountAddress: nil,
             chain: .ethMainnet,
             contractAddress: contract.address,
             tokenId: tokenId,
@@ -1016,7 +1044,7 @@ public class NFT: Codable {
             name: name,
             tokenUri: tokenUri
         )
-        applyRefreshScope(chain: .ethMainnet)
+        applyRefreshScope(accountAddress: nil, chain: .ethMainnet)
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -1035,6 +1063,7 @@ public class NFT: Codable {
     }
 
     private static func makeScopedNFTID(
+        accountAddress: String?,
         chain: Chain,
         contractAddress: String?,
         tokenId: String,
@@ -1042,12 +1071,13 @@ public class NFT: Codable {
         name: String?,
         tokenUri: String?
     ) -> String {
+        let resolvedAccountAddress = normalizedScopeComponent(accountAddress) ?? "unscoped"
         let fallbackContractAddress = "unknown" + (tokenType ?? "") + (name ?? "") + (tokenUri ?? "")
         let resolvedContractAddress = Self.normalizedScopeComponent(contractAddress) ?? fallbackContractAddress
-        return "\(chain.rawValue):\(resolvedContractAddress):\(tokenId)"
+        return "\(resolvedAccountAddress):\(chain.rawValue):\(resolvedContractAddress):\(tokenId)"
     }
 
-    fileprivate static func normalizedScopeComponent(_ value: String?) -> String? {
+    static func normalizedScopeComponent(_ value: String?) -> String? {
         guard let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmedValue.isEmpty else {
             return nil
         }

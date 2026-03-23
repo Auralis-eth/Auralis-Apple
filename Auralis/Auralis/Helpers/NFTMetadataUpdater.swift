@@ -106,14 +106,17 @@ class NFTMetadataUpdater {
         // Handle main image URLs
         // Updated caller code with validated fallback
         if let imageURLString = metadata["image"]?.stringValue ?? metadata["imageUrl"]?.stringValue {
+            if nft.image == nil {
+                nft.image = NFT.Image()
+            }
             switch URLConverter.convertToPreferredHTTPS(imageURLString) {
             case .success(let convertedURLString):
                 nft.image?.originalUrl = convertedURLString
                 if let imageURL = URL(string: convertedURLString) {
                     nft.image?.secureUrl = ensureSecureURL(imageURL)?.absoluteString
                 }
-            case .failure(let error):
-                    print("URL conversion failed for \(imageURLString): \(error.localizedDescription)")  // Log for debugging
+            case .failure:
+                print("URL conversion failed for \(imageURLString)")  // Log for debugging
 
                 // Fallback only if original is a valid URL
                 if let originalURL = URL(string: imageURLString) {

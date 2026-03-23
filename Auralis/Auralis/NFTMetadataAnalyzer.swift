@@ -111,7 +111,13 @@ class NFTMetadataAnalyzer {
                 )
 
                 // Get NFTs from the model context
-                let fetchDescriptor = FetchDescriptor<NFT>()
+                let normalizedAccountAddress = NFT.normalizedScopeComponent(address) ?? ""
+                let fetchDescriptor = FetchDescriptor<NFT>(
+                    predicate: #Predicate<NFT> {
+                        $0.accountAddressRawValue == normalizedAccountAddress &&
+                        $0.networkRawValue == chain.rawValue
+                    }
+                )
                 let nfts = try modelContext.fetch(fetchDescriptor)
 
                 print("  Found \(nfts.count) NFTs for address \(address)")

@@ -7,7 +7,6 @@
 
 import SwiftData
 import SwiftUI
-import SwiftUI
 
 struct NewsFeedListView: View {
     @Query private var collections: [NFT.Collection]

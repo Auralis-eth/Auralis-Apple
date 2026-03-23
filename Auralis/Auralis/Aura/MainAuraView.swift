@@ -22,7 +22,7 @@ struct MainAuraView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var nftService: NFTService
     @StateObject private var modeState: ModeState
-    @StateObject private var audioEngine: AudioEngine
+    @State private var audioEngine: AudioEngine?
     @State private var pendingDeepLink: AppDeepLink?
     @State private var didFinishInitialStateRestore = false
     @State private var didRecordAppLaunchReceipt = false
@@ -31,6 +31,7 @@ struct MainAuraView: View {
 
     @State private var isloading: Bool = false
     private let services: ShellServiceHub
+    private let audioEngineInitializationErrorMessage: String?
     private let routeLogger = Logger(subsystem: "Auralis", category: "Routing")
     private let deepLinkParser = AppDeepLinkParser()
     private let pendingDeepLinkResolver = PendingDeepLinkResolver()
@@ -53,13 +54,15 @@ struct MainAuraView: View {
                     pendingShellFlowCorrelationID: $pendingShellFlowCorrelationID,
                     router: router,
                     audioEngine: audioEngine,
+                    audioUnavailableMessage: audioEngineInitializationErrorMessage,
                     modeState: modeState,
                     services: services
                 )
                     .tabBarMinimizeBehavior(.onScrollDown)
                     .tabViewBottomAccessory {
-                        // Wrap the accessory in a container so it gets proper padding and material.
-                        MiniPlayerView(audioEngine: audioEngine)
+                        if let audioEngine {
+                            MiniPlayerView(audioEngine: audioEngine)
+                        }
                     }
             } else if nftsAreLoading {
                 NFTNewsfeedLoadingView(
@@ -207,10 +210,11 @@ struct MainAuraView: View {
         _modeState = StateObject(wrappedValue: services.modeStateFactory())
         do {
             let engine = try AudioEngine()
-            _audioEngine = StateObject(wrappedValue: engine)
+            _audioEngine = State(initialValue: engine)
+            audioEngineInitializationErrorMessage = nil
         } catch {
-            // Fallback for initialization errors
-            fatalError("Failed to initialize AudioEngine: \(error)")
+            _audioEngine = State(initialValue: nil)
+            audioEngineInitializationErrorMessage = error.localizedDescription
         }
     }
 
@@ -267,8 +271,13 @@ struct MainAuraView: View {
         switch destination {
         case .nft(let id):
             do {
+                let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address ?? currentAddress) ?? ""
                 let descriptor = FetchDescriptor<NFT>(
-                    predicate: #Predicate<NFT> { $0.id == id }
+                    predicate: #Predicate<NFT> {
+                        $0.id == id &&
+                        $0.accountAddressRawValue == normalizedAccountAddress &&
+                        $0.networkRawValue == currentChain.rawValue
+                    }
                 )
                 guard let nft = try modelContext.fetch(descriptor).first else {
                     router.showRouteError(

@@ -144,7 +144,6 @@ private extension ReceiptEventLogger {
             logger.error(
                 "Failed to append receipt event trigger=\(trigger, privacy: .public) scope=\(scope, privacy: .public) correlationID=\(correlationID ?? "nil", privacy: .public) error=\(error.localizedDescription, privacy: .public)"
             )
-            assertionFailure("Failed to append receipt event: \(error.localizedDescription)")
             return .failure(error)
         }
     }

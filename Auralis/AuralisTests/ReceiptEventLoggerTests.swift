@@ -62,7 +62,7 @@ struct ReceiptEventLoggerTests {
         #expect(contextReceipt.details.values["refreshState"] == .string(ContextRefreshState.idle.rawValue))
         #expect(contextReceipt.details.values["isStale"] == .bool(false))
         let linkReceipt = try #require(receipts.first(where: { $0.kind == "external_link.opened" }))
-        #expect(linkReceipt.scope.chain == .baseMainnet)
+        #expect(linkReceipt.scope == "navigation.external")
         #expect(linkReceipt.details.values["chain"] == .string(Chain.baseMainnet.rawValue))
     }
 

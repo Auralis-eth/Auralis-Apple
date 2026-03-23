@@ -66,6 +66,8 @@ struct NFTProviderFailure: Equatable {
                 )
             case .networkError(let wrappedError):
                 self = NFTProviderFailure.classifyNetworkOrFallback(wrappedError)
+            case .retryExhausted(let lastError):
+                self = NFTProviderFailure.classifyNetworkOrFallback(lastError ?? fetcherError)
             }
 
             return
@@ -284,7 +286,7 @@ class NFTService {
             )
 
             nfts.forEach {
-                $0.applyRefreshScope(chain: chain)
+                $0.applyRefreshScope(accountAddress: accountAddress, chain: chain)
                 $0.parseMetadata()
             }
 
@@ -386,8 +388,13 @@ class NFTService {
         correlationID: String,
         eventRecorder: any NFTRefreshEventRecording
     ) async throws {
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
         let descriptor = FetchDescriptor<NFT>(
-            predicate: #Predicate<NFT> { !currentNFTIDs.contains($0.id) }
+            predicate: #Predicate<NFT> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.networkRawValue == chain.rawValue &&
+                !currentNFTIDs.contains($0.id)
+            }
         )
         do {
             try modelContext.enumerate(descriptor) { nft in

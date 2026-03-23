@@ -18,7 +18,7 @@ struct GlobalChromeView: View {
                     systemImage: "eye",
                     emphasis: .accent,
                     imageSize: .title3.weight(.semibold),
-                    aceessibilityLabel: modeState.mode.rawValue
+                    accessibilityLabel: modeState.mode.rawValue
                 )
                 .accessibilityHint("Mode badge is provided by global mode state.")
                 
@@ -27,7 +27,7 @@ struct GlobalChromeView: View {
                         systemImage: "gyroscope",
                         emphasis: .accent,
                         imageSize: .title3.weight(.semibold),
-                        aceessibilityLabel: modeState.mode.rawValue
+                        accessibilityLabel: modeState.mode.rawValue
                     )
                     .accessibilityHidden(true)
                 }
@@ -38,7 +38,7 @@ struct GlobalChromeView: View {
                         systemImage: "magnifyingglass",
                         emphasis: .accent,
                         imageSize: .title3.weight(.semibold),
-                        aceessibilityLabel: "Search"
+                        accessibilityLabel: "Search"
                     )
                     .accessibilityHidden(true)
                 }

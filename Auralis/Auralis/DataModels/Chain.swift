@@ -196,7 +196,10 @@ enum Chain: String, Codable, Equatable, CaseIterable, Identifiable {
     }
 
     var formattedChainId: String {
-        if case .solanaMainnet = self, case .solanaDevnetTestnet = self {
+        if case .solanaMainnet = self {
+            return "Solana Network"
+        }
+        if case .solanaDevnetTestnet = self {
             return "Solana Network"
         }
         return "Chain ID: \(chainId)"

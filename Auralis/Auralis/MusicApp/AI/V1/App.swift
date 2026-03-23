@@ -26,19 +26,6 @@ enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-import SwiftUI
-
 struct DetailView: View {
     let item: String
     
@@ -174,6 +161,31 @@ struct NFTMusicPlayerLibraryView: View {
 
     @State private var errorMessage: String?
     @State private var showingError: Bool = false
+
+    init(
+        audioEngine: AudioEngine,
+        currentAccount: EOAccount?,
+        currentChain: Chain,
+        nftService: NFTService,
+        refreshAction: @escaping @MainActor () async -> Void,
+        onOpenNFT: @escaping (NFT) -> Void
+    ) {
+        self.audioEngine = audioEngine
+        self.currentAccount = currentAccount
+        self.currentChain = currentChain
+        self.nftService = nftService
+        self.refreshAction = refreshAction
+        self.onOpenNFT = onOpenNFT
+
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address) ?? ""
+        let chainRawValue = currentChain.rawValue
+        _nfts = Query(
+            filter: #Predicate<NFT> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.networkRawValue == chainRawValue
+            }
+        )
+    }
     
     var body: some View {
         NavigationStack {
@@ -223,7 +235,7 @@ struct NFTMusicPlayerLibraryView: View {
                                                     try await audioEngine.loadAndPlay(nft: nft)
                                                     onOpenNFT(nft)
                                                 } catch {
-                                                    let message = "Failed to load \(nft.name): \(error.localizedDescription)"
+                                                    let message = "Failed to load \(nft.name ?? "Unknown Track"): \(error.localizedDescription)"
                                                     errorMessage = message
                                                     showingError = true
                                                 }

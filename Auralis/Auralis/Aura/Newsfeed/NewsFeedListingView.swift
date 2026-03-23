@@ -105,7 +105,15 @@ struct NewsFeedListingView: View {
         currentChain: Binding<Chain>,
         refreshAction: @escaping @MainActor () async -> Void
     ) {
-        _nfts = Query(sort: [sort])
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount.wrappedValue?.address) ?? ""
+        let chainRawValue = currentChain.wrappedValue.rawValue
+        _nfts = Query(
+            filter: #Predicate<NFT> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.networkRawValue == chainRawValue
+            },
+            sort: [sort]
+        )
         self.searchString = searchString
         _selectedNFT = selectedNFT
         _currentAccount = currentAccount

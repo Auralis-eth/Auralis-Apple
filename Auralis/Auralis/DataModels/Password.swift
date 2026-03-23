@@ -75,11 +75,15 @@ extension Password {
 
 extension Password {
     func saveToKeychain() {
+        guard let passwordData = self.data(using: .utf8) else {
+            return
+        }
+
         let keychainQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: "WalletPasswordAccount",
             kSecAttrService as String: "WalletPasswordService",
-            kSecValueData as String: self.data(using: .utf8)!
+            kSecValueData as String: passwordData
         ]
 
         // Delete existing item first

@@ -190,7 +190,8 @@ struct MainTabView: View {
     @Binding var nftService: NFTService
     @Binding var pendingShellFlowCorrelationID: String?
     @Bindable var router: AppRouter
-    let audioEngine: AudioEngine
+    let audioEngine: AudioEngine?
+    let audioUnavailableMessage: String?
     let modeState: ModeState
     let services: ShellServiceHub
     @State private var showAccountSwitcher = false
@@ -220,7 +221,8 @@ struct MainTabView: View {
         nftService: Binding<NFTService>,
         pendingShellFlowCorrelationID: Binding<String?>,
         router: AppRouter,
-        audioEngine: AudioEngine,
+        audioEngine: AudioEngine?,
+        audioUnavailableMessage: String?,
         modeState: ModeState,
         services: ShellServiceHub
     ) {
@@ -232,6 +234,7 @@ struct MainTabView: View {
         self._pendingShellFlowCorrelationID = pendingShellFlowCorrelationID
         self.router = router
         self.audioEngine = audioEngine
+        self.audioUnavailableMessage = audioUnavailableMessage
         self.modeState = modeState
         self.services = services
         _contextService = State(
@@ -369,7 +372,11 @@ struct MainTabView: View {
                         router: router
                     )
                     .navigationDestination(for: NFTDetailRoute.self) { route in
-                        SharedNFTDetailView(route: route)
+                        SharedNFTDetailView(
+                            route: route,
+                            currentAccountAddress: currentAccount?.address,
+                            currentChain: currentChain
+                        )
                     }
                 }
                 .accessibilityIdentifier("tab.news")
@@ -383,20 +390,36 @@ struct MainTabView: View {
 
             Tab("Music", systemImage: "play.circle", value: AppTab.music) {
                 NavigationStack(path: $router.musicPath) {
-                    VStack {
-                        NFTMusicPlayerApp(
-                            audioEngine: audioEngine,
-                            currentAccount: currentAccount,
-                            currentChain: currentChain,
-                            nftService: nftService,
-                            refreshAction: refreshActiveScopeFromUserAction,
-                            onOpenNFT: { nft in
-                                router.showMusicNFTDetail(id: nft.id)
+                    Group {
+                        if let audioEngine {
+                            VStack {
+                                NFTMusicPlayerApp(
+                                    audioEngine: audioEngine,
+                                    currentAccount: currentAccount,
+                                    currentChain: currentChain,
+                                    nftService: nftService,
+                                    refreshAction: refreshActiveScopeFromUserAction,
+                                    onOpenNFT: { nft in
+                                        router.showMusicNFTDetail(id: nft.id)
+                                    }
+                                )
                             }
-                        )
-                    }
-                    .navigationDestination(for: NFTDetailRoute.self) { route in
-                        SharedNFTDetailView(route: route)
+                            .navigationDestination(for: NFTDetailRoute.self) { route in
+                                SharedNFTDetailView(
+                                    route: route,
+                                    currentAccountAddress: currentAccount?.address,
+                                    currentChain: currentChain
+                                )
+                            }
+                        } else {
+                            AuraScenicScreen(contentAlignment: .center) {
+                                ContentUnavailableView(
+                                    "Music Unavailable",
+                                    systemImage: "speaker.slash",
+                                    description: Text(audioUnavailableMessage ?? "Auralis could not start audio playback on this launch. The rest of the app remains available.")
+                                )
+                            }
+                        }
                     }
                 }
                 .accessibilityIdentifier("tab.music")
@@ -440,7 +463,11 @@ struct MainTabView: View {
                         router: router
                     )
                         .navigationDestination(for: NFTDetailRoute.self) { route in
-                            SharedNFTDetailView(route: route)
+                            SharedNFTDetailView(
+                                route: route,
+                                currentAccountAddress: currentAccount?.address,
+                                currentChain: currentChain
+                            )
                         }
                 }
                 .accessibilityIdentifier("tab.nftTokens")
@@ -482,7 +509,7 @@ private struct ContextRefreshKey: Hashable {
         @State private var nftService = NFTService()
         @State private var pendingShellFlowCorrelationID: String?
         @State private var router = AppRouter()
-        let audioEngine: AudioEngine = try! AudioEngine()
+        let audioEngine: AudioEngine? = try? AudioEngine()
         @StateObject private var modeState = ModeState()
         private let services = ShellServiceHub.live
 
@@ -496,6 +523,7 @@ private struct ContextRefreshKey: Hashable {
                 pendingShellFlowCorrelationID: $pendingShellFlowCorrelationID,
                 router: router,
                 audioEngine: audioEngine,
+                audioUnavailableMessage: nil,
                 modeState: modeState,
                 services: services
             )
@@ -506,7 +534,24 @@ private struct ContextRefreshKey: Hashable {
 
 private struct SharedNFTDetailView: View {
     let route: NFTDetailRoute
+    let currentAccountAddress: String?
+    let currentChain: Chain
     @Query private var nfts: [NFT]
+
+    init(route: NFTDetailRoute, currentAccountAddress: String?, currentChain: Chain) {
+        self.route = route
+        self.currentAccountAddress = currentAccountAddress
+        self.currentChain = currentChain
+
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
+        let chainRawValue = currentChain.rawValue
+        _nfts = Query(
+            filter: #Predicate<NFT> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.networkRawValue == chainRawValue
+            }
+        )
+    }
 
     private var nft: NFT? {
         switch route {
@@ -622,12 +667,36 @@ private struct SharedNFTDetailView: View {
 }
 
 private struct NFTTokensRootView: View {
-    @Query(sort: [SortDescriptor(\NFT.acquiredAt?.blockTimestamp, order: .reverse)]) private var nfts: [NFT]
+    @Query private var nfts: [NFT]
     let currentAccount: EOAccount?
     let currentChain: Chain
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
     let router: AppRouter
+
+    init(
+        currentAccount: EOAccount?,
+        currentChain: Chain,
+        nftService: NFTService,
+        refreshAction: @escaping @MainActor () async -> Void,
+        router: AppRouter
+    ) {
+        self.currentAccount = currentAccount
+        self.currentChain = currentChain
+        self.nftService = nftService
+        self.refreshAction = refreshAction
+        self.router = router
+
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address) ?? ""
+        let chainRawValue = currentChain.rawValue
+        _nfts = Query(
+            filter: #Predicate<NFT> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.networkRawValue == chainRawValue
+            },
+            sort: [SortDescriptor(\NFT.acquiredAt?.blockTimestamp, order: .reverse)]
+        )
+    }
 
     var body: some View {
         Group {

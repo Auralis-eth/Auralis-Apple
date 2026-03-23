@@ -57,7 +57,7 @@ public extension ModelContext {
             throw PlaylistError.invalidData("Title must not be empty.")
         }
         let playlist = Playlist(
-            title: title,
+            title: trimmedTitle,
             description: description,
             imageRef: imageRef,
             imageData: imageData,
@@ -88,7 +88,7 @@ public extension ModelContext {
             }
         }
         if let title {
-            playlist.title = title
+            playlist.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         if let description {
             playlist.descriptionText = description
@@ -199,4 +199,3 @@ public func deletePlaylist(
         throw PlaylistError.fetchFailed(underlying: error)
     }
 }
-

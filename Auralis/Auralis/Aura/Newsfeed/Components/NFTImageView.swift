@@ -32,6 +32,7 @@ class ImageCache {
 }
 
 // Image Loader that handles caching
+@MainActor
 class ImageLoader: ObservableObject {
     enum LoadingError: Error {
         case invalidData
@@ -62,55 +63,46 @@ class ImageLoader: ObservableObject {
     
     private func loadImage() {
         isLoading = true
+        image = nil
         error = nil
         guard url.pathExtension.lowercased() != "mp4" else {
             error = .videoData
+            isLoading = false
             return
         }
 
-        loadingTask = Task {
+        loadingTask = Task { @MainActor in
+            defer {
+                isLoading = false
+            }
+
             do {
                 let (data, response) = try await URLSession.shared.data(from: url)
                 
                 if let httpResponse = response as? HTTPURLResponse,
-                   let contentType = httpResponse.allHeaderFields["Content-Type"] as? String ?? httpResponse.value(forHTTPHeaderField: "Content-Type"){
-                        let content = contentType.lowercased()
+                   let contentType = httpResponse.allHeaderFields["Content-Type"] as? String ?? httpResponse.value(forHTTPHeaderField: "Content-Type") {
+                    let content = contentType.lowercased()
                     if content.contains("video/mp4") || contentType.contains("video/mpeg4") {
                         error = .videoData
                         return
                     }
                 }
 
-                // Check if task was cancelled
-                if Task.isCancelled { return }
+                guard !Task.isCancelled else { return }
 
                 if let downloadedImage = UIImage(data: data) {
-                    // Cache the loaded image
-                    ImageCache.shared.set(downloadedImage, for: self.cacheKey)
-                    await MainActor.run {
-                        self.image = downloadedImage
-                    }
+                    ImageCache.shared.set(downloadedImage, for: cacheKey)
+                    image = downloadedImage
                 } else if (try? data.isSVGData()) == true {
-                    //TODO: check if data is SVG
-//                    print(String(data: data, encoding: .utf8))
-                    await MainActor.run {
-                        self.error = .svgData
-                    }
+                    error = .svgData
                 } else {
-                    
-                    await MainActor.run {
-                        self.error = .invalidData
-                    }
+                    error = .invalidData
                 }
-            } catch {
+            } catch let loadingError {
                 if !Task.isCancelled {
-                    await MainActor.run {
-                        self.error = .networkError
-                    }
+                    _ = loadingError
+                    error = .networkError
                 }
-            }
-            await MainActor.run {
-                self.isLoading = false
             }
         }
     }
@@ -120,9 +112,6 @@ class ImageLoader: ObservableObject {
         loadingTask = nil
     }
 
-    deinit {
-        cancel()
-    }
 }
 
 // Cached async image view

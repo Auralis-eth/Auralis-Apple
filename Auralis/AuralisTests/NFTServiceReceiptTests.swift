@@ -142,7 +142,8 @@ struct NFTServiceReceiptTests {
         let persistedNFT = try #require(context.fetch(FetchDescriptor<NFT>()).first)
 
         #expect(persistedNFT.networkRawValue == Chain.baseMainnet.rawValue)
-        #expect(persistedNFT.id == "\(Chain.baseMainnet.rawValue):0x495f947276749ce646f68ac8c248420045cb7b5e:42")
+        #expect(persistedNFT.accountAddressRawValue == account.address)
+        #expect(persistedNFT.id == "\(account.address):\(Chain.baseMainnet.rawValue):0x495f947276749ce646f68ac8c248420045cb7b5e:42")
         #expect(persistedNFT.contract.id == "\(Chain.baseMainnet.rawValue):0x495f947276749ce646f68ac8c248420045cb7b5e")
         #expect(persistedNFT.collection?.id == "\(Chain.baseMainnet.rawValue):0x495f947276749ce646f68ac8c248420045cb7b5e")
     }
@@ -207,6 +208,92 @@ struct NFTServiceReceiptTests {
         #expect(Set(fetchedNFTs.map(\.contract.id)).count == 2)
         #expect(Set(fetchedNFTs.compactMap { $0.collection?.id }).count == 2)
         #expect(Set(fetchedNFTs.map(\.id)).count == 2)
+    }
+
+    @Test("refresh cleanup only removes NFTs from the active account scope")
+    @MainActor
+    func refreshCleanupPreservesOtherAccounts() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let activeAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
+        let otherAccountAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+
+        context.insert(
+            makeFixtureNFT(
+                contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                tokenId: "stale",
+                network: .ethMainnet,
+                accountAddress: activeAccount.address
+            )
+        )
+        context.insert(
+            makeFixtureNFT(
+                contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                tokenId: "other-account",
+                network: .ethMainnet,
+                accountAddress: otherAccountAddress
+            )
+        )
+        try context.save()
+
+        let fetcher = NFTFixtureFetcher(
+            nftsByChain: [
+                .ethMainnet: [
+                    makeFixtureNFT(
+                        contractAddress: "0xcccccccccccccccccccccccccccccccccccccccc",
+                        tokenId: "fresh",
+                        network: .ethMainnet,
+                        accountAddress: activeAccount.address
+                    )
+                ]
+            ]
+        )
+        let service = NFTService(nftFetcher: fetcher)
+
+        await service.refreshNFTs(
+            for: activeAccount,
+            chain: .ethMainnet,
+            modelContext: context,
+            correlationID: "cleanup-account-scope"
+        )
+
+        let persisted = try context.fetch(FetchDescriptor<NFT>())
+        #expect(persisted.contains(where: { $0.tokenId == "fresh" && $0.accountAddressRawValue == activeAccount.address }))
+        #expect(persisted.contains(where: { $0.tokenId == "other-account" && $0.accountAddressRawValue == otherAccountAddress }))
+        #expect(!persisted.contains(where: { $0.tokenId == "stale" && $0.accountAddressRawValue == activeAccount.address }))
+    }
+
+    @Test("refresh cleanup only removes NFTs from the active chain scope")
+    @MainActor
+    func refreshCleanupPreservesOtherChains() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let activeAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
+
+        context.insert(makeFixtureNFT(tokenId: "stale-eth", network: .ethMainnet, accountAddress: activeAccount.address))
+        context.insert(makeFixtureNFT(tokenId: "base-keep", network: .baseMainnet, accountAddress: activeAccount.address))
+        try context.save()
+
+        let fetcher = NFTFixtureFetcher(
+            nftsByChain: [
+                .ethMainnet: [
+                    makeFixtureNFT(tokenId: "fresh-eth", network: .ethMainnet, accountAddress: activeAccount.address)
+                ]
+            ]
+        )
+        let service = NFTService(nftFetcher: fetcher)
+
+        await service.refreshNFTs(
+            for: activeAccount,
+            chain: .ethMainnet,
+            modelContext: context,
+            correlationID: "cleanup-chain-scope"
+        )
+
+        let persisted = try context.fetch(FetchDescriptor<NFT>())
+        #expect(persisted.contains(where: { $0.tokenId == "fresh-eth" && $0.networkRawValue == Chain.ethMainnet.rawValue }))
+        #expect(persisted.contains(where: { $0.tokenId == "base-keep" && $0.networkRawValue == Chain.baseMainnet.rawValue }))
+        #expect(!persisted.contains(where: { $0.tokenId == "stale-eth" && $0.networkRawValue == Chain.ethMainnet.rawValue }))
     }
 
     @Test("provider failures map rate-limited and degraded states without relying on raw localized errors")
@@ -495,10 +582,11 @@ private func makeFixtureNFT(
     contractAddress: String = "0x495f947276749ce646f68ac8c248420045cb7b5e",
     tokenId: String = "42",
     collectionName: String = "Fixture Collection",
-    network: Chain = .ethMainnet
+    network: Chain = .ethMainnet,
+    accountAddress: String = "0x1234567890abcdef1234567890abcdef12345678"
 ) -> NFT {
     NFT(
-        id: "\(network.rawValue):\(contractAddress):\(tokenId)",
+        id: "\(accountAddress):\(network.rawValue):\(contractAddress):\(tokenId)",
         contract: NFT.Contract(address: contractAddress, chain: network),
         tokenId: tokenId,
         name: "Fixture NFT",
@@ -511,6 +599,7 @@ private func makeFixtureNFT(
         ),
         tokenUri: "ipfs://fixture-\(tokenId)",
         network: network,
+        accountAddress: accountAddress,
         collectionName: collectionName
     )
 }
