@@ -112,7 +112,8 @@ struct ChromeContextInspectorSheet: View {
                 }
 
                 Section("Freshness") {
-                    LabeledContent("Refresh State", value: snapshot.freshnessLabel)
+                    LabeledContent("Refresh State", value: snapshot.freshness.refreshState.displayLabel)
+                    LabeledContent("Freshness Status", value: snapshot.freshnessLabel)
                     if let ttl = snapshot.freshness.ttl {
                         LabeledContent(
                             "TTL",
@@ -152,5 +153,11 @@ struct ChromeContextInspectorSheet: View {
 private extension ContextProvenance {
     var displayLabel: String {
         rawValue.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+}
+
+private extension ContextRefreshState {
+    var displayLabel: String {
+        rawValue.capitalized
     }
 }

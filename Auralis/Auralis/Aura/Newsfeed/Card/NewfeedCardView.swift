@@ -230,9 +230,10 @@ struct NewsFeedCardExpandedDetailsView: View {
                     .padding(.top, 8)
             }
 
-            if let contractAddress = nft.contract.address {
-                OpenSeaLink(contractAddress: contractAddress, tokenId: nft.tokenId)
-                EtherscanLink(contractAddress: contractAddress, tokenId: nft.tokenId)
+            if let chain = nft.network,
+               let contractAddress = nft.contract.address {
+                OpenSeaLink(chain: chain, contractAddress: contractAddress, tokenId: nft.tokenId)
+                EtherscanLink(chain: chain, contractAddress: contractAddress, tokenId: nft.tokenId)
             }
 
             // Category display (placeholder)

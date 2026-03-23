@@ -7,66 +7,157 @@
 
 import SwiftUI
 
+struct NFTExternalDestination: Equatable {
+    let label: String
+    let url: URL
+}
+
+extension Chain {
+    var openSeaChainSlug: String? {
+        switch self {
+        case .ethMainnet:
+            return "ethereum"
+        case .baseMainnet:
+            return "base"
+        case .arbMainnet:
+            return "arbitrum"
+        case .optMainnet:
+            return "optimism"
+        case .polygonMainnet:
+            return "matic"
+        case .zoraMainnet:
+            return "zora"
+        default:
+            return nil
+        }
+    }
+
+    var nftExplorerDestination: NFTExternalDestination? {
+        let host: String
+        let label: String
+
+        switch self {
+        case .ethMainnet:
+            host = "etherscan.io"
+            label = "Etherscan"
+        case .ethSepoliaTestnet:
+            host = "sepolia.etherscan.io"
+            label = "Etherscan"
+        case .baseMainnet:
+            host = "basescan.org"
+            label = "BaseScan"
+        case .baseSepoliaTestnet:
+            host = "sepolia.basescan.org"
+            label = "BaseScan"
+        case .arbMainnet:
+            host = "arbiscan.io"
+            label = "Arbiscan"
+        case .arbSepoliaTestnet:
+            host = "sepolia.arbiscan.io"
+            label = "Arbiscan"
+        case .arbNovaMainnet:
+            host = "nova.arbiscan.io"
+            label = "Arbiscan"
+        case .optMainnet:
+            host = "optimistic.etherscan.io"
+            label = "Optimistic Etherscan"
+        case .optSepoliaTestnet:
+            host = "sepolia-optimism.etherscan.io"
+            label = "Optimistic Etherscan"
+        case .polygonMainnet:
+            host = "polygonscan.com"
+            label = "PolygonScan"
+        case .polygonAmoyTestnet:
+            host = "amoy.polygonscan.com"
+            label = "PolygonScan"
+        default:
+            return nil
+        }
+
+        return NFTExternalDestination(label: label, url: URL(string: "https://\(host)")!)
+    }
+
+    func openSeaURL(contractAddress: String, tokenId: String) -> URL? {
+        guard let chainSlug = openSeaChainSlug else {
+            return nil
+        }
+
+        return URL(string: "https://opensea.io/assets/\(chainSlug)/\(contractAddress)/\(tokenId)")
+    }
+
+    func nftExplorerURL(contractAddress: String, tokenId: String) -> URL? {
+        guard let destination = nftExplorerDestination else {
+            return nil
+        }
+
+        return URL(string: "\(destination.url.absoluteString)/token/\(contractAddress)?a=\(tokenId)")
+    }
+}
+
 struct OpenSeaLink: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
 
+    let chain: Chain
     let contractAddress: String
     let tokenId: String
 
-    // Default values matching your example
-    init(contractAddress: String,
+    init(chain: Chain,
+         contractAddress: String,
          tokenId: String) {
+        self.chain = chain
         self.contractAddress = contractAddress
         self.tokenId = tokenId
     }
 
-    var openSeaURL: URL {
-        URL(string: "https://opensea.io/assets/ethereum/\(contractAddress)/\(tokenId)")!
+    private var openSeaURL: URL? {
+        chain.openSeaURL(contractAddress: contractAddress, tokenId: tokenId)
     }
 
     var body: some View {
-        Button {
-            ReceiptEventLogger(
-                receiptStore: ReceiptStores.live(modelContext: modelContext)
-            ).recordExternalLinkOpened(
-                label: "OpenSea",
-                url: openSeaURL,
-                surface: "newsfeed.nft_detail"
-            )
-            openURL(openSeaURL)
-        } label: {
-            HStack {
-                // OpenSea logo
-                SystemImage("water.waves")
-                    .font(.system(size: 18, weight: .bold))
+        if let openSeaURL {
+            Button {
+                ReceiptEventLogger(
+                    receiptStore: ReceiptStores.live(modelContext: modelContext)
+                ).recordExternalLinkOpened(
+                    label: "OpenSea",
+                    url: openSeaURL,
+                    surface: "newsfeed.nft_detail",
+                    chain: chain
+                )
+                openURL(openSeaURL)
+            } label: {
+                HStack {
+                    SystemImage("water.waves")
+                        .font(.system(size: 18, weight: .bold))
 
-                SystemFontText(
-                    text: "View on OpenSea",
-                    size: 16,
-                    weight: .semibold
+                    SystemFontText(
+                        text: "View on OpenSea",
+                        size: 16,
+                        weight: .semibold
+                    )
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color(hexString: "2081E2"),
+                            Color(hexString: "2081E2").opacity(0.8)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .cornerRadius(12)
+                .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
                 )
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(hexString: "2081E2"),  // OpenSea blue
-                        Color(hexString: "2081E2").opacity(0.8)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
-            )
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 }
 
@@ -74,60 +165,67 @@ struct EtherscanLink: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
 
+    let chain: Chain
     let contractAddress: String
     let tokenId: String
 
-    init(contractAddress: String, tokenId: String) {
+    init(chain: Chain, contractAddress: String, tokenId: String) {
+        self.chain = chain
         self.contractAddress = contractAddress
         self.tokenId = tokenId
     }
 
-    var etherscanURL: URL {
-        // Etherscan URL for a specific token ID
-        URL(string: "https://etherscan.io/token/\(contractAddress)?a=\(tokenId)")!
+    private var explorerDestination: NFTExternalDestination? {
+        chain.nftExplorerDestination
+    }
+
+    private var explorerURL: URL? {
+        chain.nftExplorerURL(contractAddress: contractAddress, tokenId: tokenId)
     }
 
     var body: some View {
-        Button {
-            ReceiptEventLogger(
-                receiptStore: ReceiptStores.live(modelContext: modelContext)
-            ).recordExternalLinkOpened(
-                label: "Etherscan",
-                url: etherscanURL,
-                surface: "newsfeed.nft_detail"
-            )
-            openURL(etherscanURL)
-        } label: {
-            HStack {
-                // Etherscan-related icon (you can choose a more specific one if available)
-                SystemImage("link.circle.fill") // Example icon
-                    .font(.system(size: 18, weight: .bold))
+        if let explorerDestination, let explorerURL {
+            Button {
+                ReceiptEventLogger(
+                    receiptStore: ReceiptStores.live(modelContext: modelContext)
+                ).recordExternalLinkOpened(
+                    label: explorerDestination.label,
+                    url: explorerURL,
+                    surface: "newsfeed.nft_detail",
+                    chain: chain
+                )
+                openURL(explorerURL)
+            } label: {
+                HStack {
+                    SystemImage("link.circle.fill")
+                        .font(.system(size: 18, weight: .bold))
 
-                SystemFontText(
-                    text: "View on Etherscan",
-                    size: 16,
-                    weight: .semibold
+                    SystemFontText(
+                        text: "View on \(explorerDestination.label)",
+                        size: 16,
+                        weight: .semibold
+                    )
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color(hexString: "3498DB"),
+                            Color(hexString: "2980B9").opacity(0.8)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .cornerRadius(12)
+                .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
                 )
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(hexString: "3498DB"),  // Etherscan-like blue
-                        Color(hexString: "2980B9").opacity(0.8) // Darker blue
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
-            )
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 }

@@ -61,5 +61,53 @@ struct ReceiptEventLoggerTests {
         let contextReceipt = try #require(receipts.first(where: { $0.kind == "context.built" }))
         #expect(contextReceipt.details.values["refreshState"] == .string(ContextRefreshState.idle.rawValue))
         #expect(contextReceipt.details.values["isStale"] == .bool(false))
+        let linkReceipt = try #require(receipts.first(where: { $0.kind == "external_link.opened" }))
+        #expect(linkReceipt.scope.chain == .baseMainnet)
+        #expect(linkReceipt.details.values["chain"] == .string(Chain.baseMainnet.rawValue))
     }
+
+    @Test("receipt event logger returns a failure result when the store append fails")
+    @MainActor
+    func loggerReturnsFailureWhenStoreAppendFails() {
+        let logger = ReceiptEventLogger(receiptStore: FailingReceiptStore())
+
+        let result = logger.recordCopyAction(
+            subject: "nft.id",
+            value: "nft-123",
+            surface: "newsfeed.card",
+            correlationID: "copy-failure-1"
+        )
+
+        switch result {
+        case .success:
+            Issue.record("Expected receipt logging to fail when the store append throws.")
+        case .failure(let error):
+            #expect((error as? FailingReceiptStore.StoreError) == .appendFailed)
+        }
+    }
+}
+
+@MainActor
+private struct FailingReceiptStore: ReceiptStore {
+    enum StoreError: Error, Equatable {
+        case appendFailed
+    }
+
+    func append(_ receipt: ReceiptDraft) throws -> ReceiptRecord {
+        throw StoreError.appendFailed
+    }
+
+    func latest(limit: Int) throws -> [ReceiptRecord] {
+        []
+    }
+
+    func receipts(forCorrelationID correlationID: String, limit: Int) throws -> [ReceiptRecord] {
+        []
+    }
+
+    func exportAll() throws -> Data {
+        Data()
+    }
+
+    func resetAll() throws { }
 }

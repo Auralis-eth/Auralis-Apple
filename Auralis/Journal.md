@@ -158,3 +158,27 @@ The next receipt fix was less about concurrency and more about narrative integri
 The fix was to keep a shell-level correlation token alive long enough for the follow-on context refresh to reuse it. In practice that means the action entrypoint mints the ID once, the NFT refresh uses it, and the later `context.built` receipt consumes that same ID when the refresh finishes. There is now also an integration-style test proving one flow can leave related NFT and context receipts under one shared correlation.
 
 This is a useful systems lesson: if observability is part of the product, correlation IDs are not bookkeeping. They are the thread that keeps the product explainable after the fact.
+
+### Debug-only observability is fake observability
+
+Another review fix was about a quieter failure mode: `ReceiptEventLogger` used to treat append errors like a debug inconvenience. In practice that meant a release build could lose receipts and the app would have almost nothing useful to say about it.
+
+The updated logger still works as fire-and-forget for the normal call sites, but it now does two better things. First, it logs failures through `OSLog` so release builds leave a real diagnostic breadcrumb. Second, the record methods now return a `Result`, which gives important callers a path to surface degraded observability later if the product needs that.
+
+That is a pattern worth reusing. If a subsystem is meant to explain what happened, then its own failures should not vanish into polite silence.
+
+### Explorer buttons should not lie about where they go
+
+The external NFT links had a classic multi-chain bug: the app knew the NFT's chain, but the buttons behaved like every token on earth lived on Ethereum. That is the sort of mistake that feels tiny in code and surprisingly expensive in trust. A Base NFT sent to `etherscan.io` is not a graceful fallback. It is just the wrong place with a confident label.
+
+The cleanup was to make the destination resolution chain-aware at the component boundary. `OpenSeaLink` now only renders when the active chain maps to a real OpenSea destination, and the explorer button builds its URL and label from the actual chain scanner instead of hardcoding "Etherscan." The receipt payload also records the resolved chain so the audit trail describes the real destination, not a hand-wavy approximation.
+
+The engineering lesson here is simple: when the UI names an external system, that name is a contract. If the app cannot resolve the right destination, hiding the affordance is safer than pretending every road leads to Ethereum.
+
+### Labels should describe the value they are actually showing
+
+One of the smaller review fixes was also one of the cleanest examples of why naming matters in UI. The context inspector had a row labeled "Refresh State," but the value under it was not the state at all. It was the freshness status string. So the sheet was technically showing useful information while simultaneously misdescribing it.
+
+The fix was intentionally boring: keep one row for the actual state, like `Idle` or `Refreshing`, and a separate row for the freshness status, like `Fresh now` or `2m ago`. That does not change any architecture, but it does tighten the contract between the label and the data.
+
+This is a good habit to protect. When labels drift away from the values they present, debugging gets slower because the UI starts teaching the wrong mental model.

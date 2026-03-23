@@ -1,9 +1,11 @@
 import Foundation
+import OSLog
 
 @MainActor
 struct ReceiptEventLogger {
     private let receiptStore: any ReceiptStore
     private let payloadSanitizer: any ReceiptPayloadSanitizing
+    private let logger = Logger(subsystem: "Auralis", category: "Receipts")
 
     init(
         receiptStore: any ReceiptStore,
@@ -13,11 +15,12 @@ struct ReceiptEventLogger {
         self.payloadSanitizer = payloadSanitizer
     }
 
+    @discardableResult
     func recordAppLaunch(
         accountAddress: String,
         chain: Chain,
         correlationID: String
-    ) {
+    ) -> Result<ReceiptRecord, Error> {
         append(
             trigger: "app.launch",
             scope: "app",
@@ -33,10 +36,11 @@ struct ReceiptEventLogger {
         )
     }
 
+    @discardableResult
     func recordContextBuilt(
         snapshot: ContextSnapshot,
         correlationID: String?
-    ) {
+    ) -> Result<ReceiptRecord, Error> {
         append(
             trigger: "context.built",
             scope: "context",
@@ -58,12 +62,14 @@ struct ReceiptEventLogger {
         )
     }
 
+    @discardableResult
     func recordExternalLinkOpened(
         label: String,
         url: URL,
         surface: String,
+        chain: Chain? = nil,
         correlationID: String? = nil
-    ) {
+    ) -> Result<ReceiptRecord, Error> {
         append(
             trigger: "external_link.opened",
             scope: "navigation.external",
@@ -72,7 +78,8 @@ struct ReceiptEventLogger {
             rawPayload: RawReceiptPayload(values: [
                 "label": .string(label),
                 "surface": .string(surface),
-                "url": .string(url.absoluteString)
+                "url": .string(url.absoluteString),
+                "chain": chain.map { .string($0.rawValue) } ?? .null
             ]),
             correlationID: correlationID,
             actor: .user,
@@ -80,12 +87,13 @@ struct ReceiptEventLogger {
         )
     }
 
+    @discardableResult
     func recordCopyAction(
         subject: String,
         value: String,
         surface: String,
         correlationID: String? = nil
-    ) {
+    ) -> Result<ReceiptRecord, Error> {
         append(
             trigger: "copy.performed",
             scope: "clipboard",
@@ -114,11 +122,11 @@ private extension ReceiptEventLogger {
         correlationID: String?,
         actor: ReceiptActor,
         isSuccess: Bool
-    ) {
+    ) -> Result<ReceiptRecord, Error> {
         let payload = payloadSanitizer.sanitize(rawPayload)
 
         do {
-            _ = try receiptStore.append(
+            let record = try receiptStore.append(
                 ReceiptDraft(
                     actor: actor,
                     mode: .observe,
@@ -131,8 +139,13 @@ private extension ReceiptEventLogger {
                     details: payload
                 )
             )
+            return .success(record)
         } catch {
+            logger.error(
+                "Failed to append receipt event trigger=\(trigger, privacy: .public) scope=\(scope, privacy: .public) correlationID=\(correlationID ?? "nil", privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+            )
             assertionFailure("Failed to append receipt event: \(error.localizedDescription)")
+            return .failure(error)
         }
     }
 }
