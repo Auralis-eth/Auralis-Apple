@@ -34,6 +34,7 @@ SwiftUI handles the control surfaces because the player UI is state-heavy and be
 - Bug squashed: the player slider was measuring apples in the engine and oranges in the UI. `AudioEngine.progress` returned a normalized fraction, but the sliders and `seek(to:)` treated it as seconds. That meant scrubbing was wrong, elapsed time was wrong, and the “restart previous if more than 3 seconds in” rule was secretly comparing a `0...1` fraction against `3.0`.
 - Bug squashed: recently played actions tried to compare an NFT string ID like a wallet label on a record sleeve against a fresh random `UUID` generated for `Track.id`. Those values were never going to match, so the app kept reloading the track instead of resuming or restarting the current one.
 - Bug squashed: `AudioEngine` initialization had its setup calls commented out, which is the software equivalent of rolling a piano onto the stage and never opening the lid.
+- Bug squashed: the gas fee view model was canceling `currentTask` from inside `performFetch()`, which meant the task could cancel itself right before or during the provider request. That is a classic concurrency own-goal: the worker was cutting the power to its own workbench. The fix was to keep cancellation ownership in `setChain()` and let `performFetch()` focus purely on running one fetch.
 
 ## Engineer's Wisdom
 

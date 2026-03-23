@@ -200,6 +200,7 @@ final class GasPriceEstimateViewModel: ObservableObject {
         
         // Start new fetch with slight debounce for chain changes
         currentTask = Task {
+            defer { currentTask = nil }
             try? await Task.sleep(for: .milliseconds(300))
             if !Task.isCancelled {
                 await performFetch(for: chain)
@@ -224,9 +225,6 @@ final class GasPriceEstimateViewModel: ObservableObject {
     }
     
     private func performFetch(for chain: Chain) async {
-        // Cancel previous task
-        currentTask?.cancel()
-        
         isLoading = true
         error = nil
         
