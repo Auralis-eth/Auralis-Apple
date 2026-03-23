@@ -449,7 +449,7 @@ struct RecentlyPlayedSection: View {
     private func startOverTapped(nft: NFT) {
         impact()
         Task {
-            if let currentId = audioEngine.currentTrack?.id, let nftUUID = UUID(uuidString: nft.id), currentId == nftUUID {
+            if audioEngine.currentTrackNFTID == nft.id {
                 // If it's the current track, seek to 0 and play
                 try? audioEngine.seek(to: 0)
                 try? audioEngine.play()
@@ -463,7 +463,7 @@ struct RecentlyPlayedSection: View {
     private func playTapped(nft: NFT) {
         impact()
         Task {
-            if let currentId = audioEngine.currentTrack?.id, let nftUUID = UUID(uuidString: nft.id), currentId == nftUUID {
+            if audioEngine.currentTrackNFTID == nft.id {
                 try? audioEngine.resume()
             } else {
                 try? await audioEngine.loadAndPlay(nft: nft)
@@ -576,4 +576,3 @@ private struct DetailRow: View {
         }
     }
 }
-

@@ -230,4 +230,3 @@ struct PlaybackStateButton: View {
         .animation(nil, value: sourceState)
     }
 }
-

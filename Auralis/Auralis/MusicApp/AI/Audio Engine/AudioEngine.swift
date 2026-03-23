@@ -15,6 +15,7 @@ public class AudioEngine: ObservableObject {
     private var currentNFT: NFT?
     private var audioEngine = AVAudioEngine()
     private var playerNode = AVAudioPlayerNode()
+    private var interruptionObserver: NSObjectProtocol?
     
     public var audioFile: AVAudioFile?
     public var previousAudio = Playlist(name: "Previous")
@@ -38,7 +39,7 @@ public class AudioEngine: ObservableObject {
 
     
     public struct Track: Identifiable, Equatable, Hashable, Codable, Sendable {
-        public let id = UUID()
+        public let id: String
         var title: String?
         var artist: String?
         var duration: TimeInterval
@@ -54,7 +55,11 @@ public class AudioEngine: ObservableObject {
     }
     
     var progress: Double {
-        duration > 0 ? currentTime / duration : 0
+        currentTime
+    }
+
+    var currentTrackNFTID: String? {
+        currentTrack?.id
     }
     
     enum AudioEngineError: Error {
@@ -84,9 +89,9 @@ public class AudioEngine: ObservableObject {
     }
     
     init() throws {
-//        try setupAudioSession()
-//        try setupAudioEngine()
-//        setupInterruptionHandling()
+        try setupAudioSession()
+        try setupAudioEngine()
+        setupInterruptionHandling()
     }
     
     // MARK: - Audio Session Configuration
@@ -115,14 +120,18 @@ public class AudioEngine: ObservableObject {
     
     // MARK: - Audio Interruption Handling
     private func setupInterruptionHandling() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleInterruption),
-            name: AVAudioSession.interruptionNotification,
-            object: nil
-        )
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self else { return }
+            Task { @MainActor in
+                self.handleInterruption(notification)
+            }
+        }
     }
-    
+
     @discardableResult
     private func beginNewLoad() async -> UUID {
         // Capture and cancel any in-flight load task, then await its completion to avoid overlap
@@ -134,38 +143,35 @@ public class AudioEngine: ObservableObject {
         activeLoadID = id
         return id
     }
-    
-    @objc private func handleInterruption(notification: Notification) {
+
+    private func handleInterruption(_ notification: Notification) {
         guard let userInfo = notification.userInfo,
               let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
             return
         }
-        
-        Task { @MainActor in
-            switch type {
-            case .began:
-                if playbackState == .playing {
-                    pause()
-                }
-            case .ended:
-                // Reactivate the audio session first
-                do {
-                    try AVAudioSession.sharedInstance().setActive(true)
-                } catch {
-                    return
-                }
-                
-                guard let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt else {
-                    return
-                }
-                let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
-                if options.contains(.shouldResume) && playbackState == .paused {
-                    try? resume()
-                }
-            @unknown default:
-                break
+
+        switch type {
+        case .began:
+            if playbackState == .playing {
+                pause()
             }
+        case .ended:
+            do {
+                try AVAudioSession.sharedInstance().setActive(true)
+            } catch {
+                return
+            }
+
+            guard let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt else {
+                return
+            }
+            let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+            if options.contains(.shouldResume) && playbackState == .paused {
+                try? resume()
+            }
+        @unknown default:
+            break
         }
     }
 
@@ -232,7 +238,7 @@ public class AudioEngine: ObservableObject {
     }
     
     // MARK: - Audio Loading and Playback
-    private func loadAudio(from url: URL, title: String?, artist: String?, imageUrl: String?, loadID: UUID) async throws {
+    private func loadAudio(from url: URL, trackID: String, title: String?, artist: String?, imageUrl: String?, loadID: UUID) async throws {
         playbackState = .loading
         
         // Respect task cancellation and staleness
@@ -269,7 +275,7 @@ public class AudioEngine: ObservableObject {
             seekPosition = 0
             pausedAt = 0
             playbackState = .stopped
-            currentTrack = Track(title: title, artist: artist, duration: self.duration, imageUrl: imageUrl)
+            currentTrack = Track(id: trackID, title: title, artist: artist, duration: self.duration, imageUrl: imageUrl)
         } catch {
             playbackState = .stopped
             throw AudioEngineError.fileLoadFailed
@@ -338,7 +344,7 @@ public class AudioEngine: ObservableObject {
     
     // MARK: - Fixed Seek Functionality
     public func seek(to time: TimeInterval) throws {
-        guard let audioFile = audioFile else { return }
+        guard audioFile != nil else { return }
         
         let duration = self.duration
         let clampedTime = max(0, min(time, duration))
@@ -434,7 +440,7 @@ public class AudioEngine: ObservableObject {
     }
     
     // Note: This method loads the file and immediately starts playback (auto-play).
-    private func loadAndPlay(url: URL, title: String?, artist: String?, imageUrl: String?) async throws {
+    private func loadAndPlay(url: URL, trackID: String, title: String?, artist: String?, imageUrl: String?) async throws {
         guard canPlayFormat(url) else {
             throw AudioEngineError.unsupportedFormat
         }
@@ -442,7 +448,7 @@ public class AudioEngine: ObservableObject {
         // Use the current activeLoadID to guard against stale completions
         let loadID = activeLoadID
         
-        try await loadAudio(from: url, title: title, artist: artist, imageUrl: imageUrl, loadID: loadID)
+        try await loadAudio(from: url, trackID: trackID, title: title, artist: artist, imageUrl: imageUrl, loadID: loadID)
         try Task.checkCancellation()
         guard loadID == activeLoadID else { throw CancellationError() }
         try play()
@@ -461,6 +467,7 @@ public class AudioEngine: ObservableObject {
             try Task.checkCancellation()
             try await self.loadAndPlay(
                 url: url,
+                trackID: nft.id,
                 title: nft.name,
                 artist: nft.artistName,
                 imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl
@@ -482,8 +489,7 @@ public class AudioEngine: ObservableObject {
         switch playbackState {
         case .playing:
             // For playing state, calculate from node time + seek position
-            guard let audioFile = audioFile,
-                  let nodeTime = playerNode.lastRenderTime,
+            guard let nodeTime = playerNode.lastRenderTime,
                   let playerTime = playerNode.playerTime(forNodeTime: nodeTime) else {
                 return seekPosition
             }
@@ -504,7 +510,9 @@ public class AudioEngine: ObservableObject {
     
     // MARK: - Resource Cleanup
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+        }
         currentLoadTask?.cancel()
         if audioEngine.isRunning {
             audioEngine.stop()
