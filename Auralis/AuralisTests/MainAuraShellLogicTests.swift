@@ -128,6 +128,75 @@ import Testing
         #expect(result.shouldProcessPendingDeepLink)
     }
 
+    @Test("account refresh request captures the new account and chain snapshot")
+    func accountRefreshRequestUsesDerivedSnapshot() {
+        let oldAccount = EOAccount(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        oldAccount.currentChain = .ethMainnet
+        let newAccount = EOAccount(address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        newAccount.currentChain = .baseMainnet
+
+        let result = logic.accountDidChange(
+            newAccount: newAccount,
+            persistedAddress: oldAccount.address
+        )
+        let request = logic.makeAccountRefreshRequest(
+            newAccount: newAccount,
+            result: result,
+            correlationID: "account-switch-1"
+        )
+
+        #expect(request?.account === newAccount)
+        #expect(request?.chain == .baseMainnet)
+        #expect(request?.currentAddress == newAccount.address)
+        #expect(request?.correlationID == "account-switch-1")
+    }
+
+    @Test("only the latest account refresh request is allowed to write back")
+    func latestRefreshRequestWinsCompletion() {
+        let firstAccount = EOAccount(address: "0x1111111111111111111111111111111111111111")
+        firstAccount.currentChain = .ethMainnet
+        let secondAccount = EOAccount(address: "0x2222222222222222222222222222222222222222")
+        secondAccount.currentChain = .baseMainnet
+
+        let firstResult = logic.accountDidChange(
+            newAccount: firstAccount,
+            persistedAddress: "0x9999999999999999999999999999999999999999"
+        )
+        let secondResult = logic.accountDidChange(
+            newAccount: secondAccount,
+            persistedAddress: firstAccount.address
+        )
+
+        let firstRequest = logic.makeAccountRefreshRequest(
+            newAccount: firstAccount,
+            result: firstResult,
+            correlationID: "first"
+        )
+        let secondRequest = logic.makeAccountRefreshRequest(
+            newAccount: secondAccount,
+            result: secondResult,
+            correlationID: "second"
+        )
+
+        let resolvedFirstRequest = try? #require(firstRequest)
+        let resolvedSecondRequest = try? #require(secondRequest)
+
+        #expect(resolvedFirstRequest != nil)
+        #expect(resolvedSecondRequest != nil)
+        #expect(
+            logic.shouldApplyRefreshCompletion(
+                for: resolvedFirstRequest!,
+                latestRequestID: resolvedSecondRequest?.requestID
+            ) == false
+        )
+        #expect(
+            logic.shouldApplyRefreshCompletion(
+                for: resolvedSecondRequest!,
+                latestRequestID: resolvedSecondRequest?.requestID
+            )
+        )
+    }
+
     @Test("address change resolves a persisted account and resets routes")
     func addressChangeUsesPersistedAccount() {
         let savedAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")

@@ -24,6 +24,14 @@ struct MainAuraAddressChangeResult {
     let shouldProcessPendingDeepLink: Bool
 }
 
+struct MainAuraAccountRefreshRequest: Equatable {
+    let requestID: UUID
+    let account: EOAccount
+    let chain: Chain
+    let currentAddress: String
+    let correlationID: String
+}
+
 struct MainAuraShellLogic {
     func restoreInitialState(
         currentAddress: String,
@@ -56,6 +64,31 @@ struct MainAuraShellLogic {
             shouldRefreshNFTs: shouldRefreshNFTs,
             shouldProcessPendingDeepLink: true
         )
+    }
+
+    func makeAccountRefreshRequest(
+        newAccount: EOAccount?,
+        result: MainAuraAccountChangeResult,
+        correlationID: String?
+    ) -> MainAuraAccountRefreshRequest? {
+        guard result.shouldRefreshNFTs, let account = newAccount else {
+            return nil
+        }
+
+        return MainAuraAccountRefreshRequest(
+            requestID: UUID(),
+            account: account,
+            chain: result.currentChain,
+            currentAddress: result.currentAddress,
+            correlationID: correlationID ?? UUID().uuidString
+        )
+    }
+
+    func shouldApplyRefreshCompletion(
+        for request: MainAuraAccountRefreshRequest,
+        latestRequestID: UUID?
+    ) -> Bool {
+        latestRequestID == request.requestID
     }
 
     func addressDidChange(

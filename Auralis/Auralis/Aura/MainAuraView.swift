@@ -27,6 +27,7 @@ struct MainAuraView: View {
     @State private var didFinishInitialStateRestore = false
     @State private var didRecordAppLaunchReceipt = false
     @State private var pendingShellFlowCorrelationID: String?
+    @State private var latestAccountRefreshRequestID: UUID?
 
     @State private var isloading: Bool = false
     private let services: ShellServiceHub
@@ -121,21 +122,45 @@ struct MainAuraView: View {
 
             if result.shouldRefreshNFTs {
                 isloading = true
+                let request = shellLogic.makeAccountRefreshRequest(
+                    newAccount: newValue,
+                    result: result,
+                    correlationID: pendingShellFlowCorrelationID
+                )
+                latestAccountRefreshRequestID = request?.requestID
+
                 Task {
-                    let correlationID = pendingShellFlowCorrelationID ?? UUID().uuidString
+                    guard let request else {
+                        await MainActor.run {
+                            if latestAccountRefreshRequestID == nil {
+                                isloading = false
+                            }
+                        }
+                        return
+                    }
+
                     await nftService.refreshNFTs(
-                        for: currentAccount,
-                        chain: currentChain,
+                        for: request.account,
+                        chain: request.chain,
                         modelContext: modelContext,
-                        correlationID: correlationID
+                        correlationID: request.correlationID
                     )
                     await MainActor.run {
+                        guard shellLogic.shouldApplyRefreshCompletion(
+                            for: request,
+                            latestRequestID: latestAccountRefreshRequestID
+                        ) else {
+                            return
+                        }
+
+                        latestAccountRefreshRequestID = nil
                         isloading = false
-                        currentAddress = result.currentAddress
+                        currentAddress = request.currentAddress
                         processPendingDeepLinkIfPossible()
                     }
                 }
             } else {
+                latestAccountRefreshRequestID = nil
                 currentAddress = result.currentAddress
                 if result.shouldProcessPendingDeepLink {
                     processPendingDeepLinkIfPossible()

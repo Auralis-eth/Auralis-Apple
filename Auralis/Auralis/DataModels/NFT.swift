@@ -913,9 +913,22 @@ public class NFT: Codable {
             Chain(rawValue: networkRawValue)
         }
         set {
-            // Store the raw value when the enum is set
             networkRawValue = newValue?.rawValue ?? ""
         }
+    }
+
+    func applyRefreshScope(chain: Chain) {
+        networkRawValue = chain.rawValue
+        contract.updateScope(chain: chain)
+        collection?.updateScope(chain: chain, contractAddress: contract.address)
+        id = Self.makeScopedNFTID(
+            chain: chain,
+            contractAddress: contract.address,
+            tokenId: tokenId,
+            tokenType: tokenType,
+            name: name,
+            tokenUri: tokenUri
+        )
     }
     
     func isMusic() -> Bool {
@@ -971,6 +984,7 @@ public class NFT: Codable {
         self.secureAnimationUrl = secureAnimationUrl
         self.audioUrl = audioUrl
         self.tags = tags ?? []
+        applyRefreshScope(chain: network)
     }
 
     required public init(from decoder: Decoder) throws {
@@ -994,9 +1008,15 @@ public class NFT: Codable {
         self.tokenId = tokenId
         let contract = try container.decode(Contract.self, forKey: .contract)
         self.contract = contract
-        let contractAddress = contract.address ?? ("unknown" + (tokenType ?? "") + (name ?? "") + (tokenUri ?? ""))
-        let networkPrefix = Chain.ethMainnet.rawValue
-        id = "\(networkPrefix):\(contractAddress):\(tokenId)"
+        id = Self.makeScopedNFTID(
+            chain: .ethMainnet,
+            contractAddress: contract.address,
+            tokenId: tokenId,
+            tokenType: tokenType,
+            name: name,
+            tokenUri: tokenUri
+        )
+        applyRefreshScope(chain: .ethMainnet)
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -1013,14 +1033,39 @@ public class NFT: Codable {
         try container.encodeIfPresent(timeLastUpdated, forKey: .timeLastUpdated)
         try container.encodeIfPresent(acquiredAt, forKey: .acquiredAt)
     }
+
+    private static func makeScopedNFTID(
+        chain: Chain,
+        contractAddress: String?,
+        tokenId: String,
+        tokenType: String?,
+        name: String?,
+        tokenUri: String?
+    ) -> String {
+        let fallbackContractAddress = "unknown" + (tokenType ?? "") + (name ?? "") + (tokenUri ?? "")
+        let resolvedContractAddress = Self.normalizedScopeComponent(contractAddress) ?? fallbackContractAddress
+        return "\(chain.rawValue):\(resolvedContractAddress):\(tokenId)"
+    }
+
+    fileprivate static func normalizedScopeComponent(_ value: String?) -> String? {
+        guard let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmedValue.isEmpty else {
+            return nil
+        }
+
+        return trimmedValue.lowercased()
+    }
     
     
     @Model
     class Contract: Codable {
-        @Attribute(.unique) var address: String?
+        @Attribute(.unique) var id: String
+        var address: String?
+        var chainRawValue: String
 
-        init(address: String?) {
+        init(address: String?, chain: Chain = .ethMainnet) {
+            self.id = Self.makeScopedID(chain: chain, address: address)
             self.address = address
+            self.chainRawValue = chain.rawValue
         }
         
         enum CodingKeys: String, CodingKey {
@@ -1029,12 +1074,25 @@ public class NFT: Codable {
         
         required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            address = try container.decode(String.self, forKey: .address)
+            let decodedAddress = try container.decode(String.self, forKey: .address)
+            address = decodedAddress
+            chainRawValue = Chain.ethMainnet.rawValue
+            id = Self.makeScopedID(chain: .ethMainnet, address: decodedAddress)
         }
         
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(address, forKey: .address)
+        }
+
+        func updateScope(chain: Chain) {
+            chainRawValue = chain.rawValue
+            id = Self.makeScopedID(chain: chain, address: address)
+        }
+
+        private static func makeScopedID(chain: Chain, address: String?) -> String {
+            let resolvedAddress = NFT.normalizedScopeComponent(address) ?? "unknown"
+            return "\(chain.rawValue):\(resolvedAddress)"
         }
     }
     
@@ -1171,24 +1229,65 @@ public class NFT: Codable {
     
     @Model
     class Collection: Codable {
-        @Attribute(.unique) var name: String?
+        @Attribute(.unique) var id: String
+        var name: String?
+        var chainRawValue: String
+        var contractAddress: String?
         
         enum CodingKeys: String, CodingKey {
             case name
         }
         
-        init(name: String?) {
+        init(
+            name: String?,
+            chain: Chain = .ethMainnet,
+            contractAddress: String? = nil
+        ) {
+            self.id = Self.makeScopedID(
+                chain: chain,
+                name: name,
+                contractAddress: contractAddress
+            )
             self.name = name
+            self.chainRawValue = chain.rawValue
+            self.contractAddress = contractAddress
         }
         
         required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            name = try container.decodeIfPresent(String.self, forKey: .name)
+            let decodedName = try container.decodeIfPresent(String.self, forKey: .name)
+            name = decodedName
+            chainRawValue = Chain.ethMainnet.rawValue
+            contractAddress = nil
+            id = Self.makeScopedID(chain: .ethMainnet, name: decodedName, contractAddress: nil)
         }
         
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(name, forKey: .name)
+        }
+
+        func updateScope(chain: Chain, contractAddress: String?) {
+            chainRawValue = chain.rawValue
+            self.contractAddress = contractAddress
+            id = Self.makeScopedID(
+                chain: chain,
+                name: name,
+                contractAddress: contractAddress
+            )
+        }
+
+        private static func makeScopedID(
+            chain: Chain,
+            name: String?,
+            contractAddress: String?
+        ) -> String {
+            if let resolvedContractAddress = NFT.normalizedScopeComponent(contractAddress) {
+                return "\(chain.rawValue):\(resolvedContractAddress)"
+            }
+
+            let resolvedName = NFT.normalizedScopeComponent(name) ?? "unknown"
+            return "\(chain.rawValue):name:\(resolvedName)"
         }
     }
     

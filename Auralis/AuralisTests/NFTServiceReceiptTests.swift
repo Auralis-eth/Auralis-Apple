@@ -119,6 +119,96 @@ struct NFTServiceReceiptTests {
         #expect(fetcher.fetchCallCount == 1)
     }
 
+    @Test("refresh scopes contract and collection identities by the requested chain")
+    @MainActor
+    func refreshPersistsScopedContractIdentity() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let fetcher = NFTFixtureFetcher(
+            nftsByChain: [
+                .baseMainnet: [makeFixtureNFT(network: .ethMainnet)]
+            ]
+        )
+        let service = NFTService(nftFetcher: fetcher)
+        let account = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
+
+        await service.refreshNFTs(
+            for: account,
+            chain: .baseMainnet,
+            modelContext: context,
+            correlationID: "base-refresh"
+        )
+
+        let persistedNFT = try #require(context.fetch(FetchDescriptor<NFT>()).first)
+
+        #expect(persistedNFT.networkRawValue == Chain.baseMainnet.rawValue)
+        #expect(persistedNFT.id == "\(Chain.baseMainnet.rawValue):0x495f947276749ce646f68ac8c248420045cb7b5e:42")
+        #expect(persistedNFT.contract.id == "\(Chain.baseMainnet.rawValue):0x495f947276749ce646f68ac8c248420045cb7b5e")
+        #expect(persistedNFT.collection?.id == "\(Chain.baseMainnet.rawValue):0x495f947276749ce646f68ac8c248420045cb7b5e")
+    }
+
+    @Test("same collection name on different contracts stays distinct in persistence")
+    @MainActor
+    func collectionsDoNotMergeByDisplayNameAlone() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let firstNFT = makeFixtureNFT(
+            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            tokenId: "1",
+            collectionName: "Shared Name",
+            network: .ethMainnet
+        )
+        let secondNFT = makeFixtureNFT(
+            contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            tokenId: "2",
+            collectionName: "Shared Name",
+            network: .ethMainnet
+        )
+
+        context.insert(firstNFT)
+        context.insert(secondNFT)
+        try context.save()
+
+        let fetchedNFTs = try context.fetch(FetchDescriptor<NFT>())
+
+        #expect(fetchedNFTs.count == 2)
+        #expect(Set(fetchedNFTs.compactMap { $0.collection?.id }).count == 2)
+        #expect(Set(fetchedNFTs.map(\.contract.id)).count == 2)
+        #expect(Set(fetchedNFTs.map(\.id)).count == 2)
+    }
+
+    @Test("same contract address stays distinct across chains in persistence")
+    @MainActor
+    func contractsDoNotMergeAcrossChains() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let firstNFT = makeFixtureNFT(
+            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            tokenId: "1",
+            collectionName: "Shared Name",
+            network: .ethMainnet
+        )
+        let secondNFT = makeFixtureNFT(
+            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            tokenId: "1",
+            collectionName: "Shared Name",
+            network: .baseMainnet
+        )
+
+        context.insert(firstNFT)
+        context.insert(secondNFT)
+        try context.save()
+
+        let fetchedNFTs = try context.fetch(FetchDescriptor<NFT>())
+
+        #expect(fetchedNFTs.count == 2)
+        #expect(Set(fetchedNFTs.map(\.contract.id)).count == 2)
+        #expect(Set(fetchedNFTs.compactMap { $0.collection?.id }).count == 2)
+        #expect(Set(fetchedNFTs.map(\.id)).count == 2)
+    }
+
     @Test("provider failures map rate-limited and degraded states without relying on raw localized errors")
     @MainActor
     func providerFailuresExposeTypedPresentation() {
@@ -299,6 +389,40 @@ private final class FlakyNFTFetcher: NFTFetching {
     }
 }
 
+private final class NFTFixtureFetcher: NFTFetching {
+    var total: Int? = 0
+    var itemsLoaded: Int? = 0
+    var loading = false
+    var error: Error?
+    var currentCursor: String?
+    private let nftsByChain: [Chain: [NFT]]
+
+    init(nftsByChain: [Chain: [NFT]]) {
+        self.nftsByChain = nftsByChain
+    }
+
+    func fetchAllNFTs(
+        for account: String,
+        chain: Chain,
+        correlationID: String?,
+        eventRecorder: any NFTRefreshEventRecording
+    ) async throws -> [NFT] {
+        let nfts = nftsByChain[chain] ?? []
+        itemsLoaded = nfts.count
+        total = nfts.count
+        currentCursor = nil
+        return nfts
+    }
+
+    func reset() {
+        total = nil
+        itemsLoaded = 0
+        loading = false
+        currentCursor = nil
+        error = nil
+    }
+}
+
 private final class SlowStubNFTFetcher: NFTFetching {
     var total: Int? = 0
     var itemsLoaded: Int? = 0
@@ -365,4 +489,28 @@ private final class FailingStateNFTFetcher: NFTFetching {
         currentCursor = nil
         error = nil
     }
+}
+
+private func makeFixtureNFT(
+    contractAddress: String = "0x495f947276749ce646f68ac8c248420045cb7b5e",
+    tokenId: String = "42",
+    collectionName: String = "Fixture Collection",
+    network: Chain = .ethMainnet
+) -> NFT {
+    NFT(
+        id: "\(network.rawValue):\(contractAddress):\(tokenId)",
+        contract: NFT.Contract(address: contractAddress, chain: network),
+        tokenId: tokenId,
+        name: "Fixture NFT",
+        image: nil,
+        raw: nil,
+        collection: NFT.Collection(
+            name: collectionName,
+            chain: network,
+            contractAddress: contractAddress
+        ),
+        tokenUri: "ipfs://fixture-\(tokenId)",
+        network: network,
+        collectionName: collectionName
+    )
 }

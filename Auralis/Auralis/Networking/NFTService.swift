@@ -284,6 +284,7 @@ class NFTService {
             )
 
             nfts.forEach {
+                $0.applyRefreshScope(chain: chain)
                 $0.parseMetadata()
             }
 
