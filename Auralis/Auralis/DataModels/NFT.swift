@@ -174,7 +174,17 @@ struct TagMutatingView: View {
             .sheet(item: $tagToUpdate) { tag in
                 TagCreateUpdateView(existingTag: tag)
             }
-            .alert("Error", isPresented: .constant(lastError != nil)) {
+            .alert(
+                "Error",
+                isPresented: Binding(
+                    get: { lastError != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            lastError = nil
+                        }
+                    }
+                )
+            ) {
                 Button("OK") {
                     lastError = nil
                 }
@@ -969,7 +979,7 @@ public class NFT: Codable {
         switch URLConverter.convertToPreferredHTTPS(audioUrl) {
         case .success(let convertedURLString):
             return URL(string: convertedURLString)
-        case .failure(let error):
+        case .failure:
             return URL(string: audioUrl)
         }
     }

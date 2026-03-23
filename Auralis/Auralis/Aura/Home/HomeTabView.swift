@@ -43,6 +43,7 @@ struct HomeTabView: View {
     @State private var selectedImage: UIImage? = nil
     @State private var scene: AuroraScene = .mountain
     @State private var showAccountSwitcher = false
+    @State private var activeImageGenerationID = UUID()
     private let logic = HomeTabLogic()
 
     
@@ -101,10 +102,20 @@ struct HomeTabView: View {
                     .accessibilityIdentifier("home.logout")
                     
                     Button("Show Image Preview") {
-                        isPresented = true
+                        Task {
+                            if generatedImages?.isEmpty != false {
+                                await generateImage()
+                            }
+
+                            guard generatedImages?.isEmpty == false else {
+                                return
+                            }
+
+                            isPresented = true
+                        }
                     }
                     .accessibilityIdentifier("home.showImagePreview")
-                    .disabled(generatedImages?.isEmpty != false)
+                    .disabled(isLoading)
                     .padding(.bottom, 8)
                 }
                 .sheet(isPresented: $isPresented) {
@@ -157,11 +168,6 @@ struct HomeTabView: View {
                                 .padding(.top, 16)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                }
-                .task {
-                    if generatedImages == nil {
-                        await generateImage()
                     }
                 }
                 .alert("Error", isPresented: $showErrorAlert, actions: {
@@ -395,17 +401,24 @@ struct HomeTabView: View {
     
     // MARK: - Background Image Generation
     
+    @MainActor
     func generateImage() async {
-        // Start loading and clear previous images
+        let generationID = UUID()
+        activeImageGenerationID = generationID
         isLoading = true
-        defer { isLoading = false }
+        selectedImage = nil
         generatedImages = nil
+        defer {
+            if activeImageGenerationID == generationID {
+                isLoading = false
+            }
+        }
         
-        // Use the themedPrompt function to generate stylized prompt(s)
         let prompts = themedPrompt(address: currentAddress, chainId: currentChainId, lane: .poster, scene: scene)
         
         do {
             let imageCreator = try await ImageCreator()
+            var newImages: [UIImage] = []
             
             let images = imageCreator.images(
                 for: prompts,
@@ -413,19 +426,26 @@ struct HomeTabView: View {
                 limit: 9)
             
             for try await image in images {
-                if let generatedImages = self.generatedImages {
-                    self.generatedImages = generatedImages + [UIImage(cgImage: image.cgImage)]
+                try Task.checkCancellation()
+                guard activeImageGenerationID == generationID else {
+                    return
                 }
-                else {
-                    self.generatedImages = [UIImage(cgImage: image.cgImage)]
-                }
+
+                newImages.append(UIImage(cgImage: image.cgImage))
+                generatedImages = newImages
             }
         }
         catch ImageCreator.Error.notSupported {
+            guard activeImageGenerationID == generationID else {
+                return
+            }
             generatedImages = nil
             return
         }
         catch {
+            guard activeImageGenerationID == generationID else {
+                return
+            }
             errorMessage = "Failed to generate images. Please try again.\n\(error.localizedDescription)"
             showErrorAlert = true
             return

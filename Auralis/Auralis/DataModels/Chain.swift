@@ -175,9 +175,9 @@ enum Chain: String, Codable, Equatable, CaseIterable, Identifiable {
         case .soneiumMinatoTestnet:
             return 1946
         case .solanaMainnet:
-            return .min // Placeholder for Solana (different chain type)
+            return 10_000_000_001
         case .solanaDevnetTestnet:
-            return .min // Placeholder for Solana (different chain type)
+            return 10_000_000_002
         case .berachainMainnet:
             return 80094
         case .zoraMainnet:

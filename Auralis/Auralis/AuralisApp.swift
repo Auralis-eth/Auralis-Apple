@@ -17,7 +17,7 @@ struct AuralisApp: App {
 //                    await runMetadataAnalysis()
 //                }
         }
-        .modelContainer(for: [EOAccount.self, Tag.self, StoredReceipt.self])
+        .modelContainer(for: [EOAccount.self, Tag.self, StoredReceipt.self, Playlist.self])
 
 #if os(macOS)
         Settings {

@@ -121,11 +121,7 @@ extension String {
 
         // Parse the JSON as dictionary
         do {
-            guard let jsonDict = try JSONSerialization.jsonObject(with: jsonData) as? [String: JSONValue] else {
-                print("Failed to decode token URI: JSON could not be converted to dictionary")
-                return nil
-            }
-            return jsonDict
+            return try JSONDecoder().decode([String: JSONValue].self, from: jsonData)
         } catch {
             print("Failed to decode token URI: \(error.localizedDescription)")
             return nil

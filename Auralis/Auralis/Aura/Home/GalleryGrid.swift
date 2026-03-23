@@ -57,16 +57,18 @@ struct GalleryGrid: View {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
                         ForEach(Array(images.enumerated()), id: \.offset) { idx, image in
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(height: 110)
-                                .frame(maxWidth: .infinity)
-                                .clipped()
-                                .cornerRadius(12)
-                                .onTapGesture {
-                                    onPick(image)
-                                }
+                            Button {
+                                onPick(image)
+                            } label: {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(height: 110)
+                                    .frame(maxWidth: .infinity)
+                                    .clipped()
+                                    .cornerRadius(12)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding()
@@ -75,4 +77,3 @@ struct GalleryGrid: View {
         }
     }
 }
-

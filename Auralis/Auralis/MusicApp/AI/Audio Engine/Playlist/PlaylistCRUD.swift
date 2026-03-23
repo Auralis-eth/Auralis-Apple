@@ -194,6 +194,8 @@ public func deletePlaylist(
             logger.error("Failed to delete playlist by id \(id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
             throw PlaylistError.saveFailed(underlying: error)
         }
+    } catch let error as PlaylistError {
+        throw error
     } catch {
         logger.error("Failed to fetch playlist for deletion by id \(id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
         throw PlaylistError.fetchFailed(underlying: error)

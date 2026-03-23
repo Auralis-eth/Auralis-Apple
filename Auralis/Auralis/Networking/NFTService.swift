@@ -290,24 +290,28 @@ class NFTService {
                 $0.parseMetadata()
             }
 
-            if (nftFetcher.itemsLoaded ?? 0) > (nftFetcher.total ?? 0) - 200 || nftFetcher.currentCursor == nil {
-                try await cleanupOldNFTs(
-                    currentNFTIDs: nfts.map(\.id),
-                    modelContext: modelContext,
-                    accountAddress: accountAddress,
-                    chain: chain,
-                    correlationID: correlationID,
-                    eventRecorder: eventRecorder
-                )
-            } else if let currentCursor = nftFetcher.currentCursor {
-                UserDefaults.standard.set(currentCursor, forKey: "currentCursor")
-            }
-
             do {
                 for nft in nfts {
                     modelContext.insert(nft)
                 }
                 try modelContext.save()
+
+                let didCompleteFullRefresh = nftFetcher.currentCursor == nil &&
+                    (nftFetcher.total == nil || (nftFetcher.itemsLoaded ?? 0) >= (nftFetcher.total ?? 0))
+
+                if didCompleteFullRefresh {
+                    try await cleanupOldNFTs(
+                        currentNFTIDs: nfts.map(\.id),
+                        modelContext: modelContext,
+                        accountAddress: accountAddress,
+                        chain: chain,
+                        correlationID: correlationID,
+                        eventRecorder: eventRecorder
+                    )
+                } else if let currentCursor = nftFetcher.currentCursor {
+                    UserDefaults.standard.set(currentCursor, forKey: "currentCursor")
+                }
+
                 lastSuccessfulRefreshAt = .now
                 await eventRecorder.recordPersistenceCompleted(
                     accountAddress: accountAddress,
@@ -322,9 +326,11 @@ class NFTService {
                     correlationID: correlationID,
                     error: error
                 )
-                print("Error updating NFT in SwiftData: \(error)")
+                throw error
             }
 
+        } catch is CancellationError {
+            nftFetcher.error = nil
         } catch {
             nftFetcher.error = error
         }

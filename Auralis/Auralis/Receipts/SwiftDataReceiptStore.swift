@@ -4,6 +4,7 @@ import SwiftData
 @MainActor
 final class SwiftDataReceiptStore: ReceiptStore {
     private let modelContext: ModelContext
+    private var nextSequenceIDCache: Int?
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
@@ -104,11 +105,18 @@ enum ReceiptStores {
 
 private extension SwiftDataReceiptStore {
     func nextSequenceID() throws -> Int {
+        if let nextSequenceIDCache {
+            self.nextSequenceIDCache = nextSequenceIDCache + 1
+            return nextSequenceIDCache
+        }
+
         let descriptor = FetchDescriptor<StoredReceipt>(
             sortBy: [SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)]
         )
 
-        return (try modelContext.fetch(descriptor).first?.sequenceID ?? 0) + 1
+        let nextSequenceID = (try modelContext.fetch(descriptor).first?.sequenceID ?? 0) + 1
+        nextSequenceIDCache = nextSequenceID + 1
+        return nextSequenceID
     }
 }
 

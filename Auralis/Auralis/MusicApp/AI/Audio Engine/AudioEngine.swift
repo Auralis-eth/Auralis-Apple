@@ -440,14 +440,18 @@ public class AudioEngine: ObservableObject {
     }
     
     // Note: This method loads the file and immediately starts playback (auto-play).
-    private func loadAndPlay(url: URL, trackID: String, title: String?, artist: String?, imageUrl: String?) async throws {
+    private func loadAndPlay(
+        url: URL,
+        trackID: String,
+        title: String?,
+        artist: String?,
+        imageUrl: String?,
+        loadID: UUID
+    ) async throws {
         guard canPlayFormat(url) else {
             throw AudioEngineError.unsupportedFormat
         }
-        
-        // Use the current activeLoadID to guard against stale completions
-        let loadID = activeLoadID
-        
+
         try await loadAudio(from: url, trackID: trackID, title: title, artist: artist, imageUrl: imageUrl, loadID: loadID)
         try Task.checkCancellation()
         guard loadID == activeLoadID else { throw CancellationError() }
@@ -470,7 +474,8 @@ public class AudioEngine: ObservableObject {
                 trackID: nft.id,
                 title: nft.name,
                 artist: nft.artistName,
-                imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl
+                imageUrl: nft.image?.secureUrl ?? nft.image?.originalUrl,
+                loadID: loadID
             )
             try Task.checkCancellation()
             // Only set currentNFT if this load is still the active one
@@ -480,7 +485,11 @@ public class AudioEngine: ObservableObject {
 
         // Track and await the task
         currentLoadTask = task
-        defer { currentLoadTask = nil }
+        defer {
+            if currentLoadTask == task {
+                currentLoadTask = nil
+            }
+        }
         try await task.value
     }
     

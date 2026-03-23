@@ -173,30 +173,34 @@ struct ProfileCardView: View {
                 "colorful",
                 "modern style",
             ]
-            case .character: return [
-                "vibrant colors",
-            ] + [[
-                "dog",
-                "cat",
-                "penguin",
-                "robot",
-                "Rabbit",
-                "Turtle",
-                "Wolves",
-                "Foxes",
-                "Deer",
-                "Bighorn Sheep",
-                "Buffalo",
-                "Lion",
-                "Tiger",
-                "Giant Panda",
-                "Bengal Tiger",
-                "African Lion",
-                "Red Kangaroo",
-                "budgerigar",
-                "zebu",
-                "zebra"
-            ].randomElement() ?? "dog"]
+            case .character:
+                let characterSubjects = [
+                    "dog",
+                    "cat",
+                    "penguin",
+                    "robot",
+                    "rabbit",
+                    "turtle",
+                    "wolf",
+                    "fox",
+                    "deer",
+                    "bighorn sheep",
+                    "buffalo",
+                    "lion",
+                    "tiger",
+                    "giant panda",
+                    "bengal tiger",
+                    "african lion",
+                    "red kangaroo",
+                    "budgerigar",
+                    "zebu",
+                    "zebra"
+                ]
+                let seededIndex = Int(addr.seedBytes[7]) % characterSubjects.count
+                return [
+                    "vibrant colors",
+                    characterSubjects[seededIndex]
+                ]
             case .geometric: return [
                 "geometric shapes",
                 "symmetry",

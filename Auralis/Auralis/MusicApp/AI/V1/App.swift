@@ -136,7 +136,6 @@ struct NFTMusicPlayerApp: View {
                 }
                 .navigationTitle(selection?.title ?? "Detail")
             }
-            .modelContainer(for: Playlist.self)
         }
     }
 }

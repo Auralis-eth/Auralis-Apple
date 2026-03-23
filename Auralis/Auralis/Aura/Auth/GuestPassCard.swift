@@ -21,9 +21,26 @@ struct GuestPassCard: View {
     }
 
     var body: some View {
-        // The Card
+        Group {
+            if let onTap {
+                Button(action: onTap) {
+                    cardContent
+                }
+                .buttonStyle(.plain)
+            } else {
+                cardContent
+            }
+        }
+        .accessibilityAddTraits(onTap == nil ? [] : .isButton)
+        .onAppear {
+            withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
+                isAnimating = true
+            }
+        }
+    }
+
+    private var cardContent: some View {
         VStack {
-            // Header Icons + Pill
             HStack(alignment: .center) {
                 SystemImage(account.role.image)
                     .font(.system(size: 20))
@@ -34,13 +51,12 @@ struct GuestPassCard: View {
                         .monospaced()
                 }
                 Spacer()
-                
-                // Metadata row (compact)
+
                 HStack {
                     ForEach(account.metadata) { md in
-                            SystemImage(md.systemImage)
-                                .font(.footnote)
-                                .foregroundStyle(Color.textPrimary.opacity(0.75))
+                        SystemImage(md.systemImage)
+                            .font(.footnote)
+                            .foregroundStyle(Color.textPrimary.opacity(0.75))
                     }
                 }
             }
@@ -133,7 +149,6 @@ struct GuestPassCard: View {
                 )
         }
         .overlay {
-            // 3. Inner White Specular Highlight (Liquid edge effect)
             RoundedRectangle(cornerRadius: 30)
                 .stroke(.white.opacity(0.5), lineWidth: 1)
                 .blendMode(.overlay)
@@ -141,13 +156,5 @@ struct GuestPassCard: View {
         }
         .shadow(color: .accent.opacity(0.4), radius: 20, x: 0, y: 10)
         .contentShape(.rect)
-        .onTapGesture {
-            onTap?()
-        }
-        .onAppear {
-            withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
-                isAnimating = true
-            }
-        }
     }
 }

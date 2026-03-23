@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import ImageIO
 
 // Image Cache Manager
 class ImageCache {
@@ -34,6 +35,8 @@ class ImageCache {
 // Image Loader that handles caching
 @MainActor
 class ImageLoader: ObservableObject {
+    private static let maxPixelDimension = 1_024
+
     enum LoadingError: Error {
         case invalidData
         case networkError
@@ -90,7 +93,7 @@ class ImageLoader: ObservableObject {
 
                 guard !Task.isCancelled else { return }
 
-                if let downloadedImage = UIImage(data: data) {
+                if let downloadedImage = Self.downsampledImage(from: data, maxPixelDimension: Self.maxPixelDimension) {
                     ImageCache.shared.set(downloadedImage, for: cacheKey)
                     image = downloadedImage
                 } else if (try? data.isSVGData()) == true {
@@ -112,6 +115,25 @@ class ImageLoader: ObservableObject {
         loadingTask = nil
     }
 
+    private static func downsampledImage(from data: Data, maxPixelDimension: Int) -> UIImage? {
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithData(data as CFData, options) else {
+            return nil
+        }
+
+        let downsampleOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelDimension
+        ] as CFDictionary
+
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions) else {
+            return nil
+        }
+
+        return UIImage(cgImage: cgImage)
+    }
 }
 
 // Cached async image view

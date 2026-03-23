@@ -2,41 +2,137 @@
 
 ## The Big Picture
 
-Auralis is what happens when an NFT wallet browser, a scoped local cache, and a music player all move into the same apartment. The app lets you restore or choose an account, sync wallet NFTs into SwiftData, browse them across multiple shell surfaces, and play the audio-capable ones without treating the media layer like the center of the universe.
+Auralis is what happens when a wallet explorer, an NFT gallery, and a music player decide to share an apartment. You give it an account, it pulls in wallet-scoped NFTs, keeps them locally with SwiftData, and then lets different parts of the app reuse that same collection for browsing, routing, receipts, and audio playback.
+
+The app is not a neat little “tap button, get table view” toy. It is a stateful shell with a few moving trains:
+
+- wallet and chain identity
+- NFT refresh and persistence
+- receipt logging
+- a long-lived audio engine
+- SwiftUI tabs that all assume the shared state is telling the truth
+
+When one of those trains lies, the whole station gets weird.
 
 ## Architecture Deep Dive
 
-The shell works like a train station with one master departure board. `MainAuraView` decides whether the user is still at the ticket counter, waiting for a sync, or already moving through the app. `MainTabView` is the concourse: News, NFTs, Music, Gas, and the rest all branch from the same shared account-and-chain state. `NFTService` is the baggage system behind the wall. It fetches inventory, stamps it with the right scope, saves it, and throws out only the luggage that belongs to the platform currently being cleaned.
+Think of the app like a hotel with one front desk and several specialty floors.
+
+- `MainAuraView` is the front desk. It decides who is checked in, which chain they’re on, and where they should be routed next.
+- `NFTService` is housekeeping plus inventory. It refreshes what exists for a wallet, writes it to storage, and clears out stale records when it is safe to do so.
+- `NFTFetcher` is the loading dock. It talks to providers, handles pagination, retries, throttling, and the awkward reality that networks do not care about your demo.
+- `SwiftData` is the storage basement. Useful, but only if every floor agrees which basement they’re using.
+- `AudioEngine` is the DJ booth. It needs stable ownership, clean cancellation, and enough paranoia to ignore stale work that finishes late.
+
+The main lesson from this round of fixes: async code is less like a straight hallway and more like a restaurant kitchen. Orders can come in fast, cooks can be interrupted, and if you do cleanup before the plate is actually ready, you throw out tonight’s dinner and yesterday’s leftovers at the same time.
 
 ## The Codebase Map
 
-`Auralis/Aura/` is the shell and product UI.
-`Auralis/DataModels/` holds the SwiftData models and their helper logic.
-`Auralis/Networking/` contains NFT fetch orchestration, provider integration, retry logic, and receipts.
-`Auralis/MusicApp/AI/` is the active music stack.
-`Auralis/Helpers/` is where small but dangerous utility code lives, which is exactly why it needs watching.
-`AuralisTests/` is the proving ground for scope, routing, receipts, and provider behavior.
+- `Auralis/Auralis/Aura/`
+  The app shell, auth flow, home experience, and most user-facing SwiftUI.
+- `Auralis/Auralis/DataModels/`
+  SwiftData models and large domain types. `NFT.swift` is not just an NFT file. It is a small suburb.
+- `Auralis/Auralis/Networking/`
+  Provider integration, refresh orchestration, throttling, and error classification.
+- `Auralis/Auralis/Receipts/`
+  Structured event history for refreshes and resets.
+- `Auralis/Auralis/MusicApp/AI/`
+  The active music UI and audio engine.
+- `Auralis/Auralis/Helpers/`
+  Parsing, URL normalization, metadata utilities, and the kind of code that quietly decides whether images appear at all.
 
 ## Tech Stack & Why
 
-SwiftUI is the shell language because the app is fundamentally state choreography. SwiftData is the local memory because wallet inventory needs to survive refreshes and tab switches without hand-rolled storage glue. Swift Concurrency is the traffic cop because fetch, refresh, and playback all have failure modes that get sloppy fast if they drift into callback soup.
+- SwiftUI
+  Because the app is heavily state-driven, and the shell/tab/router model benefits from declarative updates more than it benefits from hand-managed UIKit glue.
+- SwiftData
+  Because the app wants local persistence that can be queried directly from SwiftUI surfaces without building a custom storage layer for every feature.
+- Swift Concurrency
+  Because refreshes, playback loading, provider retries, and image generation all involve asynchronous work, and callback pyramids would turn this codebase into soup.
+- AVFoundation
+  Because audio playback still lives in the real world, where timing, buffering, and interruption handling matter.
 
 ## The Journey
 
-One of the nastier bugs in this pass was a classic identity leak: NFTs had chain scope, but not account scope, while the UI was happily querying `NFT` directly. That is like labeling luggage by airport only and then acting surprised when two passengers get the same suitcase. The fix was to make account-plus-chain a first-class scope on `NFT`, stamp it during refresh, and teach every read path to respect it.
+### War Story: The Refresh That Could Eat Your Collection
 
-Another war story: the retry ceiling in `NFTFetcher` looked defensive but actually lied. Once total attempts were exhausted, the fetch loop could fall out and still record success. That is the software equivalent of a delivery driver marking a package “delivered” because they got tired of circling the block. The new behavior throws a terminal error and records failure instead.
+One bug lived in `NFTService` and had bad instincts. It could decide a refresh was “complete enough,” delete NFTs that were missing from the current batch, and only afterward try to save the fresh results. That is exactly backward.
 
-Audio also got demoted from “launch prerequisite” to “subsystem.” That is healthy. If the audio engine fails to initialize, the music tab now shows an unavailable state and the rest of the shell still works. Apps should not explode just because one optional talent did not show up for rehearsal.
+The fix was:
+
+- save refreshed NFTs first
+- only run stale-record cleanup after pagination is actually complete
+- surface persistence failures instead of logging them and pretending everything is fine
+
+This is the classic warehouse mistake: don’t throw out the old shipment until the new shipment is physically on the shelf.
+
+### War Story: Cancellation That Looked Like Success
+
+`NFTFetcher` could break out of pagination on cancellation and still record the whole operation as a success. That is less “robust telemetry” and more “fiction.”
+
+The fix was:
+
+- convert cancellation into `CancellationError`
+- stop the success recorder from running on cancelled work
+- run retry decisions against normalized errors, not the raw underlying value
+
+If the mission was aborted, the mission was not accomplished. The logs should not gaslight the UI.
+
+### War Story: The Audio Load Race
+
+`AudioEngine` had the classic stale-task problem: a newer playback request could start, and an older request finishing late could still interfere with the shared task slot and stale-load bookkeeping.
+
+The fix was:
+
+- thread the caller’s `loadID` through the private load path
+- only clear `currentLoadTask` if the finishing task still owns that slot
+
+In plain English: only the current bartender gets to close the tab.
+
+### War Story: Two Basements, One Playlist
+
+The music feature had its own nested SwiftData container for playlists, while the app shell already had a shared container. That is how you end up with two basements and a lot of confused staff.
+
+The fix was:
+
+- move `Playlist` into the app-level model container
+- remove the feature-local container from the music view subtree
+
+One app, one persistence graph.
+
+### Aha Moments
+
+- Cleanup order matters more than cleanup code.
+- Actor isolation solves a lot, but it does not magically protect you from stale logical ownership.
+- Deterministic product behavior is easy to accidentally sabotage with one `randomElement()`.
+- Accessibility regressions often start as “just use `onTapGesture` for now.”
 
 ## Engineer's Wisdom
 
-Scope is not a comment. If the app cares about account and chain at runtime, the model needs to care too. “We’ll remember the active wallet in the view layer” is how cross-scope leakage starts.
-
-Failure semantics matter as much as success semantics. A refresh that times out, exhausts retries, or cannot initialize audio is still part of the product contract. If the code lies in those paths, the UI will eventually lie too.
-
-Mechanical cleanup is worth doing when an API typo starts spreading. Small inconsistencies age badly because they train the rest of the codebase to copy the wrong thing.
+- Treat cancellation as a first-class outcome, not an error-shaped shrug.
+- Shared persistence should be shared on purpose. If a feature creates its own container, assume there is a real cost unless proven otherwise.
+- In async systems, “late success” can be a bug. Staleness checks are not decorative.
+- UI state that is supposed to dismiss must be backed by mutable state, not a constant binding dressed up as one.
+- Deterministic product logic should stay deterministic all the way down. One random branch is enough to make users think the app is unstable.
 
 ## If I Were Starting Over...
 
-I would make NFT scope explicit on day one and treat direct `NFT` queries as scoped-only APIs from the start. That single decision would have prevented a surprising amount of downstream repair work. I would also isolate “degradable subsystems” like audio behind optional shell contracts earlier, because it is much easier to preserve app stability than to claw it back after a `fatalError` has already become part of the launch path.
+- I would split `NFT.swift` into actual domain-sized files much earlier. Right now it behaves like a junk drawer with excellent intentions.
+- I would make refresh completion an explicit state machine instead of inferring “done enough” from counters and cursors.
+- I would centralize image loading and downsampling earlier, because NFT media is chaotic and memory spikes are not a personality trait.
+- I would decide upfront which models belong to the shared SwiftData container so feature code never has to improvise persistence boundaries later.
+
+## Latest Entry
+
+Date: 2026-02-08
+
+Today’s fixes tightened the app in the places where state lies hurt the most:
+
+- NFT refresh now saves before cleanup and only deletes stale records after a fully completed refresh.
+- Cancelled fetches no longer masquerade as successes.
+- Audio playback load sequencing is now guarded against stale completions clobbering the active task.
+- Playlists now live in the app’s shared model container instead of a feature-local one.
+- Home image generation is user-driven and guarded against overlapping generations.
+- Profile avatar prompt generation is deterministic again.
+- Several tappable surfaces were converted from gesture handlers to real buttons for accessibility.
+- Base64 JSON token metadata decoding now uses `JSONDecoder`, which means valid payloads can actually be read.

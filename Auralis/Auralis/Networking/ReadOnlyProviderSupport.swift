@@ -4,6 +4,7 @@ enum ProviderAbstractionError: LocalizedError, Equatable {
     case missingAPIKey(Secrets.APIKeyProvider)
     case unsupportedChain(Chain)
     case invalidURL
+    case invalidAddress
     case invalidResponse
     case invalidBalancePayload
 
@@ -15,6 +16,8 @@ enum ProviderAbstractionError: LocalizedError, Equatable {
             return "Chain \(chain.rawValue) is not supported by this provider."
         case .invalidURL:
             return "Provider URL configuration is invalid."
+        case .invalidAddress:
+            return "The wallet address is invalid."
         case .invalidResponse:
             return "Provider returned an invalid response."
         case .invalidBalancePayload:
@@ -110,6 +113,9 @@ struct AlchemyRPCProvider: NativeBalanceProviding {
         guard chain.supportsEVMRPC else {
             throw ProviderAbstractionError.unsupportedChain(chain)
         }
+        guard let normalizedAddress = address.extractedEthereumAddress else {
+            throw ProviderAbstractionError.invalidAddress
+        }
 
         let configuration = try configurationResolver.configuration(for: chain)
         guard let rpcURL = configuration.alchemyRPCURL else {
@@ -123,7 +129,7 @@ struct AlchemyRPCProvider: NativeBalanceProviding {
             RPCRequest(
                 jsonrpc: "2.0",
                 method: "eth_getBalance",
-                params: [address, "latest"],
+                params: [normalizedAddress, "latest"],
                 id: 1
             )
         )

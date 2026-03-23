@@ -203,6 +203,7 @@ class NFTFetcher: NFTFetching {
         let maxTotalAttempts = maxRetryCount * 3
         
         repeat {
+            try Task.checkCancellation()
             try await throttler.throttle()
             
             totalAttempts += 1
@@ -250,11 +251,14 @@ class NFTFetcher: NFTFetching {
                 let wrappedError: Error
                 if let urlError = error as? URLError {
                     print("URL Error code: \(urlError.code.rawValue)")
+                    if urlError.code == .cancelled {
+                        throw CancellationError()
+                    }
                     wrappedError = FetcherError.networkError(urlError)
                 } else {
                     let nsError = error as NSError
                     if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
-                        break
+                        throw CancellationError()
                     }
                     if nsError.code == -1011 {
                         wrappedError = FetcherError.rateLimited
@@ -265,7 +269,7 @@ class NFTFetcher: NFTFetching {
                 
                 self.error = wrappedError
                 
-                if shouldRetry(error: error, attempt: attempt) {
+                if shouldRetry(error: wrappedError, attempt: attempt) {
                     let delay = backoffDelay(for: attempt)
                     print("Retrying in \(Double(delay) / 1_000_000_000) seconds...")
                     try await Task.sleep(nanoseconds: delay)
