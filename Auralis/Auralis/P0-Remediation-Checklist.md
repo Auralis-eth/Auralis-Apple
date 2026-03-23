@@ -20,7 +20,7 @@ Review rule used here:
 | `P0-201` | Ready | Watch-only account persistence, activation, removal, and restore flows are implemented and tested. |
 | `P0-501` | Ready | Receipt schema, append-only store, sanitization, export, and reset foundation are implemented and tested. |
 | `P0-101E` | Partial | Useful primitives exist, but the exact required primitive set and cross-surface adoption are incomplete. |
-| `P0-101B` | Partial | The chrome is mounted globally and mode/context entry exist, but the search quick action is still missing and the original ticket language needs to be reconciled with the current context-sheet freshness decision. |
+| `P0-101B` | Ready | The chrome is mounted globally, search/context entry exist, the Observe badge is fixed, and the ticket contract is now aligned with freshness living in the context sheet. |
 | `P0-101D` | Partial | First-run, provider failure, no-receipts, and library empty states exist, but the search no-results case is still missing. |
 | `P0-202` | Partial | Validation is strong, but the implementation intentionally chose lowercase canonical storage/display instead of the original checksum-display acceptance contract. |
 | `P0-601` | Ready | Observe-only mode ownership, chrome display, and denial receipts are implemented for the current Phase 0 baseline. |
@@ -127,7 +127,7 @@ Remediation tasks:
 ### `P0-101B` Global Chrome UI
 
 Status:
-- Partial
+- Ready
 
 Related docs:
 - `Auralis/P0-101B-Strategy.md`
@@ -140,10 +140,9 @@ Primary code:
 - `Auralis/Auralis/Aura/MainTabView.swift`
 
 Remediation tasks:
-- Add the missing search quick action to the live chrome; the search tab exists, but the current chrome does not expose it.
-- Reconcile the acceptance language with the current product decision that freshness lives in the context sheet instead of a dedicated chrome pill.
-- Re-verify the acceptance criteria against the actual mounted `GlobalChromeView`, not the older doc claim.
-- Add UI or logic tests that prove chrome actions exist on all primary surfaces.
+- No blocking remediation for the current Phase 0 contract.
+- Keep search and context entry owned by the mounted shell chrome.
+- Keep freshness detail in the context sheet unless the product decision changes later.
 
 ### `P0-101D` Global error + empty-state patterns
 

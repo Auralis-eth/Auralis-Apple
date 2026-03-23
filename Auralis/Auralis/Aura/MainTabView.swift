@@ -92,6 +92,10 @@ final class AppRouter {
         selectedTab = .receipts
     }
 
+    func showSearch() {
+        selectedTab = .search
+    }
+
     func showReceipt(id: String) {
         selectedTab = .receipts
         receiptsPath = [.init(id: id)]
@@ -296,7 +300,8 @@ struct MainTabView: View {
         GlobalChromeView(
             snapshot: contextService.snapshot,
             onOpenAccountSwitcher: { showAccountSwitcher = true },
-            onOpenContextInspector: { showContextInspector = true }
+            onOpenContextInspector: { showContextInspector = true },
+            onOpenSearch: { router.showSearch() }
         )
         .padding(.horizontal, 12)
         .padding(.top, 8)

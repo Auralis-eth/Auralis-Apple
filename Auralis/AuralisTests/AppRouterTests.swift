@@ -105,6 +105,20 @@ import Testing
         #expect(router.selectedTab == .erc20Tokens)
     }
 
+    @Test("search route selects the global search tab without mutating detail stacks")
+    func searchRouteFlow() {
+        let router = AppRouter()
+
+        router.showMusicNFTDetail(id: "music-1")
+        #expect(router.musicPath == [.detail(id: "music-1")])
+
+        router.showSearch()
+
+        #expect(router.selectedTab == .search)
+        #expect(router.currentRouteDepth == 0)
+        #expect(router.musicPath == [.detail(id: "music-1")])
+    }
+
     private func makeNFT(id: String, contentType: String, audioURL: String?) -> NFT {
         NFT(
             id: id,

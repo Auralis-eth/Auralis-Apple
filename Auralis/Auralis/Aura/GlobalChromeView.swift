@@ -4,6 +4,7 @@ struct GlobalChromeView: View {
     let snapshot: ContextSnapshot
     let onOpenAccountSwitcher: () -> Void
     let onOpenContextInspector: () -> Void
+    let onOpenSearch: () -> Void
     @Environment(\.modeState) private var modeState
 
     var body: some View {
@@ -31,6 +32,18 @@ struct GlobalChromeView: View {
                     .accessibilityHidden(true)
                 }
                 .accessibilityLabel("Context")
+
+                Button(action: onOpenSearch) {
+                    AuraPill(
+                        systemImage: "magnifyingglass",
+                        emphasis: .accent,
+                        imageSize: .title3.weight(.semibold),
+                        aceessibilityLabel: "Search"
+                    )
+                    .accessibilityHidden(true)
+                }
+                .accessibilityLabel("Search")
+                .accessibilityHint("Opens global search.")
                 
             }
         }

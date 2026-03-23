@@ -126,3 +126,11 @@ That matters because duplicate reads are how apps start disagreeing with themsel
 The fix was intentionally boring: reuse the same shell status components and the same `NFTProviderFailurePresentation` contract instead of making each screen invent its own emergency sign. That is senior-engineer boring, which is good boring. When a failure story matters across multiple surfaces, one shared sentence is better than three improvised speeches.
 
 There is still one important distinction to keep in mind. This closes the current NFT provider rollout. It does not magically mean every future provider-backed surface is done forever. If a new provider shows up later, it should inherit the same degraded-mode discipline instead of pretending the app has never learned this lesson before.
+
+### Chrome contract made honest
+
+`P0-101B` had one very specific missing tooth: the docs kept talking about chrome-level search, but the mounted chrome itself had no search action. The search tab existed. The route existed. The chrome just stood there and acted like someone else would handle it.
+
+That kind of gap is sneaky because everything looks "basically done" until you evaluate the actual user path. The fix was small and exactly the sort of small thing that matters: add a real chrome search button, route it through `AppRouter`, and update the docs so they stop promising a separate freshness pill when the product decision is clearly "freshness details live in the context sheet."
+
+This is the broader lesson: ticket cleanup is not just code cleanup. Sometimes the most important bug is that the code and the story disagree.

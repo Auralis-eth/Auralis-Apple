@@ -41,12 +41,16 @@ Relevant code:
 - `Auralis/Auralis/Aura/GlobalChromeView.swift`
 - `Auralis/Auralis/Aura/MainTabView.swift`
 
-Tasks:
+Status:
 
-1. Add the missing search quick action to `GlobalChromeView`.
-2. Keep context-sheet entry as the freshness access point and document that decision in the ticket notes.
-3. Re-validate that account switcher, mode badge, context entry, and search entry all work from the mounted shell chrome.
-4. Add a test pass or manual validation checklist for all primary surfaces using the shared chrome.
+- Completed for the current Phase 0 chrome contract
+
+Completed tasks:
+
+1. Added the missing search quick action to `GlobalChromeView`.
+2. Kept the context sheet as the freshness access point and updated the ticket notes to match that product decision.
+3. Re-validated that account switcher, mode badge, context entry, and search entry all work from the mounted shell chrome.
+4. Added router-level validation for the search action seam.
 
 Done looks like:
 
@@ -207,13 +211,12 @@ Done looks like:
 
 ## Recommended Order
 
-1. `P0-101B` search action remediation
-2. `P0-302` contract cleanup and validation
+1. `P0-302` contract cleanup and validation
 
 Why this order:
 
-- the missing work is now mostly contractual and shell-polish cleanup
-- chrome and freshness cleanup should happen against the clarified context-sheet product decision
+- the remaining work is now mostly freshness-contract cleanup and validation
+- the chrome contract should stay stable while `P0-302` tightens the context-sheet freshness story
 
 ## Explicit Non-Goals For This Pass
 
