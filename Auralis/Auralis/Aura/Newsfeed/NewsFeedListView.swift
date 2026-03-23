@@ -11,7 +11,6 @@ import SwiftUI
 
 struct NewsFeedListView: View {
     @Query private var collections: [NFT.Collection]
-    @Environment(\.modelContext) private var modelContext
     @Binding var currentAccount: EOAccount?
     @Binding var selectedNFT: NFT?
     @Binding var currentChain: Chain
@@ -19,6 +18,7 @@ struct NewsFeedListView: View {
     @State private var searchText: String = ""
 
     let nftService: NFTService
+    let refreshAction: @MainActor () async -> Void
 
     var body: some View {
         VStack {
@@ -28,7 +28,8 @@ struct NewsFeedListView: View {
                 sort: sortOrder,
                 searchString: searchText,
                 nftService: nftService,
-                currentChain: $currentChain
+                currentChain: $currentChain,
+                refreshAction: refreshAction
             )
         }
         .toolbar {
@@ -48,13 +49,7 @@ struct NewsFeedListView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
                     Task {
-                        let correlationID = UUID().uuidString
-                        await nftService.refreshNFTs(
-                            for: currentAccount,
-                            chain: currentChain,
-                            modelContext: modelContext,
-                            correlationID: correlationID
-                        )
+                        await refreshAction()
                     }
                 }) {
                     SystemImage("arrow.clockwise")

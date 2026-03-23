@@ -159,6 +159,56 @@ struct NFTServiceReceiptTests {
         #expect(degraded?.title == "Refresh Paused")
         #expect(degraded?.isRetryable == true)
     }
+
+    @Test("one shell refresh flow can share a correlation ID across NFT refresh and context build receipts")
+    @MainActor
+    func shellRefreshFlowSharesCorrelationAcrossNFTAndContextReceipts() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let recorder = ReceiptBackedNFTRefreshEventRecorder(receiptStore: receiptStore)
+        let fetcher = StubNFTFetcher()
+        let nftService = NFTService(
+            nftFetcher: fetcher,
+            eventRecorderFactory: { _ in recorder }
+        )
+        let logger = ReceiptEventLogger(receiptStore: receiptStore)
+        let account = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
+        let correlationID = "shell-flow-correlation-1"
+
+        await nftService.refreshNFTs(
+            for: account,
+            chain: .ethMainnet,
+            modelContext: context,
+            correlationID: correlationID
+        )
+
+        let contextService = ContextService(
+            contextSourceBuilder: LiveShellContextSourceBuilder(),
+            accountProvider: { account },
+            addressProvider: { account.address },
+            chainProvider: { .ethMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { nftService.isLoading },
+            refreshedAtProvider: { nftService.lastSuccessfulRefreshAt },
+            freshnessTTLProvider: { nftService.refreshTTL },
+            trackedNFTCountProvider: { account.trackedNFTCount },
+            prefersDemoDataProvider: { false }
+        )
+
+        _ = await contextService.refresh(
+            correlationID: correlationID,
+            receiptEventLogger: logger
+        )
+
+        let receipts = try receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
+
+        #expect(receipts.contains(where: { $0.kind == "nft.refresh.started" }))
+        #expect(receipts.contains(where: { $0.kind == "nft.fetch.succeeded" }))
+        #expect(receipts.contains(where: { $0.kind == "nft.persistence.completed" }))
+        #expect(receipts.contains(where: { $0.kind == "context.built" }))
+        #expect(receipts.allSatisfy { $0.correlationID == correlationID })
+    }
 }
 
 private final class StubNFTFetcher: NFTFetching {

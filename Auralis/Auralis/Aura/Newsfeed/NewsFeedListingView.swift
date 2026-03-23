@@ -9,7 +9,6 @@ import SwiftData
 import SwiftUI
 
 struct NewsFeedListingView: View {
-    @Environment(\.modelContext) private var modelContext
     @Query(sort: [
         SortDescriptor(\NFT.acquiredAt?.blockTimestamp),
         SortDescriptor(\NFT.collection?.name),
@@ -22,6 +21,7 @@ struct NewsFeedListingView: View {
 
     let searchString: String
     let nftService: NFTService
+    let refreshAction: @MainActor () async -> Void
 
     var displayNFTs: [NFT] {
         var currentNFTs = nfts
@@ -51,7 +51,8 @@ struct NewsFeedListingView: View {
                 EmptyNewsFeedView(
                     currentAccount: currentAccount,
                     currentChain: currentChain,
-                    nftService: nftService
+                    nftService: nftService,
+                    refreshAction: refreshAction
                 )
             }
         } else {
@@ -101,7 +102,8 @@ struct NewsFeedListingView: View {
         sort: SortDescriptor<NFT>,
         searchString: String,
         nftService: NFTService,
-        currentChain: Binding<Chain>
+        currentChain: Binding<Chain>,
+        refreshAction: @escaping @MainActor () async -> Void
     ) {
         _nfts = Query(sort: [sort])
         self.searchString = searchString
@@ -109,17 +111,12 @@ struct NewsFeedListingView: View {
         _currentAccount = currentAccount
         self.nftService = nftService
         _currentChain = currentChain
+        self.refreshAction = refreshAction
     }
 
     private func refresh() {
         Task {
-            let correlationID = UUID().uuidString
-            await nftService.refreshNFTs(
-                for: currentAccount,
-                chain: currentChain,
-                modelContext: modelContext,
-                correlationID: correlationID
-            )
+            await refreshAction()
         }
     }
 

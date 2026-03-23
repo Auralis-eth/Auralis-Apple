@@ -82,6 +82,7 @@ struct NFTMusicPlayerApp: View {
     let currentAccount: EOAccount?
     let currentChain: Chain
     let nftService: NFTService
+    let refreshAction: @MainActor () async -> Void
     let onOpenNFT: (NFT) -> Void
     @State private var selection: SidebarItem? = .library
     let sidebarItems = SidebarItem.allCases
@@ -127,6 +128,7 @@ struct NFTMusicPlayerApp: View {
                             currentAccount: currentAccount,
                             currentChain: currentChain,
                             nftService: nftService,
+                            refreshAction: refreshAction,
                             onOpenNFT: onOpenNFT
                         )
                     case .playlists:
@@ -157,11 +159,11 @@ struct NFTMusicPlayerApp: View {
 
 
 struct NFTMusicPlayerLibraryView: View {
-    @Environment(\.modelContext) private var modelContext
     @ObservedObject var audioEngine: AudioEngine
     let currentAccount: EOAccount?
     let currentChain: Chain
     let nftService: NFTService
+    let refreshAction: @MainActor () async -> Void
     let onOpenNFT: (NFT) -> Void
     @Query private var nfts: [NFT]
     private var musicNFTs: [NFT] {
@@ -252,13 +254,7 @@ struct NFTMusicPlayerLibraryView: View {
 
     private func refresh() {
         Task {
-            let correlationID = UUID().uuidString
-            await nftService.refreshNFTs(
-                for: currentAccount,
-                chain: currentChain,
-                modelContext: modelContext,
-                correlationID: correlationID
-            )
+            await refreshAction()
         }
     }
 }

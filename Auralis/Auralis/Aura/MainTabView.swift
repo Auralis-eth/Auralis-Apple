@@ -188,6 +188,7 @@ struct MainTabView: View {
     @Binding var currentChainId: String
     @Binding var currentChain: Chain
     @Binding var nftService: NFTService
+    @Binding var pendingShellFlowCorrelationID: String?
     @Bindable var router: AppRouter
     let audioEngine: AudioEngine
     let modeState: ModeState
@@ -217,6 +218,7 @@ struct MainTabView: View {
         currentChainId: Binding<String>,
         currentChain: Binding<Chain>,
         nftService: Binding<NFTService>,
+        pendingShellFlowCorrelationID: Binding<String?>,
         router: AppRouter,
         audioEngine: AudioEngine,
         modeState: ModeState,
@@ -227,6 +229,7 @@ struct MainTabView: View {
         self._currentChainId = currentChainId
         self._currentChain = currentChain
         self._nftService = nftService
+        self._pendingShellFlowCorrelationID = pendingShellFlowCorrelationID
         self.router = router
         self.audioEngine = audioEngine
         self.modeState = modeState
@@ -260,6 +263,9 @@ struct MainTabView: View {
                 currentAccount: $currentAccount,
                 currentAddress: $currentAddress,
                 currentChain: $currentChain,
+                onAccountSelectionStarted: { correlationID in
+                    pendingShellFlowCorrelationID = correlationID
+                },
                 onCurrentChainChanged: refreshActiveChainScope
             )
         }
@@ -269,13 +275,16 @@ struct MainTabView: View {
             )
         }
         .task(id: contextRefreshKey) {
-            let correlationID = UUID().uuidString
+            let correlationID = nftService.isLoading ? nil : pendingShellFlowCorrelationID
             await contextService.refresh(
                 correlationID: correlationID,
                 receiptEventLogger: ReceiptEventLogger(
                     receiptStore: services.receiptStoreFactory(modelContext)
                 )
             )
+            if !nftService.isLoading, pendingShellFlowCorrelationID == correlationID {
+                pendingShellFlowCorrelationID = nil
+            }
         }
         .onChange(of: currentAccount) { _, newAccount in
             if let acct = newAccount {
@@ -315,6 +324,7 @@ struct MainTabView: View {
         }
 
         Task {
+            pendingShellFlowCorrelationID = correlationID
             await nftService.refreshNFTs(
                 for: activeAccount,
                 chain: chain,
@@ -322,6 +332,18 @@ struct MainTabView: View {
                 correlationID: correlationID
             )
         }
+    }
+
+    @MainActor
+    private func refreshActiveScopeFromUserAction() async {
+        let correlationID = UUID().uuidString
+        pendingShellFlowCorrelationID = correlationID
+        await nftService.refreshNFTs(
+            for: currentAccount,
+            chain: currentChain,
+            modelContext: modelContext,
+            correlationID: correlationID
+        )
     }
 
     private var tabContent: some View {
@@ -343,6 +365,7 @@ struct MainTabView: View {
                         currentAccount: $currentAccount,
                         nftService: $nftService,
                         currentChain: $currentChain,
+                        refreshAction: refreshActiveScopeFromUserAction,
                         router: router
                     )
                     .navigationDestination(for: NFTDetailRoute.self) { route in
@@ -366,6 +389,7 @@ struct MainTabView: View {
                             currentAccount: currentAccount,
                             currentChain: currentChain,
                             nftService: nftService,
+                            refreshAction: refreshActiveScopeFromUserAction,
                             onOpenNFT: { nft in
                                 router.showMusicNFTDetail(id: nft.id)
                             }
@@ -412,6 +436,7 @@ struct MainTabView: View {
                         currentAccount: currentAccount,
                         currentChain: currentChain,
                         nftService: nftService,
+                        refreshAction: refreshActiveScopeFromUserAction,
                         router: router
                     )
                         .navigationDestination(for: NFTDetailRoute.self) { route in
@@ -455,6 +480,7 @@ private struct ContextRefreshKey: Hashable {
         @State private var currentChainId: String = Chain.ethMainnet.rawValue
         @State private var currentChain: Chain = .ethMainnet
         @State private var nftService = NFTService()
+        @State private var pendingShellFlowCorrelationID: String?
         @State private var router = AppRouter()
         let audioEngine: AudioEngine = try! AudioEngine()
         @StateObject private var modeState = ModeState()
@@ -467,6 +493,7 @@ private struct ContextRefreshKey: Hashable {
                 currentChainId: $currentChainId,
                 currentChain: $currentChain,
                 nftService: $nftService,
+                pendingShellFlowCorrelationID: $pendingShellFlowCorrelationID,
                 router: router,
                 audioEngine: audioEngine,
                 modeState: modeState,
@@ -595,11 +622,11 @@ private struct SharedNFTDetailView: View {
 }
 
 private struct NFTTokensRootView: View {
-    @Environment(\.modelContext) private var modelContext
     @Query(sort: [SortDescriptor(\NFT.acquiredAt?.blockTimestamp, order: .reverse)]) private var nfts: [NFT]
     let currentAccount: EOAccount?
     let currentChain: Chain
     let nftService: NFTService
+    let refreshAction: @MainActor () async -> Void
     let router: AppRouter
 
     var body: some View {
@@ -658,13 +685,7 @@ private struct NFTTokensRootView: View {
 
     private func refresh() {
         Task {
-            let correlationID = UUID().uuidString
-            await nftService.refreshNFTs(
-                for: currentAccount,
-                chain: currentChain,
-                modelContext: modelContext,
-                correlationID: correlationID
-            )
+            await refreshAction()
         }
     }
 }

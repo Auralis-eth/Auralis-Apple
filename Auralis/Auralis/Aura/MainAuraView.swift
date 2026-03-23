@@ -26,6 +26,7 @@ struct MainAuraView: View {
     @State private var pendingDeepLink: AppDeepLink?
     @State private var didFinishInitialStateRestore = false
     @State private var didRecordAppLaunchReceipt = false
+    @State private var pendingShellFlowCorrelationID: String?
 
     @State private var isloading: Bool = false
     private let services: ShellServiceHub
@@ -48,6 +49,7 @@ struct MainAuraView: View {
                     currentChainId: $currentChainId,
                     currentChain: $currentChain,
                     nftService: $nftService,
+                    pendingShellFlowCorrelationID: $pendingShellFlowCorrelationID,
                     router: router,
                     audioEngine: audioEngine,
                     modeState: modeState,
@@ -120,11 +122,12 @@ struct MainAuraView: View {
             if result.shouldRefreshNFTs {
                 isloading = true
                 Task {
+                    let correlationID = pendingShellFlowCorrelationID ?? UUID().uuidString
                     await nftService.refreshNFTs(
                         for: currentAccount,
                         chain: currentChain,
                         modelContext: modelContext,
-                        correlationID: UUID().uuidString
+                        correlationID: correlationID
                     )
                     await MainActor.run {
                         isloading = false

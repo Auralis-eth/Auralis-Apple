@@ -142,3 +142,19 @@ This is the broader lesson: ticket cleanup is not just code cleanup. Sometimes t
 The cleanup was to let `ContextFreshness` own the label contract directly. `NFTService` still owns the timestamp, `ContextService` still snapshots it, and the context inspector is still the canonical UI surface. But now the text decision itself lives in one place, with tests for stale, refreshing, future-clamped, and in-TTL relative cases.
 
 This is one of those changes that looks almost too small to matter until you have had to debug its opposite. One narrator is easier to trust than two.
+
+### Race conditions love mutable shared state
+
+One of the review findings turned out to be exactly the kind of concurrency bug that hides in otherwise tidy code. `ContextService` was correctly preventing stale refreshes from overwriting the live shared snapshot, but it was still writing the `context.built` receipt from that same shared snapshot after the await point. Translation: the app could resolve one scope, then log a receipt describing a newer one if the requests raced.
+
+The fix was not to add more locking drama. It was to respect the isolation boundary already in the code. Each refresh now logs the `resolvedSnapshot` it actually produced, and only the winning generation updates the shared `snapshot`. That keeps the UI state stable and the audit trail honest at the same time.
+
+This is a good Swift Concurrency lesson to keep around: after an `await`, be suspicious of any mutable shared state when what you really mean is "the value this task just resolved."
+
+### One user action should not become three unrelated receipt stories
+
+The next receipt fix was less about concurrency and more about narrative integrity. A user-triggered shell flow like account switch, chain change, or manual refresh was minting one correlation ID for the NFT work and then quietly generating a different one for the follow-on context build. The app was technically recording events, but it was telling the story like three witnesses who had never met.
+
+The fix was to keep a shell-level correlation token alive long enough for the follow-on context refresh to reuse it. In practice that means the action entrypoint mints the ID once, the NFT refresh uses it, and the later `context.built` receipt consumes that same ID when the refresh finishes. There is now also an integration-style test proving one flow can leave related NFT and context receipts under one shared correlation.
+
+This is a useful systems lesson: if observability is part of the product, correlation IDs are not bookkeeping. They are the thread that keeps the product explainable after the fact.

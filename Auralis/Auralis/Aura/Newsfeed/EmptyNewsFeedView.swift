@@ -8,11 +8,11 @@
 import SwiftUI
 
 struct EmptyNewsFeedView: View {
-    @Environment(\.modelContext) private var modelContext
     let currentAccount: EOAccount?
     let currentChain: Chain
 
     let nftService: NFTService
+    let refreshAction: @MainActor () async -> Void
 
     var body: some View {
         Group {
@@ -41,13 +41,7 @@ struct EmptyNewsFeedView: View {
 
     private func refresh() {
         Task {
-            let correlationID = UUID().uuidString
-            await nftService.refreshNFTs(
-                for: currentAccount,
-                chain: currentChain,
-                modelContext: modelContext,
-                correlationID: correlationID
-            )
+            await refreshAction()
         }
     }
 }

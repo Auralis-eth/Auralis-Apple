@@ -281,6 +281,62 @@ struct ContextServiceTests {
         )
         #expect(receipts.map { $0.kind } == ["context.built"])
     }
+
+    @Test("racing context refreshes keep each context-built receipt tied to the resolved scope and correlation")
+    func contextServiceRaceKeepsReceiptScopeBoundToResolvedSnapshot() async throws {
+        let builder = CountingContextSourceBuilder()
+        let resolveGate = ControlledResolveGate()
+        let schema = Schema([StoredReceipt.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let modelContext = ModelContext(container)
+        let receiptStore = SwiftDataReceiptStore(modelContext: modelContext)
+        let logger = ReceiptEventLogger(receiptStore: receiptStore)
+
+        var currentAddress = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        let service = ContextService(
+            contextSourceBuilder: builder,
+            accountProvider: { nil },
+            addressProvider: { currentAddress },
+            chainProvider: { .ethMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { false },
+            refreshedAtProvider: { nil },
+            freshnessTTLProvider: { 300 },
+            trackedNFTCountProvider: { nil },
+            prefersDemoDataProvider: { false },
+            beforeResolve: {
+                await resolveGate.waitIfNeeded()
+            }
+        )
+
+        async let firstSnapshot: ContextSnapshot = service.refresh(
+            correlationID: "context-race-1",
+            receiptEventLogger: logger
+        )
+        await Task.yield()
+
+        currentAddress = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        let secondSnapshot = await service.refresh(
+            correlationID: "context-race-2",
+            receiptEventLogger: logger
+        )
+
+        resolveGate.releaseFirst()
+        let resolvedFirstSnapshot = await firstSnapshot
+
+        let firstReceipts = try receiptStore.receipts(forCorrelationID: "context-race-1", limit: 10)
+        let secondReceipts = try receiptStore.receipts(forCorrelationID: "context-race-2", limit: 10)
+
+        let firstReceipt = try #require(firstReceipts.first)
+        let secondReceipt = try #require(secondReceipts.first)
+
+        #expect(resolvedFirstSnapshot.scope.accountAddress.value == "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        #expect(secondSnapshot.scope.accountAddress.value == "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        #expect(service.snapshot.scope.accountAddress.value == "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        #expect(firstReceipt.details.values["accountAddress"] == .string("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+        #expect(secondReceipt.details.values["accountAddress"] == .string("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"))
+    }
 }
 
 private final class CountingContextSourceBuilder: ShellContextSourceBuilding {

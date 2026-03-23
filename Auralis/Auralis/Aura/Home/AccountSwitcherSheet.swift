@@ -9,6 +9,7 @@ struct AccountSwitcherSheet: View {
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     @Binding var currentChain: Chain
+    let onAccountSelectionStarted: @MainActor (String) -> Void
     let onCurrentChainChanged: @MainActor (Chain, String) -> Void
 
     @State private var pendingRemovalAccount: EOAccount?
@@ -122,6 +123,7 @@ struct AccountSwitcherSheet: View {
 
         do {
             let correlationID = UUID().uuidString
+            onAccountSelectionStarted(correlationID)
             let selectedAccount = try store.selectAccount(
                 address: account.address,
                 correlationID: correlationID

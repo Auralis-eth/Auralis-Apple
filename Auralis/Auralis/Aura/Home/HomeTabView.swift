@@ -137,6 +137,7 @@ struct HomeTabView: View {
                         currentAccount: $currentAccount,
                         currentAddress: $currentAddress,
                         currentChain: $currentChain,
+                        onAccountSelectionStarted: { _ in },
                         onCurrentChainChanged: onCurrentChainChanged
                     )
                 }

@@ -19,6 +19,7 @@ struct NewsFeedView: View {
     @State private var selectedNFT: NFT?
     @Binding var nftService: NFTService
     @Binding var currentChain: Chain
+    let refreshAction: @MainActor () async -> Void
     let router: AppRouter
 
     var body: some View {
@@ -26,18 +27,13 @@ struct NewsFeedView: View {
             currentAccount: $currentAccount,
             selectedNFT: $selectedNFT,
             currentChain: $currentChain,
-            nftService: nftService
+            nftService: nftService,
+            refreshAction: refreshAction
         )
         .frame(maxWidth: .infinity)
         .background(Color.background)
         .refreshable {
-            let correlationID = UUID().uuidString
-            await nftService.refreshNFTs(
-                for: currentAccount,
-                chain: currentChain,
-                modelContext: modelContext,
-                correlationID: correlationID
-            )
+            await refreshAction()
         }
         .onChange(of: selectedNFT) { oldValue, newValue in
             guard let newValue else { return }
