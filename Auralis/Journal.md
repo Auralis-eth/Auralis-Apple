@@ -112,3 +112,9 @@ This is a good example of why remediation work should separate product decisions
 `P0-502` is now in better shape. The app can log launch, context builds, explorer opens, and the active copy action on top of the account, chain, and NFT refresh receipts that already existed. This matters because it turns the shell from "we think this happened" into "we can prove this happened."
 
 The nice part is that this did not require a giant new subsystem. A small shared receipt logger was enough. That is the kind of change worth remembering: when the foundation is decent, finishing a feature often means adding one disciplined seam instead of three new managers with dramatic names.
+
+### Context seam tightened
+
+`P0-402` got a more honest shell-facing finish. The important change was not flashy UI. It was reducing duplicate truth. The mounted chrome and the context inspector now read the same `ContextSnapshot` instead of each quietly peeking at parallel pieces of shell state.
+
+That matters because duplicate reads are how apps start disagreeing with themselves. One part says "Collector," another says a shortened address, another says stale, another says fresh, and suddenly everyone is debugging a ghost. A shared context seam is basically making the shell use one weather report instead of each room sticking its head out a different window.

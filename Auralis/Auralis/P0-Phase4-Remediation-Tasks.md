@@ -149,11 +149,17 @@ Relevant code:
 
 Tasks:
 
-1. Add `ContextBuilt` receipt emission inside `ContextService`.
-2. Add enough payload to those receipts to capture scope, freshness state, and provenance summary without leaking internals.
-3. Move additional shell reads to `contextService.snapshot` where the shell still mixes direct account/chain/service reads.
-4. Keep direct provider access out of views; use this pass to reduce service bypasses where they already exist.
-5. Expand tests around `ContextService.refresh()` so receipt emission and stale-request protection are both covered.
+Status:
+
+- Completed for the strengthened shell-facing context slice
+
+Completed tasks:
+
+1. Added `ContextBuilt` receipt emission inside `ContextService`.
+2. Added payload for scope, freshness state, and provenance-safe summary data.
+3. Moved the mounted chrome and context inspector onto `contextService.snapshot`.
+4. Removed the redundant direct shell-state parameters from the inspector and chrome seam.
+5. Expanded tests so receipt emission and snapshot-backed shell summaries are covered.
 
 Done looks like:
 
@@ -195,10 +201,9 @@ Done looks like:
 
 ## Recommended Order
 
-1. `P0-402`
-2. `P0-303`
-3. `P0-101B` search action remediation
-4. `P0-302` contract cleanup and validation
+1. `P0-303`
+2. `P0-101B` search action remediation
+3. `P0-302` contract cleanup and validation
 
 Why this order:
 

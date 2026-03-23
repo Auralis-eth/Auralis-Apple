@@ -30,7 +30,7 @@ Review rule used here:
 | `P0-701A` | Partial | Structural scaffolding exists, but boundaries are not yet consistently enforced in live feature code. |
 | `P0-502` | Ready | App launch, account and chain changes, NFT refresh, context build, explorer open, and the active copy action now emit receipts on the shared foundation. |
 | `P0-302` | Partial | NFT freshness/TTL exists and is available through the context inspector path, but broader shell-wide freshness integration remains intentionally narrow. |
-| `P0-402` | Partial | `ContextService` exists, but views still rely on direct service state in multiple places and context-build receipts are missing. |
+| `P0-402` | Partial | `ContextService` now emits context-build receipts and powers the mounted chrome plus inspector, but wider shell rollout and stricter boundary cleanup are still incomplete. |
 | `P0-303` | Partial | NFT degraded mode is real, but the broader provider-failure contract is not complete across the shell. |
 
 ## Ticket-By-Ticket Remediation
@@ -336,8 +336,8 @@ Primary code:
 - `AuralisTests/ContextSnapshotTests.swift`
 
 Remediation tasks:
-- Add `ContextBuilt(scope=..., freshness=...)` receipt emission from the context-service layer.
-- Move more shell reads to the context snapshot instead of parallel reads from `NFTService`, `currentChain`, and account state.
+- Keep using `ContextService` as the shell-facing seam; do not reintroduce parallel chrome/inspector state ownership.
+- Continue moving additional shell reads to the context snapshot where the current shell still mixes direct account, chain, and service reads.
 - Re-check every view for direct provider or provider-adjacent data access that should flow through `ContextService`.
 
 ### `P0-303` Error handling + degraded mode

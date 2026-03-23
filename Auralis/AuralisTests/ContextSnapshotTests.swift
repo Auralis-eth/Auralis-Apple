@@ -104,6 +104,38 @@ import Testing
         #expect(snapshot.freshness.isStale == false)
         #expect(snapshot.freshnessLabel == "Fresh now")
     }
+
+    @Test("context snapshot provides shell-facing account title and scope summary fallbacks")
+    func contextSnapshotProvidesShellFacingSummary() {
+        let namedSnapshot = LiveContextSource(
+            accountProvider: {
+                EOAccount(
+                    address: "0x1234567890abcdef1234567890abcdef12345678",
+                    access: .readonly,
+                    name: "Collector"
+                )
+            },
+            addressProvider: { "0x1234567890abcdef1234567890abcdef12345678" },
+            chainProvider: { .baseMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { false },
+            refreshedAtProvider: { nil }
+        ).snapshot()
+
+        let fallbackSnapshot = LiveContextSource(
+            accountProvider: { nil },
+            addressProvider: { "0x1234567890abcdef1234567890abcdef12345678" },
+            chainProvider: { .ethMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { false },
+            refreshedAtProvider: { nil }
+        ).snapshot()
+
+        #expect(namedSnapshot.chromeAccountTitle == "Collector")
+        #expect(namedSnapshot.scopeSummary.contains("Collector"))
+        #expect(fallbackSnapshot.chromeAccountTitle == "0x1234...5678")
+        #expect(fallbackSnapshot.scopeSummary.contains("Ethereum"))
+    }
 }
 
 @MainActor

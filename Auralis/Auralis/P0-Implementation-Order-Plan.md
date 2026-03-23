@@ -26,6 +26,7 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-601` is implemented; the chrome and context inspector read mode from the formal `modeState`, denied placeholder actions go through the policy gate seam, and receipts include `mode=Observe`.
 - `P0-204` is implemented for the current Phase 0 baseline: per-account chain scope persists, drives the visible shell state, emits receipts, and triggers the active refresh hook.
 - `P0-502` is now complete for the current shell/context/action slice: app launch, context builds, NFT refresh, account and chain changes, explorer opens, and the active copy action all emit receipts on the shared foundation.
+- `P0-402` is now complete for the strengthened shell-facing context slice: context builds emit receipts and the mounted chrome plus inspector read the shared `ContextSnapshot` instead of parallel shell-state lookups.
 - `P0-101B` has been re-validated as complete after the shell, mode, and chain remediation passes.
 - `P0-401` is now in progress as a schema-first slice: `ContextSnapshot` exists, the shell inspector reads it, and provenance-bearing scope/freshness fields are formalized.
 - `P0-301` is now in progress as a provider-seam slice: endpoint resolution is centralized, NFT fetching is injected, gas pricing is protocol-backed, and native balance support exists at the provider layer.
@@ -48,6 +49,7 @@ Closeout summary:
 - `P0-601`: complete for Phase 0 Observe-mode ownership
 - `P0-204`: complete for the current per-account chain-scope baseline
 - `P0-502`: complete for the current shell/context/action receipt slice; later verification and cleanup still belong to `P0-502B`
+- `P0-402`: complete for the current shell-facing context-service slice; broader shell rollout and stricter boundary cleanup continue under the same ticket family
 - `P0-401`: in progress as a schema-first baseline; full freshness completion remains deferred to `P0-302`
 - `P0-301`: in progress as an injected provider baseline; full service ownership remains deferred to `P0-402`
 - `P0-701A`: in progress as a shell/service scaffolding baseline; strict boundary enforcement remains deferred to `P0-701B`
@@ -121,7 +123,7 @@ Why:
 
 10. `P0-502` initial receipt slices for the active work (Completed for current shell/context/explorer/copy slice)
 11. `P0-302` Caching + freshness primitives (Completed for active NFT freshness slice)
-12. `P0-402` Context service + dependency boundaries (Completed for active shell context slice)
+12. `P0-402` Context service + dependency boundaries (Completed for strengthened shell-facing context slice)
 13. `P0-303` Error handling + degraded mode (Completed for active NFT provider-failure and degraded-mode slice)
 ==================================== 
 do another remediation + Unit tests

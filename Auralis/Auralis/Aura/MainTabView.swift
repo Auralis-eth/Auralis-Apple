@@ -261,10 +261,6 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $showContextInspector) {
             ChromeContextInspectorSheet(
-                currentAccount: currentAccount,
-                currentAddress: currentAddress,
-                currentChain: currentChain,
-                nftService: nftService,
                 contextService: contextService
             )
         }
@@ -298,8 +294,7 @@ struct MainTabView: View {
 
     private var chromeContainer: some View {
         GlobalChromeView(
-            currentAccount: $currentAccount,
-            currentAddress: $currentAddress,
+            snapshot: contextService.snapshot,
             onOpenAccountSwitcher: { showAccountSwitcher = true },
             onOpenContextInspector: { showContextInspector = true }
         )

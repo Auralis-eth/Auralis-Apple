@@ -1,8 +1,7 @@
 import SwiftUI
 
 struct GlobalChromeView: View {
-    @Binding var currentAccount: EOAccount?
-    @Binding var currentAddress: String
+    let snapshot: ContextSnapshot
     let onOpenAccountSwitcher: () -> Void
     let onOpenContextInspector: () -> Void
     @Environment(\.modeState) private var modeState
@@ -60,26 +59,12 @@ struct GlobalChromeView: View {
     }
 
     private var accountTitle: String {
-        if let name = currentAccount?.name, !name.isEmpty {
-            return name
-        }
-
-        if !currentAddress.isEmpty {
-            return currentAddress.displayAddress
-        }
-
-        return "No Account"
+        snapshot.chromeAccountTitle
     }
 }
 
 struct ChromeContextInspectorSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modeState) private var modeState
-
-    let currentAccount: EOAccount?
-    let currentAddress: String
-    let currentChain: Chain
-    let nftService: NFTService
     let contextService: ContextService
 
     private var snapshot: ContextSnapshot {
@@ -103,6 +88,7 @@ struct ChromeContextInspectorSheet: View {
                     LabeledContent("Account Provenance", value: snapshot.scope.accountAddress.provenance.displayLabel)
                     LabeledContent("Chains", value: snapshot.selectedChainDisplayNames)
                     LabeledContent("Chain Provenance", value: snapshot.scope.selectedChains.provenance.displayLabel)
+                    LabeledContent("Summary", value: snapshot.scopeSummary)
                 }
 
                 Section("Library Pointers") {

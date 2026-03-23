@@ -99,6 +99,18 @@ struct AppContext: Equatable {
 }
 
 extension ContextSnapshot {
+    var chromeAccountTitle: String {
+        if let accountName = scope.accountName.value, !accountName.isEmpty {
+            return accountName
+        }
+
+        if let accountAddress = scope.accountAddress.value, !accountAddress.isEmpty {
+            return accountAddress.displayAddress
+        }
+
+        return "No Account"
+    }
+
     var appContext: AppContext {
         AppContext(
             accountAddress: scope.accountAddress.value ?? "",
@@ -133,6 +145,10 @@ extension ContextSnapshot {
         }
 
         return chains.map(\.routingDisplayName).joined(separator: ", ")
+    }
+
+    var scopeSummary: String {
+        "\(accountDisplay) • \(selectedChainDisplayNames)"
     }
 }
 
