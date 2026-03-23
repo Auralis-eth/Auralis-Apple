@@ -29,7 +29,7 @@ Review rule used here:
 | `P0-301` | Partial | Provider seams exist, but there is no single read-only provider interface owning the required balance and metadata contract end to end. |
 | `P0-701A` | Partial | Structural scaffolding exists, but boundaries are not yet consistently enforced in live feature code. |
 | `P0-502` | Ready | App launch, account and chain changes, NFT refresh, context build, explorer open, and the active copy action now emit receipts on the shared foundation. |
-| `P0-302` | Partial | NFT freshness/TTL exists and is available through the context inspector path, but broader shell-wide freshness integration remains intentionally narrow. |
+| `P0-302` | Ready | Freshness now has one shared label contract, TTL-backed stale detection, future-time clamping, and a context-inspector UX that matches the intended Phase 0 product decision. |
 | `P0-402` | Partial | `ContextService` now emits context-build receipts and powers the mounted chrome plus inspector, but wider shell rollout and stricter boundary cleanup are still incomplete. |
 | `P0-303` | Partial | NFT provider failures now surface consistently across the current cached NFT shell surfaces, but the broader provider-failure contract is still narrower than the original all-provider wording. |
 
@@ -302,7 +302,7 @@ Remediation tasks:
 ### `P0-302` Caching + freshness primitives
 
 Status:
-- Partial
+- Ready
 
 Related docs:
 - `Auralis/P0-Implementation-Order-Plan.md`
@@ -315,10 +315,9 @@ Primary code:
 - `AuralisTests/NFTServiceReceiptTests.swift`
 
 Remediation tasks:
-- Keep the current product decision explicit: freshness is shown in the context sheet, not as a dedicated global chrome pill.
-- Audit shell surfaces that still need the same freshness source of truth, even if they do not all render it directly.
-- Expand freshness beyond the active NFT slice if the ticket is still being called complete in planning docs.
-- Add tests for stale-vs-fresh UI presentation at the shell layer.
+- No blocking remediation for the current Phase 0 contract.
+- Keep the freshness source-of-truth chain explicit: `NFTService` timestamp -> `ContextService` snapshot -> context inspector UI.
+- If later product work wants broader freshness UI, treat that as new surface work instead of reintroducing parallel freshness-label logic.
 
 ### `P0-402` Context service + dependency boundaries
 

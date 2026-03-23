@@ -86,6 +86,28 @@ import Testing
         #expect(snapshot.freshnessLabel == "Stale")
     }
 
+    @Test("freshness stays relative while inside TTL and uses the shared label contract")
+    func contextSnapshotUsesSharedFreshnessLabelContract() {
+        let refreshedAt = Date().addingTimeInterval(-120)
+        let source = LiveContextSource(
+            accountProvider: { nil },
+            addressProvider: { "" },
+            chainProvider: { .ethMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { false },
+            refreshedAtProvider: { refreshedAt },
+            freshnessTTLProvider: { 300 }
+        )
+
+        let snapshot = source.snapshot()
+        let appContext = AppContext(snapshot: snapshot)
+
+        #expect(snapshot.freshness.isStale == false)
+        #expect(snapshot.freshness.label == "2m ago")
+        #expect(snapshot.freshnessLabel == "2m ago")
+        #expect(appContext.freshnessLabel == snapshot.freshness.label)
+    }
+
     @Test("future refresh timestamps clamp to a non-negative age instead of looking stale")
     func contextSnapshotClampsFutureRefreshTimestamps() {
         let source = LiveContextSource(
@@ -103,6 +125,25 @@ import Testing
         #expect(snapshot.freshness.age == 0)
         #expect(snapshot.freshness.isStale == false)
         #expect(snapshot.freshnessLabel == "Fresh now")
+    }
+
+    @Test("refreshing freshness does not show stale even when the last success is older than TTL")
+    func refreshingFreshnessOverridesStaleLabel() {
+        let source = LiveContextSource(
+            accountProvider: { nil },
+            addressProvider: { "" },
+            chainProvider: { .ethMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { true },
+            refreshedAtProvider: { Date().addingTimeInterval(-600) },
+            freshnessTTLProvider: { 300 }
+        )
+
+        let snapshot = source.snapshot()
+
+        #expect(snapshot.freshness.isStale == false)
+        #expect(snapshot.freshness.label == "Refreshing now")
+        #expect(snapshot.freshnessLabel == "Refreshing now")
     }
 
     @Test("context snapshot provides shell-facing account title and scope summary fallbacks")

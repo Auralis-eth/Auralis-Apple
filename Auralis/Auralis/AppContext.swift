@@ -74,6 +74,31 @@ struct ContextFreshness: Equatable {
 
         return age >= ttl
     }
+
+    var label: String {
+        if refreshState == .refreshing {
+            return "Refreshing now"
+        }
+
+        guard let age else {
+            return "Unknown"
+        }
+
+        if let ttl, age >= ttl {
+            return "Stale"
+        }
+
+        if age < 60 {
+            return "Fresh now"
+        }
+
+        if age < 3_600 {
+            let minutes = Int(age / 60)
+            return "\(minutes)m ago"
+        }
+
+        return "Stale"
+    }
 }
 
 struct ContextSnapshot: Equatable {
@@ -132,7 +157,7 @@ extension ContextSnapshot {
     }
 
     var freshnessLabel: String {
-        appContext.freshnessLabel
+        freshness.label
     }
 
     var modeDisplay: String {
@@ -178,29 +203,12 @@ extension AppContext {
     }
 
     var freshnessLabel: String {
-        if isLoading {
-            return "Refreshing now"
-        }
-
-        guard let lastSuccessfulRefreshAt else {
-            return "Unknown"
-        }
-
-        let age = max(0, Date().timeIntervalSince(lastSuccessfulRefreshAt))
-        if let freshnessTTL, age >= freshnessTTL {
-            return "Stale"
-        }
-
-        if age < 60 {
-            return "Fresh now"
-        }
-
-        if age < 3_600 {
-            let minutes = Int(age / 60)
-            return "\(minutes)m ago"
-        }
-
-        return "Stale"
+        ContextFreshness(
+            refreshState: isLoading ? .refreshing : .idle,
+            lastSuccessfulRefreshAt: lastSuccessfulRefreshAt,
+            lastSuccessfulRefreshProvenance: .localCache,
+            ttl: freshnessTTL
+        ).label
     }
 
     var chainScope: [Chain] {

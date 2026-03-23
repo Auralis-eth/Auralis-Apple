@@ -134,3 +134,11 @@ There is still one important distinction to keep in mind. This closes the curren
 That kind of gap is sneaky because everything looks "basically done" until you evaluate the actual user path. The fix was small and exactly the sort of small thing that matters: add a real chrome search button, route it through `AppRouter`, and update the docs so they stop promising a separate freshness pill when the product decision is clearly "freshness details live in the context sheet."
 
 This is the broader lesson: ticket cleanup is not just code cleanup. Sometimes the most important bug is that the code and the story disagree.
+
+### Freshness stopped having two narrators
+
+`P0-302` was not missing a giant subsystem. It was missing discipline. The freshness data itself was already there, but the app had two places capable of deciding what words to show for that state. That is how subtle drift starts: one path says "Stale," another says "2m ago," a third eventually gets "Fresh now," and everyone swears they are reading the same truth.
+
+The cleanup was to let `ContextFreshness` own the label contract directly. `NFTService` still owns the timestamp, `ContextService` still snapshots it, and the context inspector is still the canonical UI surface. But now the text decision itself lives in one place, with tests for stale, refreshing, future-clamped, and in-TTL relative cases.
+
+This is one of those changes that looks almost too small to matter until you have had to debug its opposite. One narrator is easier to trust than two.

@@ -2,11 +2,11 @@
 
 ## Status
 
-Completed for the active NFT freshness slice
+Completed for the current Phase 0 freshness contract
 
 ## Ticket
 
-Implement cache entries with timestamps, TTL policy, stale detection, refresh triggers, and UI-facing last-updated values.
+Implement cache entries with timestamps, TTL policy, stale detection, refresh triggers, and context-sheet-facing last-updated values.
 
 ## Dependencies
 
@@ -37,6 +37,7 @@ The active Phase 0 caching and freshness slice is now complete for:
 - stale detection with future-timestamp clamping
 - retained last-successful refresh timestamps when a later refresh fails
 - duplicate in-flight NFT refresh coalescing for the same active scope
+- a single shared freshness label contract owned by `ContextFreshness`
 - UI-facing freshness values in the context inspector
 
 What remains intentionally downstream:
@@ -47,4 +48,4 @@ What remains intentionally downstream:
 
 ## Validation Target
 
-Store cache on first fetch, mark stale after TTL expiry, refresh timestamps correctly, and preserve cached stale values on refresh failure with a receipt.
+Store cache on first fetch, mark stale after TTL expiry, refresh timestamps correctly, preserve cached stale values on refresh failure with a receipt, and keep the inspector-facing freshness copy aligned with the shared model contract.

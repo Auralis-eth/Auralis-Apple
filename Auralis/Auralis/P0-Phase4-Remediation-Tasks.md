@@ -117,13 +117,17 @@ Relevant code:
 - `AuralisTests/ContextSnapshotTests.swift`
 - `AuralisTests/NFTServiceReceiptTests.swift`
 
-Tasks:
+Status:
 
-1. Make the freshness ownership story explicit: `NFTService` currently owns the active refresh timestamp, `ContextService` packages it, and the inspector reads it.
-2. Remove or update any docs that imply a dedicated chrome freshness pill if that is no longer the product decision.
-3. Ensure the context sheet displays freshness state, last refresh time, provenance, and stale status consistently.
-4. Add tests covering stale/fresh transitions at the context snapshot and inspector-data level.
-5. Audit whether any additional shell surfaces need the freshness state for logic, even if not for direct display.
+- Completed for the current context-sheet freshness contract
+
+Completed tasks:
+
+1. Made the freshness ownership story explicit: `NFTService` owns the active refresh timestamp, `ContextService` snapshots it, and the inspector reads it.
+2. Removed the duplicate freshness-label logic so the copy is owned by `ContextFreshness`.
+3. Kept the context sheet as the canonical UI for freshness state, timestamp, provenance, and stale status.
+4. Added tests covering stale, future-clamped, in-TTL relative, and refreshing freshness behavior.
+5. Updated the docs so they no longer imply a dedicated chrome freshness pill.
 
 Done looks like:
 

@@ -122,7 +122,7 @@ Why:
 ### Phase 4: Fetch, cache, and context assembly
 
 10. `P0-502` initial receipt slices for the active work (Completed for current shell/context/explorer/copy slice)
-11. `P0-302` Caching + freshness primitives (Completed for active NFT freshness slice)
+11. `P0-302` Caching + freshness primitives (Completed for current context-sheet freshness contract)
 12. `P0-402` Context service + dependency boundaries (Completed for strengthened shell-facing context slice)
 13. `P0-303` Error handling + degraded mode (Completed for current shell-wide NFT provider-failure rollout)
 ==================================== 
