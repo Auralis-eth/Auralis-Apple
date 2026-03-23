@@ -25,6 +25,7 @@ struct MainAuraView: View {
     @StateObject private var audioEngine: AudioEngine
     @State private var pendingDeepLink: AppDeepLink?
     @State private var didFinishInitialStateRestore = false
+    @State private var didRecordAppLaunchReceipt = false
 
     @State private var isloading: Bool = false
     private let services: ShellServiceHub
@@ -89,6 +90,18 @@ struct MainAuraView: View {
 
             if result.shouldProcessPendingDeepLink {
                 processPendingDeepLinkIfPossible()
+            }
+
+            if !didRecordAppLaunchReceipt {
+                let correlationID = UUID().uuidString
+                ReceiptEventLogger(
+                    receiptStore: services.receiptStoreFactory(modelContext)
+                ).recordAppLaunch(
+                    accountAddress: result.currentAddress,
+                    chain: result.currentChain,
+                    correlationID: correlationID
+                )
+                didRecordAppLaunchReceipt = true
             }
         }
         .onOpenURL { url in

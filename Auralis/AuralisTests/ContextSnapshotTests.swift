@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import Auralis
 
@@ -171,6 +172,41 @@ struct ContextServiceTests {
         #expect(secondSnapshot.scope.accountAddress.value == currentAddress)
         #expect(service.snapshot.scope.accountAddress.value == currentAddress)
         #expect(builder.buildCount == 3)
+    }
+
+    @Test("context service refresh emits a context-built receipt when a logger is provided")
+    func contextServiceRefreshEmitsReceipt() async throws {
+        let builder = CountingContextSourceBuilder()
+        let schema = Schema([StoredReceipt.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let modelContext = ModelContext(container)
+        let receiptStore = SwiftDataReceiptStore(modelContext: modelContext)
+        let logger = ReceiptEventLogger(receiptStore: receiptStore)
+
+        let service = ContextService(
+            contextSourceBuilder: builder,
+            accountProvider: { nil },
+            addressProvider: { "0x1234567890abcdef1234567890abcdef12345678" },
+            chainProvider: { .ethMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { false },
+            refreshedAtProvider: { nil },
+            freshnessTTLProvider: { 300 },
+            trackedNFTCountProvider: { nil },
+            prefersDemoDataProvider: { false }
+        )
+
+        _ = await service.refresh(
+            correlationID: "context-build-1",
+            receiptEventLogger: logger
+        )
+
+        let receipts = try receiptStore.receipts(
+            forCorrelationID: "context-build-1",
+            limit: 10
+        )
+        #expect(receipts.map { $0.kind } == ["context.built"])
     }
 }
 

@@ -269,7 +269,13 @@ struct MainTabView: View {
             )
         }
         .task(id: contextRefreshKey) {
-            await contextService.refresh()
+            let correlationID = UUID().uuidString
+            await contextService.refresh(
+                correlationID: correlationID,
+                receiptEventLogger: ReceiptEventLogger(
+                    receiptStore: services.receiptStoreFactory(modelContext)
+                )
+            )
         }
         .onChange(of: currentAccount) { _, newAccount in
             if let acct = newAccount {

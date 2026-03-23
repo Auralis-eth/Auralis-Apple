@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct NewsFeedCardView: View {
     let nft: NFT
@@ -71,7 +74,7 @@ struct NewsFeedCardView: View {
                     }
                     
                     // Action buttons
-                    NewsFeedCardButtons()
+                    NewsFeedCardButtons(nft: nft)
                         .frame(width: 70) // fixed width so it never clips offscreen
                         .padding(.trailing, 5)
                 }
@@ -87,7 +90,9 @@ struct NewsFeedCardView: View {
 }
 
 struct NewsFeedCardButtons: View {
+    @Environment(\.modelContext) private var modelContext
     @Namespace private var namespace
+    let nft: NFT
 
     var body: some View {
         GlassEffectContainer {
@@ -107,7 +112,7 @@ struct NewsFeedCardButtons: View {
 
                 Menu {
                     Button(action: {
-                        // Copy ID action
+                        copyNFTIdentifier()
                     }) {
                         Label("Copy ID", systemImage: "doc.on.doc")
                     }
@@ -147,6 +152,19 @@ struct NewsFeedCardButtons: View {
             .glassEffectUnion(id: "newsfeedcardbuttons", namespace: namespace)
 
         }
+    }
+
+    private func copyNFTIdentifier() {
+#if canImport(UIKit)
+        UIPasteboard.general.string = nft.id
+#endif
+        ReceiptEventLogger(
+            receiptStore: ReceiptStores.live(modelContext: modelContext)
+        ).recordCopyAction(
+            subject: "nft.id",
+            value: nft.id,
+            surface: "newsfeed.card"
+        )
     }
 }
 

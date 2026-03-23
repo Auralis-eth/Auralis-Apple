@@ -1,0 +1,214 @@
+# Phase 4 Remediation Tasks
+
+This is the focused "do now" task list for the current partial Phase 4 work.
+
+Scope decision locked for this pass:
+
+- `P0-101B`: do not add a dedicated freshness indicator to global chrome.
+- `P0-302`: freshness remains available through the context sheet and shared freshness state, not a chrome pill.
+
+Practical implication:
+
+- The real work now is not "invent the future."
+- The real work now is "finish the slice we already started and integrate it across the app where the current architecture already expects it."
+
+## What Is Not Truly Blocked
+
+Some items that looked blocked are actually unfinished integration work:
+
+- `P0-101C` is still blocked on full inspector behavior, but the freshness/context plumbing underneath it can still be completed now.
+- `P0-403` is still blocked as a dedicated ticket, but the current inspector sheet can still absorb more real context data now.
+- `P0-203` should still wait on provider/cache maturity.
+- The shell-wide rollout of receipts, context usage, and degraded-mode behavior is not future-ticket work. It is current-ticket completion work.
+
+## Active Remediation Set
+
+### `P0-101B` Global Chrome UI
+
+Goal for this pass:
+
+- finish the current chrome contract without introducing a chrome freshness pill
+
+Relevant docs:
+
+- `Auralis/P0-101B-Strategy.md`
+- `Auralis/P0-101B-Dependency-Report.md`
+- `Auralis/P0-Implementation-Order-Plan.md`
+- `Auralis/P0-Remediation-Checklist.md`
+
+Relevant code:
+
+- `Auralis/Auralis/Aura/GlobalChromeView.swift`
+- `Auralis/Auralis/Aura/MainTabView.swift`
+
+Tasks:
+
+1. Add the missing search quick action to `GlobalChromeView`.
+2. Keep context-sheet entry as the freshness access point and document that decision in the ticket notes.
+3. Re-validate that account switcher, mode badge, context entry, and search entry all work from the mounted shell chrome.
+4. Add a test pass or manual validation checklist for all primary surfaces using the shared chrome.
+
+Done looks like:
+
+- search is reachable from the actual chrome
+- docs no longer claim a chrome freshness pill if the product decision is context-sheet only
+
+### `P0-502` Receipt logging integration points
+
+Goal for this pass:
+
+- broaden receipt coverage from baseline slices to the important shell-wide read-only flows that already exist
+
+Relevant docs:
+
+- `Auralis/P0-Implementation-Order-Plan.md`
+- `Auralis/P0-Remediation-Checklist.md`
+
+Relevant code:
+
+- `Auralis/Auralis/Aura/MainAuraView.swift`
+- `Auralis/Auralis/ContextService.swift`
+- `Auralis/Auralis/Accounts/AccountEventRecorder.swift`
+- `Auralis/Auralis/Networking/NFTRefreshEventRecorder.swift`
+- `Auralis/Auralis/Aura/Newsfeed/Components/OpenSeaLink.swift`
+- `Auralis/Auralis/Aura/MainTabView.swift`
+- `Auralis/Auralis/Receipts/ReceiptEventLogger.swift`
+- `AuralisTests/ReceiptEventLoggerTests.swift`
+
+Status:
+
+- Completed for the current shell/context/action slice
+
+Completed tasks:
+
+1. Added an app-launch receipt from the shell startup path.
+2. Added context-build receipts from `ContextService.refresh`.
+3. Added receipt logging for explorer-link actions.
+4. Added receipt logging for the active copy action on the newsfeed card.
+5. Standardized correlation ID propagation for context refresh work.
+6. Added tests for the new receipt categories.
+
+Done looks like:
+
+- app launch, context build, refresh, explorer open, and copy actions all leave receipts
+- related steps share correlation IDs where the flow is one logical action
+
+### `P0-302` Caching + freshness primitives
+
+Goal for this pass:
+
+- finish the current freshness contract without changing the UI decision about chrome
+
+Relevant docs:
+
+- `Auralis/P0-Implementation-Order-Plan.md`
+- `Auralis/P0-Remediation-Checklist.md`
+
+Relevant code:
+
+- `Auralis/Auralis/Networking/NFTService.swift`
+- `Auralis/Auralis/AppContext.swift`
+- `Auralis/Auralis/ContextService.swift`
+- `Auralis/Auralis/Aura/GlobalChromeView.swift`
+- `AuralisTests/ContextSnapshotTests.swift`
+- `AuralisTests/NFTServiceReceiptTests.swift`
+
+Tasks:
+
+1. Make the freshness ownership story explicit: `NFTService` currently owns the active refresh timestamp, `ContextService` packages it, and the inspector reads it.
+2. Remove or update any docs that imply a dedicated chrome freshness pill if that is no longer the product decision.
+3. Ensure the context sheet displays freshness state, last refresh time, provenance, and stale status consistently.
+4. Add tests covering stale/fresh transitions at the context snapshot and inspector-data level.
+5. Audit whether any additional shell surfaces need the freshness state for logic, even if not for direct display.
+
+Done looks like:
+
+- freshness has one clear source of truth
+- the context sheet is the canonical UX for freshness detail
+- docs and tests match that contract
+
+### `P0-402` Context service + dependency boundaries
+
+Goal for this pass:
+
+- turn the current schema-first slice into a real shell service seam
+
+Relevant docs:
+
+- `Auralis/P0-Implementation-Order-Plan.md`
+- `Auralis/P0-Remediation-Checklist.md`
+
+Relevant code:
+
+- `Auralis/Auralis/ContextService.swift`
+- `Auralis/Auralis/AppContext.swift`
+- `Auralis/Auralis/AppServices.swift`
+- `Auralis/Auralis/Aura/MainTabView.swift`
+- `Auralis/Auralis/Aura/GlobalChromeView.swift`
+- `AuralisTests/ContextSnapshotTests.swift`
+
+Tasks:
+
+1. Add `ContextBuilt` receipt emission inside `ContextService`.
+2. Add enough payload to those receipts to capture scope, freshness state, and provenance summary without leaking internals.
+3. Move additional shell reads to `contextService.snapshot` where the shell still mixes direct account/chain/service reads.
+4. Keep direct provider access out of views; use this pass to reduce service bypasses where they already exist.
+5. Expand tests around `ContextService.refresh()` so receipt emission and stale-request protection are both covered.
+
+Done looks like:
+
+- context builds are observable in receipts
+- the shell relies more on one context seam and less on parallel ad hoc state reads
+
+### `P0-303` Error handling + degraded mode
+
+Goal for this pass:
+
+- roll the existing degraded-mode slice through the app surfaces that already depend on the same provider state
+
+Relevant docs:
+
+- `Auralis/P0-Implementation-Order-Plan.md`
+- `Auralis/P0-Remediation-Checklist.md`
+
+Relevant code:
+
+- `Auralis/Auralis/Networking/NFTService.swift`
+- `Auralis/Auralis/Networking/NFTFetcher.swift`
+- `Auralis/Auralis/Aura/ShellStatusView.swift`
+- `Auralis/Auralis/Aura/Newsfeed/NewsFeedView.swift`
+- `Auralis/Auralis/Aura/MainTabView.swift`
+- `AuralisTests/NFTServiceReceiptTests.swift`
+
+Tasks:
+
+1. Audit where provider failure is already known but not surfaced consistently outside the newsfeed path.
+2. Reuse the shared shell-status components instead of inventing one-off warnings in each surface.
+3. Make sure cached data remains browsable when refresh fails on any surface already backed by cached local state.
+4. Confirm failure categories map to stable UI copy through `NFTProviderFailurePresentation`.
+5. Add tests or a manual checklist for offline, rate-limited, invalid-response, and busy states.
+
+Done looks like:
+
+- degraded mode is not a one-screen feature
+- cached local content stays visible whenever the current architecture can support it
+
+## Recommended Order
+
+1. `P0-402`
+2. `P0-303`
+3. `P0-101B` search action remediation
+4. `P0-302` contract cleanup and validation
+
+Why this order:
+
+- context receipts and stronger service ownership reduce ambiguity fast
+- degraded-mode rollout should build on the same now-better context and receipt seams
+- chrome and freshness cleanup then become smaller, mostly-contractual tasks
+
+## Explicit Non-Goals For This Pass
+
+- do not start `P0-203`
+- do not build the full dedicated `P0-403` inspector ticket
+- do not reopen the product decision to add a chrome freshness pill
+- do not treat shell-wide integration as "future work" if it is really completion of the current partial tickets

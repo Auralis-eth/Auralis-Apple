@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct OpenSeaLink: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
+
     let contractAddress: String
     let tokenId: String
 
@@ -23,7 +26,16 @@ struct OpenSeaLink: View {
     }
 
     var body: some View {
-        Link(destination: openSeaURL) {
+        Button {
+            ReceiptEventLogger(
+                receiptStore: ReceiptStores.live(modelContext: modelContext)
+            ).recordExternalLinkOpened(
+                label: "OpenSea",
+                url: openSeaURL,
+                surface: "newsfeed.nft_detail"
+            )
+            openURL(openSeaURL)
+        } label: {
             HStack {
                 // OpenSea logo
                 SystemImage("water.waves")
@@ -54,10 +66,14 @@ struct OpenSeaLink: View {
                     .stroke(Color.white.opacity(0.2), lineWidth: 1)
             )
         }
+        .buttonStyle(.plain)
     }
 }
 
 struct EtherscanLink: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
+
     let contractAddress: String
     let tokenId: String
 
@@ -72,7 +88,16 @@ struct EtherscanLink: View {
     }
 
     var body: some View {
-        Link(destination: etherscanURL) {
+        Button {
+            ReceiptEventLogger(
+                receiptStore: ReceiptStores.live(modelContext: modelContext)
+            ).recordExternalLinkOpened(
+                label: "Etherscan",
+                url: etherscanURL,
+                surface: "newsfeed.nft_detail"
+            )
+            openURL(etherscanURL)
+        } label: {
             HStack {
                 // Etherscan-related icon (you can choose a more specific one if available)
                 SystemImage("link.circle.fill") // Example icon
@@ -103,5 +128,6 @@ struct EtherscanLink: View {
                     .stroke(Color.white.opacity(0.2), lineWidth: 1)
             )
         }
+        .buttonStyle(.plain)
     }
 }

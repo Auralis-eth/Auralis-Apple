@@ -97,7 +97,10 @@ final class ContextService {
     }
 
     @discardableResult
-    func refresh() async -> ContextSnapshot {
+    func refresh(
+        correlationID: String? = nil,
+        receiptEventLogger: ReceiptEventLogger? = nil
+    ) async -> ContextSnapshot {
         let capturedInputs = captureInputs()
 
         if let inFlightTask, inFlightScope == capturedInputs.scope {
@@ -122,6 +125,11 @@ final class ContextService {
             inFlightTask = nil
             inFlightScope = nil
         }
+
+        receiptEventLogger?.recordContextBuilt(
+            snapshot: snapshot,
+            correlationID: correlationID
+        )
 
         return snapshot
     }
