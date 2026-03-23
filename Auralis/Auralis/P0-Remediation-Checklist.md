@@ -31,7 +31,7 @@ Review rule used here:
 | `P0-502` | Ready | App launch, account and chain changes, NFT refresh, context build, explorer open, and the active copy action now emit receipts on the shared foundation. |
 | `P0-302` | Partial | NFT freshness/TTL exists and is available through the context inspector path, but broader shell-wide freshness integration remains intentionally narrow. |
 | `P0-402` | Partial | `ContextService` now emits context-build receipts and powers the mounted chrome plus inspector, but wider shell rollout and stricter boundary cleanup are still incomplete. |
-| `P0-303` | Partial | NFT degraded mode is real, but the broader provider-failure contract is not complete across the shell. |
+| `P0-303` | Partial | NFT provider failures now surface consistently across the current cached NFT shell surfaces, but the broader provider-failure contract is still narrower than the original all-provider wording. |
 
 ## Ticket-By-Ticket Remediation
 
@@ -163,7 +163,7 @@ Primary code:
 
 Remediation tasks:
 - Implement the `no search results` shell state or formally defer that acceptance item to the search ticket chain.
-- Verify the provider-unavailable banner appears on all intended read-only shell surfaces, not only the newsfeed path.
+- Re-check any future non-NFT read-only provider surfaces against the same shell-status contract if more providers are added.
 - Add tests or manual checklist coverage for first-run, no receipts, library empty, and provider degraded states.
 
 ### `P0-202` Address validation + normalization
@@ -356,9 +356,9 @@ Primary code:
 - `AuralisTests/NFTServiceReceiptTests.swift`
 
 Remediation tasks:
-- Expand degraded-mode handling beyond the newsfeed path if the shell-level ticket is meant to be considered complete.
-- Add coverage for rate-limit and invalid-response presentation at the UI level.
-- Confirm every provider failure category shows cached state plus a stale or degraded label rather than only a retry affordance.
+- The current NFT-backed shell rollout is in place for newsfeed, music library, and NFT token library.
+- Remaining work is mostly contractual: decide whether the ticket should stay NFT-scoped for Phase 0 or expand to every future provider-backed shell surface.
+- Add higher-level validation coverage if you want proof across surfaces instead of the current presentation-contract test.
 
 ## Recommended Remediation Order
 

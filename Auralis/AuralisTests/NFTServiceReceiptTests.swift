@@ -140,6 +140,25 @@ struct NFTServiceReceiptTests {
         #expect(blockingPresentation?.systemImage == "wifi.slash")
         #expect(blockingPresentation?.isRetryable == true)
     }
+
+    @Test("provider failure presentation switches between blocking and degraded modes based on cached-content visibility")
+    @MainActor
+    func providerFailurePresentationRespectsCachedContentMode() {
+        let service = NFTService(
+            nftFetcher: FailingStateNFTFetcher(
+                error: NFTFetcher.FetcherError.networkError(URLError(.notConnectedToInternet))
+            )
+        )
+
+        let blocking = service.providerFailurePresentation(isShowingCachedContent: false)
+        let degraded = service.providerFailurePresentation(isShowingCachedContent: true)
+
+        #expect(blocking?.mode == .blocking)
+        #expect(blocking?.title == "Collection Unavailable")
+        #expect(degraded?.mode == .degraded)
+        #expect(degraded?.title == "Refresh Paused")
+        #expect(degraded?.isRetryable == true)
+    }
 }
 
 private final class StubNFTFetcher: NFTFetching {
@@ -258,6 +277,35 @@ private final class SlowStubNFTFetcher: NFTFetching {
 
         try await Task.sleep(for: .milliseconds(50))
         return []
+    }
+
+    func reset() {
+        total = nil
+        itemsLoaded = 0
+        loading = false
+        currentCursor = nil
+        error = nil
+    }
+}
+
+private final class FailingStateNFTFetcher: NFTFetching {
+    var total: Int? = 0
+    var itemsLoaded: Int? = 0
+    var loading = false
+    var error: Error?
+    var currentCursor: String?
+
+    init(error: Error) {
+        self.error = error
+    }
+
+    func fetchAllNFTs(
+        for account: String,
+        chain: Chain,
+        correlationID: String?,
+        eventRecorder: any NFTRefreshEventRecording
+    ) async throws -> [NFT] {
+        throw error ?? NFTFetcher.FetcherError.networkError(URLError(.unknown))
     }
 
     func reset() {

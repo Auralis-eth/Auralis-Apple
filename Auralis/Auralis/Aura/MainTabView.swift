@@ -358,6 +358,9 @@ struct MainTabView: View {
                     VStack {
                         NFTMusicPlayerApp(
                             audioEngine: audioEngine,
+                            currentAccount: currentAccount,
+                            currentChain: currentChain,
+                            nftService: nftService,
                             onOpenNFT: { nft in
                                 router.showMusicNFTDetail(id: nft.id)
                             }
@@ -400,7 +403,12 @@ struct MainTabView: View {
 
             Tab("NFTs", systemImage: "square.stack", value: AppTab.nftTokens) {
                 NavigationStack(path: $router.nftTokensPath) {
-                    NFTTokensRootView(router: router)
+                    NFTTokensRootView(
+                        currentAccount: currentAccount,
+                        currentChain: currentChain,
+                        nftService: nftService,
+                        router: router
+                    )
                         .navigationDestination(for: NFTDetailRoute.self) { route in
                             SharedNFTDetailView(route: route)
                         }
@@ -582,17 +590,44 @@ private struct SharedNFTDetailView: View {
 }
 
 private struct NFTTokensRootView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: [SortDescriptor(\NFT.acquiredAt?.blockTimestamp, order: .reverse)]) private var nfts: [NFT]
+    let currentAccount: EOAccount?
+    let currentChain: Chain
+    let nftService: NFTService
     let router: AppRouter
 
     var body: some View {
         Group {
             if nfts.isEmpty {
                 AuraScenicScreen(contentAlignment: .center) {
-                    ShellEmptyLibraryStateView(kind: .nft)
+                    if let failure = nftService.providerFailurePresentation(isShowingCachedContent: false) {
+                        ShellProviderFailureStateView(
+                            failure: failure,
+                            retry: refresh
+                        )
+                    } else {
+                        ShellEmptyLibraryStateView(kind: .nft)
+                    }
                 }
             } else {
                 VStack(spacing: 0) {
+                    if let failure = nftService.providerFailurePresentation(isShowingCachedContent: true) {
+                        ShellStatusBanner(
+                            title: failure.title,
+                            message: failure.message,
+                            systemImage: failure.systemImage,
+                            tone: .warning,
+                            action: failure.isRetryable ? ShellStatusAction(
+                                title: "Retry",
+                                systemImage: "arrow.clockwise",
+                                handler: refresh
+                            ) : nil
+                        )
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
+                    }
+
                     List(nfts) { nft in
                         Button {
                             router.showNFTTokensDetail(id: nft.id)
@@ -614,6 +649,18 @@ private struct NFTTokensRootView: View {
         }
         .navigationTitle("NFT Tokens")
         .accessibilityIdentifier("nftTokens.root")
+    }
+
+    private func refresh() {
+        Task {
+            let correlationID = UUID().uuidString
+            await nftService.refreshNFTs(
+                for: currentAccount,
+                chain: currentChain,
+                modelContext: modelContext,
+                correlationID: correlationID
+            )
+        }
     }
 }
 

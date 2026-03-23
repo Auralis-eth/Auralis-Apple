@@ -79,6 +79,9 @@ struct DetailView: View {
 
 struct NFTMusicPlayerApp: View {
     @ObservedObject var audioEngine: AudioEngine
+    let currentAccount: EOAccount?
+    let currentChain: Chain
+    let nftService: NFTService
     let onOpenNFT: (NFT) -> Void
     @State private var selection: SidebarItem? = .library
     let sidebarItems = SidebarItem.allCases
@@ -121,6 +124,9 @@ struct NFTMusicPlayerApp: View {
                     case .library:
                         NFTMusicPlayerLibraryView(
                             audioEngine: audioEngine,
+                            currentAccount: currentAccount,
+                            currentChain: currentChain,
+                            nftService: nftService,
                             onOpenNFT: onOpenNFT
                         )
                     case .playlists:
@@ -151,7 +157,11 @@ struct NFTMusicPlayerApp: View {
 
 
 struct NFTMusicPlayerLibraryView: View {
+    @Environment(\.modelContext) private var modelContext
     @ObservedObject var audioEngine: AudioEngine
+    let currentAccount: EOAccount?
+    let currentChain: Chain
+    let nftService: NFTService
     let onOpenNFT: (NFT) -> Void
     @Query private var nfts: [NFT]
     private var musicNFTs: [NFT] {
@@ -167,11 +177,33 @@ struct NFTMusicPlayerLibraryView: View {
         NavigationStack {
             Group {
                 if musicNFTs.isEmpty {
-                    ShellEmptyLibraryStateView(kind: .music)
+                    if let failure = nftService.providerFailurePresentation(isShowingCachedContent: false) {
+                        ShellProviderFailureStateView(
+                            failure: failure,
+                            retry: refresh
+                        )
                         .padding()
+                    } else {
+                        ShellEmptyLibraryStateView(kind: .music)
+                            .padding()
+                    }
                 } else {
                     ScrollView {
                         VStack(spacing: 20) {
+                            if let failure = nftService.providerFailurePresentation(isShowingCachedContent: true) {
+                                ShellStatusBanner(
+                                    title: failure.title,
+                                    message: failure.message,
+                                    systemImage: failure.systemImage,
+                                    tone: .warning,
+                                    action: failure.isRetryable ? ShellStatusAction(
+                                        title: "Retry",
+                                        systemImage: "arrow.clockwise",
+                                        handler: refresh
+                                    ) : nil
+                                )
+                            }
+
                             if featureRecentlyPlayedLibrary {
                                 RecentlyPlayedSection(audioEngine: audioEngine)
                                     .padding(.bottom, 8)
@@ -215,6 +247,18 @@ struct NFTMusicPlayerLibraryView: View {
             } message: {
                 Text(errorMessage ?? "Unknown error")
             }
+        }
+    }
+
+    private func refresh() {
+        Task {
+            let correlationID = UUID().uuidString
+            await nftService.refreshNFTs(
+                for: currentAccount,
+                chain: currentChain,
+                modelContext: modelContext,
+                correlationID: correlationID
+            )
         }
     }
 }

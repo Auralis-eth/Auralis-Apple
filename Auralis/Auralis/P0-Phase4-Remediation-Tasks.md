@@ -188,11 +188,17 @@ Relevant code:
 
 Tasks:
 
-1. Audit where provider failure is already known but not surfaced consistently outside the newsfeed path.
-2. Reuse the shared shell-status components instead of inventing one-off warnings in each surface.
-3. Make sure cached data remains browsable when refresh fails on any surface already backed by cached local state.
-4. Confirm failure categories map to stable UI copy through `NFTProviderFailurePresentation`.
-5. Add tests or a manual checklist for offline, rate-limited, invalid-response, and busy states.
+Status:
+
+- Completed for the current shell-wide NFT provider-failure rollout
+
+Completed tasks:
+
+1. Audited the NFT-backed shell surfaces and confirmed the gap was outside the newsfeed path.
+2. Reused `ShellStatusBanner` and `ShellProviderFailureStateView` in the music and NFT token roots instead of adding bespoke warnings.
+3. Kept cached local content browsable on music and NFT token surfaces when refresh fails, with retry affordances matching the newsfeed behavior.
+4. Kept failure copy stable by continuing to route through `NFTProviderFailurePresentation`.
+5. Added coverage for blocking versus degraded presentation selection in `NFTServiceReceiptTests`.
 
 Done looks like:
 
@@ -201,15 +207,13 @@ Done looks like:
 
 ## Recommended Order
 
-1. `P0-303`
-2. `P0-101B` search action remediation
-3. `P0-302` contract cleanup and validation
+1. `P0-101B` search action remediation
+2. `P0-302` contract cleanup and validation
 
 Why this order:
 
-- context receipts and stronger service ownership reduce ambiguity fast
-- degraded-mode rollout should build on the same now-better context and receipt seams
-- chrome and freshness cleanup then become smaller, mostly-contractual tasks
+- the missing work is now mostly contractual and shell-polish cleanup
+- chrome and freshness cleanup should happen against the clarified context-sheet product decision
 
 ## Explicit Non-Goals For This Pass
 

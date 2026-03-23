@@ -118,3 +118,11 @@ The nice part is that this did not require a giant new subsystem. A small shared
 `P0-402` got a more honest shell-facing finish. The important change was not flashy UI. It was reducing duplicate truth. The mounted chrome and the context inspector now read the same `ContextSnapshot` instead of each quietly peeking at parallel pieces of shell state.
 
 That matters because duplicate reads are how apps start disagreeing with themselves. One part says "Collector," another says a shortened address, another says stale, another says fresh, and suddenly everyone is debugging a ghost. A shared context seam is basically making the shell use one weather report instead of each room sticking its head out a different window.
+
+### Degraded mode stopped being a newsfeed-only superstition
+
+`P0-303` finally grew up from a one-screen trick into a shell behavior for the current NFT-backed surfaces. Before this pass, the newsfeed knew how to say "the provider failed, but your cached collection is still here." The music library and NFT token library were less articulate. They could show cached data, but they were not consistently honest about the failure that just happened.
+
+The fix was intentionally boring: reuse the same shell status components and the same `NFTProviderFailurePresentation` contract instead of making each screen invent its own emergency sign. That is senior-engineer boring, which is good boring. When a failure story matters across multiple surfaces, one shared sentence is better than three improvised speeches.
+
+There is still one important distinction to keep in mind. This closes the current NFT provider rollout. It does not magically mean every future provider-backed surface is done forever. If a new provider shows up later, it should inherit the same degraded-mode discipline instead of pretending the app has never learned this lesson before.
