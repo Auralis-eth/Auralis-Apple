@@ -2,24 +2,35 @@
 
 ## Status
 
-Blocked
+Ready
 
-## Blocking Dependencies
+## Dependencies Reviewed
 
 - P0-201
 - P0-301
 - P0-302
 - P0-502
 
-## Why It Is Blocked
+## Current Decision
 
-Blocked on provider, cache, and receipt integration primitives.
+The first implementation will use the installed Argent `web3.swift` ENS support behind a provider-agnostic service seam.
+
+This is now considered safe because the upstream account, provider, cache, and receipt seams are present enough to avoid throwaway scaffolding, and the package already includes native ENS forward and reverse lookup support.
 
 ## Safe Pre-Work
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
+- Confirm the ENS service contract before wiring the provider implementation.
+- Avoid shipping `web3.swift` types or helper APIs into app-facing code.
+- Keep all cache, freshness, and receipt semantics backend-agnostic.
+- Only do work that lowers the later swap cost to direct Ethereum RPC or a lighter node path.
+
+## Implementation Guardrails
+
+- Treat ENS as Ethereum mainnet identity data regardless of the currently selected app chain.
+- Keep `web3.swift` imports at the adapter boundary instead of scattering them through views, models, or shell logic.
+- Convert `EthereumAddress` and `EthereumNameServiceError` into Auralis-owned value and error types immediately.
+- Require reverse lookup to pass forward verification before it is shown as trusted identity text.
+- Prefer injected seams and test doubles over live RPC in most tests.
 
 ## Unblock Condition
 

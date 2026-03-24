@@ -2,60 +2,69 @@
 
 ## The Big Picture
 
-Auralis is what happens when a wallet browser, an NFT gallery, a gas tracker, and a music player all end up in the same app shell and somehow make it work. The user picks an account, the app restores context, fetches inventory, persists it locally, and then lets that shared data power multiple surfaces instead of duplicating logic everywhere.
+Auralis is the kind of app you build when a wallet, an NFT gallery, a dashboard, receipts, and a music player all decide to share one apartment. The job is not just "show some tokens." The app has to remember who the user is watching, pull on-chain data without acting brittle, keep a local memory of what matters, and make the whole thing feel like one coherent product instead of five roommates fighting over the kitchen.
 
 ## Architecture Deep Dive
 
-Think of the app as a small venue with a very busy lobby.
+The architecture is trending toward a clean "front desk and back office" split.
 
-- `MainAuraView` is the lobby manager. It decides who is inside, which chain they are on, whether the app is still waiting on inventory, and when a deep link is safe to route.
-- `NFTService` is the operations crew. It fetches inventory, parses metadata, persists changes, and clears stale records when the account or chain changes.
-- The receipts layer is the black box recorder. It should never be dramatic. It just needs to be ordered, append-only, and trustworthy.
-- `AudioEngine` is the stage crew. It loads tracks, swaps them, tears down stale temp files, and keeps the music UI informed without making the views know anything about `AVAudioEngine`.
+`MainAuraView` is the front desk. It decides who is checked in, what chain context is active, and which major surface the user is looking at.
+
+The services are the back office. `AccountStore` handles identity persistence. Provider-backed networking handles remote reads. Receipt logging is the security camera that keeps a trail of what happened. SwiftData is the filing cabinet. When this setup is healthy, views ask for outcomes and state, not for raw RPC tricks.
+
+The latest example is ENS planning. The temptation is to let the first working library or provider API leak all over the app. That is how architecture quietly turns into wet cardboard. The better move is to put an `ENSResolving` seam in front of the first implementation so the app talks to "resolve this identity" while the backend can start with Argent's `web3.swift` and later swap to direct Ethereum RPC or a lighter node strategy.
 
 ## The Codebase Map
 
-- `Auralis/Aura/` contains the shell, routing, and user-facing SwiftUI screens.
-- `Auralis/DataModels/` holds the persistence layer and shared JSON/domain types.
-- `Auralis/Networking/` is where provider integration and refresh orchestration live.
-- `Auralis/Receipts/` keeps the event trail honest.
-- `Auralis/MusicApp/AI/` is the active audio path.
-- `Auralis/Helpers/` is the utility drawer, which is useful right up until it hides a sharp edge.
+The current city map looks like this:
+
+- `Auralis/Auralis/Aura/` is the product shell and user-facing SwiftUI surfaces.
+- `Auralis/Auralis/Accounts/` is the identity desk for watch-only accounts and account event seams.
+- `Auralis/Auralis/Networking/` is where provider abstractions, fetchers, throttling, and remote reads live.
+- `Auralis/Auralis/Receipts/` is the audit trail.
+- `Auralis/Auralis/DataModels/` is the domain and persistence layer.
+- `Auralis/Auralis/MusicApp/AI/` is the active music path. `OLD/` is the code equivalent of a museum wing: interesting, but not where you should start changing behavior.
 
 ## Tech Stack & Why
 
-- SwiftUI because the app is naturally state-first and benefits from a single declarative shell.
-- SwiftData because NFTs, playlists, and receipts all need durable local state.
-- Swift Concurrency because account changes, metadata refreshes, avatar generation, and audio loading all need real cancellation semantics.
+SwiftUI is doing the heavy lifting for UI because the app is stateful and cross-surface. SwiftData is the local memory because identities, NFTs, and receipts need durable storage without building a custom database story in Phase 0. Async/await is the right fit because networking, refresh, cancellation, and stale-state behavior are first-class concerns here.
+
+Provider abstraction matters because this app already talks to more than one external backend. The real lesson is not "pick one provider forever." It is "never let the first provider become the shape of the whole app."
 
 ## The Journey
 
-### Bug War Stories
+### War Story: ENS Planning Needed A Backbone Before It Needed Code
 
-- Receipt sequencing was skipping values after warmup because the cache advanced one step too far. Quiet bug, dangerous consequences.
-- Account refreshes were too polite to stale work. When the user switched accounts, old refresh tasks could keep running long enough to write data for the wrong scope.
-- Tag colors were being normalized by the form one way and validated by the model another way. The classic “two bouncers, different guest list” problem.
-- Audio downloads reused bare filenames in temp storage. Two remote tracks named `audio.mp3` is not a hypothetical on the internet; it is Tuesday.
-- Trait parsing only accepted strings, which meant perfectly valid numeric metadata got dropped on the floor.
+`P0-203` looked simple on the surface: resolve ENS names and do reverse lookup. The trap was that there were three plausible paths:
 
-### Aha Moments
+- use the installed Argent `web3.swift` package
+- hand-roll direct RPC
+- find a provider shortcut that was not really there
 
-- Cancellation is not optional in this app. If stale tasks are allowed to finish, the UI can become technically successful and still wrong.
-- Provider support needs to be explicit. Building a URL is not the same as having a real backend behind it.
-- A clean test run is necessary, but it is not a launch checklist. Shipping still needs a deliberate smoke pass with the real app, real secrets, and real navigation flows.
-- Tooling should be installed where the team already works. SwiftLint now rides through Xcode package resolution and a target build phase instead of depending on every machine having a matching Homebrew setup. Less scavenger hunt, more signal.
-- Lint rules are easier to adopt in two steps than one. We re-enabled `force_try`, fixed the real offenders, and only then made the build fail on lint. That kept the codebase out of permanent-red territory.
+The inspection cut through the fog fast. The repo has a real Alchemy provider seam and a real Infura gas client, but ENS itself is not implemented anywhere in app code. The package source told the real story: Argent's `web3.swift` already ships `EthereumNameService`, resolver lookups, reverse resolution, wildcard support, and offchain lookup support.
+
+That led to the decision:
+
+- ship `P0-203` with `web3.swift` first
+- put it behind a provider-agnostic ENS service seam
+- preserve a future backend swap to direct Ethereum RPC or a lighter node path
+
+That is the kind of decision good engineers make when they want velocity today without writing tomorrow's migration bug report.
 
 ## Engineer's Wisdom
 
-- When state can change out from under a task, give the task an identity or cancel it.
-- Normalize user input at the domain boundary, not just in the view.
-- Temporary files deserve unique names. “Probably unique enough” is how ghost bugs get born.
+A senior engineer does not ask only "what works?" They ask "what will this force the rest of the codebase to believe?"
+
+If views start depending on Alchemy-shaped ENS models, you did not just solve ENS. You taught the entire app a vendor dialect. That always feels cheap in the moment and expensive a month later.
+
+The better pattern is:
+
+- define the app-facing contract first
+- isolate the provider-specific adapter behind it
+- make caching and receipt semantics belong to the app, not to the vendor
 
 ## If I Were Starting Over...
 
-I would make scope ownership even more explicit around account and chain changes. That is the part of the app where stale data keeps trying to re-enter wearing a valid-looking badge.
+I would establish more provider-agnostic service seams earlier, especially around identity-like data such as balances, ENS, and token metadata. Those are exactly the places where "just call the provider directly for now" grows teeth later.
 
-## Release Gate
-
-We added a dedicated Phase 0 launch checklist in `P0-Launch-Smoke-Checklist.md`. That document is the “walk the store before opening” routine for Auralis. Tests tell us the ovens turn on. The smoke checklist tells us the front door opens, the menu prints correctly, and no one is accidentally serving soup out of a coffee mug.
+The saving grace is that the codebase is still early enough to correct course while the concrete is wet instead of after the building inspection.

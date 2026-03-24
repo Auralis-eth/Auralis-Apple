@@ -125,9 +125,9 @@ Why:
 11. `P0-302` Caching + freshness primitives (Completed for current context-sheet freshness contract)
 12. `P0-402` Context service + dependency boundaries (Completed for strengthened shell-facing context slice)
 13. `P0-303` Error handling + degraded mode (Completed for current shell-wide NFT provider-failure rollout)
-==================================== 
-Swiftlint
-====================================
+
+========================================================================
+
 14. `P0-203` ENS resolution + reverse lookup
 
 Why:
