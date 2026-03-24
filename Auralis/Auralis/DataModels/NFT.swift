@@ -111,6 +111,12 @@ enum JSONValue: Codable {
     }
 }
 
+private extension String {
+    func withLeadingHashPrefix() -> String {
+        hasPrefix("#") ? self : "#\(self)"
+    }
+}
+
 import SwiftUI
 import SwiftUI
 import SwiftData
@@ -408,7 +414,10 @@ struct TagCreateUpdateView: View {
         validationError = nil
         
         let trimmedName = tagName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleanColor = tagColor.replacingOccurrences(of: "#", with: "").uppercased()
+        let cleanColor = tagColor
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+            .withLeadingHashPrefix()
 
         let didSave: Bool
         if existingTag != nil {
@@ -797,10 +806,15 @@ class Tag: Codable, Equatable, Hashable {
     }
     
     static func validateColor(_ color: String) throws -> String {
-        guard isValidHexColor(color) else {
+        let normalizedColor = color
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+            .withLeadingHashPrefix()
+
+        guard isValidHexColor(normalizedColor) else {
             throw TagError.invalidColor(color: color)
         }
-        return color
+        return normalizedColor
     }
     
     // MARK: - Protocol Conformance

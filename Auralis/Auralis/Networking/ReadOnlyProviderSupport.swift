@@ -227,7 +227,7 @@ private extension AlchemyRPCProvider {
     }
 }
 
-private extension Chain {
+extension Chain {
     var supportsEVMRPC: Bool {
         switch self {
         case .solanaMainnet, .solanaDevnetTestnet:
@@ -238,6 +238,20 @@ private extension Chain {
     }
 
     var supportsInfuraGas: Bool {
-        supportsEVMRPC
+        switch self {
+        case .ethMainnet,
+             .ethSepoliaTestnet,
+             .baseMainnet,
+             .baseSepoliaTestnet,
+             .arbMainnet,
+             .arbSepoliaTestnet,
+             .optMainnet,
+             .optSepoliaTestnet,
+             .polygonMainnet,
+             .polygonAmoyTestnet:
+            return true
+        default:
+            return false
+        }
     }
 }

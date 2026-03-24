@@ -19,7 +19,7 @@ import Foundation
 import SwiftData
 
 @Model
-public final class Playlist: Sendable, Equatable {
+public final class Playlist: Equatable {
     // Unified identifier (persisted)
     public var id: UUID = UUID()
 
@@ -145,4 +145,3 @@ public final class Playlist: Sendable, Equatable {
         lhs.updatedAt == rhs.updatedAt
     }
 }
-

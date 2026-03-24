@@ -7,8 +7,7 @@
 
 import SwiftUI
 
-@Observable
-class GasPriceEstimate: Codable {
+final class GasPriceEstimate: Codable {
     let version: String
     let high: FeeDetails
     let networkCongestion: Double

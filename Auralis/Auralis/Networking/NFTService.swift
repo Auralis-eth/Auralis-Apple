@@ -360,6 +360,7 @@ class NFTService {
                 return
             }
 
+            inFlightRefreshTask.cancel()
             await inFlightRefreshTask.value
         }
 
@@ -452,7 +453,7 @@ extension NFT {
             print("Multiple token URIs found for NFT \(id)")
         }
 
-        for tokenURI in tokenURIs {
+        for tokenURI in siftedTokenURIs {
             if let decodedTokenURI = tokenURI.base64JSON {
                 NFTMetadataUpdater.updateNFTFromMetadata(nft: self, metadata: decodedTokenURI)
             } else {

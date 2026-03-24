@@ -28,13 +28,13 @@ extension Optional where Wrapped == String {
     var imageSource: NFTImageSource? {
         // Implementation remains the same
         var imageURL = URL(string: self ?? "")
-        var imageData: Data?
+        let imageData: Data? = nil
         var imageSVG: String?
         if imageURL?.isIPFS ?? false {
             if let host = imageURL?.ipfsHTML {
                 imageURL = host
             } else {
-                print(imageURL)
+                print(String(describing: imageURL))
             }
         } else if imageURL?.scheme != "https" && imageURL?.scheme != "http" {
             if imageURL?.scheme == nil, let hash = imageURL?.path {
@@ -60,7 +60,7 @@ extension Optional where Wrapped == String {
                     // Return the modified URL or fall back to the original URL
                     imageURL = components.url ?? url
                 } else {
-                    print(imageURL)
+                    print(String(describing: imageURL))
                 }
 
             }

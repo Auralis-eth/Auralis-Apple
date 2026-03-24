@@ -28,6 +28,7 @@ struct MainAuraView: View {
     @State private var didRecordAppLaunchReceipt = false
     @State private var pendingShellFlowCorrelationID: String?
     @State private var latestAccountRefreshRequestID: UUID?
+    @State private var accountRefreshTask: Task<Void, Never>?
 
     @State private var isloading: Bool = false
     private let services: ShellServiceHub
@@ -131,8 +132,9 @@ struct MainAuraView: View {
                     correlationID: pendingShellFlowCorrelationID
                 )
                 latestAccountRefreshRequestID = request?.requestID
+                accountRefreshTask?.cancel()
 
-                Task {
+                accountRefreshTask = Task {
                     guard let request else {
                         await MainActor.run {
                             if latestAccountRefreshRequestID == nil {
@@ -157,18 +159,25 @@ struct MainAuraView: View {
                         }
 
                         latestAccountRefreshRequestID = nil
+                        accountRefreshTask = nil
                         isloading = false
                         currentAddress = request.currentAddress
                         processPendingDeepLinkIfPossible()
                     }
                 }
             } else {
+                accountRefreshTask?.cancel()
+                accountRefreshTask = nil
                 latestAccountRefreshRequestID = nil
                 currentAddress = result.currentAddress
                 if result.shouldProcessPendingDeepLink {
                     processPendingDeepLinkIfPossible()
                 }
             }
+        }
+        .onDisappear {
+            accountRefreshTask?.cancel()
+            accountRefreshTask = nil
         }
         .onChange(of: currentChain) { oldValue, newValue in
             currentChainId = newValue.rawValue
@@ -204,7 +213,13 @@ struct MainAuraView: View {
         }
     }
     
-    init(services: ShellServiceHub = .live) {
+    @MainActor
+    init() {
+        self.init(services: .live)
+    }
+
+    @MainActor
+    init(services: ShellServiceHub) {
         self.services = services
         _nftService = State(initialValue: services.nftServiceFactory())
         _modeState = StateObject(wrappedValue: services.modeStateFactory())

@@ -71,6 +71,9 @@ struct Infura: GasPricingProviding {
     
     // Immutable helpers ------------------------------------------------------
     private func buildURL(for chain: Chain) throws -> URL {
+        guard chain.supportsInfuraGas else {
+            throw ProviderAbstractionError.unsupportedChain(chain)
+        }
         let configuration = try configurationResolver.configuration(for: chain)
         guard let url = configuration.infuraGasURL else { throw InfuraError.invalidKey }
         return url

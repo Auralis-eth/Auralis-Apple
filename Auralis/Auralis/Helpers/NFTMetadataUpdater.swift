@@ -261,7 +261,7 @@ class NFTMetadataUpdater {
                     return nil
                 }
 
-                guard let value = attribute["value"]?.stringValue else {
+                guard let value = attribute["value"]?.stringifiedValue else {
                     return nil
                 }
 
@@ -276,7 +276,7 @@ class NFTMetadataUpdater {
                     return nil
                 }
 
-                guard let value = traitDict["value"]?.stringValue else {
+                guard let value = traitDict["value"]?.stringifiedValue else {
                     return nil
                 }
                 return NFT.Attribute(
@@ -296,5 +296,22 @@ class NFTMetadataUpdater {
             return components.url
         }
         return url
+    }
+}
+
+private extension JSONValue {
+    var stringifiedValue: String? {
+        switch self {
+        case .string(let value):
+            return value
+        case .int(let value):
+            return String(value)
+        case .double(let value):
+            return String(value)
+        case .bool(let value):
+            return String(value)
+        case .null, .object, .array:
+            return nil
+        }
     }
 }

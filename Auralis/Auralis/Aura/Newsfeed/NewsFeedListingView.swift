@@ -77,13 +77,18 @@ struct NewsFeedListingView: View {
                     ScrollView(.vertical, showsIndicators: false) {
                         LazyVStack(spacing: 0) {
                             ForEach(displayNFTs) { metaData in
-                                NewsFeedCardView(nft: metaData)
-                                    .frame(width: geometry.size.width,
-                                           height: geometry.size.height)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        selectedNFT = metaData
-                                    }
+                                Button {
+                                    selectedNFT = metaData
+                                } label: {
+                                    NewsFeedCardView(nft: metaData)
+                                        .frame(width: geometry.size.width,
+                                               height: geometry.size.height)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(metaData.name ?? metaData.collection?.name ?? "Open NFT")
+                                .accessibilityHint("Shows NFT details")
+                                .accessibilityAddTraits(.isButton)
                             }
                         }
                     }

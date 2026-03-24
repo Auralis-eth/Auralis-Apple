@@ -225,12 +225,11 @@ public class AudioEngine: ObservableObject {
         
         // Create a permanent temp file with proper extension
         let documentsPath = FileManager.default.temporaryDirectory
-        let fileName = url.lastPathComponent.isEmpty ? "audio.mp3" : url.lastPathComponent
+        let baseName = url.lastPathComponent.isEmpty ? "audio" : url.deletingPathExtension().lastPathComponent
+        let fileExtension = url.pathExtension.isEmpty ? "mp3" : url.pathExtension
+        let fileName = "\(baseName)-\(UUID().uuidString).\(fileExtension)"
         let permanentURL = documentsPath.appendingPathComponent(fileName)
-        
-        // Remove existing file if it exists
-        try? FileManager.default.removeItem(at: permanentURL)
-        
+
         // Move downloaded file to permanent location
         try FileManager.default.moveItem(at: tempURL, to: permanentURL)
         

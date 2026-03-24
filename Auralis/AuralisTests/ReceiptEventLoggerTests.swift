@@ -25,7 +25,7 @@ struct ReceiptEventLoggerTests {
             chainProvider: { .baseMainnet },
             modeProvider: { .observe },
             loadingProvider: { false },
-            refreshedAtProvider: { Date(timeIntervalSince1970: 1_700_000_000) },
+            refreshedAtProvider: { Date() },
             freshnessTTLProvider: { 300 },
             trackedNFTCountProvider: { 12 },
             prefersDemoDataProvider: { false }
@@ -41,6 +41,7 @@ struct ReceiptEventLoggerTests {
             label: "OpenSea",
             url: URL(string: "https://opensea.io/assets/ethereum/0xabc/1")!,
             surface: "newsfeed.nft_detail",
+            chain: .baseMainnet,
             correlationID: "link-1"
         )
         logger.recordCopyAction(

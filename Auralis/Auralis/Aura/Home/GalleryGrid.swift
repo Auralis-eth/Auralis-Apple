@@ -56,7 +56,7 @@ struct GalleryGrid: View {
             } else {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
-                        ForEach(Array(images.enumerated()), id: \.offset) { idx, image in
+                        ForEach(images, id: \.auralisObjectIdentifier) { image in
                             Button {
                                 onPick(image)
                             } label: {
@@ -75,5 +75,11 @@ struct GalleryGrid: View {
                 }
             }
         }
+    }
+}
+
+private extension UIImage {
+    var auralisObjectIdentifier: ObjectIdentifier {
+        ObjectIdentifier(self)
     }
 }

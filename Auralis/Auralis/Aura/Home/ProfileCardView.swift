@@ -17,6 +17,7 @@ struct ProfileCardView: View {
     @State private var avatarErrorMessage: String? = nil
     @State private var showAvatarErrorAlert: Bool = false
     @State private var avatarPromptCache = [String: [ImagePlaygroundConcept]]()
+    @State private var activeAvatarRequestID = UUID()
     
     var body: some View {
         HStack(spacing: 12) {
@@ -76,28 +77,8 @@ struct ProfileCardView: View {
             .foregroundStyle(Color.accent)
             .font(.system(size: 30, weight: .medium))
         }
-        .task {
-            if avatarImage == nil {
-                isLoadingAvatar = true
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                let idx = Int.random(in: 1...8)
-                let suffix = String(format: "%02d", idx)
-
-                if let assetImage = UIImage(named: "testProfile-\(suffix)") {
-                    isLoadingAvatar = false
-                    avatarImage = assetImage
-                } else {
-                    await generateAvatarImage(
-                        style: .character
-                    )
-                }
-            }
-        }
-        .onChange(of: currentAddress) { _, _ in
-            Task {
-                avatarImage = nil
-                await generateAvatarImage()
-            }
+        .task(id: currentAddress) {
+            await refreshAvatar()
         }
         .alert("Avatar Error", isPresented: $showAvatarErrorAlert, actions: {
             Button("Dismiss", role: .cancel) {
@@ -114,14 +95,39 @@ struct ProfileCardView: View {
     
     // MARK: - Avatar Image Generation
     
-    func generateAvatarImage(style: AvatarStyle = .abstract) async {
+    private func refreshAvatar() async {
+        let requestID = UUID()
+        activeAvatarRequestID = requestID
+        avatarImage = nil
+
+        guard !currentAddress.isEmpty else {
+            isLoadingAvatar = false
+            return
+        }
+
+        isLoadingAvatar = true
+        if let assetImage = fallbackAvatarImage(for: currentAddress) {
+            guard requestID == activeAvatarRequestID else { return }
+            avatarImage = assetImage
+            isLoadingAvatar = false
+            return
+        }
+
+        await generateAvatarImage(style: .character, requestID: requestID)
+    }
+    
+    func generateAvatarImage(style: AvatarStyle = .abstract, requestID: UUID? = nil) async {
         guard !currentAddress.isEmpty else {
             avatarImage = nil
             return
         }
         
         isLoadingAvatar = true
-        defer { isLoadingAvatar = false }
+        defer {
+            if requestID == nil || requestID == activeAvatarRequestID {
+                isLoadingAvatar = false
+            }
+        }
         
         let prompts = avatarPrompt(address: currentAddress, style: style)
         
@@ -132,6 +138,8 @@ struct ProfileCardView: View {
             let images = imageCreator.images(for: prompts, style: .illustration, limit: 1)
             
             for try await image in images {
+                try Task.checkCancellation()
+                guard requestID == nil || requestID == activeAvatarRequestID else { return }
                 let uiImage = UIImage(cgImage: image.cgImage)
                 avatarImage = uiImage
                 break
@@ -141,11 +149,21 @@ struct ProfileCardView: View {
             avatarImage = nil
             return
         }
+        catch is CancellationError {
+            return
+        }
         catch {
             avatarErrorMessage = "Failed to generate avatar image. Please try again.\n\(error.localizedDescription)"
             showAvatarErrorAlert = true
             return
         }
+    }
+    
+    private func fallbackAvatarImage(for address: String) -> UIImage? {
+        let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let imageIndex = (Int(normalizedAddress.seedBytes[0]) % 8) + 1
+        let suffix = String(format: "%02d", imageIndex)
+        return UIImage(named: "testProfile-\(suffix)")
     }
     
     
