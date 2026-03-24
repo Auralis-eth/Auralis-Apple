@@ -292,6 +292,7 @@ class NFTService {
 
             do {
                 for nft in nfts {
+                    try reusePersistedRelationships(for: nft, modelContext: modelContext)
                     modelContext.insert(nft)
                 }
                 try modelContext.save()
@@ -320,6 +321,7 @@ class NFTService {
                     persistedCount: nfts.count
                 )
             } catch {
+                modelContext.rollback()
                 await eventRecorder.recordPersistenceFailed(
                     accountAddress: accountAddress,
                     chain: chain,
@@ -395,16 +397,12 @@ class NFTService {
         correlationID: String,
         eventRecorder: any NFTRefreshEventRecording
     ) async throws {
-        let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
-        let descriptor = FetchDescriptor<NFT>(
-            predicate: #Predicate<NFT> {
-                $0.accountAddressRawValue == normalizedAccountAddress &&
-                $0.networkRawValue == chain.rawValue &&
-                !currentNFTIDs.contains($0.id)
-            }
-        )
+        let currentNFTIDSet = Set(currentNFTIDs)
         do {
-            try modelContext.enumerate(descriptor) { nft in
+            let persistedNFTs = try modelContext.fetch(FetchDescriptor<NFT>())
+            for nft in persistedNFTs
+            where nft.matchesScope(accountAddress: accountAddress, chain: chain) &&
+                !currentNFTIDSet.contains(nft.id) {
                 modelContext.delete(nft)
             }
             try modelContext.save()
@@ -418,6 +416,29 @@ class NFTService {
                 error: error
             )
             throw error
+        }
+    }
+
+    private func reusePersistedRelationships(
+        for nft: NFT,
+        modelContext: ModelContext
+    ) throws {
+        let contractID = nft.contract.id
+        let contractDescriptor = FetchDescriptor<NFT.Contract>(
+            predicate: #Predicate<NFT.Contract> { $0.id == contractID }
+        )
+        if let persistedContract = try modelContext.fetch(contractDescriptor).first {
+            nft.contract = persistedContract
+        }
+
+        if let collection = nft.collection {
+            let collectionID = collection.id
+            let collectionDescriptor = FetchDescriptor<NFT.Collection>(
+                predicate: #Predicate<NFT.Collection> { $0.id == collectionID }
+            )
+            if let persistedCollection = try modelContext.fetch(collectionDescriptor).first {
+                nft.collection = persistedCollection
+            }
         }
     }
 

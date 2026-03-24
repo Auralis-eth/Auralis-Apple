@@ -93,6 +93,7 @@ final class SwiftDataReceiptStore: ReceiptStore {
             modelContext.delete(receipt)
         }
         try modelContext.save()
+        nextSequenceIDCache = 1
     }
 }
 

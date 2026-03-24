@@ -152,7 +152,7 @@ import Testing
     }
 
     @Test("only the latest account refresh request is allowed to write back")
-    func latestRefreshRequestWinsCompletion() {
+    func latestRefreshRequestWinsCompletion() throws {
         let firstAccount = EOAccount(address: "0x1111111111111111111111111111111111111111")
         firstAccount.currentChain = .ethMainnet
         let secondAccount = EOAccount(address: "0x2222222222222222222222222222222222222222")
@@ -178,21 +178,18 @@ import Testing
             correlationID: "second"
         )
 
-        let resolvedFirstRequest = try? #require(firstRequest)
-        let resolvedSecondRequest = try? #require(secondRequest)
-
-        #expect(resolvedFirstRequest != nil)
-        #expect(resolvedSecondRequest != nil)
+        let resolvedFirstRequest = try #require(firstRequest)
+        let resolvedSecondRequest = try #require(secondRequest)
         #expect(
             logic.shouldApplyRefreshCompletion(
-                for: resolvedFirstRequest!,
-                latestRequestID: resolvedSecondRequest?.requestID
+                for: resolvedFirstRequest,
+                latestRequestID: resolvedSecondRequest.requestID
             ) == false
         )
         #expect(
             logic.shouldApplyRefreshCompletion(
-                for: resolvedSecondRequest!,
-                latestRequestID: resolvedSecondRequest?.requestID
+                for: resolvedSecondRequest,
+                latestRequestID: resolvedSecondRequest.requestID
             )
         )
     }

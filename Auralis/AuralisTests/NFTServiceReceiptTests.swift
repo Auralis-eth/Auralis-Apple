@@ -585,8 +585,10 @@ private func makeFixtureNFT(
     network: Chain = .ethMainnet,
     accountAddress: String = "0x1234567890abcdef1234567890abcdef12345678"
 ) -> NFT {
-    NFT(
-        id: "\(accountAddress):\(network.rawValue):\(contractAddress):\(tokenId)",
+    let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? "unscoped"
+    let normalizedContractAddress = NFT.normalizedScopeComponent(contractAddress) ?? "unknown"
+    return NFT(
+        id: "\(normalizedAccountAddress):\(network.rawValue):\(normalizedContractAddress):\(tokenId)",
         contract: NFT.Contract(address: contractAddress, chain: network),
         tokenId: tokenId,
         name: "Fixture NFT",

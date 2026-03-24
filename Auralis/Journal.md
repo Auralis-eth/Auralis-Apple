@@ -42,6 +42,7 @@ Think of the app as a small venue with a very busy lobby.
 
 - Cancellation is not optional in this app. If stale tasks are allowed to finish, the UI can become technically successful and still wrong.
 - Provider support needs to be explicit. Building a URL is not the same as having a real backend behind it.
+- A clean test run is necessary, but it is not a launch checklist. Shipping still needs a deliberate smoke pass with the real app, real secrets, and real navigation flows.
 
 ## Engineer's Wisdom
 
@@ -52,3 +53,7 @@ Think of the app as a small venue with a very busy lobby.
 ## If I Were Starting Over...
 
 I would make scope ownership even more explicit around account and chain changes. That is the part of the app where stale data keeps trying to re-enter wearing a valid-looking badge.
+
+## Release Gate
+
+We added a dedicated Phase 0 launch checklist in `P0-Launch-Smoke-Checklist.md`. That document is the “walk the store before opening” routine for Auralis. Tests tell us the ovens turn on. The smoke checklist tells us the front door opens, the menu prints correctly, and no one is accidentally serving soup out of a coffee mug.

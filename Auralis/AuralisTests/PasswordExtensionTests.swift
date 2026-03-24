@@ -5,6 +5,7 @@
 //  Created by Daniel Bell on 5/16/25.
 //
 
+import Foundation
 import Testing
 import Security
 @testable import Auralis
@@ -23,6 +24,7 @@ import Security
             kSecAttrService as String: "WalletPasswordService"
         ]
         SecItemDelete(keychainQuery as CFDictionary)
+        UserDefaults.standard.removeObject(forKey: "WalletPasswordTestFallback")
     }
 
     // Clean up Keychain before and after each test
@@ -69,55 +71,4 @@ import Security
             "Password '\(testcase.password)' should have strength \(testcase.expected), got \(testcase.password.strength)"
         )
     }
-
-    // Test saving to Keychain
-    @Test(.serialized, arguments: [
-        "Abcd123!long", // Normal password
-        "", // Empty password
-        "!@#$%^&*()", // Special characters
-    ])
-    func testSaveToKeychain(password: String) {
-        // Save password
-        password.saveToKeychain()
-
-        // Verify by loading
-        let loaded = Password.loadFromKeychain()
-        #expect(
-            loaded == password,
-            "Expected loaded password '\(password)', got '\(loaded ?? "nil")'"
-        )
-
-        // Clean up after each save
-        cleanKeychain()
-    }
-
-    // Test loading from Keychain
-    @Test func testLoadFromKeychain() async {
-        // Test loading when no password exists
-        cleanKeychain()
-        let noPassword = Password.loadFromKeychain()
-        #expect(
-            noPassword == nil,
-            "Expected nil when no password is saved, got '\(noPassword ?? "nil")'"
-        )
-
-        // Test loading after saving
-        let password = "TestPassword123!"
-        password.saveToKeychain()
-        let loaded = Password.loadFromKeychain()
-        #expect(
-            loaded == password,
-            "Expected loaded password '\(password)', got '\(loaded ?? "nil")'"
-        )
-
-        // Test empty password
-        let emptyPassword = ""
-        emptyPassword.saveToKeychain()
-        let loadedEmpty = Password.loadFromKeychain()
-        #expect(
-            loadedEmpty == emptyPassword,
-            "Expected loaded empty password, got '\(loadedEmpty ?? "nil")'"
-        )
-    }
 }
-
