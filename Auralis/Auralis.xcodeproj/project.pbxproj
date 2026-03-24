@@ -55,7 +55,7 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		6FB455DD2CC5BEBB009A055C /* Auralis */ = {
+				6FB455DD2CC5BEBB009A055C /* Auralis */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				6FB456012CC5BEBD009A055C /* Exceptions for "Auralis" folder in "Auralis" target */,
@@ -76,7 +76,7 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		6FB455D82CC5BEBB009A055C /* Frameworks */ = {
+				6FB455D82CC5BEBB009A055C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -153,6 +153,7 @@
 				6FB455D72CC5BEBB009A055C /* Sources */,
 				6FB455D82CC5BEBB009A055C /* Frameworks */,
 				6FB455D92CC5BEBB009A055C /* Resources */,
+				6FC0A1012F70000100A0BEEF /* SwiftLint */,
 			);
 			buildRules = (
 			);
@@ -171,6 +172,7 @@
 			productType = "com.apple.product-type.application";
 		};
 		6FB455EE2CC5BEBD009A055C /* AuralisTests */ = {
+
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6FB456072CC5BEBD009A055C /* Build configuration list for PBXNativeTarget "AuralisTests" */;
 			buildPhases = (
@@ -251,6 +253,7 @@
 			packageReferences = (
 				6F7B76022D962FE800DF0AD7 /* XCRemoteSwiftPackageReference "CodeScanner" */,
 				6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */,
+				6FC0A1022F70000100A0BEEF /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -264,8 +267,30 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXShellScriptBuildPhase section */
+				6FC0A1012F70000100A0BEEF /* SwiftLint */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.swiftlint.yml",
+			);
+			name = SwiftLint;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nSWIFTLINT_BIN=\"${BUILD_DIR%Build/*}SourcePackages/artifacts/swiftlintplugins/SwiftLintBinary/SwiftLintBinary.artifactbundle/macos/swiftlint\"\n\nif [ ! -x \"$SWIFTLINT_BIN\" ]; then\n  echo \"warning: SwiftLint binary is missing. Resolve package dependencies to enable linting.\"\n  exit 0\nfi\n\n\"$SWIFTLINT_BIN\" lint --config \"$SRCROOT/.swiftlint.yml\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXResourcesBuildPhase section */
-		6FB455D92CC5BEBB009A055C /* Resources */ = {
+				6FB455D92CC5BEBB009A055C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -294,7 +319,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		6FB455D72CC5BEBB009A055C /* Sources */ = {
+				6FB455D72CC5BEBB009A055C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -359,6 +384,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 00.00.01;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = ETH.Auralis.Auralis;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -395,6 +421,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 00.00.01;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = ETH.Auralis.Auralis;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -654,15 +681,23 @@
 				minimumVersion = 2.5.2;
 			};
 		};
+6FC0A1022F70000100A0BEEF /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */ = {
+	isa = XCRemoteSwiftPackageReference;
+	repositoryURL = "https://github.com/SimplyDanny/SwiftLintPlugins";
+	requirement = {
+		kind = upToNextMajorVersion;
+		minimumVersion = 0.62.0;
+	};
+};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		6F4179312DA96363002A78F5 /* web3.swift */ = {
+				6F4179312DA96363002A78F5 /* web3.swift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */;
 			productName = web3.swift;
 		};
-		6F7B76032D962FE800DF0AD7 /* CodeScanner */ = {
+				6F7B76032D962FE800DF0AD7 /* CodeScanner */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6F7B76022D962FE800DF0AD7 /* XCRemoteSwiftPackageReference "CodeScanner" */;
 			productName = CodeScanner;

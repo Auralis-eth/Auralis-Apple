@@ -43,6 +43,8 @@ Think of the app as a small venue with a very busy lobby.
 - Cancellation is not optional in this app. If stale tasks are allowed to finish, the UI can become technically successful and still wrong.
 - Provider support needs to be explicit. Building a URL is not the same as having a real backend behind it.
 - A clean test run is necessary, but it is not a launch checklist. Shipping still needs a deliberate smoke pass with the real app, real secrets, and real navigation flows.
+- Tooling should be installed where the team already works. SwiftLint now rides through Xcode package resolution and a target build phase instead of depending on every machine having a matching Homebrew setup. Less scavenger hunt, more signal.
+- Lint rules are easier to adopt in two steps than one. We re-enabled `force_try`, fixed the real offenders, and only then made the build fail on lint. That kept the codebase out of permanent-red territory.
 
 ## Engineer's Wisdom
 

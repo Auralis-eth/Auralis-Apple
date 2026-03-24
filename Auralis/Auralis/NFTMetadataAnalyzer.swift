@@ -336,7 +336,13 @@ func runMetadataAnalysis() async {
     // You'll need to get your ModelContext instance
     let schema = Schema([NFT.self, EOAccount.self])
     let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: schema, configurations: [configuration])
+    let container: ModelContainer
+    do {
+        container = try ModelContainer(for: schema, configurations: [configuration])
+    } catch {
+        assertionFailure("Failed to create in-memory model container: \(error)")
+        return
+    }
 
     // Create the context
     let modelContext = ModelContext(container)

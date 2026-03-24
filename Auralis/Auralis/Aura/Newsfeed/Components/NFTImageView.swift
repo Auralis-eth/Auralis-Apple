@@ -198,7 +198,7 @@ enum SVGConstants {
             return try NSRegularExpression(pattern: pattern, options: .caseInsensitive)
         } catch {
             assertionFailure("Invalid SVG regex pattern: \(error)")
-            return try! NSRegularExpression(pattern: "<svg", options: .caseInsensitive)
+            return NSRegularExpression()
         }
     }()
 }

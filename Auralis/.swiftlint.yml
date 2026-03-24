@@ -1,0 +1,27 @@
+included:
+  - Auralis
+  - AuralisTests
+  - AuralisUITests
+
+excluded:
+  - Auralis/MusicApp/OLD
+
+reporter: xcode
+
+disabled_rules:
+  - cyclomatic_complexity
+  - file_length
+  - function_body_length
+  - function_parameter_count
+  - identifier_name
+  - large_tuple
+  - line_length
+  - shorthand_operator
+  - todo
+  - type_body_length
+
+opt_in_rules:
+  - empty_count
+  - first_where
+  - sorted_imports
+  - toggle_bool
