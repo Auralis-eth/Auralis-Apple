@@ -115,7 +115,7 @@ private extension SwiftDataReceiptStore {
         )
 
         let nextSequenceID = (try modelContext.fetch(descriptor).first?.sequenceID ?? 0) + 1
-        nextSequenceIDCache = nextSequenceID
+        nextSequenceIDCache = nextSequenceID + 1
         return nextSequenceID
     }
 }

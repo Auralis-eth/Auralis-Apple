@@ -71,16 +71,18 @@ import Testing
     @Test("home launch routes NFTs by media type")
     func homeLaunchRoutesNFTByMediaType() {
         let router = AppRouter()
+        let musicNFT = makeNFT(id: "music-1", contentType: "audio/mpeg", audioURL: "https://example.com/track.mp3")
 
-        router.showNFTFromHome(makeNFT(id: "music-1", contentType: "audio/mpeg", audioURL: "https://example.com/track.mp3"))
+        router.showNFTFromHome(musicNFT)
         #expect(router.selectedTab == .music)
-        #expect(router.musicPath == [.detail(id: "music-1")])
+        #expect(router.musicPath == [.detail(id: musicNFT.id)])
 
         router.resetAllPaths()
+        let visualNFT = makeNFT(id: "visual-1", contentType: "image/png", audioURL: nil)
 
-        router.showNFTFromHome(makeNFT(id: "visual-1", contentType: "image/png", audioURL: nil))
+        router.showNFTFromHome(visualNFT)
         #expect(router.selectedTab == .nftTokens)
-        #expect(router.nftTokensPath == [.detail(id: "visual-1")])
+        #expect(router.nftTokensPath == [.detail(id: visualNFT.id)])
     }
 
     @Test("reset clears every route stack without disturbing the selected tab")
