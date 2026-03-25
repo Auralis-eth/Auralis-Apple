@@ -10,19 +10,42 @@ import SwiftData
 import UIKit
 
 struct AddressInputView: View {
+    private struct PendingENSMappingChange: Identifiable, Equatable {
+        let id = UUID()
+        let ensName: String
+        let cachedAddress: String
+        let resolvedAddress: String
+        let source: EOAccountSource
+        let correlationID: String
+    }
+
     @State private var address: String = ""
     @State private var showingAlert: Bool = false
     @State private var alertTitle: String = ""
     @State private var alertMessage: String = ""
+    @State private var showingENSMappingChangeAlert: Bool = false
+    @State private var isSubmitting: Bool = false
+    @State private var activeSubmissionTask: Task<Void, Never>?
+    @State private var activeSubmissionID = UUID()
+    @State private var pendingENSMappingChange: PendingENSMappingChange?
     @Environment(\.modelContext) private var modelContext
     @Query private var accounts: [EOAccount]
     @Binding var currentAccount: EOAccount?
+    let ensResolver: any ENSResolving
 
     private var validationResult: AccountAddressValidationResult {
         AccountStore.validateAddressInput(address)
     }
 
+    private var isENSInput: Bool {
+        AccountStore.looksLikeENSName(address)
+    }
+
     private var validationMessage: String? {
+        if isENSInput {
+            return nil
+        }
+
         switch validationResult {
         case .empty, .valid:
             return nil
@@ -32,7 +55,10 @@ struct AddressInputView: View {
     }
 
     private var normalizedAddress: String? {
-        validationResult.normalizedAddress
+        guard !isENSInput else {
+            return nil
+        }
+        return validationResult.normalizedAddress
     }
 
     var body: some View {
@@ -41,6 +67,7 @@ struct AddressInputView: View {
             currentAccount: $currentAccount,
             validationMessage: validationMessage,
             normalizedAddress: normalizedAddress,
+            isSubmitting: isSubmitting,
             handleSubmit: handleSubmit,
             selectDemo: selectDemo
         )
@@ -51,9 +78,31 @@ struct AddressInputView: View {
         } message: {
             Text(alertMessage)
         }
+        .alert("Confirm Updated ENS Mapping", isPresented: $showingENSMappingChangeAlert) {
+            Button("Use Updated Address") {
+                guard let change = pendingENSMappingChange else {
+                    isSubmitting = false
+                    return
+                }
+                confirmENSMappingChange(change)
+            }
+            Button("Cancel", role: .cancel) {
+                isSubmitting = false
+                pendingENSMappingChange = nil
+            }
+        } message: {
+            if let change = pendingENSMappingChange {
+                Text(
+                    "\(change.ensName) moved from \(change.cachedAddress) to \(change.resolvedAddress). Save the updated address?"
+                )
+            }
+        }
         .submitLabel(.go)
         .onSubmit {
             handleSubmit()
+        }
+        .onDisappear {
+            activeSubmissionTask?.cancel()
         }
     }
 
@@ -67,44 +116,15 @@ struct AddressInputView: View {
     }
 
     private func handleSubmit(source: EOAccountSource) {
-        switch validationResult {
-        case .empty:
-            showAlert(title: "Address Required", message: validationResult.userFacingMessage)
-            return
-        case .unsupportedENS:
-            showAlert(title: "ENS Not Supported Yet", message: validationResult.userFacingMessage)
-            return
-        case .invalidFormat:
-            showAlert(title: "Invalid Address", message: validationResult.userFacingMessage)
-            return
-        case .valid:
-            break
-        }
-
-        let store = AccountStore(
-            modelContext: modelContext,
-            eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
-        )
-
-        do {
-            let correlationID = UUID().uuidString
-            let activation = try store.activateWatchAccount(
-                from: address,
+        activeSubmissionTask?.cancel()
+        let submissionID = UUID()
+        activeSubmissionID = submissionID
+        activeSubmissionTask = Task {
+            await submit(
+                input: address,
                 source: source,
-                correlationID: correlationID
+                submissionID: submissionID
             )
-            address = ""
-            currentAccount = activation.account
-
-            if !activation.wasCreated {
-                showAlert(
-                    title: "Account Already Added",
-                    message: "Switched to the existing saved account for that address."
-                )
-            }
-        } catch {
-            showAlert(title: "Save Failed",
-                      message: "Failed to save account: \(error.localizedDescription)")
         }
     }
 
@@ -113,6 +133,154 @@ struct AddressInputView: View {
         alertMessage = message
         showingAlert = true
     }
+
+    @MainActor
+    private func submit(
+        input: String,
+        source: EOAccountSource,
+        submissionID: UUID
+    ) async {
+        let validationResult = AccountStore.validateAddressInput(input)
+        let isENSInput = AccountStore.looksLikeENSName(input)
+
+        switch validationResult {
+        case .empty:
+            showAlert(title: "Address Required", message: validationResult.userFacingMessage)
+            return
+        case .invalidFormat:
+            if !isENSInput {
+                showAlert(title: "Invalid Address", message: validationResult.userFacingMessage)
+                return
+            }
+        case .unsupportedENS, .valid:
+            break
+        }
+
+        let store = AccountStore(
+            modelContext: modelContext,
+            eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
+        )
+        let correlationID = UUID().uuidString
+
+        do {
+            isSubmitting = true
+            let activation: AccountActivationResult
+
+            if isENSInput {
+                let resolution = try await ensResolver.resolveAddress(
+                    forENS: input,
+                    correlationID: correlationID
+                )
+                guard submissionID == activeSubmissionID else {
+                    return
+                }
+                activation = try store.activateWatchAccount(
+                    from: resolution.address,
+                    name: resolution.ensName,
+                    source: source,
+                    correlationID: correlationID
+                )
+            } else {
+                guard submissionID == activeSubmissionID else {
+                    return
+                }
+                activation = try store.activateWatchAccount(
+                    from: input,
+                    source: source,
+                    correlationID: correlationID
+                )
+            }
+
+            guard submissionID == activeSubmissionID else {
+                return
+            }
+            address = ""
+            currentAccount = activation.account
+            isSubmitting = false
+            activeSubmissionTask = nil
+
+            if !activation.wasCreated {
+                showAlert(
+                    title: "Account Already Added",
+                    message: "Switched to the existing saved account for that address."
+                )
+            }
+        } catch let error as ENSResolutionError {
+            guard submissionID == activeSubmissionID else {
+                return
+            }
+            activeSubmissionTask = nil
+
+            switch error {
+            case .mappingChanged(let ensName, let cachedAddress, let resolvedAddress):
+                pendingENSMappingChange = PendingENSMappingChange(
+                    ensName: ensName,
+                    cachedAddress: cachedAddress,
+                    resolvedAddress: resolvedAddress,
+                    source: source,
+                    correlationID: correlationID
+                )
+                showingENSMappingChangeAlert = true
+            default:
+                isSubmitting = false
+                showAlert(
+                    title: "Save Failed",
+                    message: "Failed to save account: \(error.localizedDescription)"
+                )
+            }
+        } catch is CancellationError {
+            if submissionID == activeSubmissionID {
+                isSubmitting = false
+                activeSubmissionTask = nil
+            }
+        } catch {
+            guard submissionID == activeSubmissionID else {
+                return
+            }
+            activeSubmissionTask = nil
+            isSubmitting = false
+            showAlert(
+                title: "Save Failed",
+                message: "Failed to save account: \(error.localizedDescription)"
+            )
+        }
+    }
+
+    @MainActor
+    private func confirmENSMappingChange(_ change: PendingENSMappingChange) {
+        let store = AccountStore(
+            modelContext: modelContext,
+            eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
+        )
+
+        do {
+            let activation = try store.activateWatchAccount(
+                from: change.resolvedAddress,
+                name: change.ensName,
+                source: change.source,
+                correlationID: change.correlationID
+            )
+            address = ""
+            currentAccount = activation.account
+            isSubmitting = false
+            activeSubmissionTask = nil
+            pendingENSMappingChange = nil
+
+            if !activation.wasCreated {
+                showAlert(
+                    title: "Account Already Added",
+                    message: "Switched to the existing saved account for that address."
+                )
+            }
+        } catch {
+            isSubmitting = false
+            pendingENSMappingChange = nil
+            showAlert(
+                title: "Save Failed",
+                message: "Failed to save account: \(error.localizedDescription)"
+            )
+        }
+    }
 }
 
 private struct AddressEntryContentView: View {
@@ -120,6 +288,7 @@ private struct AddressEntryContentView: View {
     @Binding var currentAccount: EOAccount?
     let validationMessage: String?
     let normalizedAddress: String?
+    let isSubmitting: Bool
     let handleSubmit: () -> Void
     let selectDemo: (String) -> Void
 
@@ -166,7 +335,14 @@ private struct AddressEntryContentView: View {
             AuraActionButton("Enter Auralis", style: .hero) {
                 handleSubmit()
             }
+            .disabled(isSubmitting)
             .padding(.horizontal, 30)
+
+            if isSubmitting {
+                ProgressView("Resolving account…")
+                    .tint(Color.textPrimary)
+                    .padding(.top, 8)
+            }
             
             GuestExploreDividerView()
             GuestPassesHeaderView()
@@ -185,7 +361,7 @@ struct AddressEntryHeaderView: View {
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
             
-            SubheadlineFontText("Paste an EVM wallet address or scan a QR code to get started.")
+            SubheadlineFontText("Paste an EVM wallet address, enter an ENS name, or scan a QR code to get started.")
                 .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 20)

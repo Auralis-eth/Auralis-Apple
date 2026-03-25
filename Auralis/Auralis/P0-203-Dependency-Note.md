@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready
+Complete
 
 ## Dependencies Reviewed
 
@@ -13,9 +13,9 @@ Ready
 
 ## Current Decision
 
-The first implementation will use the installed Argent `web3.swift` ENS support behind a provider-agnostic service seam.
+The first implementation uses the installed Argent `web3.swift` ENS support behind a provider-agnostic service seam.
 
-This is now considered safe because the upstream account, provider, cache, and receipt seams are present enough to avoid throwaway scaffolding, and the package already includes native ENS forward and reverse lookup support.
+This proved safe because the upstream account, provider, cache, and receipt seams were present enough to avoid throwaway scaffolding, and the package already included native ENS forward and reverse lookup support.
 
 ## Safe Pre-Work
 
@@ -32,6 +32,6 @@ This is now considered safe because the upstream account, provider, cache, and r
 - Require reverse lookup to pass forward verification before it is shown as trusted identity text.
 - Prefer injected seams and test doubles over live RPC in most tests.
 
-## Unblock Condition
+## Outcome
 
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+The upstream dependencies above were sufficient to implement `P0-203` without inventing temporary state models or disposable UI. Future ENS-adjacent tickets should treat this note and the dependency report as the contract baseline.

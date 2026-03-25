@@ -98,6 +98,13 @@ struct AccountStore {
         return .valid(normalizedAddress)
     }
 
+    static func looksLikeENSName(_ candidate: String) -> Bool {
+        candidate.trimmingCharacters(in: .whitespacesAndNewlines).range(
+            of: #"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.eth$"#,
+            options: .regularExpression
+        ) != nil
+    }
+
     func listAccounts() throws -> [EOAccount] {
         let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
 
@@ -268,10 +275,4 @@ private extension AccountStore {
         return nil
     }
 
-    static func looksLikeENSName(_ candidate: String) -> Bool {
-        candidate.range(
-            of: #"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.eth$"#,
-            options: .regularExpression
-        ) != nil
-    }
 }

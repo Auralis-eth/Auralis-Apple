@@ -1,47 +1,121 @@
-# P0-203 Tickets And Session Handoff
+# P0-203 Dependency Report
 
-## Summary
+This document records the dependency posture, delivered scope, deferred scope, and validation state for `P0-203`.
 
-Support ENS forward resolution and best-effort reverse lookup with caching, refresh behavior, and receipt emission for changes and lookups.
+`P0-203` is complete for its planned first pass.
 
-The first production slice should use the installed Argent `web3.swift` ENS support behind a provider-agnostic service seam. Direct Ethereum RPC or light-node work is explicitly deferred as a backend swap, not mixed into this first delivery.
+## Ticket
 
-## Execution Order
+JIRA: `P0-203`
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Define the `ENSResolving` seam and cache contract before wiring any library-specific client.
-3. Implement the `web3.swift`-backed forward and reverse lookup slice behind that seam.
-4. Cover the stated edge cases before expanding scope.
-5. Run the ticket-specific validation path and record any blockers.
+Goal:
 
-## Concrete Build Steps
+- support ENS forward resolution in account-entry flow before account persistence
+- support best-effort reverse lookup for active-account display
+- keep caching, freshness, and receipt semantics inside Auralis-owned seams instead of provider-specific models
 
-1. Add Auralis-owned ENS request/result types and the `ENSResolving` protocol.
-2. Add the `web3.swift` adapter using `EthereumHttpClient` and `EthereumNameService`.
-3. Normalize ENS and address inputs into one canonical app comparison format.
-4. Add reverse-then-forward verification so reverse names are never trusted blindly.
-5. Add cache entries and freshness metadata for both forward and reverse lookups.
-6. Wire account-entry flow to resolve ENS before persistence.
-7. Wire best-effort reverse name display for the active account surface.
-8. Add receipt events for cache hit, lookup start, success, mapping change, and failure.
-9. Validate offline stale-cache behavior and rapid-cancel behavior.
+## Dependency Status
 
-## Critical Edge Case
+Satisfied dependencies:
 
-Slow ENS resolution must be cancellable, changed ENS mappings must not silently overwrite, offline mode must prefer cached data, and reverse results must not be trusted without verification.
+- `P0-201` Account model + persistence
+- `P0-301` Provider abstraction groundwork
+- `P0-302` Read-only provider support
+- `P0-502` Receipt sanitization and append-only store contract
+
+Planning rule preserved by this implementation:
+
+- ship the first slice behind an `ENSResolving` seam
+- treat Argent `web3.swift` as an adapter choice, not an app architecture choice
+- keep direct Ethereum RPC or light-node work deferred as a backend swap
+
+## Delivered ENS Layer
+
+Primary delivered file:
+
+- [`Auralis/Auralis/Networking/ENSResolutionService.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Networking/ENSResolutionService.swift)
+
+Supporting integration files:
+
+- [`Auralis/Auralis/Aura/Auth/AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)
+- [`Auralis/Auralis/Aura/Auth/GatewayView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/GatewayView.swift)
+- [`Auralis/Auralis/Aura/Home/ProfileCardView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/ProfileCardView.swift)
+- [`Auralis/Auralis/AppServices.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/AppServices.swift)
+
+Delivered ENS behaviors:
+
+- `ENSResolving` is the app-facing seam for forward cache reads, reverse cache reads, forward resolution, and reverse lookup
+- the live adapter uses `EthereumHttpClient` and `EthereumNameService` inside the networking layer only
+- ENS names and addresses are normalized into one canonical app comparison format
+- reverse lookup is only shown when reverse-then-forward verification succeeds
+- forward and reverse results are cached with freshness metadata and stale-cache fallback behavior
+- account entry now resolves ENS before persistence
+- the active account surface performs best-effort reverse ENS display
+- ENS receipts exist for cache hit, lookup start, success, mapping change, and failure
+- changed ENS mappings no longer silently overwrite cached identity; the app requires explicit confirmation before persisting the updated address
+- rapid repeated ENS submits do not let stale requests overwrite the latest input state
+
+## Production Mounting
+
+Auth entry integration:
+
+- [`Auralis/Auralis/Aura/Auth/AddressEntryView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/AddressEntryView.swift)
+
+Home identity display integration:
+
+- [`Auralis/Auralis/Aura/Home/ProfileCardView.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Home/ProfileCardView.swift)
+
+Resolver factory mount:
+
+- [`Auralis/Auralis/AppServices.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/AppServices.swift)
+
+Why this shape matters for later tickets:
+
+- views depend on Auralis-owned value types instead of `web3.swift` model types
+- the provider choice is isolated to the live factory and adapter boundary
+- future tickets can swap backend implementation without rewriting auth or home UI
+
+## Cache And Safety Contract
+
+The first-pass ENS contract established by `P0-203` is:
+
+- fresh cached forward results are returned before hitting the provider again
+- stale forward cache is used when refresh fails instead of dropping identity data
+- stale reverse cache is only used when the cached name was previously forward-verified
+- reverse names are never trusted blindly
+- changed forward mappings are surfaced as an explicit app-level condition instead of an automatic overwrite
+- receipt payloads stay sanitized and avoid leaking provider secrets or raw library internals
+
+## Deferred By Design
+
+Still owned by later tickets:
+
+- direct Ethereum RPC or light-node ENS implementation
+- richer ENS UI beyond the current auth confirmation and profile display path
+- chain-agnostic naming systems beyond `.eth`
+- broader UI automation or on-device validation coverage for ENS-specific flows
 
 ## Validation
 
-Add account via ENS, display reverse ENS when available, refresh ENS with receipts, verify cached stale ENS in offline mode, and confirm that no UI surface depends on `web3.swift`-specific models.
+Completed validation:
 
-Specific checks:
+- the project built successfully after the ENS integration
+- focused ENS tests passed for fresh-cache reuse, stale-cache fallback, reverse verification, mapping-change surfacing, and ENS receipt emission
 
-- entering `vitalik.eth` resolves to a canonical `0x...` address before account persistence
-- reverse lookup for a known address shows a name only when forward verification succeeds
-- cached ENS data survives refresh failure and is marked stale instead of disappearing
-- rapid ENS edits do not let older results overwrite newer input state
-- receipt payloads do not expose provider secrets or raw library internals
+Relevant automated coverage:
 
-## Handoff Rule
+- [`Auralis/AuralisTests/ENSResolutionServiceTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/ENSResolutionServiceTests.swift)
+- [`Auralis/AuralisTests/ENSEventRecorderTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/ENSEventRecorderTests.swift)
 
-Do not let the temporary library choice leak into app architecture. If a later direct RPC or light-node implementation cannot slot into the same ENS service seam, the first slice was shaped incorrectly.
+Residual validation note:
+
+- the last full-suite run had one unrelated failing test in [`Auralis/AuralisTests/NFTServiceReceiptTests.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/AuralisTests/NFTServiceReceiptTests.swift):296; that failure is outside `P0-203` scope and does not come from the ENS files
+
+## Completion Summary
+
+`P0-203` is complete for the planned first pass because:
+
+- ENS resolution is now a real production seam rather than a deferred validation error
+- the first implementation stays provider-agnostic at the app boundary
+- the critical safety rules are enforced: cancellation, stale-cache preference, reverse verification, and non-silent mapping changes
+- receipts and tests now cover the important ENS flow contracts future tickets will depend on

@@ -80,7 +80,10 @@ struct MainAuraView: View {
                         .ignoresSafeArea()
                 }
             } else {
-                GatewayView(currentAccount: $currentAccount)
+                GatewayView(
+                    currentAccount: $currentAccount,
+                    ensResolver: services.ensResolverFactory(modelContext)
+                )
             }
         }
         .onAppear {

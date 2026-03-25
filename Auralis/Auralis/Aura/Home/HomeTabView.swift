@@ -27,6 +27,7 @@ struct HomeTabView: View {
     @Binding var currentChain: Chain
     let onCurrentChainChanged: @MainActor (Chain, String) -> Void
     let router: AppRouter
+    let ensResolver: any ENSResolving
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -62,6 +63,7 @@ struct HomeTabView: View {
                             currentAccount: $currentAccount,
                             currentAddress: $currentAddress,
                             avatarImage: $avatarImage,
+                            ensResolver: ensResolver,
                             onOpenAccountSwitcher: {
                                 showAccountSwitcher = true
                             }

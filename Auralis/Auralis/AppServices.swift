@@ -121,6 +121,7 @@ struct ObservePolicyActionService: ObservePolicyActionHandling {
 struct ShellServiceHub {
     let modeStateFactory: @MainActor () -> ModeState
     let nftServiceFactory: @MainActor () -> NFTService
+    let ensResolverFactory: @MainActor (ModelContext) -> any ENSResolving
     let contextServiceBuilder: any ShellContextServiceBuilding
     let receiptStoreFactory: @MainActor (ModelContext) -> any ReceiptStore
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any ObservePolicyActionHandling
@@ -128,6 +129,9 @@ struct ShellServiceHub {
     static let live = ShellServiceHub(
         modeStateFactory: { ModeState() },
         nftServiceFactory: { NFTService() },
+        ensResolverFactory: { modelContext in
+            ENSResolvers.live(modelContext: modelContext)
+        },
         contextServiceBuilder: LiveShellContextServiceBuilder(),
         receiptStoreFactory: { modelContext in
             ReceiptStores.live(modelContext: modelContext)

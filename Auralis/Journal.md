@@ -51,6 +51,26 @@ That led to the decision:
 
 That is the kind of decision good engineers make when they want velocity today without writing tomorrow's migration bug report.
 
+### War Story: The ENS Race That Could Have Time-Traveled a User Into the Wrong Wallet
+
+The first ENS slice had the classic async UI bug: every submit launched a fresh task, but nothing stopped an older, slower lookup from arriving late and acting like it was still the chosen input. That is how a user types one ENS name, quickly changes to another, and gets checked into the wrong account because the network answered out of order. Software time travel is funny only when it is not your auth flow.
+
+The fix was deliberately boring in the best way:
+
+- cancel the previous submit task before starting a new one
+- stamp each request with a submission ID
+- allow only the latest submission to mutate UI state or persist an account
+
+`P0-203` also had a quieter trap. If a cached ENS name used to point at one address and now pointed at another, the app would log a mapping-change receipt but still barrel ahead and save the new address. That is not "awareness." That is silent drift with a paper trail.
+
+The safer behavior now is:
+
+- surface the mapping change as a real app-level ENS error
+- keep the old cached mapping in place until the user explicitly confirms the new address
+- let the gateway show a confirmation alert instead of treating the new mapping as automatically trusted
+
+The receipts story also graduated from hope to proof. The code already emitted cache-hit, start, success, mapping-change, and failure events, but there were no tests proving the recorder actually wrote the right sanitized payloads. A focused receipt test now exercises that full sequence so future regressions have somewhere concrete to crash.
+
 ## Engineer's Wisdom
 
 A senior engineer does not ask only "what works?" They ask "what will this force the rest of the codebase to believe?"

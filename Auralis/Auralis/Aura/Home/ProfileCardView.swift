@@ -12,12 +12,14 @@ struct ProfileCardView: View {
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     @Binding var avatarImage: UIImage?
+    let ensResolver: any ENSResolving
     let onOpenAccountSwitcher: () -> Void
     @State private var isLoadingAvatar: Bool = false
     @State private var avatarErrorMessage: String? = nil
     @State private var showAvatarErrorAlert: Bool = false
     @State private var avatarPromptCache = [String: [ImagePlaygroundConcept]]()
     @State private var activeAvatarRequestID = UUID()
+    @State private var resolvedENSName: String?
     
     var body: some View {
         HStack(spacing: 12) {
@@ -57,6 +59,9 @@ struct ProfileCardView: View {
                 
                 VStack(alignment: .leading) {
                     Title2FontText("HELLO")
+                    if let resolvedENSName {
+                        SecondaryText(resolvedENSName)
+                    }
                     SecondaryText("\(currentAccount?.address.displayAddress ?? "")")
                 }
             }
@@ -79,6 +84,7 @@ struct ProfileCardView: View {
         }
         .task(id: currentAddress) {
             await refreshAvatar()
+            await refreshENSName()
         }
         .alert("Avatar Error", isPresented: $showAvatarErrorAlert, actions: {
             Button("Dismiss", role: .cancel) {
@@ -114,6 +120,24 @@ struct ProfileCardView: View {
         }
 
         await generateAvatarImage(style: .character, requestID: requestID)
+    }
+
+    private func refreshENSName() async {
+        resolvedENSName = nil
+
+        guard !currentAddress.isEmpty else {
+            return
+        }
+
+        if let cached = await ensResolver.cachedReverseResolution(forAddress: currentAddress),
+           cached.isForwardVerified {
+            resolvedENSName = cached.ensName
+        }
+
+        if let resolved = await ensResolver.reverseLookup(address: currentAddress, correlationID: nil),
+           resolved.isForwardVerified {
+            resolvedENSName = resolved.ensName
+        }
     }
     
     func generateAvatarImage(style: AvatarStyle = .abstract, requestID: UUID? = nil) async {

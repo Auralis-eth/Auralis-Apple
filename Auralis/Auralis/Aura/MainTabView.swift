@@ -358,7 +358,8 @@ struct MainTabView: View {
                     currentChainId: $currentChainId,
                     currentChain: $currentChain,
                     onCurrentChainChanged: refreshActiveChainScope,
-                    router: router
+                    router: router,
+                    ensResolver: services.ensResolverFactory(modelContext)
                 )
             }
 

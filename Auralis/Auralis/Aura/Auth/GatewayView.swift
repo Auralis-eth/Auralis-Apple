@@ -9,11 +9,13 @@ import SwiftUI
 
 struct GatewayView: View {
     @Binding var currentAccount: EOAccount?
+    let ensResolver: any ENSResolving
 
     var body: some View {
         AuraScenicScreen(contentAlignment: .center) {
             AddressInputView(
-                currentAccount: $currentAccount
+                currentAccount: $currentAccount,
+                ensResolver: ensResolver
             )
         }
     }
