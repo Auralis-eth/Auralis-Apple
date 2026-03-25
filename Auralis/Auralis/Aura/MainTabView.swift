@@ -450,7 +450,10 @@ struct MainTabView: View {
             }
 
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
-                SearchRootPlaceholderView()
+                SearchRootView(
+                    currentAccountAddress: currentAccount?.address ?? currentAddress,
+                    currentChain: currentChain
+                )
             }
 
             Tab("ERC-20", systemImage: "dollarsign.circle", value: AppTab.erc20Tokens) {
@@ -883,22 +886,6 @@ private struct ERC20TokenDetailView: View {
         }
         .navigationTitle(route.symbol)
         .accessibilityIdentifier("erc20.detail.screen")
-    }
-}
-
-private struct SearchRootPlaceholderView: View {
-    var body: some View {
-        AuraScenicScreen(contentAlignment: .center) {
-            AuraSurfaceCard(style: .soft, cornerRadius: 30) {
-                ContentUnavailableView {
-                    Label("Search", systemImage: "magnifyingglass")
-                } description: {
-                    Text("Global search entry is now wired into the chrome. Search results and resolution flow land in the next ticket slice.")
-                }
-            }
-            .padding(.horizontal, 12)
-        }
-        .accessibilityIdentifier("search.root")
     }
 }
 

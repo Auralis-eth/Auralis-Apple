@@ -2,11 +2,18 @@
 
 ## Status
 
-Partially blocked
+Completed
 
 ## Ticket
 
 Implement deterministic search query classification for ENS, addresses, contracts, token symbols, names, and collections with inline detection feedback.
+
+## Outcome
+
+- Replaced the Search placeholder with a real search surface that shows inline type detection feedback in the app shell.
+- Added a deterministic local parser for ENS names, address-like input, contracts, token symbols, NFT names, collections, and generic text fallback.
+- Built a local search index from the active wallet scope plus saved accounts so classification stays side-effect free and ready for the later resolution pipeline.
+- Added focused parser coverage for ENS, address, symbol, name, collection, and scope-index construction behavior.
 
 ## Dependencies
 
@@ -30,3 +37,10 @@ Mixed input, ENS-like invalid strings, ambiguous addresses, and very short token
 ## Validation Target
 
 Verify ENS detection, address detection, token lookup matches, and invalid address rejection without network calls or receipts.
+
+## Validation Result
+
+- `BuildProject` passed on the `Auralis` scheme.
+- File-level diagnostics were clean for the parser, search view, and tests.
+- Runtime sanity checks passed through `ExecuteSnippet` for ENS, wallet, contract, symbol, collection, and invalid-address cases.
+- The environment test runner timed out repeatedly, so build-clean plus parser snippet validation is the verified baseline here.

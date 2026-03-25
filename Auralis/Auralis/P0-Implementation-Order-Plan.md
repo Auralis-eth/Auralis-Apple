@@ -133,8 +133,8 @@ Why:
 
 ### Phase 5: Receipts UI and early product surfaces
 
-21. `P0-103B` Query parser + type detection
 15. `P0-503` Receipts UI (Completed for scoped receipts timeline/detail slice)
+21. `P0-103B` Query parser + type detection (Completed for deterministic local parser + inline detection feedback slice)
 16. `P0-101C` Context Bar behavior + interactions
 17. `P0-403` Context inspector UI
 

@@ -2,24 +2,24 @@
 
 ## Status
 
-Blocked
+Completed
 
-## Blocking Dependencies
+## Former Blocking Dependencies
 
 - P0-203
 - P0-451
 - P0-461
 
-## Why It Is Blocked
+## Resolution
 
-Blocked on ENS support and local lookup sources from both library indexes.
+`P0-103B` shipped the deterministic local parser slice without waiting for the full downstream resolution pipeline. ENS support is used only for local type detection here, while richer enrichment can still layer in later from library indexes.
 
-## Safe Pre-Work
+## Delivered Slice
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
+- Search tab now renders a real local parser surface with inline detection feedback.
+- Query classification covers ENS, valid and invalid address-like input, token symbols, NFT names, collections, and generic text fallback.
+- Local indexing uses saved accounts plus active-scope NFTs, leaving asynchronous resolution and navigation for the next ticket.
 
-## Unblock Condition
+## Downstream Effect
 
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+Downstream search pipeline work can now consume a stable parser output model instead of inventing its own ad hoc classification rules.

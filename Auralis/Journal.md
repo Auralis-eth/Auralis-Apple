@@ -2,48 +2,70 @@
 
 ## The Big Picture
 
-Auralis is a wallet-aware NFT app with a split personality in the best way: part collector dashboard, part on-device activity log, and part music player for NFT-backed media. The app’s real job is to take a wallet scope, pull in what matters, keep it locally intelligible, and let the user move around without feeling like they just opened a blockchain spreadsheet.
+Auralis is a wallet-aware SwiftUI app that feels a bit like opening a backstage pass for on-chain culture. You bring in an address, Auralis pulls that wallet's NFT world into local storage, and then fans it back out across browsing, music playback, gas tools, and receipts. The app is not just "show me a list"; it is more like a venue with several rooms that all depend on the same guest list.
 
 ## Architecture Deep Dive
 
-Think of the app like a hotel with one front desk and several wings.
+The app shell is the maître d'. `MainAuraView` decides whether the user should see the front door, the loading hallway, or the main experience. `MainTabView` is the building directory for the major product areas.
 
-- `MainAuraView` is the front desk. It decides whether the guest is still checking in, waiting on luggage, or ready to roam the building.
-- `MainTabView` is the hallway map. It routes people into Home, News, Gas, Music, Receipts, and the token surfaces.
-- The receipt stack is the security camera archive. It does not change history; it records facts, keeps them ordered, and lets later features replay what happened without inventing new stories.
-- `NFTService` is the back-of-house coordinator. It talks to the network layer, updates local persistence, and keeps the visible library from drifting away from the active wallet scope.
-- `AudioEngine` is the resident DJ booth: long-lived, stateful, and very unhappy if you poke it with throwaway ownership patterns.
+`NFTService` is the kitchen expediter. It coordinates fetching, applies scope to every NFT, saves the result into SwiftData, and clears out stale inventory when a refresh completes.
+
+SwiftData is the pantry. The UI does not keep giant in-memory copies of collections forever; instead, views query the local store for the currently active account and chain. That is powerful, but it also means scope bugs can feel spooky: the food is in the pantry, but the waiter is checking the wrong shelf.
 
 ## The Codebase Map
 
-- `Auralis/Aura/`: the shell, tabs, auth flow, and product-facing SwiftUI surfaces.
-- `Auralis/Accounts/`: watch-only account persistence plus account event recording.
-- `Auralis/Networking/`: NFT fetch orchestration, providers, throttling, and refresh receipts.
-- `Auralis/Receipts/`: receipt contracts, persistence, sanitization, and now the timeline/detail UI model.
-- `Auralis/MusicApp/AI/`: the active music experience and shared playback engine.
-- `AuralisTests/`: Swift Testing coverage for routing, receipts, shell logic, and service behavior.
+The practical landmarks:
+
+- `Auralis/Auralis/Aura/` contains the app shell, tabs, auth, search, home, and newsfeed UI.
+- `Auralis/Auralis/DataModels/` holds SwiftData models like `NFT` and `EOAccount`.
+- `Auralis/Auralis/Networking/` contains the fetch and refresh orchestration.
+- `Auralis/Auralis/MusicApp/AI/` is the active music path.
+- `Auralis/Auralis/Receipts/` logs the app's observable paper trail.
+
+If you are debugging "the UI says nothing is there but I know the data exists," start by checking the active scope flowing from the shell into the SwiftData queries.
 
 ## Tech Stack & Why
 
-- SwiftUI: because the app is shell-heavy and state-driven, so declarative navigation and view state are the least painful path.
-- SwiftData: because receipts, accounts, playlists, and NFT-adjacent local state need persistence without dragging in a bigger storage framework for Phase 0.
-- Swift Concurrency: because the app does real asynchronous work and callback soup would turn the shell into a swamp quickly.
-- OSLog: because receipt failures and network coordination need breadcrumbs that survive beyond a single debug session.
+SwiftUI is the obvious fit here because the whole app is state choreography. Tabs, routes, shells, loading, and scoped content all respond to changing account and chain state.
+
+SwiftData is doing the heavy lifting for persistence because the app wants local, queryable NFT state without building a custom database layer from scratch. It is fast to wire into SwiftUI, but it will absolutely punish sloppy identity or scope handling.
+
+Swift Concurrency is the right tool because refreshes, audio loading, and ENS/network work all want cancellation and clean ownership. Callback soup would make this codebase much harder to reason about.
 
 ## The Journey
 
-- The receipt foundation landed before the real timeline UI. That was the right call. Building the archive before the archivist meant later tickets could work with append-only facts instead of retrofitting schema every time a feature wanted history.
-- `P0-503` exposed a classic trap: the shell already had a Receipts tab, so it looked “done” from ten feet away. Up close it was a postcard, not a timeline. The fix was to move filtering, search, and pagination into a dedicated state model so the view did not become a storage-shaped blob.
-- Then came the sneakier bug: the Receipts screen wore the active wallet and chain like a name tag, but underneath it was still reading from the whole room. That is the software equivalent of a mislabeled security camera feed. The fix was to make timeline scope an actual filtering boundary, teach receipts to remember wallet and chain hints when they can, and fall back to decoding those hints from older payloads so existing local history did not suddenly become invisible.
-- Another gotcha: this repo has both repo-root and project-root `Auralis` segments. That is the kind of naming symmetry that looks tidy until you add a file and realize you have built a beautiful feature in the wrong hallway.
+### War Story: The Collection Was There, Until You Opened the Tab
+
+Bug:
+Newsfeed and Music could show a blocking "Collection Unavailable" state even after a guest pass successfully loaded NFTs.
+
+What was actually happening:
+The tab root views built `@Query` filters in `init` using the current account and chain. That sounds fine until SwiftUI preserves the view instance while the active scope changes. Then the query keeps watching the old shelf in the pantry. The NFTs were persisted correctly, but the query stayed pointed at stale scope values, so the tab behaved like the collection never arrived.
+
+Fix:
+In `MainTabView`, the Newsfeed and Music roots now get a scope-based `.id(...)` derived from normalized account address plus chain. When that scope changes, SwiftUI rebuilds those views and recreates the scoped `@Query` with the right filter.
+
+Files touched:
+- `Auralis/Auralis/Aura/MainTabView.swift`
+
+How to spot this class of bug again:
+If a SwiftUI view creates `@Query` in `init` from bindings or environment-driven scope, ask whether the view is guaranteed to be recreated when that scope changes. If not, you are one stale identity away from a ghost bug.
 
 ## Engineer's Wisdom
 
-- Keep append-only history append-only. The moment a logging surface quietly starts mutating records, every downstream diagnostic becomes suspect.
-- Router state should stay centralized. If every tab starts inventing its own navigation side-channel, deep links and scope resets become whack-a-mole.
-- A useful timeline is not just “a list of rows.” It needs opinionated defaults, obvious filters, and a detail view that turns payload JSON into something a human can parse without coffee and a prayer.
+State bugs in SwiftUI are often identity bugs wearing a fake mustache. When data "exists but doesn't show up," do not start by blaming persistence. First ask:
+
+- What is the active scope?
+- Where is that scope converted into a query?
+- What guarantees that the view is rebuilt when the scope changes?
+
+That line of thinking is usually faster than adding logs everywhere and hoping the app confesses.
 
 ## If I Were Starting Over...
 
-- I would separate receipt presentation types from persisted models earlier. That boundary became necessary the moment search and filter behavior wanted value semantics and tests.
-- I would add the project journal on day one instead of waiting for the repo to accumulate enough phase tickets to deserve a field guide.
+I would be stricter about where scoped SwiftData queries are created. Either:
+
+- keep the query unscoped and filter in a thin adapter layer when the dataset is small enough, or
+- centralize scope identity so every scoped tab/root view rebuilds predictably.
+
+The current setup works, but only if view identity is treated as part of the data flow contract rather than an incidental UI detail.
