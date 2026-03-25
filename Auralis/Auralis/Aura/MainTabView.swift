@@ -428,9 +428,18 @@ struct MainTabView: View {
 
             Tab("Receipts", systemImage: "doc.text", value: AppTab.receipts) {
                 NavigationStack(path: $router.receiptsPath) {
-                    ReceiptsRootView(router: router)
+                    ReceiptsRootView(
+                        currentAddress: currentAccount?.address ?? currentAddress,
+                        currentChain: currentChain
+                    )
                         .navigationDestination(for: ReceiptRoute.self) { route in
-                            ReceiptDetailView(route: route)
+                            ReceiptDetailView(
+                                route: route,
+                                scope: ReceiptTimelineScope(
+                                    accountAddress: currentAccount?.address ?? currentAddress,
+                                    chain: currentChain
+                                )
+                            )
                         }
                 }
                 .accessibilityIdentifier("tab.receipts")
@@ -756,111 +765,6 @@ private struct NFTTokensRootView: View {
     private func refresh() {
         Task {
             await refreshAction()
-        }
-    }
-}
-
-private struct ReceiptsRootView: View {
-    @Query(
-        sort: [
-            SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
-            SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
-        ]
-    ) private var receipts: [StoredReceipt]
-
-    let router: AppRouter
-
-    var body: some View {
-        Group {
-            if receipts.isEmpty {
-                AuraScenicScreen(contentAlignment: .center) {
-                    ShellNoReceiptsStateView()
-                }
-            } else {
-                List(receipts, id: \.id) { receipt in
-                    Button {
-                        router.showReceipt(id: receipt.id.uuidString)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(receipt.kind)
-                                .foregroundStyle(Color.textPrimary)
-
-                            HStack(spacing: 8) {
-                                Text(receipt.category)
-                                Text("•")
-                                Text(receipt.createdAt, style: .relative)
-                            }
-                            .font(.caption)
-                            .foregroundStyle(Color.textSecondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("receipts.row.\(receipt.id.uuidString)")
-                }
-            }
-        }
-        .navigationTitle("Receipts")
-        .accessibilityIdentifier("receipts.root")
-    }
-}
-
-private struct ReceiptDetailView: View {
-    let route: ReceiptRoute
-
-    @Query private var receipts: [StoredReceipt]
-
-    private var receipt: StoredReceipt? {
-        guard let receiptID = UUID(uuidString: route.id) else {
-            return nil
-        }
-
-        return receipts.first(where: { $0.id == receiptID })
-    }
-
-    var body: some View {
-        Group {
-            if let receipt {
-                List {
-                    Section("Summary") {
-                        LabeledContent("Kind", value: receipt.kind)
-                        LabeledContent("Category", value: receipt.category)
-                        LabeledContent("Sequence", value: String(receipt.sequenceID))
-                        LabeledContent("Created", value: receipt.createdAt.formatted(date: .abbreviated, time: .standard))
-
-                        if let correlationID = receipt.correlationID, !correlationID.isEmpty {
-                            LabeledContent("Correlation ID", value: correlationID)
-                        }
-                    }
-
-                    Section("Payload") {
-                        Text(payloadText(for: receipt))
-                            .font(.footnote.monospaced())
-                            .textSelection(.enabled)
-                    }
-                }
-                .accessibilityIdentifier("receipts.detail")
-            } else {
-                ContentUnavailableView(
-                    "Receipt Unavailable",
-                    systemImage: "doc.text.magnifyingglass",
-                    description: Text("The requested receipt could not be found in local storage.")
-                )
-                .accessibilityIdentifier("receipts.detail.unavailable")
-            }
-        }
-        .navigationTitle("Receipt")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func payloadText(for receipt: StoredReceipt) -> String {
-        do {
-            let payload = try receipt.decodedPayload()
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(payload)
-            return String(decoding: data, as: UTF8.self)
-        } catch {
-            return "Payload unavailable"
         }
     }
 }

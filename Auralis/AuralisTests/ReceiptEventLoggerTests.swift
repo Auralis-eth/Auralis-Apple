@@ -41,6 +41,7 @@ struct ReceiptEventLoggerTests {
             label: "OpenSea",
             url: URL(string: "https://opensea.io/assets/ethereum/0xabc/1")!,
             surface: "newsfeed.nft_detail",
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .baseMainnet,
             correlationID: "link-1"
         )
@@ -48,6 +49,8 @@ struct ReceiptEventLoggerTests {
             subject: "nft.id",
             value: "nft-123",
             surface: "newsfeed.card",
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet,
             correlationID: "copy-1"
         )
 
@@ -65,6 +68,10 @@ struct ReceiptEventLoggerTests {
         let linkReceipt = try #require(receipts.first(where: { $0.kind == "external_link.opened" }))
         #expect(linkReceipt.scope == "navigation.external")
         #expect(linkReceipt.details.values["chain"] == .string(Chain.baseMainnet.rawValue))
+        #expect(linkReceipt.details.values["accountAddress"] == .string("0x1234567890abcdef1234567890abcdef12345678"))
+        let copyReceipt = try #require(receipts.first(where: { $0.kind == "copy.performed" }))
+        #expect(copyReceipt.details.values["chain"] == .string(Chain.baseMainnet.rawValue))
+        #expect(copyReceipt.details.values["accountAddress"] == .string("0x1234567890abcdef1234567890abcdef12345678"))
     }
 
     @Test("receipt event logger returns a failure result when the store append fails")

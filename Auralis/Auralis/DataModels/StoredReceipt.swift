@@ -23,6 +23,8 @@ final class StoredReceipt {
     var provenance: String
     var isSuccess: Bool
     var correlationID: String?
+    var accountAddress: String?
+    var chainRawValue: String?
     @Attribute(.externalStorage) private var detailsData: Data
 
     init(
@@ -50,6 +52,8 @@ final class StoredReceipt {
         self.provenance = provenance
         self.isSuccess = isSuccess
         self.correlationID = correlationID
+        self.accountAddress = details.timelineAccountAddress
+        self.chainRawValue = details.timelineChainRawValue
         self.detailsData = try Self.encodeDetails(details)
     }
 
@@ -83,5 +87,45 @@ final class StoredReceipt {
 
     static func decodeDetails(from data: Data) throws -> ReceiptPayload {
         try JSONDecoder().decode(ReceiptPayload.self, from: data)
+    }
+}
+
+extension ReceiptPayload {
+    var timelineAccountAddress: String? {
+        value(forKeys: ["accountAddress", "address"])?
+            .extractedEthereumAddress?
+            .lowercased()
+    }
+
+    var timelineChainRawValue: String? {
+        guard let rawValue = value(forKeys: ["chain", "to_chain"]) else {
+            return nil
+        }
+
+        return Chain(rawValue: rawValue)?.rawValue
+    }
+
+    var timelineSelectedChainRawValues: [String] {
+        guard case .array(let values)? = values["selectedChains"] else {
+            return []
+        }
+
+        return values.compactMap { value in
+            guard case .string(let rawValue) = value else {
+                return nil
+            }
+
+            return Chain(rawValue: rawValue)?.rawValue
+        }
+    }
+
+    private func value(forKeys keys: [String]) -> String? {
+        for key in keys {
+            if case .string(let value)? = values[key] {
+                return value
+            }
+        }
+
+        return nil
     }
 }

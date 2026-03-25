@@ -125,10 +125,7 @@ Why:
 11. `P0-302` Caching + freshness primitives (Completed for current context-sheet freshness contract)
 12. `P0-402` Context service + dependency boundaries (Completed for strengthened shell-facing context slice)
 13. `P0-303` Error handling + degraded mode (Completed for current shell-wide NFT provider-failure rollout)
-
-========================================================================
-
-14. `P0-203` ENS resolution + reverse lookup
+14. `P0-203` ENS resolution + reverse lookup (Completed for planned first-pass ENS forward resolution and best-effort reverse display slice)
 
 Why:
 - this produces the real scoped read-only spine used by chrome, Home, and later search
@@ -137,12 +134,14 @@ Why:
 ### Phase 5: Receipts UI and early product surfaces
 
 15. `P0-503` Receipts UI
+21. `P0-103B` Query parser + type detection
 16. `P0-101C` Context Bar behavior + interactions
 17. `P0-403` Context inspector UI
+
 18. `P0-451` Music library index + storage
 19. `P0-461` Token holdings list
 20. `P0-102A` Home layout v0
-21. `P0-103B` Query parser + type detection
+
 
 Why:
 

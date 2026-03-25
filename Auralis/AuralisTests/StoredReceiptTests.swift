@@ -123,4 +123,45 @@ struct StoredReceiptTests {
         #expect(receipt.correlationID == "flow-11")
         #expect(try receipt.decodedDetails().values["address"] == .string("0x1234567890abcdef1234567890abcdef12345678"))
     }
+
+    @Test("timeline scope falls back to decoded payload when persisted scope fields are unavailable")
+    @MainActor
+    func receiptTimelineRecordFallsBackToPayloadScope() throws {
+        let payload = ReceiptPayload(values: [
+            "accountAddress": .string("0x1234567890abcdef1234567890abcdef12345678"),
+            "selectedChains": .array([
+                .string(Chain.ethMainnet.rawValue),
+                .string(Chain.baseMainnet.rawValue)
+            ])
+        ])
+        let storedReceipt = try StoredReceipt(
+            sequenceID: 21,
+            createdAt: Date(timeIntervalSince1970: 1_234),
+            actor: .system,
+            mode: .observe,
+            trigger: "context.built",
+            scope: "context",
+            summary: "Built shell context snapshot",
+            provenance: "local_cache",
+            isSuccess: true,
+            correlationID: "context-21",
+            details: payload
+        )
+        storedReceipt.accountAddress = nil
+        storedReceipt.chainRawValue = nil
+
+        let record = ReceiptTimelineRecord(storedReceipt: storedReceipt)
+
+        #expect(record.accountAddress == "0x1234567890abcdef1234567890abcdef12345678")
+        #expect(record.chainRawValue == nil)
+        #expect(record.selectedChainRawValues == [Chain.ethMainnet.rawValue, Chain.baseMainnet.rawValue])
+        #expect(record.matches(ReceiptTimelineScope(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet
+        )))
+        #expect(!record.matches(ReceiptTimelineScope(
+            accountAddress: "0x9999999999999999999999999999999999999999",
+            chain: .baseMainnet
+        )))
+    }
 }

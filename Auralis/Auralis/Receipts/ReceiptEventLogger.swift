@@ -67,20 +67,27 @@ struct ReceiptEventLogger {
         label: String,
         url: URL,
         surface: String,
+        accountAddress: String? = nil,
         chain: Chain? = nil,
         correlationID: String? = nil
     ) -> Result<ReceiptRecord, Error> {
-        append(
+        var payloadValues: [String: ReceiptJSONValue] = [
+            "label": .string(label),
+            "surface": .string(surface),
+            "url": .string(url.absoluteString),
+            "chain": chain.map { .string($0.rawValue) } ?? .null
+        ]
+
+        if let accountAddress {
+            payloadValues["accountAddress"] = .string(accountAddress)
+        }
+
+        return append(
             trigger: "external_link.opened",
             scope: "navigation.external",
             summary: "Opened external link",
             provenance: "user_provided",
-            rawPayload: RawReceiptPayload(values: [
-                "label": .string(label),
-                "surface": .string(surface),
-                "url": .string(url.absoluteString),
-                "chain": chain.map { .string($0.rawValue) } ?? .null
-            ]),
+            rawPayload: RawReceiptPayload(values: payloadValues),
             correlationID: correlationID,
             actor: .user,
             isSuccess: true
@@ -92,18 +99,30 @@ struct ReceiptEventLogger {
         subject: String,
         value: String,
         surface: String,
+        accountAddress: String? = nil,
+        chain: Chain? = nil,
         correlationID: String? = nil
     ) -> Result<ReceiptRecord, Error> {
-        append(
+        var payloadValues: [String: ReceiptJSONValue] = [
+            "subject": .string(subject),
+            "value": .string(value),
+            "surface": .string(surface)
+        ]
+
+        if let accountAddress {
+            payloadValues["accountAddress"] = .string(accountAddress)
+        }
+
+        if let chain {
+            payloadValues["chain"] = .string(chain.rawValue)
+        }
+
+        return append(
             trigger: "copy.performed",
             scope: "clipboard",
             summary: "Copied value",
             provenance: "user_provided",
-            rawPayload: RawReceiptPayload(values: [
-                "subject": .string(subject),
-                "value": .string(value),
-                "surface": .string(surface)
-            ]),
+            rawPayload: RawReceiptPayload(values: payloadValues),
             correlationID: correlationID,
             actor: .user,
             isSuccess: true

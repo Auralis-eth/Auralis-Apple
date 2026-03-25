@@ -2,89 +2,48 @@
 
 ## The Big Picture
 
-Auralis is the kind of app you build when a wallet, an NFT gallery, a dashboard, receipts, and a music player all decide to share one apartment. The job is not just "show some tokens." The app has to remember who the user is watching, pull on-chain data without acting brittle, keep a local memory of what matters, and make the whole thing feel like one coherent product instead of five roommates fighting over the kitchen.
+Auralis is a wallet-aware NFT app with a split personality in the best way: part collector dashboard, part on-device activity log, and part music player for NFT-backed media. The app’s real job is to take a wallet scope, pull in what matters, keep it locally intelligible, and let the user move around without feeling like they just opened a blockchain spreadsheet.
 
 ## Architecture Deep Dive
 
-The architecture is trending toward a clean "front desk and back office" split.
+Think of the app like a hotel with one front desk and several wings.
 
-`MainAuraView` is the front desk. It decides who is checked in, what chain context is active, and which major surface the user is looking at.
-
-The services are the back office. `AccountStore` handles identity persistence. Provider-backed networking handles remote reads. Receipt logging is the security camera that keeps a trail of what happened. SwiftData is the filing cabinet. When this setup is healthy, views ask for outcomes and state, not for raw RPC tricks.
-
-The latest example is ENS planning. The temptation is to let the first working library or provider API leak all over the app. That is how architecture quietly turns into wet cardboard. The better move is to put an `ENSResolving` seam in front of the first implementation so the app talks to "resolve this identity" while the backend can start with Argent's `web3.swift` and later swap to direct Ethereum RPC or a lighter node strategy.
+- `MainAuraView` is the front desk. It decides whether the guest is still checking in, waiting on luggage, or ready to roam the building.
+- `MainTabView` is the hallway map. It routes people into Home, News, Gas, Music, Receipts, and the token surfaces.
+- The receipt stack is the security camera archive. It does not change history; it records facts, keeps them ordered, and lets later features replay what happened without inventing new stories.
+- `NFTService` is the back-of-house coordinator. It talks to the network layer, updates local persistence, and keeps the visible library from drifting away from the active wallet scope.
+- `AudioEngine` is the resident DJ booth: long-lived, stateful, and very unhappy if you poke it with throwaway ownership patterns.
 
 ## The Codebase Map
 
-The current city map looks like this:
-
-- `Auralis/Auralis/Aura/` is the product shell and user-facing SwiftUI surfaces.
-- `Auralis/Auralis/Accounts/` is the identity desk for watch-only accounts and account event seams.
-- `Auralis/Auralis/Networking/` is where provider abstractions, fetchers, throttling, and remote reads live.
-- `Auralis/Auralis/Receipts/` is the audit trail.
-- `Auralis/Auralis/DataModels/` is the domain and persistence layer.
-- `Auralis/Auralis/MusicApp/AI/` is the active music path. `OLD/` is the code equivalent of a museum wing: interesting, but not where you should start changing behavior.
+- `Auralis/Aura/`: the shell, tabs, auth flow, and product-facing SwiftUI surfaces.
+- `Auralis/Accounts/`: watch-only account persistence plus account event recording.
+- `Auralis/Networking/`: NFT fetch orchestration, providers, throttling, and refresh receipts.
+- `Auralis/Receipts/`: receipt contracts, persistence, sanitization, and now the timeline/detail UI model.
+- `Auralis/MusicApp/AI/`: the active music experience and shared playback engine.
+- `AuralisTests/`: Swift Testing coverage for routing, receipts, shell logic, and service behavior.
 
 ## Tech Stack & Why
 
-SwiftUI is doing the heavy lifting for UI because the app is stateful and cross-surface. SwiftData is the local memory because identities, NFTs, and receipts need durable storage without building a custom database story in Phase 0. Async/await is the right fit because networking, refresh, cancellation, and stale-state behavior are first-class concerns here.
-
-Provider abstraction matters because this app already talks to more than one external backend. The real lesson is not "pick one provider forever." It is "never let the first provider become the shape of the whole app."
+- SwiftUI: because the app is shell-heavy and state-driven, so declarative navigation and view state are the least painful path.
+- SwiftData: because receipts, accounts, playlists, and NFT-adjacent local state need persistence without dragging in a bigger storage framework for Phase 0.
+- Swift Concurrency: because the app does real asynchronous work and callback soup would turn the shell into a swamp quickly.
+- OSLog: because receipt failures and network coordination need breadcrumbs that survive beyond a single debug session.
 
 ## The Journey
 
-### War Story: ENS Planning Needed A Backbone Before It Needed Code
-
-`P0-203` looked simple on the surface: resolve ENS names and do reverse lookup. The trap was that there were three plausible paths:
-
-- use the installed Argent `web3.swift` package
-- hand-roll direct RPC
-- find a provider shortcut that was not really there
-
-The inspection cut through the fog fast. The repo has a real Alchemy provider seam and a real Infura gas client, but ENS itself is not implemented anywhere in app code. The package source told the real story: Argent's `web3.swift` already ships `EthereumNameService`, resolver lookups, reverse resolution, wildcard support, and offchain lookup support.
-
-That led to the decision:
-
-- ship `P0-203` with `web3.swift` first
-- put it behind a provider-agnostic ENS service seam
-- preserve a future backend swap to direct Ethereum RPC or a lighter node path
-
-That is the kind of decision good engineers make when they want velocity today without writing tomorrow's migration bug report.
-
-### War Story: The ENS Race That Could Have Time-Traveled a User Into the Wrong Wallet
-
-The first ENS slice had the classic async UI bug: every submit launched a fresh task, but nothing stopped an older, slower lookup from arriving late and acting like it was still the chosen input. That is how a user types one ENS name, quickly changes to another, and gets checked into the wrong account because the network answered out of order. Software time travel is funny only when it is not your auth flow.
-
-The fix was deliberately boring in the best way:
-
-- cancel the previous submit task before starting a new one
-- stamp each request with a submission ID
-- allow only the latest submission to mutate UI state or persist an account
-
-`P0-203` also had a quieter trap. If a cached ENS name used to point at one address and now pointed at another, the app would log a mapping-change receipt but still barrel ahead and save the new address. That is not "awareness." That is silent drift with a paper trail.
-
-The safer behavior now is:
-
-- surface the mapping change as a real app-level ENS error
-- keep the old cached mapping in place until the user explicitly confirms the new address
-- let the gateway show a confirmation alert instead of treating the new mapping as automatically trusted
-
-The receipts story also graduated from hope to proof. The code already emitted cache-hit, start, success, mapping-change, and failure events, but there were no tests proving the recorder actually wrote the right sanitized payloads. A focused receipt test now exercises that full sequence so future regressions have somewhere concrete to crash.
+- The receipt foundation landed before the real timeline UI. That was the right call. Building the archive before the archivist meant later tickets could work with append-only facts instead of retrofitting schema every time a feature wanted history.
+- `P0-503` exposed a classic trap: the shell already had a Receipts tab, so it looked “done” from ten feet away. Up close it was a postcard, not a timeline. The fix was to move filtering, search, and pagination into a dedicated state model so the view did not become a storage-shaped blob.
+- Then came the sneakier bug: the Receipts screen wore the active wallet and chain like a name tag, but underneath it was still reading from the whole room. That is the software equivalent of a mislabeled security camera feed. The fix was to make timeline scope an actual filtering boundary, teach receipts to remember wallet and chain hints when they can, and fall back to decoding those hints from older payloads so existing local history did not suddenly become invisible.
+- Another gotcha: this repo has both repo-root and project-root `Auralis` segments. That is the kind of naming symmetry that looks tidy until you add a file and realize you have built a beautiful feature in the wrong hallway.
 
 ## Engineer's Wisdom
 
-A senior engineer does not ask only "what works?" They ask "what will this force the rest of the codebase to believe?"
-
-If views start depending on Alchemy-shaped ENS models, you did not just solve ENS. You taught the entire app a vendor dialect. That always feels cheap in the moment and expensive a month later.
-
-The better pattern is:
-
-- define the app-facing contract first
-- isolate the provider-specific adapter behind it
-- make caching and receipt semantics belong to the app, not to the vendor
+- Keep append-only history append-only. The moment a logging surface quietly starts mutating records, every downstream diagnostic becomes suspect.
+- Router state should stay centralized. If every tab starts inventing its own navigation side-channel, deep links and scope resets become whack-a-mole.
+- A useful timeline is not just “a list of rows.” It needs opinionated defaults, obvious filters, and a detail view that turns payload JSON into something a human can parse without coffee and a prayer.
 
 ## If I Were Starting Over...
 
-I would establish more provider-agnostic service seams earlier, especially around identity-like data such as balances, ENS, and token metadata. Those are exactly the places where "just call the provider directly for now" grows teeth later.
-
-The saving grace is that the codebase is still early enough to correct course while the concrete is wet instead of after the building inspection.
+- I would separate receipt presentation types from persisted models earlier. That boundary became necessary the moment search and filter behavior wanted value semantics and tests.
+- I would add the project journal on day one instead of waiting for the repo to accumulate enough phase tickets to deserve a field guide.

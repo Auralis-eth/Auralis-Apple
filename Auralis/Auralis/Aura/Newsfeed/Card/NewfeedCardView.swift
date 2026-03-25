@@ -163,7 +163,9 @@ struct NewsFeedCardButtons: View {
         ).recordCopyAction(
             subject: "nft.id",
             value: nft.id,
-            surface: "newsfeed.card"
+            surface: "newsfeed.card",
+            accountAddress: nft.accountAddress,
+            chain: nft.network
         )
     }
 }
@@ -232,8 +234,18 @@ struct NewsFeedCardExpandedDetailsView: View {
 
             if let chain = nft.network,
                let contractAddress = nft.contract.address {
-                OpenSeaLink(chain: chain, contractAddress: contractAddress, tokenId: nft.tokenId)
-                EtherscanLink(chain: chain, contractAddress: contractAddress, tokenId: nft.tokenId)
+                OpenSeaLink(
+                    chain: chain,
+                    contractAddress: contractAddress,
+                    tokenId: nft.tokenId,
+                    accountAddress: nft.accountAddress
+                )
+                EtherscanLink(
+                    chain: chain,
+                    contractAddress: contractAddress,
+                    tokenId: nft.tokenId,
+                    accountAddress: nft.accountAddress
+                )
             }
 
             // Category display (placeholder)

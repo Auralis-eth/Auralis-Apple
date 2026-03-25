@@ -101,13 +101,16 @@ struct OpenSeaLink: View {
     let chain: Chain
     let contractAddress: String
     let tokenId: String
+    let accountAddress: String?
 
     init(chain: Chain,
          contractAddress: String,
-         tokenId: String) {
+         tokenId: String,
+         accountAddress: String? = nil) {
         self.chain = chain
         self.contractAddress = contractAddress
         self.tokenId = tokenId
+        self.accountAddress = accountAddress
     }
 
     private var openSeaURL: URL? {
@@ -123,6 +126,7 @@ struct OpenSeaLink: View {
                     label: "OpenSea",
                     url: openSeaURL,
                     surface: "newsfeed.nft_detail",
+                    accountAddress: accountAddress,
                     chain: chain
                 )
                 openURL(openSeaURL)
@@ -168,11 +172,18 @@ struct EtherscanLink: View {
     let chain: Chain
     let contractAddress: String
     let tokenId: String
+    let accountAddress: String?
 
-    init(chain: Chain, contractAddress: String, tokenId: String) {
+    init(
+        chain: Chain,
+        contractAddress: String,
+        tokenId: String,
+        accountAddress: String? = nil
+    ) {
         self.chain = chain
         self.contractAddress = contractAddress
         self.tokenId = tokenId
+        self.accountAddress = accountAddress
     }
 
     private var explorerDestination: NFTExternalDestination? {
@@ -192,6 +203,7 @@ struct EtherscanLink: View {
                     label: explorerDestination.label,
                     url: explorerURL,
                     surface: "newsfeed.nft_detail",
+                    accountAddress: accountAddress,
                     chain: chain
                 )
                 openURL(explorerURL)
