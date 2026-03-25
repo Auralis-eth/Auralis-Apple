@@ -2,11 +2,18 @@
 
 ## Status
 
-Blocked
+Completed
 
 ## Ticket
 
 Build the receipts timeline with filtering, search, pagination, and structured receipt detail with related-receipt links by correlation ID.
+
+## Outcome
+
+- Shipped the receipts tab timeline in the app shell with search, status/actor/scope filters, incremental pagination, and a structured detail view.
+- Scoped receipt visibility, counts, and related-receipt navigation to the active wallet and chain instead of labeling an unscoped archive.
+- Persisted wallet/chain scope hints on receipt rows and added payload-based fallback so older local receipts still participate in scoped filtering.
+- Verified the ticket with targeted unit coverage for timeline state, stored-receipt scope fallback, and receipt event logging.
 
 ## Dependencies
 
@@ -32,3 +39,9 @@ Handle empty state, large volumes, and default filter clarity when account scope
 ## Validation Target
 
 Load and filter the list, open receipt detail and related receipts, search by key fields, and validate empty and large list behavior.
+
+## Validation Result
+
+- `BuildProject` passed on the `Auralis` scheme.
+- Targeted tests passed for `ReceiptTimelineStateTests`, `StoredReceiptTests`, and `ReceiptEventLoggerTests`.
+- Remaining validation is limited to on-device/manual product testing.

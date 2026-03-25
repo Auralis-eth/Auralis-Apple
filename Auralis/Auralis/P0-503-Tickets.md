@@ -4,6 +4,10 @@
 
 Build the receipts timeline with filtering, search, pagination, and structured receipt detail with related-receipt links by correlation ID.
 
+## Status
+
+Completed
+
 ## Explicit Task List
 
 - Confirm the upstream unblock condition for `P0-501`, `P0-101A`, and `P0-101E` before building product UI.
@@ -34,6 +38,12 @@ Handle empty state, large volumes, and default filter clarity when account scope
 
 Load and filter the list, open receipt detail and related receipts, search by key fields, and validate empty and large list behavior.
 
+## Validation Result
+
+- `BuildProject` succeeded for the `Auralis` scheme.
+- Targeted tests passed for `ReceiptTimelineStateTests`, `StoredReceiptTests`, and `ReceiptEventLoggerTests`.
+- No UI tests were added for this ticket by design.
+
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+This ticket is complete enough for downstream work. Remaining validation is manual/on-device testing rather than missing architecture.

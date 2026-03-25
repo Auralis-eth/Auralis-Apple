@@ -2,24 +2,24 @@
 
 ## Status
 
-Blocked
+Completed
 
-## Blocking Dependencies
+## Former Blocking Dependencies
 
 - P0-501
 - P0-101A
 - P0-101E
 
-## Why It Is Blocked
+## Resolution
 
-Blocked on navigation shell completion and the shared design primitive baseline.
+The needed navigation shell and shared primitive baseline are in place, and the receipts UI now ships on the real app path.
 
-## Safe Pre-Work
+## Delivered Slice
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
+- Receipts tab mounted in the shell with timeline, search, filters, empty states, and load-more pagination.
+- Receipt detail screen presents structured sanitized payloads and related receipts by correlation ID.
+- Timeline visibility is wallet/chain scoped, including fallback support for older persisted receipts that only carry scope inside payload values.
 
-## Unblock Condition
+## Downstream Effect
 
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+Downstream tickets that depend on `P0-503` can now build against a real receipts surface instead of a placeholder dependency.
