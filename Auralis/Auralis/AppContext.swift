@@ -286,6 +286,9 @@ struct LiveContextSource: ContextSource {
     let modeProvider: () -> AppMode
     let loadingProvider: () -> Bool
     let refreshedAtProvider: () -> Date?
+    let nativeBalanceDisplayProvider: () -> String?
+    let nativeBalanceUpdatedAtProvider: () -> Date?
+    let nativeBalanceProvenanceProvider: () -> ContextProvenance
     let freshnessTTLProvider: () -> TimeInterval?
     let trackedNFTCountProvider: () -> Int?
     let musicCollectionCountProvider: () -> Int?
@@ -299,6 +302,9 @@ struct LiveContextSource: ContextSource {
         modeProvider: @escaping () -> AppMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
+        nativeBalanceDisplayProvider: @escaping () -> String? = { nil },
+        nativeBalanceUpdatedAtProvider: @escaping () -> Date? = { nil },
+        nativeBalanceProvenanceProvider: @escaping () -> ContextProvenance = { .localCache },
         freshnessTTLProvider: @escaping () -> TimeInterval? = { nil },
         trackedNFTCountProvider: @escaping () -> Int? = { nil },
         musicCollectionCountProvider: @escaping () -> Int? = { nil },
@@ -311,6 +317,9 @@ struct LiveContextSource: ContextSource {
         self.modeProvider = modeProvider
         self.loadingProvider = loadingProvider
         self.refreshedAtProvider = refreshedAtProvider
+        self.nativeBalanceDisplayProvider = nativeBalanceDisplayProvider
+        self.nativeBalanceUpdatedAtProvider = nativeBalanceUpdatedAtProvider
+        self.nativeBalanceProvenanceProvider = nativeBalanceProvenanceProvider
         self.freshnessTTLProvider = freshnessTTLProvider
         self.trackedNFTCountProvider = trackedNFTCountProvider
         self.musicCollectionCountProvider = musicCollectionCountProvider
@@ -348,9 +357,9 @@ struct LiveContextSource: ContextSource {
             ),
             balances: ContextBalancesSummary(
                 nativeBalanceDisplay: ContextField(
-                    nil,
-                    provenance: .localCache,
-                    updatedAt: refreshTimestamp
+                    nativeBalanceDisplayProvider(),
+                    provenance: nativeBalanceProvenanceProvider(),
+                    updatedAt: nativeBalanceUpdatedAtProvider() ?? refreshTimestamp
                 )
             ),
             libraryPointers: ContextLibraryPointers(

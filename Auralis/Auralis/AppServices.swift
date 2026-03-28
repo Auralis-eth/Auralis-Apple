@@ -9,6 +9,9 @@ protocol ShellContextSourceBuilding {
         modeProvider: @escaping () -> AppMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
+        nativeBalanceDisplayProvider: @escaping () -> String?,
+        nativeBalanceUpdatedAtProvider: @escaping () -> Date?,
+        nativeBalanceProvenanceProvider: @escaping () -> ContextProvenance,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
@@ -26,6 +29,7 @@ protocol ShellContextServiceBuilding {
         modeProvider: @escaping () -> AppMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
+        nativeBalanceProvider: any NativeBalanceProviding,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
@@ -42,6 +46,9 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
         modeProvider: @escaping () -> AppMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
+        nativeBalanceDisplayProvider: @escaping () -> String?,
+        nativeBalanceUpdatedAtProvider: @escaping () -> Date?,
+        nativeBalanceProvenanceProvider: @escaping () -> ContextProvenance,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
@@ -55,6 +62,9 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
             modeProvider: modeProvider,
             loadingProvider: loadingProvider,
             refreshedAtProvider: refreshedAtProvider,
+            nativeBalanceDisplayProvider: nativeBalanceDisplayProvider,
+            nativeBalanceUpdatedAtProvider: nativeBalanceUpdatedAtProvider,
+            nativeBalanceProvenanceProvider: nativeBalanceProvenanceProvider,
             freshnessTTLProvider: freshnessTTLProvider,
             trackedNFTCountProvider: trackedNFTCountProvider,
             musicCollectionCountProvider: musicCollectionCountProvider,
@@ -79,6 +89,7 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
         modeProvider: @escaping () -> AppMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
+        nativeBalanceProvider: any NativeBalanceProviding,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
@@ -93,6 +104,7 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
             modeProvider: modeProvider,
             loadingProvider: loadingProvider,
             refreshedAtProvider: refreshedAtProvider,
+            nativeBalanceProvider: nativeBalanceProvider,
             freshnessTTLProvider: freshnessTTLProvider,
             trackedNFTCountProvider: trackedNFTCountProvider,
             musicCollectionCountProvider: musicCollectionCountProvider,
@@ -134,25 +146,38 @@ struct ShellServiceHub {
     let modeStateFactory: @MainActor () -> ModeState
     let nftServiceFactory: @MainActor () -> NFTService
     let ensResolverFactory: @MainActor (ModelContext) -> any ENSResolving
+    let readOnlyProviderFactory: ReadOnlyProviderFactory
     let contextServiceBuilder: any ShellContextServiceBuilding
     let receiptStoreFactory: @MainActor (ModelContext) -> any ReceiptStore
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any ObservePolicyActionHandling
 
-    static let live = ShellServiceHub(
-        modeStateFactory: { ModeState() },
-        nftServiceFactory: { NFTService() },
-        ensResolverFactory: { modelContext in
-            ENSResolvers.live(modelContext: modelContext)
-        },
-        contextServiceBuilder: LiveShellContextServiceBuilder(),
-        receiptStoreFactory: { modelContext in
-            ReceiptStores.live(modelContext: modelContext)
-        },
-        policyActionHandlerFactory: { modelContext, modeState in
-            ObservePolicyActionService(
-                modeState: modeState,
-                receiptStore: ReceiptStores.live(modelContext: modelContext)
-            )
-        }
-    )
+    static let live: ShellServiceHub = {
+        let readOnlyProviderFactory = ReadOnlyProviderFactory()
+        return ShellServiceHub(
+            modeStateFactory: { ModeState() },
+            nftServiceFactory: {
+                NFTService(
+                    nftFetcher: NFTFetcher(
+                        nftProviderFactory: { chain in
+                            try readOnlyProviderFactory.makeNFTInventoryProvider(for: chain)
+                        }
+                    )
+                )
+            },
+            ensResolverFactory: { modelContext in
+                ENSResolvers.live(modelContext: modelContext)
+            },
+            readOnlyProviderFactory: readOnlyProviderFactory,
+            contextServiceBuilder: LiveShellContextServiceBuilder(),
+            receiptStoreFactory: { modelContext in
+                ReceiptStores.live(modelContext: modelContext)
+            },
+            policyActionHandlerFactory: { modelContext, modeState in
+                ObservePolicyActionService(
+                    modeState: modeState,
+                    receiptStore: ReceiptStores.live(modelContext: modelContext)
+                )
+            }
+        )
+    }()
 }

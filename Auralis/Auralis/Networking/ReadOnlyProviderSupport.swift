@@ -95,6 +95,41 @@ protocol NativeBalanceProviding {
 struct NativeBalance: Equatable, Sendable {
     let weiHex: String
     let weiDecimal: String
+
+    var formattedEtherDisplay: String {
+        Self.formatEtherDisplay(fromWeiDecimal: weiDecimal)
+    }
+}
+
+struct ReadOnlyProviderFactory {
+    private let configurationResolver: any ProviderConfigurationResolving
+    private let session: URLSession
+
+    init(
+        configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver(),
+        session: URLSession = .shared
+    ) {
+        self.configurationResolver = configurationResolver
+        self.session = session
+    }
+
+    func makeNFTInventoryProvider(for chain: Chain) throws -> any NFTInventoryProviding {
+        try AlchemyNFTService(
+            chain: chain,
+            configurationResolver: configurationResolver
+        )
+    }
+
+    func makeGasPricingProvider() -> any GasPricingProviding {
+        Infura(configurationResolver: configurationResolver)
+    }
+
+    func makeNativeBalanceProvider() -> any NativeBalanceProviding {
+        AlchemyRPCProvider(
+            configurationResolver: configurationResolver,
+            session: session
+        )
+    }
 }
 
 struct AlchemyRPCProvider: NativeBalanceProviding {
@@ -224,6 +259,34 @@ private extension AlchemyRPCProvider {
         }
 
         return String(digits.reversed().map(String.init).joined())
+    }
+}
+
+private extension NativeBalance {
+    static func formatEtherDisplay(fromWeiDecimal weiDecimal: String) -> String {
+        let digits = weiDecimal.trimmingCharacters(in: CharacterSet(charactersIn: "0"))
+        let normalized = digits.isEmpty ? "0" : digits
+        let etherScale = 18
+
+        let wholePart: String
+        let fractionalPart: String
+
+        if normalized.count <= etherScale {
+            wholePart = "0"
+            let paddedFraction = String(repeating: "0", count: etherScale - normalized.count) + normalized
+            fractionalPart = paddedFraction
+        } else {
+            let splitIndex = normalized.index(normalized.endIndex, offsetBy: -etherScale)
+            wholePart = String(normalized[..<splitIndex])
+            fractionalPart = String(normalized[splitIndex...])
+        }
+
+        let trimmedFraction = String(fractionalPart.prefix(6)).trimmingCharacters(in: CharacterSet(charactersIn: "0"))
+        if trimmedFraction.isEmpty {
+            return "\(wholePart) ETH"
+        }
+
+        return "\(wholePart).\(trimmedFraction) ETH"
     }
 }
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress
+Completed for the current Phase 0 read-only provider slice
 
 ## Ticket
 
@@ -28,7 +28,8 @@ Handle rate limits, slow responses, unexpected payload shapes, and future provid
 - Centralized provider endpoint resolution now exists for Alchemy and Infura.
 - NFT inventory fetching now goes through an injected provider seam instead of constructing Alchemy inline inside `NFTFetcher`.
 - Gas pricing now goes through a provider protocol instead of a hard-coded concrete client in the view model.
-- Native balance fetching now has a real provider implementation, but it is not yet consumed by a service or UI surface.
+- The shell service hub now owns the shared read-only provider factory for inventory, gas, and native balance reads.
+- Native balance fetching now has a real provider implementation and is consumed by `ContextService`, so the shell-facing context contract can surface provider-backed balance data.
 
 ## Definition Of Done
 
@@ -42,6 +43,6 @@ Fetch native balance on a known chain, surface structured failures, and confirm 
 
 ## Remaining Work
 
-- Move native balance reads behind the future context/service layer in `P0-402`.
 - Add ERC-20 balance and token metadata coverage when the token surfaces become real consumers.
 - Fold provider freshness into the cache/freshness contract from `P0-302`.
+- Leave stronger boundary enforcement and anti-bypass cleanup to `P0-701B`.

@@ -32,7 +32,7 @@ Missing values must remain valid, provenance rules must stay consistent, and the
 - The schema now carries real local counts for tracked NFTs, playlists, and scoped receipts where that data already exists in local storage.
 - The schema now records whether the active account is running through the guest-pass/demo path instead of hard-coding that preference to false.
 - The chrome inspector reads the new snapshot instead of the older ad hoc shape and now exposes library, preference, balance, provenance, and freshness sections from the shared contract.
-- Native balance display still remains placeholder-safe until the provider-backed balance layer is finished.
+- Provider-backed native balance display now flows through `ContextService` for supported scopes.
 
 ## Definition Of Done
 
@@ -50,6 +50,6 @@ This ticket is materially further along as a schema-first implementation, but it
 
 The main remaining blockers are:
 
-- provider-backed native balance summary from the `P0-301` family
 - any remaining freshness-policy cleanup if the final TTL ownership changes downstream
 - broader downstream adoption outside the current shell and inspector path
+- replacing the remaining placeholder-safe preference fields only when real owning surfaces exist

@@ -26,10 +26,10 @@ In Progress
 
 ## Still Deferred
 
-- Real provider-backed native balance summary from `P0-301`
 - Broader downstream adoption beyond the current shell and inspector path
 - Any follow-on freshness-policy cleanup if ownership shifts later in the `P0-301` / `P0-302` / `P0-402` family
+- Remaining placeholder-safe preference or module fields whose owning product surfaces are not finalized yet
 
 ## Full Completion Condition
 
-The ticket is fully complete when the remaining deferred fields are fed by the real context/provider stack instead of placeholder-safe empty values, with the most obvious remaining gap being native balance summary.
+The ticket is fully complete when the remaining deferred fields are fed by the real context/provider stack instead of placeholder-safe empty values, without relying on temporary placeholder-safe sections that have no settled owner yet.

@@ -19,6 +19,7 @@ These tickets are already closed for their planned Phase 0 slice:
 - `P0-202` address validation + normalization
 - `P0-203` ENS resolution first pass
 - `P0-204` chain scope settings per account
+- `P0-301` provider abstraction first pass
 - `P0-302` caching + freshness primitives for the current Phase 0 contract
 - `P0-303` provider-failure and degraded-mode slice
 - `P0-402` active shell context-service slice
@@ -37,7 +38,6 @@ Notes:
 
 These tickets are no longer just "startable now"; they are actively underway:
 
-- `P0-301` provider abstraction (read-only)
 - `P0-401` context schema v0
 - `P0-701A` layered module-boundary scaffolding
 
@@ -46,7 +46,13 @@ Current read on `P0-401`:
 - the shell-facing `ContextSnapshot` contract is real and in use
 - local playlist and scoped-receipt counts now feed the schema where local data already exists
 - guest-pass/demo preference is represented in the shared context contract
-- the main remaining gap is provider-backed native balance summary, not missing shell-context structure
+- provider-backed native balance now flows through `ContextService`, so the remaining gaps are broader adoption and a few still-placeholder-safe fields
+
+Current read on `P0-301`:
+
+- the shared read-only provider factory is real and mounted in the shell service hub
+- NFT inventory, gas pricing, and native balance reads all flow through the provider abstraction story
+- native balance is no longer stranded at the protocol layer; the shell-facing context path consumes it
 
 ## Partially Blocked But Legitimate To Advance
 
@@ -121,13 +127,13 @@ Given the current repo state, the most defensible next sequencing is:
 
 ### Finish The Active Spine
 
-- `P0-301`
 - `P0-401`
 - `P0-701A`
 
 Status nuance:
 
-- `P0-401` is now the most advanced of these three and should be treated as near-closeout work with a small remaining provider-backed gap, not as a barely-started schema stub
+- `P0-301` is already complete for the current read-only provider slice
+- `P0-401` should be treated as near-closeout work rather than as a barely-started schema stub
 
 ### Then Unblock Chrome And Context Follow-Ons
 

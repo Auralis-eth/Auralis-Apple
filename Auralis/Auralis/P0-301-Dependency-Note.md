@@ -2,7 +2,7 @@
 
 ## Status
 
-Startable
+Completed for the current Phase 0 read-only provider slice
 
 ## Dependencies
 
@@ -21,10 +21,10 @@ Structural alignment dependency:
 
 - Centralize provider endpoint and API-key resolution.
 - Replace inline provider construction inside service-layer code with injected provider factories.
-- Add native balance support as a provider capability even if no shell surface consumes it yet.
+- Add native balance support as a provider capability and thread it into the shell-facing service layer when that can be done without inventing fake architecture.
 
 ## Still Deferred
 
-- Context-service ownership and receipt-backed provider orchestration in `P0-402`
+- Broader receipt-backed provider orchestration and downstream service ownership in `P0-402`
 - Freshness and TTL alignment in `P0-302`
 - Full boundary enforcement in `P0-701B`

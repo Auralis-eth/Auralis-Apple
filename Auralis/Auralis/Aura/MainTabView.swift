@@ -246,6 +246,7 @@ struct MainTabView: View {
                 modeProvider: { modeState.mode },
                 loadingProvider: { nftService.wrappedValue.isLoading },
                 refreshedAtProvider: { nftService.wrappedValue.lastSuccessfulRefreshAt },
+                nativeBalanceProvider: services.readOnlyProviderFactory.makeNativeBalanceProvider(),
                 freshnessTTLProvider: { nftService.wrappedValue.refreshTTL },
                 trackedNFTCountProvider: { currentAccount.wrappedValue?.trackedNFTCount },
                 musicCollectionCountProvider: { Self.playlistCount(in: modelContext) },

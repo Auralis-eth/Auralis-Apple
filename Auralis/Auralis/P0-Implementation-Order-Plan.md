@@ -28,8 +28,8 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-502` is now complete for the current shell/context/action slice: app launch, context builds, NFT refresh, account and chain changes, explorer opens, and the active copy action all emit receipts on the shared foundation.
 - `P0-402` is now complete for the strengthened shell-facing context slice: context builds emit receipts and the mounted chrome plus inspector read the shared `ContextSnapshot` instead of parallel shell-state lookups.
 - `P0-101B` has been re-validated as complete after the shell, mode, and chain remediation passes.
-- `P0-401` is now in progress as a stronger schema-first slice: `ContextSnapshot` exists, the shell inspector reads it, provenance-bearing scope/freshness fields are formalized, local playlist and scoped-receipt counts now feed the schema, and guest-pass/demo preference is represented in the shared contract.
-- `P0-301` is now in progress as a provider-seam slice: endpoint resolution is centralized, NFT fetching is injected, gas pricing is protocol-backed, and native balance support exists at the provider layer.
+- `P0-401` is now in progress as a stronger schema-first slice: `ContextSnapshot` exists, the shell inspector reads it, provenance-bearing scope/freshness fields are formalized, local playlist and scoped-receipt counts now feed the schema, guest-pass/demo preference is represented in the shared contract, and provider-backed native balance now flows through `ContextService`.
+- `P0-301` is now complete for the current read-only provider slice: endpoint resolution is centralized, NFT fetching is injected, gas pricing is protocol-backed, the shell service hub owns the shared provider factory, and native balance is consumed by the shell-facing context layer.
 - `P0-701A` is now in progress as a structural scaffolding slice: root-owned mode state, a shell service hub, and shared receipt-store factories are in place.
 - `P0-101C` remains blocked on `P0-302`, `P0-401`, `P0-402`, and `P0-403`.
 
@@ -50,8 +50,8 @@ Closeout summary:
 - `P0-204`: complete for the current per-account chain-scope baseline
 - `P0-502`: complete for the current shell/context/action receipt slice; later verification and cleanup still belong to `P0-502B`
 - `P0-402`: complete for the current shell-facing context-service slice; broader shell rollout and stricter boundary cleanup continue under the same ticket family
-- `P0-401`: in progress as a stronger schema-first baseline; the main remaining gap is provider-backed native balance summary rather than missing shell-context structure
-- `P0-301`: in progress as an injected provider baseline; full service ownership remains deferred to `P0-402`
+- `P0-401`: in progress as a stronger schema-first baseline; the remaining gaps are broader adoption and a few still-placeholder-safe fields, not missing balance/provider wiring
+- `P0-301`: complete for the current injected read-only provider baseline; later token-surface consumers and stricter ownership cleanup remain deferred
 - `P0-701A`: in progress as a shell/service scaffolding baseline; strict boundary enforcement remains deferred to `P0-701B`
 - `P0-101C`: still blocked pending the real context/freshness stack
 
@@ -104,19 +104,20 @@ Partially complete
 Current phase status:
 
 - `P0-204` is complete.
-- `P0-401`, `P0-301`, and `P0-701A` have shipped meaningful baseline slices, but the phase is not complete yet.
+- `P0-301` is complete for the current read-only provider slice.
+- `P0-401` and `P0-701A` have shipped meaningful baseline slices, but the phase is not complete yet.
 - Full Phase 3 completion still depends on the remaining completion boundaries recorded in those ticket docs.
 
 6. `P0-204` Chain scope settings per account (Completed)
 7. `P0-401` Context schema v0 (Stronger schema-first slice in progress)
-8. `P0-301` Provider abstraction (Injected baseline in progress)
+8. `P0-301` Provider abstraction (Completed for current read-only provider slice)
 9. `P0-701A` Layered boundaries structural scaffolding (Baseline slice in progress)
 
 Why:
 
 - `P0-204` is now done, so the next real start point is `P0-401`
 - `P0-401` now covers the shell-facing typed schema cleanly enough that the remaining work is mostly provider-backed enrichment and broader adoption, not missing contract shape
-- `P0-301` and `P0-701A` now have real baseline seams, but they still hand off important follow-on ownership to later tickets
+- `P0-301` now provides a real reusable provider seam, while `P0-701A` still owns structural follow-on cleanup
 - this is the minimum structure needed before context orchestration becomes real
 
 ### Phase 4: Fetch, cache, and context assembly
@@ -199,16 +200,14 @@ Why:
 If the goal is to continue implementation immediately with the least churn, finish the still-open Phase 3 spine work first:
 
 1. `P0-401`
-2. `P0-301`
-3. `P0-701A`
+2. `P0-701A`
 
 That gives the project:
 
 - a fully closed context snapshot contract instead of a schema-first baseline
-- a finished provider seam instead of a partial injected slice
 - structural scaffolding that is ready for downstream chrome and surface work
 
-Right now `P0-401` is the closest of those three to "substantially there." The main unfinished edge is native balance enrichment, not the absence of a usable shell context contract.
+`P0-301` no longer belongs in the next sprint list because the current read-only provider slice is already landed. The main unfinished shell-spine work is now `P0-401` and `P0-701A`.
 
 ## Suggested Following Sprint
 

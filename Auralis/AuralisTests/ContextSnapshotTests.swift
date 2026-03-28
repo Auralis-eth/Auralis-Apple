@@ -227,6 +227,7 @@ struct ContextServiceTests {
             modeProvider: { .observe },
             loadingProvider: { false },
             refreshedAtProvider: { nil },
+            nativeBalanceProvider: StubNativeBalanceProvider(),
             freshnessTTLProvider: { 300 },
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
@@ -259,6 +260,7 @@ struct ContextServiceTests {
             modeProvider: { .observe },
             loadingProvider: { false },
             refreshedAtProvider: { nil },
+            nativeBalanceProvider: StubNativeBalanceProvider(),
             freshnessTTLProvider: { 300 },
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
@@ -301,6 +303,7 @@ struct ContextServiceTests {
             modeProvider: { .observe },
             loadingProvider: { false },
             refreshedAtProvider: { nil },
+            nativeBalanceProvider: StubNativeBalanceProvider(),
             freshnessTTLProvider: { 300 },
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
@@ -340,6 +343,7 @@ struct ContextServiceTests {
             modeProvider: { .observe },
             loadingProvider: { false },
             refreshedAtProvider: { nil },
+            nativeBalanceProvider: StubNativeBalanceProvider(),
             freshnessTTLProvider: { 300 },
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
@@ -377,6 +381,33 @@ struct ContextServiceTests {
         #expect(firstReceipt.details.values["accountAddress"] == .string("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
         #expect(secondReceipt.details.values["accountAddress"] == .string("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"))
     }
+
+    @Test("context service resolves native balance through the injected read-only provider seam")
+    func contextServiceLoadsNativeBalanceThroughProvider() async {
+        let builder = CountingContextSourceBuilder()
+        let provider = StubNativeBalanceProvider()
+        let service = ContextService(
+            contextSourceBuilder: builder,
+            accountProvider: { nil },
+            addressProvider: { "0x1234567890abcdef1234567890abcdef12345678" },
+            chainProvider: { .ethMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { false },
+            refreshedAtProvider: { nil },
+            nativeBalanceProvider: provider,
+            freshnessTTLProvider: { 300 },
+            trackedNFTCountProvider: { nil },
+            musicCollectionCountProvider: { nil },
+            receiptCountProvider: { nil },
+            prefersDemoDataProvider: { false }
+        )
+
+        let snapshot = await service.refresh()
+
+        #expect(provider.requests.count == 1)
+        #expect(snapshot.balances.nativeBalanceDisplay.value == "1.5 ETH")
+        #expect(snapshot.balances.nativeBalanceDisplay.provenance == .onChain)
+    }
 }
 
 private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
@@ -390,6 +421,9 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
         modeProvider: @escaping () -> AppMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
+        nativeBalanceDisplayProvider: @escaping () -> String?,
+        nativeBalanceUpdatedAtProvider: @escaping () -> Date?,
+        nativeBalanceProvenanceProvider: @escaping () -> ContextProvenance,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
@@ -404,11 +438,26 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
             modeProvider: modeProvider,
             loadingProvider: loadingProvider,
             refreshedAtProvider: refreshedAtProvider,
+            nativeBalanceDisplayProvider: nativeBalanceDisplayProvider,
+            nativeBalanceUpdatedAtProvider: nativeBalanceUpdatedAtProvider,
+            nativeBalanceProvenanceProvider: nativeBalanceProvenanceProvider,
             freshnessTTLProvider: freshnessTTLProvider,
             trackedNFTCountProvider: trackedNFTCountProvider,
             musicCollectionCountProvider: musicCollectionCountProvider,
             receiptCountProvider: receiptCountProvider,
             prefersDemoDataProvider: prefersDemoDataProvider
+        )
+    }
+}
+
+private final class StubNativeBalanceProvider: NativeBalanceProviding {
+    private(set) var requests: [(address: String, chain: Chain)] = []
+
+    func nativeBalance(for address: String, chain: Chain) async throws -> NativeBalance {
+        requests.append((address, chain))
+        return NativeBalance(
+            weiHex: "0x14d1120d7b160000",
+            weiDecimal: "1500000000000000000"
         )
     }
 }

@@ -33,9 +33,9 @@ Do not build throwaway scaffolding. It is acceptable to ship the typed schema an
 
 ## Remaining Notes
 
-This ticket is not yet a defensible "100% complete" close because the schema still carries at least one intentionally deferred field:
+This ticket is not yet a defensible "100% complete" close because the schema still carries intentionally deferred fields:
 
-- native balance display remains placeholder-safe until the read-only provider stack finishes that path cleanly
+- some preference and downstream module fields remain placeholder-safe until their owning surfaces become real
 
 Validation completed in this pass:
 

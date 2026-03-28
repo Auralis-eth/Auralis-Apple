@@ -63,8 +63,23 @@ What landed:
 
 What is still deferred:
 
-- provider-backed native balance summary
+- a few placeholder-safe preference/module fields whose owning surfaces are not finalized yet
 - any final freshness-policy cleanup if ownership changes later
+
+### P0-301 Graduated From "Good Protocols" To "Real Product Plumbing"
+
+There is a common architecture trap where a team builds beautiful protocols, pats itself on the back, and then never routes any real product behavior through them. That is how you end up with a very elegant abstraction and exactly zero users benefiting from it.
+
+`P0-301` was in danger of becoming that story. The repo already had the provider protocols and centralized endpoint resolution, but native balance was still sitting in the corner like a gym membership card: technically useful, rarely exercised.
+
+This pass fixed that by:
+
+- making the shell service hub own one shared read-only provider factory
+- routing NFT inventory creation through that factory story
+- keeping gas on the same provider-configuration spine
+- feeding native balance into `ContextService`, which means the shell context contract now consumes provider-backed data for real
+
+That is the difference between \"we have an abstraction\" and \"the abstraction is carrying weight.\"
 
 ## Engineer's Wisdom
 

@@ -17,6 +17,9 @@ final class ContextService {
         let mode: AppMode
         let isLoading: Bool
         let refreshedAt: Date?
+        let nativeBalanceDisplay: String?
+        let nativeBalanceUpdatedAt: Date?
+        let nativeBalanceProvenance: ContextProvenance
         let freshnessTTL: TimeInterval?
         let trackedNFTCount: Int?
         let musicCollectionCount: Int?
@@ -39,6 +42,7 @@ final class ContextService {
     private let modeProvider: () -> AppMode
     private let loadingProvider: () -> Bool
     private let refreshedAtProvider: () -> Date?
+    private let nativeBalanceProvider: any NativeBalanceProviding
     private let freshnessTTLProvider: () -> TimeInterval?
     private let trackedNFTCountProvider: () -> Int?
     private let musicCollectionCountProvider: () -> Int?
@@ -60,6 +64,7 @@ final class ContextService {
         modeProvider: @escaping () -> AppMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
+        nativeBalanceProvider: any NativeBalanceProviding,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
@@ -76,6 +81,7 @@ final class ContextService {
         self.modeProvider = modeProvider
         self.loadingProvider = loadingProvider
         self.refreshedAtProvider = refreshedAtProvider
+        self.nativeBalanceProvider = nativeBalanceProvider
         self.freshnessTTLProvider = freshnessTTLProvider
         self.trackedNFTCountProvider = trackedNFTCountProvider
         self.musicCollectionCountProvider = musicCollectionCountProvider
@@ -83,18 +89,21 @@ final class ContextService {
         self.prefersDemoDataProvider = prefersDemoDataProvider
         self.beforeResolve = beforeResolve
 
-        let initialInputs = Self.captureInputs(
-            accountProvider: accountProvider,
-            addressProvider: addressProvider,
-            chainProvider: chainProvider,
-            modeProvider: modeProvider,
-            loadingProvider: loadingProvider,
-            refreshedAtProvider: refreshedAtProvider,
-            freshnessTTLProvider: freshnessTTLProvider,
-            trackedNFTCountProvider: trackedNFTCountProvider,
-            musicCollectionCountProvider: musicCollectionCountProvider,
-            receiptCountProvider: receiptCountProvider,
-            prefersDemoDataProvider: prefersDemoDataProvider
+        let initialInputs = CapturedInputs(
+            account: accountProvider(),
+            address: addressProvider(),
+            chain: chainProvider(),
+            mode: modeProvider(),
+            isLoading: loadingProvider(),
+            refreshedAt: refreshedAtProvider(),
+            nativeBalanceDisplay: nil,
+            nativeBalanceUpdatedAt: nil,
+            nativeBalanceProvenance: .localCache,
+            freshnessTTL: freshnessTTLProvider(),
+            trackedNFTCount: trackedNFTCountProvider(),
+            musicCollectionCount: musicCollectionCountProvider(),
+            receiptCount: receiptCountProvider(),
+            prefersDemoData: prefersDemoDataProvider()
         )
         self.snapshot = Self.makeSnapshot(
             from: initialInputs,
@@ -111,7 +120,7 @@ final class ContextService {
         correlationID: String? = nil,
         receiptEventLogger: ReceiptEventLogger? = nil
     ) async -> ContextSnapshot {
-        let capturedInputs = captureInputs()
+        let capturedInputs = await captureInputs()
 
         if let inFlightTask, inFlightScope == capturedInputs.scope {
             return await inFlightTask.value
@@ -147,14 +156,15 @@ final class ContextService {
 }
 
 private extension ContextService {
-    private func captureInputs() -> CapturedInputs {
-        Self.captureInputs(
+    private func captureInputs() async -> CapturedInputs {
+        await Self.captureInputs(
             accountProvider: accountProvider,
             addressProvider: addressProvider,
             chainProvider: chainProvider,
             modeProvider: modeProvider,
             loadingProvider: loadingProvider,
             refreshedAtProvider: refreshedAtProvider,
+            nativeBalanceProvider: nativeBalanceProvider,
             freshnessTTLProvider: freshnessTTLProvider,
             trackedNFTCountProvider: trackedNFTCountProvider,
             musicCollectionCountProvider: musicCollectionCountProvider,
@@ -170,19 +180,31 @@ private extension ContextService {
         modeProvider: () -> AppMode,
         loadingProvider: () -> Bool,
         refreshedAtProvider: () -> Date?,
+        nativeBalanceProvider: any NativeBalanceProviding,
         freshnessTTLProvider: () -> TimeInterval?,
         trackedNFTCountProvider: () -> Int?,
         musicCollectionCountProvider: () -> Int?,
         receiptCountProvider: () -> Int?,
         prefersDemoDataProvider: () -> Bool?
-    ) -> CapturedInputs {
-        CapturedInputs(
+    ) async -> CapturedInputs {
+        let address = addressProvider()
+        let chain = chainProvider()
+        let nativeBalanceSnapshot = await resolveNativeBalance(
+            address: address,
+            chain: chain,
+            provider: nativeBalanceProvider
+        )
+
+        return CapturedInputs(
             account: accountProvider(),
-            address: addressProvider(),
-            chain: chainProvider(),
+            address: address,
+            chain: chain,
             mode: modeProvider(),
             isLoading: loadingProvider(),
             refreshedAt: refreshedAtProvider(),
+            nativeBalanceDisplay: nativeBalanceSnapshot.displayValue,
+            nativeBalanceUpdatedAt: nativeBalanceSnapshot.updatedAt,
+            nativeBalanceProvenance: nativeBalanceSnapshot.provenance,
             freshnessTTL: freshnessTTLProvider(),
             trackedNFTCount: trackedNFTCountProvider(),
             musicCollectionCount: musicCollectionCountProvider(),
@@ -202,11 +224,49 @@ private extension ContextService {
             modeProvider: { inputs.mode },
             loadingProvider: { inputs.isLoading },
             refreshedAtProvider: { inputs.refreshedAt },
+            nativeBalanceDisplayProvider: { inputs.nativeBalanceDisplay },
+            nativeBalanceUpdatedAtProvider: { inputs.nativeBalanceUpdatedAt },
+            nativeBalanceProvenanceProvider: { inputs.nativeBalanceProvenance },
             freshnessTTLProvider: { inputs.freshnessTTL },
             trackedNFTCountProvider: { inputs.trackedNFTCount },
             musicCollectionCountProvider: { inputs.musicCollectionCount },
             receiptCountProvider: { inputs.receiptCount },
             prefersDemoDataProvider: { inputs.prefersDemoData }
         ).snapshot()
+    }
+
+    private struct NativeBalanceSnapshot {
+        let displayValue: String?
+        let updatedAt: Date?
+        let provenance: ContextProvenance
+    }
+
+    private static func resolveNativeBalance(
+        address: String,
+        chain: Chain,
+        provider: any NativeBalanceProviding
+    ) async -> NativeBalanceSnapshot {
+        guard !address.isEmpty else {
+            return NativeBalanceSnapshot(
+                displayValue: nil,
+                updatedAt: nil,
+                provenance: .localCache
+            )
+        }
+
+        do {
+            let balance = try await provider.nativeBalance(for: address, chain: chain)
+            return NativeBalanceSnapshot(
+                displayValue: balance.formattedEtherDisplay,
+                updatedAt: .now,
+                provenance: .onChain
+            )
+        } catch {
+            return NativeBalanceSnapshot(
+                displayValue: nil,
+                updatedAt: nil,
+                provenance: .localCache
+            )
+        }
     }
 }
