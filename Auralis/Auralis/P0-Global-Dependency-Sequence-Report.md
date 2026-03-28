@@ -41,6 +41,13 @@ These tickets are no longer just "startable now"; they are actively underway:
 - `P0-401` context schema v0
 - `P0-701A` layered module-boundary scaffolding
 
+Current read on `P0-401`:
+
+- the shell-facing `ContextSnapshot` contract is real and in use
+- local playlist and scoped-receipt counts now feed the schema where local data already exists
+- guest-pass/demo preference is represented in the shared context contract
+- the main remaining gap is provider-backed native balance summary, not missing shell-context structure
+
 ## Partially Blocked But Legitimate To Advance
 
 These tickets explicitly allow useful progress without waiting for every downstream dependency:
@@ -117,6 +124,10 @@ Given the current repo state, the most defensible next sequencing is:
 - `P0-301`
 - `P0-401`
 - `P0-701A`
+
+Status nuance:
+
+- `P0-401` is now the most advanced of these three and should be treated as near-closeout work with a small remaining provider-backed gap, not as a barely-started schema stub
 
 ### Then Unblock Chrome And Context Follow-Ons
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Startable
+In Progress
 
 ## Dependencies
 
@@ -14,21 +14,22 @@ Startable
 
 - `P0-201` is complete enough for the current schema inputs.
 - `P0-204` is complete enough to provide a real chain-scope field.
-- `P0-302` is still not ready, so freshness can only be modeled as metadata, not final TTL-driven state.
+- `P0-302` is complete enough for the current freshness contract used by the shell-facing snapshot, even if downstream policy cleanup may still evolve.
 
 ## Safe Work Now
 
 - Define the typed `ContextSnapshot` schema and version it.
 - Move the shell inspector to the new snapshot contract.
 - Model provenance and timestamps using existing local values.
-- Keep balance and module sections placeholder-safe instead of fabricating provider-backed data.
+- Feed schema sections from real local values where the app already owns them.
+- Keep balance and any not-yet-real provider sections placeholder-safe instead of fabricating provider-backed data.
 
 ## Still Deferred
 
-- TTL policy and stale evaluation from `P0-302`
-- Real provider-backed balance summary from `P0-301`
-- Context-build orchestration and receipt linkage from `P0-402`
+- Real provider-backed native balance summary from `P0-301`
+- Broader downstream adoption beyond the current shell and inspector path
+- Any follow-on freshness-policy cleanup if ownership shifts later in the `P0-301` / `P0-302` / `P0-402` family
 
 ## Full Completion Condition
 
-The ticket is fully complete when the schema no longer relies on ad hoc freshness behavior and the remaining deferred fields are fed by the real context/provider stack instead of placeholder-safe empty values.
+The ticket is fully complete when the remaining deferred fields are fed by the real context/provider stack instead of placeholder-safe empty values, with the most obvious remaining gap being native balance summary.
