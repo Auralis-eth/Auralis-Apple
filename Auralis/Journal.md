@@ -52,6 +52,7 @@ How to spot this class of bug again:
 If a SwiftUI view creates `@Query` in `init` from bindings or environment-driven scope, ask whether the view is guaranteed to be recreated when that scope changes. If not, you are one stale identity away from a ghost bug.
 
 - Bug squashed: the scoped-identity work for `NFT.Contract` and `NFT.Collection` fixed cross-chain collisions, then immediately introduced a new trapdoor. One refresh can bring back a whole stack of NFTs from the same contract, but the pipeline was still trying to save each token with its own separate `Contract` and `Collection` model object. SwiftData saw a mob of objects all claiming the same unique ID and quite reasonably refused to play along. The result was sneaky: loading finished, Home moved on, and Newsfeed/Music found an empty pantry. The repair was to canonicalize shared child models before insert so one contract node and one collection node can be reused across the whole refresh batch.
+- Bug squashed: the guest wallets were so large that the fetcher was accidentally treating successful pages like failed attempts. A wallet with roughly 3,900 NFTs needs around 40 Alchemy pages, but the fetch loop had a global attempt cap that tripped after about 30 page requests even if those requests were succeeding. That is like telling a librarian they may only take 30 steps while shelving a 40-shelf archive. On top of that, if a late Alchemy page returned a 500 after thousands of NFTs were already fetched, the app threw the whole pile away and persisted nothing. The fix was two-part: stop counting successful pages against the retry budget, and keep already-fetched pages when a later page fails so the app can degrade gracefully instead of showing an empty error state.
 
 ## Engineer's Wisdom
 
@@ -64,6 +65,7 @@ State bugs in SwiftUI are often identity bugs wearing a fake mustache. When data
 That line of thinking is usually faster than adding logs everywhere and hoping the app confesses.
 
 - Shared child models need canonicalization before persistence. If a refresh batch contains twenty NFTs from one contract, the database should see one contract node with twenty references, not twenty lookalikes barging through the same unique door.
+- Retry budgets should measure failures, not work completed. If a loop punishes success the same way it punishes errors, a large healthy workload can look identical to a broken one.
 
 ## If I Were Starting Over...
 
