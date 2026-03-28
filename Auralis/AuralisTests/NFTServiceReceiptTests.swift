@@ -296,6 +296,51 @@ struct NFTServiceReceiptTests {
         #expect(!persisted.contains(where: { $0.tokenId == "stale-eth" && $0.networkRawValue == Chain.ethMainnet.rawValue }))
     }
 
+    @Test("multiple NFTs from the same contract persist in one refresh without conflicting child identities")
+    @MainActor
+    func refreshPersistsMultipleTokensFromSameContract() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let sharedContractAddress = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        let fetcher = NFTFixtureFetcher(
+            nftsByChain: [
+                .ethMainnet: [
+                    makeFixtureNFT(
+                        contractAddress: sharedContractAddress,
+                        tokenId: "1",
+                        collectionName: "Shared Contract",
+                        network: .ethMainnet
+                    ),
+                    makeFixtureNFT(
+                        contractAddress: sharedContractAddress,
+                        tokenId: "2",
+                        collectionName: "Shared Contract",
+                        network: .ethMainnet
+                    )
+                ]
+            ]
+        )
+        let service = NFTService(nftFetcher: fetcher)
+        let account = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
+
+        await service.refreshNFTs(
+            for: account,
+            chain: .ethMainnet,
+            modelContext: context,
+            correlationID: "shared-contract-refresh"
+        )
+
+        let fetchedNFTs = try context.fetch(FetchDescriptor<NFT>())
+        let fetchedContracts = try context.fetch(FetchDescriptor<NFT.Contract>())
+        let fetchedCollections = try context.fetch(FetchDescriptor<NFT.Collection>())
+
+        #expect(fetchedNFTs.count == 2)
+        #expect(fetchedContracts.count == 1)
+        #expect(fetchedCollections.count == 1)
+        #expect(Set(fetchedNFTs.map(\.tokenId)) == ["1", "2"])
+        #expect(service.error == nil)
+    }
+
     @Test("provider failures map rate-limited and degraded states without relying on raw localized errors")
     @MainActor
     func providerFailuresExposeTypedPresentation() {

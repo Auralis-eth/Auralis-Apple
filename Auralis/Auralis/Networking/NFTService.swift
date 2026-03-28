@@ -291,6 +291,7 @@ class NFTService {
             }
 
             do {
+                try canonicalizePersistenceScope(for: nfts, modelContext: modelContext)
                 for nft in nfts {
                     try reusePersistedRelationships(for: nft, modelContext: modelContext)
                     modelContext.insert(nft)
@@ -322,6 +323,7 @@ class NFTService {
                 )
             } catch {
                 modelContext.rollback()
+                nftFetcher.error = error
                 await eventRecorder.recordPersistenceFailed(
                     accountAddress: accountAddress,
                     chain: chain,
@@ -442,6 +444,85 @@ class NFTService {
         }
     }
 
+    private func canonicalizePersistenceScope(
+        for nfts: [NFT],
+        modelContext: ModelContext
+    ) throws {
+        var contractsByID: [String: NFT.Contract] = [:]
+        var collectionsByID: [String: NFT.Collection] = [:]
+
+        for nft in nfts {
+            let resolvedContract = try resolveContract(
+                for: nft.contract,
+                modelContext: modelContext,
+                cache: &contractsByID
+            )
+            nft.contract = resolvedContract
+
+            if let collection = nft.collection {
+                let resolvedCollection = try resolveCollection(
+                    for: collection,
+                    modelContext: modelContext,
+                    cache: &collectionsByID
+                )
+                nft.collection = resolvedCollection
+            }
+        }
+    }
+
+    private func resolveContract(
+        for contract: NFT.Contract,
+        modelContext: ModelContext,
+        cache: inout [String: NFT.Contract]
+    ) throws -> NFT.Contract {
+        if let cachedContract = cache[contract.id] {
+            cachedContract.address = contract.address
+            cachedContract.chainRawValue = contract.chainRawValue
+            return cachedContract
+        }
+
+        let descriptor = FetchDescriptor<NFT.Contract>(
+            predicate: #Predicate<NFT.Contract> { $0.id == contract.id }
+        )
+
+        if let persistedContract = try modelContext.fetch(descriptor).first {
+            persistedContract.address = contract.address
+            persistedContract.chainRawValue = contract.chainRawValue
+            cache[contract.id] = persistedContract
+            return persistedContract
+        }
+
+        cache[contract.id] = contract
+        return contract
+    }
+
+    private func resolveCollection(
+        for collection: NFT.Collection,
+        modelContext: ModelContext,
+        cache: inout [String: NFT.Collection]
+    ) throws -> NFT.Collection {
+        if let cachedCollection = cache[collection.id] {
+            cachedCollection.name = collection.name
+            cachedCollection.chainRawValue = collection.chainRawValue
+            cachedCollection.contractAddress = collection.contractAddress
+            return cachedCollection
+        }
+
+        let descriptor = FetchDescriptor<NFT.Collection>(
+            predicate: #Predicate<NFT.Collection> { $0.id == collection.id }
+        )
+
+        if let persistedCollection = try modelContext.fetch(descriptor).first {
+            persistedCollection.name = collection.name
+            persistedCollection.chainRawValue = collection.chainRawValue
+            persistedCollection.contractAddress = collection.contractAddress
+            cache[collection.id] = persistedCollection
+            return persistedCollection
+        }
+
+        cache[collection.id] = collection
+        return collection
+    }
     func reset() {
         inFlightRefreshTask?.cancel()
         inFlightRefreshTask = nil

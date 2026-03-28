@@ -51,6 +51,8 @@ Files touched:
 How to spot this class of bug again:
 If a SwiftUI view creates `@Query` in `init` from bindings or environment-driven scope, ask whether the view is guaranteed to be recreated when that scope changes. If not, you are one stale identity away from a ghost bug.
 
+- Bug squashed: the scoped-identity work for `NFT.Contract` and `NFT.Collection` fixed cross-chain collisions, then immediately introduced a new trapdoor. One refresh can bring back a whole stack of NFTs from the same contract, but the pipeline was still trying to save each token with its own separate `Contract` and `Collection` model object. SwiftData saw a mob of objects all claiming the same unique ID and quite reasonably refused to play along. The result was sneaky: loading finished, Home moved on, and Newsfeed/Music found an empty pantry. The repair was to canonicalize shared child models before insert so one contract node and one collection node can be reused across the whole refresh batch.
+
 ## Engineer's Wisdom
 
 State bugs in SwiftUI are often identity bugs wearing a fake mustache. When data "exists but doesn't show up," do not start by blaming persistence. First ask:
@@ -60,6 +62,8 @@ State bugs in SwiftUI are often identity bugs wearing a fake mustache. When data
 - What guarantees that the view is rebuilt when the scope changes?
 
 That line of thinking is usually faster than adding logs everywhere and hoping the app confesses.
+
+- Shared child models need canonicalization before persistence. If a refresh batch contains twenty NFTs from one contract, the database should see one contract node with twenty references, not twenty lookalikes barging through the same unique door.
 
 ## If I Were Starting Over...
 
