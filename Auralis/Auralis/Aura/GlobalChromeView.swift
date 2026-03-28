@@ -109,6 +109,42 @@ struct ChromeContextInspectorSheet: View {
                         "Tracked NFTs",
                         value: snapshot.libraryPointers.trackedNFTCount.value.map(String.init) ?? "Not loaded yet"
                     )
+                    LabeledContent(
+                        "Playlists",
+                        value: snapshot.libraryPointers.musicCollectionCount.value.map(String.init) ?? "Not loaded yet"
+                    )
+                    LabeledContent(
+                        "Receipts",
+                        value: snapshot.libraryPointers.receiptCount.value.map(String.init) ?? "Not loaded yet"
+                    )
+                    LabeledContent("Summary", value: snapshot.librarySummary)
+                }
+
+                Section("Preferences") {
+                    LabeledContent(
+                        "Demo Data",
+                        value: booleanLabel(snapshot.localPreferences.prefersDemoData.value)
+                    )
+                    LabeledContent(
+                        "Pinned Items",
+                        value: snapshot.localPreferences.pinnedItemCount.value.map(String.init) ?? "Not configured"
+                    )
+                    LabeledContent("Summary", value: snapshot.preferencesSummary)
+                }
+
+                Section("Balances") {
+                    LabeledContent(
+                        "Native Balance",
+                        value: snapshot.balances.nativeBalanceDisplay.value ?? "Deferred to provider-backed balance work"
+                    )
+                    LabeledContent(
+                        "Balance Provenance",
+                        value: snapshot.balances.nativeBalanceDisplay.provenance.displayLabel
+                    )
+                    LabeledContent(
+                        "Balance Updated",
+                        value: formattedTimestamp(snapshot.balances.nativeBalanceDisplay.updatedAt)
+                    )
                 }
 
                 Section("Freshness") {
@@ -147,6 +183,17 @@ struct ChromeContextInspectorSheet: View {
         }
 
         return date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private func booleanLabel(_ value: Bool?) -> String {
+        switch value {
+        case true:
+            return "Enabled"
+        case false:
+            return "Disabled"
+        case nil:
+            return "Unknown"
+        }
     }
 }
 

@@ -25,6 +25,8 @@ import Testing
             loadingProvider: { false },
             refreshedAtProvider: { refreshDate },
             freshnessTTLProvider: { 300 },
+            musicCollectionCountProvider: { 3 },
+            receiptCountProvider: { 7 },
             prefersDemoDataProvider: { true }
         )
 
@@ -38,10 +40,40 @@ import Testing
         #expect(snapshot.scope.selectedChains.value == [.baseMainnet])
         #expect(snapshot.scope.selectedChains.provenance == .userProvided)
         #expect(snapshot.libraryPointers.trackedNFTCount.value == 42)
+        #expect(snapshot.libraryPointers.musicCollectionCount.value == 3)
+        #expect(snapshot.libraryPointers.receiptCount.value == 7)
         #expect(snapshot.localPreferences.prefersDemoData.value == true)
         #expect(snapshot.freshness.refreshState == .idle)
         #expect(snapshot.freshness.lastSuccessfulRefreshAt == refreshDate)
         #expect(snapshot.freshness.ttl == 300)
+        #expect(snapshot.librarySummary == "NFTs: 42 • Playlists: 3 • Receipts: 7")
+        #expect(snapshot.preferencesSummary == "Demo Data: On • Pinned Items: Unknown")
+    }
+
+    @Test("context snapshot uses local count providers and guest-pass preference without inventing provider data")
+    func contextSnapshotUsesLocalSchemaInputs() {
+        let source = LiveContextSource(
+            accountProvider: { nil },
+            addressProvider: { "0x1234567890abcdef1234567890abcdef12345678" },
+            chainProvider: { .baseMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { false },
+            refreshedAtProvider: { Date(timeIntervalSince1970: 1_700_000_500) },
+            trackedNFTCountProvider: { 12 },
+            musicCollectionCountProvider: { 4 },
+            receiptCountProvider: { 9 },
+            prefersDemoDataProvider: { true }
+        )
+
+        let snapshot = source.snapshot()
+
+        #expect(snapshot.libraryPointers.trackedNFTCount.value == 12)
+        #expect(snapshot.libraryPointers.musicCollectionCount.value == 4)
+        #expect(snapshot.libraryPointers.receiptCount.value == 9)
+        #expect(snapshot.localPreferences.prefersDemoData.value == true)
+        #expect(snapshot.libraryPointers.receiptCount.updatedAt == Date(timeIntervalSince1970: 1_700_000_500))
+        #expect(snapshot.librarySummary == "NFTs: 12 • Playlists: 4 • Receipts: 9")
+        #expect(snapshot.preferencesSummary == "Demo Data: On • Pinned Items: Unknown")
     }
 
     @Test("context snapshot remains valid when optional provider-backed values are absent")
@@ -197,6 +229,8 @@ struct ContextServiceTests {
             refreshedAtProvider: { nil },
             freshnessTTLProvider: { 300 },
             trackedNFTCountProvider: { nil },
+            musicCollectionCountProvider: { nil },
+            receiptCountProvider: { nil },
             prefersDemoDataProvider: { false }
         )
 
@@ -227,6 +261,8 @@ struct ContextServiceTests {
             refreshedAtProvider: { nil },
             freshnessTTLProvider: { 300 },
             trackedNFTCountProvider: { nil },
+            musicCollectionCountProvider: { nil },
+            receiptCountProvider: { nil },
             prefersDemoDataProvider: { false },
             beforeResolve: {
                 await resolveGate.waitIfNeeded()
@@ -267,6 +303,8 @@ struct ContextServiceTests {
             refreshedAtProvider: { nil },
             freshnessTTLProvider: { 300 },
             trackedNFTCountProvider: { nil },
+            musicCollectionCountProvider: { nil },
+            receiptCountProvider: { nil },
             prefersDemoDataProvider: { false }
         )
 
@@ -304,6 +342,8 @@ struct ContextServiceTests {
             refreshedAtProvider: { nil },
             freshnessTTLProvider: { 300 },
             trackedNFTCountProvider: { nil },
+            musicCollectionCountProvider: { nil },
+            receiptCountProvider: { nil },
             prefersDemoDataProvider: { false },
             beforeResolve: {
                 await resolveGate.waitIfNeeded()
@@ -352,6 +392,8 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
         refreshedAtProvider: @escaping () -> Date?,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
+        musicCollectionCountProvider: @escaping () -> Int?,
+        receiptCountProvider: @escaping () -> Int?,
         prefersDemoDataProvider: @escaping () -> Bool?
     ) -> any ContextSource {
         buildCount += 1
@@ -364,6 +406,8 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
             refreshedAtProvider: refreshedAtProvider,
             freshnessTTLProvider: freshnessTTLProvider,
             trackedNFTCountProvider: trackedNFTCountProvider,
+            musicCollectionCountProvider: musicCollectionCountProvider,
+            receiptCountProvider: receiptCountProvider,
             prefersDemoDataProvider: prefersDemoDataProvider
         )
     }

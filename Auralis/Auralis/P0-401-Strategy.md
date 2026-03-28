@@ -29,8 +29,10 @@ Missing values must remain valid, provenance rules must stay consistent, and the
 
 - `ContextSnapshot` now exists as the Phase 0 context contract.
 - The live shell context source produces typed scope, provenance-bearing fields, library pointers, local preferences, and freshness metadata.
-- The chrome inspector reads the new snapshot instead of the older ad hoc shape.
-- Native balance, receipt linkage, and TTL-backed stale evaluation remain deferred until `P0-301`, `P0-302`, and `P0-402`.
+- The schema now carries real local counts for tracked NFTs, playlists, and scoped receipts where that data already exists in local storage.
+- The schema now records whether the active account is running through the guest-pass/demo path instead of hard-coding that preference to false.
+- The chrome inspector reads the new snapshot instead of the older ad hoc shape and now exposes library, preference, balance, provenance, and freshness sections from the shared contract.
+- Native balance display still remains placeholder-safe until the provider-backed balance layer is finished.
 
 ## Definition Of Done
 
@@ -44,4 +46,10 @@ Build minimal valid snapshots, verify provenance and timestamps for populated fi
 
 ## Completion Boundary
 
-This ticket can now progress as a schema-first implementation, but it should not be marked fully complete until `P0-302` provides the real freshness contract used for stale evaluation and downstream context behavior.
+This ticket is materially further along as a schema-first implementation, but it should not be marked fully complete until the remaining deferred fields stop depending on placeholder-safe values.
+
+The main remaining blockers are:
+
+- provider-backed native balance summary from the `P0-301` family
+- any remaining freshness-policy cleanup if the final TTL ownership changes downstream
+- broader downstream adoption outside the current shell and inspector path

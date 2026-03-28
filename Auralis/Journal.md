@@ -2,76 +2,91 @@
 
 ## The Big Picture
 
-Auralis is a wallet-aware SwiftUI app that feels a bit like opening a backstage pass for on-chain culture. You bring in an address, Auralis pulls that wallet's NFT world into local storage, and then fans it back out across browsing, music playback, gas tools, and receipts. The app is not just "show me a list"; it is more like a venue with several rooms that all depend on the same guest list.
+Auralis is a wallet-aware SwiftUI app that acts like a control room for NFT identity, browsing, receipts, gas context, and music playback. The simplest way to explain it is: you bring a wallet address in, and the app turns that into a long-lived personal surface with history, media, and context stitched around it.
+
+It is not a tiny single-screen demo. It is more like a hotel lobby with several wings: onboarding, shell chrome, search, receipts, NFT browsing, token surfaces, and music. The trick is making all of those wings feel like one building instead of a pile of disconnected rooms.
 
 ## Architecture Deep Dive
 
-The app shell is the maître d'. `MainAuraView` decides whether the user should see the front door, the loading hallway, or the main experience. `MainTabView` is the building directory for the major product areas.
+The app shell works like an airport tower. `MainAuraView` owns the high-level traffic: active account, active chain, restore flow, deep links, and app-level services. `MainTabView` is the terminal map. It decides which major surface the user is in, but it is not supposed to become the source of truth for everything interesting.
 
-`NFTService` is the kitchen expediter. It coordinates fetching, applies scope to every NFT, saves the result into SwiftData, and clears out stale inventory when a refresh completes.
+`NFTService` and the related networking types are the cargo pipeline. They fetch, retry, cache, and persist NFT data without making the UI learn transport details. `AudioEngine` is the long-lived house band in the basement: once started, it keeps playing while the rest of the building changes screens.
 
-SwiftData is the pantry. The UI does not keep giant in-memory copies of collections forever; instead, views query the local store for the currently active account and chain. That is powerful, but it also means scope bugs can feel spooky: the food is in the pantry, but the waiter is checking the wrong shelf.
+The newer context work is the app's clipboard for "what is true right now?" `ContextSnapshot` is the typed note passed around the shell so views stop free-styling their own interpretation of account, chain, freshness, and local pointers. Without that, every screen starts behaving like a different witness at the same trial.
 
 ## The Codebase Map
 
-The practical landmarks:
-
-- `Auralis/Auralis/Aura/` contains the app shell, tabs, auth, search, home, and newsfeed UI.
-- `Auralis/Auralis/DataModels/` holds SwiftData models like `NFT` and `EOAccount`.
-- `Auralis/Auralis/Networking/` contains the fetch and refresh orchestration.
+- `Auralis/Auralis/Aura/` is the visible product shell and feature UI.
+- `Auralis/Auralis/DataModels/` is the persistence and domain layer, with a few files that are doing more work than their names admit.
+- `Auralis/Auralis/Networking/` is the fetch-and-refresh machinery.
+- `Auralis/Auralis/Receipts/` is the audit trail system.
 - `Auralis/Auralis/MusicApp/AI/` is the active music path.
-- `Auralis/Auralis/Receipts/` logs the app's observable paper trail.
+- `Auralis/AuralisTests/` is where the contracts are supposed to get caught before production does the yelling.
 
-If you are debugging "the UI says nothing is there but I know the data exists," start by checking the active scope flowing from the shell into the SwiftData queries.
+Practical navigation rule: if a shell behavior feels "global", start with `MainAuraView`, `MainTabView`, `ContextService`, and `AppServices` before spelunking deeper.
 
 ## Tech Stack & Why
 
-SwiftUI is the obvious fit here because the whole app is state choreography. Tabs, routes, shells, loading, and scoped content all respond to changing account and chain state.
-
-SwiftData is doing the heavy lifting for persistence because the app wants local, queryable NFT state without building a custom database layer from scratch. It is fast to wire into SwiftUI, but it will absolutely punish sloppy identity or scope handling.
-
-Swift Concurrency is the right tool because refreshes, audio loading, and ENS/network work all want cancellation and clean ownership. Callback soup would make this codebase much harder to reason about.
+- SwiftUI because the app is heavily state-driven and the shell is easier to reason about when views are projections of state instead of delegate soup.
+- SwiftData because local persistence is not optional here. Accounts, receipts, NFTs, and playlist data all want a real on-device home.
+- Swift Concurrency because refreshes, deep-link timing, and cancellation are real problems in this app. Old-school callback chains would turn this into spaghetti quickly.
+- Testing framework for unit-style coverage because a lot of the Phase 0 work is about contracts and sequencing, not just pixels.
 
 ## The Journey
 
-### War Story: The Collection Was There, Until You Opened the Tab
+### War Story: The Context Snapshot Started Life As A Polite Placeholder
 
-Bug:
-Newsfeed and Music could show a blocking "Collection Unavailable" state even after a guest pass successfully loaded NFTs.
+`P0-401` began with the right idea and a slightly too-optimistic implementation. The schema types existed, but several fields were still acting like cardboard stand-ins. If the app already knew about playlists or scoped receipts locally, the snapshot still shrugged and returned `nil`.
 
-What was actually happening:
-The tab root views built `@Query` filters in `init` using the current account and chain. That sounds fine until SwiftUI preserves the view instance while the active scope changes. Then the query keeps watching the old shelf in the pantry. The NFTs were persisted correctly, but the query stayed pointed at stale scope values, so the tab behaved like the collection never arrived.
+The fix was not "invent more fake data." The better move was to feed the snapshot only from local truths the app already owned:
 
-Fix:
-In `MainTabView`, the Newsfeed and Music roots now get a scope-based `.id(...)` derived from normalized account address plus chain. When that scope changes, SwiftUI rebuilds those views and recreates the scoped `@Query` with the right filter.
+- playlist count from local SwiftData
+- scoped receipt count from stored receipts
+- guest-pass/demo state from the active account source
 
-Files touched:
-- `Auralis/Auralis/Aura/MainTabView.swift`
+That moved the context schema from "diagram on a whiteboard" to "contract with actual local teeth."
 
-How to spot this class of bug again:
-If a SwiftUI view creates `@Query` in `init` from bindings or environment-driven scope, ask whether the view is guaranteed to be recreated when that scope changes. If not, you are one stale identity away from a ghost bug.
+### Another Good Lesson: Environment Timing Matters
 
-- Bug squashed: the scoped-identity work for `NFT.Contract` and `NFT.Collection` fixed cross-chain collisions, then immediately introduced a new trapdoor. One refresh can bring back a whole stack of NFTs from the same contract, but the pipeline was still trying to save each token with its own separate `Contract` and `Collection` model object. SwiftData saw a mob of objects all claiming the same unique ID and quite reasonably refused to play along. The result was sneaky: loading finished, Home moved on, and Newsfeed/Music found an empty pantry. The repair was to canonicalize shared child models before insert so one contract node and one collection node can be reused across the whole refresh batch.
-- Bug squashed: the guest wallets were so large that the fetcher was accidentally treating successful pages like failed attempts. A wallet with roughly 3,900 NFTs needs around 40 Alchemy pages, but the fetch loop had a global attempt cap that tripped after about 30 page requests even if those requests were succeeding. That is like telling a librarian they may only take 30 steps while shelving a 40-shelf archive. On top of that, if a late Alchemy page returned a 500 after thousands of NFTs were already fetched, the app threw the whole pile away and persisted nothing. The fix was two-part: stop counting successful pages against the retry budget, and keep already-fetched pages when a later page fails so the app can degrade gracefully instead of showing an empty error state.
+Trying to read `modelContext` directly inside `MainTabView`'s initializer produced a classic SwiftUI trap: escaping closures captured `self` before initialization was complete. The fix was simple once the shape was clear: pass `ModelContext` in from `MainAuraView`, where it already exists cleanly, instead of trying to reach into the environment too early.
+
+That is a very senior-engineer kind of move: do not outsmart initialization rules when composition can solve the problem directly.
+
+### Current P0-401 Reality
+
+What landed:
+
+- stronger `ContextSnapshot` inputs
+- more visible context inspection in chrome
+- real local library pointers where local data already exists
+- explicit notes about what is still deferred
+
+What is still deferred:
+
+- provider-backed native balance summary
+- any final freshness-policy cleanup if ownership changes later
 
 ## Engineer's Wisdom
 
-State bugs in SwiftUI are often identity bugs wearing a fake mustache. When data "exists but doesn't show up," do not start by blaming persistence. First ask:
+Good engineering in this project usually means refusing fake certainty.
 
-- What is the active scope?
-- Where is that scope converted into a query?
-- What guarantees that the view is rebuilt when the scope changes?
+- If data is local and real, expose it.
+- If data is not ready yet, keep the field placeholder-safe and say so out loud.
+- If a dependency note and a newer completion report disagree, trust the newer artifact and update the planning docs.
+- If shell state starts leaking into many views as ad hoc values, stop and build a contract before entropy wins.
 
-That line of thinking is usually faster than adding logs everywhere and hoping the app confesses.
-
-- Shared child models need canonicalization before persistence. If a refresh batch contains twenty NFTs from one contract, the database should see one contract node with twenty references, not twenty lookalikes barging through the same unique door.
-- Retry budgets should measure failures, not work completed. If a loop punishes success the same way it punishes errors, a large healthy workload can look identical to a broken one.
+The codebase keeps rewarding one habit in particular: keep ownership obvious. Who owns mode? Who owns account scope? Who owns context? When the answer is fuzzy, bugs show up as "weird UI state" instead of nice honest compiler errors.
 
 ## If I Were Starting Over...
 
-I would be stricter about where scoped SwiftData queries are created. Either:
+I would introduce the shared context contract earlier. A lot of Phase 0 planning churn came from multiple pieces of UI carrying similar-but-not-identical truth about account, chain, freshness, and shell state. That is how teams accidentally build three dashboards that all claim to be canonical.
 
-- keep the query unscoped and filter in a thin adapter layer when the dataset is small enough, or
-- centralize scope identity so every scoped tab/root view rebuilds predictably.
+I would also shrink some oversized files sooner, especially the ones that quietly became neighborhoods instead of houses. Big files are not automatically bad, but they do hide responsibility creep very effectively.
 
-The current setup works, but only if view identity is treated as part of the data flow contract rather than an incidental UI detail.
+Finally, I would make the "status artifact hierarchy" explicit from day one:
+
+1. completion report or handoff note wins
+2. current strategy file comes next
+3. old dependency note loses if it disagrees
+
+That one rule would have saved a surprising amount of archaeological work.

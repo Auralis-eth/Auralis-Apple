@@ -224,7 +224,8 @@ struct MainTabView: View {
         audioEngine: AudioEngine?,
         audioUnavailableMessage: String?,
         modeState: ModeState,
-        services: ShellServiceHub
+        services: ShellServiceHub,
+        modelContext: ModelContext
     ) {
         self._currentAccount = currentAccount
         self._currentAddress = currentAddress
@@ -247,7 +248,17 @@ struct MainTabView: View {
                 refreshedAtProvider: { nftService.wrappedValue.lastSuccessfulRefreshAt },
                 freshnessTTLProvider: { nftService.wrappedValue.refreshTTL },
                 trackedNFTCountProvider: { currentAccount.wrappedValue?.trackedNFTCount },
-                prefersDemoDataProvider: { false }
+                musicCollectionCountProvider: { Self.playlistCount(in: modelContext) },
+                receiptCountProvider: {
+                    Self.receiptCount(
+                        in: modelContext,
+                        accountAddress: currentAddress.wrappedValue,
+                        chain: currentChain.wrappedValue
+                    )
+                },
+                prefersDemoDataProvider: {
+                    currentAccount.wrappedValue?.source == .guestPass
+                }
             )
         )
     }
@@ -504,6 +515,37 @@ struct MainTabView: View {
     }
 }
 
+private extension MainTabView {
+    static func playlistCount(in modelContext: ModelContext) -> Int? {
+        do {
+            return try modelContext.fetch(FetchDescriptor<Playlist>()).count
+        } catch {
+            return nil
+        }
+    }
+
+    static func receiptCount(
+        in modelContext: ModelContext,
+        accountAddress: String,
+        chain: Chain
+    ) -> Int? {
+        do {
+            let receipts = try modelContext.fetch(FetchDescriptor<StoredReceipt>())
+            let scope = ReceiptTimelineScope(
+                accountAddress: accountAddress,
+                chain: chain
+            )
+            return receipts
+                .lazy
+                .map(ReceiptTimelineRecord.init(storedReceipt:))
+                .filter { $0.matches(scope) }
+                .count
+        } catch {
+            return nil
+        }
+    }
+}
+
 private struct ContextRefreshKey: Hashable {
     let accountAddress: String
     let chain: Chain
@@ -515,6 +557,7 @@ private struct ContextRefreshKey: Hashable {
 
 #Preview {
     struct Wrapper: View {
+        @Environment(\.modelContext) private var modelContext
         @State private var currentAccount: EOAccount? = nil
         @State private var currentAddress: String = ""
         @State private var currentChainId: String = Chain.ethMainnet.rawValue
@@ -538,7 +581,8 @@ private struct ContextRefreshKey: Hashable {
                 audioEngine: audioEngine,
                 audioUnavailableMessage: nil,
                 modeState: modeState,
-                services: services
+                services: services,
+                modelContext: modelContext
             )
         }
     }

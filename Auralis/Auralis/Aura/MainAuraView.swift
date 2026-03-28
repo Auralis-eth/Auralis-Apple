@@ -57,7 +57,8 @@ struct MainAuraView: View {
                     audioEngine: audioEngine,
                     audioUnavailableMessage: audioEngineInitializationErrorMessage,
                     modeState: modeState,
-                    services: services
+                    services: services,
+                    modelContext: modelContext
                 )
                     .tabBarMinimizeBehavior(.onScrollDown)
                     .tabViewBottomAccessory {

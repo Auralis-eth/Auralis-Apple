@@ -11,6 +11,8 @@ protocol ShellContextSourceBuilding {
         refreshedAtProvider: @escaping () -> Date?,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
+        musicCollectionCountProvider: @escaping () -> Int?,
+        receiptCountProvider: @escaping () -> Int?,
         prefersDemoDataProvider: @escaping () -> Bool?
     ) -> any ContextSource
 }
@@ -26,6 +28,8 @@ protocol ShellContextServiceBuilding {
         refreshedAtProvider: @escaping () -> Date?,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
+        musicCollectionCountProvider: @escaping () -> Int?,
+        receiptCountProvider: @escaping () -> Int?,
         prefersDemoDataProvider: @escaping () -> Bool?
     ) -> ContextService
 }
@@ -40,6 +44,8 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
         refreshedAtProvider: @escaping () -> Date?,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
+        musicCollectionCountProvider: @escaping () -> Int?,
+        receiptCountProvider: @escaping () -> Int?,
         prefersDemoDataProvider: @escaping () -> Bool?
     ) -> any ContextSource {
         LiveContextSource(
@@ -51,6 +57,8 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
             refreshedAtProvider: refreshedAtProvider,
             freshnessTTLProvider: freshnessTTLProvider,
             trackedNFTCountProvider: trackedNFTCountProvider,
+            musicCollectionCountProvider: musicCollectionCountProvider,
+            receiptCountProvider: receiptCountProvider,
             prefersDemoDataProvider: prefersDemoDataProvider
         )
     }
@@ -73,6 +81,8 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
         refreshedAtProvider: @escaping () -> Date?,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
+        musicCollectionCountProvider: @escaping () -> Int?,
+        receiptCountProvider: @escaping () -> Int?,
         prefersDemoDataProvider: @escaping () -> Bool?
     ) -> ContextService {
         ContextService(
@@ -85,6 +95,8 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
             refreshedAtProvider: refreshedAtProvider,
             freshnessTTLProvider: freshnessTTLProvider,
             trackedNFTCountProvider: trackedNFTCountProvider,
+            musicCollectionCountProvider: musicCollectionCountProvider,
+            receiptCountProvider: receiptCountProvider,
             prefersDemoDataProvider: prefersDemoDataProvider
         )
     }

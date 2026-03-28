@@ -19,6 +19,8 @@ final class ContextService {
         let refreshedAt: Date?
         let freshnessTTL: TimeInterval?
         let trackedNFTCount: Int?
+        let musicCollectionCount: Int?
+        let receiptCount: Int?
         let prefersDemoData: Bool?
 
         var scope: RequestScope {
@@ -39,6 +41,8 @@ final class ContextService {
     private let refreshedAtProvider: () -> Date?
     private let freshnessTTLProvider: () -> TimeInterval?
     private let trackedNFTCountProvider: () -> Int?
+    private let musicCollectionCountProvider: () -> Int?
+    private let receiptCountProvider: () -> Int?
     private let prefersDemoDataProvider: () -> Bool?
     private let beforeResolve: @MainActor () async -> Void
 
@@ -58,6 +62,8 @@ final class ContextService {
         refreshedAtProvider: @escaping () -> Date?,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
         trackedNFTCountProvider: @escaping () -> Int?,
+        musicCollectionCountProvider: @escaping () -> Int?,
+        receiptCountProvider: @escaping () -> Int?,
         prefersDemoDataProvider: @escaping () -> Bool?,
         beforeResolve: @escaping @MainActor () async -> Void = {
             await Task.yield()
@@ -72,6 +78,8 @@ final class ContextService {
         self.refreshedAtProvider = refreshedAtProvider
         self.freshnessTTLProvider = freshnessTTLProvider
         self.trackedNFTCountProvider = trackedNFTCountProvider
+        self.musicCollectionCountProvider = musicCollectionCountProvider
+        self.receiptCountProvider = receiptCountProvider
         self.prefersDemoDataProvider = prefersDemoDataProvider
         self.beforeResolve = beforeResolve
 
@@ -84,6 +92,8 @@ final class ContextService {
             refreshedAtProvider: refreshedAtProvider,
             freshnessTTLProvider: freshnessTTLProvider,
             trackedNFTCountProvider: trackedNFTCountProvider,
+            musicCollectionCountProvider: musicCollectionCountProvider,
+            receiptCountProvider: receiptCountProvider,
             prefersDemoDataProvider: prefersDemoDataProvider
         )
         self.snapshot = Self.makeSnapshot(
@@ -147,6 +157,8 @@ private extension ContextService {
             refreshedAtProvider: refreshedAtProvider,
             freshnessTTLProvider: freshnessTTLProvider,
             trackedNFTCountProvider: trackedNFTCountProvider,
+            musicCollectionCountProvider: musicCollectionCountProvider,
+            receiptCountProvider: receiptCountProvider,
             prefersDemoDataProvider: prefersDemoDataProvider
         )
     }
@@ -160,6 +172,8 @@ private extension ContextService {
         refreshedAtProvider: () -> Date?,
         freshnessTTLProvider: () -> TimeInterval?,
         trackedNFTCountProvider: () -> Int?,
+        musicCollectionCountProvider: () -> Int?,
+        receiptCountProvider: () -> Int?,
         prefersDemoDataProvider: () -> Bool?
     ) -> CapturedInputs {
         CapturedInputs(
@@ -171,6 +185,8 @@ private extension ContextService {
             refreshedAt: refreshedAtProvider(),
             freshnessTTL: freshnessTTLProvider(),
             trackedNFTCount: trackedNFTCountProvider(),
+            musicCollectionCount: musicCollectionCountProvider(),
+            receiptCount: receiptCountProvider(),
             prefersDemoData: prefersDemoDataProvider()
         )
     }
@@ -188,6 +204,8 @@ private extension ContextService {
             refreshedAtProvider: { inputs.refreshedAt },
             freshnessTTLProvider: { inputs.freshnessTTL },
             trackedNFTCountProvider: { inputs.trackedNFTCount },
+            musicCollectionCountProvider: { inputs.musicCollectionCount },
+            receiptCountProvider: { inputs.receiptCount },
             prefersDemoDataProvider: { inputs.prefersDemoData }
         ).snapshot()
     }

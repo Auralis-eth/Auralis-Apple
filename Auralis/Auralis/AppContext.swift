@@ -175,6 +175,59 @@ extension ContextSnapshot {
     var scopeSummary: String {
         "\(accountDisplay) • \(selectedChainDisplayNames)"
     }
+
+    var librarySummary: String {
+        [
+            librarySummaryItem(
+                label: "NFTs",
+                value: libraryPointers.trackedNFTCount.value
+            ),
+            librarySummaryItem(
+                label: "Playlists",
+                value: libraryPointers.musicCollectionCount.value
+            ),
+            librarySummaryItem(
+                label: "Receipts",
+                value: libraryPointers.receiptCount.value
+            )
+        ]
+        .joined(separator: " • ")
+    }
+
+    var preferencesSummary: String {
+        [
+            booleanPreferenceSummary(
+                label: "Demo Data",
+                value: localPreferences.prefersDemoData.value
+            ),
+            integerPreferenceSummary(
+                label: "Pinned Items",
+                value: localPreferences.pinnedItemCount.value
+            )
+        ]
+        .joined(separator: " • ")
+    }
+
+    private func librarySummaryItem(label: String, value: Int?) -> String {
+        "\(label): \(value.map(String.init) ?? "Unknown")"
+    }
+
+    private func booleanPreferenceSummary(label: String, value: Bool?) -> String {
+        let displayValue: String
+        switch value {
+        case true:
+            displayValue = "On"
+        case false:
+            displayValue = "Off"
+        case nil:
+            displayValue = "Unknown"
+        }
+        return "\(label): \(displayValue)"
+    }
+
+    private func integerPreferenceSummary(label: String, value: Int?) -> String {
+        "\(label): \(value.map(String.init) ?? "Unknown")"
+    }
 }
 
 extension AppContext {
@@ -235,6 +288,8 @@ struct LiveContextSource: ContextSource {
     let refreshedAtProvider: () -> Date?
     let freshnessTTLProvider: () -> TimeInterval?
     let trackedNFTCountProvider: () -> Int?
+    let musicCollectionCountProvider: () -> Int?
+    let receiptCountProvider: () -> Int?
     let prefersDemoDataProvider: () -> Bool?
 
     init(
@@ -246,6 +301,8 @@ struct LiveContextSource: ContextSource {
         refreshedAtProvider: @escaping () -> Date?,
         freshnessTTLProvider: @escaping () -> TimeInterval? = { nil },
         trackedNFTCountProvider: @escaping () -> Int? = { nil },
+        musicCollectionCountProvider: @escaping () -> Int? = { nil },
+        receiptCountProvider: @escaping () -> Int? = { nil },
         prefersDemoDataProvider: @escaping () -> Bool? = { nil }
     ) {
         self.accountProvider = accountProvider
@@ -256,6 +313,8 @@ struct LiveContextSource: ContextSource {
         self.refreshedAtProvider = refreshedAtProvider
         self.freshnessTTLProvider = freshnessTTLProvider
         self.trackedNFTCountProvider = trackedNFTCountProvider
+        self.musicCollectionCountProvider = musicCollectionCountProvider
+        self.receiptCountProvider = receiptCountProvider
         self.prefersDemoDataProvider = prefersDemoDataProvider
     }
 
@@ -301,12 +360,14 @@ struct LiveContextSource: ContextSource {
                     updatedAt: account?.mostRecentActivityAt
                 ),
                 musicCollectionCount: ContextField(
-                    nil,
-                    provenance: .localCache
+                    musicCollectionCountProvider(),
+                    provenance: .localCache,
+                    updatedAt: refreshTimestamp
                 ),
                 receiptCount: ContextField(
-                    nil,
-                    provenance: .localCache
+                    receiptCountProvider(),
+                    provenance: .localCache,
+                    updatedAt: refreshTimestamp
                 )
             ),
             localPreferences: ContextLocalPreferences(
