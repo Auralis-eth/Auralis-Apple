@@ -15,7 +15,21 @@ struct NFTNewsfeedLoadingView: View {
 
     let itemsLoaded: Int?
     let total: Int?
+    let phase: NFTService.RefreshPhase
     var size: Size = .large
+
+    private var titleText: String {
+        switch phase {
+        case .idle, .fetching:
+            return "Loading NFTs..."
+        case .processingMetadata:
+            return "Processing Metadata..."
+        case .persisting:
+            return "Saving Collection..."
+        case .cleaningUp:
+            return "Finalizing Refresh..."
+        }
+    }
 
     var body: some View {
         VStack {
@@ -25,9 +39,9 @@ struct NFTNewsfeedLoadingView: View {
                     .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
                     .padding(.top)
             }
-            HeadlineFontText("Loading NFTs...")
+            HeadlineFontText(titleText)
                 .padding(.top, 16)
-            LoadingProgressView(total: total, itemsLoaded: itemsLoaded)
+            LoadingProgressView(total: total, itemsLoaded: itemsLoaded, phase: phase)
         }
         .padding(.vertical)
         .frame(maxWidth: size == .large ? .infinity : 200)
@@ -38,6 +52,7 @@ struct NFTNewsfeedLoadingView: View {
 struct LoadingProgressView: View {
     var total: Int? = nil
     var itemsLoaded: Int? = nil
+    var phase: NFTService.RefreshPhase = .idle
 
     private var progressValue: Double {
         guard let total = total, let loaded = itemsLoaded, total > 0 else {
@@ -58,7 +73,12 @@ struct LoadingProgressView: View {
     }
 
     private var isIndeterminate: Bool {
-        return total != nil && itemsLoaded == nil
+        switch phase {
+        case .processingMetadata, .persisting, .cleaningUp:
+            return true
+        case .idle, .fetching:
+            return total != nil && itemsLoaded == nil
+        }
     }
 
     private var isLoading: Bool {
@@ -66,6 +86,17 @@ struct LoadingProgressView: View {
     }
 
     private var statusText: String {
+        switch phase {
+        case .processingMetadata(let itemCount):
+            return "Fetched \(itemCount) NFTs. Parsing metadata before save."
+        case .persisting(let itemCount):
+            return "Fetched \(itemCount) NFTs. Writing them into your local library."
+        case .cleaningUp(let itemCount):
+            return "Fetched \(itemCount) NFTs. Cleaning up stale items and wrapping up."
+        case .idle, .fetching:
+            break
+        }
+
         if let loaded = itemsLoaded, let total = total {
             if loaded > total {
                 return "\(total) loaded"

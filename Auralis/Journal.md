@@ -81,6 +81,30 @@ This pass fixed that by:
 
 That is the difference between \"we have an abstraction\" and \"the abstraction is carrying weight.\"
 
+### The Loading Screen Was Telling A Half-Truth
+
+The NFT loading screen had a magician's-assistant problem: it was showing one part of the act while the hard work was happening offstage.
+
+The progress bar came from `NFTFetcher`, which only knows about provider pagination. Meanwhile, `MainAuraView` kept the loading screen up until `NFTService` finished the rest of the pipeline:
+
+- metadata parsing
+- scope canonicalization
+- SwiftData inserts and saves
+- stale-item cleanup
+
+So the app could honestly say \"3100 of 3908 loaded\" and still sit there for a while, which looks suspiciously like a hung API call even when the network part is already done.
+
+The fix was to make the refresh pipeline admit what phase it is in. `NFTService` now exposes explicit stages for:
+
+- fetching from the provider
+- processing metadata
+- saving the collection
+- final cleanup
+
+There was a second trap hiding behind that first one: `NFTService` is main-actor isolated, so changing the phase and immediately doing a big chunk of synchronous work meant SwiftUI often could not repaint before the next phase had already started. The code now yields at each phase boundary so the screen can actually show the new status before the next batch of work blocks the lane again.
+
+This is a classic observability lesson: if one number is standing in for four different kinds of work, users will assume the worst and engineers will end up debugging ghosts. It is also a good reminder that in UI code, "the state changed" and "the user saw the change" are not the same thing.
+
 ## Engineer's Wisdom
 
 Good engineering in this project usually means refusing fake certainty.

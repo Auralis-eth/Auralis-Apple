@@ -119,6 +119,33 @@ struct NFTServiceReceiptTests {
         #expect(fetcher.fetchCallCount == 1)
     }
 
+    @Test("refresh exposes fetch phase while the provider call is still in flight and resets to idle after completion")
+    @MainActor
+    func refreshPhaseTracksInFlightWork() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let fetcher = GateControlledNFTFetcher()
+        let service = NFTService(nftFetcher: fetcher)
+        let account = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
+
+        let refreshTask = Task {
+            await service.refreshNFTs(
+                for: account,
+                chain: .ethMainnet,
+                modelContext: context,
+                correlationID: "phase-tracking"
+            )
+        }
+
+        await fetcher.waitUntilFetchStarts()
+        #expect(service.refreshPhase == .fetching)
+
+        fetcher.resume()
+        await refreshTask.value
+
+        #expect(service.refreshPhase == .idle)
+    }
+
     @Test("refresh scopes contract and collection identities by the requested chain")
     @MainActor
     func refreshPersistsScopedContractIdentity() async throws {
@@ -583,6 +610,60 @@ private final class SlowStubNFTFetcher: NFTFetching {
 
         try await Task.sleep(for: .milliseconds(50))
         return []
+    }
+
+    func reset() {
+        total = nil
+        itemsLoaded = 0
+        loading = false
+        currentCursor = nil
+        error = nil
+    }
+}
+
+private final class GateControlledNFTFetcher: NFTFetching {
+    var total: Int? = 0
+    var itemsLoaded: Int? = 0
+    var loading = false
+    var error: Error?
+    var currentCursor: String?
+
+    private var fetchStartedContinuation: CheckedContinuation<Void, Never>?
+    private var resumeContinuation: CheckedContinuation<Void, Never>?
+    private var didStartFetch = false
+
+    func fetchAllNFTs(
+        for account: String,
+        chain: Chain,
+        correlationID: String?,
+        eventRecorder: any NFTRefreshEventRecording
+    ) async throws -> [NFT] {
+        itemsLoaded = 0
+        total = 0
+        didStartFetch = true
+        fetchStartedContinuation?.resume()
+        fetchStartedContinuation = nil
+
+        await withCheckedContinuation { continuation in
+            resumeContinuation = continuation
+        }
+
+        return []
+    }
+
+    func waitUntilFetchStarts() async {
+        if didStartFetch {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            fetchStartedContinuation = continuation
+        }
+    }
+
+    func resume() {
+        resumeContinuation?.resume()
+        resumeContinuation = nil
     }
 
     func reset() {

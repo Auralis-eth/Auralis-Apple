@@ -227,6 +227,14 @@ extension NFTProviderFailure {
 @MainActor
 @Observable
 class NFTService {
+    enum RefreshPhase: Equatable {
+        case idle
+        case fetching
+        case processingMetadata(itemCount: Int)
+        case persisting(itemCount: Int)
+        case cleaningUp(itemCount: Int)
+    }
+
     private struct RefreshScope: Equatable {
         let accountAddress: String
         let chain: Chain
@@ -240,6 +248,7 @@ class NFTService {
     var total: Int? { nftFetcher.total }
     var error: Error? { nftFetcher.error }
     var providerFailure: NFTProviderFailure? { NFTProviderFailure(error: error) }
+    private(set) var refreshPhase: RefreshPhase = .idle
     var lastSuccessfulRefreshAt: Date?
     private var inFlightRefreshScope: RefreshScope?
     private var inFlightRefreshTask: Task<Void, Never>?
@@ -269,6 +278,8 @@ class NFTService {
         modelContext: ModelContext,
         correlationID: String
     ) async {
+        refreshPhase = .fetching
+        await Task.yield()
         let eventRecorder = eventRecorderFactory(modelContext)
 
         await eventRecorder.recordRefreshStarted(
@@ -285,12 +296,16 @@ class NFTService {
                 eventRecorder: eventRecorder
             )
 
+            refreshPhase = .processingMetadata(itemCount: nfts.count)
+            await Task.yield()
             nfts.forEach {
                 $0.applyRefreshScope(accountAddress: accountAddress, chain: chain)
                 $0.parseMetadata()
             }
 
             do {
+                refreshPhase = .persisting(itemCount: nfts.count)
+                await Task.yield()
                 try canonicalizePersistenceScope(for: nfts, modelContext: modelContext)
                 for nft in nfts {
                     try reusePersistedRelationships(for: nft, modelContext: modelContext)
@@ -302,6 +317,8 @@ class NFTService {
                     (nftFetcher.total == nil || (nftFetcher.itemsLoaded ?? 0) >= (nftFetcher.total ?? 0))
 
                 if didCompleteFullRefresh {
+                    refreshPhase = .cleaningUp(itemCount: nfts.count)
+                    await Task.yield()
                     try await cleanupOldNFTs(
                         currentNFTIDs: nfts.map(\.id),
                         modelContext: modelContext,
@@ -341,6 +358,7 @@ class NFTService {
 
         let terminalError = nftFetcher.error
         nftFetcher.reset()
+        refreshPhase = .idle
         if let terminalError {
             nftFetcher.error = terminalError
         }

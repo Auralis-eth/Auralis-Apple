@@ -69,7 +69,8 @@ struct MainAuraView: View {
             } else if nftsAreLoading {
                 NFTNewsfeedLoadingView(
                     itemsLoaded: nftService.itemsLoaded,
-                    total: nftService.total
+                    total: nftService.total,
+                    phase: nftService.refreshPhase
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal)
