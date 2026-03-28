@@ -198,30 +198,15 @@ class NFTFetcher: NFTFetching {
             throw error
         }
         var cursor: String? = nil
-        
-        var totalAttempts = 0
-        let maxTotalAttempts = maxRetryCount * 3
+        var stalledPaginationPageCount = 0
+        let maxStalledPaginationPages = maxRetryCount * 3
         
         repeat {
             try Task.checkCancellation()
             try await throttler.throttle()
-            
-            totalAttempts += 1
-            if totalAttempts >= maxTotalAttempts {
-                let wrappedError = FetcherError.retryExhausted(lastError: self.error)
-                self.error = wrappedError
-                if let correlationID {
-                    await eventRecorder.recordFetchFailed(
-                        accountAddress: account,
-                        chain: chain,
-                        correlationID: correlationID,
-                        error: wrappedError
-                    )
-                }
-                throw wrappedError
-            }
-            
+
             do {
+                let requestedPageKey = cursor
                 let nfts = try await service.nftsForOwner(owner: account, pageKey: cursor)
 
                 seenItems += nfts.ownedNfts.count
@@ -232,6 +217,27 @@ class NFTFetcher: NFTFetching {
 
                 cursor = nfts.pageKey
                 currentCursor = cursor
+
+                if nfts.ownedNfts.isEmpty, cursor != nil {
+                    stalledPaginationPageCount += 1
+
+                    let didRepeatCursor = cursor == requestedPageKey
+                    if didRepeatCursor || stalledPaginationPageCount >= maxStalledPaginationPages {
+                        let wrappedError = FetcherError.retryExhausted(lastError: self.error)
+                        self.error = wrappedError
+                        if let correlationID {
+                            await eventRecorder.recordFetchFailed(
+                                accountAddress: account,
+                                chain: chain,
+                                correlationID: correlationID,
+                                error: wrappedError
+                            )
+                        }
+                        throw wrappedError
+                    }
+                } else {
+                    stalledPaginationPageCount = 0
+                }
                 
                 if let totalItems = total {
                     if seenItems >= totalItems {
@@ -282,6 +288,9 @@ class NFTFetcher: NFTFetching {
                             correlationID: correlationID,
                             error: wrappedError
                         )
+                    }
+                    if !nftMetaData.isEmpty {
+                        return nftMetaData
                     }
                     throw wrappedError
                 }
