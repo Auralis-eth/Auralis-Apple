@@ -1,183 +1,156 @@
 # P0 Global Dependency And Sequence Report
 
-This report reflects the corrected planning assumptions for the current Phase 0 ticket set.
+This report reflects the current ticket status recorded in the repo and supersedes the older assumption that most of the Phase 0 batch was still untouched.
 
-Known completed foundations:
+Where ticket documents disagree, this report prefers the newest completion-facing artifact for that ticket:
+
+- dependency report or tickets handoff over an older dependency note
+- current strategy status over an older planning-only statement
+
+## Confirmed Complete Or Implemented
+
+These tickets are already closed for their planned Phase 0 slice:
 
 - `P0-101A` root navigation structure
-- `P0-101B` global chrome UI first pass with fixed Observe presentation
+- `P0-101B` global chrome UI first pass
 - `P0-101D` global error and empty-state patterns
 - `P0-101E` design system primitives
-- `P0-202` address validation + normalization
 - `P0-201` account model and persistence
-- `P0-501` receipt schema, storage, sanitization, export, and reset foundation
-
-The rest of the tickets in this batch are treated as not started unless noted below.
-
-## Ready Now
-
-- `P0-601` mode system Observe v0
+- `P0-202` address validation + normalization
+- `P0-203` ENS resolution first pass
 - `P0-204` chain scope settings per account
-- `P0-401` context schema v0 as a schema-first slice
-- `P0-301` provider abstraction as an injected baseline slice
-- `P0-701A` layered scaffolding as a shell/service baseline slice
+- `P0-302` caching + freshness primitives for the current Phase 0 contract
+- `P0-303` provider-failure and degraded-mode slice
+- `P0-402` active shell context-service slice
+- `P0-501` receipt schema, storage, sanitization, export, and reset foundation
+- `P0-502` active account and chain-scope receipt integration slice
+- `P0-503` receipts UI timeline + filters
+- `P0-601` Observe-only mode ownership
+- `P0-103B` query parser + type detection
 
-## Newly Completed Foundation
+Notes:
 
-- `P0-101D` global error and empty-state patterns
+- Treat `P0-203` as complete for its planned first pass. Its strategy file still says `Ready`, but its dependency report and completion summary say the work is delivered.
+- `P0-302`, `P0-303`, `P0-402`, `P0-502`, and `P0-503` were previously shown as blocked or later-tier work in older planning material. That is no longer accurate.
 
-This now exists as a shared shell-status layer and should be reused by downstream tickets instead of replaced with one-off surfaces.
+## In Progress
 
-## Corrected Sequencing Rules
+These tickets are no longer just "startable now"; they are actively underway:
 
-### `P0-101B` before `P0-601`
+- `P0-301` provider abstraction (read-only)
+- `P0-401` context schema v0
+- `P0-701A` layered module-boundary scaffolding
 
-This is no longer treated as a deadlock.
+## Partially Blocked But Legitimate To Advance
 
-Agreed order:
+These tickets explicitly allow useful progress without waiting for every downstream dependency:
 
-1. `P0-101B` with fixed Observe presentation
-2. `P0-601` formal mode-state ownership and receipt inclusion
+- `P0-102A` Home layout shell slice
+- `P0-102E` gateway-to-home flow polish
+- `P0-451` music library index with deterministic demo or local-backed data
+- `P0-461` token holdings list with placeholder or local-backed data
 
-### `P0-502` is sliced, then verified later
+This preserves the earlier planning rule: use placeholder-backed or parser-first slices to break cycles when the ticket docs explicitly allow it.
 
-`P0-502` should land incrementally inside each feature area.
+## Still Blocked
 
-Later broad verification and cleanup lives in:
+These tickets remain blocked in their own current docs:
 
-- `P0-502B` Receipt logging verification + cleanup
-
-### `P0-701` is split
-
-- `P0-701A` early structural scaffolding
-- `P0-701B` later enforcement completion
-
-### Break cycles with placeholder-backed starts where allowed
-
-Allowed early-start rules:
-
-- `P0-103B` can start as pure parsing and classification before local index enrichment
-- `P0-451` can start with deterministic demo or local index data
-- `P0-461` can start with local or placeholder holdings data
-- `P0-102A` can use placeholder-backed module data and previews before final module surfaces are complete
-
-## Tickets Still Broadly Blocked
-
-### Shell and chrome follow-ons
-
-- `P0-101C` blocked by `P0-101B`, `P0-401`, `P0-402`, `P0-403`, `P0-302`
-
-### Home expansion
-
-- `P0-102B` blocked by `P0-102A`, `P0-203`, `P0-301`, `P0-302`
-- `P0-102C` blocked by `P0-102A`, `P0-302`, `P0-451`, `P0-461`, `P0-502` slices
-- `P0-102D` blocked by `P0-102A`, `P0-503`
-
-### Search follow-ons
-
-- `P0-103A` depends on `P0-101B`
-- `P0-103C` blocked by `P0-103B`, `P0-302`, `P0-301`, and the needed `P0-502` slice
-- `P0-103D` blocked by `P0-103C`, `P0-101A`
-- `P0-103E` blocked by `P0-101D`, `P0-601`, `P0-602`, `P0-502`
-- `P0-103F` blocked by `P0-103A`
-
-### Identity, provider, and context spine
-
-- Phase 3 is not complete yet. Only the baseline slices for `P0-301`, `P0-401`, and `P0-701A` are in place.
-- `P0-203` blocked by `P0-301`, `P0-302`, and the needed `P0-502` slice
-- `P0-204` closed for the current chain-scope baseline; later context-service integration continues in `P0-401` and `P0-402`
-- `P0-301` is startable now and should align to `P0-701A` without waiting for later enforcement
-- `P0-701A` is startable now with shell/service seams, but full boundary enforcement still waits for `P0-402` and `P0-701B`
-- `P0-302` blocked by `P0-301`, `P0-401`, and the needed `P0-502` slice
-- `P0-303` blocked by `P0-301`, `P0-302`, and the needed `P0-502` slice
-- `P0-401` is startable now; full completion still depends on `P0-302`
-- `P0-402` blocked by `P0-401`, `P0-301`, `P0-302`, `P0-701A`, and the needed `P0-502` slice
-- `P0-403` blocked by `P0-101C`, `P0-402`, `P0-503`
-
-### Library and detail surfaces
-
-- `P0-452` blocked by `P0-451`, `P0-502`, `P0-702`
-- `P0-462` blocked by `P0-461`, `P0-103D`, `P0-502`, `P0-702`
-
-### Policy, boundaries, and hardening
-
-- `P0-602` blocked by `P0-601`, `P0-502`, `P0-701A`
-- `P0-701B` blocked by `P0-602`, `P0-701A`, `P0-402`
-- `P0-702` blocked by `P0-452`, `P0-462`, `P0-101D`, `P0-602`
-- `P0-703` blocked by `P0-602`, `P0-701B`, `P0-502B`
-- `P0-801` blocked by `P0-451`, `P0-302`, `P0-303`
-- `P0-802` blocked by `P0-503`, `P0-451`, `P0-461`
-- `P0-803` stays later; it is not being pulled earlier
-
-## Recommended Execution Sequence
-
-### Tier 1
-
-- `P0-101E`
-- `P0-101B`
-- `P0-101D`
-
-### Tier 2
-
-- `P0-202`
-- `P0-601`
-
-### Tier 3
-
-- `P0-204`
-- `P0-401`
-- `P0-301`
-- `P0-701A`
-
-### Tier 4
-
-- `P0-502` initial slices
-- `P0-302`
-- `P0-402`
-- `P0-303`
-- `P0-203`
-
-### Tier 5
-
-- `P0-503`
 - `P0-101C`
-- `P0-403`
-- `P0-451`
-- `P0-461`
-- `P0-102A`
-- `P0-103B`
-
-### Tier 6
-
-- `P0-102E`
 - `P0-102B`
 - `P0-102C`
 - `P0-102D`
+- `P0-103A`
+- `P0-103C`
+- `P0-103D`
+- `P0-103E`
+- `P0-103F`
+- `P0-403`
 - `P0-452`
 - `P0-462`
+- `P0-502B`
+- `P0-602`
+- `P0-701B`
+- `P0-702`
+- `P0-703`
+- `P0-801`
+- `P0-802`
+- `P0-803`
 
-### Tier 7
+## Corrected Dependency Read
+
+### `P0-101B` before `P0-601`
+
+This sequence is finished, not merely agreed:
+
+1. `P0-101B` landed for the current chrome contract.
+2. `P0-601` formalized Observe-only mode ownership and receipt inclusion.
+
+### `P0-502` remains incremental
+
+The original slicing rule still stands, but the report must now acknowledge completed slices:
+
+- `P0-502` active account and chain-scope integration is complete
+- `P0-502B` remains the broad verification and cleanup pass
+
+### `P0-701` remains split
+
+- `P0-701A` is in progress as structural scaffolding
+- `P0-701B` remains the later enforcement pass
+
+### Context and provider work moved forward materially
+
+Older planning assumed the following work was still pending before many downstream tickets could move:
+
+- `P0-302`
+- `P0-303`
+- `P0-402`
+
+That assumption is stale. Those slices are now delivered for their current Phase 0 scope, which changes the real downstream posture.
+
+## Practical Next Sequence
+
+Given the current repo state, the most defensible next sequencing is:
+
+### Finish The Active Spine
+
+- `P0-301`
+- `P0-401`
+- `P0-701A`
+
+### Then Unblock Chrome And Context Follow-Ons
+
+- `P0-101C`
+- `P0-403`
+
+### In Parallel, Continue Placeholder-Safe Surface Work
+
+- `P0-102A`
+- `P0-102E`
+- `P0-451`
+- `P0-461`
+
+### After That, Tackle The Remaining Search And Library Follow-Ons
 
 - `P0-103A`
 - `P0-103C`
 - `P0-103D`
 - `P0-103F`
 - `P0-103E`
+- `P0-452`
+- `P0-462`
 
-### Tier 8
+### Leave Hardening And Policy Passes Late
 
 - `P0-602`
 - `P0-701B`
 - `P0-702`
 - `P0-703`
 - `P0-502B`
-
-### Tier 9
-
 - `P0-801`
 - `P0-802`
 - `P0-803`
 
-## Rule For Future Planning
+## Planning Rule Going Forward
 
-If a ticket can start with placeholder-backed or parser-only work that breaks a dependency cycle cleanly, prefer that over declaring the whole feature blocked.
+If a ticket has a newer completion report, strategy status, or handoff summary that contradicts an older dependency note, update the global report to the newer artifact instead of preserving the older planning assumption.

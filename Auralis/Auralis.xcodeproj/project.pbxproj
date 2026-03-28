@@ -102,13 +102,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		6F81C0E92F68394900A6EA77 /* Accounts */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Accounts;
-			sourceTree = "<group>";
-		};
 		6FB1D9B02D8D117E00CD1B30 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -129,7 +122,6 @@
 				6F81C0E52F678AE300A6EA77 /* P0-201-Dependency-Report.md */,
 				6F81C0F72F68B6FC00A6EA77 /* P0-501-Strategy.md */,
 				6F81C0F82F68B6FC00A6EA77 /* P0-501-Dependency-Report.md */,
-				6F81C0E92F68394900A6EA77 /* Accounts */,
 			);
 			sourceTree = "<group>";
 		};

@@ -196,7 +196,7 @@ Why:
 
 ## Suggested Next Concrete Sprint
 
-If the goal is to continue implementation immediately with the least churn, begin here:
+If the goal is to continue implementation immediately with the least churn, finish the still-open Phase 3 spine work first:
 
 1. `P0-401`
 2. `P0-301`
@@ -204,19 +204,21 @@ If the goal is to continue implementation immediately with the least churn, begi
 
 That gives the project:
 
-- a real context snapshot contract
-- a provider-facing seam for read-only fetches
-- early structural boundaries before the service layer spreads
+- a fully closed context snapshot contract instead of a schema-first baseline
+- a finished provider seam instead of a partial injected slice
+- structural scaffolding that is ready for downstream chrome and surface work
 
 ## Suggested Following Sprint
 
-After that, move directly into fetch/cache assembly:
+After that, move into the blocked-but-nearest user-facing follow-ons that depend on the spine:
 
-1. `P0-502` initial slices
-2. `P0-302`
-3. `P0-402`
-4. `P0-303`
-5. `P0-203`
+1. `P0-101C`
+2. `P0-403`
+3. `P0-102A`
+4. `P0-451`
+5. `P0-461`
+
+That sequence turns the finished shell/context baseline into visible product surfaces instead of reopening already completed fetch, cache, and receipt-foundation tickets.
 
 ## Notes On Interpretation
 
