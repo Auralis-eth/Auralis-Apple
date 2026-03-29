@@ -5,7 +5,6 @@ struct GlobalChromeView: View {
     let onOpenAccountSwitcher: () -> Void
     let onOpenContextInspector: () -> Void
     let onOpenSearch: () -> Void
-    @Environment(\.modeState) private var modeState
 
     var body: some View {
         AuraSurfaceCard(style: .soft, cornerRadius: 26, padding: 16) {
@@ -18,20 +17,22 @@ struct GlobalChromeView: View {
                     systemImage: "eye",
                     emphasis: .accent,
                     imageSize: .title3.weight(.semibold),
-                    accessibilityLabel: modeState.mode.rawValue
+                    accessibilityLabel: snapshot.modeDisplay
                 )
-                .accessibilityHint("Mode badge is provided by global mode state.")
+                .accessibilityHint("Mode is sourced from the shared shell context snapshot.")
                 
                 Button(action: onOpenContextInspector) {
                     AuraPill(
                         systemImage: "gyroscope",
                         emphasis: .accent,
                         imageSize: .title3.weight(.semibold),
-                        accessibilityLabel: modeState.mode.rawValue
+                        accessibilityLabel: snapshot.freshnessLabel
                     )
                     .accessibilityHidden(true)
                 }
                 .accessibilityLabel("Context")
+                .accessibilityValue(snapshot.freshnessLabel)
+                .accessibilityHint("Shows scope and freshness details for \(snapshot.scopeSummary).")
 
                 Button(action: onOpenSearch) {
                     AuraPill(

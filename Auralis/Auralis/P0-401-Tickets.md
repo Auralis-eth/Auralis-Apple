@@ -29,6 +29,8 @@ Do not build throwaway scaffolding. It is acceptable to ship the typed schema an
 - wired playlist count and scoped receipt count into the context contract through local, non-provider-backed inputs
 - replaced the hard-coded demo-data flag with the active account's guest-pass state
 - expanded the chrome context inspector so schema consumers can see library pointers, preferences, placeholder-safe balance fields, and freshness metadata from the shared snapshot
+- moved the chrome mode badge and context accessibility metadata onto snapshot-backed mode, freshness, and scope labels
+- pushed snapshot scope text into the NFT empty-library shell state so that path stops free-styling account/chain context
 - kept the remaining deferred behavior explicit instead of inventing fake provider-backed balance data
 
 ## Remaining Notes
@@ -36,6 +38,8 @@ Do not build throwaway scaffolding. It is acceptable to ship the typed schema an
 This ticket is not yet a defensible "100% complete" close because the schema still carries intentionally deferred fields:
 
 - some preference and downstream module fields remain placeholder-safe until their owning surfaces become real
+- broader shell surfaces still pass scope around with direct bindings where switching them to snapshot-backed reads would risk stale-route behavior before the next context/chrome tickets land
+- freshness-pill interaction, dedicated stale refresh affordances, and receipt linkage in the inspector are still downstream `P0-101C` / `P0-403` work, not part of this pass
 
 Validation completed in this pass:
 

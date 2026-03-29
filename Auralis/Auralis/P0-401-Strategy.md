@@ -33,6 +33,8 @@ Missing values must remain valid, provenance rules must stay consistent, and the
 - The schema now records whether the active account is running through the guest-pass/demo path instead of hard-coding that preference to false.
 - The chrome inspector reads the new snapshot instead of the older ad hoc shape and now exposes library, preference, balance, provenance, and freshness sections from the shared contract.
 - Provider-backed native balance display now flows through `ContextService` for supported scopes.
+- The chrome mode and context affordances now read mode/freshness labels from `ContextSnapshot` instead of mixing in separate ad hoc shell values.
+- Shell empty-library messaging can now describe the active scope from the shared snapshot where that scope is already available.
 
 ## Definition Of Done
 
@@ -51,5 +53,5 @@ This ticket is materially further along as a schema-first implementation, but it
 The main remaining blockers are:
 
 - any remaining freshness-policy cleanup if the final TTL ownership changes downstream
-- broader downstream adoption outside the current shell and inspector path
+- broader downstream adoption outside the current shell, inspector, and the first snapshot-backed empty-state path
 - replacing the remaining placeholder-safe preference fields only when real owning surfaces exist

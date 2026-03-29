@@ -105,6 +105,34 @@ There was a second trap hiding behind that first one: `NFTService` is main-actor
 
 This is a classic observability lesson: if one number is standing in for four different kinds of work, users will assume the worst and engineers will end up debugging ghosts. It is also a good reminder that in UI code, "the state changed" and "the user saw the change" are not the same thing.
 
+### Shell Context: Stop Letting The Chrome Freelance
+
+Another small but important cleanup landed in the shell spine work. The app already had `ContextSnapshot`, but a few chrome and shell-adjacent paths were still doing the engineering equivalent of calling a teammate instead of checking the source of truth.
+
+Two examples:
+
+- the chrome mode badge was still leaning on `modeState` directly instead of the shared snapshot contract
+- `MainTabView` was reaching into SwiftData itself just to count playlists and scoped receipts for context assembly
+
+Neither of those is a production fire by itself. Together, they are how a shell slowly turns back into folklore.
+
+This pass tightened that up by:
+
+- moving chrome mode and context accessibility labels onto `ContextSnapshot`
+- adding a shell-facing library-context provider seam in `ShellServiceHub`
+- routing the context library counts through that seam instead of teaching `MainTabView` about `Playlist` and `StoredReceipt` fetch details
+- letting the empty NFT library state describe the active snapshot scope when that context is already available
+
+The key lesson is boring in the best possible way: once you introduce a shared context contract, do not let the shell keep smuggling in side facts through the kitchen door. If a view needs shell truth, the first question should be, "can the snapshot already say this?"
+
+What is still intentionally not solved here:
+
+- freshness-pill interaction behavior from `P0-101C`
+- receipt linkage inside the inspector from `P0-403`
+- full compile-time anti-bypass enforcement from `P0-701B`
+
+That is good restraint, not unfinished homework disguised as architecture.
+
 ## Engineer's Wisdom
 
 Good engineering in this project usually means refusing fake certainty.

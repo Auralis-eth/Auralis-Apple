@@ -29,6 +29,7 @@ If this starts too late, feature tickets bake in cross-layer shortcuts that beco
 - A live `ShellServiceHub` now provides shell-facing seams for context-source building, receipt-store creation, policy handling, and service construction.
 - Receipt-backed account, NFT refresh, and receipt reset flows now build through a shared receipt-store factory seam instead of naming `SwiftDataReceiptStore` everywhere.
 - The shell policy UI now talks to a policy action service instead of constructing receipt storage directly.
+- Shell context-library counts now build through a shared library-context provider seam instead of having `MainTabView` query SwiftData models directly.
 
 ## Definition Of Done
 

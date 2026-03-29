@@ -198,10 +198,6 @@ struct MainTabView: View {
     @State private var showContextInspector = false
     @State private var contextService: ContextService
 
-    private var policyActionHandler: any ObservePolicyActionHandling {
-        services.policyActionHandlerFactory(modelContext, modeState)
-    }
-
     private var contextRefreshKey: ContextRefreshKey {
         ContextRefreshKey(
             accountAddress: currentAccount?.address ?? currentAddress,
@@ -238,6 +234,7 @@ struct MainTabView: View {
         self.audioUnavailableMessage = audioUnavailableMessage
         self.modeState = modeState
         self.services = services
+        let libraryContextProvider = services.libraryContextProviderFactory(modelContext)
         _contextService = State(
             initialValue: services.contextServiceBuilder.makeContextService(
                 accountProvider: { currentAccount.wrappedValue },
@@ -249,12 +246,15 @@ struct MainTabView: View {
                 nativeBalanceProvider: services.readOnlyProviderFactory.makeNativeBalanceProvider(),
                 freshnessTTLProvider: { nftService.wrappedValue.refreshTTL },
                 trackedNFTCountProvider: { currentAccount.wrappedValue?.trackedNFTCount },
-                musicCollectionCountProvider: { Self.playlistCount(in: modelContext) },
+                musicCollectionCountProvider: {
+                    libraryContextProvider.playlistCount()
+                },
                 receiptCountProvider: {
-                    Self.receiptCount(
-                        in: modelContext,
-                        accountAddress: currentAddress.wrappedValue,
-                        chain: currentChain.wrappedValue
+                    libraryContextProvider.receiptCount(
+                        scope: ReceiptTimelineScope(
+                            accountAddress: currentAddress.wrappedValue,
+                            chain: currentChain.wrappedValue
+                        )
                     )
                 },
                 prefersDemoDataProvider: {
@@ -483,6 +483,7 @@ struct MainTabView: View {
                     NFTTokensRootView(
                         currentAccount: currentAccount,
                         currentChain: currentChain,
+                        contextSnapshot: contextService.snapshot,
                         nftService: nftService,
                         refreshAction: refreshActiveScopeFromUserAction,
                         router: router
@@ -512,37 +513,6 @@ struct MainTabView: View {
         default:
             Color.background
                 .ignoresSafeArea()
-        }
-    }
-}
-
-private extension MainTabView {
-    static func playlistCount(in modelContext: ModelContext) -> Int? {
-        do {
-            return try modelContext.fetch(FetchDescriptor<Playlist>()).count
-        } catch {
-            return nil
-        }
-    }
-
-    static func receiptCount(
-        in modelContext: ModelContext,
-        accountAddress: String,
-        chain: Chain
-    ) -> Int? {
-        do {
-            let receipts = try modelContext.fetch(FetchDescriptor<StoredReceipt>())
-            let scope = ReceiptTimelineScope(
-                accountAddress: accountAddress,
-                chain: chain
-            )
-            return receipts
-                .lazy
-                .map(ReceiptTimelineRecord.init(storedReceipt:))
-                .filter { $0.matches(scope) }
-                .count
-        } catch {
-            return nil
         }
     }
 }
@@ -728,6 +698,7 @@ private struct NFTTokensRootView: View {
     @Query private var nfts: [NFT]
     let currentAccount: EOAccount?
     let currentChain: Chain
+    let contextSnapshot: ContextSnapshot
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
     let router: AppRouter
@@ -735,12 +706,14 @@ private struct NFTTokensRootView: View {
     init(
         currentAccount: EOAccount?,
         currentChain: Chain,
+        contextSnapshot: ContextSnapshot,
         nftService: NFTService,
         refreshAction: @escaping @MainActor () async -> Void,
         router: AppRouter
     ) {
         self.currentAccount = currentAccount
         self.currentChain = currentChain
+        self.contextSnapshot = contextSnapshot
         self.nftService = nftService
         self.refreshAction = refreshAction
         self.router = router
@@ -766,7 +739,10 @@ private struct NFTTokensRootView: View {
                             retry: refresh
                         )
                     } else {
-                        ShellEmptyLibraryStateView(kind: .nft)
+                        ShellEmptyLibraryStateView(
+                            kind: .nft,
+                            snapshot: contextSnapshot
+                        )
                     }
                 }
             } else {

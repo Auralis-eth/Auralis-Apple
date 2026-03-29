@@ -38,6 +38,12 @@ protocol ShellContextServiceBuilding {
     ) -> ContextService
 }
 
+@MainActor
+protocol ShellLibraryContextProviding {
+    func playlistCount() -> Int?
+    func receiptCount(scope: ReceiptTimelineScope) -> Int?
+}
+
 struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
     func makeContextSource(
         accountProvider: @escaping () -> EOAccount?,
@@ -71,6 +77,36 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
             receiptCountProvider: receiptCountProvider,
             prefersDemoDataProvider: prefersDemoDataProvider
         )
+    }
+}
+
+@MainActor
+struct SwiftDataShellLibraryContextProvider: ShellLibraryContextProviding {
+    private let modelContext: ModelContext
+
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+    }
+
+    func playlistCount() -> Int? {
+        do {
+            return try modelContext.fetch(FetchDescriptor<Playlist>()).count
+        } catch {
+            return nil
+        }
+    }
+
+    func receiptCount(scope: ReceiptTimelineScope) -> Int? {
+        do {
+            let receipts = try modelContext.fetch(FetchDescriptor<StoredReceipt>())
+            return receipts
+                .lazy
+                .map(ReceiptTimelineRecord.init(storedReceipt:))
+                .filter { $0.matches(scope) }
+                .count
+        } catch {
+            return nil
+        }
     }
 }
 
@@ -148,6 +184,7 @@ struct ShellServiceHub {
     let ensResolverFactory: @MainActor (ModelContext) -> any ENSResolving
     let readOnlyProviderFactory: ReadOnlyProviderFactory
     let contextServiceBuilder: any ShellContextServiceBuilding
+    let libraryContextProviderFactory: @MainActor (ModelContext) -> any ShellLibraryContextProviding
     let receiptStoreFactory: @MainActor (ModelContext) -> any ReceiptStore
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any ObservePolicyActionHandling
 
@@ -169,6 +206,9 @@ struct ShellServiceHub {
             },
             readOnlyProviderFactory: readOnlyProviderFactory,
             contextServiceBuilder: LiveShellContextServiceBuilder(),
+            libraryContextProviderFactory: { modelContext in
+                SwiftDataShellLibraryContextProvider(modelContext: modelContext)
+            },
             receiptStoreFactory: { modelContext in
                 ReceiptStores.live(modelContext: modelContext)
             },

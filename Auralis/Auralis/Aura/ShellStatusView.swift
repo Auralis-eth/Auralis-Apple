@@ -181,27 +181,55 @@ enum ShellLibraryKind {
 
 struct ShellEmptyLibraryStateView: View {
     let kind: ShellLibraryKind
+    let snapshot: ContextSnapshot?
+
+    init(kind: ShellLibraryKind, snapshot: ContextSnapshot? = nil) {
+        self.kind = kind
+        self.snapshot = snapshot
+    }
 
     var body: some View {
         ShellStatusCard(
             eyebrow: "Library",
             title: kind.title,
-            message: kind.message,
+            message: libraryMessage,
             systemImage: kind.systemImage,
             tone: .neutral
         )
     }
+
+    private var libraryMessage: String {
+        guard let snapshot else {
+            return kind.message
+        }
+
+        return "\(kind.message) Active scope: \(snapshot.scopeSummary)."
+    }
 }
 
 struct ShellNoReceiptsStateView: View {
+    let snapshot: ContextSnapshot?
+
+    init(snapshot: ContextSnapshot? = nil) {
+        self.snapshot = snapshot
+    }
+
     var body: some View {
         ShellStatusCard(
             eyebrow: "Receipts",
             title: "No Receipts Recorded Yet",
-            message: "Receipt history starts once Auralis records account and refresh events. Until then, there is nothing to inspect or export from this device.",
+            message: receiptMessage,
             systemImage: "doc.text.magnifyingglass",
             tone: .neutral
         )
+    }
+
+    private var receiptMessage: String {
+        guard let snapshot else {
+            return "Receipt history starts once Auralis records account and refresh events. Until then, there is nothing to inspect or export from this device."
+        }
+
+        return "Receipt history starts once Auralis records account and refresh events. Until then, there is nothing to inspect or export from this device for \(snapshot.scopeSummary)."
     }
 }
 
@@ -216,8 +244,8 @@ struct ShellNoReceiptsStateView: View {
             if let previewFailure {
                 ShellProviderFailureStateView(failure: previewFailure) { }
             }
-            ShellEmptyLibraryStateView(kind: .music)
-            ShellNoReceiptsStateView()
+            ShellEmptyLibraryStateView(kind: .music, snapshot: nil)
+            ShellNoReceiptsStateView(snapshot: nil)
         }
     }
 }

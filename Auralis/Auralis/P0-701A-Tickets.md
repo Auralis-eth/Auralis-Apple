@@ -22,3 +22,9 @@ Confirm that new work routes through explicit services and seams rather than dir
 ## Handoff Rule
 
 This ticket prepares the structure. It should not pretend compile-time enforcement is already solved, but it should leave obvious live service seams that new work can use immediately.
+
+## Latest Completion Note
+
+- added a shell-facing library-context provider seam so `ContextService` inputs no longer require `MainTabView` to fetch `Playlist` and `StoredReceipt` models itself
+- kept the change narrow by routing only the existing context-library count reads through that seam, rather than broadening it into a full storage abstraction pass
+- left deeper read-path enforcement and feature-wide boundary cleanup for `P0-701B` and later service-layer work
