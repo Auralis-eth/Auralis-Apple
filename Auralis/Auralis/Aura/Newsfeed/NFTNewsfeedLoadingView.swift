@@ -40,6 +40,7 @@ struct NFTNewsfeedLoadingView: View {
                     .padding(.top)
             }
             HeadlineFontText(titleText)
+                .lineLimit(2, reservesSpace: true)
                 .padding(.top, 16)
             LoadingProgressView(total: total, itemsLoaded: itemsLoaded, phase: phase)
         }
@@ -135,6 +136,7 @@ struct LoadingProgressView: View {
 
             // Status text
             SubheadlineFontText(statusText)
+                .lineLimit(2, reservesSpace: true)
         }
         .frame(maxWidth: .infinity)
         .padding()
