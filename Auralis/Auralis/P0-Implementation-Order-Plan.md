@@ -31,7 +31,9 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-401` is now in progress as a stronger schema-first slice: `ContextSnapshot` exists, the shell inspector reads it, provenance-bearing scope/freshness fields are formalized, local playlist and scoped-receipt counts now feed the schema, guest-pass/demo preference is represented in the shared contract, and provider-backed native balance now flows through `ContextService`.
 - `P0-301` is now complete for the current read-only provider slice: endpoint resolution is centralized, NFT fetching is injected, gas pricing is protocol-backed, the shell service hub owns the shared provider factory, and native balance is consumed by the shell-facing context layer.
 - `P0-701A` is now in progress as a structural scaffolding slice: root-owned mode state, a shell service hub, and shared receipt-store factories are in place.
-- `P0-101C` remains blocked on `P0-302`, `P0-401`, `P0-402`, and `P0-403`.
+- `P0-101C` is now in progress under the context-sheet interpretation: the chrome still opens a dedicated inspector entry, and the inspector freshness section now handles stale labeling plus explicit refresh.
+- `P0-403` is now in progress as the first real context-inspector slice: the sheet has a Why-am-I-seeing-this section and can link to the latest scoped `context.built` receipt.
+- `P0-102A` is now in progress as a conservative Home dashboard pass: the scenic glass aesthetic remains intact while Home is reorganized into identity, modules, recent activity, quick links, and temporary profile-studio sections.
 
 ## Remediation Closeout
 
@@ -53,7 +55,9 @@ Closeout summary:
 - `P0-401`: in progress as a stronger schema-first baseline; the remaining gaps are broader adoption and a few still-placeholder-safe fields, not missing balance/provider wiring
 - `P0-301`: complete for the current injected read-only provider baseline; later token-surface consumers and stricter ownership cleanup remain deferred
 - `P0-701A`: in progress as a shell/service scaffolding baseline; strict boundary enforcement remains deferred to `P0-701B`
-- `P0-101C`: still blocked pending the real context/freshness stack
+- `P0-101C`: in progress for the current context-sheet freshness interaction slice
+- `P0-403`: in progress for the current receipt-aware inspector slice
+- `P0-102A`: in progress for the current Home dashboard shell slice
 
 ## Planning Rules
 
@@ -136,12 +140,12 @@ Why:
 
 15. `P0-503` Receipts UI (Completed for scoped receipts timeline/detail slice)
 21. `P0-103B` Query parser + type detection (Completed for deterministic local parser + inline detection feedback slice)
-16. `P0-101C` Context Bar behavior + interactions
-17. `P0-403` Context inspector UI
+16. `P0-101C` Context Bar behavior + interactions (In progress for context-sheet freshness interaction slice)
+17. `P0-403` Context inspector UI (In progress for receipt-aware inspector slice)
 
 18. `P0-451` Music library index + storage
 19. `P0-461` Token holdings list
-20. `P0-102A` Home layout v0
+20. `P0-102A` Home layout v0 (In progress for dashboard shell slice)
 
 
 Why:
@@ -211,15 +215,15 @@ That gives the project:
 
 ## Suggested Following Sprint
 
-After that, move into the blocked-but-nearest user-facing follow-ons that depend on the spine:
+After that, move into the nearest user-facing follow-ons that deepen the now-landed shell/context surfaces:
 
-1. `P0-101C`
-2. `P0-403`
-3. `P0-102A`
+1. `P0-102B`
+2. `P0-102C`
+3. `P0-102D`
 4. `P0-451`
 5. `P0-461`
 
-That sequence turns the finished shell/context baseline into visible product surfaces instead of reopening already completed fetch, cache, and receipt-foundation tickets.
+That sequence deepens the now-visible shell/context/Home surfaces instead of reopening already completed fetch, cache, and receipt-foundation tickets.
 
 ## Notes On Interpretation
 

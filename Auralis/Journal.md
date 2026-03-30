@@ -150,6 +150,30 @@ That matters because it keeps the mental model clean. The chrome opens context. 
 
 It is also a nice example of not worshipping the original ticket wording. Good engineering is not blindly implementing the sentence; it is preserving the intent while fitting the actual product shape.
 
+### Home Needed A Better Floor Plan, Not New Furniture
+
+The Home screen already had a vibe. That was never the problem.
+
+It had the scenic background, the glassy cards, the profile image generation experiment, and a nice sense that the app had a personality. The actual problem was more architectural: the room layout felt like someone kept setting down useful objects wherever there happened to be table space.
+
+This `P0-102A` pass treated Home like a floor-plan cleanup:
+
+- keep the same atmosphere
+- keep the profile-generation path for now
+- stop mixing dashboard content, launch points, and temporary controls into one undifferentiated stack
+
+So Home now reads in sections:
+
+- identity
+- modules
+- recent activity
+- quick links
+- temporary profile studio controls
+
+That is a deceptively valuable kind of progress. It does not look like a flashy redesign, but it makes the next tickets much less likely to turn the Home screen into a junk drawer.
+
+This is one of those senior-engineer habits that pays off later: when a surface already has the right aesthetic, do not \"improve\" it by throwing away the personality. Improve the structure so future work has somewhere sane to live.
+
 ## Engineer's Wisdom
 
 Good engineering in this project usually means refusing fake certainty.

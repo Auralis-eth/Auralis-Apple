@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially blocked
+In Progress
 
 ## Ticket
 
@@ -31,3 +31,18 @@ Show onboarding when no account exists, keep the dashboard navigable when contex
 ## Validation Target
 
 Render with demo or offline data, render with real cached context, verify tile routing, and open receipt details from recent activity.
+
+## Current Slice
+
+- `HomeTabView` now reads as a structured dashboard instead of a loose stack of cards and utility actions
+- the scenic background and glass-card visual language remain intact by product choice
+- Home now has explicit sections for identity, modules, recent activity, quick links, and temporary profile-studio controls
+- recent activity now shows a scoped local receipts preview and routes into receipt detail
+- quick links now provide deliberate navigation into News, Search, and Receipts without waiting for later Home card tickets
+
+## Remaining Work
+
+- richer active-account summary belongs to `P0-102B`
+- module counts, freshness, and receipt shortcuts belong to `P0-102C`
+- deeper recent-activity shaping belongs to `P0-102D`
+- first-run and empty-state specialization belongs to `P0-102E`

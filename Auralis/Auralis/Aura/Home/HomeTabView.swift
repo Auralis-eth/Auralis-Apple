@@ -1,6 +1,8 @@
 import SwiftUI
 import SwiftData
 import ImagePlayground
+import Foundation
+import CryptoKit
 
 struct HomeLogoutPlan {
     let shouldDeleteNFTs: Bool
@@ -25,162 +27,240 @@ struct HomeTabView: View {
     @Binding var currentAddress: String
     @Binding var currentChainId: String
     @Binding var currentChain: Chain
+    @Query(
+        sort: [
+            SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
+            SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
+        ]
+    ) private var storedReceipts: [StoredReceipt]
+
     let onCurrentChainChanged: @MainActor (Chain, String) -> Void
     let router: AppRouter
     let ensResolver: any ENSResolving
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Namespace var namespace
-    let transitionID: String = "HomeTabView"
-    
-    // MARK: - Background image state
-    @State private var isPresented: Bool = false
-    @State private var presentDialog: Bool = false
-    @State private var isLoading: Bool = false
+
+    @Namespace private var namespace
+    private let transitionID = "HomeTabView"
+    private let logic = HomeTabLogic()
+
+    @State private var isPresented = false
+    @State private var isLoading = false
     @State private var generatedImages: [UIImage]?
-    @State private var errorMessage: String? = nil
-    @State private var showErrorAlert: Bool = false
-    @State private var selectedImage: UIImage? = nil
+    @State private var errorMessage: String?
+    @State private var showErrorAlert = false
+    @State private var selectedImage: UIImage?
     @State private var scene: AuroraScene = .mountain
     @State private var showAccountSwitcher = false
     @State private var activeImageGenerationID = UUID()
-    private let logic = HomeTabLogic()
-
-    
-    /// Simple memo cache to avoid recompute in hot paths
     @State private var promptCache = [String: [ImagePlaygroundConcept]]()
-    
-    // MARK: - Avatar image state & cache
-    @State private var avatarImage: UIImage? = nil
-    
+    @State private var avatarImage: UIImage?
+
+    private var receiptScope: ReceiptTimelineScope {
+        ReceiptTimelineScope(
+            accountAddress: currentAccount?.address ?? currentAddress,
+            chain: currentChain
+        )
+    }
+
+    private var recentActivity: [ReceiptTimelineRecord] {
+        storedReceipts
+            .map(ReceiptTimelineRecord.init)
+            .filter { $0.matches(receiptScope) }
+            .prefix(5)
+            .map { $0 }
+    }
+
     var body: some View {
         ScrollView {
-            VStack {
-                VStack(spacing: 12) {
-                    AuraSurfaceCard(style: .soft, cornerRadius: 25, padding: 8) {
-                        ProfileCardView(
-                            currentAccount: $currentAccount,
-                            currentAddress: $currentAddress,
-                            avatarImage: $avatarImage,
-                            ensResolver: ensResolver,
-                            onOpenAccountSwitcher: {
-                                showAccountSwitcher = true
-                            }
-                        )
-                    }
-                    AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-                        EnergyCardView(time: Date())
-                    }
-                    
-                    tileLayout
-                    AuraActionButton("Open News Feed", systemImage: "bubble.right") {
-                        router.selectedTab = .news
-                    }
-                    .accessibilityIdentifier("home.openNews")
-                    
-                }
-                .padding()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background {
-                    // Background image or avatar image overlay:
-                    if let firstImage = selectedImage ?? generatedImages?.first {
-                        Image(uiImage: firstImage)
-                            .resizable()
-                            .scaledToFill()
-                            .ignoresSafeArea()
-                    } else {
-                        GatewayBackgroundImage()
-                            .ignoresSafeArea()
-                    }
-                    Color.background.opacity(0.3)
-                        .ignoresSafeArea()
-                }
-                
-                VStack {
-                    Button("Logout") {
-                        logout()
-                    }
-                    .accessibilityIdentifier("home.logout")
-                    
-                    Button("Show Image Preview") {
-                        Task {
-                            if generatedImages?.isEmpty != false {
-                                await generateImage()
-                            }
+            VStack(alignment: .leading, spacing: 16) {
+                identitySection
+                modulesSection
+                recentActivitySection
+                quickLinksSection
+                creationStudioSection
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background {
+            backgroundVisual
+        }
+        .sheet(isPresented: $isPresented) {
+            imagePreviewSheet
+        }
+        .sheet(isPresented: $showAccountSwitcher) {
+            AccountSwitcherSheet(
+                currentAccount: $currentAccount,
+                currentAddress: $currentAddress,
+                currentChain: $currentChain,
+                onAccountSelectionStarted: { _ in },
+                onCurrentChainChanged: onCurrentChainChanged
+            )
+        }
+        .overlay {
+            if isLoading {
+                loadingOverlay
+            }
+        }
+        .alert("Error", isPresented: $showErrorAlert, actions: {
+            Button("Dismiss", role: .cancel) {
+                showErrorAlert = false
+            }
+        }, message: {
+            if let errorMessage {
+                Text(errorMessage)
+            }
+        })
+    }
 
-                            guard generatedImages?.isEmpty == false else {
-                                return
-                            }
+    private var backgroundVisual: some View {
+        Group {
+            if let firstImage = selectedImage ?? generatedImages?.first {
+                Image(uiImage: firstImage)
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
+            } else {
+                GatewayBackgroundImage()
+                    .ignoresSafeArea()
+            }
 
-                            isPresented = true
-                        }
+            Color.background.opacity(0.3)
+                .ignoresSafeArea()
+        }
+    }
+
+    private var identitySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            AuraSectionHeader(
+                title: "Home",
+                subtitle: "Your scoped dashboard for identity, modules, and recent local activity."
+            )
+
+            AuraSurfaceCard(style: .soft, cornerRadius: 25, padding: 8) {
+                ProfileCardView(
+                    currentAccount: $currentAccount,
+                    currentAddress: $currentAddress,
+                    avatarImage: $avatarImage,
+                    ensResolver: ensResolver,
+                    onOpenAccountSwitcher: {
+                        showAccountSwitcher = true
                     }
-                    .accessibilityIdentifier("home.showImagePreview")
-                    .disabled(isLoading)
-                    .padding(.bottom, 8)
-                }
-                .sheet(isPresented: $isPresented) {
-                    VStack {
-                        if let images = generatedImages {
-                            GalleryGrid(images: images, selectedScene: $scene) { picked in
-                                selectedImage = picked
-                                generatedImages = [picked]
-                                isPresented = false
-                            } onRegenerate: {
-                                await generateImage()
+                )
+            }
+
+            AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+                EnergyCardView(time: Date())
+            }
+        }
+    }
+
+    private var modulesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            AuraSectionHeader(
+                title: "Modules",
+                subtitle: "Core surfaces stay reachable while richer Home cards land in later passes."
+            )
+
+            tileLayout
+        }
+    }
+
+    private var recentActivitySection: some View {
+        AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+            VStack(alignment: .leading, spacing: 12) {
+                AuraSectionHeader(
+                    title: "Recent Activity",
+                    subtitle: "Latest receipts for \(receiptScope.displayLabel)",
+                    trailing: {
+                        Button("All Receipts") {
+                            router.showReceipts()
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.accent)
+                    }
+                )
+
+                if recentActivity.isEmpty {
+                    SecondaryText("No local receipt activity has been recorded for this scope yet.")
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(recentActivity) { record in
+                            Button {
+                                router.showReceipt(id: record.id.uuidString)
+                            } label: {
+                                HomeReceiptPreviewRow(record: record)
                             }
-                        } else {
-                            VStack(spacing: 24) {
-                                SystemImage("photo.on.rectangle")
-                                    .font(.system(size: 60))
-                                    .symbolRenderingMode(.hierarchical)
-                                    .foregroundStyle(.secondary)
-                                Text("No images to select")
-                                    .font(.title3)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding()
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("home.recentActivity.\(record.id.uuidString)")
                         }
                     }
-                    .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
                 }
-                .sheet(isPresented: $showAccountSwitcher) {
-                    AccountSwitcherSheet(
-                        currentAccount: $currentAccount,
-                        currentAddress: $currentAddress,
-                        currentChain: $currentChain,
-                        onAccountSelectionStarted: { _ in },
-                        onCurrentChainChanged: onCurrentChainChanged
-                    )
-                }
-                .overlay {
-                    
-                    // Overlay loading indicator blocking interaction for background images
-                    if isLoading {
-                        Color.black.opacity(0.25)
-                            .ignoresSafeArea()
-                        VStack {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(2)
-                            Text("Generating Images...")
-                                .foregroundStyle(.white)
-                                .font(.headline)
-                                .padding(.top, 16)
+            }
+        }
+    }
+
+    private var quickLinksSection: some View {
+        AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+            VStack(alignment: .leading, spacing: 12) {
+                AuraSectionHeader(
+                    title: "Quick Links",
+                    subtitle: "Fast jumps into the main shell surfaces."
+                )
+
+                if shouldStackTiles {
+                    VStack(spacing: 10) {
+                        quickLinkButton("Open News Feed", systemImage: "bubble.right", identifier: "home.openNews") {
+                            router.selectedTab = .news
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        quickLinkButton("Open Search", systemImage: "magnifyingglass", identifier: "home.openSearch") {
+                            router.showSearch()
+                        }
+                        quickLinkButton("Open Receipts", systemImage: "doc.text", identifier: "home.openReceipts") {
+                            router.showReceipts()
+                        }
+                    }
+                } else {
+                    HStack(spacing: 10) {
+                        quickLinkButton("Open News Feed", systemImage: "bubble.right", identifier: "home.openNews") {
+                            router.selectedTab = .news
+                        }
+                        quickLinkButton("Open Search", systemImage: "magnifyingglass", identifier: "home.openSearch") {
+                            router.showSearch()
+                        }
+                        quickLinkButton("Open Receipts", systemImage: "doc.text", identifier: "home.openReceipts") {
+                            router.showReceipts()
+                        }
                     }
                 }
-                .alert("Error", isPresented: $showErrorAlert, actions: {
-                    Button("Dismiss", role: .cancel) {
-                        showErrorAlert = false
+            }
+        }
+    }
+
+    private var creationStudioSection: some View {
+        AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+            VStack(alignment: .leading, spacing: 12) {
+                AuraSectionHeader(
+                    title: "Profile Studio",
+                    subtitle: "Temporary local controls for scenic backgrounds and device session state."
+                )
+
+                SecondaryText("The generated profile and aurora background flow stays in Home for now and can move later without changing the dashboard shell.")
+
+                if shouldStackTiles {
+                    VStack(spacing: 10) {
+                        imagePreviewButton
+                        logoutButton
                     }
-                }, message: {
-                    if let errorMessage = errorMessage {
-                        Text(errorMessage)
+                } else {
+                    HStack(spacing: 10) {
+                        imagePreviewButton
+                        logoutButton
                     }
-                })
+                }
             }
         }
     }
@@ -218,25 +298,93 @@ struct HomeTabView: View {
         .accessibilityIdentifier("home.openNFTTokens")
     }
 
+    private var imagePreviewButton: some View {
+        AuraActionButton("Show Image Preview", systemImage: "photo.on.rectangle", style: .surface) {
+            Task {
+                if generatedImages?.isEmpty != false {
+                    await generateImage()
+                }
+
+                guard generatedImages?.isEmpty == false else {
+                    return
+                }
+
+                isPresented = true
+            }
+        }
+        .accessibilityIdentifier("home.showImagePreview")
+        .disabled(isLoading)
+    }
+
+    private var logoutButton: some View {
+        AuraActionButton("Logout", systemImage: "rectangle.portrait.and.arrow.right", style: .surface) {
+            logout()
+        }
+        .accessibilityIdentifier("home.logout")
+    }
+
+    private var imagePreviewSheet: some View {
+        VStack {
+            if let images = generatedImages {
+                GalleryGrid(images: images, selectedScene: $scene) { picked in
+                    selectedImage = picked
+                    generatedImages = [picked]
+                    isPresented = false
+                } onRegenerate: {
+                    await generateImage()
+                }
+            } else {
+                VStack(spacing: 24) {
+                    SystemImage("photo.on.rectangle")
+                        .font(.system(size: 60))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.secondary)
+
+                    Text("No images to select")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+            }
+        }
+        .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
+    }
+
+    private var loadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.25)
+                .ignoresSafeArea()
+
+            VStack {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .scaleEffect(2)
+
+                Text("Generating Images...")
+                    .foregroundStyle(.white)
+                    .font(.headline)
+                    .padding(.top, 16)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
     private var shouldStackTiles: Bool {
         horizontalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize
     }
-    
-    // MARK: - Background Image Prompt Generation
-    
-    /// Build a deterministic, personalized Northern Lights prompt.
-    /// - Parameters:
-    ///   - address: Wallet address; ETH-like will be validated (0x + 40 hex).
-    ///   - chainId: Numeric/string chain id; subtly influences motif and intensity.
-    ///   - lane: Poster/Photoreal/Synthwave.
-    ///   - mood: Optional mood override; falls back to deterministic pick if nil/empty.
-    ///   - intensity: 0.0–1.0; if nil, derived deterministically (chain-biased).
-    ///   - scene: Prairie/Mountain/Lake silhouettes.
-    ///   - locationHint: Human hint (e.g., "Alberta night sky") to bias geography.
-    ///
-    /// - Returns: Array of ImagePlaygroundConcept.text atoms.
+
+    private func quickLinkButton(
+        _ title: String,
+        systemImage: String,
+        identifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        AuraActionButton(title, systemImage: systemImage, style: .surface, action: action)
+            .accessibilityIdentifier(identifier)
+    }
+
     @discardableResult
-    public func themedPrompt(
+    func themedPrompt(
         address: String,
         chainId: String,
         lane: AuroraLane = .photoreal,
@@ -245,8 +393,6 @@ struct HomeTabView: View {
         scene: AuroraScene = .prairie,
         locationHint: String = "Alberta night sky"
     ) -> [ImagePlaygroundConcept] {
-
-        // Normalize inputs
         let addr = address
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
@@ -255,125 +401,88 @@ struct HomeTabView: View {
             .lowercased()
 
         let hasValidAddr = addr.isValidEthAddress()
-
-        // Cache key (parameters included)
         let key = "\(addr)|\(chain)|\(lane.rawValue)|\(mood ?? "-")|\(intensity?.description ?? "-")|\(scene.rawValue)|\(locationHint)"
-        if let cached = promptCache[key] { return cached }
+        if let cached = promptCache[key] {
+            return cached
+        }
 
-        // Seed from address|chain (cryptographic, deterministic)
         let bytes = (addr + "|" + chain).seedBytes
 
-        // Deterministic pick helper
         @inline(__always)
-        func pick<T>(_ arr: [T], _ b: Int) -> T { arr[Int(bytes[b]) % arr.count] }
+        func pick<T>(_ arr: [T], _ byteIndex: Int) -> T {
+            arr[Int(bytes[byteIndex]) % arr.count]
+        }
 
-        // Mood (explicit or seeded)
         let moodAtom = (mood?.isEmpty == false ? mood! : pick(AuroraConfig.moods, 5))
-
-        // Chain motif + chain-biased intensity
         let motif = AuroraConfig.chainThemes[chain] ?? "natural light physics emphasis"
-        let chainBias: Double = ["1","mainnet","ethereum","10","42161","8453","137"].contains(chain) ? 0.15 : 0.0
+        let chainBias: Double = ["1", "mainnet", "ethereum", "10", "42161", "8453", "137"].contains(chain) ? 0.15 : 0.0
         let seededIntensity = Double(bytes[9]) / 255.0
-        
         let kpi = max(0, min(1, (intensity ?? seededIntensity) + chainBias))
-        
-        // Composition, vibe, scene & optional snow
+
         let comp = pick(AuroraConfig.compositions, 3)
         let sceneAtom: String = {
             switch scene {
-            case .prairie:  return "broad prairie horizon silhouette"
+            case .prairie: return "broad prairie horizon silhouette"
             case .mountain: return "Rocky Mountains silhouette"
-            case .lake:     return "still lake reflection foreground"
+            case .lake: return "still lake reflection foreground"
             case .coastline: return "rugged coastline, crashing waves, distant cliffs"
-            case .borealForest:
-                return "dense boreal forest silhouette, tall spruce and pine"
-            case .tundra:
-                return "open arctic tundra, low shrubs and permafrost hummocks"
-            case .fjord:
-                return "steep fjord walls descending to calm water"
-            case .glacier:
-                return "glacier tongue with fractured crevasses"
-            case .iceberg:
-                return "drifting icebergs on a cold dark sea"
-            case .riverValley:
-                return "meandering river valley, soft banks and oxbows"
-            case .waterfall:
-                return "waterfall plume rising from cliffside"
-            case .canyon:
-                return "deep canyon walls with layered rock"
-            case .badlands:
-                return "eroded badlands hoodoos and ridges"
-            case .island:
-                return "rocky island coastline, sparse wind-bent pines"
-            case .highlands:
-                return "rolling highlands and moorland"
-            case .citySkyline:
-                return "distant city skyline lights on the horizon"
-            case .ruralFarm:
-                return "quiet rural farmstead, barns and open fields"
-            case .cabin:
-                return "solitary cabin with warm window glow"
-            case .lighthouse:
-                return "coastal lighthouse perched on a promontory"
-            case .observatory:
-                return "hilltop observatory dome silhouette"
-            case .bridge:
-                return "iconic bridge span over dark water"
-            case .iceRoad:
-                return "frozen ice road stretching across a lake"
-            case .polarCamp:
-                return "polar expedition camp, low tents and gear"
-            case .researchStation:
-                return "arctic research station modules and antennae"
+            case .borealForest: return "dense boreal forest silhouette, tall spruce and pine"
+            case .tundra: return "open arctic tundra, low shrubs and permafrost hummocks"
+            case .fjord: return "steep fjord walls descending to calm water"
+            case .glacier: return "glacier tongue with fractured crevasses"
+            case .iceberg: return "drifting icebergs on a cold dark sea"
+            case .riverValley: return "meandering river valley, soft banks and oxbows"
+            case .waterfall: return "waterfall plume rising from cliffside"
+            case .canyon: return "deep canyon walls with layered rock"
+            case .badlands: return "eroded badlands hoodoos and ridges"
+            case .island: return "rocky island coastline, sparse wind-bent pines"
+            case .highlands: return "rolling highlands and moorland"
+            case .citySkyline: return "distant city skyline lights on the horizon"
+            case .ruralFarm: return "quiet rural farmstead, barns and open fields"
+            case .cabin: return "solitary cabin with warm window glow"
+            case .lighthouse: return "coastal lighthouse perched on a promontory"
+            case .observatory: return "hilltop observatory dome silhouette"
+            case .bridge: return "iconic bridge span over dark water"
+            case .iceRoad: return "frozen ice road stretching across a lake"
+            case .polarCamp: return "polar expedition camp, low tents and gear"
+            case .researchStation: return "arctic research station modules and antennae"
             }
         }()
 
-        // Advanced address-driven pattern (use first 12 hex of address body)
-        let addrBody = hasValidAddr ? String(addr.dropFirst(2)) : ""         // strip "0x"
-        let addrSeg  = String(addrBody.prefix(12))
+        let addrBody = hasValidAddr ? String(addr.dropFirst(2)) : ""
+        let addrSeg = String(addrBody.prefix(12))
         let segBytes = addrSeg.seedBytes
-        let waveFreq = 0.5 + Double(segBytes[0] % 100) / 100.0               // 0.50–1.49
-        let filament = ["fine filaments","broad curtains","braided strands","diffuse veil"][Int(segBytes[1]) % 4]
-        let patternAtom = hasValidAddr ? "address-encoded \(filament), wave frequency \(String(format: "%.2f", waveFreq))" : "subtle star patterns"
+        let waveFreq = 0.5 + Double(segBytes[0] % 100) / 100.0
+        let filament = ["fine filaments", "broad curtains", "braided strands", "diffuse veil"][Int(segBytes[1]) % 4]
+        let patternAtom = hasValidAddr
+            ? "address-encoded \(filament), wave frequency \(String(format: "%.2f", waveFreq))"
+            : "subtle star patterns"
 
-        // Lane atoms
         let laneAtoms: [String] = {
             switch lane {
             case .poster:
-                return [
-                    "minimalist poster",
-                    "bold negative space",
-                    "silkscreen texture",
-                ]
+                return ["minimalist poster", "bold negative space", "silkscreen texture"]
             case .synthwave:
-                return [
-                    "neon glow",
-                    "retro-futuristic gradient",
-                    "high contrast",
-                    "soft grain",
-                ]
+                return ["neon glow", "retro-futuristic gradient", "high contrast", "soft grain"]
             case .photoreal:
-                return [
-                    "long-exposure look",
-                    "physically plausible light scattering"
-                ]
+                return ["long-exposure look", "physically plausible light scattering"]
             }
         }()
 
-        // Intensity description
         let intensityAtom: String = {
             switch kpi {
-            case 0..<0.33:   return "gentle, calm aurora activity"
-            case 0.33..<0.66:return "moderate dancing light curtains"
-            default:         return "dramatic high-activity aurora with vivid gradients"
+            case 0..<0.33:
+                return "gentle, calm aurora activity"
+            case 0.33..<0.66:
+                return "moderate dancing light curtains"
+            default:
+                return "dramatic high-activity aurora with vivid gradients"
             }
         }()
 
-        // Secondary deterministic variant to avoid sameness
-        let variants = ["wide panoramic framing","mid-altitude perspective","grounded horizon with silhouettes"]
+        let variants = ["wide panoramic framing", "mid-altitude perspective", "grounded horizon with silhouettes"]
         let variant = variants[Int(bytes[27]) % variants.count]
 
-        // Assemble atoms
         var atoms: [String] = [
             "northern lights (\(comp))",
             motif,
@@ -391,7 +500,7 @@ struct HomeTabView: View {
             atoms.append("personal signature encoded from \(short) (no visible text)")
             atoms.append(patternAtom)
         }
-        
+
         if !chain.isEmpty {
             atoms.append("digital asset chain \(chain) (metadata only)")
         }
@@ -400,9 +509,7 @@ struct HomeTabView: View {
         promptCache[key] = concepts
         return concepts
     }
-    
-    // MARK: - Background Image Generation
-    
+
     @MainActor
     func generateImage() async {
         let generationID = UUID()
@@ -415,18 +522,18 @@ struct HomeTabView: View {
                 isLoading = false
             }
         }
-        
+
         let prompts = themedPrompt(address: currentAddress, chainId: currentChainId, lane: .poster, scene: scene)
-        
+
         do {
             let imageCreator = try await ImageCreator()
             var newImages: [UIImage] = []
-            
             let images = imageCreator.images(
                 for: prompts,
                 style: .illustration,
-                limit: 9)
-            
+                limit: 9
+            )
+
             for try await image in images {
                 try Task.checkCancellation()
                 guard activeImageGenerationID == generationID else {
@@ -436,21 +543,17 @@ struct HomeTabView: View {
                 newImages.append(UIImage(cgImage: image.cgImage))
                 generatedImages = newImages
             }
-        }
-        catch ImageCreator.Error.notSupported {
+        } catch ImageCreator.Error.notSupported {
             guard activeImageGenerationID == generationID else {
                 return
             }
             generatedImages = nil
-            return
-        }
-        catch {
+        } catch {
             guard activeImageGenerationID == generationID else {
                 return
             }
             errorMessage = "Failed to generate images. Please try again.\n\(error.localizedDescription)"
             showErrorAlert = true
-            return
         }
     }
 
@@ -476,32 +579,31 @@ struct HomeTabView: View {
     }
 }
 
-// MARK: - Avatar Style Enum
-
-import Foundation
-import CryptoKit
-// MARK: - Utilities
 extension String {
-    /// SHA-256 → byte array
     var seedBytes: [UInt8] {
-        let h = SHA256.hash(data: Data(utf8))
-        return Array(h)
+        let hash = SHA256.hash(data: Data(utf8))
+        return Array(hash)
     }
-    
-    /// Basic ETH address validator: "0x" + 40 hex chars (case-insensitive)
+
     func isValidEthAddress() -> Bool {
-        let t = lowercased()
-        guard t.hasPrefix("0x"), t.count == 42 else { return false }
-        for ch in t.dropFirst(2) {
-            let isHex = ("0"..."9").contains(ch) || ("a"..."f").contains(ch)
-            if !isHex { return false }
+        let text = lowercased()
+        guard text.hasPrefix("0x"), text.count == 42 else {
+            return false
         }
+
+        for character in text.dropFirst(2) {
+            let isHex = ("0"..."9").contains(character) || ("a"..."f").contains(character)
+            if !isHex {
+                return false
+            }
+        }
+
         return true
     }
 }
 
 struct MusicTileView: View {
-    var onOpenPlayer: (() -> Void)? = nil
+    var onOpenPlayer: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -522,7 +624,7 @@ struct MusicTileView: View {
 }
 
 struct FinanceTileView: View {
-    var onOpenTokens: (() -> Void)? = nil
+    var onOpenTokens: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -537,11 +639,52 @@ struct FinanceTileView: View {
                         onOpenTokens?()
                     }
                     .accessibilityIdentifier("home.nftTokens.button")
+
                     Spacer()
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Open NFT tokens")
             }
         }
+    }
+}
+
+private struct HomeReceiptPreviewRow: View {
+    let record: ReceiptTimelineRecord
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            AuraPill(
+                statusTitle,
+                systemImage: record.isSuccess ? "checkmark.circle.fill" : "xmark.octagon.fill",
+                emphasis: record.isSuccess ? .success : .accent
+            )
+            .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(record.summary)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.leading)
+
+                Text("\(record.createdAt.formatted(date: .abbreviated, time: .shortened)) • \(record.scope)")
+                    .font(.caption)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.leading)
+            }
+
+            Spacer(minLength: 8)
+
+            SystemImage("chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.textSecondary)
+                .accessibilityHidden(true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    private var statusTitle: String {
+        record.isSuccess ? "OK" : "Issue"
     }
 }

@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocked
+Startable
 
 ## Blocking Dependencies
 
@@ -12,9 +12,13 @@ Blocked
 - P0-402
 - P0-503
 
-## Why It Is Blocked
+## Updated Dependency Read
 
-Blocked until navigation, primitives, context service, and receipts preview plumbing are in place.
+- `P0-101A` is complete enough for the mounted Home surface.
+- `P0-101E` is complete for the current primitive layer.
+- `P0-201` is complete enough for active account scope.
+- `P0-402` is complete enough for the active shell context slice.
+- `P0-503` is complete enough for a bounded recent-activity receipts preview.
 
 ## Safe Pre-Work
 

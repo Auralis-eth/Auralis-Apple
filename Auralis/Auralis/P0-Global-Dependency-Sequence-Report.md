@@ -39,6 +39,9 @@ Notes:
 These tickets are no longer just "startable now"; they are actively underway:
 
 - `P0-401` context schema v0
+- `P0-101C` context freshness behavior on the context-sheet path
+- `P0-403` context inspector UI vertical slice
+- `P0-102A` Home layout shell slice
 - `P0-701A` layered module-boundary scaffolding
 
 Current read on `P0-401`:
@@ -54,11 +57,28 @@ Current read on `P0-301`:
 - NFT inventory, gas pricing, and native balance reads all flow through the provider abstraction story
 - native balance is no longer stranded at the protocol layer; the shell-facing context path consumes it
 
+Current read on `P0-101C`:
+
+- the product keeps a dedicated Context entry in chrome instead of a separate freshness pill
+- the inspector freshness section now exposes stale/unknown/no-success refresh behavior through the existing shell refresh path
+- remaining work is cleanup and observation, not missing core interaction wiring
+
+Current read on `P0-403`:
+
+- the context inspector now includes a Why-am-I-seeing-this section
+- it links to the latest scoped `context.built` receipt and can hand off into receipt detail
+- remaining work is richer linkage and optional inspector expansion, not absence of the feature
+
+Current read on `P0-102A`:
+
+- Home now has a real dashboard shell with identity, modules, recent activity, quick links, and temporary profile-studio sections
+- the scenic background and glass-card visual language were intentionally preserved
+- later Home tickets can now deepen sections without forcing another top-level Home rewrite
+
 ## Partially Blocked But Legitimate To Advance
 
 These tickets explicitly allow useful progress without waiting for every downstream dependency:
 
-- `P0-102A` Home layout shell slice
 - `P0-102E` gateway-to-home flow polish
 - `P0-451` music library index with deterministic demo or local-backed data
 - `P0-461` token holdings list with placeholder or local-backed data
@@ -69,7 +89,6 @@ This preserves the earlier planning rule: use placeholder-backed or parser-first
 
 These tickets remain blocked in their own current docs:
 
-- `P0-101C`
 - `P0-102B`
 - `P0-102C`
 - `P0-102D`
@@ -78,7 +97,6 @@ These tickets remain blocked in their own current docs:
 - `P0-103D`
 - `P0-103E`
 - `P0-103F`
-- `P0-403`
 - `P0-452`
 - `P0-462`
 - `P0-502B`
@@ -135,17 +153,22 @@ Status nuance:
 - `P0-301` is already complete for the current read-only provider slice
 - `P0-401` should be treated as near-closeout work rather than as a barely-started schema stub
 
-### Then Unblock Chrome And Context Follow-Ons
+### Then Close The Remaining Spine Work And Deepen The New Surfaces
 
 - `P0-101C`
 - `P0-403`
 
 ### In Parallel, Continue Placeholder-Safe Surface Work
 
-- `P0-102A`
 - `P0-102E`
 - `P0-451`
 - `P0-461`
+
+### Then Deepen Home
+
+- `P0-102B`
+- `P0-102C`
+- `P0-102D`
 
 ### After That, Tackle The Remaining Search And Library Follow-Ons
 
