@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocked
+In Progress
 
 ## Ticket
 
@@ -32,3 +32,16 @@ Inspector should still work with no receipts, large details need collapse behavi
 ## Validation Target
 
 Open from major screens, verify freshness and provenance display against real cache state, and navigate into linked receipt detail.
+
+## Current Slice
+
+- the context inspector now includes a dedicated Why-am-I-seeing-this section tied to the active shell scope summary
+- the inspector now surfaces the latest related `context.built` receipt for the active scope when one exists
+- the inspector can now route directly into receipt detail from that linked receipt
+- the no-receipt path remains explicit instead of showing placeholder links
+
+## Remaining Work
+
+- broaden receipt linkage beyond the latest context-build receipt if richer grouping becomes necessary
+- add collapse behavior only if the inspector grows beyond the current lightweight vertical slice
+- reserve fuller receipt export or timeline shortcuts for downstream receipt-surface work

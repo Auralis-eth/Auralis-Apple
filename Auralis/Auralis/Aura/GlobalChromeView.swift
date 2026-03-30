@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 struct GlobalChromeView: View {
@@ -79,10 +80,66 @@ struct GlobalChromeView: View {
 
 struct ChromeContextInspectorSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Query(
+        sort: [
+            SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
+            SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
+        ]
+    ) private var storedReceipts: [StoredReceipt]
+
     let contextService: ContextService
+    let onRefreshContext: @MainActor () async -> Void
+    let onOpenReceipt: (String) -> Void
+
+    @State private var isRefreshingContext = false
 
     private var snapshot: ContextSnapshot {
         contextService.snapshot
+    }
+
+    private var receiptScope: ReceiptTimelineScope? {
+        guard let chain = snapshot.scope.selectedChains.value?.first else {
+            return nil
+        }
+
+        return ReceiptTimelineScope(
+            accountAddress: snapshot.scope.accountAddress.value ?? "",
+            chain: chain
+        )
+    }
+
+    private var contextReceipts: [ReceiptTimelineRecord] {
+        guard let receiptScope else {
+            return []
+        }
+
+        return storedReceipts
+            .map(ReceiptTimelineRecord.init)
+            .filter {
+                $0.trigger == "context.built" && $0.matches(receiptScope)
+            }
+    }
+
+    private var latestContextReceipt: ReceiptTimelineRecord? {
+        contextReceipts.first
+    }
+
+    private var relatedContextReceipts: [ReceiptTimelineRecord] {
+        guard let correlationID = latestContextReceipt?.correlationID, !correlationID.isEmpty else {
+            return []
+        }
+
+        return storedReceipts
+            .map(ReceiptTimelineRecord.init)
+            .filter {
+                $0.correlationID == correlationID && $0.id != latestContextReceipt?.id
+            }
+    }
+
+    private var shouldOfferRefresh: Bool {
+        snapshot.freshness.refreshState == .unknown
+            || snapshot.freshness.lastSuccessfulRefreshAt == nil
+            || snapshot.freshness.isStale
     }
 
     var body: some View {
@@ -151,6 +208,11 @@ struct ChromeContextInspectorSheet: View {
                 Section("Freshness") {
                     LabeledContent("Refresh State", value: snapshot.freshness.refreshState.displayLabel)
                     LabeledContent("Freshness Status", value: snapshot.freshnessLabel)
+                    if snapshot.freshness.isStale {
+                        Text("This context is older than the current freshness window for this scope.")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
                     if let ttl = snapshot.freshness.ttl {
                         LabeledContent(
                             "TTL",
@@ -165,6 +227,53 @@ struct ChromeContextInspectorSheet: View {
                         "Last Successful Refresh",
                         value: formattedTimestamp(snapshot.freshness.lastSuccessfulRefreshAt)
                     )
+                    if isRefreshingContext || snapshot.freshness.refreshState == .refreshing {
+                        HStack(spacing: 12) {
+                            ProgressView()
+                            Text("Refreshing active scope…")
+                                .foregroundStyle(Color.textSecondary)
+                        }
+                    } else if shouldOfferRefresh {
+                        Button {
+                            refreshContext()
+                        } label: {
+                            Label("Refresh Active Scope", systemImage: "arrow.clockwise")
+                        }
+                    }
+                }
+
+                Section("Why Am I Seeing This?") {
+                    Text("This inspector reflects the active shell scope, current mode, local context cache, and the most recent refresh state for \(snapshot.scopeSummary).")
+                        .font(.footnote)
+                        .foregroundStyle(Color.textSecondary)
+                }
+
+                Section("Related Receipts") {
+                    if let latestContextReceipt {
+                        Button {
+                            openReceipt(latestContextReceipt)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(latestContextReceipt.summary)
+                                    .foregroundStyle(Color.textPrimary)
+                                Text(receiptDetailSummary(for: latestContextReceipt))
+                                    .font(.caption)
+                                    .foregroundStyle(Color.textSecondary)
+                                if !relatedContextReceipts.isEmpty {
+                                    Text("\(relatedContextReceipts.count) related receipt(s) share this correlation flow.")
+                                        .font(.caption)
+                                        .foregroundStyle(Color.textSecondary)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("contextInspector.receipt.latest")
+                    } else {
+                        Text("No related context receipt has been recorded for this scope yet.")
+                            .font(.footnote)
+                            .foregroundStyle(Color.textSecondary)
+                    }
                 }
             }
             .navigationTitle("Context Inspector")
@@ -195,6 +304,29 @@ struct ChromeContextInspectorSheet: View {
         case nil:
             return "Unknown"
         }
+    }
+
+    private func refreshContext() {
+        guard !isRefreshingContext else {
+            return
+        }
+
+        isRefreshingContext = true
+        Task { @MainActor in
+            await onRefreshContext()
+            isRefreshingContext = false
+        }
+    }
+
+    private func openReceipt(_ receipt: ReceiptTimelineRecord) {
+        dismiss()
+        onOpenReceipt(receipt.id.uuidString)
+    }
+
+    private func receiptDetailSummary(for receipt: ReceiptTimelineRecord) -> String {
+        let timestamp = receipt.createdAt.formatted(date: .abbreviated, time: .shortened)
+        let correlation = receipt.correlationID.map { "Flow \($0.prefix(8))" } ?? "No correlation"
+        return "\(timestamp) • \(correlation)"
     }
 }
 

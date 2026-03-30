@@ -286,7 +286,12 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $showContextInspector) {
             ChromeContextInspectorSheet(
-                contextService: contextService
+                contextService: contextService,
+                onRefreshContext: refreshActiveScopeFromUserAction,
+                onOpenReceipt: { receiptID in
+                    showContextInspector = false
+                    router.showReceipt(id: receiptID)
+                }
             )
         }
         .task(id: contextRefreshKey) {

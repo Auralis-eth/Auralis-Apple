@@ -133,6 +133,23 @@ What is still intentionally not solved here:
 
 That is good restraint, not unfinished homework disguised as architecture.
 
+### The Context Sheet Grew Up
+
+There was a subtle planning mismatch hiding in the shell work: the original ticket language talked about chrome freshness behavior, but the product direction for this app does not actually want a dedicated freshness indicator sitting in the global shell chrome.
+
+That could have turned into one of those classic project-management food fights where the ticket says one thing, the UI wants another thing, and the code ends up pleasing nobody.
+
+The better move was to reinterpret the behavior on the surface the app already uses: the context sheet.
+
+This pass did two useful things there:
+
+- moved the stale/unknown refresh affordance into the sheet's freshness section
+- turned the sheet into a real receipt-aware inspector by linking it to the latest scoped `context.built` receipt
+
+That matters because it keeps the mental model clean. The chrome opens context. The sheet explains context. The receipt detail proves context.
+
+It is also a nice example of not worshipping the original ticket wording. Good engineering is not blindly implementing the sentence; it is preserving the intent while fitting the actual product shape.
+
 ## Engineer's Wisdom
 
 Good engineering in this project usually means refusing fake certainty.

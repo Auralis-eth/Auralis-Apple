@@ -22,3 +22,15 @@ Open from major screens, verify freshness and provenance display against real ca
 ## Handoff Rule
 
 If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+
+## Latest Completion Note
+
+- added a Why-am-I-seeing-this explanation section to the context inspector instead of leaving it as a raw schema dump
+- linked the inspector to the latest scoped `context.built` receipt when available
+- wired that receipt link into the existing receipt detail route so the inspector can hand off to the receipts surface directly
+- kept the empty state honest when no related receipt exists for the active scope
+
+## Remaining Note
+
+- this is the minimum vertical slice, not the final inspector end state
+- richer provenance storytelling or larger receipt groups should wait until there is a concrete product need, not be guessed now

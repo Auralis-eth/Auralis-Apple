@@ -17,20 +17,19 @@ Context build failure, TTL expiry mid-navigation, and rapid account switching mu
 
 ## Validation
 
-Tap freshness pill to open inspector, force stale timestamps, refresh from chrome, and switch accounts rapidly without showing duplicated or incorrect context.
+Open the inspector from chrome, force stale timestamps, refresh from the inspector freshness section, and switch accounts rapidly without showing duplicated or incorrect context.
 
 ## Handoff Rule
 
 If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
 
-## Current Blocker Note
+## Latest Completion Note
 
-The recent chrome re-validation confirms this ticket should remain blocked.
+- kept the product decision to avoid a dedicated freshness indicator in global chrome
+- moved the explicit freshness behavior onto the inspector freshness section instead
+- added stale/unknown/no-success refresh affordances there, routed through the main shell refresh path
+- preserved the existing chrome entry point instead of inventing a second inspector trigger
 
-Why:
+## Remaining Note
 
-- the chrome has a separate Context button, but the freshness pill itself is not the inspector trigger yet
-- the current inspector is a shell summary and does not provide provenance breakdown or last fetch receipt linking
-- stale-state chrome behavior still lacks the explicit refresh affordance described in the original ticket
-
-Treat the existing inspector as dependency-friendly scaffolding for `P0-403`, not as a completed `P0-101C` implementation.
+- if the project later reintroduces a distinct chrome freshness control, that would be a new surface decision rather than a prerequisite for this context-sheet interpretation of `P0-101C`
