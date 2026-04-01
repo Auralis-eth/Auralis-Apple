@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially blocked
+Startable
 
 ## Ticket
 
@@ -10,23 +10,30 @@ Implement a minimal music library index with local persistence and refresh recei
 
 ## Dependencies
 
-P0-101A, P0-101E, P0-501, P0-502 slices
+- `P0-101A`
+- `P0-101E`
+- `P0-501`
+- `P0-502` slices
 
 ## Strategy
 
 - Start with deterministic demo or local-backed index data.
+- Treat this as the dedicated Music foundation phase, not just pre-work.
 - Keep the initial index useful to Home and Search even before the full context stack is complete.
 - Layer deeper integration later rather than holding the whole ticket.
+- Reuse the existing receipt-store pattern for refresh/index activity instead of inventing a parallel logging path.
 
 ## Key Risk
 
 Support empty datasets, duplicate items, and corrupt demo index files without crashing or losing a usable shell.
+Avoid shaping the first persistence model so narrowly that later collection/detail surfaces need a second storage rewrite.
 
 ## Definition Of Done
 
 - The music index is real and locally usable.
 - Home and Search can consume it before every later library surface is complete.
 - Later context integration can attach cleanly.
+- The first slice leaves a clean seam for `P0-452` instead of forcing collection/detail assumptions into `P0-451`.
 
 ## Validation Target
 

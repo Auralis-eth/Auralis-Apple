@@ -32,5 +32,5 @@ If this ticket is still blocked when work starts, do not build throwaway scaffol
 
 ## Remaining Note
 
-- this is the minimum vertical slice, not the final inspector end state
+- this ticket is complete for the current minimum vertical slice, not the final inspector end state
 - richer provenance storytelling or larger receipt groups should wait until there is a concrete product need, not be guessed now

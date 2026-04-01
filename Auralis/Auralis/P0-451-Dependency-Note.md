@@ -2,26 +2,31 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependencies
 
 - P0-101A
 - P0-101E
 - P0-501
 - P0-502
-- P0-402
+- P0-502 slices
 
-## Why It Is Blocked
+## Updated Dependency Read
 
-Blocked on navigation, design primitives, context pointers, and receipt integration.
+- `P0-101A` is complete enough for the mounted Music surface and shell routing.
+- `P0-101E` is complete for the current primitive layer.
+- `P0-501` is complete for the receipt-storage foundation this ticket can build on.
+- `P0-502` already has enough active receipt slices that music refresh/index work can extend the same pattern instead of inventing a second logging path.
+- `P0-402` is no longer the meaningful blocker for this ticket; the strategy now intentionally allows deterministic demo or local-backed index data before deeper context integration.
 
 ## Safe Pre-Work
 
 - Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
+- Start with deterministic demo or local-backed index data that can later be replaced cleanly.
+- Keep the initial index useful to Home and Search without waiting for the full later Music surface stack.
+- Avoid disposable state models that would force a second rewrite once richer library integration lands.
 
 ## Unblock Condition
 
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+The upstream dependencies are already complete enough that this ticket can be implemented now as the Music foundation phase, provided the first slice stays placeholder-safe and local/demo-backed where needed.

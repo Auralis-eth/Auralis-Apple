@@ -32,7 +32,7 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-301` is now complete for the current read-only provider slice: endpoint resolution is centralized, NFT fetching is injected, gas pricing is protocol-backed, the shell service hub owns the shared provider factory, and native balance is consumed by the shell-facing context layer.
 - `P0-701A` is now in progress as a structural scaffolding slice: root-owned mode state, a shell service hub, and shared receipt-store factories are in place.
 - `P0-101C` is now in progress under the context-sheet interpretation: the chrome still opens a dedicated inspector entry, and the inspector freshness section now handles stale labeling plus explicit refresh.
-- `P0-403` is now in progress as the first real context-inspector slice: the sheet has a Why-am-I-seeing-this section and can link to the latest scoped `context.built` receipt.
+- `P0-403` is now complete for the current receipt-aware inspector slice: the sheet has a Why-am-I-seeing-this section and can link to the latest scoped `context.built` receipt.
 - `P0-102A` is now in progress as a conservative Home dashboard pass: the scenic glass aesthetic remains intact while Home is reorganized into identity, modules, recent activity, quick links, and temporary profile-studio sections.
 
 ## Remediation Closeout
@@ -56,7 +56,7 @@ Closeout summary:
 - `P0-301`: complete for the current injected read-only provider baseline; later token-surface consumers and stricter ownership cleanup remain deferred
 - `P0-701A`: in progress as a shell/service scaffolding baseline; strict boundary enforcement remains deferred to `P0-701B`
 - `P0-101C`: in progress for the current context-sheet freshness interaction slice
-- `P0-403`: in progress for the current receipt-aware inspector slice
+- `P0-403`: complete for the current receipt-aware inspector slice
 - `P0-102A`: in progress for the current Home dashboard shell slice
 
 ## Planning Rules
@@ -136,23 +136,38 @@ Why:
 - this produces the real scoped read-only spine used by chrome, Home, and later search
 
 
-### Phase 5: Receipts UI and early product surfaces
+### Phase 5: Receipts UI, context, and Home shell surfaces
 
 15. `P0-503` Receipts UI (Completed for scoped receipts timeline/detail slice)
 21. `P0-103B` Query parser + type detection (Completed for deterministic local parser + inline detection feedback slice)
 16. `P0-101C` Context Bar behavior + interactions (In progress for context-sheet freshness interaction slice)
-17. `P0-403` Context inspector UI (In progress for receipt-aware inspector slice)
-
-18. `P0-451` Music library index + storage
-19. `P0-461` Token holdings list
+17. `P0-403` Context inspector UI (Completed for current receipt-aware inspector slice)
 20. `P0-102A` Home layout v0 (In progress for dashboard shell slice)
 
 
 Why:
 
-- this phase unlocks visible user-facing surfaces without waiting for every downstream detail flow
+- this phase closes the shell/context loop and establishes the first real Home shell without waiting for every downstream detail flow
 
-### Phase 6: Home expansion and detail surfaces
+### Phase 6: Music library foundation
+
+18. `P0-451` Music library index + storage
+
+Why:
+
+- this is large enough to deserve its own phase boundary before collection/detail follow-ons
+- the index and storage work becomes a dependency source for Home, Search, and later Music surfaces
+
+### Phase 7: Token holdings foundation
+
+19. `P0-461` Token holdings list
+
+Why:
+
+- token holdings have their own provider, cache, freshness, and surface-shape concerns
+- separating them from Music avoids hiding a substantial token track inside a mixed phase
+
+### Phase 8: Home expansion and detail surfaces
 
 22. `P0-102E` Home empty/first-run state
 23. `P0-102B` Active account summary card
@@ -165,7 +180,7 @@ Why:
 
 - these deepen the surfaces created in earlier phases instead of blocking them
 
-### Phase 7: Search flow completion
+### Phase 9: Search flow completion
 
 28. `P0-103A` Search entry points
 29. `P0-103C` Resolution pipeline
@@ -177,7 +192,7 @@ Why:
 
 - parser-first work starts earlier, but full search completion depends on the real read-only pipeline and safe action model
 
-### Phase 8: Policy, enforcement, and trust hardening
+### Phase 10: Policy, enforcement, and trust hardening
 
 33. `P0-602` Policy gate wrapper for actions
 34. `P0-701B` Layered boundaries enforcement completion
@@ -189,7 +204,7 @@ Why:
 
 - this is the hardening pass after the main surfaces and action paths exist
 
-### Phase 9: Release-readiness pass
+### Phase 11: Release-readiness pass
 
 38. `P0-801` Deterministic demo dataset + offline mode behavior
 39. `P0-802` Performance + stability baseline

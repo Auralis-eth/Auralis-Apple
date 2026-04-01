@@ -40,7 +40,6 @@ These tickets are no longer just "startable now"; they are actively underway:
 
 - `P0-401` context schema v0
 - `P0-101C` context freshness behavior on the context-sheet path
-- `P0-403` context inspector UI vertical slice
 - `P0-102A` Home layout shell slice
 - `P0-701A` layered module-boundary scaffolding
 
@@ -67,7 +66,7 @@ Current read on `P0-403`:
 
 - the context inspector now includes a Why-am-I-seeing-this section
 - it links to the latest scoped `context.built` receipt and can hand off into receipt detail
-- remaining work is richer linkage and optional inspector expansion, not absence of the feature
+- this ticket is complete for the current vertical slice; remaining ideas are optional inspector expansion, not missing baseline functionality
 
 Current read on `P0-102A`:
 
@@ -156,12 +155,17 @@ Status nuance:
 ### Then Close The Remaining Spine Work And Deepen The New Surfaces
 
 - `P0-101C`
-- `P0-403`
 
 ### In Parallel, Continue Placeholder-Safe Surface Work
 
 - `P0-102E`
+
+### Then Land The Music Foundation
+
 - `P0-451`
+
+### Then Land The Token Foundation
+
 - `P0-461`
 
 ### Then Deepen Home
