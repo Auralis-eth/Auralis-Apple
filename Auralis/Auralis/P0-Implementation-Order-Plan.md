@@ -70,7 +70,7 @@ Closeout summary:
   - `P0-701A` early structural scaffolding
   - `P0-701B` later enforcement completion
 - `P0-103B` can begin as pure parsing/classification before local enrichment
-- `P0-451` can start with deterministic demo or local data
+- `P0-451` can start by deriving its first library index from the existing SwiftData-backed local `NFT` store
 - `P0-461` can start with placeholder or local holdings data
 - `P0-102A` can use placeholder-backed module data to break dependency cycles
 

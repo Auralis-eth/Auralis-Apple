@@ -79,7 +79,7 @@ Current read on `P0-102A`:
 These tickets explicitly allow useful progress without waiting for every downstream dependency:
 
 - `P0-102E` gateway-to-home flow polish
-- `P0-451` music library index with deterministic demo or local-backed data
+- `P0-451` music library index derived from the existing SwiftData-backed local `NFT` store
 - `P0-461` token holdings list with placeholder or local-backed data
 
 This preserves the earlier planning rule: use placeholder-backed or parser-first slices to break cycles when the ticket docs explicitly allow it.

@@ -174,6 +174,32 @@ That is a deceptively valuable kind of progress. It does not look like a flashy 
 
 This is one of those senior-engineer habits that pays off later: when a surface already has the right aesthetic, do not \"improve\" it by throwing away the personality. Improve the structure so future work has somewhere sane to live.
 
+### Music Foundation: Stop Pretending We Need Fake Data
+
+`P0-451` had a small but important planning wobble. The docs kept talking about deterministic demo data or lightweight local bootstrap files, which is a respectable fallback in a lot of projects. The problem here is that Auralis already has a perfectly good pantry full of ingredients sitting in the kitchen: the local SwiftData `NFT` store.
+
+The mounted Music screen is already doing the obvious thing today:
+
+- query local `NFT` rows
+- filter them by `nft.isMusic()`
+- render the results
+
+So inventing a second fake seed source for the first music-library phase would have been the software equivalent of buying plastic fruit for the table while ignoring the bowl of actual oranges next to you.
+
+The planning docs now say the quiet part out loud:
+
+- SwiftData is the storage layer
+- the existing local `NFT` store is the first source of truth
+- `P0-451` should derive a cleaner music library index from that real local store instead of pretending the app needs demo/file bootstrap data first
+
+That matters for two reasons.
+
+First, it keeps the ticket honest. We are not building a fake library to prove a point; we are formalizing a real one.
+
+Second, it sharply narrows the architecture question. The work is no longer \"where do we get music data from?\" The work is \"how do we turn persisted music-capable NFTs into a dedicated music-library contract without painting `P0-452` into a corner?\"
+
+That is a much better engineering problem. It is concrete, local, and based on the data the app already owns.
+
 ## Engineer's Wisdom
 
 Good engineering in this project usually means refusing fake certainty.

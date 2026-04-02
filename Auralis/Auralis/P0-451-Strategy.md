@@ -6,7 +6,7 @@ Startable
 
 ## Ticket
 
-Implement a minimal music library index with local persistence and refresh receipts, using demo data or a lightweight local index for Phase 0.
+Implement a minimal music library index with local persistence and refresh receipts, deriving the first index from the existing SwiftData-backed local `NFT` store for Phase 0.
 
 ## Dependencies
 
@@ -17,7 +17,7 @@ Implement a minimal music library index with local persistence and refresh recei
 
 ## Strategy
 
-- Start with deterministic demo or local-backed index data.
+- Start from the existing SwiftData-backed local `NFT` store and derive a dedicated music library index from locally persisted records where `nft.isMusic()` is true.
 - Treat this as the dedicated Music foundation phase, not just pre-work.
 - Keep the initial index useful to Home and Search even before the full context stack is complete.
 - Layer deeper integration later rather than holding the whole ticket.
@@ -25,7 +25,7 @@ Implement a minimal music library index with local persistence and refresh recei
 
 ## Key Risk
 
-Support empty datasets, duplicate items, and corrupt demo index files without crashing or losing a usable shell.
+Support empty datasets, duplicate items, and partial or malformed local NFT metadata without crashing or losing a usable shell.
 Avoid shaping the first persistence model so narrowly that later collection/detail surfaces need a second storage rewrite.
 
 ## Definition Of Done

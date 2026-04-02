@@ -2,7 +2,7 @@
 
 ## Summary
 
-Implement a minimal music library index with local persistence and refresh receipts, using demo data or a lightweight local index for Phase 0.
+Implement a minimal music library index with local persistence and refresh receipts, deriving the first library from the existing SwiftData-backed local `NFT` store for Phase 0.
 
 ## Ticket Status
 
@@ -37,7 +37,7 @@ Findings:
 ### 3. Choose and implement the first data source
 
 - [ ] Use SwiftData as the storage layer and load from the existing local `NFT` store as the first source.
-- [ ] Implement a deterministic loader so the library can be reproduced reliably during development.
+- [ ] Define a deterministic derivation rule from persisted `NFT` records into the music library index.
 - [ ] Ensure corrupt or partially missing local NFT metadata degrades safely instead of crashing the shell.
 - [ ] Deduplicate incoming entries in a deterministic way.
 
@@ -59,7 +59,7 @@ Findings:
 
 - [ ] Empty dataset shows an honest usable empty state.
 - [ ] Duplicate entries do not produce unstable or duplicated visible rows.
-- [ ] Corrupt demo/index source does not crash the shell.
+- [ ] Partial or malformed local NFT metadata does not crash the shell.
 - [ ] Partial persistence failure degrades safely and leaves the shell usable.
 
 ### 7. Validate the vertical slice
@@ -72,7 +72,7 @@ Findings:
 
 ## Critical Edge Case
 
-Support empty datasets, duplicate items, and corrupt demo index files without crashing or losing a usable shell.
+Support empty datasets, duplicate items, and partial or malformed local NFT metadata without crashing or losing a usable shell.
 
 ## Explicit Non-Goals
 
