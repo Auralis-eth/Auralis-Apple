@@ -194,7 +194,8 @@ struct NFTMusicPlayerLibraryView: View {
             },
             sort: [
                 SortDescriptor(\MusicLibraryItem.normalizedArtistKey),
-                SortDescriptor(\MusicLibraryItem.normalizedTitleKey)
+                SortDescriptor(\MusicLibraryItem.normalizedTitleKey),
+                SortDescriptor(\MusicLibraryItem.id)
             ]
         )
         _nfts = Query(

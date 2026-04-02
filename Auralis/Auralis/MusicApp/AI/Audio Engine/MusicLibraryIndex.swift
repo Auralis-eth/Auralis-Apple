@@ -255,6 +255,7 @@ final class SwiftDataMusicLibraryIndexer: MusicLibraryIndexing {
 
             return result
         } catch {
+            modelContext.rollback()
             receiptEventLogger?.recordMusicLibraryIndexFailed(
                 accountAddress: scopedAccountAddress,
                 chain: chain,
@@ -279,7 +280,9 @@ private extension SwiftDataMusicLibraryIndexer {
             }
         )
 
-        return try modelContext.fetch(descriptor).filter { $0.isMusic() }
+        let eligibleNFTs = try modelContext.fetch(descriptor).filter { $0.isMusic() }
+        let dedupedByID = Dictionary(uniqueKeysWithValues: eligibleNFTs.map { ($0.id, $0) })
+        return dedupedByID.values.sorted { $0.id < $1.id }
     }
 
     func fetchScopedItems(accountAddress: String?, chain: Chain) throws -> [MusicLibraryItem] {

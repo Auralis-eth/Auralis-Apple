@@ -262,18 +262,60 @@ Empty-state rule:
 
 ### 6. Cover required edge cases
 
-- [ ] Empty dataset shows an honest usable empty state.
-- [ ] Duplicate entries do not produce unstable or duplicated visible rows.
-- [ ] Partial or malformed local NFT metadata does not crash the shell.
-- [ ] Partial persistence failure degrades safely and leaves the shell usable.
+- [x] Empty dataset shows an honest usable empty state.
+- [x] Duplicate entries do not produce unstable or duplicated visible rows.
+- [x] Partial or malformed local NFT metadata does not crash the shell.
+- [x] Partial persistence failure degrades safely and leaves the shell usable.
+
+Covered edge-case behavior:
+
+- Empty dataset
+  - The mounted Music surface still falls back to the existing shell empty-library state when the index is empty and there is no provider-failure condition.
+  - Home remains usable and shows a zero-track music summary instead of a broken module.
+- Duplicate entries
+  - Source `NFT` rows are deduped deterministically by scoped `NFT.id` before index reconciliation.
+  - Persisted music-library rows are sorted stably by normalized artist key, normalized title key, then item id so ties do not produce unstable ordering.
+- Partial or malformed local metadata
+  - Missing title, artist, collection, artwork, content type, or canonical playback URL no longer causes indexing to fail by itself.
+  - Items with malformed or unusable playback metadata are still represented in the index with `availability = unavailable` instead of crashing the shell.
+- Partial persistence failure
+  - Failed index writes now roll back the model context before failure receipts are emitted, which keeps the previously readable index state available when possible.
+  - The shell surfaces remain mounted even when a rebuild fails.
 
 ### 7. Validate the vertical slice
 
-- [ ] Load the library from the chosen source.
-- [ ] Verify local persistence across relaunch if persistence is part of the slice.
-- [ ] Verify receipts are emitted on refresh/index actions.
-- [ ] Verify the library can still mount with zero items.
-- [ ] Record any remaining blockers or intentional deferrals in the session handoff.
+- [x] Load the library from the chosen source.
+- [x] Verify local persistence across relaunch if persistence is part of the slice.
+- [x] Verify receipts are emitted on refresh/index actions.
+- [x] Verify the library can still mount with zero items.
+- [x] Record any remaining blockers or intentional deferrals in the session handoff.
+
+Automated validation now in place:
+
+- `MusicLibraryIndexTests/rebuildLoadsScopedMusicNFTs()` proves the index loads from scoped local `NFT` rows and ignores non-music records.
+- `MusicLibraryIndexTests/rebuildRemovesStaleRows()` proves stale library rows are removed when the active scoped source NFTs disappear.
+- `MusicLibraryIndexTests/rebuildEmitsReceipts()` proves `music.library_index.started` and `music.library_index.completed` receipts are emitted with one shared correlation ID.
+- `MusicLibraryIndexTests/rebuiltRowsRemainReadableFromFreshContext()` proves saved `MusicLibraryItem` rows remain readable from a fresh `ModelContext` after rebuild.
+- `NFTServiceReceiptTests/shellRefreshFlowSharesCorrelationAcrossNFTAndContextReceipts()` was updated to the current `ContextService` initializer contract and still passes, which keeps the broader receipt/correlation path honest.
+
+Manual QA still required on device:
+
+- Verify a real app relaunch still surfaces the rebuilt music library without requiring a manual reindex gesture.
+- Verify the Music tab, Home music affordance, and Search all behave honestly when the local scoped store contains zero music-capable NFTs.
+- Verify playback still succeeds for indexed rows that resolve back to source `NFT` models.
+- Verify receipt timeline entries for `music.library_index.*` appear in the app UI when a rebuild occurs from real shell interaction.
+
+Currently not practically testable in the present repo/app state:
+
+- A refresh path that adds at least one newly music-capable NFT and proves it appears in Music afterward.
+- A refresh path that removes a previously indexed music NFT and proves the stale row disappears after scope refresh.
+
+These two checks should remain documented as unverified for now rather than spawning throwaway scaffolding or fake provider work inside `P0-451`.
+
+Remaining intentional deferrals:
+
+- Home and Search are allowed to stay on scoped local `@Query<[NFT]>` attachment for the initial slice instead of consuming the dedicated music index directly.
+- Full collection/detail shaping remains deferred to `P0-452`.
 
 ## Critical Edge Case
 

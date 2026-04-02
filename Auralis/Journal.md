@@ -230,6 +230,31 @@ That keeps the audit trail boring in the right way. Music indexing is just anoth
 
 One pragmatic compromise also landed here: Home and Search are not being forced onto the new index immediately. Home now shows a lightweight local music count off the scoped `NFT` store, and Search stays on its existing local `NFT` path for the first slice. That is the right kind of laziness. The app gets the real Music foundation now without pretending every surface needs a full rewrite on day one.
 
+### Music Validation: The Part Where The Test Target Fought Back
+
+Once the library index code was in, `P0-451` still had one boring but essential job left: prove the vertical slice actually behaves like a vertical slice.
+
+That started with an annoying little truth bomb. The app target built cleanly, but the test target did not. Running the new music tests exposed two different kinds of failure:
+
+- one fresh mistake in the new `MusicLibraryIndexTests`
+- one older compile break in `NFTServiceReceiptTests` because `ContextService` had grown new initializer dependencies
+
+This is a classic Xcode trap. A green app build can make you feel done while the test target is quietly holding a grudge in the parking lot.
+
+The fix was straightforward:
+
+- add a dedicated `MusicLibraryIndexTests` suite for rebuild, stale-row cleanup, receipt emission, and saved-row readability from a fresh `ModelContext`
+- patch the older receipt test with a stub `NativeBalanceProviding` plus the newer count-provider seams so the test target matched the live initializer again
+
+The resulting coverage now proves the useful parts:
+
+- scoped local music NFTs really do become index rows
+- stale rows really do disappear when the source NFTs disappear
+- `music.library_index.started` and `music.library_index.completed` receipts really do share one correlation ID
+- saved `MusicLibraryItem` rows are readable from a fresh context after rebuild
+
+But the honest engineering lesson is this: unit tests are not a substitute for device truth. They can prove the catalog logic. They cannot prove that a real refresh, a real relaunch, and a real playback round-trip feel correct in the product shell. That still belongs to manual QA, and saying that out loud is healthier than pretending the test suite magically owns headphones.
+
 ## Engineer's Wisdom
 
 Good engineering in this project usually means refusing fake certainty.

@@ -440,8 +440,11 @@ struct NFTServiceReceiptTests {
             modeProvider: { .observe },
             loadingProvider: { nftService.isLoading },
             refreshedAtProvider: { nftService.lastSuccessfulRefreshAt },
+            nativeBalanceProvider: StubNativeBalanceProvider(),
             freshnessTTLProvider: { nftService.refreshTTL },
             trackedNFTCountProvider: { account.trackedNFTCount },
+            musicCollectionCountProvider: { nil },
+            receiptCountProvider: { nil },
             prefersDemoDataProvider: { false }
         )
 
@@ -579,6 +582,12 @@ private final class NFTFixtureFetcher: NFTFetching {
         loading = false
         currentCursor = nil
         error = nil
+    }
+}
+
+private struct StubNativeBalanceProvider: NativeBalanceProviding {
+    func nativeBalance(for address: String, chain: Chain) async throws -> NativeBalance {
+        NativeBalance(weiHex: "0x0", weiDecimal: "0")
     }
 }
 
