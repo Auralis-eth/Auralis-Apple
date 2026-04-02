@@ -230,6 +230,10 @@ That keeps the audit trail boring in the right way. Music indexing is just anoth
 
 One pragmatic compromise also landed here: Home and Search are not being forced onto the new index immediately. Home now shows a lightweight local music count off the scoped `NFT` store, and Search stays on its existing local `NFT` path for the first slice. That is the right kind of laziness. The app gets the real Music foundation now without pretending every surface needs a full rewrite on day one.
 
+There is one important boundary marker to keep in big red pencil: this ticket does not magically mean the Audio Engine is \"done.\" The library shelf is now real, but the stereo system behind it is still its own future body of work. That deserves a dedicated follow-on ticket, because \"music catalog exists\" and \"audio engine is fully built out\" are related ideas, not the same idea wearing different hats.
+
+We also made an explicit planning call at the end of this slice: `P0-451` counts as complete for Phase 0 even though two refresh-path QA checks remain untestable in the present app state. That is not cheating; it is scope discipline. The foundation work is delivered, the known validation limits are written down, and the remaining gaps belong to future product/runtime slices rather than pretending the library index itself is still half-built.
+
 ### Music Validation: The Part Where The Test Target Fought Back
 
 Once the library index code was in, `P0-451` still had one boring but essential job left: prove the vertical slice actually behaves like a vertical slice.

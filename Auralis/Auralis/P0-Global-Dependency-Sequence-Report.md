@@ -77,6 +77,7 @@ Current read on `P0-102A`:
 
 Current read on `P0-451`:
 
+- this ticket is complete for the current Music foundation slice
 - a dedicated SwiftData music library index now exists as a persisted projection of scoped music-capable `NFT` records
 - the mounted Music tab now consumes that index instead of filtering raw `NFT` rows directly in the view
 - rebuilds emit dedicated `music.library_index.*` receipts on the shared receipt foundation

@@ -6,7 +6,7 @@ Implement a minimal music library index with local persistence and refresh recei
 
 ## Ticket Status
 
-In progress.
+Complete for the current Phase 0 slice.
 
 ## Execution Checklist
 
@@ -316,6 +316,7 @@ Remaining intentional deferrals:
 
 - Home and Search are allowed to stay on scoped local `@Query<[NFT]>` attachment for the initial slice instead of consuming the dedicated music index directly.
 - Full collection/detail shaping remains deferred to `P0-452`.
+- The broader Audio Engine buildout still needs its own future ticket; `P0-451` only establishes the music library index/storage foundation and keeps playback wired through the current engine path.
 
 ## Critical Edge Case
 
