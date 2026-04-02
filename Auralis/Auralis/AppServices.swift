@@ -185,6 +185,7 @@ struct ShellServiceHub {
     let readOnlyProviderFactory: ReadOnlyProviderFactory
     let contextServiceBuilder: any ShellContextServiceBuilding
     let libraryContextProviderFactory: @MainActor (ModelContext) -> any ShellLibraryContextProviding
+    let musicLibraryIndexerFactory: @MainActor (ModelContext) -> any MusicLibraryIndexing
     let receiptStoreFactory: @MainActor (ModelContext) -> any ReceiptStore
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any ObservePolicyActionHandling
 
@@ -208,6 +209,9 @@ struct ShellServiceHub {
             contextServiceBuilder: LiveShellContextServiceBuilder(),
             libraryContextProviderFactory: { modelContext in
                 SwiftDataShellLibraryContextProvider(modelContext: modelContext)
+            },
+            musicLibraryIndexerFactory: { modelContext in
+                SwiftDataMusicLibraryIndexer(modelContext: modelContext)
             },
             receiptStoreFactory: { modelContext in
                 ReceiptStores.live(modelContext: modelContext)

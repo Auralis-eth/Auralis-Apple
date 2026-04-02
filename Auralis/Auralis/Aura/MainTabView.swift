@@ -419,7 +419,11 @@ struct MainTabView: View {
                                     refreshAction: refreshActiveScopeFromUserAction,
                                     onOpenNFT: { nft in
                                         router.showMusicNFTDetail(id: nft.id)
-                                    }
+                                    },
+                                    musicLibraryIndexer: services.musicLibraryIndexerFactory(modelContext),
+                                    musicLibraryReceiptLogger: ReceiptEventLogger(
+                                        receiptStore: services.receiptStoreFactory(modelContext)
+                                    )
                                 )
                             }
                             .navigationDestination(for: NFTDetailRoute.self) { route in

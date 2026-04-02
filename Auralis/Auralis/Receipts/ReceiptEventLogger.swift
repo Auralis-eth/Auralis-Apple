@@ -128,6 +128,77 @@ struct ReceiptEventLogger {
             isSuccess: true
         )
     }
+
+    @discardableResult
+    func recordMusicLibraryIndexStarted(
+        accountAddress: String,
+        chain: Chain,
+        correlationID: String?
+    ) -> Result<ReceiptRecord, Error> {
+        append(
+            trigger: "music.library_index.started",
+            scope: "music.library",
+            summary: "Started music library index rebuild",
+            provenance: "local_cache",
+            rawPayload: RawReceiptPayload(values: [
+                "accountAddress": .string(accountAddress),
+                "chain": .string(chain.rawValue)
+            ]),
+            correlationID: correlationID,
+            actor: .system,
+            isSuccess: true
+        )
+    }
+
+    @discardableResult
+    func recordMusicLibraryIndexCompleted(
+        accountAddress: String,
+        chain: Chain,
+        correlationID: String?,
+        scannedCount: Int,
+        writtenCount: Int,
+        removedCount: Int
+    ) -> Result<ReceiptRecord, Error> {
+        append(
+            trigger: "music.library_index.completed",
+            scope: "music.library",
+            summary: "Rebuilt music library index",
+            provenance: "local_cache",
+            rawPayload: RawReceiptPayload(values: [
+                "accountAddress": .string(accountAddress),
+                "chain": .string(chain.rawValue),
+                "scannedCount": .number(Double(scannedCount)),
+                "writtenCount": .number(Double(writtenCount)),
+                "removedCount": .number(Double(removedCount))
+            ]),
+            correlationID: correlationID,
+            actor: .system,
+            isSuccess: true
+        )
+    }
+
+    @discardableResult
+    func recordMusicLibraryIndexFailed(
+        accountAddress: String,
+        chain: Chain,
+        correlationID: String?,
+        error: Error
+    ) -> Result<ReceiptRecord, Error> {
+        append(
+            trigger: "music.library_index.failed",
+            scope: "music.library",
+            summary: "Music library index rebuild failed",
+            provenance: "local_cache",
+            rawPayload: RawReceiptPayload(values: [
+                "accountAddress": .string(accountAddress),
+                "chain": .string(chain.rawValue),
+                "error": .string(String(describing: error))
+            ]),
+            correlationID: correlationID,
+            actor: .system,
+            isSuccess: false
+        )
+    }
 }
 
 @MainActor

@@ -27,6 +27,7 @@ struct HomeTabView: View {
     @Binding var currentAddress: String
     @Binding var currentChainId: String
     @Binding var currentChain: Chain
+    @Query private var scopedNFTs: [NFT]
     @Query(
         sort: [
             SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
@@ -58,6 +59,33 @@ struct HomeTabView: View {
     @State private var promptCache = [String: [ImagePlaygroundConcept]]()
     @State private var avatarImage: UIImage?
 
+    init(
+        currentAccount: Binding<EOAccount?>,
+        currentAddress: Binding<String>,
+        currentChainId: Binding<String>,
+        currentChain: Binding<Chain>,
+        onCurrentChainChanged: @escaping @MainActor (Chain, String) -> Void,
+        router: AppRouter,
+        ensResolver: any ENSResolving
+    ) {
+        self._currentAccount = currentAccount
+        self._currentAddress = currentAddress
+        self._currentChainId = currentChainId
+        self._currentChain = currentChain
+        self.onCurrentChainChanged = onCurrentChainChanged
+        self.router = router
+        self.ensResolver = ensResolver
+
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount.wrappedValue?.address ?? currentAddress.wrappedValue) ?? ""
+        let chainRawValue = currentChain.wrappedValue.rawValue
+        _scopedNFTs = Query(
+            filter: #Predicate<NFT> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.networkRawValue == chainRawValue
+            }
+        )
+    }
+
     private var receiptScope: ReceiptTimelineScope {
         ReceiptTimelineScope(
             accountAddress: currentAccount?.address ?? currentAddress,
@@ -71,6 +99,10 @@ struct HomeTabView: View {
             .filter { $0.matches(receiptScope) }
             .prefix(5)
             .map { $0 }
+    }
+
+    private var musicNFTCount: Int {
+        scopedNFTs.filter { $0.isMusic() }.count
     }
 
     var body: some View {
@@ -282,7 +314,7 @@ struct HomeTabView: View {
 
     private var musicTile: some View {
         AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-            MusicTileView {
+            MusicTileView(trackCount: musicNFTCount) {
                 router.showMusicLibrary()
             }
         }
@@ -603,6 +635,7 @@ extension String {
 }
 
 struct MusicTileView: View {
+    let trackCount: Int
     var onOpenPlayer: (() -> Void)?
 
     var body: some View {
@@ -610,7 +643,11 @@ struct MusicTileView: View {
             AuraSectionHeader(title: "Music")
 
             VStack(alignment: .leading, spacing: 12) {
-                HeadlineFontText("Let's start with a focus mix")
+                HeadlineFontText(
+                    trackCount > 0
+                    ? "Local music ready: \(trackCount) track\(trackCount == 1 ? "" : "s")"
+                    : "No local music tracks yet"
+                )
                     .fontWeight(.semibold)
 
                 AuraActionButton("Open player", systemImage: "play.fill") {

@@ -71,6 +71,8 @@ struct NFTMusicPlayerApp: View {
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
     let onOpenNFT: (NFT) -> Void
+    let musicLibraryIndexer: any MusicLibraryIndexing
+    let musicLibraryReceiptLogger: ReceiptEventLogger
     @State private var selection: SidebarItem? = .library
     let sidebarItems = SidebarItem.allCases
 
@@ -116,7 +118,9 @@ struct NFTMusicPlayerApp: View {
                             currentChain: currentChain,
                             nftService: nftService,
                             refreshAction: refreshAction,
-                            onOpenNFT: onOpenNFT
+                            onOpenNFT: onOpenNFT,
+                            musicLibraryIndexer: musicLibraryIndexer,
+                            musicLibraryReceiptLogger: musicLibraryReceiptLogger
                         )
                     case .playlists:
                         PlaylistListView()
@@ -151,15 +155,16 @@ struct NFTMusicPlayerLibraryView: View {
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
     let onOpenNFT: (NFT) -> Void
+    let musicLibraryIndexer: any MusicLibraryIndexing
+    let musicLibraryReceiptLogger: ReceiptEventLogger
+    @Query private var libraryItems: [MusicLibraryItem]
     @Query private var nfts: [NFT]
-    private var musicNFTs: [NFT] {
-        nfts.filter { $0.isMusic() }
-    }
-    
+
     @AppStorage("feature_recentlyPlayedLibrary") private var featureRecentlyPlayedLibrary: Bool = true
 
     @State private var errorMessage: String?
     @State private var showingError: Bool = false
+    @State private var lastRebuildSignature: Int?
 
     init(
         audioEngine: AudioEngine,
@@ -167,7 +172,9 @@ struct NFTMusicPlayerLibraryView: View {
         currentChain: Chain,
         nftService: NFTService,
         refreshAction: @escaping @MainActor () async -> Void,
-        onOpenNFT: @escaping (NFT) -> Void
+        onOpenNFT: @escaping (NFT) -> Void,
+        musicLibraryIndexer: any MusicLibraryIndexing,
+        musicLibraryReceiptLogger: ReceiptEventLogger
     ) {
         self.audioEngine = audioEngine
         self.currentAccount = currentAccount
@@ -175,9 +182,21 @@ struct NFTMusicPlayerLibraryView: View {
         self.nftService = nftService
         self.refreshAction = refreshAction
         self.onOpenNFT = onOpenNFT
+        self.musicLibraryIndexer = musicLibraryIndexer
+        self.musicLibraryReceiptLogger = musicLibraryReceiptLogger
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address) ?? ""
         let chainRawValue = currentChain.rawValue
+        _libraryItems = Query(
+            filter: #Predicate<MusicLibraryItem> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.networkRawValue == chainRawValue
+            },
+            sort: [
+                SortDescriptor(\MusicLibraryItem.normalizedArtistKey),
+                SortDescriptor(\MusicLibraryItem.normalizedTitleKey)
+            ]
+        )
         _nfts = Query(
             filter: #Predicate<NFT> {
                 $0.accountAddressRawValue == normalizedAccountAddress &&
@@ -185,11 +204,38 @@ struct NFTMusicPlayerLibraryView: View {
             }
         )
     }
-    
+
+    private var musicNFTByID: [String: NFT] {
+        Dictionary(uniqueKeysWithValues: nfts.map { ($0.id, $0) })
+    }
+
+    private var rebuildSignature: Int {
+        var hasher = Hasher()
+        hasher.combine(currentAccount?.address ?? "")
+        hasher.combine(currentChain.rawValue)
+
+        for nft in nfts.sorted(by: { $0.id < $1.id }) {
+            hasher.combine(nft.id)
+            hasher.combine(nft.audioUrl ?? "")
+            hasher.combine(nft.name ?? "")
+            hasher.combine(nft.artistName ?? "")
+            hasher.combine(nft.collectionName ?? "")
+            hasher.combine(nft.contentType ?? "")
+        }
+
+        for item in libraryItems.sorted(by: { $0.id < $1.id }) {
+            hasher.combine(item.id)
+            hasher.combine(item.playbackURLString ?? "")
+            hasher.combine(item.indexedAt.timeIntervalSince1970)
+        }
+
+        return hasher.finalize()
+    }
+
     var body: some View {
         NavigationStack {
             Group {
-                if musicNFTs.isEmpty {
+                if libraryItems.isEmpty {
                     if let failure = nftService.providerFailurePresentation(isShowingCachedContent: false) {
                         ShellProviderFailureStateView(
                             failure: failure,
@@ -227,24 +273,30 @@ struct NFTMusicPlayerLibraryView: View {
                                     .font(.headline)
                                 
                                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
-                                    ForEach(musicNFTs) { nft in
+                                    ForEach(libraryItems) { item in
                                         Button {
                                             Task {
+                                                guard let nft = musicNFTByID[item.sourceNFTID] else {
+                                                    errorMessage = "The source NFT for this library item is no longer available."
+                                                    showingError = true
+                                                    return
+                                                }
+
                                                 do {
                                                     try await audioEngine.loadAndPlay(nft: nft)
                                                     onOpenNFT(nft)
                                                 } catch {
-                                                    let message = "Failed to load \(nft.name ?? "Unknown Track"): \(error.localizedDescription)"
+                                                    let message = "Failed to load \(item.title): \(error.localizedDescription)"
                                                     errorMessage = message
                                                     showingError = true
                                                 }
                                             }
                                         } label: {
-                                            MusicNFTCard(nft: nft)
+                                            MusicLibraryCard(item: item)
                                                 .padding(.horizontal)
                                         }
                                         .buttonStyle(.plain)
-                                        .accessibilityIdentifier("music.nft.\(nft.id)")
+                                        .accessibilityIdentifier("music.libraryItem.\(item.id)")
                                     }
                                 }
                             }
@@ -261,11 +313,48 @@ struct NFTMusicPlayerLibraryView: View {
                 Text(errorMessage ?? "Unknown error")
             }
         }
+        .task(id: rebuildSignature) {
+            await reconcileLibraryIndexIfNeeded()
+        }
     }
 
     private func refresh() {
         Task {
             await refreshAction()
+            await reconcileLibraryIndexIfNeeded(force: true)
+        }
+    }
+
+    @MainActor
+    private func reconcileLibraryIndexIfNeeded(force: Bool = false) async {
+        guard force || lastRebuildSignature != rebuildSignature else {
+            return
+        }
+
+        do {
+            let shouldRebuild: Bool
+            if force {
+                shouldRebuild = true
+            } else {
+                shouldRebuild = try musicLibraryIndexer.needsRebuild(
+                    accountAddress: currentAccount?.address,
+                    chain: currentChain
+                )
+            }
+
+            if shouldRebuild {
+                _ = try musicLibraryIndexer.rebuildIndex(
+                    accountAddress: currentAccount?.address,
+                    chain: currentChain,
+                    correlationID: nil,
+                    receiptEventLogger: musicLibraryReceiptLogger
+                )
+            }
+
+            lastRebuildSignature = rebuildSignature
+        } catch {
+            errorMessage = "Failed to reconcile the music library: \(error.localizedDescription)"
+            showingError = true
         }
     }
 }
@@ -294,12 +383,12 @@ struct NFTMusicPlayerLibraryView: View {
 
 
 
-private struct MusicNFTCard: View {
-    let nft: NFT
+private struct MusicLibraryCard: View {
+    let item: MusicLibraryItem
 
     var body: some View {
         HStack(spacing: 16) {
-            AsyncImage(url: URL(string: nft.image?.thumbnailUrl ?? nft.image?.originalUrl ?? "")) { image in
+            AsyncImage(url: item.artworkURL) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 RoundedRectangle(cornerRadius: 12)
@@ -312,32 +401,38 @@ private struct MusicNFTCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(nft.name ?? "Unknown Track")
+                Text(item.title)
                     .font(.headline)
                     .lineLimit(2)
 
-                if let artist = nft.artistName, !artist.isEmpty {
+                if let artist = item.artistName, !artist.isEmpty {
                     Text(artist)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
 
                 HStack(spacing: 6) {
-                    SystemImage((nft.isMusic()) ? "speaker.wave.2.fill" : "music.note")
+                    SystemImage(item.availability == .ready ? "speaker.wave.2.fill" : "music.note")
                         .foregroundStyle(.blue)
                         .imageScale(.small)
 
-                    if let ct = nft.contentType, ct.hasPrefix("audio/") {
+                    if let ct = item.contentType, ct.hasPrefix("audio/") {
                         Text(ct.replacingOccurrences(of: "audio/", with: "").uppercased())
                             .font(.caption2)
                             .foregroundStyle(.blue)
+                    }
+
+                    if item.availability == .unavailable {
+                        Text("UNAVAILABLE")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
                     }
                 }
             }
 
             Spacer()
 
-            if let network = nft.network {
+            if let network = Chain(rawValue: item.networkRawValue) {
                 VStack(spacing: 4) {
                     SystemImage("link")
                         .foregroundStyle(.secondary)
@@ -351,7 +446,7 @@ private struct MusicNFTCard: View {
         .padding(12)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("music.card.\(nft.id)")
+        .accessibilityIdentifier("music.card.\(item.id)")
     }
 }
 

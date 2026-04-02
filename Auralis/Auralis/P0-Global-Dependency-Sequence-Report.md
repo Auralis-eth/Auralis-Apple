@@ -41,6 +41,7 @@ These tickets are no longer just "startable now"; they are actively underway:
 - `P0-401` context schema v0
 - `P0-101C` context freshness behavior on the context-sheet path
 - `P0-102A` Home layout shell slice
+- `P0-451` music library index derived from the existing SwiftData-backed local `NFT` store
 - `P0-701A` layered module-boundary scaffolding
 
 Current read on `P0-401`:
@@ -74,12 +75,18 @@ Current read on `P0-102A`:
 - the scenic background and glass-card visual language were intentionally preserved
 - later Home tickets can now deepen sections without forcing another top-level Home rewrite
 
+Current read on `P0-451`:
+
+- a dedicated SwiftData music library index now exists as a persisted projection of scoped music-capable `NFT` records
+- the mounted Music tab now consumes that index instead of filtering raw `NFT` rows directly in the view
+- rebuilds emit dedicated `music.library_index.*` receipts on the shared receipt foundation
+- Home is lightly attached through the local `NFT` store with a visible music-count affordance, while Search remains on the local `NFT` path for the first slice
+
 ## Partially Blocked But Legitimate To Advance
 
 These tickets explicitly allow useful progress without waiting for every downstream dependency:
 
 - `P0-102E` gateway-to-home flow polish
-- `P0-451` music library index derived from the existing SwiftData-backed local `NFT` store
 - `P0-461` token holdings list with placeholder or local-backed data
 
 This preserves the earlier planning rule: use placeholder-backed or parser-first slices to break cycles when the ticket docs explicitly allow it.

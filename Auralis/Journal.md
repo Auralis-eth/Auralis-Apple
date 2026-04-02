@@ -200,6 +200,36 @@ Second, it sharply narrows the architecture question. The work is no longer \"wh
 
 That is a much better engineering problem. It is concrete, local, and based on the data the app already owns.
 
+### Music Library Index: Give The Music Tab A Real Catalog
+
+`P0-451` finally crossed the line from planning language into actual code.
+
+Before this pass, the Music tab was doing the expedient thing:
+
+- query scoped `NFT` rows
+- filter them with `nft.isMusic()`
+- hope that was good enough to count as a library
+
+That works as a prototype, but it is not a real library contract. It is more like rummaging through a warehouse shelf every time someone asks where the records are.
+
+The new slice adds a dedicated SwiftData `MusicLibraryItem` model and an indexer that rebuilds the music library from the local scoped `NFT` store. That gives the app a real catalog layer:
+
+- `NFT` stays the source of truth
+- `MusicLibraryItem` becomes the music-friendly projection
+- the Music tab reads the projection instead of reinventing the filter in the view
+
+The nice part is that this did not require fake seed files or demo bootstrap tricks. The app already had the data; it just needed to admit that music-library concerns deserve their own shelf.
+
+There is also a receipts lesson hiding in this work. Instead of building a one-off music logger, the new rebuild path uses the existing append-only receipt foundation with a dedicated trigger family:
+
+- `music.library_index.started`
+- `music.library_index.completed`
+- `music.library_index.failed`
+
+That keeps the audit trail boring in the right way. Music indexing is just another historical fact in the same system, not a side quest with its own diary.
+
+One pragmatic compromise also landed here: Home and Search are not being forced onto the new index immediately. Home now shows a lightweight local music count off the scoped `NFT` store, and Search stays on its existing local `NFT` path for the first slice. That is the right kind of laziness. The app gets the real Music foundation now without pretending every surface needs a full rewrite on day one.
+
 ## Engineer's Wisdom
 
 Good engineering in this project usually means refusing fake certainty.
