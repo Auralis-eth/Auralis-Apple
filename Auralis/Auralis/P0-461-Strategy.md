@@ -2,32 +2,37 @@
 
 ## Status
 
-Partially blocked
+Startable
 
 ## Ticket
 
-Implement the token holdings list for the active account and chain scope, with ETH minimum support and optional ERC-20 support.
+Implement the first token holdings list for the active account and chain scope, with native balance minimum support and a clean path to later ERC-20 enrichment.
 
 ## Dependencies
 
-P0-301, P0-302, P0-402, P0-502 slices
+- `P0-301`
+- `P0-302`
+- `P0-402`
+- `P0-502` slices
 
 ## Strategy
 
-- Allow local or placeholder holdings data first.
-- Layer provider-backed enrichment after the holdings surface exists.
-- Keep the UI and model shape stable across the transition from placeholder to real data.
+- Start with a trustworthy holdings surface before chasing full enrichment depth.
+- Treat native balance as the required minimum slice.
+- Allow placeholder or local-backed ERC-20 rows if real provider-backed metadata is not ready yet.
+- Keep the holdings row model stable so later enrichment does not force a surface rewrite.
 
 ## Key Risk
 
-Handle ETH-only lists, missing token metadata, stale cached balances after fetch failure, and the transition from placeholder to provider-backed data.
+Handle native-only lists, missing token metadata, stale cached balances after fetch failure, and partial provider coverage without breaking the shell.
 
 ## Definition Of Done
 
-- The holdings surface exists and is usable.
-- Placeholder data can later be replaced by provider-backed data without a redesign.
-- Freshness and receipt integration can layer in incrementally.
+- A holdings list exists for the active scope.
+- Native balance is visible and understandable.
+- The surface survives missing or partial token metadata.
+- Later enrichment can attach without redesigning the list contract.
 
 ## Validation Target
 
-Display native ETH balance, refresh with receipts and freshness updates, and show cached stale balances in offline mode.
+Display native balance, preserve usable cached state when refresh fails, and leave a clean seam for later token-detail routing.

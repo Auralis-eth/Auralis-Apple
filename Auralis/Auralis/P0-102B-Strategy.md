@@ -2,33 +2,36 @@
 
 ## Status
 
-Blocked
+Startable
 
 ## Ticket
 
-Create the Home summary card for identity, chain scope, balance, and freshness with copy and inspector/account-detail actions.
+Deepen the active account summary card on Home so it feels like a real shell-owned identity surface instead of a decorative placeholder.
 
 ## Dependencies
 
-P0-102A, P0-203, P0-301, P0-302, P0-501
+- `P0-102A`
+- `P0-201`
+- `P0-204`
+- `P0-401` slices
 
 ## Strategy
 
-- Keep the implementation narrow and phase-correct.
-- Build only the minimum seams needed by downstream tickets.
-- Make UI and state ownership explicit instead of hiding behavior in helpers.
-- Validate the named edge cases before broadening scope.
+- Build on the existing Home identity section rather than redesigning Home.
+- Surface the most useful account and scope information first.
+- Keep summary data honest when optional context fields are missing.
+- Preserve the current scenic/glass visual language.
 
 ## Key Risk
 
-ENS fallback, unavailable balance, and stale cached balances must read clearly without implying broken state.
+Avoid overloading the summary card with too many half-trustworthy fields or coupling it too tightly to future deeper account/profile work.
 
 ## Definition Of Done
 
-- The ticket outcome is visible in product behavior.
-- The ticket integrates cleanly with its immediate dependencies.
-- The stated test plan can be run without inventing extra architecture.
+- Home has a stronger active account summary card.
+- The card reflects real shell/account state.
+- Missing optional data degrades cleanly.
 
 ## Validation Target
 
-Copy address logs a receipt, balance refresh updates freshness, ENS fallback works, and forced stale cache timestamps update the label.
+Show active account identity and useful scope summary without breaking Home when optional context or balance data is absent.

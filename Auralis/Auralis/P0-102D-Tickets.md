@@ -2,23 +2,46 @@
 
 ## Summary
 
-Show the last 5 to 10 receipts on Home with summary, status icon, timestamp, and navigation into receipt detail or the full receipts list.
+Deepen the Home recent-activity preview so it provides a real shell summary of recent actions and system events.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Startable.
+
+## Execution Checklist
+
+### 1. Confirm the preview source
+
+- [ ] Re-read `P0-102D-Strategy.md` and `P0-102D-Dependency-Note.md`.
+- [ ] Confirm which receipt/activity sources should feed the first preview.
+- [ ] Confirm which deeper route the preview should open into.
+
+### 2. Implement the recent-activity preview
+
+- [ ] Render a lightweight recent-activity list or strip in Home.
+- [ ] Keep the preview shorter and simpler than the full receipts surface.
+- [ ] Route into richer history/detail when selected.
+
+### 3. Cover required edge cases
+
+- [ ] Empty activity history is shown honestly.
+- [ ] Sparse or partial receipt data does not break the section.
+- [ ] Preview rows remain understandable without requiring users to open the full timeline.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify recent activity appears when receipts/history exist.
+- [ ] Verify empty history does not make Home feel broken.
+- [ ] Record any deeper timeline or analytics ideas outside this ticket.
 
 ## Critical Edge Case
 
-Use bounded queries for large volumes and ensure the preview reflects active account scope or labels mixed scope clearly.
+The recent-activity preview must stay lightweight and understandable even when receipts are sparse or unevenly distributed across surfaces.
 
 ## Validation
 
-Generate receipts, verify preview updates, open detail from a preview row, open the full receipts list, and switch accounts to confirm the preview updates.
+Show useful recent activity in Home and preserve honest empty-state behavior when there is none.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If the preview starts wanting full timeline behavior, move that work into receipts-focused tickets instead of stretching `P0-102D`.

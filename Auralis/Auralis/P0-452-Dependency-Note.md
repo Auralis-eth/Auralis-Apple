@@ -2,18 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-451
-- P0-502 slices
-- P0-702
+- `P0-451` is complete enough to provide the library/index foundation for this ticket.
+- `P0-101A` already gives the shell and routing baseline needed for detail presentation.
+- `P0-403` can support provenance or receipt-aware detail affordances where useful, but it does not need to block the first detail screens.
 
-Recommended parallel foundation:
+## Safe First Slice
 
-- P0-101D
+- Build item detail first, then collection detail if the shared contract stays clean.
+- Use the current music index plus source `NFT` metadata instead of inventing a second music-detail data model prematurely.
+- Keep playback and deeper curation work out of scope unless it is required for basic screen correctness.
 
-## Why It Is Blocked
+## Rule For Planning
 
-The music index, receipt slices, and untrusted-input rules are the real blockers. `P0-101D` is a visual convergence aid, not the main gate.
+Do not turn `P0-452` into the broader Audio Engine buildout or into playlist-management work.

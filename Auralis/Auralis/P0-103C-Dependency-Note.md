@@ -2,25 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-103B
-- P0-302
-- P0-301
-- P0-502
+- `P0-103A` is enough to expose entry points, but `P0-103C` defines how those queries actually resolve.
+- `P0-201` provides account/address grounding for wallet-oriented resolution.
+- `P0-301` and `P0-302` can support provider-backed lookups later without blocking a deterministic local-first pipeline.
 
-## Why It Is Blocked
+## Safe First Slice
 
-Blocked on parser output, provider and cache primitives, and receipt logging integration.
+- Keep the pipeline typed and local-first where possible.
+- Add provider-backed branches only where the contract is already clear.
+- Keep the pipeline separate from results rendering and history storage.
 
-## Safe Pre-Work
+## Rule For Planning
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
-
-## Unblock Condition
-
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+Do not let the resolution pipeline dissolve back into view-local conditional logic.

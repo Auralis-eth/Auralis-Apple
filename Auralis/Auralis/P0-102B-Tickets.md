@@ -2,23 +2,46 @@
 
 ## Summary
 
-Create the Home summary card for identity, chain scope, balance, and freshness with copy and inspector/account-detail actions.
+Deepen the active account summary card on Home so it acts like a real identity and scope surface.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Startable.
+
+## Execution Checklist
+
+### 1. Confirm card scope and inputs
+
+- [ ] Re-read `P0-102B-Strategy.md` and `P0-102B-Dependency-Note.md`.
+- [ ] Confirm which account, chain, and context fields belong on the first card.
+- [ ] Confirm which existing temporary visuals are acceptable to preserve.
+
+### 2. Implement the strengthened summary card
+
+- [ ] Add the real identity/scope fields to the Home summary card.
+- [ ] Keep the card readable and intentionally scoped.
+- [ ] Preserve existing Home visual language.
+
+### 3. Cover required edge cases
+
+- [ ] Missing optional context values degrade cleanly.
+- [ ] Chain/account switches update the card correctly.
+- [ ] The card remains useful even when richer balances or activity data are absent.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify the card reflects the active account and scope.
+- [ ] Verify the card stays visually coherent in sparse-data conditions.
+- [ ] Record any profile-management or settings follow-ons outside this ticket.
 
 ## Critical Edge Case
 
-ENS fallback, unavailable balance, and stale cached balances must read clearly without implying broken state.
+The card must stay trustworthy when optional context fields are absent or lag behind richer future integrations.
 
 ## Validation
 
-Copy address logs a receipt, balance refresh updates freshness, ENS fallback works, and forced stale cache timestamps update the label.
+Show a stronger active account summary using real shell/account data without overreaching into profile-management work.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If the card wants richer editing or management behavior, split that into later tickets instead of stretching `P0-102B`.

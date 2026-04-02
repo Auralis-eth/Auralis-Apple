@@ -2,32 +2,34 @@
 
 ## Status
 
-Blocked
+Startable
 
 ## Ticket
 
-Build read-only music collection and item details with explorer links, copy actions, local pin or favorite actions, and provenance labels.
+Implement the first real music collection and item detail screens on top of the completed `P0-451` music library foundation.
 
 ## Dependencies
 
-P0-451, P0-502 slices, P0-702, with `P0-101D` as a recommended parallel foundation
+- `P0-451`
+- `P0-101A`
+- `P0-403` slice
 
 ## Strategy
 
-- Wait on the underlying library and trust-labeling seams.
-- Do not treat `P0-101D` as the primary blocker.
-- Use `P0-101D` later to converge warning and empty-state presentation.
+- Build detail screens on the dedicated music library/index foundation rather than going back to raw ad hoc filtering.
+- Reuse source `NFT` data where it remains the canonical metadata owner.
+- Keep collection detail and item detail separate enough that later richer playback and curation features can attach cleanly.
 
 ## Key Risk
 
-Missing artwork, long metadata, and unavailable explorer links must degrade safely without implying trust.
+Avoid letting detail screens collapse back into raw `NFT`-driven view logic or absorb broader audio-engine work that belongs in later tickets.
 
 ## Definition Of Done
 
-- Detail flows are readable and safe.
-- Metadata trust treatment is explicit.
-- Shared warning and empty-state presentation can later align with `P0-101D`.
+- Music item detail exists and is routable from the library.
+- Music collection detail exists for grouped browsing.
+- Both screens degrade honestly when metadata is partial.
 
 ## Validation Target
 
-Navigate collection to item detail and back, log copy and explorer actions, and label metadata as untrusted where required.
+Open music item and collection detail from the mounted Music surface, preserve graceful partial-metadata handling, and leave room for later playback/capture deepening.

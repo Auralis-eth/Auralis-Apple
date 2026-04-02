@@ -2,24 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-102A
-- P0-501
-- P0-503
+- `P0-102A` already created the recent-activity slot on Home.
+- `P0-403` and the current receipts inspector slice provide enough receipt-aware grounding for the preview.
+- `P0-501` and `P0-502` already provide the receipt foundation and active logging baseline.
 
-## Why It Is Blocked
+## Safe First Slice
 
-Blocked on Home layout and the receipts UI layer that owns detail and list routing.
+- Use recent receipts or recent shell activity as the preview source.
+- Keep the preview intentionally compressed and route into deeper history surfaces when needed.
+- Preserve honest empty-state behavior when there is no recent activity.
 
-## Safe Pre-Work
+## Rule For Planning
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
-
-## Unblock Condition
-
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+Do not turn this preview into a full receipt timeline replacement or into an analytics dashboard.

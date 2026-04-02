@@ -2,26 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-102A
-- P0-203
-- P0-301
-- P0-302
-- P0-501
+- `P0-102A` already gives Home the structural slot for this card.
+- `P0-201` and `P0-204` provide enough active-account and chain-scope truth for a meaningful first slice.
+- `P0-401` exposes enough context fields to enrich the card without inventing new shell state.
 
-## Why It Is Blocked
+## Safe First Slice
 
-Blocked on Home layout plus ENS, provider, and freshness infrastructure.
+- Use already-owned account and context values.
+- Prefer a few trustworthy summary fields over a long decorative profile dump.
+- Keep profile-image generation and other temporary visuals in place if they are already part of the current Home language.
 
-## Safe Pre-Work
+## Rule For Planning
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
-
-## Unblock Condition
-
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+Do not turn the active summary card into full profile management or a broader account-settings ticket.

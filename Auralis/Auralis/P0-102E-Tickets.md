@@ -2,23 +2,46 @@
 
 ## Summary
 
-Implement the first-run Home experience with add-account or ENS entry CTA and optional demo entry, then transition directly into the full dashboard.
+Implement the Home empty and first-run state so the dashboard remains intentional when there is little or no useful local data.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Startable.
+
+## Execution Checklist
+
+### 1. Confirm the sparse-data triggers
+
+- [ ] Re-read `P0-102E-Strategy.md` and `P0-102E-Dependency-Note.md`.
+- [ ] Confirm which signals define first-run vs sparse-data vs normal Home.
+- [ ] Confirm which existing routes should be offered as next steps from the empty state.
+
+### 2. Implement the first-run Home state
+
+- [ ] Add the empty/first-run treatment inside the existing Home shell.
+- [ ] Provide clear next actions such as account setup, refresh, search, or explore.
+- [ ] Keep the scenic/glass language aligned with the current Home design.
+
+### 3. Cover required edge cases
+
+- [ ] Home distinguishes empty from loading or provider failure.
+- [ ] Sparse state remains usable without receipts or recent activity.
+- [ ] Route actions from the empty state land on real product surfaces.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify Home is understandable on first run.
+- [ ] Verify the state clears cleanly once data exists.
+- [ ] Record any later copy or visual deepening as follow-on work instead of folding it into this ticket.
 
 ## Critical Edge Case
 
-Invalid input should not leave onboarding, and provider failure after adding an account must still land the user in a usable shell.
+Do not confuse empty or first-run state with loading, error, or broken-shell state.
 
 ## Validation
 
-Fresh install shows CTA, valid address lands on Home without relaunch, invalid address is blocked clearly, and demo mode stays visibly reversible.
+Show a coherent Home experience for first-run and sparse-data conditions, with real next-step routing.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If later Home sections are still incomplete, keep this ticket focused on the empty-state experience rather than filling the dashboard with throwaway placeholders.

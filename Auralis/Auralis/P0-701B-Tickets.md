@@ -2,23 +2,46 @@
 
 ## Summary
 
-Later enforcement completion for layered boundaries after the structural scaffolding and main service seams are already in place.
+Complete the layered-boundaries enforcement pass so shell/service/view ownership rules are no longer just conventions.
 
-## Execution Order
+## Ticket Status
 
-1. Confirm `P0-701A` structural scaffolding is already in use.
-2. Confirm `P0-602` and the main service seams are stable enough to lock down.
-3. Add the strongest practical enforcement available in this codebase shape.
-4. Re-run bypass-path and architecture checks.
+Partially blocked behind stable seam adoption, but targeted enforcement work is legitimate.
+
+## Execution Checklist
+
+### 1. Confirm the active bypasses
+
+- [ ] Re-read `P0-701B-Strategy.md` and `P0-701B-Dependency-Note.md`.
+- [ ] Confirm which current shortcut paths are the highest-value enforcement targets.
+- [ ] Confirm which enforcement work would create too much churn right now.
+
+### 2. Implement the first enforcement pass
+
+- [ ] Remove or gate the clearest shell/service boundary bypasses.
+- [ ] Tighten action and routing ownership where the seam is already real.
+- [ ] Keep enforcement changes local and defensible.
+
+### 3. Cover required edge cases
+
+- [ ] Enforcement does not break active product flows.
+- [ ] The stricter contract remains understandable to future contributors.
+- [ ] Denied or redirected paths fail honestly.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify the targeted bypasses are actually closed.
+- [ ] Verify later smoke-test work has a clearer target surface.
+- [ ] Record deferred broad enforcement separately.
 
 ## Critical Edge Case
 
-Do not lock down boundaries before the actual service seams are settled.
+Enforcement must close real boundary leaks without destabilizing active product flows.
 
 ## Validation
 
-Confirm UI does not reach Providers directly, mocks can still be injected for tests, and bypass paths fail structural review.
+Close targeted bypass paths and make architecture ownership easier to verify in later smoke tests.
 
 ## Handoff Rule
 
-This ticket finishes enforcement. It should not be used to invent the core service graph from scratch.
+If a proposed enforcement change requires broad restructuring, defer it rather than letting `P0-701B` become an unfocused cleanup marathon.

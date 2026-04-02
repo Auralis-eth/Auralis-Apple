@@ -2,284 +2,68 @@
 
 ## The Big Picture
 
-Auralis is a wallet-aware SwiftUI app that acts like a control room for NFT identity, browsing, receipts, gas context, and music playback. The simplest way to explain it is: you bring a wallet address in, and the app turns that into a long-lived personal surface with history, media, and context stitched around it.
-
-It is not a tiny single-screen demo. It is more like a hotel lobby with several wings: onboarding, shell chrome, search, receipts, NFT browsing, token surfaces, and music. The trick is making all of those wings feel like one building instead of a pile of disconnected rooms.
+Auralis is what happens when an NFT wallet viewer, a chain-aware dashboard, a receipt timeline, and a music app decide to share one apartment. You bring an address, Auralis restores your scope, fetches and persists the collection, and then lets multiple product surfaces work off that same identity without pretending they live in separate universes.
 
 ## Architecture Deep Dive
 
-The app shell works like an airport tower. `MainAuraView` owns the high-level traffic: active account, active chain, restore flow, deep links, and app-level services. `MainTabView` is the terminal map. It decides which major surface the user is in, but it is not supposed to become the source of truth for everything interesting.
+The app shell is the front desk. `MainAuraView` and `MainTabView` decide who is checked in, which chain they are standing on, and which wing of the building they should be sent to next.
 
-`NFTService` and the related networking types are the cargo pipeline. They fetch, retry, cache, and persist NFT data without making the UI learn transport details. `AudioEngine` is the long-lived house band in the basement: once started, it keeps playing while the rest of the building changes screens.
+`AccountStore` is the guest book. It normalizes addresses, prevents duplicates, and records account-level actions so the app can explain what happened later.
 
-The newer context work is the app's clipboard for "what is true right now?" `ContextSnapshot` is the typed note passed around the shell so views stop free-styling their own interpretation of account, chain, freshness, and local pointers. Without that, every screen starts behaving like a different witness at the same trial.
+`NFTService` is the loading dock. It pulls inventory from the network, deals with retries and throttling, then hands clean data to SwiftData for local persistence.
+
+`ContextService` is the concierge clipboard. It gathers current account, chain, freshness, receipt count, and native balance into one snapshot so the chrome and shell UI can speak with one voice instead of improvising conflicting stories.
+
+The receipt system is the black box recorder. When something important happens, the app writes down enough scope and payload detail to reconstruct the story later without forcing every feature to invent its own logging language.
 
 ## The Codebase Map
 
-- `Auralis/Auralis/Aura/` is the visible product shell and feature UI.
-- `Auralis/Auralis/DataModels/` is the persistence and domain layer, with a few files that are doing more work than their names admit.
-- `Auralis/Auralis/Networking/` is the fetch-and-refresh machinery.
-- `Auralis/Auralis/Receipts/` is the audit trail system.
-- `Auralis/Auralis/MusicApp/AI/` is the active music path.
-- `Auralis/AuralisTests/` is where the contracts are supposed to get caught before production does the yelling.
+`Auralis/Auralis/Aura/` is the visible product shell: auth, tabs, home, news, search, and shared chrome.
 
-Practical navigation rule: if a shell behavior feels "global", start with `MainAuraView`, `MainTabView`, `ContextService`, and `AppServices` before spelunking deeper.
+`Auralis/Auralis/Accounts/` holds account persistence and account event recording.
+
+`Auralis/Auralis/Networking/` contains provider seams, NFT refresh orchestration, throttling, and chain-backed reads.
+
+`Auralis/Auralis/Receipts/` is where timeline storage, filtering, and event logging live.
+
+`Auralis/Auralis/MusicApp/AI/` is the active music path. `OLD/` is the attic. Do not assume the attic is load-bearing.
+
+`Auralis/Auralis/DataModels/` is the durable model layer, including `EOAccount`, `NFT`, chain types, and receipt storage models.
 
 ## Tech Stack & Why
 
-- SwiftUI because the app is heavily state-driven and the shell is easier to reason about when views are projections of state instead of delegate soup.
-- SwiftData because local persistence is not optional here. Accounts, receipts, NFTs, and playlist data all want a real on-device home.
-- Swift Concurrency because refreshes, deep-link timing, and cancellation are real problems in this app. Old-school callback chains would turn this into spaghetti quickly.
-- Testing framework for unit-style coverage because a lot of the Phase 0 work is about contracts and sequencing, not just pixels.
+SwiftUI drives the UI because the app is mostly state choreography: account scope, chain scope, loading state, navigation state, and media state all need to stay in sync without UIKit glue code metastasizing everywhere.
+
+SwiftData handles local persistence because the app wants durable local state for accounts, NFTs, and receipts without building a custom database layer for every feature.
+
+Swift Concurrency is the right fit because network reads, refresh flows, and snapshot building are naturally async tasks, and the codebase already prefers explicit async seams over callback soup.
+
+Receipt-backed event logging exists because this app has a lot of long-lived state. When something feels wrong, “what happened?” is not a philosophical question, it is a product requirement.
 
 ## The Journey
 
-### War Story: The Context Snapshot Started Life As A Polite Placeholder
+### War story: P0-461 started with a route that already existed, but no surface
 
-`P0-401` began with the right idea and a slightly too-optimistic implementation. The schema types existed, but several fields were still acting like cardboard stand-ins. If the app already knew about playlists or scoped receipts locally, the snapshot still shrugged and returned `nil`.
+The first pass through the token-holdings ticket could have gone sideways fast if we had treated “add holdings” like “invent a new token area.” The seam was already there: `ERC20TokensRootView` existed, but it was a polite cardboard sign saying the portfolio surface was not built yet.
 
-The fix was not "invent more fake data." The better move was to feed the snapshot only from local truths the app already owned:
+The useful discovery was that native balance does not need a new provider abstraction. The app already has one. `ContextService` asks the injected `NativeBalanceProviding` seam for a scope-aware balance and folds it into the shared snapshot. That means the first vertical slice can stay honest: show native balance now, keep ERC-20 rows pluggable later, and avoid building a second balance pipeline that would need to be deleted in a week.
 
-- playlist count from local SwiftData
-- scoped receipt count from stored receipts
-- guest-pass/demo state from the active account source
+Another important product decision is now explicit: token holdings are expected to be persisted with SwiftData. In other words, the token list should behave more like the app's other durable libraries and less like a temporary network overlay that vanishes the moment a request fails. That matters because “show me what I own” is exactly the kind of feature users notice when it forgets yesterday.
 
-That moved the context schema from "diagram on a whiteboard" to "contract with actual local teeth."
+### Gotcha: freshness is a shell concern, not a token-screen side quest
 
-### Another Good Lesson: Environment Timing Matters
-
-Trying to read `modelContext` directly inside `MainTabView`'s initializer produced a classic SwiftUI trap: escaping closures captured `self` before initialization was complete. The fix was simple once the shape was clear: pass `ModelContext` in from `MainAuraView`, where it already exists cleanly, instead of trying to reach into the environment too early.
-
-That is a very senior-engineer kind of move: do not outsmart initialization rules when composition can solve the problem directly.
-
-### Current P0-401 Reality
-
-What landed:
-
-- stronger `ContextSnapshot` inputs
-- more visible context inspection in chrome
-- real local library pointers where local data already exists
-- explicit notes about what is still deferred
-
-What is still deferred:
-
-- a few placeholder-safe preference/module fields whose owning surfaces are not finalized yet
-- any final freshness-policy cleanup if ownership changes later
-
-### P0-301 Graduated From "Good Protocols" To "Real Product Plumbing"
-
-There is a common architecture trap where a team builds beautiful protocols, pats itself on the back, and then never routes any real product behavior through them. That is how you end up with a very elegant abstraction and exactly zero users benefiting from it.
-
-`P0-301` was in danger of becoming that story. The repo already had the provider protocols and centralized endpoint resolution, but native balance was still sitting in the corner like a gym membership card: technically useful, rarely exercised.
-
-This pass fixed that by:
-
-- making the shell service hub own one shared read-only provider factory
-- routing NFT inventory creation through that factory story
-- keeping gas on the same provider-configuration spine
-- feeding native balance into `ContextService`, which means the shell context contract now consumes provider-backed data for real
-
-That is the difference between \"we have an abstraction\" and \"the abstraction is carrying weight.\"
-
-### The Loading Screen Was Telling A Half-Truth
-
-The NFT loading screen had a magician's-assistant problem: it was showing one part of the act while the hard work was happening offstage.
-
-The progress bar came from `NFTFetcher`, which only knows about provider pagination. Meanwhile, `MainAuraView` kept the loading screen up until `NFTService` finished the rest of the pipeline:
-
-- metadata parsing
-- scope canonicalization
-- SwiftData inserts and saves
-- stale-item cleanup
-
-So the app could honestly say \"3100 of 3908 loaded\" and still sit there for a while, which looks suspiciously like a hung API call even when the network part is already done.
-
-The fix was to make the refresh pipeline admit what phase it is in. `NFTService` now exposes explicit stages for:
-
-- fetching from the provider
-- processing metadata
-- saving the collection
-- final cleanup
-
-There was a second trap hiding behind that first one: `NFTService` is main-actor isolated, so changing the phase and immediately doing a big chunk of synchronous work meant SwiftUI often could not repaint before the next phase had already started. The code now yields at each phase boundary so the screen can actually show the new status before the next batch of work blocks the lane again.
-
-This is a classic observability lesson: if one number is standing in for four different kinds of work, users will assume the worst and engineers will end up debugging ghosts. It is also a good reminder that in UI code, "the state changed" and "the user saw the change" are not the same thing.
-
-### Shell Context: Stop Letting The Chrome Freelance
-
-Another small but important cleanup landed in the shell spine work. The app already had `ContextSnapshot`, but a few chrome and shell-adjacent paths were still doing the engineering equivalent of calling a teammate instead of checking the source of truth.
-
-Two examples:
-
-- the chrome mode badge was still leaning on `modeState` directly instead of the shared snapshot contract
-- `MainTabView` was reaching into SwiftData itself just to count playlists and scoped receipts for context assembly
-
-Neither of those is a production fire by itself. Together, they are how a shell slowly turns back into folklore.
-
-This pass tightened that up by:
-
-- moving chrome mode and context accessibility labels onto `ContextSnapshot`
-- adding a shell-facing library-context provider seam in `ShellServiceHub`
-- routing the context library counts through that seam instead of teaching `MainTabView` about `Playlist` and `StoredReceipt` fetch details
-- letting the empty NFT library state describe the active snapshot scope when that context is already available
-
-The key lesson is boring in the best possible way: once you introduce a shared context contract, do not let the shell keep smuggling in side facts through the kitchen door. If a view needs shell truth, the first question should be, "can the snapshot already say this?"
-
-What is still intentionally not solved here:
-
-- freshness-pill interaction behavior from `P0-101C`
-- receipt linkage inside the inspector from `P0-403`
-- full compile-time anti-bypass enforcement from `P0-701B`
-
-That is good restraint, not unfinished homework disguised as architecture.
-
-### The Context Sheet Grew Up
-
-There was a subtle planning mismatch hiding in the shell work: the original ticket language talked about chrome freshness behavior, but the product direction for this app does not actually want a dedicated freshness indicator sitting in the global shell chrome.
-
-That could have turned into one of those classic project-management food fights where the ticket says one thing, the UI wants another thing, and the code ends up pleasing nobody.
-
-The better move was to reinterpret the behavior on the surface the app already uses: the context sheet.
-
-This pass did two useful things there:
-
-- moved the stale/unknown refresh affordance into the sheet's freshness section
-- turned the sheet into a real receipt-aware inspector by linking it to the latest scoped `context.built` receipt
-
-That matters because it keeps the mental model clean. The chrome opens context. The sheet explains context. The receipt detail proves context.
-
-It is also a nice example of not worshipping the original ticket wording. Good engineering is not blindly implementing the sentence; it is preserving the intent while fitting the actual product shape.
-
-### Home Needed A Better Floor Plan, Not New Furniture
-
-The Home screen already had a vibe. That was never the problem.
-
-It had the scenic background, the glassy cards, the profile image generation experiment, and a nice sense that the app had a personality. The actual problem was more architectural: the room layout felt like someone kept setting down useful objects wherever there happened to be table space.
-
-This `P0-102A` pass treated Home like a floor-plan cleanup:
-
-- keep the same atmosphere
-- keep the profile-generation path for now
-- stop mixing dashboard content, launch points, and temporary controls into one undifferentiated stack
-
-So Home now reads in sections:
-
-- identity
-- modules
-- recent activity
-- quick links
-- temporary profile studio controls
-
-That is a deceptively valuable kind of progress. It does not look like a flashy redesign, but it makes the next tickets much less likely to turn the Home screen into a junk drawer.
-
-This is one of those senior-engineer habits that pays off later: when a surface already has the right aesthetic, do not \"improve\" it by throwing away the personality. Improve the structure so future work has somewhere sane to live.
-
-### Music Foundation: Stop Pretending We Need Fake Data
-
-`P0-451` had a small but important planning wobble. The docs kept talking about deterministic demo data or lightweight local bootstrap files, which is a respectable fallback in a lot of projects. The problem here is that Auralis already has a perfectly good pantry full of ingredients sitting in the kitchen: the local SwiftData `NFT` store.
-
-The mounted Music screen is already doing the obvious thing today:
-
-- query local `NFT` rows
-- filter them by `nft.isMusic()`
-- render the results
-
-So inventing a second fake seed source for the first music-library phase would have been the software equivalent of buying plastic fruit for the table while ignoring the bowl of actual oranges next to you.
-
-The planning docs now say the quiet part out loud:
-
-- SwiftData is the storage layer
-- the existing local `NFT` store is the first source of truth
-- `P0-451` should derive a cleaner music library index from that real local store instead of pretending the app needs demo/file bootstrap data first
-
-That matters for two reasons.
-
-First, it keeps the ticket honest. We are not building a fake library to prove a point; we are formalizing a real one.
-
-Second, it sharply narrows the architecture question. The work is no longer \"where do we get music data from?\" The work is \"how do we turn persisted music-capable NFTs into a dedicated music-library contract without painting `P0-452` into a corner?\"
-
-That is a much better engineering problem. It is concrete, local, and based on the data the app already owns.
-
-### Music Library Index: Give The Music Tab A Real Catalog
-
-`P0-451` finally crossed the line from planning language into actual code.
-
-Before this pass, the Music tab was doing the expedient thing:
-
-- query scoped `NFT` rows
-- filter them with `nft.isMusic()`
-- hope that was good enough to count as a library
-
-That works as a prototype, but it is not a real library contract. It is more like rummaging through a warehouse shelf every time someone asks where the records are.
-
-The new slice adds a dedicated SwiftData `MusicLibraryItem` model and an indexer that rebuilds the music library from the local scoped `NFT` store. That gives the app a real catalog layer:
-
-- `NFT` stays the source of truth
-- `MusicLibraryItem` becomes the music-friendly projection
-- the Music tab reads the projection instead of reinventing the filter in the view
-
-The nice part is that this did not require fake seed files or demo bootstrap tricks. The app already had the data; it just needed to admit that music-library concerns deserve their own shelf.
-
-There is also a receipts lesson hiding in this work. Instead of building a one-off music logger, the new rebuild path uses the existing append-only receipt foundation with a dedicated trigger family:
-
-- `music.library_index.started`
-- `music.library_index.completed`
-- `music.library_index.failed`
-
-That keeps the audit trail boring in the right way. Music indexing is just another historical fact in the same system, not a side quest with its own diary.
-
-One pragmatic compromise also landed here: Home and Search are not being forced onto the new index immediately. Home now shows a lightweight local music count off the scoped `NFT` store, and Search stays on its existing local `NFT` path for the first slice. That is the right kind of laziness. The app gets the real Music foundation now without pretending every surface needs a full rewrite on day one.
-
-There is one important boundary marker to keep in big red pencil: this ticket does not magically mean the Audio Engine is \"done.\" The library shelf is now real, but the stereo system behind it is still its own future body of work. That deserves a dedicated follow-on ticket, because \"music catalog exists\" and \"audio engine is fully built out\" are related ideas, not the same idea wearing different hats.
-
-We also made an explicit planning call at the end of this slice: `P0-451` counts as complete for Phase 0 even though two refresh-path QA checks remain untestable in the present app state. That is not cheating; it is scope discipline. The foundation work is delivered, the known validation limits are written down, and the remaining gaps belong to future product/runtime slices rather than pretending the library index itself is still half-built.
-
-### Music Validation: The Part Where The Test Target Fought Back
-
-Once the library index code was in, `P0-451` still had one boring but essential job left: prove the vertical slice actually behaves like a vertical slice.
-
-That started with an annoying little truth bomb. The app target built cleanly, but the test target did not. Running the new music tests exposed two different kinds of failure:
-
-- one fresh mistake in the new `MusicLibraryIndexTests`
-- one older compile break in `NFTServiceReceiptTests` because `ContextService` had grown new initializer dependencies
-
-This is a classic Xcode trap. A green app build can make you feel done while the test target is quietly holding a grudge in the parking lot.
-
-The fix was straightforward:
-
-- add a dedicated `MusicLibraryIndexTests` suite for rebuild, stale-row cleanup, receipt emission, and saved-row readability from a fresh `ModelContext`
-- patch the older receipt test with a stub `NativeBalanceProviding` plus the newer count-provider seams so the test target matched the live initializer again
-
-The resulting coverage now proves the useful parts:
-
-- scoped local music NFTs really do become index rows
-- stale rows really do disappear when the source NFTs disappear
-- `music.library_index.started` and `music.library_index.completed` receipts really do share one correlation ID
-- saved `MusicLibraryItem` rows are readable from a fresh context after rebuild
-
-But the honest engineering lesson is this: unit tests are not a substitute for device truth. They can prove the catalog logic. They cannot prove that a real refresh, a real relaunch, and a real playback round-trip feel correct in the product shell. That still belongs to manual QA, and saying that out loud is healthier than pretending the test suite magically owns headphones.
+It is tempting to let a new holdings screen invent its own “last updated” badge. That would be wrong here. Freshness already lives in the shared context snapshot, and `ReceiptEventLogger` already records context builds with scope metadata. If the holdings surface starts freelancing its own freshness story, the user will eventually see two timestamps arguing in public.
 
 ## Engineer's Wisdom
 
-Good engineering in this project usually means refusing fake certainty.
+Good seams are usually already present in a mature codebase, just under less glamorous names. Before adding a new service, check whether the existing snapshot builder, router, or receipt system is already carrying the exact contract you need.
 
-- If data is local and real, expose it.
-- If data is not ready yet, keep the field placeholder-safe and say so out loud.
-- If a dependency note and a newer completion report disagree, trust the newer artifact and update the planning docs.
-- If shell state starts leaking into many views as ad hoc values, stop and build a contract before entropy wins.
+Stable row models matter. If v0 native balance and v1 ERC-20 enrichment cannot share the same list contract, the first version was not a vertical slice, it was a throwaway prototype wearing production clothes.
 
-The codebase keeps rewarding one habit in particular: keep ownership obvious. Who owns mode? Who owns account scope? Who owns context? When the answer is fuzzy, bugs show up as "weird UI state" instead of nice honest compiler errors.
+Scope is everything in a wallet app. If account and chain are not attached at the seam, bugs will leak data across contexts and make the UI look haunted.
 
 ## If I Were Starting Over...
 
-I would introduce the shared context contract earlier. A lot of Phase 0 planning churn came from multiple pieces of UI carrying similar-but-not-identical truth about account, chain, freshness, and shell state. That is how teams accidentally build three dashboards that all claim to be canonical.
+I would split oversized files like `NFT.swift` earlier. Giant “miscellaneous but important” files are where clarity goes to get lost.
 
-I would also shrink some oversized files sooner, especially the ones that quietly became neighborhoods instead of houses. Big files are not automatically bad, but they do hide responsibility creep very effectively.
-
-Finally, I would make the "status artifact hierarchy" explicit from day one:
-
-1. completion report or handoff note wins
-2. current strategy file comes next
-3. old dependency note loses if it disagrees
-
-That one rule would have saved a surprising amount of archaeological work.
+I would also make the token-holdings surface explicit sooner in the shell instead of leaving a placeholder root view in place. A placeholder is fine for a sprint, but after that it becomes camouflage: the route exists, so everyone assumes the feature is somehow more real than it is.

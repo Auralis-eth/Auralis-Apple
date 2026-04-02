@@ -2,18 +2,19 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-451
-- P0-302
-- P0-303
+- `P0-101D` already established the demo-data baseline strongly enough for a real Phase 0 follow-on.
+- Active shell/context/receipt work now provides enough provenance shape to describe offline vs demo behavior honestly.
 
-Recommended parallel foundation:
+## Safe First Slice
 
-- P0-101D
+- Define deterministic demo data and offline behavior rules together.
+- Keep demo/live provenance explicit.
+- Avoid creating shadow data paths that bypass the normal shell contracts.
 
-## Why It Is Blocked
+## Rule For Planning
 
-The demo dataset and degraded-mode semantics are the real blockers. `P0-101D` improves the shared presentation, but it is not the main gate.
+Do not treat offline mode as just \"provider failed\" if the product wants a deliberate demo/offline experience.

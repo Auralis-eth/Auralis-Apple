@@ -2,23 +2,46 @@
 
 ## Summary
 
-Create the Phase 0 privacy and security hardening checklist and implement the required controls around redaction, reset, storage boundaries, and absence of key or signing material.
+Assemble and verify the Phase 0 privacy and security checklist.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Startable.
+
+## Execution Checklist
+
+### 1. Confirm the review scope
+
+- [ ] Re-read `P0-803-Strategy.md` and `P0-803-Dependency-Note.md`.
+- [ ] Confirm which active surfaces belong in the Phase 0 checklist.
+- [ ] Confirm which pending hardening tickets should be tracked as deferrals rather than blockers.
+
+### 2. Build the checklist
+
+- [ ] Create the explicit Phase 0 privacy/security checklist.
+- [ ] Review the highest-value shell/data/search/media surfaces against it.
+- [ ] Record concrete findings and deferrals.
+
+### 3. Cover required edge cases
+
+- [ ] Sensitive or externally sourced values are not mislabeled as trusted.
+- [ ] Checklist items stay concrete enough to verify.
+- [ ] Deferrals are written down explicitly instead of implied.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify the checklist is actionable.
+- [ ] Verify the reviewed surfaces are clearly documented.
+- [ ] Record later hardening follow-ons separately.
 
 ## Critical Edge Case
 
-Prevent sensitive RPC or stack-trace leakage, guarantee full local reset, and ensure release-safe behavior even when debug tooling exists.
+The checklist must be concrete enough to guide real review and honest enough to record what is still deferred.
 
 ## Validation
 
-Export receipts to verify redaction, wipe local data fully, confirm no private key storage exists, and ensure release-mode receipts omit raw stack traces.
+Review representative privacy/security surfaces and leave an explicit Phase 0 checklist plus deferral record.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If a finding requires deep product or architecture work, record it explicitly rather than pretending `P0-803` should absorb the fix itself.

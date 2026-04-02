@@ -1,34 +1,36 @@
-# P0-103C Strategy: Resolution pipeline (local-first, read-only)
+# P0-103C Strategy: Resolution pipeline
 
 ## Status
 
-Blocked
+Startable
 
 ## Ticket
 
-Build the cancellable local-first resolution pipeline with optional ENS or on-chain fallback and receipt logging for all network activity.
+Implement the search resolution pipeline that turns raw queries into typed local or provider-backed search intents.
 
 ## Dependencies
 
-P0-103B, P0-302, P0-301, P0-502
+- `P0-103A`
+- `P0-201`
+- `P0-301`
+- `P0-302`
 
 ## Strategy
 
-- Keep the implementation narrow and phase-correct.
-- Build only the minimum seams needed by downstream tickets.
-- Make UI and state ownership explicit instead of hiding behavior in helpers.
-- Validate the named edge cases before broadening scope.
+- Build the resolution layer as a contract between raw query input and later results UI.
+- Prefer deterministic parsing and typed resolution over stringly-typed branching inside views.
+- Allow local-first resolution where it is already trustworthy.
 
 ## Key Risk
 
-Rapid typing must cancel old work, ENS changes over time must be timestamped and logged, and offline mode must preserve local results.
+Avoid hiding search behavior inside the UI layer or making the resolution contract too ad hoc to support later result categories.
 
 ## Definition Of Done
 
-- The ticket outcome is visible in product behavior.
-- The ticket integrates cleanly with its immediate dependencies.
-- The stated test plan can be run without inventing extra architecture.
+- Search queries resolve through a real pipeline.
+- Local and provider-backed resolution seams are explicit.
+- Later results/history/safety behavior can attach cleanly.
 
 ## Validation Target
 
-Local results appear instantly, ENS resolution is cancellable and logged, offline mode degrades gracefully, and stale search results do not bleed through after rapid typing.
+Resolve supported query types deterministically and preserve a stable contract between query parsing and rendered results.

@@ -2,23 +2,21 @@
 
 ## Status
 
-Partially blocked
+Startable
 
 ## Dependency Read
 
-Can start with local or placeholder holdings data.
+- `P0-301` is complete enough for read-only provider-backed native balance work.
+- `P0-302` may deepen token-provider abstraction later, but it does not need to block the first holdings surface.
+- `P0-402` is complete enough for shell/context freshness attachment when the holdings slice is ready to use it.
+- `P0-502` already provides the receipt foundation this ticket can extend.
 
-Later enrichment depends on:
+## Safe First Slice
 
-- P0-301
-- P0-302
-- P0-402
-- P0-502 slices
-
-Recommended parallel foundation:
-
-- P0-101D
+- Ship the holdings surface with native balance minimum support.
+- Allow local, cached, or placeholder token rows before full ERC-20 enrichment is available.
+- Keep the list model and row contract stable across that transition.
 
 ## Rule For Planning
 
-Do not hold the first holdings surface behind full provider-backed enrichment or behind `P0-101D`.
+Do not block the first holdings surface on full ERC-20 enrichment, richer token metadata, or final token-detail work.

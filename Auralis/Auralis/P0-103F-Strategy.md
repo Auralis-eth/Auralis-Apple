@@ -1,34 +1,35 @@
-# P0-103F Strategy: Search history (local-only)
+# P0-103F Strategy: Search history
 
 ## Status
 
-Blocked
+Startable
 
 ## Ticket
 
-Store and present recent searches locally with clear, scoped history behavior and a logged clear-history action.
+Implement search history so repeated search behavior becomes a real product loop instead of stateless query entry.
 
 ## Dependencies
 
-P0-103A, P0-501
+- `P0-103A`
+- `P0-103C`
+- `P0-103D`
 
 ## Strategy
 
-- Keep the implementation narrow and phase-correct.
-- Build only the minimum seams needed by downstream tickets.
-- Make UI and state ownership explicit instead of hiding behavior in helpers.
-- Validate the named edge cases before broadening scope.
+- Treat history as a lightweight search-product layer, not as analytics.
+- Keep the storage and display model simple enough to support recall, recents, and deletion.
+- Preserve clean separation between query history and live result rendering.
 
 ## Key Risk
 
-Prevent privacy leakage across profiles if account-scoped, cap history size, and de-duplicate repeated entries predictably.
+Avoid collecting noisy or low-value history entries that make search feel cluttered or privacy-hostile.
 
 ## Definition Of Done
 
-- The ticket outcome is visible in product behavior.
-- The ticket integrates cleanly with its immediate dependencies.
-- The stated test plan can be run without inventing extra architecture.
+- Search history exists and is user-visible where appropriate.
+- History can be recalled or cleared.
+- The storage model stays compatible with later search deepening.
 
 ## Validation Target
 
-Perform searches, verify history display and rerun behavior, clear history with a receipt, and switch account scope if history is account-scoped.
+Capture meaningful search recents, recall them cleanly, and support removal/reset behavior without disrupting live search flow.

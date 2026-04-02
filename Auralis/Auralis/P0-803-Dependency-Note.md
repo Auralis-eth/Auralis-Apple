@@ -2,13 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-303
-- P0-701B
+- This ticket can start as a review/checklist pass even while some later hardening work is still pending.
+- `P0-702` and `P0-703` strengthen the trust-labeling and bypass-testing sides, but they do not need to be complete before the checklist itself exists.
+- Active shell/data/search/media flows provide the review surface.
 
-## Why It Is Blocked
+## Safe First Slice
 
-This ticket stays late. It depends on the real degraded-mode behavior and the later architecture-enforcement pass, not on the earlier structure-first scaffolding alone.
+- Build the checklist first.
+- Review the highest-value surfaces next.
+- Record deferrals explicitly rather than pretending the checklist implies every hardening ticket is done.
+
+## Rule For Planning
+
+Do not let `P0-803` become a hand-wavy reminder instead of a real review artifact.

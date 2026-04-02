@@ -1,33 +1,35 @@
-# P0-702 Strategy: Untrusted input labeling (metadata hygiene v0)
+# P0-702 Strategy: Untrusted input labeling
 
 ## Status
 
-Blocked
+Startable
 
 ## Ticket
 
-Treat remote metadata as untrusted, label it where displayed, and ensure untrusted strings cannot create app intents beyond normal navigation.
+Label untrusted input clearly across the shell so users can distinguish system-known values from user- or provider-supplied values.
 
 ## Dependencies
 
-P0-452, P0-462, P0-602, with `P0-101D` as a recommended parallel foundation
+- `P0-401`
+- `P0-602`
+- search and routing surfaces that expose raw input
 
 ## Strategy
 
-- Wait for the detail surfaces and policy gate that give this ticket real meaning.
-- Use `P0-101D` only for final warning-pattern convergence.
-- Keep trust-labeling rules independent from empty-state styling.
+- Apply a consistent labeling contract to untrusted or externally sourced values.
+- Keep the labels understandable rather than overly technical.
+- Start where the trust boundary matters most.
 
 ## Key Risk
 
-Control characters, spoofed domains, and oversized text must not break layout or imply trust.
+Avoid inconsistent or overly subtle trust labeling that users will miss or contributors will bypass.
 
 ## Definition Of Done
 
-- Untrusted metadata is clearly labeled.
-- It cannot create special app behavior beyond safe navigation and explicit user interaction.
-- Visual warning language can align later with `P0-101D`.
+- A clear untrusted-input labeling contract exists.
+- Representative surfaces use it.
+- Safety/no-bypass work can build on the same labeling rules.
 
 ## Validation Target
 
-Show untrusted badges, ensure metadata cannot trigger behavior, require explicit interaction for external links, and sanitize control characters safely.
+Render representative untrusted values with clear labeling and keep trust boundaries legible in the UI.

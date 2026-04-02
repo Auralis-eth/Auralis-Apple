@@ -2,32 +2,36 @@
 
 ## Status
 
-Partially blocked
+Startable
 
 ## Ticket
 
-Implement the first-run Home experience with add-address or ENS CTA and optional demo entry, then transition directly into the full dashboard.
+Implement the Home empty and first-run state so the dashboard stays intentional when the active account has little or no useful local data.
 
 ## Dependencies
 
-P0-201, with `P0-101D` as a recommended parallel foundation
+- `P0-102A`
+- `P0-201`
+- `P0-401` slices
+- `P0-403` slice
 
 ## Strategy
 
-- Start once the account and shell flow are clear.
-- Do not wait for the full shared empty-state language before building the first-run path.
-- Converge the final visual language with `P0-101D` once those patterns settle.
+- Build the empty/first-run Home state on top of the existing dashboard shell, not as a parallel Home design.
+- Make the screen helpful without pretending data exists.
+- Reuse current shell context and account signals where available.
+- Keep the scenic/glass Home language intact.
 
 ## Key Risk
 
-Invalid input should not eject the user from onboarding, and provider failure after adding an account must still leave the shell usable.
+Avoid a dead-end empty state that fights later Home sections or confuses users about whether the app is loading, empty, or broken.
 
 ## Definition Of Done
 
-- First-run users see a clear add-account or demo path.
-- Successful account entry transitions directly into Home.
-- The final surface can later align with `P0-101D` without a rewrite.
+- Home has a deliberate first-run or sparse-data state.
+- Calls to action are clear and route to real next steps.
+- The state coexists cleanly with later populated Home sections.
 
 ## Validation Target
 
-Fresh install shows CTA, valid address lands on Home without relaunch, invalid address is blocked clearly, and demo mode stays visibly reversible.
+Show a coherent Home experience for first-run, low-data, and no-activity conditions without breaking the mounted dashboard shell.

@@ -2,23 +2,46 @@
 
 ## Summary
 
-Provide a deterministic demo dataset and safe offline behavior so the app remains demoable and usable without network connectivity.
+Define the deterministic demo dataset and offline mode behavior for Phase 0.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Startable.
+
+## Execution Checklist
+
+### 1. Confirm the demo/offline contract
+
+- [ ] Re-read `P0-801-Strategy.md` and `P0-801-Dependency-Note.md`.
+- [ ] Confirm what counts as deterministic demo data.
+- [ ] Confirm how offline mode differs from stale cached mode and provider failure.
+
+### 2. Implement the first demo/offline behavior
+
+- [ ] Define the first deterministic demo dataset contract.
+- [ ] Define or implement the first offline-mode shell behavior.
+- [ ] Keep provenance explicit across surfaces.
+
+### 3. Cover required edge cases
+
+- [ ] Demo and live data are not visually conflated.
+- [ ] Offline mode does not look like a broken shell.
+- [ ] Cached stale state stays distinct from deliberate demo/offline state.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify deterministic demo behavior is repeatable.
+- [ ] Verify offline mode remains understandable.
+- [ ] Record richer offline/product behavior outside this ticket.
 
 ## Critical Edge Case
 
-Keep demo mode distinct from real data, handle first-run offline with no cache, and ensure demo content remains consistent across launches.
+Users must be able to tell the difference between demo truth, cached truth, stale truth, and unavailable truth.
 
 ## Validation
 
-Use airplane mode on fresh install and after cache exists, and verify the demo dataset behaves consistently across relaunches.
+Run the app in deterministic demo/offline conditions and preserve clear provenance across the shell.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If a proposed solution creates a shadow app path outside the normal shell/data contracts, stop and redesign it.

@@ -2,23 +2,20 @@
 
 ## Status
 
-Blocked
+Partially blocked
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-602
-- P0-701A
-- P0-402
+- `P0-701A` already shipped the structural scaffolding this ticket depends on.
+- `P0-602` should establish the shared action-gate wrapper before enforcement is treated as fully unblocked.
+- Some active feature slices still need to settle before strict enforcement can be applied without churn.
 
-## Why It Is Blocked
+## Safe First Slice
 
-This is the enforcement pass, so it must wait until the real service and policy seams are already present.
+- Identify and remove the highest-value boundary bypasses first.
+- Tighten seams where ownership is already clear.
+- Avoid broad restructuring passes that fight active product work.
 
-## Safe Pre-Work
+## Rule For Planning
 
-- Keep new code aligned with the intended seam structure.
-- Record known bypass paths for later enforcement cleanup.
-
-## Unblock Condition
-
-Structural scaffolding and the main service graph are in place, making real enforcement practical instead of speculative.
+Do not force architecture purity rewrites ahead of stable feature ownership.

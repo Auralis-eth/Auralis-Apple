@@ -2,24 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-502 feature slices
-- P0-503
-- P0-602
-- P0-703
+- `P0-502` is already complete enough to verify and clean up.
+- `P0-403` and other active receipt-aware slices now provide real consumer surfaces that justify this pass.
+- The work should stay additive and corrective rather than reopening receipt-foundation architecture.
 
-## Why It Is Blocked
+## Safe First Slice
 
-This ticket is intentionally late. It needs the real receipt-emitting surfaces to exist before broad verification and cleanup means anything.
+- Verify active receipt categories and correlation behavior.
+- Clean up obvious payload, naming, or scope drift.
+- Leave broader new receipt categories to their own tickets.
 
-## Safe Pre-Work
+## Rule For Planning
 
-- Keep receipt naming and correlation discipline consistent as slices land.
-- Record known coverage gaps so cleanup later is faster.
-
-## Unblock Condition
-
-The main Phase 0 flows are implemented and emitting receipts, making broad verification and cleanup evidence-based instead of speculative.
+Do not turn verification + cleanup into a schema-reset project.

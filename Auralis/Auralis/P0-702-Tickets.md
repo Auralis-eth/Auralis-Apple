@@ -2,23 +2,46 @@
 
 ## Summary
 
-Treat remote metadata as untrusted, label it where displayed, and ensure untrusted strings cannot create app intents beyond normal navigation.
+Label untrusted input clearly across the shell so users can distinguish system-known values from externally sourced values.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Startable.
+
+## Execution Checklist
+
+### 1. Confirm the trust-boundary contract
+
+- [ ] Re-read `P0-702-Strategy.md` and `P0-702-Dependency-Note.md`.
+- [ ] Confirm which surfaces expose untrusted input first.
+- [ ] Confirm the first label/copy/style contract.
+
+### 2. Implement the labeling system
+
+- [ ] Add the first reusable untrusted-input labeling pattern.
+- [ ] Apply it to representative surfaces.
+- [ ] Keep trust signals visually and semantically consistent.
+
+### 3. Cover required edge cases
+
+- [ ] Labels remain understandable on compact layouts.
+- [ ] Trusted and untrusted values are not visually conflated.
+- [ ] Labeling does not accidentally imply data is verified when it is not.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify representative untrusted values are clearly labeled.
+- [ ] Verify the labels are understandable without internal jargon.
+- [ ] Record broader rollout work outside this ticket.
 
 ## Critical Edge Case
 
-Handle control characters, spoofed domains, and oversized descriptions without breaking layout or implying trust.
+Trust labeling must be clear enough to matter, but not so noisy that users ignore it everywhere.
 
 ## Validation
 
-Show untrusted badges, ensure metadata cannot trigger behavior, require explicit interaction for external links, and sanitize control characters safely.
+Render representative untrusted values with a consistent labeling contract and preserve understandable trust boundaries.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If the work starts turning into full search-safety behavior, move the extra scope into the relevant search or enforcement tickets.

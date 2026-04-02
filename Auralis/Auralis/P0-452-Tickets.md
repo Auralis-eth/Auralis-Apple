@@ -2,23 +2,46 @@
 
 ## Summary
 
-Build read-only music collection and item details with explorer links, copy actions, local pin or favorite actions, and provenance labels.
+Implement the first music collection and item detail screens on top of the `P0-451` library/index foundation.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Startable.
+
+## Execution Checklist
+
+### 1. Confirm detail routing and data inputs
+
+- [ ] Re-read `P0-452-Strategy.md` and `P0-452-Dependency-Note.md`.
+- [ ] Confirm how Music library rows route into item detail.
+- [ ] Confirm which source `NFT` and library-index fields belong on item vs collection detail.
+
+### 2. Implement item detail
+
+- [ ] Add the first music item detail screen.
+- [ ] Show the essential track, collection, and artwork metadata.
+- [ ] Keep the screen honest when playback or metadata is partial.
+
+### 3. Implement collection detail
+
+- [ ] Add the first grouped collection detail screen.
+- [ ] Reuse the established routing and library contracts.
+- [ ] Keep the collection screen distinct from full playlist or curation work.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify detail screens open from the mounted Music surface.
+- [ ] Verify partial metadata does not break item or collection detail.
+- [ ] Record any deeper playback/capture work outside this ticket.
 
 ## Critical Edge Case
 
-Missing artwork, long metadata, and unavailable explorer links must degrade safely without suggesting trust.
+Music detail screens must remain useful when metadata is partial and must not silently fall back to unrelated raw-NFT view logic.
 
 ## Validation
 
-Navigate collection to item detail and back, log copy and explorer actions, and label metadata as untrusted where required.
+Open item and collection detail from Music, preserve graceful partial-metadata handling, and keep the screens scoped to browsing/detail work.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If a requested enhancement is really about playback engine depth or playlist behavior, split it into later tickets instead of stretching `P0-452`.

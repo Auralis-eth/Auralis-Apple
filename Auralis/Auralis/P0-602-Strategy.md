@@ -2,32 +2,34 @@
 
 ## Status
 
-Blocked
+Startable
 
 ## Ticket
 
-Create the Phase 0 PolicyGate that allows only read-only actions and denies any execute or signing path with receipts.
+Wrap shell and feature actions in a policy gate so restricted modes and action rules are enforced through one explicit decision layer.
 
 ## Dependencies
 
-P0-601, P0-502 slices, with structural alignment to `P0-701A` and later enforcement by `P0-701B`
+- `P0-601`
+- `P0-101A`
+- `P0-502` slices
 
 ## Strategy
 
-- Build the gate after mode-state ownership is real.
-- Align its seams with the structure-first rules from `P0-701A`.
-- Let `P0-701B` later enforce the no-bypass path more strongly.
+- Build a reusable wrapper around action execution rather than sprinkling mode checks everywhere.
+- Keep allow/deny decisions explicit and auditable.
+- Make the wrapper easy to attach to later surfaces.
 
 ## Key Risk
 
-Denied actions must have zero side effects, while allowed actions stay predictable and auditable.
+Avoid creating a policy layer that is inconsistent, bypassable, or too implicit to reason about.
 
 ## Definition Of Done
 
-- PolicyGate owns allow and deny behavior for Phase 0 actions.
-- It fits the intended early structure.
-- Later enforcement and smoke tests can build on it cleanly.
+- A reusable action policy gate exists.
+- Restricted actions can be allowed or denied through one contract.
+- The shell can later verify and log denials consistently.
 
 ## Validation Target
 
-Audit action handlers, verify denied actions log policy receipts, and confirm allowed actions still proceed and log correctly.
+Wrap representative actions through the policy gate and preserve explicit allow/deny behavior.

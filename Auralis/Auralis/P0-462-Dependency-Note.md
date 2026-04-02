@@ -2,25 +2,21 @@
 
 ## Status
 
-Blocked
+Partially blocked
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-461
-- P0-103D
-- P0-502
-- P0-702
+- `P0-461` should define the first stable holdings-row contract before token detail is treated as fully unblocked.
+- `P0-101A` and current router work are enough for the screen/routing baseline.
+- `P0-301` is already sufficient for native-balance and basic provider-backed metadata later.
+- `P0-403` may support provenance/receipt deepening later, but it is not a first-slice blocker.
 
-## Why It Is Blocked
+## Safe First Slice
 
-Blocked on the token list, shared search routing if reused, and untrusted metadata rules.
+- Prepare the token-detail contract and route shape in parallel with `P0-461`.
+- Keep the first detail screen tolerant of sparse token metadata.
+- Do not assume full ERC-20 enrichment is ready on day one.
 
-## Safe Pre-Work
+## Rule For Planning
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
-
-## Unblock Condition
-
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+Do not let `P0-462` outrun the row/data contract established by `P0-461`.

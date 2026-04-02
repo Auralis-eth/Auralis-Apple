@@ -2,32 +2,34 @@
 
 ## Status
 
-Blocked
+Startable
 
 ## Ticket
 
-Perform the broad verification and cleanup pass for receipt logging after the major Phase 0 feature slices have already integrated their own receipt hooks.
+Verify the current receipt-logging rollout and clean up obvious inconsistencies so the receipt foundation remains trustworthy.
 
 ## Dependencies
 
-P0-502 feature slices, P0-503, P0-602, P0-703
+- `P0-502`
+- `P0-403`
+- active shell/action logging slices
 
 ## Strategy
 
-- Do not use this ticket as an excuse to defer feature-level receipt integration.
-- Use it to verify coverage, naming consistency, correlation discipline, and failure-path completeness.
-- Clean up duplicate or inconsistent receipt emission only after the real flows exist.
+- Treat this as verification and cleanup, not as a second receipt-foundation rewrite.
+- Check that the active receipt categories are coherent, scoped correctly, and not duplicating obvious work.
+- Tighten inconsistencies that would weaken future provenance features.
 
 ## Key Risk
 
-Global cleanup started too early turns into speculative work because the final flow graph does not exist yet.
+Avoid letting receipt verification turn into uncontrolled schema churn after the foundation is already in use.
 
 ## Definition Of Done
 
-- The major Phase 0 flows have receipt coverage.
-- Coverage gaps, duplicates, and inconsistent naming are cleaned up.
-- Cross-flow verification is complete enough for release-hardening work.
+- Active receipt slices are verified.
+- Obvious naming/scope/payload inconsistencies are cleaned up.
+- Later receipt work has a clearer baseline.
 
 ## Validation Target
 
-Run representative user flows across shell, Home, Search, Libraries, Context, and Receipts, then verify receipts are present, correlated where expected, and structurally consistent.
+Review and validate active receipt flows, then clean up the highest-value inconsistencies without destabilizing the receipt contract.

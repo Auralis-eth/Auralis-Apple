@@ -1,33 +1,35 @@
-# P0-701B Strategy: Layered Module Boundaries Enforcement Completion
+# P0-701B Strategy: Layered boundaries enforcement completion
 
 ## Status
 
-Blocked
+Partially blocked
 
 ## Ticket
 
-Complete the enforcement side of layered boundaries after the service and policy graph is stable enough to lock down.
+Complete the layered-boundaries enforcement pass so shell/service/view ownership rules are no longer just conventions.
 
 ## Dependencies
 
-P0-602, P0-701A, P0-402
+- `P0-701A`
+- `P0-602`
+- active feature-slice adoption
 
 ## Strategy
 
-- Tighten the structure created in `P0-701A`.
-- Enforce dependency direction once the real seams exist.
-- Validate that UI cannot bypass Context or Services to reach Providers directly.
+- Build on the structural scaffolding from `P0-701A`.
+- Convert boundary rules from guidance into enforceable usage patterns.
+- Tackle the highest-value bypasses first instead of forcing one giant purity rewrite.
 
 ## Key Risk
 
-If enforcement happens before the service graph stabilizes, the team burns time fighting the architecture instead of shipping the product.
+Avoid broad enforcement work before the active feature slices have settled enough to show where the real seams belong.
 
 ## Definition Of Done
 
-- Dependency direction is enforced strongly enough to catch bypass paths.
-- UI cannot directly reach provider code.
-- Policy and receipt-related seams fit the enforced structure.
+- Major shell/service boundary shortcuts are removed or explicitly gated.
+- The architecture rules are enforceable in practice, not just documented.
+- Later smoke tests can verify bypass paths more confidently.
 
 ## Validation Target
 
-Use structural review and tests to confirm the intended dependency rules now hold in practice.
+Reduce or remove known shortcut paths and make boundary ownership easier to verify in code review and smoke tests.

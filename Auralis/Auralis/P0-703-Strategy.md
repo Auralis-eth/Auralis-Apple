@@ -2,32 +2,34 @@
 
 ## Status
 
-Blocked
+Partially blocked
 
 ## Ticket
 
-Create the repeatable security smoke tests for Observe-only enforcement, PolicyGate coverage, and absence of any execute or signing bypass path.
+Add smoke-test coverage that proves key safety, policy, and boundary rules do not have obvious bypass paths.
 
 ## Dependencies
 
-P0-602, P0-701B, P0-502B
+- `P0-602`
+- `P0-701B`
+- `P0-702`
 
 ## Strategy
 
-- Wait until policy and enforcement are real enough to test.
-- Treat `P0-701B` as the relevant boundary-enforcement dependency, not monolithic `P0-701`.
-- Use `P0-502B` as the broad receipt verification companion.
+- Use smoke tests to verify the highest-value rules first.
+- Focus on practical bypasses, not abstract purity.
+- Keep the suite narrow enough to stay maintainable.
 
 ## Key Risk
 
-The smoke suite must catch later bypasses, not just certify the state of the code on the day it is written.
+Avoid building smoke tests before the underlying policy/boundary rules are real enough to test meaningfully.
 
 ## Definition Of Done
 
-- The checklist and tests reflect the real enforced architecture.
-- Policy-denied and no-bypass expectations are repeatable.
-- The suite fits the later hardening stage instead of pretending early scaffolding is enough.
+- A smoke-test baseline exists for key no-bypass rules.
+- The tests target real risk areas.
+- The suite can grow as enforcement stabilizes.
 
 ## Validation Target
 
-Run the checklist across all screens and, if feasible, automate enumeration of action handlers to confirm PolicyGate coverage.
+Prove representative bypass paths are blocked or labeled correctly without turning the suite into a brittle integration maze.

@@ -2,23 +2,46 @@
 
 ## Summary
 
-Establish the Phase 0 baseline for cold start, scrolling performance, navigation stability, and memory behavior under sustained use.
+Establish the Phase 0 performance and stability baseline once the core product slices are real enough to measure.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Partially blocked until the representative mounted flows are settled enough to benchmark honestly.
+
+## Execution Checklist
+
+### 1. Confirm the baseline flows
+
+- [ ] Re-read `P0-802-Strategy.md` and `P0-802-Dependency-Note.md`.
+- [ ] Confirm which shell/data/media/search flows belong in the first baseline.
+- [ ] Confirm which conditions should be excluded until later.
+
+### 2. Measure the baseline
+
+- [ ] Capture representative performance observations for the selected flows.
+- [ ] Identify the highest-value stability risks.
+- [ ] Keep the baseline concrete and reproducible.
+
+### 3. Cover required edge cases
+
+- [ ] Offline/demo conditions are included only where the product path is real enough.
+- [ ] Measurements are not dominated by obviously unstable placeholder work.
+- [ ] Stability findings are separated from optional polish work.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify the chosen flows are measurable and representative.
+- [ ] Verify the resulting baseline is specific enough for future regressions.
+- [ ] Record follow-on tuning outside this ticket.
 
 ## Critical Edge Case
 
-Large receipt sets, frequent context rebuilds, and image-heavy lists must not cause hitching or memory growth beyond the baseline.
+The baseline must reflect real mounted product behavior, not placeholder-heavy or unstable intermediate states.
 
 ## Validation
 
-Measure cold start, scroll music, token, and receipts lists, rapidly switch accounts with refreshes, and run a 10-minute soak test.
+Measure representative mounted flows and document a concrete Phase 0 performance/stability baseline.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If the app slices are still moving too quickly to measure honestly, document the target baseline set and defer deeper tuning.

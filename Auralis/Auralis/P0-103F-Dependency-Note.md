@@ -2,23 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-103A
-- P0-501
+- `P0-103A` provides the search entry contract.
+- `P0-103C` provides the typed query intent that history should remember.
+- `P0-103D` informs how recalled history should reopen the search surface, but it does not need to be perfect before basic history exists.
 
-## Why It Is Blocked
+## Safe First Slice
 
-Blocked on search entry and a decision about history scoping.
+- Store meaningful recent searches only.
+- Support recall and deletion/reset before adding richer ranking or grouping.
+- Keep history separate from receipts and analytics.
 
-## Safe Pre-Work
+## Rule For Planning
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
-
-## Unblock Condition
-
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+Do not let search history become a privacy-heavy activity log or a substitute for typed search state.

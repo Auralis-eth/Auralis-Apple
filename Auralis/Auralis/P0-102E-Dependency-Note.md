@@ -2,24 +2,20 @@
 
 ## Status
 
-Partially blocked
+Startable
 
 ## Dependency Read
 
-Hard dependency:
+- `P0-102A` is complete enough to host an intentional empty/first-run state.
+- `P0-201` is complete enough for account-awareness and launcher actions.
+- `P0-401` and `P0-403` already provide enough context/receipt shape to explain sparse state without inventing new shell plumbing.
 
-- `P0-201`
+## Safe First Slice
 
-Recommended parallel foundation:
-
-- `P0-101D`
-
-## What This Means
-
-This ticket should not stay frozen just because `P0-101D` is still evolving.
-
-It can start with a narrow first-run experience and later align to the shared empty-state language.
+- Use the current Home shell and route to real entry points.
+- Prefer sparse-data messaging and launcher affordances over synthetic content.
+- Keep the visual language consistent with the existing scenic/glass Home design.
 
 ## Rule For Planning
 
-Treat `P0-101D` as a convergence target here, not as a hard gate.
+Do not block this ticket on every later Home section being fully built; the first-run state exists precisely because those deeper sections may be empty.

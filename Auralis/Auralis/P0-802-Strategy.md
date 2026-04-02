@@ -2,33 +2,34 @@
 
 ## Status
 
-Blocked
+Partially blocked
 
 ## Ticket
 
-Establish the Phase 0 baseline for cold start, scrolling performance, navigation stability, and memory behavior under sustained use.
+Establish the Phase 0 performance and stability baseline once the core product slices are far enough along to measure meaningfully.
 
 ## Dependencies
 
-P0-101A, P0-503, P0-451, P0-461
+- major Phase 0 product slices in place
+- `P0-801`
+- active shell/data/media surfaces
 
 ## Strategy
 
-- Keep the implementation narrow and phase-correct.
-- Build only the minimum seams needed by downstream tickets.
-- Make UI and state ownership explicit instead of hiding behavior in helpers.
-- Validate the named edge cases before broadening scope.
+- Measure and harden the app based on real mounted flows.
+- Focus on the highest-value bottlenecks and crash/regression risks first.
+- Keep the baseline concrete enough that later work can detect regressions.
 
 ## Key Risk
 
-Large receipt sets, frequent context rebuilds, and image-heavy lists must not cause hitching or memory growth beyond the baseline.
+Avoid premature tuning before the important product flows are stable enough to measure honestly.
 
 ## Definition Of Done
 
-- The ticket outcome is visible in product behavior.
-- The ticket integrates cleanly with its immediate dependencies.
-- The stated test plan can be run without inventing extra architecture.
+- The app has a meaningful Phase 0 performance/stability baseline.
+- High-value regressions are identified and addressed.
+- Later work has a clearer reference point.
 
 ## Validation Target
 
-Measure cold start, scroll music, token, and receipts lists, rapidly switch accounts with refreshes, and run a 10-minute soak test.
+Measure representative shell, data, and media flows and document the accepted performance/stability baseline.

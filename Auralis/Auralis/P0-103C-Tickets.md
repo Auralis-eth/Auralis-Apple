@@ -2,23 +2,46 @@
 
 ## Summary
 
-Build the cancellable local-first resolution pipeline with optional ENS or on-chain fallback and receipt logging for all network activity.
+Implement the search resolution pipeline that turns raw queries into typed, routable search intents.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Startable.
+
+## Execution Checklist
+
+### 1. Confirm the query contract
+
+- [ ] Re-read `P0-103C-Strategy.md` and `P0-103C-Dependency-Note.md`.
+- [ ] Confirm which query types the first pipeline must support.
+- [ ] Confirm where local-first vs provider-backed resolution should split.
+
+### 2. Implement the resolution pipeline
+
+- [ ] Build typed resolution stages from raw query to resolved search intent.
+- [ ] Keep parsing/resolution separate from results rendering.
+- [ ] Preserve stable behavior for supported query types.
+
+### 3. Cover required edge cases
+
+- [ ] Invalid or ambiguous queries fail safely.
+- [ ] Local-first resolution does not misclassify supported inputs.
+- [ ] Provider-backed resolution is optional where a local answer already exists.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify supported query types resolve deterministically.
+- [ ] Verify unsupported queries fail safely into later no-results behavior.
+- [ ] Record any deeper provider enrichment outside this ticket.
 
 ## Critical Edge Case
 
-Rapid typing must cancel old work, ENS changes over time must be timestamped and logged, and offline mode must preserve local results.
+The resolution pipeline must stay typed and deterministic even when raw user input is messy or ambiguous.
 
 ## Validation
 
-Local results appear instantly, ENS resolution is cancellable and logged, offline mode degrades gracefully, and stale search results do not bleed through after rapid typing.
+Resolve supported query types deterministically and preserve a stable contract for later search-result rendering.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If a requested change is really about UI rendering or history persistence, move it to the later search tickets instead of stretching `P0-103C`.

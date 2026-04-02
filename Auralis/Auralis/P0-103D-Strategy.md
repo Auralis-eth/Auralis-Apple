@@ -1,34 +1,35 @@
-# P0-103D Strategy: Search results UI (grouped + provenance-labeled)
+# P0-103D Strategy: Search results UI
 
 ## Status
 
-Blocked
+Partially blocked
 
 ## Ticket
 
-Render grouped search results with provenance badges, safe copy actions, and navigation into the correct detail surfaces.
+Implement the search results UI on top of the typed search entry and resolution pipeline.
 
 ## Dependencies
 
-P0-103C, P0-101A, P0-501
+- `P0-103A`
+- `P0-103C`
+- `P0-103E`
 
 ## Strategy
 
-- Keep the implementation narrow and phase-correct.
-- Build only the minimum seams needed by downstream tickets.
-- Make UI and state ownership explicit instead of hiding behavior in helpers.
-- Validate the named edge cases before broadening scope.
+- Build results UI on the typed resolution contract rather than ad hoc result branching.
+- Keep the first results screen category-aware but lightweight.
+- Separate normal results from no-results and safety states.
 
 ## Key Risk
 
-Deduplicate repeated entities, truncate long names safely, and keep large result sets bounded with clear affordances.
+Avoid building results UI before the resolution contract stabilizes, or mixing no-results/safety behavior directly into the happy-path rendering layer.
 
 ## Definition Of Done
 
-- The ticket outcome is visible in product behavior.
-- The ticket integrates cleanly with its immediate dependencies.
-- The stated test plan can be run without inventing extra architecture.
+- Search results render in a real, category-aware UI.
+- Result rendering remains stable across supported query types.
+- Empty and safety states stay separable.
 
 ## Validation Target
 
-Verify mixed grouped results, navigation for each result type, copy actions with receipts, and provenance labels that match the real source.
+Render supported results categories cleanly and keep no-results/safety behavior distinct from the happy path.

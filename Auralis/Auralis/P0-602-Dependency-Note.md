@@ -2,21 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-601
-- P0-502 slices
+- `P0-601` already established the Observe-mode ownership baseline.
+- `P0-101A` provides the shell ownership/routing context where a gate can live cleanly.
+- `P0-502` already supports receipt-backed action-denial recording where needed.
 
-Structural alignment dependency:
+## Safe First Slice
 
-- P0-701A
+- Wrap a representative subset of actions through the shared policy gate.
+- Keep the gate explicit and centrally owned.
+- Extend to more surfaces later instead of forcing full-app coverage in one pass.
 
-Later enforcement dependency:
+## Rule For Planning
 
-- P0-701B
-
-## Why It Is Blocked
-
-This ticket should align with early structure from `P0-701A`, but it no longer treats monolithic `P0-701` as one undifferentiated blocker.
+Do not scatter policy checks back into view-local action handlers once the wrapper contract exists.

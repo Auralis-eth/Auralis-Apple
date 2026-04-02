@@ -2,14 +2,20 @@
 
 ## Status
 
-Blocked
+Partially blocked
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-602
-- P0-701B
-- P0-502B
+- `P0-602` should provide the action-policy gate.
+- `P0-701B` should close or at least clearly identify major boundary bypasses.
+- `P0-702` should define the trust-labeling contract where labeling is the expected mitigation.
 
-## Why It Is Blocked
+## Safe First Slice
 
-This ticket belongs to the later hardening pass. It should test enforced boundaries and audited receipt coverage, not the earlier scaffolding stage.
+- Identify the first smoke-test targets now.
+- Add tests only where the underlying rule is already real and stable enough.
+- Prefer a small trustworthy smoke suite over broad brittle coverage.
+
+## Rule For Planning
+
+Do not write smoke tests for rules that still exist only as planning language.

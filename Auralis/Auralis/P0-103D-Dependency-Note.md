@@ -2,24 +2,20 @@
 
 ## Status
 
-Blocked
+Partially blocked
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-103C
-- P0-101A
-- P0-501
+- `P0-103A` can expose search.
+- `P0-103C` should stabilize the typed resolution contract before the results UI is treated as fully unblocked.
+- `P0-103E` owns no-results and safety behavior, which should remain distinct from normal result rendering.
 
-## Why It Is Blocked
+## Safe First Slice
 
-Blocked on the resolution pipeline and stable navigation targets.
+- Prepare result-row/category structure in parallel.
+- Keep the happy-path result UI separate from no-results and safety behavior.
+- Do not lock the UI to unstable ad hoc query-resolution outputs.
 
-## Safe Pre-Work
+## Rule For Planning
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
-
-## Unblock Condition
-
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+Do not let the results UI get ahead of the typed resolution contract from `P0-103C`.

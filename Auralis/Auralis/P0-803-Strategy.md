@@ -2,32 +2,34 @@
 
 ## Status
 
-Blocked
+Startable
 
 ## Ticket
 
-Create the Phase 0 privacy and security hardening checklist and implement the required controls around redaction, reset, storage boundaries, and absence of key or signing material.
+Assemble and verify the Phase 0 privacy and security checklist so the shipped baseline has explicit review coverage.
 
 ## Dependencies
 
-P0-501, P0-303, with structural hardening completed through `P0-701B`
+- active shell/data/media/search slices
+- `P0-702`
+- `P0-703`
 
 ## Strategy
 
-- Keep this as a later hardening pass.
-- Build on the receipt foundation already in place and the degraded-mode rules from `P0-303`.
-- Treat `P0-701B` as the relevant architectural hardening dependency, not monolithic `P0-701`.
+- Treat this as an explicit checklist and verification pass, not as a vague future concern.
+- Review the highest-value privacy and security surfaces first.
+- Leave a clear record of what was checked, what was deferred, and why.
 
 ## Key Risk
 
-Privacy controls must be verified against real flows and real storage boundaries, not against an unfinished architecture.
+Avoid a checklist that is too generic to guide actual review or too aspirational to finish in Phase 0.
 
 ## Definition Of Done
 
-- Redaction, reset, and boundary checks are validated against the actual Phase 0 app shape.
-- No key or signing material exists in the release surface.
-- The checklist reflects the hardened architecture, not the pre-enforcement scaffolding.
+- The Phase 0 privacy/security checklist exists.
+- The highest-value surfaces are reviewed against it.
+- Deferrals are recorded explicitly.
 
 ## Validation Target
 
-Export receipts to verify redaction, wipe local data fully, confirm no private key storage exists, and ensure release-mode receipts omit raw stack traces.
+Review representative privacy and security surfaces and leave an explicit Phase 0 checklist/handoff record.

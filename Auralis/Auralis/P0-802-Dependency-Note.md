@@ -2,25 +2,20 @@
 
 ## Status
 
-Blocked
+Partially blocked
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-101A
-- P0-503
-- P0-451
-- P0-461
+- This ticket is most valuable after the major Phase 0 product slices are mounted.
+- `P0-801` may influence what offline/demo conditions should be included in the baseline.
+- Active shell, media, search, and receipt flows should be real enough to measure before deep tuning starts.
 
-## Why It Is Blocked
+## Safe First Slice
 
-Blocked until the major shell and list surfaces actually exist.
+- Identify representative baseline flows now.
+- Defer heavy tuning until those flows are stable enough to measure honestly.
+- Prefer concrete performance/stability observations over vague optimization work.
 
-## Safe Pre-Work
+## Rule For Planning
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
-
-## Unblock Condition
-
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+Do not let `P0-802` become premature micro-optimization before the app slices settle.

@@ -2,23 +2,46 @@
 
 ## Summary
 
-Create the safe no-results search UX with suggested next steps, explorer fallback, watch-only account creation, and strict observe-only behavior.
+Implement search no-results and safety behavior so the search experience fails honestly and safely.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Startable.
+
+## Execution Checklist
+
+### 1. Confirm the failure-state contract
+
+- [ ] Re-read `P0-103E-Strategy.md` and `P0-103E-Dependency-Note.md`.
+- [ ] Confirm which resolution outcomes land in no-results vs safety states.
+- [ ] Confirm which messaging and actions belong in each state.
+
+### 2. Implement no-results and safety states
+
+- [ ] Add a clear no-results state.
+- [ ] Add a distinct safety or warning state where needed.
+- [ ] Keep both states separate from happy-path results rendering.
+
+### 3. Cover required edge cases
+
+- [ ] Empty or unsupported queries fail honestly.
+- [ ] Risky or untrusted input is labeled clearly.
+- [ ] Search remains usable after landing in a no-results or safety state.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify no-results and safety states are understandable.
+- [ ] Verify these states do not look like shell errors.
+- [ ] Record richer search coaching or suggestion work outside this ticket.
 
 ## Critical Edge Case
 
-Suggestions must not mislead on valid-but-empty queries, explorer links must be chain-safe, and invalid add-account attempts must fail cleanly.
+No-results and safety behavior must look intentional, not like the search system is broken.
 
 ## Validation
 
-Verify no-results suggestions, watch-only add-account flow, explorer open receipts, and absence of any execute path from search.
+Fail safely on unsupported or risky search paths while preserving a usable search flow.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If the work starts becoming general search-results UI, push that back into `P0-103D` instead of stretching `P0-103E`.

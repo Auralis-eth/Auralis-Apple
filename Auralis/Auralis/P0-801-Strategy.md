@@ -2,32 +2,33 @@
 
 ## Status
 
-Blocked
+Startable
 
 ## Ticket
 
-Provide a deterministic demo dataset and safe offline behavior so the app remains demoable and usable without network connectivity.
+Define the deterministic demo dataset and offline mode behavior for Phase 0 so the app remains coherent when live data is absent or intentionally replaced.
 
 ## Dependencies
 
-P0-451, P0-302, P0-303, with `P0-101D` as a recommended parallel foundation
+- `P0-101D`
+- `P0-801` should align with active shell/data surfaces
 
 ## Strategy
 
-- Start from deterministic data and degraded-mode semantics.
-- Use `P0-101D` later to unify the final presentation of demo, stale, and empty states.
-- Keep demo-mode clarity as a product rule, not just a visual styling problem.
+- Keep demo data deterministic and clearly separate from live data.
+- Treat offline mode as a product behavior, not just a network failure side effect.
+- Make the shell honest about what is demo, cached, stale, or unavailable.
 
 ## Key Risk
 
-Users must not confuse demo content with real content, especially on first-run offline flows.
+Avoid mixing demo and live data so loosely that users or later code paths cannot tell which truth they are looking at.
 
 ## Definition Of Done
 
-- Demo content is deterministic and clearly labeled.
-- Offline behavior is safe and usable.
-- Final visual language can align with `P0-101D`.
+- A deterministic demo dataset contract exists.
+- Offline mode behavior is defined and usable.
+- The shell communicates data provenance honestly.
 
 ## Validation Target
 
-Use airplane mode on fresh install and after cache exists, and verify the demo dataset behaves consistently across relaunches.
+Run the app in deterministic demo/offline conditions and preserve understandable provenance and fallback behavior.

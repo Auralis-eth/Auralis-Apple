@@ -2,26 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-102A
-- P0-302
-- P0-451
-- P0-461
-- P0-502
+- `P0-102A` already created the modules section and its structural slot.
+- `P0-101A` and existing router work are sufficient for real shortcut routing.
+- `P0-201` account state is already enough for modules that depend on the active account.
 
-## Why It Is Blocked
+## Safe First Slice
 
-Blocked on Home layout, freshness primitives, both module indexes, and receipt integration.
+- Improve the current modules section rather than replacing it.
+- Use real routes and a stable launcher contract.
+- Leave unfinished future module ideas out of the first pass.
 
-## Safe Pre-Work
+## Rule For Planning
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
-
-## Unblock Condition
-
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+Do not turn this ticket into a full Home redesign or into implementation of every downstream feature the shortcuts point toward.

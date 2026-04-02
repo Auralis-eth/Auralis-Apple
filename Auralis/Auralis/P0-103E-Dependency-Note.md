@@ -2,18 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-601
-- P0-602
-- P0-502
+- `P0-103C` provides the typed resolution outcomes that can land in no-results or safety states.
+- `P0-103D` should keep the happy-path results UI separate from these states.
+- `P0-702` will strengthen untrusted-input labeling, but the first safety behavior does not need to wait for its final pass.
 
-Recommended parallel foundation:
+## Safe First Slice
 
-- P0-101D
+- Add distinct no-results and safety states now.
+- Explain unsupported or risky queries honestly.
+- Keep the UI contract separate from happy-path results.
 
-## Why It Is Blocked
+## Rule For Planning
 
-The real blockers are mode, policy, and receipt coverage. `P0-101D` improves the final UX but should not be treated as the main reason this ticket cannot start.
+Do not bury safety or no-results handling inside the normal results UI.

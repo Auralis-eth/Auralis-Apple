@@ -1,34 +1,36 @@
-# P0-102D Strategy: Recent activity preview (receipts snippet)
+# P0-102D Strategy: Recent activity preview
 
 ## Status
 
-Blocked
+Startable
 
 ## Ticket
 
-Show the last 5 to 10 receipts on Home with summary, status icon, timestamp, and navigation into receipt detail or the full receipts list.
+Deepen the Home recent-activity preview so it acts like a real shell summary of what just happened, rather than a generic placeholder strip.
 
 ## Dependencies
 
-P0-102A, P0-501, P0-503
+- `P0-102A`
+- `P0-403`
+- `P0-501`
+- `P0-502` slices
 
 ## Strategy
 
-- Keep the implementation narrow and phase-correct.
-- Build only the minimum seams needed by downstream tickets.
-- Make UI and state ownership explicit instead of hiding behavior in helpers.
-- Validate the named edge cases before broadening scope.
+- Reuse the receipts and recent-history groundwork already in the shell.
+- Keep the preview lightweight: it should summarize activity, not replace the receipts surface.
+- Route into richer receipt or detail views when the user wants more.
 
 ## Key Risk
 
-Use bounded queries for large volumes and ensure the preview reflects active account scope or labels mixed scope clearly.
+Avoid turning the preview into a noisy event dump or a second copy of the receipts timeline.
 
 ## Definition Of Done
 
-- The ticket outcome is visible in product behavior.
-- The ticket integrates cleanly with its immediate dependencies.
-- The stated test plan can be run without inventing extra architecture.
+- Home shows a useful recent-activity preview.
+- Sparse or empty history is handled honestly.
+- The preview can route into deeper history/detail surfaces.
 
 ## Validation Target
 
-Generate receipts, verify preview updates, open detail from a preview row, open the full receipts list, and switch accounts to confirm the preview updates.
+Show recent activity when it exists, stay honest when it does not, and keep the preview clearly lighter-weight than the full receipts experience.

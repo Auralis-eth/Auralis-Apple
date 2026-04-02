@@ -2,23 +2,46 @@
 
 ## Summary
 
-Broad receipt logging verification and cleanup after feature-level receipt slices have landed.
+Verify the active receipt-logging rollout and clean up the highest-value inconsistencies.
 
-## Execution Order
+## Ticket Status
 
-1. Inventory which Phase 0 surfaces already emit receipts.
-2. Verify coverage across success and failure paths.
-3. Fix naming, duplication, and missing-correlation inconsistencies.
-4. Re-run broad end-to-end receipt verification.
+Startable.
+
+## Execution Checklist
+
+### 1. Confirm the active receipt surface area
+
+- [ ] Re-read `P0-502B-Strategy.md` and `P0-502B-Dependency-Note.md`.
+- [ ] Confirm which active receipt flows belong in the verification pass.
+- [ ] Confirm which inconsistencies are cosmetic vs contract-breaking.
+
+### 2. Verify and clean up the active receipt flows
+
+- [ ] Review active receipt trigger/scope/summary/payload consistency.
+- [ ] Fix the highest-value naming or payload drift.
+- [ ] Preserve compatibility where the receipt contract is already in use.
+
+### 3. Cover required edge cases
+
+- [ ] Correlation IDs remain coherent across chained flows.
+- [ ] Payload cleanup does not drop critical provenance.
+- [ ] Cleanup does not create duplicate or conflicting receipts.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify representative active receipt flows still log correctly.
+- [ ] Verify cleanup improves clarity instead of changing meaning.
+- [ ] Record future receipt-category additions outside this ticket.
 
 ## Critical Edge Case
 
-Receipts that exist only on happy paths are not enough. Failure paths and denied actions must be covered too.
+Receipt cleanup must improve trustworthiness without destabilizing consumers that already rely on the active foundation.
 
 ## Validation
 
-Run cross-feature flows and verify receipt presence, correlation, and consistency across shell, Home, Search, Context, Libraries, and policy-denied actions.
+Verify active receipt flows and clean up the highest-value inconsistencies while preserving contract stability.
 
 ## Handoff Rule
 
-Do not start this ticket until enough real feature slices exist that cleanup is based on evidence instead of guesses.
+If a proposed change would materially alter the receipt contract, split that work into a dedicated follow-on rather than hiding it in `P0-502B`.

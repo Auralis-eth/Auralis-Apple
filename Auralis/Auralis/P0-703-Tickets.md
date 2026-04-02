@@ -2,23 +2,46 @@
 
 ## Summary
 
-Create the repeatable security smoke tests for Observe-only enforcement, PolicyGate coverage, and absence of any execute or signing bypass path.
+Add smoke-test coverage that proves key safety, policy, and boundary rules do not have obvious bypass paths.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Partially blocked behind the underlying gate/enforcement/labeling work, but target selection can begin now.
+
+## Execution Checklist
+
+### 1. Confirm the first no-bypass targets
+
+- [ ] Re-read `P0-703-Strategy.md` and `P0-703-Dependency-Note.md`.
+- [ ] Confirm which rules are stable enough to smoke-test.
+- [ ] Confirm whether each target should be blocked, denied, or labeled.
+
+### 2. Implement the first smoke tests
+
+- [ ] Add a small set of high-value smoke tests.
+- [ ] Target practical bypass scenarios rather than abstract coverage.
+- [ ] Keep the suite maintainable and understandable.
+
+### 3. Cover required edge cases
+
+- [ ] Tests do not rely on unstable implementation details.
+- [ ] Failure output makes the bypass understandable.
+- [ ] The suite stays focused on real enforcement risk.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify representative bypass paths are blocked or labeled.
+- [ ] Verify the suite is stable enough to keep in regular validation.
+- [ ] Record later expansion separately.
 
 ## Critical Edge Case
 
-Catch new actions added later, debug-only bypasses, and side-effectful third-party behavior such as auto-opening URLs.
+Smoke tests must prove real safety rules without becoming brittle stand-ins for the whole app architecture.
 
 ## Validation
 
-Run the checklist across all screens and, if feasible, automate enumeration of action handlers to confirm PolicyGate coverage.
+Prove representative bypass paths are blocked or labeled correctly through a small maintainable smoke suite.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If the underlying rule is still moving, defer the smoke test rather than freezing unstable behavior into test code.

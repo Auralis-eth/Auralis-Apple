@@ -2,23 +2,46 @@
 
 ## Summary
 
-Implement shared module tiles for Music Library and Token List with counts, freshness, quick refresh, and filtered receipt shortcuts.
+Deepen the Home modules section into a more intentional shortcut and launcher surface.
 
-## Execution Order
+## Ticket Status
 
-1. Re-read the dependencies and confirm which ones are already complete.
-2. Implement the minimum vertical slice that proves the ticket is real.
-3. Cover the stated edge cases before expanding scope.
-4. Run the ticket-specific validation path and record any blockers.
+Startable.
+
+## Execution Checklist
+
+### 1. Confirm the launcher contract
+
+- [ ] Re-read `P0-102C-Strategy.md` and `P0-102C-Dependency-Note.md`.
+- [ ] Confirm which modules belong in the first pass.
+- [ ] Confirm which existing routes should back each shortcut.
+
+### 2. Implement the upgraded modules section
+
+- [ ] Refine the tile set and module hierarchy.
+- [ ] Route modules to real product surfaces.
+- [ ] Preserve the current Home visual language.
+
+### 3. Cover required edge cases
+
+- [ ] Module actions remain usable in sparse-data states.
+- [ ] Unavailable features fail honestly instead of pretending they are live.
+- [ ] Shortcut ordering stays intentional as modules expand.
+
+### 4. Validate the vertical slice
+
+- [ ] Verify each first-pass module lands on the intended route.
+- [ ] Verify the section still reads cleanly on smaller screens.
+- [ ] Record future module additions outside this ticket.
 
 ## Critical Edge Case
 
-Unknown counts, rapid refresh taps, and empty filtered receipt lists must stay safe and legible.
+The modules section must stay coherent even when some destinations are sparse, empty, or not yet deeply built out.
 
 ## Validation
 
-Tiles navigate correctly, quick refresh triggers fetch and receipts, counts update after refresh, and filtered receipts open with correct results.
+Launch real surfaces from the Home modules section and keep the tile system useful without overloading it.
 
 ## Handoff Rule
 
-If this ticket is still blocked when work starts, do not build throwaway scaffolding unless the dependency note explicitly allows it.
+If the section starts absorbing unrelated feature work, stop and split the follow-on module behavior into its own ticket.

@@ -76,6 +76,29 @@ Closeout summary:
 - `P0-461` can start with placeholder or local holdings data
 - `P0-102A` can use placeholder-backed module data to break dependency cycles
 
+## Upcoming Ticket Status Snapshot
+
+- `P0-461`: startable for a native-balance-first holdings slice
+- `P0-102E`: startable for the Home empty/first-run state pass
+- `P0-102B`: startable for the active account summary-card pass
+- `P0-102C`: startable for the Home modules/shortcuts pass
+- `P0-102D`: startable for the recent-activity preview pass
+- `P0-452`: startable now that `P0-451` is complete for the current Music foundation slice
+- `P0-462`: partially blocked behind the stable `P0-461` holdings-row contract
+- `P0-103A`: startable for search entry points
+- `P0-103C`: startable for the typed search-resolution pipeline
+- `P0-103D`: partially blocked behind the stable `P0-103C` resolution contract
+- `P0-103F`: startable for search history
+- `P0-103E`: startable for no-results and safety behavior
+- `P0-602`: startable for the shared policy-gate wrapper
+- `P0-701B`: partially blocked behind stable seam adoption and targeted enforcement readiness
+- `P0-702`: startable for untrusted-input labeling
+- `P0-703`: partially blocked behind the underlying gate/enforcement/labeling rules becoming stable enough to smoke-test
+- `P0-502B`: startable for receipt verification and cleanup
+- `P0-801`: startable for deterministic demo/offline behavior definition
+- `P0-802`: partially blocked until the representative mounted flows are settled enough to benchmark honestly
+- `P0-803`: startable for the Phase 0 privacy/security checklist pass
+
 ## Recommended Order
 
 ### Phase 1: UI baseline and shell chrome
@@ -153,7 +176,9 @@ Why:
 
 ### Phase 6: Music library foundation
 
-18. `P0-451` Music library index + storage
+Completed
+
+18. `P0-451` Music library index + storage (Completed)
 
 Why:
 

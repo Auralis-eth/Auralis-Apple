@@ -2,18 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-452
-- P0-462
-- P0-602
+- `P0-401` already provides enough shared shell/context truth to distinguish trusted shell-owned values from external ones.
+- `P0-602` helps where labeling and action policy intersect.
+- Search, deep-link, and provider-backed surfaces are the obvious first targets.
 
-Recommended parallel foundation:
+## Safe First Slice
 
-- P0-101D
+- Define the label contract first.
+- Apply it to the highest-value surfaces next.
+- Keep the rule reusable for later safety and bypass testing.
 
-## Why It Is Blocked
+## Rule For Planning
 
-The detail surfaces and policy gate are the real blockers. `P0-101D` helps the eventual warning presentation, but it is not the gating dependency.
+Do not bury trust labeling inside one-off view copy or styling hacks.

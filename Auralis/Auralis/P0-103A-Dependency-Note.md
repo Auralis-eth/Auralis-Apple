@@ -2,22 +2,20 @@
 
 ## Status
 
-Blocked
+Startable
 
-## Blocking Dependencies
+## Dependency Read
 
-- P0-101B
+- `P0-101A` and current routing are enough for search launch points.
+- `P0-102A` provides Home-level surfaces that can host search entry affordances.
+- `P0-103C` will deepen resolution, but it does not need to block basic entry points.
 
-## Why It Is Blocked
+## Safe First Slice
 
-Blocked directly by the missing global chrome surface.
+- Add shell/Home entry points that all land on the same search root.
+- Keep entry behavior simple and consistent.
+- Avoid overloading entry points with result or history logic that belongs to later tickets.
 
-## Safe Pre-Work
+## Rule For Planning
 
-- Confirm data inputs and integration seams.
-- Avoid shipping placeholder logic that will be replaced by the real dependency.
-- Only do pre-work that directly lowers future integration risk.
-
-## Unblock Condition
-
-The upstream dependencies above are complete enough that this ticket can be implemented without inventing temporary state models or disposable UI.
+Do not let search entry-point work fragment into multiple inconsistent search surfaces.
