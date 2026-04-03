@@ -30,9 +30,162 @@ struct HelperConsistencyTests {
         #expect(playlist.title == "Chill Mix")
     }
 
+    @Test("native holdings persist by account and chain scope")
+    @MainActor
+    func nativeHoldingsPersistByScope() throws {
+        let container = try makeTokenHoldingContainer()
+        let context = ModelContext(container)
+        let store = TokenHoldingsStore(modelContext: context)
+
+        try store.upsertNativeHolding(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet,
+            amountDisplay: "1.5 ETH",
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+        try store.upsertNativeHolding(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet,
+            amountDisplay: "2.0 ETH",
+            updatedAt: Date(timeIntervalSince1970: 200)
+        )
+
+        let holdings = try context.fetch(FetchDescriptor<TokenHolding>())
+
+        #expect(holdings.count == 2)
+
+        let ethereumHolding = try #require(
+            holdings.first(where: {
+                $0.accountAddressRawValue == "0x1234567890abcdef1234567890abcdef12345678" &&
+                $0.chainRawValue == Chain.ethMainnet.rawValue
+            })
+        )
+        let baseHolding = try #require(
+            holdings.first(where: {
+                $0.accountAddressRawValue == "0x1234567890abcdef1234567890abcdef12345678" &&
+                $0.chainRawValue == Chain.baseMainnet.rawValue
+            })
+        )
+
+        #expect(ethereumHolding.balanceKind == .native)
+        #expect(ethereumHolding.amountDisplay == "1.5 ETH")
+        #expect(ethereumHolding.symbol == "ETH")
+        #expect(baseHolding.amountDisplay == "2.0 ETH")
+        #expect(baseHolding.id != ethereumHolding.id)
+    }
+
+    @Test("upserting the same native scope updates one persisted row instead of duplicating it")
+    @MainActor
+    func nativeHoldingUpsertReusesScopedRow() throws {
+        let container = try makeTokenHoldingContainer()
+        let context = ModelContext(container)
+        let store = TokenHoldingsStore(modelContext: context)
+
+        try store.upsertNativeHolding(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet,
+            amountDisplay: "1.5 ETH",
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+        try store.upsertNativeHolding(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet,
+            amountDisplay: "1.75 ETH",
+            updatedAt: Date(timeIntervalSince1970: 200)
+        )
+
+        let holdings = try context.fetch(FetchDescriptor<TokenHolding>())
+
+        #expect(holdings.count == 1)
+        #expect(holdings[0].amountDisplay == "1.75 ETH")
+        #expect(holdings[0].updatedAt == Date(timeIntervalSince1970: 200))
+    }
+
+    @Test("token holding persistence stays isolated across account and chain boundaries")
+    @MainActor
+    func tokenHoldingsStayScopedAcrossAccountAndChain() throws {
+        let container = try makeTokenHoldingContainer()
+        let context = ModelContext(container)
+        let store = TokenHoldingsStore(modelContext: context)
+
+        try store.upsertNativeHolding(
+            accountAddress: "0x1111111111111111111111111111111111111111",
+            chain: .ethMainnet,
+            amountDisplay: "1.0 ETH",
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+        try store.upsertNativeHolding(
+            accountAddress: "0x2222222222222222222222222222222222222222",
+            chain: .ethMainnet,
+            amountDisplay: "2.0 ETH",
+            updatedAt: Date(timeIntervalSince1970: 200)
+        )
+        try store.upsertNativeHolding(
+            accountAddress: "0x1111111111111111111111111111111111111111",
+            chain: .baseMainnet,
+            amountDisplay: "3.0 ETH",
+            updatedAt: Date(timeIntervalSince1970: 300)
+        )
+
+        let holdings = try context.fetch(FetchDescriptor<TokenHolding>())
+
+        #expect(holdings.count == 3)
+        #expect(
+            Set(holdings.map(\.id)) == [
+                TokenHolding.makeScopedID(
+                    accountAddress: "0x1111111111111111111111111111111111111111",
+                    chain: .ethMainnet,
+                    contractAddress: nil,
+                    balanceKind: .native
+                ),
+                TokenHolding.makeScopedID(
+                    accountAddress: "0x2222222222222222222222222222222222222222",
+                    chain: .ethMainnet,
+                    contractAddress: nil,
+                    balanceKind: .native
+                ),
+                TokenHolding.makeScopedID(
+                    accountAddress: "0x1111111111111111111111111111111111111111",
+                    chain: .baseMainnet,
+                    contractAddress: nil,
+                    balanceKind: .native
+                )
+            ]
+        )
+    }
+
+    @Test("token holding row model remains readable when ERC-20 metadata is missing")
+    func tokenHoldingRowModelSupportsPlaceholderMetadata() {
+        let placeholderHolding = TokenHolding(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet,
+            contractAddress: nil,
+            symbol: nil,
+            displayName: "Unknown Token",
+            amountDisplay: "Balance unavailable",
+            balanceKind: .erc20,
+            updatedAt: Date(timeIntervalSince1970: 100),
+            isPlaceholder: true
+        )
+
+        let row = TokenHoldingRowModel(holding: placeholderHolding)
+
+        #expect(row.title == "Unknown Token")
+        #expect(row.amountDisplay == "Balance unavailable")
+        #expect(row.subtitle == "Placeholder token metadata")
+        #expect(row.canOpenDetail == false)
+    }
+
     @MainActor
     private func makePlaylistContainer() throws -> ModelContainer {
         let schema = Schema([Playlist.self, NFT.self, Tag.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [configuration])
+    }
+
+    @MainActor
+    private func makeTokenHoldingContainer() throws -> ModelContainer {
+        let schema = Schema([TokenHolding.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
     }

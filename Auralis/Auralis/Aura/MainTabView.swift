@@ -479,7 +479,14 @@ struct MainTabView: View {
 
             Tab("ERC-20", systemImage: "dollarsign.circle", value: AppTab.erc20Tokens) {
                 NavigationStack(path: $router.erc20TokensPath) {
-                    ERC20TokensRootView(router: router, chain: currentChain)
+                    ERC20TokensRootView(
+                        currentAccountAddress: currentAccount?.address ?? currentAddress,
+                        currentChain: currentChain,
+                        contextSnapshot: contextService.snapshot,
+                        nftService: nftService,
+                        refreshAction: refreshActiveScopeFromUserAction,
+                        router: router
+                    )
                         .navigationDestination(for: ERC20TokenRoute.self) { route in
                             ERC20TokenDetailView(route: route)
                         }
@@ -882,26 +889,165 @@ private struct ObserveModePolicyView: View {
 }
 
 private struct ERC20TokensRootView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query private var holdings: [TokenHolding]
+
+    let currentAccountAddress: String
+    let currentChain: Chain
+    let contextSnapshot: ContextSnapshot
+    let nftService: NFTService
+    let refreshAction: @MainActor () async -> Void
     let router: AppRouter
-    let chain: Chain
+
+    @State private var persistenceErrorMessage: String?
+
+    init(
+        currentAccountAddress: String,
+        currentChain: Chain,
+        contextSnapshot: ContextSnapshot,
+        nftService: NFTService,
+        refreshAction: @escaping @MainActor () async -> Void,
+        router: AppRouter
+    ) {
+        self.currentAccountAddress = currentAccountAddress
+        self.currentChain = currentChain
+        self.contextSnapshot = contextSnapshot
+        self.nftService = nftService
+        self.refreshAction = refreshAction
+        self.router = router
+
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
+        let chainRawValue = currentChain.rawValue
+        _holdings = Query(
+            filter: #Predicate<TokenHolding> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.chainRawValue == chainRawValue
+            },
+            sort: [
+                SortDescriptor(\TokenHolding.sortPriority, order: .forward),
+                SortDescriptor(\TokenHolding.displayName, order: .forward)
+            ]
+        )
+    }
+
+    private var rowModels: [TokenHoldingRowModel] {
+        holdings.map(TokenHoldingRowModel.init(holding:))
+    }
+
+    private var nativeBalanceDisplay: String? {
+        contextSnapshot.balances.nativeBalanceDisplay.value
+    }
+
+    private var nativeBalanceUpdatedAt: Date? {
+        contextSnapshot.balances.nativeBalanceDisplay.updatedAt
+            ?? contextSnapshot.freshness.lastSuccessfulRefreshAt
+    }
+
+    private var syncKey: ERC20HoldingsSyncKey {
+        ERC20HoldingsSyncKey(
+            accountAddress: NFT.normalizedScopeComponent(currentAccountAddress) ?? "",
+            chain: currentChain,
+            nativeBalanceDisplay: nativeBalanceDisplay,
+            updatedAt: nativeBalanceUpdatedAt
+        )
+    }
 
     var body: some View {
-        ContentUnavailableView {
-            Label("ERC-20 Tokens", systemImage: "dollarsign.circle")
-        } description: {
-            Text("Routing is wired for ERC-20 token detail, but the token portfolio surface has not been built yet.")
-        } actions: {
-            Button("Open Example Token") {
-                router.showERC20Token(
-                    contractAddress: "0x0000000000000000000000000000000000000000",
-                    chain: chain,
-                    symbol: "TOKEN"
-                )
+        Group {
+            if holdings.isEmpty {
+                AuraScenicScreen(contentAlignment: .center) {
+                    if let failure = nftService.providerFailurePresentation(isShowingCachedContent: false) {
+                        ShellProviderFailureStateView(
+                            failure: failure,
+                            retry: refresh
+                        )
+                    } else {
+                        ShellEmptyLibraryStateView(
+                            kind: .token,
+                            snapshot: contextSnapshot
+                        )
+                    }
+                }
+            } else {
+                VStack(spacing: 0) {
+                    if let persistenceErrorMessage {
+                        ShellStatusBanner(
+                            title: "Local holdings could not be updated",
+                            message: persistenceErrorMessage,
+                            systemImage: "externaldrive.badge.exclamationmark",
+                            tone: .warning,
+                            action: nil
+                        )
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
+                    } else if let failure = nftService.providerFailurePresentation(isShowingCachedContent: true) {
+                        ShellStatusBanner(
+                            title: failure.title,
+                            message: failure.message,
+                            systemImage: failure.systemImage,
+                            tone: .warning,
+                            action: failure.isRetryable ? ShellStatusAction(
+                                title: "Retry",
+                                systemImage: "arrow.clockwise",
+                                handler: refresh
+                            ) : nil
+                        )
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
+                    }
+
+                    List(rowModels) { row in
+                        if row.canOpenDetail, let contractAddress = row.contractAddress {
+                            Button {
+                                router.showERC20Token(
+                                    contractAddress: contractAddress,
+                                    chain: currentChain,
+                                    symbol: row.symbol ?? row.title
+                                )
+                            } label: {
+                                ERC20HoldingRow(row: row)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("erc20.row.\(row.id)")
+                        } else {
+                            ERC20HoldingRow(row: row)
+                                .accessibilityIdentifier("erc20.row.\(row.id)")
+                        }
+                    }
+                }
             }
-            .accessibilityIdentifier("erc20.openExampleToken")
         }
         .navigationTitle("ERC-20")
         .accessibilityIdentifier("erc20.root")
+        .task(id: syncKey) {
+            syncNativeHoldingIfAvailable()
+        }
+    }
+
+    private func refresh() {
+        Task {
+            await refreshAction()
+        }
+    }
+
+    private func syncNativeHoldingIfAvailable() {
+        guard let nativeBalanceDisplay,
+              let updatedAt = nativeBalanceUpdatedAt,
+              !currentAccountAddress.isEmpty else {
+            return
+        }
+
+        do {
+            try TokenHoldingsStore(modelContext: modelContext).upsertNativeHolding(
+                accountAddress: currentAccountAddress,
+                chain: currentChain,
+                amountDisplay: nativeBalanceDisplay,
+                updatedAt: updatedAt
+            )
+            persistenceErrorMessage = nil
+        } catch {
+            persistenceErrorMessage = "Auralis kept the last saved holdings view, but the latest native balance could not be written on this device."
+        }
     }
 }
 
@@ -917,6 +1063,53 @@ private struct ERC20TokenDetailView: View {
         .navigationTitle(route.symbol)
         .accessibilityIdentifier("erc20.detail.screen")
     }
+}
+
+private struct ERC20HoldingRow: View {
+    let row: TokenHoldingRowModel
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(row.title)
+                        .foregroundStyle(Color.textPrimary)
+
+                    if let symbol = row.symbol, !symbol.isEmpty {
+                        Text(symbol)
+                            .font(.caption)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                }
+
+                Text(row.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(Color.textSecondary)
+
+                if row.isPlaceholder {
+                    Text("Metadata pending")
+                        .font(.caption2)
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            Text(row.amountDisplay)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color.textPrimary)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct ERC20HoldingsSyncKey: Hashable {
+    let accountAddress: String
+    let chain: Chain
+    let nativeBalanceDisplay: String?
+    let updatedAt: Date?
 }
 
 private struct BadgeLabel: View {

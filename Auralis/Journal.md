@@ -50,6 +50,28 @@ The useful discovery was that native balance does not need a new provider abstra
 
 Another important product decision is now explicit: token holdings are expected to be persisted with SwiftData. In other words, the token list should behave more like the app's other durable libraries and less like a temporary network overlay that vanishes the moment a request fails. That matters because “show me what I own” is exactly the kind of feature users notice when it forgets yesterday.
 
+### War story: the first ERC-20 screen is really a persistence exercise disguised as a list
+
+The visible change is an ERC-20 tab that finally shows something useful. The real engineering move is underneath: the new `TokenHolding` model gives Auralis a durable shelf for token balances scoped by account and chain. The first row is the native asset, persisted from the shared shell context snapshot. That sounds modest, but it solves the important failure mode: when the latest provider-backed read does not arrive, the app can still show the last known holdings state instead of shrugging and pretending the wallet is empty.
+
+This is one of those cases where “just render the balance directly” would have been the cheap version and the wrong version. The app already learned that long-lived wallet state needs receipts, scope, and local durability. Token holdings belong in that family too.
+
+### Aha: edge cases got cheaper once the row contract stopped caring where the data came from
+
+Three ugly cases became much easier once the holdings screen was built around a stable row model instead of a direct provider response:
+
+- native-only wallets work because the native row is already a first-class persisted holding, not a special header pretending not to be part of the list
+- missing ERC-20 metadata is survivable because the row can render placeholders without assuming symbol or contract detail is present
+- scope leaks are easier to catch because the persistence ID and query both speak the same language: normalized account plus chain
+
+That is a useful engineering pattern in this app. If the screen contract is stable before enrichment arrives, partial data feels like an honest early slice. If the screen contract depends on fully enriched payloads, every missing field turns into drama.
+
+### Follow-up still on the board: the app needs a real token-holdings provider call
+
+P0-461 closed the “empty room” problem for the ERC-20 tab, but it did not magically solve ERC-20 discovery. Right now the durable storage shape and UI contract exist, and native balance is persisted into that shape. The missing ingredient is a provider-backed API call that returns token holdings for an account so Auralis can populate real ERC-20 rows.
+
+That follow-up matters because this is exactly where teams accidentally lie to themselves. Once the screen exists, it is easy to start speaking as if “token holdings” are done. They are not. The native-balance-first slice is done. Full account token inventory still needs a network seam, persistence mapping into `TokenHolding`, and the usual scope/freshness/receipt discipline.
+
 ### Gotcha: freshness is a shell concern, not a token-screen side quest
 
 It is tempting to let a new holdings screen invent its own “last updated” badge. That would be wrong here. Freshness already lives in the shared context snapshot, and `ReceiptEventLogger` already records context builds with scope metadata. If the holdings surface starts freelancing its own freshness story, the user will eventually see two timestamps arguing in public.

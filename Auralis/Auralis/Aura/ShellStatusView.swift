@@ -150,6 +150,7 @@ struct ShellProviderFailureStateView: View {
 enum ShellLibraryKind {
     case music
     case nft
+    case token
 
     var title: String {
         switch self {
@@ -157,6 +158,8 @@ enum ShellLibraryKind {
             return "No Music Yet"
         case .nft:
             return "No NFT Library Yet"
+        case .token:
+            return "No Token Holdings Yet"
         }
     }
 
@@ -166,6 +169,8 @@ enum ShellLibraryKind {
             return "Your music NFT collection will appear here after a successful wallet sync."
         case .nft:
             return "NFTs from the active wallet will appear here after Auralis has something to index locally."
+        case .token:
+            return "Token holdings for the active wallet and chain will appear here once Auralis has a persisted balance snapshot."
         }
     }
 
@@ -175,6 +180,8 @@ enum ShellLibraryKind {
             return "music.note.list"
         case .nft:
             return "square.stack.3d.up"
+        case .token:
+            return "dollarsign.circle"
         }
     }
 }
