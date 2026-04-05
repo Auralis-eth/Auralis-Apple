@@ -188,4 +188,47 @@ struct HomeTabLogicTests {
         #expect(summary.trackedNFTLabel == "4 scoped NFTs")
         #expect(summary.lastActivityLabel == nil)
     }
+
+    @Test("modules presentation keeps primary modules and shell shortcuts in intentional order")
+    func modulesPresentationUsesIntentionalOrdering() {
+        let presentation = logic.modulesPresentation(trackCount: 3)
+
+        #expect(presentation.primary.map(\.action) == [.openMusic, .openNFTTokens])
+        #expect(presentation.shortcuts.map(\.action) == [.openSearch, .openNews, .openReceipts])
+        #expect(presentation.primary.first?.badgeTitle == "3 local")
+    }
+
+    @Test("modules presentation stays honest when local music is still empty")
+    func modulesPresentationDegradesCleanlyForSparseMusic() {
+        let presentation = logic.modulesPresentation(trackCount: 0)
+
+        #expect(presentation.primary.first?.title == "Music")
+        #expect(presentation.primary.first?.subtitle == "No local music tracks yet")
+        #expect(presentation.primary.first?.badgeTitle == "Quiet")
+        #expect(presentation.shortcuts.count == 3)
+    }
+
+    @Test("modules presentation keeps shell shortcuts usable even when the home scope is sparse")
+    func modulesPresentationKeepsSparseStateRoutesReachable() {
+        let sparsePresentation = logic.modulesPresentation(trackCount: 0)
+        let populatedPresentation = logic.modulesPresentation(trackCount: 5)
+
+        #expect(sparsePresentation.shortcuts.map(\.action) == [.openSearch, .openNews, .openReceipts])
+        #expect(populatedPresentation.shortcuts.map(\.action) == [.openSearch, .openNews, .openReceipts])
+        #expect(sparsePresentation.primary.map(\.action) == [.openMusic, .openNFTTokens])
+    }
+
+    @Test("modules presentation only exposes first-pass routes that are already real destinations")
+    func modulesPresentationAvoidsPretendDestinations() {
+        let presentation = logic.modulesPresentation(trackCount: 2)
+        let exposedActions = Set((presentation.primary + presentation.shortcuts).map(\.action))
+
+        #expect(exposedActions == Set([
+            .openMusic,
+            .openNFTTokens,
+            .openSearch,
+            .openNews,
+            .openReceipts
+        ]))
+    }
 }

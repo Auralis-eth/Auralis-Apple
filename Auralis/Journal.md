@@ -116,6 +116,48 @@ That suite proved three things that matter:
 
 The subtle lesson is that a vertical slice gets much easier to validate without UI automation when the product truth is not trapped inside view rendering. If the important behavior can be described as “given these inputs, the shell should say this,” unit tests can carry a surprising amount of weight.
 
+### The next Home trap: not every button-shaped thing is a module
+
+Starting `P0-102C` exposed a subtle Home taxonomy problem. The dashboard already had a `modulesSection`, a `quickLinksSection`, and a `Profile Studio` area. All three contain actions. Only one of them should become the intentional launcher layer.
+
+That matters because if we start treating every useful button as a “module,” the Home screen turns into a junk drawer with nice lighting. The clean read is:
+
+- modules are durable product surfaces such as Music and NFT Tokens
+- quick links are lightweight shell jumps like Search, News, and Receipts
+- profile studio is temporary local tooling and should not pretend to be part of the launcher taxonomy
+
+This is mostly product language, but it becomes architecture very quickly. Once the taxonomy is clear, `P0-102C` can deepen the module layer without quietly swallowing unrelated Home controls.
+
+### The launcher got better once Home admitted it had two different kinds of shortcuts
+
+The useful move in `P0-102C` was not “add more buttons.” It was admitting that Home has two layers of navigation:
+
+- primary modules for durable product surfaces
+- lighter shell shortcuts for fast jumps into adjacent tabs
+
+Once that was explicit, the old split between `modulesSection` and `quickLinksSection` stopped making sense. The launcher now lives in one place, but it still has internal hierarchy: Music and NFT Tokens are the primary cards, while Search, News Feed, and Receipts sit underneath as shell shortcuts.
+
+That is the kind of small structural cleanup that makes later work cheaper. `P0-102D` can now sit next to a launcher that already knows what it is, instead of next to a dashboard that accidentally grew two competing shortcut systems.
+
+### A good launcher can be defined by what it refuses to include
+
+The `P0-102C` edge-case pass reinforced a simple rule: one way to keep a launcher honest is to prove what is not in it. The Home launcher now advertises only routes that are already real in the shell: Music, NFT Tokens, Search, News Feed, and Receipts.
+
+That sounds almost trivial, but it saves a lot of product debt. The moment a launcher starts listing “future” destinations, users stop trusting the difference between a real module and a dressed-up placeholder. In Auralis, the clean approach is to make unsupported ideas absent, not dimmed, not vague, not “coming soon” in disguise.
+
+That gives the team a useful planning lever too. If a future module wants launcher space, it should earn it by becoming a real destination first.
+
+### Launcher validation worked because the routing contract was written down before the visuals drifted
+
+The nice thing about the `P0-102C` validation pass is that it did not need UI automation to say anything useful. Once the launcher had a real `HomeLauncherAction` contract and a `HomeModulesPresentation`, the important questions became testable:
+
+- which destinations are exposed
+- what order they appear in
+- whether sparse data changes the launcher surface
+- whether any fake or future routes sneak in
+
+That is a good pattern for Home work in general. If the product intent can survive being expressed as a small data contract, the tests can protect it long before screenshots or UI tests enter the conversation.
+
 ### Gotcha: freshness is a shell concern, not a token-screen side quest
 
 It is tempting to let a new holdings screen invent its own “last updated” badge. That would be wrong here. Freshness already lives in the shared context snapshot, and `ReceiptEventLogger` already records context builds with scope metadata. If the holdings surface starts freelancing its own freshness story, the user will eventually see two timestamps arguing in public.

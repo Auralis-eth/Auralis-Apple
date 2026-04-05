@@ -202,9 +202,9 @@ Why:
 
 ### Phase 8: Home expansion and detail surfaces
 
-22. `P0-102E` Home empty/first-run state
-23. `P0-102B` Active account summary card
-24. `P0-102C` OS-level shortcuts / modules section
+22. `P0-102E` Home empty/first-run state (Completed)
+23. `P0-102B` Active account summary card (Completed)
+24. `P0-102C` OS-level shortcuts / modules section (Completed)
 25. `P0-102D` Recent activity preview
 26. `P0-452` Music collection + item detail screens
 27. `P0-462` Token detail screen
@@ -265,13 +265,12 @@ That gives the project:
 
 After that, move into the nearest user-facing follow-ons that deepen the now-landed shell/context surfaces:
 
-1. `P0-102B`
-2. `P0-102C`
-3. `P0-102D`
-4. `P0-451`
-5. `P0-461`
+1. `P0-102C`
+2. `P0-102D`
+3. `P0-452`
+4. `P0-462`
 
-That sequence deepens the now-visible shell/context/Home surfaces instead of reopening already completed fetch, cache, and receipt-foundation tickets.
+That sequence deepens the now-visible shell/context/Home surfaces that remain open instead of reopening already completed Home, Music-foundation, and token-foundation tickets.
 
 ## Notes On Interpretation
 

@@ -6,7 +6,7 @@ Deepen the active account summary card on Home so it acts like a real identity a
 
 ## Ticket Status
 
-Startable.
+Completed for the current slice.
 
 ## Execution Checklist
 

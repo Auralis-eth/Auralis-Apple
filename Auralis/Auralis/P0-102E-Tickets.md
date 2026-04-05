@@ -6,7 +6,7 @@ Implement the Home empty and first-run state so the dashboard remains intentiona
 
 ## Ticket Status
 
-Startable.
+Completed for the current slice.
 
 ## Execution Checklist
 

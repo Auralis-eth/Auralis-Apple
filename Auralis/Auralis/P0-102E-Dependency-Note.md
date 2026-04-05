@@ -2,7 +2,7 @@
 
 ## Status
 
-Startable
+Completed for the current slice
 
 ## Dependency Read
 
@@ -19,3 +19,8 @@ Startable
 ## Rule For Planning
 
 Do not block this ticket on every later Home section being fully built; the first-run state exists precisely because those deeper sections may be empty.
+
+## Current Read
+
+- The dependency question is now resolved: `P0-102A`, `P0-201`, and the existing shell/context seams were enough to land the sparse-data Home slice.
+- Later Home tickets should treat this as an already-mounted neighbor, not as an unresolved prerequisite.

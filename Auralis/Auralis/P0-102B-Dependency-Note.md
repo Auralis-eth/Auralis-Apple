@@ -2,7 +2,7 @@
 
 ## Status
 
-Startable
+Completed for the current slice
 
 ## Dependency Read
 
@@ -19,3 +19,8 @@ Startable
 ## Rule For Planning
 
 Do not turn the active summary card into full profile management or a broader account-settings ticket.
+
+## Current Read
+
+- The dependency question is closed: the existing Home slot plus account/chain/context data were sufficient for the current summary-card slice.
+- Later Home and account tickets should build around this mounted summary contract rather than treating the baseline identity card as still missing.

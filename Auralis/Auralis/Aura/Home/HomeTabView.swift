@@ -45,6 +45,30 @@ struct HomeAccountSummaryInputs: Equatable {
     let mostRecentActivityAt: Date?
 }
 
+enum HomeLauncherAction: Equatable {
+    case openMusic
+    case openNFTTokens
+    case openSearch
+    case openNews
+    case openReceipts
+}
+
+struct HomeLauncherItem: Equatable, Identifiable {
+    let action: HomeLauncherAction
+    let title: String
+    let subtitle: String
+    let badgeTitle: String
+    let systemImage: String
+    let buttonTitle: String
+
+    var id: String { title }
+}
+
+struct HomeModulesPresentation: Equatable {
+    let primary: [HomeLauncherItem]
+    let shortcuts: [HomeLauncherItem]
+}
+
 struct HomeTabLogic {
     func logoutPlan() -> HomeLogoutPlan {
         HomeLogoutPlan(
@@ -138,6 +162,57 @@ struct HomeTabLogic {
             chainTitle: chainTitle,
             trackedNFTLabel: trackedNFTLabel,
             lastActivityLabel: lastActivityLabel
+        )
+    }
+
+    func modulesPresentation(trackCount: Int) -> HomeModulesPresentation {
+        HomeModulesPresentation(
+            primary: [
+                HomeLauncherItem(
+                    action: .openMusic,
+                    title: "Music",
+                    subtitle: trackCount > 0
+                        ? "Local music ready: \(trackCount) track\(trackCount == 1 ? "" : "s")"
+                        : "No local music tracks yet",
+                    badgeTitle: trackCount > 0 ? "\(trackCount) local" : "Quiet",
+                    systemImage: "play.fill",
+                    buttonTitle: "Open player"
+                ),
+                HomeLauncherItem(
+                    action: .openNFTTokens,
+                    title: "NFT Tokens",
+                    subtitle: "Browse NFT tokens and jump into detail",
+                    badgeTitle: "Library",
+                    systemImage: "square.stack",
+                    buttonTitle: "Open tokens"
+                )
+            ],
+            shortcuts: [
+                HomeLauncherItem(
+                    action: .openSearch,
+                    title: "Search",
+                    subtitle: "Open the global search tab",
+                    badgeTitle: "Shell",
+                    systemImage: "magnifyingglass",
+                    buttonTitle: "Open Search"
+                ),
+                HomeLauncherItem(
+                    action: .openNews,
+                    title: "News Feed",
+                    subtitle: "Jump to the live news surface",
+                    badgeTitle: "Shell",
+                    systemImage: "bubble.right",
+                    buttonTitle: "Open News Feed"
+                ),
+                HomeLauncherItem(
+                    action: .openReceipts,
+                    title: "Receipts",
+                    subtitle: "Review local scoped activity",
+                    badgeTitle: "Shell",
+                    systemImage: "doc.text",
+                    buttonTitle: "Open Receipts"
+                )
+            ]
         )
     }
 }
@@ -241,6 +316,10 @@ struct HomeTabView: View {
         )
     }
 
+    private var modulesPresentation: HomeModulesPresentation {
+        logic.modulesPresentation(trackCount: musicNFTCount)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -250,7 +329,6 @@ struct HomeTabView: View {
                 }
                 modulesSection
                 recentActivitySection
-                quickLinksSection
                 creationStudioSection
             }
             .padding(12)
@@ -338,9 +416,22 @@ struct HomeTabView: View {
                 subtitle: homeSparseDataState == .normal
                     ? "Core surfaces stay reachable while richer Home cards land in later passes."
                     : "Use the launcher routes below while this scope is still getting established."
-            )
+            ) {
+                AuraPill("Launcher", systemImage: "square.grid.2x2", emphasis: .accent)
+            }
 
-            tileLayout
+            tileLayout(using: modulesPresentation.primary)
+
+            AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+                VStack(alignment: .leading, spacing: 12) {
+                    AuraSectionHeader(
+                        title: "Shell Shortcuts",
+                        subtitle: "Fast jumps into the other mounted product surfaces."
+                    )
+
+                    launcherShortcuts(using: modulesPresentation.shortcuts)
+                }
+            }
         }
     }
 
@@ -405,43 +496,6 @@ struct HomeTabView: View {
         }
     }
 
-    private var quickLinksSection: some View {
-        AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-            VStack(alignment: .leading, spacing: 12) {
-                AuraSectionHeader(
-                    title: "Quick Links",
-                    subtitle: "Fast jumps into the main shell surfaces."
-                )
-
-                if shouldStackTiles {
-                    VStack(spacing: 10) {
-                        quickLinkButton("Open News Feed", systemImage: "bubble.right", identifier: "home.openNews") {
-                            router.selectedTab = .news
-                        }
-                        quickLinkButton("Open Search", systemImage: "magnifyingglass", identifier: "home.openSearch") {
-                            router.showSearch()
-                        }
-                        quickLinkButton("Open Receipts", systemImage: "doc.text", identifier: "home.openReceipts") {
-                            router.showReceipts()
-                        }
-                    }
-                } else {
-                    HStack(spacing: 10) {
-                        quickLinkButton("Open News Feed", systemImage: "bubble.right", identifier: "home.openNews") {
-                            router.selectedTab = .news
-                        }
-                        quickLinkButton("Open Search", systemImage: "magnifyingglass", identifier: "home.openSearch") {
-                            router.showSearch()
-                        }
-                        quickLinkButton("Open Receipts", systemImage: "doc.text", identifier: "home.openReceipts") {
-                            router.showReceipts()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private var creationStudioSection: some View {
         AuraSurfaceCard(style: .soft, cornerRadius: 25) {
             VStack(alignment: .leading, spacing: 12) {
@@ -468,36 +522,53 @@ struct HomeTabView: View {
     }
 
     @ViewBuilder
-    private var tileLayout: some View {
+    private func tileLayout(using items: [HomeLauncherItem]) -> some View {
         if shouldStackTiles {
             VStack(spacing: 12) {
-                musicTile
-                financeTile
+                ForEach(items) { item in
+                    launcherTile(for: item)
+                }
             }
         } else {
             HStack(spacing: 12) {
-                musicTile
-                financeTile
+                ForEach(items) { item in
+                    launcherTile(for: item)
+                }
             }
         }
     }
 
-    private var musicTile: some View {
+    private func launcherTile(for item: HomeLauncherItem) -> some View {
         AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-            MusicTileView(trackCount: musicNFTCount) {
-                router.showMusicLibrary()
+            HomeModuleCardView(item: item) {
+                runLauncherAction(item.action)
             }
         }
-        .accessibilityIdentifier("home.openMusic")
+        .accessibilityIdentifier(accessibilityIdentifier(for: item.action))
     }
 
-    private var financeTile: some View {
-        AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-            FinanceTileView {
-                router.showNFTTokens()
+    @ViewBuilder
+    private func launcherShortcuts(using items: [HomeLauncherItem]) -> some View {
+        if shouldStackTiles {
+            VStack(spacing: 10) {
+                ForEach(items) { item in
+                    launcherShortcutButton(for: item)
+                }
+            }
+        } else {
+            HStack(spacing: 10) {
+                ForEach(items) { item in
+                    launcherShortcutButton(for: item)
+                }
             }
         }
-        .accessibilityIdentifier("home.openNFTTokens")
+    }
+
+    private func launcherShortcutButton(for item: HomeLauncherItem) -> some View {
+        AuraActionButton(item.buttonTitle, systemImage: item.systemImage, style: .surface) {
+            runLauncherAction(item.action)
+        }
+        .accessibilityIdentifier(accessibilityIdentifier(for: item.action))
     }
 
     private var imagePreviewButton: some View {
@@ -573,16 +644,6 @@ struct HomeTabView: View {
 
     private var shouldStackTiles: Bool {
         horizontalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize
-    }
-
-    private func quickLinkButton(
-        _ title: String,
-        systemImage: String,
-        identifier: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        AuraActionButton(title, systemImage: systemImage, style: .surface, action: action)
-            .accessibilityIdentifier(identifier)
     }
 
     @discardableResult
@@ -856,6 +917,36 @@ struct HomeTabView: View {
             router.selectedTab = .news
         }
     }
+
+    private func runLauncherAction(_ action: HomeLauncherAction) {
+        switch action {
+        case .openMusic:
+            router.showMusicLibrary()
+        case .openNFTTokens:
+            router.showNFTTokens()
+        case .openSearch:
+            router.showSearch()
+        case .openNews:
+            router.selectedTab = .news
+        case .openReceipts:
+            router.showReceipts()
+        }
+    }
+
+    private func accessibilityIdentifier(for action: HomeLauncherAction) -> String {
+        switch action {
+        case .openMusic:
+            return "home.openMusic"
+        case .openNFTTokens:
+            return "home.openNFTTokens"
+        case .openSearch:
+            return "home.openSearch"
+        case .openNews:
+            return "home.openNews"
+        case .openReceipts:
+            return "home.openReceipts"
+        }
+    }
 }
 
 extension String {
@@ -881,53 +972,25 @@ extension String {
     }
 }
 
-struct MusicTileView: View {
-    let trackCount: Int
-    var onOpenPlayer: (() -> Void)?
+struct HomeModuleCardView: View {
+    let item: HomeLauncherItem
+    let action: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            AuraSectionHeader(title: "Music")
-
-            VStack(alignment: .leading, spacing: 12) {
-                HeadlineFontText(
-                    trackCount > 0
-                    ? "Local music ready: \(trackCount) track\(trackCount == 1 ? "" : "s")"
-                    : "No local music tracks yet"
-                )
-                    .fontWeight(.semibold)
-
-                AuraActionButton("Open player", systemImage: "play.fill") {
-                    onOpenPlayer?()
-                }
-                .accessibilityLabel("Open music player")
-                .accessibilityIdentifier("home.musicTile.button")
+            AuraSectionHeader(title: item.title) {
+                AuraPill(item.badgeTitle, systemImage: item.systemImage, emphasis: .neutral)
             }
-        }
-    }
-}
-
-struct FinanceTileView: View {
-    var onOpenTokens: (() -> Void)?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            AuraSectionHeader(title: "NFT Tokens")
 
             VStack(alignment: .leading, spacing: 12) {
-                HeadlineFontText("Browse NFT tokens and jump into detail")
+                HeadlineFontText(item.subtitle)
                     .fontWeight(.semibold)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                HStack {
-                    AuraActionButton("Open tokens", systemImage: "square.stack") {
-                        onOpenTokens?()
-                    }
-                    .accessibilityIdentifier("home.nftTokens.button")
-
-                    Spacer()
+                AuraActionButton(item.buttonTitle, systemImage: item.systemImage) {
+                    action()
                 }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Open NFT tokens")
+                .accessibilityLabel(item.buttonTitle)
             }
         }
     }

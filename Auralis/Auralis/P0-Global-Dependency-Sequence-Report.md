@@ -28,6 +28,11 @@ These tickets are already closed for their planned Phase 0 slice:
 - `P0-503` receipts UI timeline + filters
 - `P0-601` Observe-only mode ownership
 - `P0-103B` query parser + type detection
+- `P0-102E` Home empty/first-run state
+- `P0-102B` active account summary card
+- `P0-102C` OS-level shortcuts / modules section
+- `P0-451` music library index derived from the existing SwiftData-backed local `NFT` store
+- `P0-461` native-balance-first SwiftData-backed token holdings slice
 
 Notes:
 
@@ -41,7 +46,6 @@ These tickets are no longer just "startable now"; they are actively underway:
 - `P0-401` context schema v0
 - `P0-101C` context freshness behavior on the context-sheet path
 - `P0-102A` Home layout shell slice
-- `P0-451` music library index derived from the existing SwiftData-backed local `NFT` store
 - `P0-701A` layered module-boundary scaffolding
 
 Current read on `P0-401`:
@@ -75,20 +79,11 @@ Current read on `P0-102A`:
 - the scenic background and glass-card visual language were intentionally preserved
 - later Home tickets can now deepen sections without forcing another top-level Home rewrite
 
-Current read on `P0-451`:
-
-- this ticket is complete for the current Music foundation slice
-- a dedicated SwiftData music library index now exists as a persisted projection of scoped music-capable `NFT` records
-- the mounted Music tab now consumes that index instead of filtering raw `NFT` rows directly in the view
-- rebuilds emit dedicated `music.library_index.*` receipts on the shared receipt foundation
-- Home is lightly attached through the local `NFT` store with a visible music-count affordance, while Search remains on the local `NFT` path for the first slice
-
 ## Partially Blocked But Legitimate To Advance
 
 These tickets explicitly allow useful progress without waiting for every downstream dependency:
 
-- `P0-102E` gateway-to-home flow polish
-- `P0-461` token holdings list with placeholder or local-backed data
+- `P0-102D` recent activity preview
 
 This preserves the earlier planning rule: use placeholder-backed or parser-first slices to break cycles when the ticket docs explicitly allow it.
 
@@ -96,9 +91,6 @@ This preserves the earlier planning rule: use placeholder-backed or parser-first
 
 These tickets remain blocked in their own current docs:
 
-- `P0-102B`
-- `P0-102C`
-- `P0-102D`
 - `P0-103A`
 - `P0-103C`
 - `P0-103D`
@@ -166,21 +158,13 @@ Status nuance:
 
 ### In Parallel, Continue Placeholder-Safe Surface Work
 
-- `P0-102E`
-
-### Then Land The Music Foundation
-
-- `P0-451`
-
-### Then Land The Token Foundation
-
-- `P0-461`
+- `P0-102C`
+- `P0-102D`
 
 ### Then Deepen Home
 
-- `P0-102B`
-- `P0-102C`
-- `P0-102D`
+- `P0-452`
+- `P0-462`
 
 ### After That, Tackle The Remaining Search And Library Follow-Ons
 
@@ -189,8 +173,6 @@ Status nuance:
 - `P0-103D`
 - `P0-103F`
 - `P0-103E`
-- `P0-452`
-- `P0-462`
 
 ### Leave Hardening And Policy Passes Late
 
