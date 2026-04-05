@@ -11,6 +11,8 @@ import SwiftUI
 struct ProfileCardView: View {
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
+    let currentChain: Chain
+    let scopedNFTCount: Int
     @Binding var avatarImage: UIImage?
     let ensResolver: any ENSResolving
     let onOpenAccountSwitcher: () -> Void
@@ -20,54 +22,69 @@ struct ProfileCardView: View {
     @State private var avatarPromptCache = [String: [ImagePlaygroundConcept]]()
     @State private var activeAvatarRequestID = UUID()
     @State private var resolvedENSName: String?
+    private let logic = HomeTabLogic()
+
+    private var summary: HomeAccountSummaryPresentation {
+        logic.accountSummaryPresentation(
+            currentAccount: currentAccount,
+            currentAddress: currentAddress,
+            currentChain: currentChain,
+            scopedNFTCount: scopedNFTCount
+        )
+    }
     
     var body: some View {
-        HStack(spacing: 12) {
-            
-            HStack {
-                Group {
-                    if let avatarImage = avatarImage {
-                        Image(uiImage: avatarImage)
-                            .resizable()
-                            .scaledToFit()
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 2))
-                    } else {
-                        // Placeholder avatar circle
-                        Circle()
-                            .fill(Color.textSecondary.opacity(0.3))
-                        
-                    }
+        HStack(alignment: .top, spacing: 16) {
+            Group {
+                if let avatarImage = avatarImage {
+                    Image(uiImage: avatarImage)
+                        .resizable()
+                        .scaledToFit()
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 2))
+                } else {
+                    Circle()
+                        .fill(Color.textSecondary.opacity(0.3))
                 }
-                .frame(width: 96, height: 96)
-                .overlay {
-                    if isLoadingAvatar {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(1.5)
-                    } else {
-                        Image(systemName:"person.crop.circle.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .foregroundColor(.deepBlue)
-                            .padding(18)
-                    }
+            }
+            .frame(width: 96, height: 96)
+            .overlay {
+                if isLoadingAvatar {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.5)
+                } else {
+                    Image(systemName:"person.crop.circle.fill")
+                        .resizable()
+                        .scaledToFit()
+                        .foregroundColor(.deepBlue)
+                        .padding(18)
                 }
-                .padding(.bottom, 4)
-                
-                Spacer()
-                
-                VStack(alignment: .leading) {
-                    Title2FontText("HELLO")
+            }
+            .padding(.bottom, 4)
+
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Title2FontText(summary.title)
                     if let resolvedENSName {
                         SecondaryText(resolvedENSName)
                     }
-                    SecondaryText("\(currentAccount?.address.displayAddress ?? "")")
+                    SecondaryText(summary.addressLine)
+                    SecondaryCaptionFontText(summary.chainTitle)
+                }
+
+                HStack(spacing: 8) {
+                    AuraPill(summary.chainTitle, systemImage: "point.3.connected.trianglepath", emphasis: .accent)
+                    AuraPill(summary.trackedNFTLabel, systemImage: "square.stack.3d.up", emphasis: .neutral)
+                }
+
+                if let lastActivityLabel = summary.lastActivityLabel {
+                    SecondaryCaptionFontText(lastActivityLabel)
                 }
             }
-            
+
             Spacer()
-            
+
             VStack(spacing: 12) {
                 Button(action: onOpenAccountSwitcher) {
                     SystemImage("square.and.pencil")

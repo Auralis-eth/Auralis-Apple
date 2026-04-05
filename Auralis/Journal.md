@@ -80,6 +80,42 @@ The key design choice was not to build a separate empty-screen universe. The Hom
 
 The useful engineering move here was making sparse-state presentation a tiny contract instead of letting it leak through the view as scattered `if` statements. Once loading, failure suppression, and allowed actions were written down in one place, the edge cases stopped being vibes and started being test cases.
 
+### The summary card finally started acting like it knew who the user was
+
+`P0-102B` took the Home identity card out of the decorative-placeholder zone. The card now uses real shell-owned facts: account name, scoped address, active chain, scoped NFT count, and recent account activity when available. That sounds basic, but this is exactly the difference between a card that merely looks premium and a card that actually earns its space.
+
+The good constraint here was refusing to cram in every shiny field. No fake portfolio math, no profile-settings sprawl, no “we’ll backfill it later” mystery metrics. Just a tighter identity-and-scope summary built from values the shell already owns and can defend.
+
+### Tiny bug, useful lesson: a missing `Foundation` import can masquerade as a flaky test runner
+
+While tightening `P0-102B` edge-case coverage, the focused Swift Testing run kept reporting `No result`, which is the kind of message that makes you suspect Xcode gremlins. The real culprit was much less glamorous: `HomeTabLogicTests.swift` used `Date` but did not import `Foundation`, so the test build failed before execution and the runner surfaced the failure in a very unhelpful way.
+
+That is a good reminder that “the test runner is weird” is often only half the story. When a targeted run looks flaky, check the generated build log before blaming discovery. In this case, the right fix was boring and correct: add the import, rerun the focused tests, and move on.
+
+### Aha: view logic got easier to trust once the summary card had a pure contract
+
+The best change in the `P0-102B` edge-case pass was not visual. It was introducing a small `HomeAccountSummaryPresentation` contract fed by plain inputs. That turned the summary card from “a SwiftUI view with some conditional text” into “a deterministic formatter the view renders.”
+
+Once the logic was written down that way, the edge cases stopped being hand-wavy:
+
+- missing account metadata has a named fallback
+- chain changes visibly alter scope text
+- no activity data means no activity label, not a suspicious fake timestamp
+
+This is one of those senior-engineer habits worth stealing. If a view has important product truth inside it, give that truth a small shape that tests can grab directly.
+
+### Unit-test-only validation can still tell a coherent product story
+
+For the `P0-102B` validation pass, the constraint was explicit: no UI tests. That could have turned into hand-waving, but it did not need to. The summary card already sat on top of pure formatting logic, and Home sparse-state behavior already lived in its own small contract, so a full Home logic suite was enough to validate the slice honestly.
+
+That suite proved three things that matter:
+
+- the card tracks real account and chain scope
+- sparse Home logic still behaves correctly around it
+- optional or missing richer context does not make the identity surface collapse into nonsense
+
+The subtle lesson is that a vertical slice gets much easier to validate without UI automation when the product truth is not trapped inside view rendering. If the important behavior can be described as “given these inputs, the shell should say this,” unit tests can carry a surprising amount of weight.
+
 ### Gotcha: freshness is a shell concern, not a token-screen side quest
 
 It is tempting to let a new holdings screen invent its own “last updated” badge. That would be wrong here. Freshness already lives in the shared context snapshot, and `ReceiptEventLogger` already records context builds with scope metadata. If the holdings surface starts freelancing its own freshness story, the user will eventually see two timestamps arguing in public.

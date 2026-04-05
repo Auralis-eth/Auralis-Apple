@@ -29,6 +29,22 @@ struct HomeSparseStatePresentation: Equatable {
     let secondaryAction: HomeSparseAction
 }
 
+struct HomeAccountSummaryPresentation: Equatable {
+    let title: String
+    let addressLine: String
+    let chainTitle: String
+    let trackedNFTLabel: String
+    let lastActivityLabel: String?
+}
+
+struct HomeAccountSummaryInputs: Equatable {
+    let accountName: String?
+    let address: String
+    let chain: Chain
+    let scopedNFTCount: Int
+    let mostRecentActivityAt: Date?
+}
+
 struct HomeTabLogic {
     func logoutPlan() -> HomeLogoutPlan {
         HomeLogoutPlan(
@@ -83,6 +99,46 @@ struct HomeTabLogic {
         case .normal:
             return nil
         }
+    }
+
+    func accountSummaryPresentation(
+        currentAccount: EOAccount?,
+        currentAddress: String,
+        currentChain: Chain,
+        scopedNFTCount: Int
+    ) -> HomeAccountSummaryPresentation {
+        accountSummaryPresentation(
+            inputs: HomeAccountSummaryInputs(
+                accountName: currentAccount?.name,
+                address: currentAccount?.address ?? currentAddress,
+                chain: currentChain,
+                scopedNFTCount: scopedNFTCount,
+                mostRecentActivityAt: currentAccount?.mostRecentActivityAt
+            )
+        )
+    }
+
+    func accountSummaryPresentation(
+        inputs: HomeAccountSummaryInputs
+    ) -> HomeAccountSummaryPresentation {
+        let resolvedTitle = inputs.accountName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = (resolvedTitle?.isEmpty == false ? resolvedTitle! : "Active Account")
+        let chainTitle = "\(inputs.chain.routingDisplayName) scope"
+        let trackedNFTLabel = inputs.scopedNFTCount == 0
+            ? "No scoped NFTs yet"
+            : "\(inputs.scopedNFTCount) scoped NFT\(inputs.scopedNFTCount == 1 ? "" : "s")"
+
+        let lastActivityLabel = inputs.mostRecentActivityAt.map {
+            "Last active \($0.formatted(date: .abbreviated, time: .omitted))"
+        }
+
+        return HomeAccountSummaryPresentation(
+            title: title,
+            addressLine: inputs.address.displayAddress,
+            chainTitle: chainTitle,
+            trackedNFTLabel: trackedNFTLabel,
+            lastActivityLabel: lastActivityLabel
+        )
     }
 }
 
@@ -259,6 +315,8 @@ struct HomeTabView: View {
                 ProfileCardView(
                     currentAccount: $currentAccount,
                     currentAddress: $currentAddress,
+                    currentChain: currentChain,
+                    scopedNFTCount: scopedNFTs.count,
                     avatarImage: $avatarImage,
                     ensResolver: ensResolver,
                     onOpenAccountSwitcher: {
