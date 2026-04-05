@@ -11,6 +11,24 @@ struct HomeLogoutPlan {
     let nextCurrentAddress: String
 }
 
+enum HomeSparseDataState: Equatable {
+    case firstRun
+    case sparse
+    case normal
+}
+
+enum HomeSparseAction: Equatable {
+    case openSearch
+    case switchAccount
+    case openNews
+}
+
+struct HomeSparseStatePresentation: Equatable {
+    let state: HomeSparseDataState
+    let primaryAction: HomeSparseAction
+    let secondaryAction: HomeSparseAction
+}
+
 struct HomeTabLogic {
     func logoutPlan() -> HomeLogoutPlan {
         HomeLogoutPlan(
@@ -19,6 +37,52 @@ struct HomeTabLogic {
             shouldDeleteTags: true,
             nextCurrentAddress: ""
         )
+    }
+
+    func sparseDataState(
+        scopedNFTCount: Int,
+        recentActivityCount: Int
+    ) -> HomeSparseDataState {
+        if scopedNFTCount == 0 && recentActivityCount == 0 {
+            return .firstRun
+        }
+
+        if scopedNFTCount == 0 || recentActivityCount == 0 {
+            return .sparse
+        }
+
+        return .normal
+    }
+
+    func sparseStatePresentation(
+        scopedNFTCount: Int,
+        recentActivityCount: Int,
+        isHomeLoading: Bool,
+        isShowingFailure: Bool
+    ) -> HomeSparseStatePresentation? {
+        guard !isHomeLoading, !isShowingFailure else {
+            return nil
+        }
+
+        switch sparseDataState(
+            scopedNFTCount: scopedNFTCount,
+            recentActivityCount: recentActivityCount
+        ) {
+        case .firstRun:
+            return HomeSparseStatePresentation(
+                state: .firstRun,
+                primaryAction: .openSearch,
+                secondaryAction: .switchAccount
+            )
+        case .sparse:
+            return HomeSparseStatePresentation(
+                state: .sparse,
+                primaryAction: .openSearch,
+                secondaryAction: .openNews
+            )
+        case .normal:
+            return nil
+        }
     }
 }
 
@@ -105,10 +169,29 @@ struct HomeTabView: View {
         scopedNFTs.filter { $0.isMusic() }.count
     }
 
+    private var homeSparseDataState: HomeSparseDataState {
+        logic.sparseDataState(
+            scopedNFTCount: scopedNFTs.count,
+            recentActivityCount: recentActivity.count
+        )
+    }
+
+    private var sparseStatePresentation: HomeSparseStatePresentation? {
+        logic.sparseStatePresentation(
+            scopedNFTCount: scopedNFTs.count,
+            recentActivityCount: recentActivity.count,
+            isHomeLoading: isLoading,
+            isShowingFailure: false
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 identitySection
+                if sparseStatePresentation != nil {
+                    sparseStateSection
+                }
                 modulesSection
                 recentActivitySection
                 quickLinksSection
@@ -194,11 +277,40 @@ struct HomeTabView: View {
         VStack(alignment: .leading, spacing: 12) {
             AuraSectionHeader(
                 title: "Modules",
-                subtitle: "Core surfaces stay reachable while richer Home cards land in later passes."
+                subtitle: homeSparseDataState == .normal
+                    ? "Core surfaces stay reachable while richer Home cards land in later passes."
+                    : "Use the launcher routes below while this scope is still getting established."
             )
 
             tileLayout
         }
+    }
+
+    private var sparseStateSection: some View {
+        guard let sparseStatePresentation else {
+            return AnyView(EmptyView())
+        }
+
+        return AnyView(
+            AuraEmptyState(
+            eyebrow: sparseStateEyebrow,
+            title: sparseStateTitle,
+            message: sparseStateMessage,
+            systemImage: sparseStateSystemImage,
+            tone: .neutral,
+            primaryAction: AuraFeedbackAction(
+                title: title(for: sparseStatePresentation.primaryAction),
+                systemImage: systemImage(for: sparseStatePresentation.primaryAction),
+                handler: { runSparseAction(sparseStatePresentation.primaryAction) }
+            ),
+            secondaryAction: AuraFeedbackAction(
+                title: title(for: sparseStatePresentation.secondaryAction),
+                systemImage: systemImage(for: sparseStatePresentation.secondaryAction),
+                handler: { runSparseAction(sparseStatePresentation.secondaryAction) }
+            )
+        )
+        .accessibilityIdentifier("home.sparseState")
+        )
     }
 
     private var recentActivitySection: some View {
@@ -608,6 +720,83 @@ struct HomeTabView: View {
         currentAddress = plan.nextCurrentAddress
         avatarImage = nil
         generatedImages = nil
+    }
+
+    private var sparseStateEyebrow: String {
+        switch homeSparseDataState {
+        case .firstRun:
+            return "First Run"
+        case .sparse:
+            return "Sparse Data"
+        case .normal:
+            return "Home"
+        }
+    }
+
+    private var sparseStateTitle: String {
+        switch homeSparseDataState {
+        case .firstRun:
+            return "This Home Scope Is Ready For Its First Signal"
+        case .sparse:
+            return "Home Has A Scope, But Not Much Local History Yet"
+        case .normal:
+            return ""
+        }
+    }
+
+    private var sparseStateMessage: String {
+        switch homeSparseDataState {
+        case .firstRun:
+            return "Auralis knows who you are and which chain you are exploring, but this scope has no local NFTs or receipt activity yet. Use the next-step routes below to search, browse, or switch accounts without pretending the dashboard already has history."
+        case .sparse:
+            return "Some Home sections are still quiet for \(receiptScope.displayLabel). That is an honest low-data state, not a broken dashboard. Use Search, News, or another account to keep moving while local history catches up."
+        case .normal:
+            return ""
+        }
+    }
+
+    private var sparseStateSystemImage: String {
+        switch homeSparseDataState {
+        case .firstRun:
+            return "sparkles.rectangle.stack"
+        case .sparse:
+            return "square.stack.3d.up.slash"
+        case .normal:
+            return "house"
+        }
+    }
+
+    private func title(for action: HomeSparseAction) -> String {
+        switch action {
+        case .openSearch:
+            return "Open Search"
+        case .switchAccount:
+            return "Switch Account"
+        case .openNews:
+            return "Open News Feed"
+        }
+    }
+
+    private func systemImage(for action: HomeSparseAction) -> String {
+        switch action {
+        case .openSearch:
+            return "magnifyingglass"
+        case .switchAccount:
+            return "person.crop.circle.badge.arrow.forward"
+        case .openNews:
+            return "bubble.right"
+        }
+    }
+
+    private func runSparseAction(_ action: HomeSparseAction) {
+        switch action {
+        case .openSearch:
+            router.showSearch()
+        case .switchAccount:
+            showAccountSwitcher = true
+        case .openNews:
+            router.selectedTab = .news
+        }
     }
 }
 

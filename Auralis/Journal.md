@@ -72,6 +72,14 @@ P0-461 closed the “empty room” problem for the ERC-20 tab, but it did not ma
 
 That follow-up matters because this is exactly where teams accidentally lie to themselves. Once the screen exists, it is easy to start speaking as if “token holdings” are done. They are not. The native-balance-first slice is done. Full account token inventory still needs a network seam, persistence mapping into `TokenHolding`, and the usual scope/freshness/receipt discipline.
 
+### Home learned the difference between "empty" and "broken"
+
+`P0-102E` put an important line back into the product: Home now distinguishes sparse local data from onboarding, loading, and failure states. That sounds obvious until you look at how many apps quietly blur those together and make users guess whether they should wait, retry, or leave.
+
+The key design choice was not to build a separate empty-screen universe. The Home shell stays mounted. Identity, modules, quick links, and the scenic background all remain in place, and a dedicated sparse-state card explains what is actually missing. That makes the dashboard feel honest instead of abandoned, and it avoids the common trap where empty-state work becomes a parallel design that later fights the real populated layout.
+
+The useful engineering move here was making sparse-state presentation a tiny contract instead of letting it leak through the view as scattered `if` statements. Once loading, failure suppression, and allowed actions were written down in one place, the edge cases stopped being vibes and started being test cases.
+
 ### Gotcha: freshness is a shell concern, not a token-screen side quest
 
 It is tempting to let a new holdings screen invent its own “last updated” badge. That would be wrong here. Freshness already lives in the shared context snapshot, and `ReceiptEventLogger` already records context builds with scope metadata. If the holdings surface starts freelancing its own freshness story, the user will eventually see two timestamps arguing in public.
