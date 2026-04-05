@@ -18,6 +18,11 @@ enum NFTDetailRoute: Hashable {
     case detail(id: String)
 }
 
+enum MusicRoute: Hashable {
+    case item(id: String)
+    case collection(key: String, title: String)
+}
+
 struct ERC20TokenRoute: Hashable {
     let contractAddress: String
     let chain: Chain
@@ -32,7 +37,7 @@ struct ReceiptRoute: Hashable {
 final class AppRouter {
     var selectedTab: AppTab = .home
     var newsPath: [NFTDetailRoute] = []
-    var musicPath: [NFTDetailRoute] = []
+    var musicPath: [MusicRoute] = []
     var receiptsPath: [ReceiptRoute] = []
     var nftTokensPath: [NFTDetailRoute] = []
     var erc20TokensPath: [ERC20TokenRoute] = []
@@ -53,7 +58,12 @@ final class AppRouter {
 
     func showMusicNFTDetail(id: String) {
         selectedTab = .music
-        musicPath = musicPath + [.detail(id: id)]
+        musicPath = musicPath + [.item(id: id)]
+    }
+
+    func showMusicCollectionDetail(key: String, title: String) {
+        selectedTab = .music
+        musicPath = musicPath + [.collection(key: key, title: title)]
     }
 
     func showNFTTokensDetail(id: String) {
@@ -420,18 +430,43 @@ struct MainTabView: View {
                                     onOpenNFT: { nft in
                                         router.showMusicNFTDetail(id: nft.id)
                                     },
+                                    onOpenCollection: { summary in
+                                        router.showMusicCollectionDetail(
+                                            key: summary.key,
+                                            title: summary.title
+                                        )
+                                    },
                                     musicLibraryIndexer: services.musicLibraryIndexerFactory(modelContext),
                                     musicLibraryReceiptLogger: ReceiptEventLogger(
                                         receiptStore: services.receiptStoreFactory(modelContext)
                                     )
                                 )
                             }
-                            .navigationDestination(for: NFTDetailRoute.self) { route in
-                                SharedNFTDetailView(
-                                    route: route,
-                                    currentAccountAddress: currentAccount?.address,
-                                    currentChain: currentChain
-                                )
+                            .navigationDestination(for: MusicRoute.self) { route in
+                                switch route {
+                                case .item(let id):
+                                    MusicItemDetailView(
+                                        itemID: id,
+                                        currentAccountAddress: currentAccount?.address,
+                                        currentChain: currentChain,
+                                        onOpenCollection: { summary in
+                                            router.showMusicCollectionDetail(
+                                                key: summary.key,
+                                                title: summary.title
+                                            )
+                                        }
+                                    )
+                                case .collection(let key, let title):
+                                    MusicCollectionDetailView(
+                                        collectionKey: key,
+                                        collectionTitle: title,
+                                        currentAccountAddress: currentAccount?.address,
+                                        currentChain: currentChain,
+                                        onOpenItem: { itemID in
+                                            router.showMusicNFTDetail(id: itemID)
+                                        }
+                                    )
+                                }
                             }
                         } else {
                             AuraScenicScreen(contentAlignment: .center) {

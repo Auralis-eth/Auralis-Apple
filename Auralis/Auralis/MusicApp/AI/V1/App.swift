@@ -71,6 +71,7 @@ struct NFTMusicPlayerApp: View {
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
     let onOpenNFT: (NFT) -> Void
+    let onOpenCollection: (MusicCollectionSummary) -> Void
     let musicLibraryIndexer: any MusicLibraryIndexing
     let musicLibraryReceiptLogger: ReceiptEventLogger
     @State private var selection: SidebarItem? = .library
@@ -119,6 +120,7 @@ struct NFTMusicPlayerApp: View {
                             nftService: nftService,
                             refreshAction: refreshAction,
                             onOpenNFT: onOpenNFT,
+                            onOpenCollection: onOpenCollection,
                             musicLibraryIndexer: musicLibraryIndexer,
                             musicLibraryReceiptLogger: musicLibraryReceiptLogger
                         )
@@ -155,6 +157,7 @@ struct NFTMusicPlayerLibraryView: View {
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
     let onOpenNFT: (NFT) -> Void
+    let onOpenCollection: (MusicCollectionSummary) -> Void
     let musicLibraryIndexer: any MusicLibraryIndexing
     let musicLibraryReceiptLogger: ReceiptEventLogger
     @Query private var libraryItems: [MusicLibraryItem]
@@ -173,6 +176,7 @@ struct NFTMusicPlayerLibraryView: View {
         nftService: NFTService,
         refreshAction: @escaping @MainActor () async -> Void,
         onOpenNFT: @escaping (NFT) -> Void,
+        onOpenCollection: @escaping (MusicCollectionSummary) -> Void,
         musicLibraryIndexer: any MusicLibraryIndexing,
         musicLibraryReceiptLogger: ReceiptEventLogger
     ) {
@@ -182,6 +186,7 @@ struct NFTMusicPlayerLibraryView: View {
         self.nftService = nftService
         self.refreshAction = refreshAction
         self.onOpenNFT = onOpenNFT
+        self.onOpenCollection = onOpenCollection
         self.musicLibraryIndexer = musicLibraryIndexer
         self.musicLibraryReceiptLogger = musicLibraryReceiptLogger
 
@@ -233,6 +238,10 @@ struct NFTMusicPlayerLibraryView: View {
         return hasher.finalize()
     }
 
+    private var collectionSummaries: [MusicCollectionSummary] {
+        MusicCollectionSummary.summaries(from: libraryItems)
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -268,11 +277,33 @@ struct NFTMusicPlayerLibraryView: View {
                                 RecentlyPlayedSection(audioEngine: audioEngine)
                                     .padding(.bottom, 8)
                             }
-                            // Format Support Testing
-                            VStack(alignment: .leading) {
-                                Text("Format Support Test")
+
+                            if !collectionSummaries.isEmpty {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Collections")
+                                        .font(.headline)
+
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 12) {
+                                            ForEach(collectionSummaries, id: \.key) { summary in
+                                                Button {
+                                                    onOpenCollection(summary)
+                                                } label: {
+                                                    MusicCollectionCard(summary: summary)
+                                                }
+                                                .buttonStyle(.plain)
+                                                .accessibilityIdentifier("music.collection.\(summary.key)")
+                                            }
+                                        }
+                                        .padding(.horizontal, 2)
+                                    }
+                                }
+                            }
+
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Tracks")
                                     .font(.headline)
-                                
+
                                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
                                     ForEach(libraryItems) { item in
                                         Button {
@@ -357,6 +388,56 @@ struct NFTMusicPlayerLibraryView: View {
             errorMessage = "Failed to reconcile the music library: \(error.localizedDescription)"
             showingError = true
         }
+    }
+}
+
+private struct MusicCollectionCard: View {
+    let summary: MusicCollectionSummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            AsyncImage(url: summary.artworkURL) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color.gray.opacity(0.25))
+                    .overlay {
+                        SystemImage("square.stack.3d.up")
+                            .foregroundStyle(.gray)
+                    }
+            }
+            .frame(width: 190, height: 120)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(summary.title)
+                    .font(.headline)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+
+                if let subtitle = summary.subtitle {
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.textSecondary)
+                        .lineLimit(2)
+                }
+
+                HStack(spacing: 8) {
+                    Text(summary.trackCountLabel)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.textPrimary)
+
+                    if summary.hasUnavailableTracks {
+                        Text("Partial")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+        }
+        .frame(width: 190, alignment: .leading)
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
     }
 }
 

@@ -12,7 +12,7 @@ import Testing
 
         router.showMusicNFTDetail(id: "music-1")
         #expect(router.selectedTab == .music)
-        #expect(router.musicPath == [.detail(id: "music-1")])
+        #expect(router.musicPath == [.item(id: "music-1")])
         #expect(router.currentRouteDepth == 1)
 
         router.popCurrentRoute()
@@ -75,7 +75,7 @@ import Testing
 
         router.showNFTFromHome(musicNFT)
         #expect(router.selectedTab == .music)
-        #expect(router.musicPath == [.detail(id: musicNFT.id)])
+        #expect(router.musicPath == [.item(id: musicNFT.id)])
 
         router.resetAllPaths()
         let visualNFT = makeNFT(id: "visual-1", contentType: "image/png", audioURL: nil)
@@ -112,13 +112,13 @@ import Testing
         let router = AppRouter()
 
         router.showMusicNFTDetail(id: "music-1")
-        #expect(router.musicPath == [.detail(id: "music-1")])
+        #expect(router.musicPath == [.item(id: "music-1")])
 
         router.showSearch()
 
         #expect(router.selectedTab == .search)
         #expect(router.currentRouteDepth == 0)
-        #expect(router.musicPath == [.detail(id: "music-1")])
+        #expect(router.musicPath == [.item(id: "music-1")])
     }
 
     private func makeNFT(id: String, contentType: String, audioURL: String?) -> NFT {
