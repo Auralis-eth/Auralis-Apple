@@ -82,12 +82,12 @@ Closeout summary:
 ## Upcoming Ticket Status Snapshot
 
 - `P0-461`: complete for the native-balance-first holdings slice
-- `P0-102E`: startable for the Home empty/first-run state pass
-- `P0-102B`: startable for the active account summary-card pass
-- `P0-102C`: startable for the Home modules/shortcuts pass
-- `P0-102D`: startable for the recent-activity preview pass
-- `P0-452`: startable now that `P0-451` is complete for the current Music foundation slice
-- `P0-462`: startable against the landed `P0-461` holdings-row contract, though richer ERC-20 data still depends on adding a provider-backed token holdings API call
+- `P0-102E`: complete for the Home empty/first-run state slice
+- `P0-102B`: complete for the active account summary-card slice
+- `P0-102C`: complete for the Home modules/shortcuts slice
+- `P0-102D`: complete for the recent-activity preview slice
+- `P0-452`: complete for the current Music collection and item-detail slice
+- `P0-462`: complete for the current token-detail slice; provider-backed enrichment, pricing, and history remain later follow-ons
 - `P0-103A`: startable for search entry points
 - `P0-103C`: startable for the typed search-resolution pipeline
 - `P0-103D`: partially blocked behind the stable `P0-103C` resolution contract
@@ -207,7 +207,7 @@ Why:
 24. `P0-102C` OS-level shortcuts / modules section (Completed)
 25. `P0-102D` Recent activity preview (Completed)
 26. `P0-452` Music collection + item detail screens (Completed)
-27. `P0-462` Token detail screen
+27. `P0-462` Token detail screen (Completed)
 
 Why:
 
@@ -263,14 +263,14 @@ That gives the project:
 
 ## Suggested Following Sprint
 
-After that, move into the nearest user-facing follow-ons that deepen the now-landed shell/context surfaces:
+After that, move into the nearest user-facing follow-ons that remain open after the now-complete Phase 8 work:
 
-1. `P0-102C`
-2. `P0-102D`
-3. `P0-452`
-4. `P0-462`
+1. `P0-103A`
+2. `P0-103C`
+3. `P0-103F`
+4. `P0-103E`
 
-That sequence deepens the now-visible shell/context/Home surfaces that remain open instead of reopening already completed Home, Music-foundation, and token-foundation tickets.
+That sequence advances the remaining search-facing surfaces instead of reopening already completed Home, Music-detail, and token-detail tickets.
 
 ## Notes On Interpretation
 

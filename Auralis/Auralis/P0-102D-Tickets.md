@@ -6,7 +6,7 @@ Deepen the Home recent-activity preview so it provides a real shell summary of r
 
 ## Ticket Status
 
-Startable.
+Completed for the current slice.
 
 ## Execution Checklist
 

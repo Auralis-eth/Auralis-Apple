@@ -31,8 +31,11 @@ These tickets are already closed for their planned Phase 0 slice:
 - `P0-102E` Home empty/first-run state
 - `P0-102B` active account summary card
 - `P0-102C` OS-level shortcuts / modules section
+- `P0-102D` recent activity preview
 - `P0-451` music library index derived from the existing SwiftData-backed local `NFT` store
+- `P0-452` music collection + item detail screens
 - `P0-461` native-balance-first SwiftData-backed token holdings slice
+- `P0-462` token detail screen
 
 Notes:
 
@@ -79,14 +82,6 @@ Current read on `P0-102A`:
 - the scenic background and glass-card visual language were intentionally preserved
 - later Home tickets can now deepen sections without forcing another top-level Home rewrite
 
-## Partially Blocked But Legitimate To Advance
-
-These tickets explicitly allow useful progress without waiting for every downstream dependency:
-
-- `P0-102D` recent activity preview
-
-This preserves the earlier planning rule: use placeholder-backed or parser-first slices to break cycles when the ticket docs explicitly allow it.
-
 ## Still Blocked
 
 These tickets remain blocked in their own current docs:
@@ -96,8 +91,6 @@ These tickets remain blocked in their own current docs:
 - `P0-103D`
 - `P0-103E`
 - `P0-103F`
-- `P0-452`
-- `P0-462`
 - `P0-502B`
 - `P0-602`
 - `P0-701B`
@@ -156,15 +149,15 @@ Status nuance:
 
 - `P0-101C`
 
-### In Parallel, Continue Placeholder-Safe Surface Work
+### Phase 8 Closure Read
 
-- `P0-102C`
-- `P0-102D`
+- the Home expansion and detail-surface phase is complete for its current slice
+- no remaining Phase 8 tickets are still merely startable, partially blocked, or blocked in the current docs
 
-### Then Deepen Home
+Status nuance:
 
-- `P0-452`
-- `P0-462`
+- `P0-452` is complete for the current Music detail slice
+- `P0-462` is complete for the current token-detail slice
 
 ### After That, Tackle The Remaining Search And Library Follow-Ons
 

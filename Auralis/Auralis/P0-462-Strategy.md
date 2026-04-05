@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially blocked
+Completed for the current slice
 
 ## Ticket
 
@@ -17,19 +17,20 @@ Implement the token detail screen that deepens the holdings list into a real per
 
 ## Strategy
 
-- Let the holdings list establish the first row contract before overcommitting to token detail shape.
-- Build native-token and ERC-20 detail presentation on a shared structure where practical.
-- Keep the first screen resilient to missing token metadata and partial provider coverage.
+- Reuse the landed `P0-461` holdings-row contract instead of inventing a second token detail model.
+- Build the first token detail screen on the mounted `ERC20TokenRoute` and scoped `TokenHolding` lookup.
+- Keep the screen resilient to missing token metadata and partial provider coverage.
 
 ## Key Risk
 
-Avoid designing the token detail screen around data that the holdings list does not reliably provide yet.
+Avoid letting the token detail screen imply full ERC-20 enrichment when the current holdings contract is still local-first and metadata-light.
 
 ## Definition Of Done
 
-- A token detail destination exists for the first supported holdings rows.
+- A token detail destination exists for the first supported ERC-20 holdings rows.
 - Missing metadata degrades honestly.
 - The screen leaves room for later enrichment without redesign.
+- Focused unit coverage protects the sparse-data and fallback presentation contract.
 
 ## Validation Target
 
