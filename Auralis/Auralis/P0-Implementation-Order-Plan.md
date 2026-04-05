@@ -205,7 +205,7 @@ Why:
 22. `P0-102E` Home empty/first-run state (Completed)
 23. `P0-102B` Active account summary card (Completed)
 24. `P0-102C` OS-level shortcuts / modules section (Completed)
-25. `P0-102D` Recent activity preview
+25. `P0-102D` Recent activity preview (Completed)
 26. `P0-452` Music collection + item detail screens
 27. `P0-462` Token detail screen
 

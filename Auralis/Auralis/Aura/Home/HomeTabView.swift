@@ -69,6 +69,15 @@ struct HomeModulesPresentation: Equatable {
     let shortcuts: [HomeLauncherItem]
 }
 
+struct HomeRecentActivityPreviewItem: Equatable, Identifiable {
+    let id: UUID
+    let title: String
+    let detailLine: String
+    let contextLine: String
+    let statusTitle: String
+    let isSuccess: Bool
+}
+
 struct HomeTabLogic {
     func logoutPlan() -> HomeLogoutPlan {
         HomeLogoutPlan(
@@ -215,6 +224,33 @@ struct HomeTabLogic {
             ]
         )
     }
+
+    func recentActivityPreviewItems(
+        records: [ReceiptTimelineRecord],
+        limit: Int = 3
+    ) -> [HomeRecentActivityPreviewItem] {
+        Array(records.prefix(limit)).map { record in
+            let trimmedSummary = record.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedTrigger = record.trigger.trimmingCharacters(in: .whitespacesAndNewlines)
+            let title = trimmedSummary.isEmpty ? trimmedTrigger : trimmedSummary
+            let detailLine: String
+
+            if !trimmedTrigger.isEmpty, trimmedTrigger != title {
+                detailLine = "\(trimmedTrigger) • \(record.createdAt.formatted(date: .omitted, time: .shortened))"
+            } else {
+                detailLine = "\(record.createdAt.formatted(date: .omitted, time: .shortened)) • \(record.actorTitle)"
+            }
+
+            return HomeRecentActivityPreviewItem(
+                id: record.id,
+                title: title.isEmpty ? record.scope : title,
+                detailLine: detailLine,
+                contextLine: "\(record.scope) • \(record.actorTitle)",
+                statusTitle: record.statusTitle,
+                isSuccess: record.isSuccess
+            )
+        }
+    }
 }
 
 struct HomeTabView: View {
@@ -294,6 +330,10 @@ struct HomeTabView: View {
             .filter { $0.matches(receiptScope) }
             .prefix(5)
             .map { $0 }
+    }
+
+    private var recentActivityPreviewItems: [HomeRecentActivityPreviewItem] {
+        logic.recentActivityPreviewItems(records: recentActivity)
     }
 
     private var musicNFTCount: Int {
@@ -477,18 +517,18 @@ struct HomeTabView: View {
                     }
                 )
 
-                if recentActivity.isEmpty {
+                if recentActivityPreviewItems.isEmpty {
                     SecondaryText("No local receipt activity has been recorded for this scope yet.")
                 } else {
                     VStack(spacing: 10) {
-                        ForEach(recentActivity) { record in
+                        ForEach(recentActivityPreviewItems) { item in
                             Button {
-                                router.showReceipt(id: record.id.uuidString)
+                                router.showReceipt(id: item.id.uuidString)
                             } label: {
-                                HomeReceiptPreviewRow(record: record)
+                                HomeReceiptPreviewRow(item: item)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityIdentifier("home.recentActivity.\(record.id.uuidString)")
+                            .accessibilityIdentifier("home.recentActivity.\(item.id.uuidString)")
                         }
                     }
                 }
@@ -997,24 +1037,29 @@ struct HomeModuleCardView: View {
 }
 
 private struct HomeReceiptPreviewRow: View {
-    let record: ReceiptTimelineRecord
+    let item: HomeRecentActivityPreviewItem
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             AuraPill(
-                statusTitle,
-                systemImage: record.isSuccess ? "checkmark.circle.fill" : "xmark.octagon.fill",
-                emphasis: record.isSuccess ? .success : .accent
+                item.statusTitle,
+                systemImage: item.isSuccess ? "checkmark.circle.fill" : "xmark.octagon.fill",
+                emphasis: item.isSuccess ? .success : .accent
             )
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(record.summary)
+                Text(item.title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.textPrimary)
                     .multilineTextAlignment(.leading)
 
-                Text("\(record.createdAt.formatted(date: .abbreviated, time: .shortened)) • \(record.scope)")
+                Text(item.detailLine)
+                    .font(.caption)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.leading)
+
+                Text(item.contextLine)
                     .font(.caption)
                     .foregroundStyle(Color.textSecondary)
                     .multilineTextAlignment(.leading)
@@ -1029,9 +1074,5 @@ private struct HomeReceiptPreviewRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-    }
-
-    private var statusTitle: String {
-        record.isSuccess ? "OK" : "Issue"
     }
 }

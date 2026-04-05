@@ -231,4 +231,86 @@ struct HomeTabLogicTests {
             .openReceipts
         ]))
     }
+
+    @Test("recent activity preview stays shorter than the full receipts surface")
+    func recentActivityPreviewItemsUseShortHomeLimit() {
+        let records = (0..<5).map { index in
+            ReceiptTimelineRecord(
+                id: UUID(),
+                sequenceID: index,
+                createdAt: Date(timeIntervalSince1970: Double(100 + index)),
+                actor: .system,
+                mode: .observe,
+                trigger: "trigger-\(index)",
+                scope: "scope-\(index)",
+                summary: "summary-\(index)",
+                provenance: "provenance-\(index)",
+                isSuccess: index % 2 == 0,
+                correlationID: nil,
+                details: ReceiptPayload(values: [:])
+            )
+        }
+
+        let preview = logic.recentActivityPreviewItems(records: records)
+
+        #expect(preview.count == 3)
+        #expect(preview.map(\.title) == ["summary-0", "summary-1", "summary-2"])
+    }
+
+    @Test("recent activity preview rows remain readable when receipt summary data is sparse")
+    func recentActivityPreviewItemsFallbackCleanly() {
+        let preview = logic.recentActivityPreviewItems(records: [
+            ReceiptTimelineRecord(
+                id: UUID(),
+                sequenceID: 1,
+                createdAt: Date(timeIntervalSince1970: 200),
+                actor: .user,
+                mode: .observe,
+                trigger: "wallet.connected",
+                scope: "0x1234...5678 • Ethereum",
+                summary: "",
+                provenance: "receipt.timeline",
+                isSuccess: true,
+                correlationID: nil,
+                details: ReceiptPayload(values: [:])
+            )
+        ])
+
+        #expect(preview.count == 1)
+        #expect(preview.first?.title == "wallet.connected")
+        #expect(preview.first?.contextLine == "0x1234...5678 • Ethereum • User")
+        #expect(preview.first?.statusTitle == "Success")
+    }
+
+    @Test("recent activity preview stays empty when there is no scoped history")
+    func recentActivityPreviewItemsSupportsEmptyHistory() {
+        let preview = logic.recentActivityPreviewItems(records: [])
+
+        #expect(preview.isEmpty)
+    }
+
+    @Test("recent activity preview falls back to scope when both summary and trigger are empty")
+    func recentActivityPreviewItemsSupportsPartialReceiptData() {
+        let preview = logic.recentActivityPreviewItems(records: [
+            ReceiptTimelineRecord(
+                id: UUID(),
+                sequenceID: 2,
+                createdAt: Date(timeIntervalSince1970: 300),
+                actor: .system,
+                mode: .observe,
+                trigger: "",
+                scope: "0xabcd...1234 • Base",
+                summary: " ",
+                provenance: "receipt.timeline",
+                isSuccess: false,
+                correlationID: nil,
+                details: ReceiptPayload(values: [:])
+            )
+        ])
+
+        #expect(preview.count == 1)
+        #expect(preview.first?.title == "0xabcd...1234 • Base")
+        #expect(preview.first?.contextLine == "0xabcd...1234 • Base • System")
+        #expect(preview.first?.statusTitle == "Failed")
+    }
 }

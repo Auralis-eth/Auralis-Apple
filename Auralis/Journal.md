@@ -158,6 +158,34 @@ The nice thing about the `P0-102C` validation pass is that it did not need UI au
 
 That is a good pattern for Home work in general. If the product intent can survive being expressed as a small data contract, the tests can protect it long before screenshots or UI tests enter the conversation.
 
+### The recent-activity preview already had a trustworthy source, which is half the battle
+
+Starting `P0-102D` surfaced a reassuring detail: Home does not need to invent a new activity model. The data is already there. `StoredReceipt` is the durable event log, `ReceiptTimelineRecord` is the readable projection, and `ReceiptTimelineScope` already knows how to filter that history down to the active account-and-chain slice.
+
+That is exactly the kind of seam you want before touching UI copy or row polish. It means the preview can stay lightweight without becoming fake. Home is not summarizing “activity-ish vibes.” It is summarizing the same scoped receipts that the deeper receipts surface already trusts.
+
+### Home activity got better once the preview stopped pretending it was a tiny timeline
+
+The first useful implementation move in `P0-102D` was shrinking the ambition, not expanding it. The Home card no longer tries to be a miniature copy of the receipts screen. Instead, it builds a small preview contract with just enough information to answer the question “what just happened here?” without dragging timeline-level density onto the dashboard.
+
+That meant three concrete choices:
+
+- keep only a few rows in Home
+- give each row a clear title plus lighter supporting context
+- preserve the receipts routes for anyone who wants the full story
+
+That is a good Home pattern in general. A dashboard preview should be a headline, not a backlog.
+
+### Recent-activity validation worked because the preview logic had a shape of its own
+
+The clean part of the `P0-102D` validation pass is that it never needed to argue about pixels. Once the preview became its own small contract, the meaningful questions were straightforward:
+
+- does empty history stay empty
+- does partial receipt data still yield readable rows
+- does Home stay shorter than the real timeline
+
+That is exactly the right level of certainty for a Home preview. The receipts screen still owns depth. Home now owns a compact, testable summary of the same truth.
+
 ### Gotcha: freshness is a shell concern, not a token-screen side quest
 
 It is tempting to let a new holdings screen invent its own “last updated” badge. That would be wrong here. Freshness already lives in the shared context snapshot, and `ReceiptEventLogger` already records context builds with scope metadata. If the holdings surface starts freelancing its own freshness story, the user will eventually see two timestamps arguing in public.
