@@ -4,18 +4,23 @@ import SwiftUI
 struct SearchRootView: View {
     @Query private var accounts: [EOAccount]
     @Query private var nfts: [NFT]
+    @Query private var holdings: [TokenHolding]
 
+    let router: AppRouter
     let currentAccountAddress: String?
     let currentChain: Chain
 
     @State private var query = ""
+    @State private var historyEntries: [SearchHistoryEntry] = []
     @FocusState private var isQueryFieldFocused: Bool
 
     private let parser = SearchQueryParser()
+    private let historyStore = SearchHistoryStore()
 
     private var localIndex: SearchLocalIndex {
         SearchLocalIndex.make(
             nfts: nfts,
+            holdings: holdings,
             accounts: accounts,
             currentAccountAddress: currentAccountAddress,
             currentChain: currentChain
@@ -35,11 +40,15 @@ struct SearchRootView: View {
                         isFocused: _isQueryFieldFocused
                     )
 
-                    SearchDetectionCard(classification: classification)
-
                     if classification.kind == .empty {
-                        EmptyView()
+                        SearchHistoryCard(
+                            historyEntries: historyEntries,
+                            onSelect: recallHistory,
+                            onDelete: deleteHistoryEntry,
+                            onClearAll: clearHistory
+                        )
                     } else if classification.kind.isInvalidInput {
+                        SearchDetectionCard(classification: classification)
                         AuraEmptyState(
                             eyebrow: "Search",
                             title: classification.kind.title,
@@ -48,19 +57,14 @@ struct SearchRootView: View {
                             tone: .critical
                         )
                     } else if classification.localMatches.isEmpty {
-                        AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 18) {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("No Local Matches Yet")
-                                    .font(.headline)
-                                    .foregroundStyle(Color.textPrimary)
-
-                                Text("Classification is ready, but this query does not match the current local search index for the active scope.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(Color.textSecondary)
-                            }
-                        }
+                        SearchDetectionCard(classification: classification)
+                        SearchNoResultsCard(classification: classification)
                     } else {
-                        SearchLocalMatchesCard(matches: classification.localMatches)
+                        SearchDetectionCard(classification: classification)
+                        SearchLocalMatchesCard(
+                            matches: classification.localMatches,
+                            onOpenMatch: openMatch
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -73,7 +77,61 @@ struct SearchRootView: View {
             if query.isEmpty {
                 isQueryFieldFocused = true
             }
+            reloadHistory()
         }
+        .onChange(of: currentAccountAddress, initial: true) {
+            reloadHistory()
+        }
+        .onSubmit(of: .text) {
+            commitQuery()
+        }
+    }
+
+    private func openMatch(_ match: SearchLocalMatch) {
+        commitQuery()
+
+        switch match.destination {
+        case .profile(let address):
+            router.showProfileDetail(address: address)
+        case .token(let contractAddress, let chain, let symbol):
+            router.showERC20Token(
+                contractAddress: contractAddress,
+                chain: chain,
+                symbol: symbol
+            )
+        case .nftItem(let id):
+            router.showNFTTokensDetail(id: id)
+        case .nftCollection(let contractAddress, let title, let chain):
+            router.showNFTCollectionDetail(
+                contractAddress: contractAddress,
+                title: title,
+                chain: chain
+            )
+        }
+    }
+
+    private func commitQuery() {
+        historyStore.recordCommittedQuery(query, accountAddress: currentAccountAddress)
+        reloadHistory()
+    }
+
+    private func reloadHistory() {
+        historyEntries = historyStore.entries(for: currentAccountAddress)
+    }
+
+    private func recallHistory(_ entry: SearchHistoryEntry) {
+        query = entry.query
+        isQueryFieldFocused = false
+    }
+
+    private func deleteHistoryEntry(_ entry: SearchHistoryEntry) {
+        historyStore.removeEntry(id: entry.id)
+        reloadHistory()
+    }
+
+    private func clearHistory() {
+        historyStore.clear(accountAddress: currentAccountAddress)
+        reloadHistory()
     }
 }
 
@@ -173,6 +231,7 @@ private struct SearchDetectionCard: View {
 
 private struct SearchLocalMatchesCard: View {
     let matches: [SearchLocalMatch]
+    let onOpenMatch: (SearchLocalMatch) -> Void
 
     var body: some View {
         AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 18) {
@@ -182,19 +241,96 @@ private struct SearchLocalMatchesCard: View {
                     .foregroundStyle(Color.textPrimary)
 
                 ForEach(matches) { match in
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Badge(match.kind.title)
-                            Text(match.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Color.textPrimary)
-                        }
+                    Button {
+                        onOpenMatch(match)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Badge(match.kind.title)
+                                Text(match.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(Color.textPrimary)
+                            }
 
-                        Text(match.subtitle)
-                            .font(.caption)
-                            .foregroundStyle(Color.textSecondary)
+                            Text(match.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(Color.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("search.match.\(match.id)")
+                }
+            }
+        }
+    }
+}
+
+private struct SearchNoResultsCard: View {
+    let classification: SearchQueryClassification
+
+    var body: some View {
+        AuraEmptyState(
+            eyebrow: "Search",
+            title: "No local matches yet",
+            message: "Auralis classified this as \(classification.kind.title.lowercased()), but the active account scope does not currently have a matching local result.",
+            systemImage: "magnifyingglass",
+            tone: .neutral
+        )
+    }
+}
+
+private struct SearchHistoryCard: View {
+    let historyEntries: [SearchHistoryEntry]
+    let onSelect: (SearchHistoryEntry) -> Void
+    let onDelete: (SearchHistoryEntry) -> Void
+    let onClearAll: () -> Void
+
+    var body: some View {
+        if historyEntries.isEmpty {
+            EmptyView()
+        } else {
+            AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 18) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Recent Searches")
+                            .font(.headline)
+                            .foregroundStyle(Color.textPrimary)
+
+                        Spacer(minLength: 12)
+
+                        Button("Clear All", action: onClearAll)
+                            .font(.caption.weight(.semibold))
+                    }
+
+                    ForEach(historyEntries) { entry in
+                        HStack(spacing: 12) {
+                            Button {
+                                onSelect(entry)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(entry.query)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(Color.textPrimary)
+
+                                    Text(entry.recordedAt.formatted(date: .abbreviated, time: .shortened))
+                                        .font(.caption)
+                                        .foregroundStyle(Color.textSecondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                onDelete(entry)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Delete \(entry.query)")
+                        }
+                    }
                 }
             }
         }
