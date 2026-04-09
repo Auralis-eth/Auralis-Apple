@@ -17,6 +17,7 @@ struct QRScannerView: View {
     @State private var alertMessage = ""
     @State private var showingAlert = false
     @Binding var account: EOAccount?
+    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
 
     var body: some View {
         Button {
@@ -65,10 +66,7 @@ struct QRScannerView: View {
             }
 
             do {
-                let store = AccountStore(
-                    modelContext: modelContext,
-                    eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
-                )
+                let store = accountStoreFactory(modelContext)
                 let correlationID = UUID().uuidString
                 let activation = try store.activateWatchAccount(
                     from: code.string,

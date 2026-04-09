@@ -269,6 +269,7 @@ struct HomeTabView: View {
     let onCurrentChainChanged: @MainActor (Chain, String) -> Void
     let router: AppRouter
     let ensResolver: any ENSResolving
+    let services: ShellServiceHub
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -297,7 +298,8 @@ struct HomeTabView: View {
         currentChain: Binding<Chain>,
         onCurrentChainChanged: @escaping @MainActor (Chain, String) -> Void,
         router: AppRouter,
-        ensResolver: any ENSResolving
+        ensResolver: any ENSResolving,
+        services: ShellServiceHub
     ) {
         self._currentAccount = currentAccount
         self._currentAddress = currentAddress
@@ -306,6 +308,7 @@ struct HomeTabView: View {
         self.onCurrentChainChanged = onCurrentChainChanged
         self.router = router
         self.ensResolver = ensResolver
+        self.services = services
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount.wrappedValue?.address ?? currentAddress.wrappedValue) ?? ""
         let chainRawValue = currentChain.wrappedValue.rawValue
@@ -385,6 +388,7 @@ struct HomeTabView: View {
                 currentAccount: $currentAccount,
                 currentAddress: $currentAddress,
                 currentChain: $currentChain,
+                accountStoreFactory: services.accountStoreFactory,
                 onAccountSelectionStarted: { _ in },
                 onCurrentChainChanged: onCurrentChainChanged
             )

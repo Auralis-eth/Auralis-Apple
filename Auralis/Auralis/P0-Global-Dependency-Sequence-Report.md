@@ -38,6 +38,7 @@ These tickets are already closed for their planned Phase 0 slice:
 - `P0-103E` no-results + safety behavior
 - `P0-103F` search history
 - `P0-602` policy gate wrapper for actions
+- `P0-701B` layered boundaries enforcement completion
 - `P0-451` music library index derived from the existing SwiftData-backed local `NFT` store
 - `P0-452` music collection + item detail screens
 - `P0-461` native-balance-first SwiftData-backed token holdings slice
@@ -93,7 +94,6 @@ Current read on `P0-102A`:
 These tickets remain blocked in their own current docs:
 
 - `P0-502B`
-- `P0-701B`
 - `P0-702`
 - `P0-703`
 - `P0-801`
@@ -119,7 +119,7 @@ The original slicing rule still stands, but the report must now acknowledge comp
 ### `P0-701` remains split
 
 - `P0-701A` is in progress as structural scaffolding
-- `P0-701B` remains the later enforcement pass
+- `P0-701B` is complete for the first shell-facing enforcement slice, with deeper leaf-view cleanup still intentionally deferred
 
 ### Context and provider work moved forward materially
 
@@ -164,9 +164,8 @@ Status nuance:
 - the search flow completion phase is complete for the current slice
 - search now has a single rooted entry contract, typed local-first routing, no-results and safety states, and committed per-account history
 
-### Leave Hardening And Policy Passes Late
+### Leave The Remaining Hardening Passes Late
 
-- `P0-701B`
 - `P0-702`
 - `P0-703`
 - `P0-502B`

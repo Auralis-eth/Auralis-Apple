@@ -32,6 +32,7 @@ struct AddressInputView: View {
     @Query private var accounts: [EOAccount]
     @Binding var currentAccount: EOAccount?
     let ensResolver: any ENSResolving
+    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
 
     private var validationResult: AccountAddressValidationResult {
         AccountStore.validateAddressInput(address)
@@ -69,7 +70,8 @@ struct AddressInputView: View {
             normalizedAddress: normalizedAddress,
             isSubmitting: isSubmitting,
             handleSubmit: handleSubmit,
-            selectDemo: selectDemo
+            selectDemo: selectDemo,
+            accountStoreFactory: accountStoreFactory
         )
         .glassEffect(.clear.tint(.surface), in: .containerRelative)
         .transition(.scale.combined(with: .opacity))
@@ -156,10 +158,7 @@ struct AddressInputView: View {
             break
         }
 
-        let store = AccountStore(
-            modelContext: modelContext,
-            eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
-        )
+        let store = accountStoreFactory(modelContext)
         let correlationID = UUID().uuidString
 
         do {
@@ -248,10 +247,7 @@ struct AddressInputView: View {
 
     @MainActor
     private func confirmENSMappingChange(_ change: PendingENSMappingChange) {
-        let store = AccountStore(
-            modelContext: modelContext,
-            eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
-        )
+        let store = accountStoreFactory(modelContext)
 
         do {
             let activation = try store.activateWatchAccount(
@@ -291,6 +287,7 @@ private struct AddressEntryContentView: View {
     let isSubmitting: Bool
     let handleSubmit: () -> Void
     let selectDemo: (String) -> Void
+    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
 
     var body: some View {
         VStack(alignment: .center) {
@@ -298,7 +295,10 @@ private struct AddressEntryContentView: View {
             AddressEntryHeaderView()
             
             HStack {
-                QRScannerView(account: $currentAccount)
+                QRScannerView(
+                    account: $currentAccount,
+                    accountStoreFactory: accountStoreFactory
+                )
                     .transition(.opacity)
                 AddressTextField(address: $address)
             }

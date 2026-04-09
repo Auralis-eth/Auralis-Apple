@@ -321,6 +321,7 @@ struct MainTabView: View {
                 currentAccount: $currentAccount,
                 currentAddress: $currentAddress,
                 currentChain: $currentChain,
+                accountStoreFactory: services.accountStoreFactory,
                 onAccountSelectionStarted: { correlationID in
                     pendingShellFlowCorrelationID = correlationID
                 },
@@ -341,9 +342,7 @@ struct MainTabView: View {
             let correlationID = nftService.isLoading ? nil : pendingShellFlowCorrelationID
             await contextService.refresh(
                 correlationID: correlationID,
-                receiptEventLogger: ReceiptEventLogger(
-                    receiptStore: services.receiptStoreFactory(modelContext)
-                )
+                receiptEventLogger: services.receiptEventLoggerFactory(modelContext)
             )
             if !nftService.isLoading, pendingShellFlowCorrelationID == correlationID {
                 pendingShellFlowCorrelationID = nil
@@ -419,7 +418,8 @@ struct MainTabView: View {
                     currentChain: $currentChain,
                     onCurrentChainChanged: refreshActiveChainScope,
                     router: router,
-                    ensResolver: services.ensResolverFactory(modelContext)
+                    ensResolver: services.ensResolverFactory(modelContext),
+                    services: services
                 )
             }
 
@@ -470,9 +470,7 @@ struct MainTabView: View {
                                         )
                                     },
                                     musicLibraryIndexer: services.musicLibraryIndexerFactory(modelContext),
-                                    musicLibraryReceiptLogger: ReceiptEventLogger(
-                                        receiptStore: services.receiptStoreFactory(modelContext)
-                                    )
+                                    musicLibraryReceiptLogger: services.receiptEventLoggerFactory(modelContext)
                                 )
                             }
                             .navigationDestination(for: MusicRoute.self) { route in
@@ -561,7 +559,8 @@ struct MainTabView: View {
                 SearchRootView(
                     router: router,
                     currentAccountAddress: currentAccount?.address ?? currentAddress,
-                    currentChain: currentChain
+                    currentChain: currentChain,
+                    historyStore: services.searchHistoryStoreFactory()
                 )
             }
 
@@ -573,7 +572,8 @@ struct MainTabView: View {
                         contextSnapshot: contextService.snapshot,
                         nftService: nftService,
                         refreshAction: refreshActiveScopeFromUserAction,
-                        router: router
+                        router: router,
+                        tokenHoldingsStoreFactory: services.tokenHoldingsStoreFactory
                     )
                         .navigationDestination(for: ERC20TokenRoute.self) { route in
                             ERC20TokenDetailView(
@@ -1000,6 +1000,7 @@ private struct ERC20TokensRootView: View {
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
     let router: AppRouter
+    let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
 
     @State private var persistenceErrorMessage: String?
 
@@ -1009,7 +1010,8 @@ private struct ERC20TokensRootView: View {
         contextSnapshot: ContextSnapshot,
         nftService: NFTService,
         refreshAction: @escaping @MainActor () async -> Void,
-        router: AppRouter
+        router: AppRouter,
+        tokenHoldingsStoreFactory: @escaping @MainActor (ModelContext) -> TokenHoldingsStore
     ) {
         self.currentAccountAddress = currentAccountAddress
         self.currentChain = currentChain
@@ -1017,6 +1019,7 @@ private struct ERC20TokensRootView: View {
         self.nftService = nftService
         self.refreshAction = refreshAction
         self.router = router
+        self.tokenHoldingsStoreFactory = tokenHoldingsStoreFactory
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
         let chainRawValue = currentChain.rawValue
@@ -1140,7 +1143,7 @@ private struct ERC20TokensRootView: View {
         }
 
         do {
-            try TokenHoldingsStore(modelContext: modelContext).upsertNativeHolding(
+            try tokenHoldingsStoreFactory(modelContext).upsertNativeHolding(
                 accountAddress: currentAccountAddress,
                 chain: currentChain,
                 amountDisplay: nativeBalanceDisplay,

@@ -183,10 +183,14 @@ struct ShellServiceHub {
     let nftServiceFactory: @MainActor () -> NFTService
     let ensResolverFactory: @MainActor (ModelContext) -> any ENSResolving
     let readOnlyProviderFactory: ReadOnlyProviderFactory
+    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
     let contextServiceBuilder: any ShellContextServiceBuilding
     let libraryContextProviderFactory: @MainActor (ModelContext) -> any ShellLibraryContextProviding
     let musicLibraryIndexerFactory: @MainActor (ModelContext) -> any MusicLibraryIndexing
     let receiptStoreFactory: @MainActor (ModelContext) -> any ReceiptStore
+    let receiptEventLoggerFactory: @MainActor (ModelContext) -> ReceiptEventLogger
+    let searchHistoryStoreFactory: () -> SearchHistoryStore
+    let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
 
     static let live: ShellServiceHub = {
@@ -206,6 +210,12 @@ struct ShellServiceHub {
                 ENSResolvers.live(modelContext: modelContext)
             },
             readOnlyProviderFactory: readOnlyProviderFactory,
+            accountStoreFactory: { modelContext in
+                AccountStore(
+                    modelContext: modelContext,
+                    eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
+                )
+            },
             contextServiceBuilder: LiveShellContextServiceBuilder(),
             libraryContextProviderFactory: { modelContext in
                 SwiftDataShellLibraryContextProvider(modelContext: modelContext)
@@ -215,6 +225,17 @@ struct ShellServiceHub {
             },
             receiptStoreFactory: { modelContext in
                 ReceiptStores.live(modelContext: modelContext)
+            },
+            receiptEventLoggerFactory: { modelContext in
+                ReceiptEventLogger(
+                    receiptStore: ReceiptStores.live(modelContext: modelContext)
+                )
+            },
+            searchHistoryStoreFactory: {
+                SearchHistoryStore()
+            },
+            tokenHoldingsStoreFactory: { modelContext in
+                TokenHoldingsStore(modelContext: modelContext)
             },
             policyActionHandlerFactory: { modelContext, modeState in
                 PolicyActionGateService(

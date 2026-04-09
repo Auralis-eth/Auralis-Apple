@@ -21,13 +21,13 @@ struct SearchRootView: View {
     let router: AppRouter
     let currentAccountAddress: String?
     let currentChain: Chain
+    let historyStore: SearchHistoryStore
 
     @State private var query = ""
     @State private var historyEntries: [SearchHistoryEntry] = []
     @FocusState private var isQueryFieldFocused: Bool
 
     private let parser = SearchQueryParser()
-    private let historyStore = SearchHistoryStore()
 
     private var localIndex: SearchLocalIndex {
         SearchLocalIndex.make(

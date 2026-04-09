@@ -9,6 +9,7 @@ struct AccountSwitcherSheet: View {
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     @Binding var currentChain: Chain
+    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
     let onAccountSelectionStarted: @MainActor (String) -> Void
     let onCurrentChainChanged: @MainActor (Chain, String) -> Void
 
@@ -116,10 +117,7 @@ struct AccountSwitcherSheet: View {
     }
 
     private func select(_ account: EOAccount) {
-        let store = AccountStore(
-            modelContext: modelContext,
-            eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
-        )
+        let store = accountStoreFactory(modelContext)
 
         do {
             let correlationID = UUID().uuidString
@@ -141,10 +139,7 @@ struct AccountSwitcherSheet: View {
 
     private func remove(_ account: EOAccount) {
         pendingRemovalAccount = nil
-        let store = AccountStore(
-            modelContext: modelContext,
-            eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
-        )
+        let store = accountStoreFactory(modelContext)
 
         do {
             let correlationID = UUID().uuidString

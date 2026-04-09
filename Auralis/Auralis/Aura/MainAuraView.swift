@@ -84,7 +84,8 @@ struct MainAuraView: View {
             } else {
                 GatewayView(
                     currentAccount: $currentAccount,
-                    ensResolver: services.ensResolverFactory(modelContext)
+                    ensResolver: services.ensResolverFactory(modelContext),
+                    services: services
                 )
             }
         }
@@ -106,9 +107,7 @@ struct MainAuraView: View {
 
             if !didRecordAppLaunchReceipt {
                 let correlationID = UUID().uuidString
-                ReceiptEventLogger(
-                    receiptStore: services.receiptStoreFactory(modelContext)
-                ).recordAppLaunch(
+                services.receiptEventLoggerFactory(modelContext).recordAppLaunch(
                     accountAddress: result.currentAddress,
                     chain: result.currentChain,
                     correlationID: correlationID

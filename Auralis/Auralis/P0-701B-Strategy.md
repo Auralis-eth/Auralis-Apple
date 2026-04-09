@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially blocked
+Completed for the current first enforcement slice
 
 ## Ticket
 
@@ -19,6 +19,7 @@ Complete the layered-boundaries enforcement pass so shell/service/view ownership
 - Build on the structural scaffolding from `P0-701A`.
 - Convert boundary rules from guidance into enforceable usage patterns.
 - Tackle the highest-value bypasses first instead of forcing one giant purity rewrite.
+- Close the shell-facing bypasses that were still constructing lower-layer stores and loggers directly inside views.
 
 ## Key Risk
 
@@ -29,6 +30,7 @@ Avoid broad enforcement work before the active feature slices have settled enoug
 - Major shell/service boundary shortcuts are removed or explicitly gated.
 - The architecture rules are enforceable in practice, not just documented.
 - Later smoke tests can verify bypass paths more confidently.
+- Auth, shell, search, and ERC-20 root flows now build through `ShellServiceHub` instead of naming their lower-layer store types directly.
 
 ## Validation Target
 
