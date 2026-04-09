@@ -151,12 +151,12 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
 }
 
 @MainActor
-protocol ObservePolicyActionHandling {
-    func attempt(_ action: ObserveBlockedAction) -> PolicyGateResult
+protocol PolicyActionGating {
+    func attempt(_ action: PolicyControlledAction) -> PolicyGateResult
 }
 
 @MainActor
-struct ObservePolicyActionService: ObservePolicyActionHandling {
+struct PolicyActionGateService: PolicyActionGating {
     private let modeState: ModeState
     private let receiptStore: any ReceiptStore
 
@@ -168,8 +168,8 @@ struct ObservePolicyActionService: ObservePolicyActionHandling {
         self.receiptStore = receiptStore
     }
 
-    func attempt(_ action: ObserveBlockedAction) -> PolicyGateResult {
-        ExecutePolicyGate.attempt(
+    func attempt(_ action: PolicyControlledAction) -> PolicyGateResult {
+        ActionPolicyGate.attempt(
             action,
             modeState: modeState,
             receiptStore: receiptStore
@@ -187,7 +187,7 @@ struct ShellServiceHub {
     let libraryContextProviderFactory: @MainActor (ModelContext) -> any ShellLibraryContextProviding
     let musicLibraryIndexerFactory: @MainActor (ModelContext) -> any MusicLibraryIndexing
     let receiptStoreFactory: @MainActor (ModelContext) -> any ReceiptStore
-    let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any ObservePolicyActionHandling
+    let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
 
     static let live: ShellServiceHub = {
         let readOnlyProviderFactory = ReadOnlyProviderFactory()
@@ -217,7 +217,7 @@ struct ShellServiceHub {
                 ReceiptStores.live(modelContext: modelContext)
             },
             policyActionHandlerFactory: { modelContext, modeState in
-                ObservePolicyActionService(
+                PolicyActionGateService(
                     modeState: modeState,
                     receiptStore: ReceiptStores.live(modelContext: modelContext)
                 )

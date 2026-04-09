@@ -37,6 +37,7 @@ These tickets are already closed for their planned Phase 0 slice:
 - `P0-103D` search results UI
 - `P0-103E` no-results + safety behavior
 - `P0-103F` search history
+- `P0-602` policy gate wrapper for actions
 - `P0-451` music library index derived from the existing SwiftData-backed local `NFT` store
 - `P0-452` music collection + item detail screens
 - `P0-461` native-balance-first SwiftData-backed token holdings slice
@@ -92,7 +93,6 @@ Current read on `P0-102A`:
 These tickets remain blocked in their own current docs:
 
 - `P0-502B`
-- `P0-602`
 - `P0-701B`
 - `P0-702`
 - `P0-703`
@@ -166,7 +166,6 @@ Status nuance:
 
 ### Leave Hardening And Policy Passes Late
 
-- `P0-602`
 - `P0-701B`
 - `P0-702`
 - `P0-703`

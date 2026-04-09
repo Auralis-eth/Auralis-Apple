@@ -60,11 +60,10 @@ struct ProfileDetailView: View {
         )
     }
 
-    private let blockedActions: [ObserveBlockedAction] = [
+    private let blockedActions: [PolicyControlledAction] = [
         .signMessage,
         .approveSpending,
-        .draftTransaction,
-        .runPlugin
+        .draftTransaction
     ]
 
     private var account: EOAccount? {
@@ -169,7 +168,7 @@ struct ProfileDetailView: View {
         ShellStatusCard(
             eyebrow: "Observe Mode",
             title: "Execution Is Locked",
-            message: "Auralis is currently read-only. Signing, approvals, transaction drafting, and plugin execution stay blocked until a later phase unlocks them intentionally.",
+            message: "Auralis is currently read-only. Signing, approvals, and transaction drafting stay blocked until a later phase unlocks them intentionally.",
             systemImage: "eye.slash",
             tone: .warning
         )
@@ -208,7 +207,7 @@ struct ProfileDetailView: View {
         )
     }
 
-    private func attempt(_ action: ObserveBlockedAction) {
+    private func attempt(_ action: PolicyControlledAction) {
         guard let services, let modeState else {
             return
         }

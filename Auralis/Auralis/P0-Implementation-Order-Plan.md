@@ -93,7 +93,7 @@ Closeout summary:
 - `P0-103D`: complete for the route-backed search results UI slice
 - `P0-103F`: complete for the committed per-account search-history slice
 - `P0-103E`: complete for the no-results and safety-state slice
-- `P0-602`: startable for the shared policy-gate wrapper
+- `P0-602`: complete for the shared policy-gate wrapper slice
 - `P0-701B`: partially blocked behind stable seam adoption and targeted enforcement readiness
 - `P0-702`: startable for untrusted-input labeling
 - `P0-703`: partially blocked behind the underlying gate/enforcement/labeling rules becoming stable enough to smoke-test
@@ -227,7 +227,7 @@ Why:
 
 ### Phase 10: Policy, enforcement, and trust hardening
 
-33. `P0-602` Policy gate wrapper for actions
+33. `P0-602` Policy gate wrapper for actions (Completed)
 34. `P0-701B` Layered boundaries enforcement completion
 35. `P0-702` Untrusted input labeling
 36. `P0-703` No bypass paths smoke tests

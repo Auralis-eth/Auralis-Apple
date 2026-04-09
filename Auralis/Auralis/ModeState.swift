@@ -52,9 +52,9 @@ public struct ModeReceiptAugmentor {
     }
 }
 
-// MARK: - Execute policy gate (Phase 0)
+// MARK: - Policy gate (Phase 0)
 
-enum ObserveBlockedAction: String, CaseIterable, Sendable {
+enum PolicyControlledAction: String, CaseIterable, Sendable {
     case signMessage = "sign_message"
     case approveSpending = "approve_spending"
     case draftTransaction = "draft_transaction"
@@ -82,7 +82,16 @@ enum ObserveBlockedAction: String, CaseIterable, Sendable {
         case .draftTransaction:
             return "Transaction drafting is not available in Observe mode."
         case .runPlugin:
-            return "External plugin execution is not available in Observe mode."
+            return "Tool and plugin execution remains available in Observe mode."
+        }
+    }
+
+    var isBlockedInObserveMode: Bool {
+        switch self {
+        case .signMessage, .approveSpending, .draftTransaction:
+            return true
+        case .runPlugin:
+            return false
         }
     }
 }
@@ -92,17 +101,17 @@ struct PolicyGateResult: Equatable, Sendable {
     let userMessage: String
 }
 
-/// Denies execution-style behavior while the app is locked to Observe and records the denial.
+/// Applies the current action policy and records denied execution-style behavior.
 @MainActor
-enum ExecutePolicyGate {
+enum ActionPolicyGate {
     static func attempt(
-        _ action: ObserveBlockedAction,
+        _ action: PolicyControlledAction,
         modeState: ModeState,
         receiptStore: any ReceiptStore,
         payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer(),
         log: (String) -> Void = { print($0) }
     ) -> PolicyGateResult {
-        guard modeState.mode == .observe else {
+        guard modeState.mode == .observe, action.isBlockedInObserveMode else {
             return PolicyGateResult(isAllowed: true, userMessage: "")
         }
 

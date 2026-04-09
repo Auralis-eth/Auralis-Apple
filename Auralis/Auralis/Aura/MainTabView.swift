@@ -920,11 +920,10 @@ private struct ObserveModePolicyView: View {
     let modeState: ModeState
     let services: ShellServiceHub
 
-    private let blockedActions: [ObserveBlockedAction] = [
+    private let blockedActions: [PolicyControlledAction] = [
         .signMessage,
         .approveSpending,
-        .draftTransaction,
-        .runPlugin
+        .draftTransaction
     ]
 
     var body: some View {
@@ -933,7 +932,7 @@ private struct ObserveModePolicyView: View {
                 ShellStatusCard(
                     eyebrow: "Observe Mode",
                     title: "Execution Is Locked",
-                    message: "Auralis is currently read-only. Signing, approvals, transaction drafting, and plugin execution stay blocked until a later phase unlocks them intentionally.",
+                    message: "Auralis is currently read-only. Signing, approvals, and transaction drafting stay blocked until a later phase unlocks them intentionally.",
                     systemImage: "eye.slash",
                     tone: .warning
                 )
@@ -982,7 +981,7 @@ private struct ObserveModePolicyView: View {
         )
     }
 
-    private func attempt(_ action: ObserveBlockedAction) {
+    private func attempt(_ action: PolicyControlledAction) {
         let result = services.policyActionHandlerFactory(modelContext, modeState).attempt(action)
 
         if !result.isAllowed {

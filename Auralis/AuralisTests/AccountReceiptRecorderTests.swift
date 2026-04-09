@@ -81,7 +81,7 @@ struct AccountReceiptRecorderTests {
         #expect(receipts.allSatisfy { $0.correlationID == correlationID })
     }
 
-    @Test("observe-mode policy gate denies blocked actions and records a denial receipt")
+    @Test("policy gate denies blocked observe actions and records a denial receipt")
     @MainActor
     func observeModePolicyGateWritesReceipt() throws {
         let container = try makeContainer()
@@ -89,7 +89,7 @@ struct AccountReceiptRecorderTests {
         let receiptStore = SwiftDataReceiptStore(modelContext: context)
         let modeState = ModeState()
 
-        let result = ExecutePolicyGate.attempt(
+        let result = ActionPolicyGate.attempt(
             .draftTransaction,
             modeState: modeState,
             receiptStore: receiptStore
@@ -106,6 +106,27 @@ struct AccountReceiptRecorderTests {
         #expect(receipts.first?.isSuccess == false)
         #expect(receipts.first?.details.values["action"] == .string("draft_transaction"))
         #expect(receipts.first?.details.values["policy_denied"] == .bool(true))
+    }
+
+    @Test("policy gate allows plugin actions in observe mode without writing denial receipts")
+    @MainActor
+    func observeModePolicyGateAllowsPluginActions() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let modeState = ModeState()
+
+        let result = ActionPolicyGate.attempt(
+            .runPlugin,
+            modeState: modeState,
+            receiptStore: receiptStore
+        )
+
+        let receipts = try receiptStore.latest(limit: 10)
+
+        #expect(result.isAllowed == true)
+        #expect(result.userMessage.isEmpty)
+        #expect(receipts.isEmpty)
     }
 
     @Test("chain-scope account events emit one receipt per real preferred and current change")
