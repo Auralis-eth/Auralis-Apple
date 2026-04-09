@@ -2,7 +2,7 @@
 
 ## Status
 
-Startable
+Completed for the current slice
 
 ## Dependency Read
 
