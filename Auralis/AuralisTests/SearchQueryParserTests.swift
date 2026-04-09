@@ -92,10 +92,16 @@ struct SearchQueryParserTests {
             ensEntries: [],
             contracts: [],
             tokenSymbols: [
-                .init(symbol: "USDC", label: "USD Coin")
+                .init(
+                    symbol: "USDC",
+                    label: "USD Coin",
+                    contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    chain: .ethMainnet
+                )
             ],
             nftNames: [
                 .init(
+                    nftID: "moonpunk-4890",
                     normalizedName: "moonpunk #4890",
                     displayName: "Moonpunk #4890",
                     collectionDisplayName: "Moonpunks"
@@ -105,7 +111,8 @@ struct SearchQueryParserTests {
                 .init(
                     normalizedName: "moonpunks",
                     displayName: "Moonpunks",
-                    chain: .ethMainnet
+                    chain: .ethMainnet,
+                    contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 )
             ]
         )
@@ -165,6 +172,17 @@ struct SearchQueryParserTests {
 
         let index = SearchLocalIndex.make(
             nfts: [matchingNFT, outOfScopeNFT],
+            holdings: [
+                TokenHolding(
+                    accountAddress: "0x1111111111111111111111111111111111111111",
+                    chain: .ethMainnet,
+                    contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    symbol: "MPK",
+                    displayName: "Moonpunk Token",
+                    amountDisplay: "12.0",
+                    balanceKind: .erc20
+                )
+            ],
             accounts: accounts,
             currentAccountAddress: "0x1111111111111111111111111111111111111111",
             currentChain: .ethMainnet

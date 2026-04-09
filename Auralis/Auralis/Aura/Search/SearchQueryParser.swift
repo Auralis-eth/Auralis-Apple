@@ -88,6 +88,13 @@ struct SearchQueryClassification: Equatable, Sendable {
     }
 }
 
+enum SearchDestination: Equatable, Sendable {
+    case profile(address: String)
+    case token(contractAddress: String, chain: Chain, symbol: String)
+    case nftItem(id: String)
+    case nftCollection(contractAddress: String?, title: String, chain: Chain)
+}
+
 struct SearchLocalMatch: Identifiable, Equatable, Sendable {
     enum Kind: String, Equatable, Sendable {
         case account
@@ -118,9 +125,19 @@ struct SearchLocalMatch: Identifiable, Equatable, Sendable {
     let kind: Kind
     let title: String
     let subtitle: String
+    let destination: SearchDestination
 
     var id: String {
-        "\(kind.rawValue):\(title):\(subtitle)"
+        switch destination {
+        case .profile(let address):
+            return "\(kind.rawValue):profile:\(address)"
+        case .token(let contractAddress, let chain, _):
+            return "\(kind.rawValue):token:\(chain.rawValue):\(contractAddress)"
+        case .nftItem(let id):
+            return "\(kind.rawValue):nft:\(id)"
+        case .nftCollection(let contractAddress, let title, let chain):
+            return "\(kind.rawValue):collection:\(chain.rawValue):\(contractAddress ?? title)"
+        }
     }
 }
 
@@ -145,9 +162,12 @@ struct SearchLocalIndex: Equatable, Sendable {
     struct SymbolEntry: Equatable, Sendable {
         let symbol: String
         let label: String
+        let contractAddress: String
+        let chain: Chain
     }
 
     struct NameEntry: Equatable, Sendable {
+        let nftID: String
         let normalizedName: String
         let displayName: String
         let collectionDisplayName: String?
@@ -157,6 +177,7 @@ struct SearchLocalIndex: Equatable, Sendable {
         let normalizedName: String
         let displayName: String
         let chain: Chain
+        let contractAddress: String?
     }
 
     let accounts: [AccountEntry]
@@ -177,12 +198,20 @@ struct SearchLocalIndex: Equatable, Sendable {
 
     static func make(
         nfts: [NFT],
+        holdings: [TokenHolding],
         accounts: [EOAccount],
         currentAccountAddress: String?,
         currentChain: Chain
     ) -> SearchLocalIndex {
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
         let scopedNFTs = nfts.filter {
             $0.matchesScope(accountAddress: currentAccountAddress, chain: currentChain)
+        }
+        let scopedHoldings = holdings.filter {
+            $0.accountAddressRawValue == normalizedAccountAddress &&
+            $0.chainRawValue == currentChain.rawValue &&
+            $0.balanceKind == .erc20 &&
+            ($0.contractAddress?.isEmpty == false)
         }
 
         let uniqueAccounts = Dictionary(
@@ -231,16 +260,21 @@ struct SearchLocalIndex: Equatable, Sendable {
         )
 
         let symbolEntries = Dictionary(
-            scopedNFTs.flatMap { nft in
-                Self.symbols(from: nft.symbols).map { symbol in
-                    (
-                        symbol,
-                        SymbolEntry(
-                            symbol: symbol,
-                            label: nft.collectionName ?? nft.collection?.name ?? nft.name ?? symbol
-                        )
-                    )
+            scopedHoldings.compactMap { holding -> (String, SymbolEntry)? in
+                guard let symbol = Self.cleanedText(holding.symbol)?.uppercased(),
+                      let contractAddress = holding.contractAddress else {
+                    return nil
                 }
+
+                return (
+                    symbol,
+                    SymbolEntry(
+                        symbol: symbol,
+                        label: holding.displayName,
+                        contractAddress: contractAddress,
+                        chain: holding.chain
+                    )
+                )
             },
             uniquingKeysWith: { first, _ in first }
         )
@@ -254,6 +288,7 @@ struct SearchLocalIndex: Equatable, Sendable {
                 return (
                     name.lowercased(),
                     NameEntry(
+                        nftID: nft.id,
                         normalizedName: name.lowercased(),
                         displayName: name,
                         collectionDisplayName: Self.cleanedText(nft.collectionName ?? nft.collection?.name)
@@ -274,7 +309,8 @@ struct SearchLocalIndex: Equatable, Sendable {
                     CollectionEntry(
                         normalizedName: name.lowercased(),
                         displayName: name,
-                        chain: currentChain
+                        chain: currentChain,
+                        contractAddress: NFT.normalizedScopeComponent(nft.contract.address)
                     )
                 )
             },
@@ -298,7 +334,8 @@ struct SearchLocalIndex: Equatable, Sendable {
                 SearchLocalMatch(
                     kind: .account,
                     title: $0.displayName,
-                    subtitle: $0.address.displayAddress
+                    subtitle: $0.address.displayAddress,
+                    destination: .profile(address: $0.address)
                 )
             }
     }
@@ -310,7 +347,8 @@ struct SearchLocalIndex: Equatable, Sendable {
                 SearchLocalMatch(
                     kind: .ens,
                     title: $0.displayName,
-                    subtitle: $0.address.displayAddress
+                    subtitle: $0.address.displayAddress,
+                    destination: .profile(address: $0.address)
                 )
             }
     }
@@ -322,7 +360,12 @@ struct SearchLocalIndex: Equatable, Sendable {
                 SearchLocalMatch(
                     kind: .contract,
                     title: $0.label,
-                    subtitle: "\($0.chain.routingDisplayName) • \($0.address.displayAddress)"
+                    subtitle: "\($0.chain.routingDisplayName) • \($0.address.displayAddress)",
+                    destination: .nftCollection(
+                        contractAddress: $0.address,
+                        title: $0.label,
+                        chain: $0.chain
+                    )
                 )
             }
     }
@@ -334,7 +377,12 @@ struct SearchLocalIndex: Equatable, Sendable {
                 SearchLocalMatch(
                     kind: .tokenSymbol,
                     title: $0.symbol,
-                    subtitle: $0.label
+                    subtitle: $0.label,
+                    destination: .token(
+                        contractAddress: $0.contractAddress,
+                        chain: $0.chain,
+                        symbol: $0.symbol
+                    )
                 )
             }
     }
@@ -346,7 +394,8 @@ struct SearchLocalIndex: Equatable, Sendable {
                 SearchLocalMatch(
                     kind: .nftName,
                     title: $0.displayName,
-                    subtitle: $0.collectionDisplayName ?? "Active scope item"
+                    subtitle: $0.collectionDisplayName ?? "Active scope item",
+                    destination: .nftItem(id: $0.nftID)
                 )
             }
     }
@@ -359,7 +408,8 @@ struct SearchLocalIndex: Equatable, Sendable {
                 SearchLocalMatch(
                     kind: .nftName,
                     title: $0.displayName,
-                    subtitle: $0.collectionDisplayName ?? "Active scope item"
+                    subtitle: $0.collectionDisplayName ?? "Active scope item",
+                    destination: .nftItem(id: $0.nftID)
                 )
             }
     }
@@ -371,7 +421,12 @@ struct SearchLocalIndex: Equatable, Sendable {
                 SearchLocalMatch(
                     kind: .collectionName,
                     title: $0.displayName,
-                    subtitle: $0.chain.routingDisplayName
+                    subtitle: $0.chain.routingDisplayName,
+                    destination: .nftCollection(
+                        contractAddress: $0.contractAddress,
+                        title: $0.displayName,
+                        chain: $0.chain
+                    )
                 )
             }
     }
@@ -384,7 +439,12 @@ struct SearchLocalIndex: Equatable, Sendable {
                 SearchLocalMatch(
                     kind: .collectionName,
                     title: $0.displayName,
-                    subtitle: $0.chain.routingDisplayName
+                    subtitle: $0.chain.routingDisplayName,
+                    destination: .nftCollection(
+                        contractAddress: $0.contractAddress,
+                        title: $0.displayName,
+                        chain: $0.chain
+                    )
                 )
             }
     }
@@ -392,17 +452,6 @@ struct SearchLocalIndex: Equatable, Sendable {
     private static func cleanedText(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
-    }
-
-    private static func symbols(from rawValue: String?) -> [String] {
-        guard let rawValue else {
-            return []
-        }
-
-        return rawValue
-            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
-            .map { String($0).uppercased() }
-            .filter { (2...8).contains($0.count) }
     }
 }
 
