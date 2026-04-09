@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially blocked
+Completed for the current slice
 
 ## Dependency Read
 

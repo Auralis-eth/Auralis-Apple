@@ -23,6 +23,15 @@ enum MusicRoute: Hashable {
     case collection(key: String, title: String)
 }
 
+enum ProfileRoute: Hashable {
+    case detail(address: String)
+}
+
+enum NFTTokensRoute: Hashable {
+    case item(id: String)
+    case collection(contractAddress: String?, title: String, chain: Chain)
+}
+
 struct ERC20TokenRoute: Hashable {
     let contractAddress: String
     let chain: Chain
@@ -38,14 +47,16 @@ final class AppRouter {
     var selectedTab: AppTab = .home
     var newsPath: [NFTDetailRoute] = []
     var musicPath: [MusicRoute] = []
+    var profilePath: [ProfileRoute] = []
     var receiptsPath: [ReceiptRoute] = []
-    var nftTokensPath: [NFTDetailRoute] = []
+    var nftTokensPath: [NFTTokensRoute] = []
     var erc20TokensPath: [ERC20TokenRoute] = []
     var presentedRouteError: AppRouteError?
 
     func resetAllPaths() {
         newsPath.removeAll()
         musicPath.removeAll()
+        profilePath.removeAll()
         receiptsPath.removeAll()
         nftTokensPath.removeAll()
         erc20TokensPath.removeAll()
@@ -68,7 +79,18 @@ final class AppRouter {
 
     func showNFTTokensDetail(id: String) {
         selectedTab = .nftTokens
-        nftTokensPath = nftTokensPath + [.detail(id: id)]
+        nftTokensPath = nftTokensPath + [.item(id: id)]
+    }
+
+    func showNFTCollectionDetail(contractAddress: String?, title: String, chain: Chain) {
+        selectedTab = .nftTokens
+        nftTokensPath = nftTokensPath + [
+            .collection(
+                contractAddress: contractAddress,
+                title: title,
+                chain: chain
+            )
+        ]
     }
 
     func showNFTFromHome(_ nft: NFT) {
@@ -104,6 +126,11 @@ final class AppRouter {
 
     func showSearch() {
         selectedTab = .search
+    }
+
+    func showProfileDetail(address: String) {
+        selectedTab = .profile
+        profilePath = profilePath + [.detail(address: address)]
     }
 
     func showReceipt(id: String) {
@@ -152,13 +179,15 @@ final class AppRouter {
             return newsPath.count
         case .music:
             return musicPath.count
+        case .profile:
+            return profilePath.count
         case .receipts:
             return receiptsPath.count
         case .erc20Tokens:
             return erc20TokensPath.count
         case .nftTokens:
             return nftTokensPath.count
-        case .home, .gas, .profile, .search:
+        case .home, .gas, .search:
             return 0
         }
     }
@@ -173,6 +202,10 @@ final class AppRouter {
             if !musicPath.isEmpty {
                 musicPath.removeLast()
             }
+        case .profile:
+            if !profilePath.isEmpty {
+                profilePath.removeLast()
+            }
         case .receipts:
             if !receiptsPath.isEmpty {
                 receiptsPath.removeLast()
@@ -185,7 +218,7 @@ final class AppRouter {
             if !nftTokensPath.isEmpty {
                 nftTokensPath.removeLast()
             }
-        case .home, .gas, .profile, .search:
+        case .home, .gas, .search:
             break
         }
     }
@@ -502,11 +535,31 @@ struct MainTabView: View {
             }
 
             Tab("Profile", systemImage: "person.circle", value: AppTab.profile) {
-                ObserveModePolicyView(modeState: modeState, services: services)
+                NavigationStack(path: $router.profilePath) {
+                    ProfileDetailView(
+                        accountAddress: currentAccount?.address ?? currentAddress,
+                        currentChain: currentChain,
+                        isCurrentAccount: true,
+                        showsPolicySection: true,
+                        modeState: modeState,
+                        services: services
+                    )
+                    .navigationDestination(for: ProfileRoute.self) { route in
+                        switch route {
+                        case .detail(let address):
+                            ProfileDetailView(
+                                accountAddress: address,
+                                currentChain: currentChain,
+                                isCurrentAccount: address == (currentAccount?.address ?? currentAddress)
+                            )
+                        }
+                    }
+                }
             }
 
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
                 SearchRootView(
+                    router: router,
                     currentAccountAddress: currentAccount?.address ?? currentAddress,
                     currentChain: currentChain
                 )
@@ -542,12 +595,24 @@ struct MainTabView: View {
                         refreshAction: refreshActiveScopeFromUserAction,
                         router: router
                     )
-                        .navigationDestination(for: NFTDetailRoute.self) { route in
-                            SharedNFTDetailView(
-                                route: route,
-                                currentAccountAddress: currentAccount?.address,
-                                currentChain: currentChain
-                            )
+                        .navigationDestination(for: NFTTokensRoute.self) { route in
+                            switch route {
+                            case .item(let id):
+                                SharedNFTDetailView(
+                                    route: .detail(id: id),
+                                    currentAccountAddress: currentAccount?.address,
+                                    currentChain: currentChain
+                                )
+                            case .collection:
+                                NFTCollectionDetailView(
+                                    route: route,
+                                    currentAccountAddress: currentAccount?.address,
+                                    currentChain: currentChain,
+                                    onOpenItem: { itemID in
+                                        router.showNFTTokensDetail(id: itemID)
+                                    }
+                                )
+                            }
                         }
                 }
                 .accessibilityIdentifier("tab.nftTokens")

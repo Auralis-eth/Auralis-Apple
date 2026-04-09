@@ -31,7 +31,7 @@ import Testing
 
         router.showNFTTokensDetail(id: "visual-1")
         #expect(router.selectedTab == .nftTokens)
-        #expect(router.nftTokensPath == [.detail(id: "visual-1")])
+        #expect(router.nftTokensPath == [.item(id: "visual-1")])
         #expect(router.currentRouteDepth == 1)
 
         router.popCurrentRoute()
@@ -82,7 +82,41 @@ import Testing
 
         router.showNFTFromHome(visualNFT)
         #expect(router.selectedTab == .nftTokens)
-        #expect(router.nftTokensPath == [.detail(id: visualNFT.id)])
+        #expect(router.nftTokensPath == [.item(id: visualNFT.id)])
+    }
+
+    @Test("profile detail routes stay on the profile tab")
+    func profileDetailFlow() {
+        let router = AppRouter()
+
+        router.showProfileDetail(address: "0x1111111111111111111111111111111111111111")
+
+        #expect(router.selectedTab == .profile)
+        #expect(router.profilePath == [.detail(address: "0x1111111111111111111111111111111111111111")])
+        #expect(router.currentRouteDepth == 1)
+    }
+
+    @Test("NFT collection routes stay on the NFT tab")
+    func nftCollectionFlow() {
+        let router = AppRouter()
+
+        router.showNFTCollectionDetail(
+            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            title: "Moonpunks",
+            chain: .ethMainnet
+        )
+
+        #expect(router.selectedTab == .nftTokens)
+        #expect(
+            router.nftTokensPath == [
+                .collection(
+                    contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    title: "Moonpunks",
+                    chain: .ethMainnet
+                )
+            ]
+        )
+        #expect(router.currentRouteDepth == 1)
     }
 
     @Test("reset clears every route stack without disturbing the selected tab")

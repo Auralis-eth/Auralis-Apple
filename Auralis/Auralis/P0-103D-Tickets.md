@@ -6,33 +6,45 @@ Implement the search results UI on top of the typed search pipeline.
 
 ## Ticket Status
 
-Partially blocked behind the stable `P0-103C` resolution contract, but UI structure work can still begin.
+Completed for the current slice.
 
 ## Execution Checklist
 
 ### 1. Confirm the result categories
 
-- [ ] Re-read `P0-103D-Strategy.md` and `P0-103D-Dependency-Note.md`.
-- [ ] Confirm which resolved intent/result categories belong in the first results UI.
-- [ ] Confirm the boundary between results, no-results, and safety states.
+- [x] Re-read `P0-103D-Strategy.md` and `P0-103D-Dependency-Note.md`.
+- [x] Confirm which resolved intent/result categories belong in the first results UI.
+- [x] Confirm the boundary between results, no-results, and safety states.
+
+Result-category notes:
+
+- Happy-path rows now cover profile, token, NFT item, and NFT collection destinations.
+- The first results UI stays lightweight and route-first rather than ranking-heavy.
+- No-results and safety remain separate surfaces instead of being buried inside the happy-path list.
 
 ### 2. Implement the happy-path results UI
 
-- [ ] Add the first search-results layout and row contracts.
-- [ ] Render supported result categories clearly.
-- [ ] Keep row rendering stable across sparse metadata cases.
+- [x] Add the first search-results layout and row contracts.
+- [x] Render supported result categories clearly.
+- [x] Keep row rendering stable across sparse metadata cases.
+
+Implementation notes:
+
+- Search rows are now tappable `Button`-backed results instead of static labels.
+- Search result taps route into the dedicated profile-detail page, NFT collection-detail page, NFT detail page, and ERC-20 token-detail page.
+- The search tab remains the search root while routed destinations continue to live in their owning tabs.
 
 ### 3. Cover required edge cases
 
-- [ ] Mixed result categories remain understandable.
-- [ ] Sparse metadata does not break rows.
-- [ ] No-results and safety states remain separate from happy-path results.
+- [x] Mixed result categories remain understandable.
+- [x] Sparse metadata does not break rows.
+- [x] No-results and safety states remain separate from happy-path results.
 
 ### 4. Validate the vertical slice
 
-- [ ] Verify supported query types render into the intended result UI.
-- [ ] Verify results remain readable on compact layouts.
-- [ ] Record any richer ranking/grouping work outside this ticket.
+- [x] Verify supported query types render into the intended result UI.
+- [x] Verify results remain readable on compact layouts.
+- [x] Record any richer ranking/grouping work outside this ticket.
 
 ## Critical Edge Case
 
