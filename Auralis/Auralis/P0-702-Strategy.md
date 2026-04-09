@@ -2,7 +2,7 @@
 
 ## Status
 
-Startable
+Completed for the current first trust-label slice
 
 ## Ticket
 
@@ -19,6 +19,7 @@ Label untrusted input clearly across the shell so users can distinguish system-k
 - Apply a consistent labeling contract to untrusted or externally sourced values.
 - Keep the labels understandable rather than overly technical.
 - Start where the trust boundary matters most.
+- Prefer specific trust language such as `Untrusted metadata` over vague generic warnings.
 
 ## Key Risk
 
@@ -29,6 +30,7 @@ Avoid inconsistent or overly subtle trust labeling that users will miss or contr
 - A clear untrusted-input labeling contract exists.
 - Representative surfaces use it.
 - Safety/no-bypass work can build on the same labeling rules.
+- Search, NFT metadata, QR scan, external-link, and deep-link error surfaces now share the same trust vocabulary.
 
 ## Validation Target
 

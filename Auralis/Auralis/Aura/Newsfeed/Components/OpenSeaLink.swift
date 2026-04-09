@@ -131,15 +131,19 @@ struct OpenSeaLink: View {
                 )
                 openURL(openSeaURL)
             } label: {
-                HStack {
+                HStack(alignment: .center, spacing: 12) {
                     SystemImage("water.waves")
                         .font(.system(size: 18, weight: .bold))
 
-                    SystemFontText(
-                        text: "View on OpenSea",
-                        size: 16,
-                        weight: .semibold
-                    )
+                    VStack(alignment: .leading, spacing: 6) {
+                        SystemFontText(
+                            text: "View on OpenSea",
+                            size: 16,
+                            weight: .semibold
+                        )
+
+                        AuraTrustLabel(kind: .link)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -208,15 +212,19 @@ struct EtherscanLink: View {
                 )
                 openURL(explorerURL)
             } label: {
-                HStack {
+                HStack(alignment: .center, spacing: 12) {
                     SystemImage("link.circle.fill")
                         .font(.system(size: 18, weight: .bold))
 
-                    SystemFontText(
-                        text: "View on \(explorerDestination.label)",
-                        size: 16,
-                        weight: .semibold
-                    )
+                    VStack(alignment: .leading, spacing: 6) {
+                        SystemFontText(
+                            text: "View on \(explorerDestination.label)",
+                            size: 16,
+                            weight: .semibold
+                        )
+
+                        AuraTrustLabel(kind: .link)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)

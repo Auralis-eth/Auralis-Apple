@@ -57,7 +57,10 @@ struct RouteErrorScreen: View {
                     SecondaryText(routeError.message)
                         .font(.body)
 
-                    if let urlString = routeError.urlString {
+                    if let trustLabelKind = routeError.trustLabelKind,
+                       let urlString = routeError.urlString {
+                        AuraTrustLabel(kind: trustLabelKind)
+
                         SecondaryCaptionFontText(urlString)
                             .textSelection(.enabled)
                     }

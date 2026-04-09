@@ -95,7 +95,7 @@ struct AddressInputView: View {
         } message: {
             if let change = pendingENSMappingChange {
                 Text(
-                    "\(change.ensName) moved from \(change.cachedAddress) to \(change.resolvedAddress). Save the updated address?"
+                    "Untrusted ENS mapping: \(change.ensName) moved from \(change.cachedAddress) to \(change.resolvedAddress). Save the updated address?"
                 )
             }
         }

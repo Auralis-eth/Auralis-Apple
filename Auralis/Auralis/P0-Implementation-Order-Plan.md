@@ -95,7 +95,7 @@ Closeout summary:
 - `P0-103E`: complete for the no-results and safety-state slice
 - `P0-602`: complete for the shared policy-gate wrapper slice
 - `P0-701B`: complete for the current first layered-enforcement slice; deeper leaf-view cleanup and later smoke testing remain follow-on work
-- `P0-702`: startable for untrusted-input labeling
+- `P0-702`: complete for the current first trust-label slice; broader rollout across every provider-backed field remains follow-on work
 - `P0-703`: partially blocked behind the underlying gate/enforcement/labeling rules becoming stable enough to smoke-test
 - `P0-502B`: startable for receipt verification and cleanup
 - `P0-801`: startable for deterministic demo/offline behavior definition
@@ -229,7 +229,7 @@ Why:
 
 33. `P0-602` Policy gate wrapper for actions (Completed)
 34. `P0-701B` Layered boundaries enforcement completion (Completed)
-35. `P0-702` Untrusted input labeling
+35. `P0-702` Untrusted input labeling (Completed)
 36. `P0-703` No bypass paths smoke tests
 37. `P0-502B` Receipt logging verification + cleanup
 

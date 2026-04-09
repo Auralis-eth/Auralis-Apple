@@ -746,6 +746,8 @@ private struct SharedNFTDetailView: View {
                             nftImage
 
                             VStack(alignment: .leading, spacing: 12) {
+                                AuraTrustLabel(kind: .metadata)
+
                                 HeadlineFontText(titleText)
                                     .fontWeight(.semibold)
                                     .accessibilityIdentifier("nft.detail.title")

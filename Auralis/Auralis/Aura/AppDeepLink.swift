@@ -16,6 +16,14 @@ struct AppRouteError: Error, Identifiable, Hashable {
     let title: String
     let message: String
     let urlString: String?
+
+    var trustLabelKind: AuraUntrustedValueKind? {
+        guard urlString != nil else {
+            return nil
+        }
+
+        return .deepLink
+    }
 }
 
 struct PendingDeepLinkContext: Equatable {

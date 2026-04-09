@@ -288,9 +288,15 @@ private struct SearchLocalMatchesCard: View {
     var body: some View {
         AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 18) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Local Matches")
-                    .font(.headline)
-                    .foregroundStyle(Color.textPrimary)
+                HStack(alignment: .top) {
+                    Text("Local Matches")
+                        .font(.headline)
+                        .foregroundStyle(Color.textPrimary)
+
+                    Spacer(minLength: 12)
+
+                    AuraTrustLabel(kind: .metadata)
+                }
 
                 ForEach(matches) { match in
                     Button {

@@ -54,6 +54,8 @@ struct NFTCollectionDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 18) {
                         VStack(alignment: .leading, spacing: 10) {
+                            AuraTrustLabel(kind: .metadata)
+
                             Text(presentation.title)
                                 .font(.title2.weight(.semibold))
                                 .foregroundStyle(Color.textPrimary)

@@ -31,10 +31,14 @@ struct QRScannerView: View {
         .sheet(isPresented: $isScanning) {
             ZStack(alignment: .top) {
                 CodeScannerView(codeTypes: [.qr], requiresPhotoOutput: false, isTorchOn: torchOn, completion: handleScan)
-                .ignoresSafeArea()
+                    .ignoresSafeArea()
 
-                TorchToggleButton(torchOn: $torchOn)
-                    .padding(.top)
+                VStack(spacing: 12) {
+                    AuraTrustLabel(kind: .scan)
+
+                    TorchToggleButton(torchOn: $torchOn)
+                }
+                .padding(.top)
             }
         }
         .alert(alertTitle, isPresented: $showingAlert) {
