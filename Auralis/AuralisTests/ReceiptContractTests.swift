@@ -98,11 +98,13 @@ struct ReceiptContractTests {
 
     @Test("sanitization is a separate responsibility that converts raw payload input before append")
     func payloadSanitizationBoundary() {
-        let sanitizer = StubReceiptPayloadSanitizer()
+        let sanitizer = DefaultReceiptPayloadSanitizer()
         let rawPayload = RawReceiptPayload(
             values: [
                 "rpcURL": .string("https://rpc.example"),
-                "error": .string("Boom")
+                "error": .string("Boom"),
+                "url": .string("https://example.com/nft/123"),
+                "value": .string("0xabc")
             ]
         )
 
@@ -110,24 +112,9 @@ struct ReceiptContractTests {
 
         #expect(sanitized.values == [
             "rpcURL": .string("<redacted-rpc-url>"),
-            "error": .string("<redacted-error>")
+            "error": .string("<redacted-error>"),
+            "url": .string("<redacted-url>"),
+            "value": .string("<redacted-copied-value>")
         ])
-    }
-}
-
-private struct StubReceiptPayloadSanitizer: ReceiptPayloadSanitizing {
-    func sanitize(_ payload: RawReceiptPayload) -> ReceiptPayload {
-        let sanitizedValues = payload.values.mapValues { value in
-            switch value {
-            case .string(let string) where string == "https://rpc.example":
-                return ReceiptJSONValue.string("<redacted-rpc-url>")
-            case .string(let string) where string == "Boom":
-                return ReceiptJSONValue.string("<redacted-error>")
-            default:
-                return value
-            }
-        }
-
-        return ReceiptPayload(values: sanitizedValues)
     }
 }

@@ -17,6 +17,18 @@ struct DefaultReceiptPayloadSanitizer: ReceiptPayloadSanitizing {
         "raw_error"
     ]
 
+    private let externalURLKeys: Set<String> = [
+        "url",
+        "urlString",
+        "url_string"
+    ]
+
+    private let copiedValueKeys: Set<String> = [
+        "value",
+        "copiedValue",
+        "copied_value"
+    ]
+
     func sanitize(_ payload: RawReceiptPayload) -> ReceiptPayload {
         ReceiptPayload(values: sanitizeObject(payload.values))
     }
@@ -35,6 +47,16 @@ private extension DefaultReceiptPayloadSanitizer {
 
             if errorStringKeys.contains(key), case .string = value {
                 sanitized[key] = .string("<redacted-error>")
+                continue
+            }
+
+            if externalURLKeys.contains(key), case .string = value {
+                sanitized[key] = .string("<redacted-url>")
+                continue
+            }
+
+            if copiedValueKeys.contains(key), case .string = value {
+                sanitized[key] = .string("<redacted-copied-value>")
                 continue
             }
 

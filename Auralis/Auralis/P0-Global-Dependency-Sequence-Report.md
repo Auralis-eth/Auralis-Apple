@@ -114,7 +114,7 @@ This sequence is finished, not merely agreed:
 The original slicing rule still stands, but the report must now acknowledge completed slices:
 
 - `P0-502` active account and chain-scope integration is complete
-- `P0-502B` remains the broad verification and cleanup pass
+- `P0-502B` is now complete for the current verification-and-cleanup slice, with payload hygiene tightened for mounted link/copy flows and no schema reset
 
 ### `P0-701` remains split
 
@@ -164,12 +164,10 @@ Status nuance:
 - the search flow completion phase is complete for the current slice
 - search now has a single rooted entry contract, typed local-first routing, no-results and safety states, and committed per-account history
 
-### Leave The Remaining Hardening Passes Late
+### Phase 10 Closure Read
 
-- `P0-502B`
-- `P0-801`
-- `P0-802`
-- `P0-803`
+- the policy, enforcement, trust-labeling, smoke-test, and receipt-cleanup hardening phase is complete for the current slice
+- the remaining late work is now release-readiness, not more Phase 10 cleanup
 
 ## Planning Rule Going Forward
 

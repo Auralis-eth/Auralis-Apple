@@ -97,7 +97,7 @@ Closeout summary:
 - `P0-701B`: complete for the current first layered-enforcement slice; deeper leaf-view cleanup and later smoke testing remain follow-on work
 - `P0-702`: complete for the current first trust-label slice; broader rollout across every provider-backed field remains follow-on work
 - `P0-703`: complete for the current first no-bypass smoke-test slice; broader smoke expansion remains follow-on work
-- `P0-502B`: startable for receipt verification and cleanup
+- `P0-502B`: complete for the current receipt verification-and-cleanup slice
 - `P0-801`: startable for deterministic demo/offline behavior definition
 - `P0-802`: partially blocked until the representative mounted flows are settled enough to benchmark honestly
 - `P0-803`: startable for the Phase 0 privacy/security checklist pass
@@ -231,7 +231,7 @@ Why:
 34. `P0-701B` Layered boundaries enforcement completion (Completed)
 35. `P0-702` Untrusted input labeling (Completed)
 36. `P0-703` No bypass paths smoke tests (Completed)
-37. `P0-502B` Receipt logging verification + cleanup
+37. `P0-502B` Receipt logging verification + cleanup (Completed)
 
 Why:
 

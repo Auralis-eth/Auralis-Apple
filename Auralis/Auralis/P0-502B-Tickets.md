@@ -6,33 +6,33 @@ Verify the active receipt-logging rollout and clean up the highest-value inconsi
 
 ## Ticket Status
 
-Startable.
+Completed for the current verification-and-cleanup slice.
 
 ## Execution Checklist
 
 ### 1. Confirm the active receipt surface area
 
-- [ ] Re-read `P0-502B-Strategy.md` and `P0-502B-Dependency-Note.md`.
-- [ ] Confirm which active receipt flows belong in the verification pass.
-- [ ] Confirm which inconsistencies are cosmetic vs contract-breaking.
+- [x] Re-read `P0-502B-Strategy.md` and `P0-502B-Dependency-Note.md`.
+- [x] Confirm which active receipt flows belong in the verification pass.
+- [x] Confirm which inconsistencies are cosmetic vs contract-breaking.
 
 ### 2. Verify and clean up the active receipt flows
 
-- [ ] Review active receipt trigger/scope/summary/payload consistency.
-- [ ] Fix the highest-value naming or payload drift.
-- [ ] Preserve compatibility where the receipt contract is already in use.
+- [x] Review active receipt trigger/scope/summary/payload consistency.
+- [x] Fix the highest-value naming or payload drift.
+- [x] Preserve compatibility where the receipt contract is already in use.
 
 ### 3. Cover required edge cases
 
-- [ ] Correlation IDs remain coherent across chained flows.
-- [ ] Payload cleanup does not drop critical provenance.
-- [ ] Cleanup does not create duplicate or conflicting receipts.
+- [x] Correlation IDs remain coherent across chained flows.
+- [x] Payload cleanup does not drop critical provenance.
+- [x] Cleanup does not create duplicate or conflicting receipts.
 
 ### 4. Validate the vertical slice
 
-- [ ] Verify representative active receipt flows still log correctly.
-- [ ] Verify cleanup improves clarity instead of changing meaning.
-- [ ] Record future receipt-category additions outside this ticket.
+- [x] Verify representative active receipt flows still log correctly.
+- [x] Verify cleanup improves clarity instead of changing meaning.
+- [x] Record future receipt-category additions outside this ticket.
 
 ## Critical Edge Case
 
@@ -40,7 +40,7 @@ Receipt cleanup must improve trustworthiness without destabilizing consumers tha
 
 ## Validation
 
-Verify active receipt flows and clean up the highest-value inconsistencies while preserving contract stability.
+Verified with a clean `Auralis` build and 27 focused passing tests across receipt contracts, logger flows, store/reset behavior, and correlation-preserving consumer slices.
 
 ## Handoff Rule
 

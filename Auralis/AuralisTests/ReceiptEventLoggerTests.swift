@@ -69,9 +69,11 @@ struct ReceiptEventLoggerTests {
         #expect(linkReceipt.scope == "navigation.external")
         #expect(linkReceipt.details.values["chain"] == .string(Chain.baseMainnet.rawValue))
         #expect(linkReceipt.details.values["accountAddress"] == .string("0x1234567890abcdef1234567890abcdef12345678"))
+        #expect(linkReceipt.details.values["url"] == .string("<redacted-url>"))
         let copyReceipt = try #require(receipts.first(where: { $0.kind == "copy.performed" }))
         #expect(copyReceipt.details.values["chain"] == .string(Chain.baseMainnet.rawValue))
         #expect(copyReceipt.details.values["accountAddress"] == .string("0x1234567890abcdef1234567890abcdef12345678"))
+        #expect(copyReceipt.details.values["value"] == .string("<redacted-copied-value>"))
     }
 
     @Test("receipt event logger returns a failure result when the store append fails")
@@ -92,6 +94,42 @@ struct ReceiptEventLoggerTests {
         case .failure(let error):
             #expect((error as? FailingReceiptStore.StoreError) == .appendFailed)
         }
+    }
+
+    @Test("receipt event logger preserves correlation and non-sensitive provenance while redacting mounted sensitive payloads")
+    @MainActor
+    func loggerRedactsSensitivePayloadsWithoutDroppingFlowContext() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let store = SwiftDataReceiptStore(modelContext: context)
+        let logger = ReceiptEventLogger(receiptStore: store)
+
+        logger.recordExternalLinkOpened(
+            label: "Explorer",
+            url: URL(string: "https://basescan.org/token/0xabc?a=123")!,
+            surface: "newsfeed.nft_detail",
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet,
+            correlationID: "link-flow"
+        )
+        logger.recordCopyAction(
+            subject: "wallet.address",
+            value: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+            surface: "profile.detail",
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet,
+            correlationID: "copy-flow"
+        )
+
+        let linkReceipt = try #require(store.receipts(forCorrelationID: "link-flow", limit: 1).first)
+        let copyReceipt = try #require(store.receipts(forCorrelationID: "copy-flow", limit: 1).first)
+
+        #expect(linkReceipt.details.values["label"] == .string("Explorer"))
+        #expect(linkReceipt.details.values["surface"] == .string("newsfeed.nft_detail"))
+        #expect(linkReceipt.details.values["url"] == .string("<redacted-url>"))
+        #expect(copyReceipt.details.values["subject"] == .string("wallet.address"))
+        #expect(copyReceipt.details.values["surface"] == .string("profile.detail"))
+        #expect(copyReceipt.details.values["value"] == .string("<redacted-copied-value>"))
     }
 }
 

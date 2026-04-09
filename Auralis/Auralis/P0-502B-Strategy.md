@@ -2,7 +2,7 @@
 
 ## Status
 
-Startable
+Completed for the current verification-and-cleanup slice
 
 ## Ticket
 
@@ -27,7 +27,7 @@ Avoid letting receipt verification turn into uncontrolled schema churn after the
 ## Definition Of Done
 
 - Active receipt slices are verified.
-- Obvious naming/scope/payload inconsistencies are cleaned up.
+- Obvious naming/scope/payload inconsistencies are cleaned up without schema churn.
 - Later receipt work has a clearer baseline.
 
 ## Validation Target

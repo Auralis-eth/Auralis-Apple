@@ -2,7 +2,7 @@
 
 ## Status
 
-Startable
+Completed for the current verification-and-cleanup slice
 
 ## Dependency Read
 
@@ -13,7 +13,7 @@ Startable
 ## Safe First Slice
 
 - Verify active receipt categories and correlation behavior.
-- Clean up obvious payload, naming, or scope drift.
+- Clean up obvious payload, naming, or scope drift, with payload hygiene taking priority over cosmetic churn.
 - Leave broader new receipt categories to their own tickets.
 
 ## Rule For Planning
