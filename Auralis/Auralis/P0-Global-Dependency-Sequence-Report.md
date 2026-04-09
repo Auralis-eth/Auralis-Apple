@@ -32,6 +32,11 @@ These tickets are already closed for their planned Phase 0 slice:
 - `P0-102B` active account summary card
 - `P0-102C` OS-level shortcuts / modules section
 - `P0-102D` recent activity preview
+- `P0-103A` search entry points
+- `P0-103C` resolution pipeline
+- `P0-103D` search results UI
+- `P0-103E` no-results + safety behavior
+- `P0-103F` search history
 - `P0-451` music library index derived from the existing SwiftData-backed local `NFT` store
 - `P0-452` music collection + item detail screens
 - `P0-461` native-balance-first SwiftData-backed token holdings slice
@@ -86,11 +91,6 @@ Current read on `P0-102A`:
 
 These tickets remain blocked in their own current docs:
 
-- `P0-103A`
-- `P0-103C`
-- `P0-103D`
-- `P0-103E`
-- `P0-103F`
 - `P0-502B`
 - `P0-602`
 - `P0-701B`
@@ -159,13 +159,10 @@ Status nuance:
 - `P0-452` is complete for the current Music detail slice
 - `P0-462` is complete for the current token-detail slice
 
-### After That, Tackle The Remaining Search And Library Follow-Ons
+### Phase 9 Closure Read
 
-- `P0-103A`
-- `P0-103C`
-- `P0-103D`
-- `P0-103F`
-- `P0-103E`
+- the search flow completion phase is complete for the current slice
+- search now has a single rooted entry contract, typed local-first routing, no-results and safety states, and committed per-account history
 
 ### Leave Hardening And Policy Passes Late
 

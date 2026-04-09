@@ -88,11 +88,11 @@ Closeout summary:
 - `P0-102D`: complete for the recent-activity preview slice
 - `P0-452`: complete for the current Music collection and item-detail slice
 - `P0-462`: complete for the current token-detail slice; provider-backed enrichment, pricing, and history remain later follow-ons
-- `P0-103A`: startable for search entry points
-- `P0-103C`: startable for the typed search-resolution pipeline
-- `P0-103D`: partially blocked behind the stable `P0-103C` resolution contract
-- `P0-103F`: startable for search history
-- `P0-103E`: startable for no-results and safety behavior
+- `P0-103A`: complete for the search entry-point slice
+- `P0-103C`: complete for the typed local-first search-resolution slice
+- `P0-103D`: complete for the route-backed search results UI slice
+- `P0-103F`: complete for the committed per-account search-history slice
+- `P0-103E`: complete for the no-results and safety-state slice
 - `P0-602`: startable for the shared policy-gate wrapper
 - `P0-701B`: partially blocked behind stable seam adoption and targeted enforcement readiness
 - `P0-702`: startable for untrusted-input labeling
@@ -215,11 +215,11 @@ Why:
 
 ### Phase 9: Search flow completion
 
-28. `P0-103A` Search entry points
-29. `P0-103C` Resolution pipeline
-30. `P0-103D` Search results UI
-31. `P0-103F` Search history
-32. `P0-103E` No-results + safety behavior
+28. `P0-103A` Search entry points (Completed)
+29. `P0-103C` Resolution pipeline (Completed)
+30. `P0-103D` Search results UI (Completed)
+31. `P0-103F` Search history (Completed)
+32. `P0-103E` No-results + safety behavior (Completed)
 
 Why:
 
@@ -263,14 +263,14 @@ That gives the project:
 
 ## Suggested Following Sprint
 
-After that, move into the nearest user-facing follow-ons that remain open after the now-complete Phase 8 work:
+After that, move into the next hardening and policy pass now that the search slice is complete:
 
-1. `P0-103A`
-2. `P0-103C`
-3. `P0-103F`
-4. `P0-103E`
+1. `P0-602`
+2. `P0-701B`
+3. `P0-702`
+4. `P0-703`
 
-That sequence advances the remaining search-facing surfaces instead of reopening already completed Home, Music-detail, and token-detail tickets.
+That sequence hardens the now-landed shell, Home, music, token, and search surfaces instead of reopening already completed feature slices.
 
 ## Notes On Interpretation
 
