@@ -1,6 +1,18 @@
 import SwiftData
 import SwiftUI
 
+struct SearchRootPresentation: Equatable {
+    enum Content: Equatable {
+        case history
+        case safety
+        case noResults
+        case results
+    }
+
+    let showsDetection: Bool
+    let content: Content
+}
+
 struct SearchRootView: View {
     @Query private var accounts: [EOAccount]
     @Query private var nfts: [NFT]
@@ -31,6 +43,13 @@ struct SearchRootView: View {
         parser.classify(query: query, index: localIndex)
     }
 
+    private var presentation: SearchRootPresentation {
+        Self.makePresentation(
+            classification: classification,
+            historyEntries: historyEntries
+        )
+    }
+
     var body: some View {
         AuraScenicScreen(horizontalPadding: 12, verticalPadding: 12) {
             ScrollView {
@@ -40,15 +59,19 @@ struct SearchRootView: View {
                         isFocused: _isQueryFieldFocused
                     )
 
-                    if classification.kind == .empty {
+                    if presentation.showsDetection {
+                        SearchDetectionCard(classification: classification)
+                    }
+
+                    switch presentation.content {
+                    case .history:
                         SearchHistoryCard(
                             historyEntries: historyEntries,
                             onSelect: recallHistory,
                             onDelete: deleteHistoryEntry,
                             onClearAll: clearHistory
                         )
-                    } else if classification.kind.isInvalidInput {
-                        SearchDetectionCard(classification: classification)
+                    case .safety:
                         AuraEmptyState(
                             eyebrow: "Search",
                             title: classification.kind.title,
@@ -56,11 +79,9 @@ struct SearchRootView: View {
                             systemImage: "exclamationmark.triangle",
                             tone: .critical
                         )
-                    } else if classification.localMatches.isEmpty {
-                        SearchDetectionCard(classification: classification)
+                    case .noResults:
                         SearchNoResultsCard(classification: classification)
-                    } else {
-                        SearchDetectionCard(classification: classification)
+                    case .results:
                         SearchLocalMatchesCard(
                             matches: classification.localMatches,
                             onOpenMatch: openMatch
@@ -132,6 +153,37 @@ struct SearchRootView: View {
     private func clearHistory() {
         historyStore.clear(accountAddress: currentAccountAddress)
         reloadHistory()
+    }
+
+    static func makePresentation(
+        classification: SearchQueryClassification,
+        historyEntries: [SearchHistoryEntry]
+    ) -> SearchRootPresentation {
+        if classification.kind == .empty {
+            return SearchRootPresentation(
+                showsDetection: false,
+                content: .history
+            )
+        }
+
+        if classification.kind.isInvalidInput {
+            return SearchRootPresentation(
+                showsDetection: true,
+                content: .safety
+            )
+        }
+
+        if classification.localMatches.isEmpty {
+            return SearchRootPresentation(
+                showsDetection: true,
+                content: .noResults
+            )
+        }
+
+        return SearchRootPresentation(
+            showsDetection: true,
+            content: .results
+        )
     }
 }
 
