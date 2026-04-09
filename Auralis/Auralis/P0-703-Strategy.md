@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially blocked
+Completed for the current first smoke-test slice
 
 ## Ticket
 
@@ -19,6 +19,7 @@ Add smoke-test coverage that proves key safety, policy, and boundary rules do no
 - Use smoke tests to verify the highest-value rules first.
 - Focus on practical bypasses, not abstract purity.
 - Keep the suite narrow enough to stay maintainable.
+- Prefer pure-rule and small-router smoke tests over UI automation for this phase.
 
 ## Key Risk
 
@@ -29,6 +30,7 @@ Avoid building smoke tests before the underlying policy/boundary rules are real 
 - A smoke-test baseline exists for key no-bypass rules.
 - The tests target real risk areas.
 - The suite can grow as enforcement stabilizes.
+- Policy denial, policy allow-list behavior, trust labeling, and owned-tab routing now have a dedicated smoke baseline.
 
 ## Validation Target
 
