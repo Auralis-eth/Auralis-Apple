@@ -27,7 +27,8 @@ import Testing
             freshnessTTLProvider: { 300 },
             musicCollectionCountProvider: { 3 },
             receiptCountProvider: { 7 },
-            prefersDemoDataProvider: { true }
+            prefersDemoDataProvider: { true },
+            pinnedItemCountProvider: { 2 }
         )
 
         let snapshot = source.snapshot()
@@ -43,11 +44,12 @@ import Testing
         #expect(snapshot.libraryPointers.musicCollectionCount.value == 3)
         #expect(snapshot.libraryPointers.receiptCount.value == 7)
         #expect(snapshot.localPreferences.prefersDemoData.value == true)
+        #expect(snapshot.localPreferences.pinnedItemCount.value == 2)
         #expect(snapshot.freshness.refreshState == .idle)
         #expect(snapshot.freshness.lastSuccessfulRefreshAt == refreshDate)
         #expect(snapshot.freshness.ttl == 300)
         #expect(snapshot.librarySummary == "NFTs: 42 • Playlists: 3 • Receipts: 7")
-        #expect(snapshot.preferencesSummary == "Demo Data: On • Pinned Items: Unknown")
+        #expect(snapshot.preferencesSummary == "Demo Data: On • Pinned Items: 2")
     }
 
     @Test("context snapshot uses local count providers and guest-pass preference without inventing provider data")
@@ -62,7 +64,8 @@ import Testing
             trackedNFTCountProvider: { 12 },
             musicCollectionCountProvider: { 4 },
             receiptCountProvider: { 9 },
-            prefersDemoDataProvider: { true }
+            prefersDemoDataProvider: { true },
+            pinnedItemCountProvider: { 3 }
         )
 
         let snapshot = source.snapshot()
@@ -71,9 +74,10 @@ import Testing
         #expect(snapshot.libraryPointers.musicCollectionCount.value == 4)
         #expect(snapshot.libraryPointers.receiptCount.value == 9)
         #expect(snapshot.localPreferences.prefersDemoData.value == true)
+        #expect(snapshot.localPreferences.pinnedItemCount.value == 3)
         #expect(snapshot.libraryPointers.receiptCount.updatedAt == Date(timeIntervalSince1970: 1_700_000_500))
         #expect(snapshot.librarySummary == "NFTs: 12 • Playlists: 4 • Receipts: 9")
-        #expect(snapshot.preferencesSummary == "Demo Data: On • Pinned Items: Unknown")
+        #expect(snapshot.preferencesSummary == "Demo Data: On • Pinned Items: 3")
     }
 
     @Test("context snapshot remains valid when optional provider-backed values are absent")
@@ -232,7 +236,8 @@ struct ContextServiceTests {
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
-            prefersDemoDataProvider: { false }
+            prefersDemoDataProvider: { false },
+            pinnedItemCountProvider: { 0 }
         )
 
         #expect(builder.buildCount == 1)
@@ -266,6 +271,7 @@ struct ContextServiceTests {
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
             prefersDemoDataProvider: { false },
+            pinnedItemCountProvider: { 0 },
             beforeResolve: {
                 await resolveGate.waitIfNeeded()
             }
@@ -308,7 +314,8 @@ struct ContextServiceTests {
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
-            prefersDemoDataProvider: { false }
+            prefersDemoDataProvider: { false },
+            pinnedItemCountProvider: { 0 }
         )
 
         _ = await service.refresh(
@@ -349,6 +356,7 @@ struct ContextServiceTests {
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
             prefersDemoDataProvider: { false },
+            pinnedItemCountProvider: { 0 },
             beforeResolve: {
                 await resolveGate.waitIfNeeded()
             }
@@ -399,7 +407,8 @@ struct ContextServiceTests {
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
-            prefersDemoDataProvider: { false }
+            prefersDemoDataProvider: { false },
+            pinnedItemCountProvider: { 0 }
         )
 
         let snapshot = await service.refresh()
@@ -428,7 +437,8 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
         receiptCountProvider: @escaping () -> Int?,
-        prefersDemoDataProvider: @escaping () -> Bool?
+        prefersDemoDataProvider: @escaping () -> Bool?,
+        pinnedItemCountProvider: @escaping () -> Int?
     ) -> any ContextSource {
         buildCount += 1
         return liveBuilder.makeContextSource(
@@ -445,7 +455,8 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
             trackedNFTCountProvider: trackedNFTCountProvider,
             musicCollectionCountProvider: musicCollectionCountProvider,
             receiptCountProvider: receiptCountProvider,
-            prefersDemoDataProvider: prefersDemoDataProvider
+            prefersDemoDataProvider: prefersDemoDataProvider,
+            pinnedItemCountProvider: pinnedItemCountProvider
         )
     }
 }

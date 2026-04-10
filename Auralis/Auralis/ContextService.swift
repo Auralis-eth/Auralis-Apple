@@ -25,6 +25,7 @@ final class ContextService {
         let musicCollectionCount: Int?
         let receiptCount: Int?
         let prefersDemoData: Bool?
+        let pinnedItemCount: Int?
 
         var scope: RequestScope {
             RequestScope(
@@ -48,6 +49,7 @@ final class ContextService {
     private let musicCollectionCountProvider: () -> Int?
     private let receiptCountProvider: () -> Int?
     private let prefersDemoDataProvider: () -> Bool?
+    private let pinnedItemCountProvider: () -> Int?
     private let beforeResolve: @MainActor () async -> Void
 
     private(set) var snapshot: ContextSnapshot
@@ -70,6 +72,7 @@ final class ContextService {
         musicCollectionCountProvider: @escaping () -> Int?,
         receiptCountProvider: @escaping () -> Int?,
         prefersDemoDataProvider: @escaping () -> Bool?,
+        pinnedItemCountProvider: @escaping () -> Int?,
         beforeResolve: @escaping @MainActor () async -> Void = {
             await Task.yield()
         }
@@ -87,6 +90,7 @@ final class ContextService {
         self.musicCollectionCountProvider = musicCollectionCountProvider
         self.receiptCountProvider = receiptCountProvider
         self.prefersDemoDataProvider = prefersDemoDataProvider
+        self.pinnedItemCountProvider = pinnedItemCountProvider
         self.beforeResolve = beforeResolve
 
         let initialInputs = CapturedInputs(
@@ -103,7 +107,8 @@ final class ContextService {
             trackedNFTCount: trackedNFTCountProvider(),
             musicCollectionCount: musicCollectionCountProvider(),
             receiptCount: receiptCountProvider(),
-            prefersDemoData: prefersDemoDataProvider()
+            prefersDemoData: prefersDemoDataProvider(),
+            pinnedItemCount: pinnedItemCountProvider()
         )
         self.snapshot = Self.makeSnapshot(
             from: initialInputs,
@@ -169,7 +174,8 @@ private extension ContextService {
             trackedNFTCountProvider: trackedNFTCountProvider,
             musicCollectionCountProvider: musicCollectionCountProvider,
             receiptCountProvider: receiptCountProvider,
-            prefersDemoDataProvider: prefersDemoDataProvider
+            prefersDemoDataProvider: prefersDemoDataProvider,
+            pinnedItemCountProvider: pinnedItemCountProvider
         )
     }
 
@@ -185,7 +191,8 @@ private extension ContextService {
         trackedNFTCountProvider: () -> Int?,
         musicCollectionCountProvider: () -> Int?,
         receiptCountProvider: () -> Int?,
-        prefersDemoDataProvider: () -> Bool?
+        prefersDemoDataProvider: () -> Bool?,
+        pinnedItemCountProvider: () -> Int?
     ) async -> CapturedInputs {
         let address = addressProvider()
         let chain = chainProvider()
@@ -209,7 +216,8 @@ private extension ContextService {
             trackedNFTCount: trackedNFTCountProvider(),
             musicCollectionCount: musicCollectionCountProvider(),
             receiptCount: receiptCountProvider(),
-            prefersDemoData: prefersDemoDataProvider()
+            prefersDemoData: prefersDemoDataProvider(),
+            pinnedItemCount: pinnedItemCountProvider()
         )
     }
 
@@ -231,7 +239,8 @@ private extension ContextService {
             trackedNFTCountProvider: { inputs.trackedNFTCount },
             musicCollectionCountProvider: { inputs.musicCollectionCount },
             receiptCountProvider: { inputs.receiptCount },
-            prefersDemoDataProvider: { inputs.prefersDemoData }
+            prefersDemoDataProvider: { inputs.prefersDemoData },
+            pinnedItemCountProvider: { inputs.pinnedItemCount }
         ).snapshot()
     }
 

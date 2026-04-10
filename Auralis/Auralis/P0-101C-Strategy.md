@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress
+Complete
 
 ## Ticket
 
@@ -42,5 +42,6 @@ Open the inspector from chrome, force stale timestamps, refresh from the inspect
 
 ## Remaining Work
 
-- decide whether this ticket is now complete under the context-sheet interpretation or still carries downstream cleanup
-- keep rapid account-switch and sheet-dismiss timing behavior under observation as more inspector actions are added
+`P0-101C` is complete under the current context-sheet interpretation.
+
+Chrome now surfaces scope and freshness state visibly, stale detection and refresh continue to route through the shared shell path, and the inspector remains the dedicated interaction point for deeper context details.

@@ -198,6 +198,19 @@ struct HomeTabLogicTests {
         #expect(presentation.primary.first?.badgeTitle == "3 local")
     }
 
+    @Test("modules presentation promotes pinned items without inventing new destinations")
+    func modulesPresentationPromotesPinnedItemsFirst() {
+        let presentation = logic.modulesPresentation(
+            trackCount: 3,
+            pinnedActions: [.openReceipts, .openNFTTokens]
+        )
+
+        #expect(presentation.primary.map(\.action) == [.openNFTTokens, .openMusic])
+        #expect(presentation.shortcuts.map(\.action) == [.openReceipts, .openSearch, .openNews])
+        #expect(presentation.primary.first?.isPinned == true)
+        #expect(presentation.shortcuts.first?.isPinned == true)
+    }
+
     @Test("modules presentation stays honest when local music is still empty")
     func modulesPresentationDegradesCleanlyForSparseMusic() {
         let presentation = logic.modulesPresentation(trackCount: 0)

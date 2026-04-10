@@ -15,6 +15,7 @@ struct GlobalChromeView: View {
                 Spacer(minLength: 8)
 
                 AuraPill(
+                    snapshot.modeDisplay,
                     systemImage: "eye",
                     emphasis: .accent,
                     imageSize: .title3.weight(.semibold),
@@ -24,6 +25,7 @@ struct GlobalChromeView: View {
                 
                 Button(action: onOpenContextInspector) {
                     AuraPill(
+                        snapshot.freshnessLabel,
                         systemImage: "gyroscope",
                         emphasis: .accent,
                         imageSize: .title3.weight(.semibold),
@@ -59,10 +61,17 @@ struct GlobalChromeView: View {
                     .font(.title3)
                     .accessibilityHidden(true)
 
-                Text(accountTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.textPrimary)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(accountTitle)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(1)
+
+                    Text(snapshot.selectedChainDisplayNames)
+                        .font(.caption)
+                        .foregroundStyle(Color.textSecondary)
+                        .lineLimit(1)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -185,7 +194,7 @@ struct ChromeContextInspectorSheet: View {
                     )
                     LabeledContent(
                         "Pinned Items",
-                        value: snapshot.localPreferences.pinnedItemCount.value.map(String.init) ?? "Not configured"
+                        value: snapshot.localPreferences.pinnedItemCount.value.map(String.init) ?? "None pinned"
                     )
                     LabeledContent("Summary", value: snapshot.preferencesSummary)
                 }
@@ -193,7 +202,7 @@ struct ChromeContextInspectorSheet: View {
                 Section("Balances") {
                     LabeledContent(
                         "Native Balance",
-                        value: snapshot.balances.nativeBalanceDisplay.value ?? "Deferred to provider-backed balance work"
+                        value: snapshot.balances.nativeBalanceDisplay.value ?? "Unavailable"
                     )
                     LabeledContent(
                         "Balance Provenance",

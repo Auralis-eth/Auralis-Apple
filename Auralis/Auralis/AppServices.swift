@@ -16,7 +16,8 @@ protocol ShellContextSourceBuilding {
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
         receiptCountProvider: @escaping () -> Int?,
-        prefersDemoDataProvider: @escaping () -> Bool?
+        prefersDemoDataProvider: @escaping () -> Bool?,
+        pinnedItemCountProvider: @escaping () -> Int?
     ) -> any ContextSource
 }
 
@@ -34,7 +35,8 @@ protocol ShellContextServiceBuilding {
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
         receiptCountProvider: @escaping () -> Int?,
-        prefersDemoDataProvider: @escaping () -> Bool?
+        prefersDemoDataProvider: @escaping () -> Bool?,
+        pinnedItemCountProvider: @escaping () -> Int?
     ) -> ContextService
 }
 
@@ -59,7 +61,8 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
         receiptCountProvider: @escaping () -> Int?,
-        prefersDemoDataProvider: @escaping () -> Bool?
+        prefersDemoDataProvider: @escaping () -> Bool?,
+        pinnedItemCountProvider: @escaping () -> Int?
     ) -> any ContextSource {
         LiveContextSource(
             accountProvider: accountProvider,
@@ -75,7 +78,8 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
             trackedNFTCountProvider: trackedNFTCountProvider,
             musicCollectionCountProvider: musicCollectionCountProvider,
             receiptCountProvider: receiptCountProvider,
-            prefersDemoDataProvider: prefersDemoDataProvider
+            prefersDemoDataProvider: prefersDemoDataProvider,
+            pinnedItemCountProvider: pinnedItemCountProvider
         )
     }
 }
@@ -130,7 +134,8 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
         receiptCountProvider: @escaping () -> Int?,
-        prefersDemoDataProvider: @escaping () -> Bool?
+        prefersDemoDataProvider: @escaping () -> Bool?,
+        pinnedItemCountProvider: @escaping () -> Int?
     ) -> ContextService {
         ContextService(
             contextSourceBuilder: contextSourceBuilder,
@@ -145,7 +150,8 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
             trackedNFTCountProvider: trackedNFTCountProvider,
             musicCollectionCountProvider: musicCollectionCountProvider,
             receiptCountProvider: receiptCountProvider,
-            prefersDemoDataProvider: prefersDemoDataProvider
+            prefersDemoDataProvider: prefersDemoDataProvider,
+            pinnedItemCountProvider: pinnedItemCountProvider
         )
     }
 }
@@ -190,6 +196,7 @@ struct ShellServiceHub {
     let receiptStoreFactory: @MainActor (ModelContext) -> any ReceiptStore
     let receiptEventLoggerFactory: @MainActor (ModelContext) -> ReceiptEventLogger
     let searchHistoryStoreFactory: () -> SearchHistoryStore
+    let homePinnedItemsStoreFactory: () -> HomePinnedItemsStore
     let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
 
@@ -233,6 +240,9 @@ struct ShellServiceHub {
             },
             searchHistoryStoreFactory: {
                 SearchHistoryStore()
+            },
+            homePinnedItemsStoreFactory: {
+                HomePinnedItemsStore()
             },
             tokenHoldingsStoreFactory: { modelContext in
                 TokenHoldingsStore(modelContext: modelContext)

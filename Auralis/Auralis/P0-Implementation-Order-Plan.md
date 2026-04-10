@@ -28,12 +28,12 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-502` is now complete for the current shell/context/action slice: app launch, context builds, NFT refresh, account and chain changes, explorer opens, and the active copy action all emit receipts on the shared foundation.
 - `P0-402` is now complete for the strengthened shell-facing context slice: context builds emit receipts and the mounted chrome plus inspector read the shared `ContextSnapshot` instead of parallel shell-state lookups.
 - `P0-101B` has been re-validated as complete after the shell, mode, and chain remediation passes.
-- `P0-401` is now in progress as a stronger schema-first slice: `ContextSnapshot` exists, the shell inspector reads it, provenance-bearing scope/freshness fields are formalized, local playlist and scoped-receipt counts now feed the schema, guest-pass/demo preference is represented in the shared contract, and provider-backed native balance now flows through `ContextService`.
+- `P0-401` is now complete for the current Phase 0 context-contract slice: `ContextSnapshot` exists, the shell inspector reads it, provenance-bearing scope/freshness fields are formalized, local playlist and scoped-receipt counts now feed the schema, guest-pass/demo preference is represented in the shared contract, shell-owned pinned Home links now provide a real pinned-item preference count, and provider-backed native balance now flows through `ContextService`.
 - `P0-301` is now complete for the current read-only provider slice: endpoint resolution is centralized, NFT fetching is injected, gas pricing is protocol-backed, the shell service hub owns the shared provider factory, and native balance is consumed by the shell-facing context layer.
-- `P0-701A` is now in progress as a structural scaffolding slice: root-owned mode state, a shell service hub, and shared receipt-store factories are in place.
-- `P0-101C` is now in progress under the context-sheet interpretation: the chrome still opens a dedicated inspector entry, and the inspector freshness section now handles stale labeling plus explicit refresh.
+- `P0-701A` is now complete as a structural scaffolding slice: root-owned mode state, a shell service hub, shared receipt-store factories, and a shell-owned pinned-link preference seam are in place.
+- `P0-101C` is now complete under the context-sheet interpretation: the chrome keeps a dedicated inspector entry, visibly surfaces scope and freshness state, and the inspector freshness section handles stale labeling plus explicit refresh.
 - `P0-403` is now complete for the current receipt-aware inspector slice: the sheet has a Why-am-I-seeing-this section and can link to the latest scoped `context.built` receipt.
-- `P0-102A` is now in progress as a conservative Home dashboard pass: the scenic glass aesthetic remains intact while Home is reorganized into identity, modules, recent activity, quick links, and temporary profile-studio sections.
+- `P0-102A` is now complete as a conservative Home dashboard pass: the scenic glass aesthetic remains intact while Home is reorganized into identity, active scope summary, modules, quick links, recent activity, and temporary profile-studio sections.
 - `P0-451` is now complete for the current Music foundation slice: a SwiftData-backed music library index exists, it rebuilds from scoped local `NFT` records, emits dedicated library-index receipts, the mounted Music tab consumes the index, and Home now shows the local music count while Search remains attached through the local `NFT` store.
 - `P0-461` is now complete for the native-balance-first holdings slice: the ERC-20 tab mounts a real SwiftData-backed holdings list, native balance persists per account and chain scope, and the surface keeps cached native state visible when later refreshes fail.
 
@@ -54,12 +54,12 @@ Closeout summary:
 - `P0-204`: complete for the current per-account chain-scope baseline
 - `P0-502`: complete for the current shell/context/action receipt slice; later verification and cleanup still belong to `P0-502B`
 - `P0-402`: complete for the current shell-facing context-service slice; broader shell rollout and stricter boundary cleanup continue under the same ticket family
-- `P0-401`: in progress as a stronger schema-first baseline; the remaining gaps are broader adoption and a few still-placeholder-safe fields, not missing balance/provider wiring
+- `P0-401`: complete for the current context-contract baseline; later schema growth remains additive follow-on work
 - `P0-301`: complete for the current injected read-only provider baseline; later token-surface consumers and stricter ownership cleanup remain deferred
-- `P0-701A`: in progress as a shell/service scaffolding baseline; strict boundary enforcement remains deferred to `P0-701B`
-- `P0-101C`: in progress for the current context-sheet freshness interaction slice
+- `P0-701A`: complete as a shell/service scaffolding baseline; strict boundary enforcement remains deferred to `P0-701B`
+- `P0-101C`: complete for the current context-sheet freshness interaction slice
 - `P0-403`: complete for the current receipt-aware inspector slice
-- `P0-102A`: in progress for the current Home dashboard shell slice
+- `P0-102A`: complete for the current Home dashboard shell slice
 - `P0-451`: complete for the current SwiftData-backed music library index slice
 - `P0-461`: complete for the current native-balance-first holdings slice; provider-backed account token holdings retrieval remains deferred follow-on work
 
@@ -131,25 +131,25 @@ Why:
 
 ### Phase 3: Context and provider spine setup
 
-Partially complete
+Completed
 
 Current phase status:
 
 - `P0-204` is complete.
 - `P0-301` is complete for the current read-only provider slice.
-- `P0-401` and `P0-701A` have shipped meaningful baseline slices, but the phase is not complete yet.
-- Full Phase 3 completion still depends on the remaining completion boundaries recorded in those ticket docs.
+- `P0-401` is complete for the current context-contract slice.
+- `P0-701A` is complete for the current structural scaffolding slice.
 
 6. `P0-204` Chain scope settings per account (Completed)
-7. `P0-401` Context schema v0 (Stronger schema-first slice in progress)
+7. `P0-401` Context schema v0 (Completed for the current slice)
 8. `P0-301` Provider abstraction (Completed for current read-only provider slice)
-9. `P0-701A` Layered boundaries structural scaffolding (Baseline slice in progress)
+9. `P0-701A` Layered boundaries structural scaffolding (Completed for the current slice)
 
 Why:
 
-- `P0-204` is now done, so the next real start point is `P0-401`
-- `P0-401` now covers the shell-facing typed schema cleanly enough that the remaining work is mostly provider-backed enrichment and broader adoption, not missing contract shape
-- `P0-301` now provides a real reusable provider seam, while `P0-701A` still owns structural follow-on cleanup
+- `P0-204` is now done, and the rest of the phase is now closed for the current shell spine
+- `P0-401` now covers the shell-facing typed schema cleanly enough for the current slice
+- `P0-301` now provides a real reusable provider seam, and `P0-701A` has landed the structural scaffolding needed for shell-facing seams
 - this is the minimum structure needed before context orchestration becomes real
 
 ### Phase 4: Fetch, cache, and context assembly
@@ -168,9 +168,9 @@ Why:
 
 15. `P0-503` Receipts UI (Completed for scoped receipts timeline/detail slice)
 21. `P0-103B` Query parser + type detection (Completed for deterministic local parser + inline detection feedback slice)
-16. `P0-101C` Context Bar behavior + interactions (In progress for context-sheet freshness interaction slice)
+16. `P0-101C` Context Bar behavior + interactions (Completed for context-sheet freshness interaction slice)
 17. `P0-403` Context inspector UI (Completed for current receipt-aware inspector slice)
-20. `P0-102A` Home layout v0 (In progress for dashboard shell slice)
+20. `P0-102A` Home layout v0 (Completed for dashboard shell slice)
 
 
 Why:
@@ -249,17 +249,7 @@ Why:
 
 ## Suggested Next Concrete Sprint
 
-If the goal is to continue implementation immediately with the least churn, finish the still-open Phase 3 spine work first:
-
-1. `P0-401`
-2. `P0-701A`
-
-That gives the project:
-
-- a fully closed context snapshot contract instead of a schema-first baseline
-- structural scaffolding that is ready for downstream chrome and surface work
-
-`P0-301` no longer belongs in the next sprint list because the current read-only provider slice is already landed. The main unfinished shell-spine work is now `P0-401` and `P0-701A`.
+The former Phase 3 spine blockers are now closed. The next remaining implementation work sits in Phase 11 release-readiness rather than unresolved shell-spine fundamentals.
 
 ## Suggested Following Sprint
 

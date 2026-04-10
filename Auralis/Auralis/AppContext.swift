@@ -294,6 +294,7 @@ struct LiveContextSource: ContextSource {
     let musicCollectionCountProvider: () -> Int?
     let receiptCountProvider: () -> Int?
     let prefersDemoDataProvider: () -> Bool?
+    let pinnedItemCountProvider: () -> Int?
 
     init(
         accountProvider: @escaping () -> EOAccount?,
@@ -309,7 +310,8 @@ struct LiveContextSource: ContextSource {
         trackedNFTCountProvider: @escaping () -> Int? = { nil },
         musicCollectionCountProvider: @escaping () -> Int? = { nil },
         receiptCountProvider: @escaping () -> Int? = { nil },
-        prefersDemoDataProvider: @escaping () -> Bool? = { nil }
+        prefersDemoDataProvider: @escaping () -> Bool? = { nil },
+        pinnedItemCountProvider: @escaping () -> Int? = { nil }
     ) {
         self.accountProvider = accountProvider
         self.addressProvider = addressProvider
@@ -325,6 +327,7 @@ struct LiveContextSource: ContextSource {
         self.musicCollectionCountProvider = musicCollectionCountProvider
         self.receiptCountProvider = receiptCountProvider
         self.prefersDemoDataProvider = prefersDemoDataProvider
+        self.pinnedItemCountProvider = pinnedItemCountProvider
     }
 
     func snapshot() -> ContextSnapshot {
@@ -385,8 +388,9 @@ struct LiveContextSource: ContextSource {
                     provenance: .userProvided
                 ),
                 pinnedItemCount: ContextField(
-                    nil,
-                    provenance: .localCache
+                    pinnedItemCountProvider(),
+                    provenance: .localCache,
+                    updatedAt: refreshTimestamp
                 )
             ),
             freshness: ContextFreshness(

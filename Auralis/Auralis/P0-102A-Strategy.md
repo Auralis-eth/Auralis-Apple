@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress
+Complete
 
 ## Ticket
 
@@ -42,7 +42,6 @@ Render with demo or offline data, render with real cached context, verify tile r
 
 ## Remaining Work
 
-- richer active-account summary belongs to `P0-102B`
-- module counts, freshness, and receipt shortcuts belong to `P0-102C`
-- deeper recent-activity shaping belongs to `P0-102D`
-- first-run and empty-state specialization belongs to `P0-102E`
+`P0-102A` is complete for the current dashboard-shell slice.
+
+Home now has an explicit account-summary section, a dedicated quick-links section, scoped recent activity, and shell-owned pinned shortcuts without reopening later Home follow-on tickets. The downstream Home tickets remain deepen-and-polish work, not missing layout baseline work.

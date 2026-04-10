@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress
+Complete
 
 ## Ticket
 
@@ -48,10 +48,8 @@ Build minimal valid snapshots, verify provenance and timestamps for populated fi
 
 ## Completion Boundary
 
-This ticket is materially further along as a schema-first implementation, but it should not be marked fully complete until the remaining deferred fields stop depending on placeholder-safe values.
+`P0-401` is complete for the current Phase 0 context-contract slice.
 
-The main remaining blockers are:
+The context contract now carries real shell-owned local preference state for pinned Home quick links, the chrome and inspector consume the shared snapshot, and Home-facing UI now deepens the same schema instead of bypassing it with parallel shell lookups.
 
-- any remaining freshness-policy cleanup if the final TTL ownership changes downstream
-- broader downstream adoption outside the current shell, inspector, and the first snapshot-backed empty-state path
-- replacing the remaining placeholder-safe preference fields only when real owning surfaces exist
+Later tickets may still broaden the schema, but that work is additive rather than a blocker for closing this ticket.

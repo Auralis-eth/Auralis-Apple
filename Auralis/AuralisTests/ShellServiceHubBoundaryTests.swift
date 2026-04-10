@@ -74,4 +74,17 @@ struct ShellServiceHubBoundaryTests {
         #expect(holdings.first?.balanceKind == .native)
         #expect(holdings.first?.amountDisplay == "1.25 ETH")
     }
+
+    @Test("live shell service hub creates home pinned-items stores through the shared preference seam")
+    @MainActor
+    func homePinnedItemsStoreFactoryPersistsScopedPins() {
+        let store = ShellServiceHub.live.homePinnedItemsStoreFactory()
+        let accountAddress = "0x\(UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(40))"
+
+        let isPinned = store.togglePin(.openSearch, accountAddress: accountAddress)
+
+        #expect(isPinned)
+        #expect(store.isPinned(.openSearch, accountAddress: accountAddress))
+        #expect(store.pinnedCount(for: accountAddress) == 1)
+    }
 }

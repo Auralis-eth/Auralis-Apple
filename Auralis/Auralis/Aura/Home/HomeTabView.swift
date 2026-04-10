@@ -45,7 +45,7 @@ struct HomeAccountSummaryInputs: Equatable {
     let mostRecentActivityAt: Date?
 }
 
-enum HomeLauncherAction: Equatable {
+enum HomeLauncherAction: String, CaseIterable, Codable, Equatable, Hashable {
     case openMusic
     case openNFTTokens
     case openSearch
@@ -60,6 +60,7 @@ struct HomeLauncherItem: Equatable, Identifiable {
     let badgeTitle: String
     let systemImage: String
     let buttonTitle: String
+    let isPinned: Bool
 
     var id: String { title }
 }
@@ -174,9 +175,11 @@ struct HomeTabLogic {
         )
     }
 
-    func modulesPresentation(trackCount: Int) -> HomeModulesPresentation {
-        HomeModulesPresentation(
-            primary: [
+    func modulesPresentation(
+        trackCount: Int,
+        pinnedActions: Set<HomeLauncherAction> = []
+    ) -> HomeModulesPresentation {
+        let primary = [
                 HomeLauncherItem(
                     action: .openMusic,
                     title: "Music",
@@ -185,7 +188,8 @@ struct HomeTabLogic {
                         : "No local music tracks yet",
                     badgeTitle: trackCount > 0 ? "\(trackCount) local" : "Quiet",
                     systemImage: "play.fill",
-                    buttonTitle: "Open player"
+                    buttonTitle: "Open player",
+                    isPinned: pinnedActions.contains(.openMusic)
                 ),
                 HomeLauncherItem(
                     action: .openNFTTokens,
@@ -193,17 +197,19 @@ struct HomeTabLogic {
                     subtitle: "Browse NFT tokens and jump into detail",
                     badgeTitle: "Library",
                     systemImage: "square.stack",
-                    buttonTitle: "Open tokens"
+                    buttonTitle: "Open tokens",
+                    isPinned: pinnedActions.contains(.openNFTTokens)
                 )
-            ],
-            shortcuts: [
+            ]
+        let shortcuts = [
                 HomeLauncherItem(
                     action: .openSearch,
                     title: "Search",
                     subtitle: "Open the global search tab",
                     badgeTitle: "Shell",
                     systemImage: "magnifyingglass",
-                    buttonTitle: "Open Search"
+                    buttonTitle: "Open Search",
+                    isPinned: pinnedActions.contains(.openSearch)
                 ),
                 HomeLauncherItem(
                     action: .openNews,
@@ -211,7 +217,8 @@ struct HomeTabLogic {
                     subtitle: "Jump to the live news surface",
                     badgeTitle: "Shell",
                     systemImage: "bubble.right",
-                    buttonTitle: "Open News Feed"
+                    buttonTitle: "Open News Feed",
+                    isPinned: pinnedActions.contains(.openNews)
                 ),
                 HomeLauncherItem(
                     action: .openReceipts,
@@ -219,10 +226,28 @@ struct HomeTabLogic {
                     subtitle: "Review local scoped activity",
                     badgeTitle: "Shell",
                     systemImage: "doc.text",
-                    buttonTitle: "Open Receipts"
+                    buttonTitle: "Open Receipts",
+                    isPinned: pinnedActions.contains(.openReceipts)
                 )
             ]
+
+        return HomeModulesPresentation(
+            primary: orderedByPinned(primary),
+            shortcuts: orderedByPinned(shortcuts)
         )
+    }
+
+    private func orderedByPinned(_ items: [HomeLauncherItem]) -> [HomeLauncherItem] {
+        let indexedItems = Array(items.enumerated())
+        return indexedItems
+            .sorted { lhs, rhs in
+                if lhs.element.isPinned != rhs.element.isPinned {
+                    return lhs.element.isPinned && !rhs.element.isPinned
+                }
+
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
     }
 
     func recentActivityPreviewItems(
@@ -270,6 +295,8 @@ struct HomeTabView: View {
     let router: AppRouter
     let ensResolver: any ENSResolving
     let services: ShellServiceHub
+    let pinnedItemsStore: HomePinnedItemsStore
+    @Binding var pinnedItemCount: Int
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -290,6 +317,7 @@ struct HomeTabView: View {
     @State private var activeImageGenerationID = UUID()
     @State private var promptCache = [String: [ImagePlaygroundConcept]]()
     @State private var avatarImage: UIImage?
+    @State private var pinnedActions: Set<HomeLauncherAction> = []
 
     init(
         currentAccount: Binding<EOAccount?>,
@@ -299,7 +327,9 @@ struct HomeTabView: View {
         onCurrentChainChanged: @escaping @MainActor (Chain, String) -> Void,
         router: AppRouter,
         ensResolver: any ENSResolving,
-        services: ShellServiceHub
+        services: ShellServiceHub,
+        pinnedItemsStore: HomePinnedItemsStore,
+        pinnedItemCountBinding: Binding<Int>
     ) {
         self._currentAccount = currentAccount
         self._currentAddress = currentAddress
@@ -309,6 +339,8 @@ struct HomeTabView: View {
         self.router = router
         self.ensResolver = ensResolver
         self.services = services
+        self.pinnedItemsStore = pinnedItemsStore
+        self._pinnedItemCount = pinnedItemCountBinding
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount.wrappedValue?.address ?? currentAddress.wrappedValue) ?? ""
         let chainRawValue = currentChain.wrappedValue.rawValue
@@ -360,7 +392,19 @@ struct HomeTabView: View {
     }
 
     private var modulesPresentation: HomeModulesPresentation {
-        logic.modulesPresentation(trackCount: musicNFTCount)
+        logic.modulesPresentation(
+            trackCount: musicNFTCount,
+            pinnedActions: pinnedActions
+        )
+    }
+
+    private var accountSummaryPresentation: HomeAccountSummaryPresentation {
+        logic.accountSummaryPresentation(
+            currentAccount: currentAccount,
+            currentAddress: currentAddress,
+            currentChain: currentChain,
+            scopedNFTCount: scopedNFTs.count
+        )
     }
 
     var body: some View {
@@ -371,6 +415,7 @@ struct HomeTabView: View {
                     sparseStateSection
                 }
                 modulesSection
+                quickLinksSection
                 recentActivitySection
                 creationStudioSection
             }
@@ -407,6 +452,12 @@ struct HomeTabView: View {
                 Text(errorMessage)
             }
         })
+        .onAppear {
+            reloadPinnedActions()
+        }
+        .onChange(of: currentAddress) { _, _ in
+            reloadPinnedActions()
+        }
     }
 
     private var backgroundVisual: some View {
@@ -448,6 +499,35 @@ struct HomeTabView: View {
             }
 
             AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+                VStack(alignment: .leading, spacing: 10) {
+                    AuraSectionHeader(
+                        title: "Active Scope",
+                        subtitle: accountSummaryPresentation.chainTitle
+                    ) {
+                        AuraPill(
+                            accountSummaryPresentation.trackedNFTLabel,
+                            systemImage: "square.stack",
+                            emphasis: .accent
+                        )
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(accountSummaryPresentation.title)
+                            .font(.headline)
+                            .foregroundStyle(Color.textPrimary)
+                        Text(accountSummaryPresentation.addressLine)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                        if let lastActivityLabel = accountSummaryPresentation.lastActivityLabel {
+                            Text(lastActivityLabel)
+                                .font(.caption)
+                                .foregroundStyle(Color.textSecondary)
+                        }
+                    }
+                }
+            }
+
+            AuraSurfaceCard(style: .soft, cornerRadius: 25) {
                 EnergyCardView(time: Date())
             }
         }
@@ -465,16 +545,26 @@ struct HomeTabView: View {
             }
 
             tileLayout(using: modulesPresentation.primary)
+        }
+    }
 
-            AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-                VStack(alignment: .leading, spacing: 12) {
-                    AuraSectionHeader(
-                        title: "Shell Shortcuts",
-                        subtitle: "Fast jumps into the other mounted product surfaces."
+    private var quickLinksSection: some View {
+        AuraSurfaceCard(style: .soft, cornerRadius: 25) {
+            VStack(alignment: .leading, spacing: 12) {
+                AuraSectionHeader(
+                    title: "Quick Links",
+                    subtitle: pinnedItemCount > 0
+                        ? "\(pinnedItemCount) pinned link\(pinnedItemCount == 1 ? "" : "s") for this scope."
+                        : "Fast jumps into the other mounted product surfaces."
+                ) {
+                    AuraPill(
+                        pinnedItemCount > 0 ? "\(pinnedItemCount) pinned" : "Ready",
+                        systemImage: pinnedItemCount > 0 ? "pin.fill" : "bolt.fill",
+                        emphasis: .accent
                     )
-
-                    launcherShortcuts(using: modulesPresentation.shortcuts)
                 }
+
+                launcherShortcuts(using: modulesPresentation.shortcuts)
             }
         }
     }
@@ -609,8 +699,23 @@ struct HomeTabView: View {
     }
 
     private func launcherShortcutButton(for item: HomeLauncherItem) -> some View {
-        AuraActionButton(item.buttonTitle, systemImage: item.systemImage, style: .surface) {
-            runLauncherAction(item.action)
+        HStack(spacing: 10) {
+            AuraActionButton(item.buttonTitle, systemImage: item.systemImage, style: .surface) {
+                runLauncherAction(item.action)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                togglePin(for: item.action)
+            } label: {
+                AuraPill(
+                    item.isPinned ? "Pinned" : "Pin",
+                    systemImage: item.isPinned ? "pin.fill" : "pin",
+                    emphasis: item.isPinned ? .accent : .neutral
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(item.isPinned ? "Unpin \(item.title)" : "Pin \(item.title)")
         }
         .accessibilityIdentifier(accessibilityIdentifier(for: item.action))
     }
@@ -975,6 +1080,17 @@ struct HomeTabView: View {
         case .openReceipts:
             router.showReceipts()
         }
+    }
+
+    private func reloadPinnedActions() {
+        let currentPinnedActions = pinnedItemsStore.pinnedActions(for: currentAccount?.address ?? currentAddress)
+        pinnedActions = currentPinnedActions
+        pinnedItemCount = currentPinnedActions.count
+    }
+
+    private func togglePin(for action: HomeLauncherAction) {
+        _ = pinnedItemsStore.togglePin(action, accountAddress: currentAccount?.address ?? currentAddress)
+        reloadPinnedActions()
     }
 
     private func accessibilityIdentifier(for action: HomeLauncherAction) -> String {

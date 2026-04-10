@@ -38,6 +38,7 @@ These tickets are already closed for their planned Phase 0 slice:
 - `P0-103E` no-results + safety behavior
 - `P0-103F` search history
 - `P0-602` policy gate wrapper for actions
+- `P0-701A` layered module-boundary scaffolding
 - `P0-701B` layered boundaries enforcement completion
 - `P0-702` untrusted input labeling
 - `P0-703` no bypass paths smoke tests
@@ -53,19 +54,15 @@ Notes:
 
 ## In Progress
 
-These tickets are no longer just "startable now"; they are actively underway:
-
-- `P0-401` context schema v0
-- `P0-101C` context freshness behavior on the context-sheet path
-- `P0-102A` Home layout shell slice
-- `P0-701A` layered module-boundary scaffolding
+There are no remaining in-progress tickets in the former shell-spine batch.
 
 Current read on `P0-401`:
 
 - the shell-facing `ContextSnapshot` contract is real and in use
 - local playlist and scoped-receipt counts now feed the schema where local data already exists
 - guest-pass/demo preference is represented in the shared context contract
-- provider-backed native balance now flows through `ContextService`, so the remaining gaps are broader adoption and a few still-placeholder-safe fields
+- provider-backed native balance now flows through `ContextService`
+- shell-owned pinned Home links now feed a real pinned-item preference count instead of a placeholder-safe field
 
 Current read on `P0-301`:
 
@@ -77,7 +74,7 @@ Current read on `P0-101C`:
 
 - the product keeps a dedicated Context entry in chrome instead of a separate freshness pill
 - the inspector freshness section now exposes stale/unknown/no-success refresh behavior through the existing shell refresh path
-- remaining work is cleanup and observation, not missing core interaction wiring
+- the chrome now surfaces freshness and scope state visibly while keeping the inspector as the dedicated interaction surface
 
 Current read on `P0-403`:
 
@@ -89,13 +86,13 @@ Current read on `P0-102A`:
 
 - Home now has a real dashboard shell with identity, modules, recent activity, quick links, and temporary profile-studio sections
 - the scenic background and glass-card visual language were intentionally preserved
+- Home now includes an explicit active-scope summary and a dedicated quick-links section with pinned shortcuts
 - later Home tickets can now deepen sections without forcing another top-level Home rewrite
 
 ## Still Blocked
 
 These tickets remain blocked in their own current docs:
 
-- `P0-502B`
 - `P0-801`
 - `P0-802`
 - `P0-803`
@@ -118,7 +115,7 @@ The original slicing rule still stands, but the report must now acknowledge comp
 
 ### `P0-701` remains split
 
-- `P0-701A` is in progress as structural scaffolding
+- `P0-701A` is complete for the structural scaffolding slice
 - `P0-701B` is complete for the first shell-facing enforcement slice, with deeper leaf-view cleanup still intentionally deferred
 
 ### Context and provider work moved forward materially
@@ -135,19 +132,9 @@ That assumption is stale. Those slices are now delivered for their current Phase
 
 Given the current repo state, the most defensible next sequencing is:
 
-### Finish The Active Spine
+### Shell Spine Read
 
-- `P0-401`
-- `P0-701A`
-
-Status nuance:
-
-- `P0-301` is already complete for the current read-only provider slice
-- `P0-401` should be treated as near-closeout work rather than as a barely-started schema stub
-
-### Then Close The Remaining Spine Work And Deepen The New Surfaces
-
-- `P0-101C`
+- `P0-301`, `P0-401`, `P0-701A`, and `P0-101C` are complete for their current slices
 
 ### Phase 8 Closure Read
 
@@ -167,7 +154,7 @@ Status nuance:
 ### Phase 10 Closure Read
 
 - the policy, enforcement, trust-labeling, smoke-test, and receipt-cleanup hardening phase is complete for the current slice
-- the remaining late work is now release-readiness, not more Phase 10 cleanup
+- the remaining late work is now Phase 11 release-readiness, not unresolved shell or policy hardening
 
 ## Planning Rule Going Forward
 

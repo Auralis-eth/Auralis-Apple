@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress
+Complete
 
 ## Ticket
 
@@ -43,6 +43,6 @@ Review imports, ownership, and dependency injection paths to ensure new feature 
 
 ## Remaining Work
 
-- Move broader context orchestration behind the future `P0-402` service layer.
-- Extend the same service-hub approach to more feature-specific read paths as they become real consumers.
-- Reserve compile-time or folder-level enforcement for `P0-701B`.
+`P0-701A` is complete for its structural scaffolding boundary.
+
+The shell now owns a real preference seam for pinned Home links through `ShellServiceHub`, and the context-service path consumes that seam instead of relying on placeholder fields. Future tightening remains enforcement work for later tickets, not unfinished scaffolding.

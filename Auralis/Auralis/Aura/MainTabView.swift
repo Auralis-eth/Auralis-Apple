@@ -237,9 +237,11 @@ struct MainTabView: View {
     let audioUnavailableMessage: String?
     let modeState: ModeState
     let services: ShellServiceHub
+    private let homePinnedItemsStore: HomePinnedItemsStore
     @State private var showAccountSwitcher = false
     @State private var showContextInspector = false
     @State private var contextService: ContextService
+    @State private var pinnedItemCount: Int
 
     private var contextRefreshKey: ContextRefreshKey {
         ContextRefreshKey(
@@ -248,7 +250,8 @@ struct MainTabView: View {
             mode: modeState.mode,
             isLoading: nftService.isLoading,
             refreshedAt: nftService.lastSuccessfulRefreshAt,
-            trackedNFTCount: currentAccount?.trackedNFTCount
+            trackedNFTCount: currentAccount?.trackedNFTCount,
+            pinnedItemCount: pinnedItemCount
         )
     }
 
@@ -277,7 +280,14 @@ struct MainTabView: View {
         self.audioUnavailableMessage = audioUnavailableMessage
         self.modeState = modeState
         self.services = services
+        let homePinnedItemsStore = services.homePinnedItemsStoreFactory()
+        self.homePinnedItemsStore = homePinnedItemsStore
         let libraryContextProvider = services.libraryContextProviderFactory(modelContext)
+        _pinnedItemCount = State(
+            initialValue: homePinnedItemsStore.pinnedCount(
+                for: currentAddress.wrappedValue
+            )
+        )
         _contextService = State(
             initialValue: services.contextServiceBuilder.makeContextService(
                 accountProvider: { currentAccount.wrappedValue },
@@ -302,6 +312,11 @@ struct MainTabView: View {
                 },
                 prefersDemoDataProvider: {
                     currentAccount.wrappedValue?.source == .guestPass
+                },
+                pinnedItemCountProvider: {
+                    homePinnedItemsStore.pinnedCount(
+                        for: currentAddress.wrappedValue
+                    )
                 }
             )
         )
@@ -419,7 +434,9 @@ struct MainTabView: View {
                     onCurrentChainChanged: refreshActiveChainScope,
                     router: router,
                     ensResolver: services.ensResolverFactory(modelContext),
-                    services: services
+                    services: services,
+                    pinnedItemsStore: homePinnedItemsStore,
+                    pinnedItemCountBinding: $pinnedItemCount
                 )
             }
 
@@ -643,6 +660,7 @@ private struct ContextRefreshKey: Hashable {
     let isLoading: Bool
     let refreshedAt: Date?
     let trackedNFTCount: Int?
+    let pinnedItemCount: Int
 }
 
 #Preview {
