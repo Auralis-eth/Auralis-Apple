@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum ShellStatusTone {
+enum ShellStatusTone: Equatable {
     case neutral
     case warning
     case critical
@@ -132,7 +132,30 @@ struct ShellProviderFailureStateView: View {
     let retry: () -> Void
 
     var body: some View {
+        let presentation = Self.presentation(for: failure, retry: retry)
+
         ShellStatusCard(
+            eyebrow: presentation.eyebrow,
+            title: presentation.title,
+            message: presentation.message,
+            systemImage: presentation.systemImage,
+            tone: presentation.tone,
+            primaryAction: presentation.primaryAction
+        )
+    }
+
+    static func presentation(
+        for failure: NFTProviderFailurePresentation,
+        retry: @escaping () -> Void = { }
+    ) -> (
+        eyebrow: String,
+        title: String,
+        message: String,
+        systemImage: String,
+        tone: ShellStatusTone,
+        primaryAction: ShellStatusAction?
+    ) {
+        (
             eyebrow: failure.mode == .degraded ? "Degraded Mode" : "Provider Error",
             title: failure.title,
             message: failure.message,
@@ -199,13 +222,13 @@ struct ShellEmptyLibraryStateView: View {
         ShellStatusCard(
             eyebrow: "Library",
             title: kind.title,
-            message: libraryMessage,
+            message: Self.message(for: kind, snapshot: snapshot),
             systemImage: kind.systemImage,
             tone: .neutral
         )
     }
 
-    private var libraryMessage: String {
+    static func message(for kind: ShellLibraryKind, snapshot: ContextSnapshot?) -> String {
         guard let snapshot else {
             return kind.message
         }
@@ -225,13 +248,13 @@ struct ShellNoReceiptsStateView: View {
         ShellStatusCard(
             eyebrow: "Receipts",
             title: "No Receipts Recorded Yet",
-            message: receiptMessage,
+            message: Self.message(snapshot: snapshot),
             systemImage: "doc.text.magnifyingglass",
             tone: .neutral
         )
     }
 
-    private var receiptMessage: String {
+    static func message(snapshot: ContextSnapshot?) -> String {
         guard let snapshot else {
             return "Receipt history starts once Auralis records account and refresh events. Until then, there is nothing to inspect or export from this device."
         }

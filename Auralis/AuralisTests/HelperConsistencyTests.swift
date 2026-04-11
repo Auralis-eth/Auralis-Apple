@@ -176,6 +176,61 @@ struct HelperConsistencyTests {
         #expect(row.canOpenDetail == false)
     }
 
+    @Test("provider-backed ERC-20 replacement updates the active scope and removes stale token rows")
+    @MainActor
+    func replacingScopedERC20HoldingsReconcilesRows() throws {
+        let container = try makeTokenHoldingContainer()
+        let context = ModelContext(container)
+        let store = TokenHoldingsStore(modelContext: context)
+
+        try store.replaceERC20Holdings(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet,
+            holdings: [
+                ProviderTokenHolding(
+                    contractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                    symbol: "USDC",
+                    displayName: "USD Coin",
+                    amountDisplay: "15.25 USDC",
+                    updatedAt: Date(timeIntervalSince1970: 100),
+                    isPlaceholder: false
+                ),
+                ProviderTokenHolding(
+                    contractAddress: "0x6b175474e89094c44da98b954eedeac495271d0f",
+                    symbol: "DAI",
+                    displayName: "Dai",
+                    amountDisplay: "7.5 DAI",
+                    updatedAt: Date(timeIntervalSince1970: 100),
+                    isPlaceholder: false
+                )
+            ]
+        )
+
+        try store.replaceERC20Holdings(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet,
+            holdings: [
+                ProviderTokenHolding(
+                    contractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                    symbol: "USDC",
+                    displayName: "USD Coin",
+                    amountDisplay: "20 USDC",
+                    updatedAt: Date(timeIntervalSince1970: 200),
+                    isPlaceholder: false
+                )
+            ]
+        )
+
+        let holdings = try context.fetch(FetchDescriptor<TokenHolding>())
+            .filter { $0.balanceKind == .erc20 }
+            .sorted { $0.displayName < $1.displayName }
+
+        #expect(holdings.count == 1)
+        #expect(holdings[0].contractAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
+        #expect(holdings[0].amountDisplay == "20 USDC")
+        #expect(holdings[0].updatedAt == Date(timeIntervalSince1970: 200))
+    }
+
     @MainActor
     private func makePlaylistContainer() throws -> ModelContainer {
         let schema = Schema([Playlist.self, NFT.self, Tag.self])

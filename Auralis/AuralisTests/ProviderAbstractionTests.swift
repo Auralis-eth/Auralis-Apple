@@ -19,6 +19,7 @@ import Testing
         let configuration = try resolver.configuration(for: .baseMainnet)
 
         #expect(configuration.alchemyNFTBaseURL?.absoluteString == "https://base-mainnet.g.alchemy.com/nft/v3/alchemy-key")
+        #expect(configuration.alchemyDataAPIBaseURL?.absoluteString == "https://api.g.alchemy.com/data/v1/alchemy-key")
         #expect(configuration.alchemyRPCURL?.absoluteString == "https://base-mainnet.g.alchemy.com/v2/alchemy-key")
         #expect(configuration.infuraGasURL?.absoluteString == "https://gas.api.infura.io/v3/infura-key/networks/8453/suggestedGasFees")
     }
@@ -30,8 +31,93 @@ import Testing
         let configuration = try resolver.configuration(for: .solanaMainnet)
 
         #expect(configuration.alchemyNFTBaseURL?.absoluteString == "https://solana-mainnet.g.alchemy.com/nft/v3/shared-key")
+        #expect(configuration.alchemyDataAPIBaseURL?.absoluteString == "https://api.g.alchemy.com/data/v1/shared-key")
         #expect(configuration.alchemyRPCURL == nil)
         #expect(configuration.infuraGasURL == nil)
+    }
+
+    @Test("token holdings provider uses the shared Alchemy data API and formats ERC-20 balances for persistence")
+    @MainActor
+    func tokenHoldingsProviderLoadsFormattedERC20Rows() async throws {
+        let session = makeMockSession()
+        let provider = AlchemyTokenHoldingsProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                switch provider {
+                case .alchemy:
+                    return "alchemy-key"
+                default:
+                    return nil
+                }
+            },
+            session: session
+        )
+
+        ProviderMockURLProtocol.handler = { request in
+            #expect(request.url?.absoluteString == "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/by-address")
+            #expect(request.httpMethod == "POST")
+            let body = try #require(request.httpBody)
+            let payload = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+            let addresses = try #require(payload?["addresses"] as? [[String: Any]])
+            let firstAddress = try #require(addresses.first)
+            #expect(firstAddress["address"] as? String == "0x1234567890abcdef1234567890abcdef12345678")
+            #expect(firstAddress["networks"] as? [String] == [Chain.baseMainnet.rawValue])
+            #expect(payload?["includeNativeTokens"] as? Bool == false)
+            #expect(payload?["includeErc20Tokens"] as? Bool == true)
+
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            let data = Data(
+                """
+                {
+                  "data": {
+                    "tokens": [
+                      {
+                        "address": "0x1234567890abcdef1234567890abcdef12345678",
+                        "network": "base-mainnet",
+                        "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                        "tokenBalance": "1234567",
+                        "tokenMetadata": {
+                          "decimals": 6,
+                          "logo": "https://example.com/usdc.png",
+                          "name": "USD Coin",
+                          "symbol": "USDC"
+                        },
+                        "tokenPrices": [
+                          {
+                            "currency": "usd",
+                            "value": "1.0",
+                            "lastUpdatedAt": "2025-08-26T20:17:27Z"
+                          }
+                        ],
+                        "error": null
+                      }
+                    ]
+                  }
+                }
+                """.utf8
+            )
+            return (response, data)
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        let holdings = try await provider.tokenHoldings(
+            for: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet
+        )
+
+        #expect(holdings.count == 1)
+        #expect(holdings[0].contractAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
+        #expect(holdings[0].symbol == "USDC")
+        #expect(holdings[0].displayName == "USD Coin")
+        #expect(holdings[0].amountDisplay == "1.234567 USDC")
+        #expect(holdings[0].updatedAt == ISO8601DateFormatter().date(from: "2025-08-26T20:17:27Z"))
+        #expect(holdings[0].isPlaceholder == false)
     }
 
     @Test("NFT fetcher uses the injected inventory provider factory instead of constructing Alchemy inline")
@@ -277,6 +363,45 @@ private final class PartiallyFailingNFTInventoryProvider: NFTInventoryProviding 
             )
         )
     }
+}
+
+private extension ProviderAbstractionTests {
+    @MainActor
+    func makeMockSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ProviderMockURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+}
+
+private final class ProviderMockURLProtocol: URLProtocol {
+    static var handler: ((URLRequest) throws -> (URLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
 }
 
 private final class SpyNFTRefreshEventRecorder: NFTRefreshEventRecording {

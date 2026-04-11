@@ -56,4 +56,87 @@ struct TokenHoldingsStore {
 
         try modelContext.save()
     }
+
+    func replaceERC20Holdings(
+        accountAddress: String,
+        chain: Chain,
+        holdings: [ProviderTokenHolding]
+    ) throws {
+        guard let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) else {
+            return
+        }
+
+        let existingHoldings = try fetchScopedERC20Holdings(
+            accountAddress: normalizedAccountAddress,
+            chain: chain
+        )
+        var existingByID = Dictionary(
+            uniqueKeysWithValues: existingHoldings.map { ($0.id, $0) }
+        )
+        var incomingIDs: Set<String> = []
+
+        for providerHolding in holdings {
+            guard let normalizedContractAddress = NFT.normalizedScopeComponent(providerHolding.contractAddress) else {
+                continue
+            }
+
+            let id = TokenHolding.makeScopedID(
+                accountAddress: normalizedAccountAddress,
+                chain: chain,
+                contractAddress: normalizedContractAddress,
+                balanceKind: .erc20
+            )
+            incomingIDs.insert(id)
+
+            let holding = existingByID[id] ?? {
+                let newHolding = TokenHolding(
+                    accountAddress: normalizedAccountAddress,
+                    chain: chain,
+                    contractAddress: normalizedContractAddress,
+                    symbol: providerHolding.symbol,
+                    displayName: providerHolding.displayName,
+                    amountDisplay: providerHolding.amountDisplay,
+                    balanceKind: .erc20,
+                    updatedAt: providerHolding.updatedAt,
+                    isPlaceholder: providerHolding.isPlaceholder
+                )
+                modelContext.insert(newHolding)
+                existingByID[id] = newHolding
+                return newHolding
+            }()
+
+            holding.chain = chain
+            holding.contractAddress = normalizedContractAddress
+            holding.symbol = providerHolding.symbol
+            holding.displayName = providerHolding.displayName
+            holding.amountDisplay = providerHolding.amountDisplay
+            holding.updatedAt = providerHolding.updatedAt
+            holding.balanceKind = .erc20
+            holding.sortPriority = TokenHolding.defaultSortPriority(for: .erc20)
+            holding.isPlaceholder = providerHolding.isPlaceholder
+        }
+
+        for staleHolding in existingHoldings where !incomingIDs.contains(staleHolding.id) {
+            modelContext.delete(staleHolding)
+        }
+
+        try modelContext.save()
+    }
+
+    private func fetchScopedERC20Holdings(
+        accountAddress: String,
+        chain: Chain
+    ) throws -> [TokenHolding] {
+        let balanceKindRawValue = TokenHoldingKind.erc20.rawValue
+        let chainRawValue = chain.rawValue
+        let descriptor = FetchDescriptor<TokenHolding>(
+            predicate: #Predicate<TokenHolding> { holding in
+                holding.accountAddressRawValue == accountAddress &&
+                holding.chainRawValue == chainRawValue &&
+                holding.balanceKindRawValue == balanceKindRawValue
+            }
+        )
+
+        return try modelContext.fetch(descriptor)
+    }
 }

@@ -110,25 +110,7 @@ struct SearchRootView: View {
 
     private func openMatch(_ match: SearchLocalMatch) {
         commitQuery()
-
-        switch match.destination {
-        case .profile(let address):
-            router.showProfileDetail(address: address)
-        case .token(let contractAddress, let chain, let symbol):
-            router.showERC20Token(
-                contractAddress: contractAddress,
-                chain: chain,
-                symbol: symbol
-            )
-        case .nftItem(let id):
-            router.showNFTTokensDetail(id: id)
-        case .nftCollection(let contractAddress, let title, let chain):
-            router.showNFTCollectionDetail(
-                contractAddress: contractAddress,
-                title: title,
-                chain: chain
-            )
-        }
+        Self.route(match: match, router: router)
     }
 
     private func commitQuery() {
@@ -184,6 +166,27 @@ struct SearchRootView: View {
             showsDetection: true,
             content: .results
         )
+    }
+
+    static func route(match: SearchLocalMatch, router: AppRouter) {
+        switch match.destination {
+        case .profile(let address):
+            router.showProfileDetail(address: address)
+        case .token(let contractAddress, let chain, let symbol):
+            router.showERC20Token(
+                contractAddress: contractAddress,
+                chain: chain,
+                symbol: symbol
+            )
+        case .nftItem(let id):
+            router.showNFTTokensDetail(id: id)
+        case .nftCollection(let contractAddress, let title, let chain):
+            router.showNFTCollectionDetail(
+                contractAddress: contractAddress,
+                title: title,
+                chain: chain
+            )
+        }
     }
 }
 

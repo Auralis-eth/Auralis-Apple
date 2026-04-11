@@ -445,7 +445,8 @@ struct NFTServiceReceiptTests {
             trackedNFTCountProvider: { account.trackedNFTCount },
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
-            prefersDemoDataProvider: { false }
+            prefersDemoDataProvider: { false },
+            pinnedItemCountProvider: { nil }
         )
 
         _ = await contextService.refresh(

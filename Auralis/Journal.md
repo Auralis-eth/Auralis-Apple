@@ -2,52 +2,66 @@
 
 ## The Big Picture
 
-Auralis is what happens when a wallet explorer, a local activity ledger, a gas dashboard, and a music player all agree to share one shell. The app takes a watch-only wallet and chain scope, builds a trustworthy local picture of that world, and then lets the user move through Home, Search, News, Receipts, Tokens, and Music without the surfaces disagreeing about what reality is.
+Auralis is what happens when a wallet viewer, an NFT browser, a receipts ledger, and a music player all decide to share one cockpit instead of yelling across the room. The app lets you point at a wallet, pull in scoped on-chain inventory, keep a local snapshot in SwiftData, and move around the shell without pretending every provider call is always fresh and perfect.
 
 ## Architecture Deep Dive
 
-`MainAuraView` is the front desk. It decides whether the user sees onboarding, loading, or the mounted app shell.
+The shell is the front desk. `MainAuraView` decides whether you are still in the lobby, loading inventory, or already inside the app. `MainTabView` is the hallway that branches into Home, News, Gas, Music, Receipts, Search, NFT Tokens, and ERC-20 Tokens.
 
-`MainTabView` is the lobby. It keeps the global chrome visible while routing users into the different product wings.
+The provider layer is the kitchen. `ReadOnlyProviderFactory` hands out the right Alchemy or Infura tools without every feature building its own spoon. `ContextService` is the expediter: it pulls live scope data together, stamps freshness and provenance onto it, and sends a clean plate to the chrome and inspector.
 
-`ContextService` is the translator. Instead of every screen grabbing account, chain, freshness, and counts from random places, the shell builds one `ContextSnapshot` and lets multiple surfaces read the same sentence.
-
-`ShellServiceHub` is the breaker panel. If a feature needs persistence, receipts, providers, policy, or local preferences, it should plug into the panel instead of running an extension cord straight into a lower layer.
+SwiftData is the pantry. `NFT`, `TokenHolding`, playlists, receipts, and account rows live there so the app can keep showing something useful when the network flakes out instead of acting like it has never met the user before.
 
 ## The Codebase Map
 
-`Auralis/Aura/` is the user-facing SwiftUI shell.
+`Auralis/Auralis/Aura/`
+This is the shell and feature UI layer. If you are looking for tabs, routes, chrome, empty states, or the ERC-20 holdings screen, start here.
 
-`Auralis/Accounts/`, `Auralis/Networking/`, and `Auralis/Receipts/` hold the state and service guts.
+`Auralis/Auralis/Networking/`
+This is the provider seam. The important rule is simple: extend the existing provider stack before creating another network path just because a new ticket showed up.
 
-`Auralis/AppContext.swift`, `Auralis/ContextService.swift`, and `Auralis/AppServices.swift` are the shell contracts and dependency seams.
+`Auralis/Auralis/Accounts/`
+This is where account and token-holdings persistence logic lives. If a scoped holdings row needs to be saved, reconciled, or deleted, this folder is where the knives are.
 
-`Auralis/MusicApp/AI/` is the active music path. `Auralis/MusicApp/OLD/` is the attic.
+`Auralis/AuralisTests/`
+This is the guardrail layer. A lot of the value here is contract coverage: route behavior, provider seams, scoped persistence, and presentation honesty.
 
 ## Tech Stack & Why
 
-SwiftUI fits because the product is a pile of stateful surfaces reacting to shared shell state. SwiftData fits because the app wants durable local truth for accounts, receipts, NFTs, token holdings, and playlists. Swift Concurrency keeps the async work readable, especially where stale refreshes and stale audio loads need to stop politely instead of stomping new state.
+SwiftUI because the app is heavily state-shaped and the shell needs to react to changing scope, freshness, and provider state without hand-rolling view controllers for every corner.
+
+SwiftData because scoped local persistence is not optional here. Wallet inventory and receipts need to survive provider hiccups, app relaunches, and feature handoffs.
+
+Async/await because the app is constantly juggling fetches, refreshes, and cancellation. Callback soup would turn this codebase into a haunted house fast.
+
+Alchemy plus Infura because the product already depends on real provider-backed blockchain reads, and the clean move is to centralize those seams instead of scattering endpoint knowledge through views.
 
 ## The Journey
 
-Latest war story:
-four tickets looked “almost done,” which is dangerous territory. That usually means the architecture is 90% there and the product still feels like a draft.
+### War Story: P0-461 grew up
 
-`P0-401` was the classic example. The context schema knew the idea of pinned items, but the field was basically a cardboard cutout. That is how contracts start lying. The fix was to give Home a real pinned-items store, route it through `ShellServiceHub`, and feed the count into `ContextSnapshot`.
+The original `P0-461` landing was honest but incomplete: the ERC-20 tab was a real SwiftData surface, but it was basically native balance plus empty promises. The missing piece was live ERC-20 inventory.
 
-`P0-102A` had a similar smell. Home already had modules and shortcuts, but “quick links” was still hiding inside another section like it snuck in through the side door. Pulling quick links into an explicit dashboard section made the surface read like a finished product instead of a staging area.
+The trap would have been easy: bolt a one-off `fetch()` into the view, decode a new shape there, and call it “done.” That would have created a second provider path and immediately aged badly.
 
-`P0-101C` needed one final honesty pass too: freshness and scope mattered, but chrome mostly whispered them through accessibility labels and the inspector. Now the chrome shows real freshness and scope state visibly, which is much more useful to actual humans.
+The actual fix was to extend the existing read-only provider layer with the Alchemy Data API, then reconcile those rows into `TokenHolding` through `TokenHoldingsStore`. Same persistence model. Same scope rules. Same cached-state behavior. No side quest architecture.
+
+### Aha Moment
+
+The right place to “finish ERC-20 holdings” was not the detail screen and not the router. The hole was lower: the app already had a stable row contract and a mounted tab. What it lacked was a trustworthy sync seam underneath that surface.
+
+### Pitfall
+
+Provider-backed success should not mean “delete everything and hope the next call works.” The holdings reconciliation path only replaces ERC-20 rows after a successful scoped fetch. If the provider fails, the cached rows stay on screen and the UI admits it is showing last saved data.
 
 ## Engineer's Wisdom
 
-If a shared schema field is placeholder-only, either remove it or give it a real owner. Leaving it around “for later” is how a clean contract slowly turns into fiction.
+A good seam earns reuse. `ReadOnlyProviderFactory` already owned NFT, gas, and native balance creation, so token holdings belonged there too. This is the kind of decision that keeps a codebase boring in the good way.
 
-Another lesson:
-dependency-injection seams are not just for giant services. Even a tiny local-preference store earns its keep when the same truth has to show up in Home, context, and tests without copy-paste nonsense.
+Scoped persistence matters more than clever UI. For token holdings, the hard problem is not drawing a list row. It is making sure account A on chain X never bleeds into account B on chain Y, even after retries, stale cache, and tab switches.
+
+Cached state is not a second-class fallback. In a provider-heavy app, cached rows are part of the product contract. If the network is shaky, the app still owes the user a truthful screen.
 
 ## If I Were Starting Over...
 
-I would have introduced the pinned-preference seam as soon as Home first gained shortcuts. That would have avoided the awkward middle period where the schema claimed to know about pinned items but had no honest way to answer the question.
-
-I would also have made the chrome show freshness visibly from day one. If context matters enough to deserve a ticket, it matters enough to be seen without opening a sheet.
+I would probably carve out a dedicated token-holdings service a bit earlier, once it was obvious ERC-20 sync would need its own failure presentation and later pricing/history enrichment. The current store-plus-provider seam is clean enough for this phase, but the next layer of token features will want a more explicit coordinator.

@@ -29,6 +29,7 @@ enum ProviderAbstractionError: LocalizedError, Equatable {
 struct ProviderEndpointConfiguration: Equatable {
     let chain: Chain
     let alchemyNFTBaseURL: URL?
+    let alchemyDataAPIBaseURL: URL?
     let alchemyRPCURL: URL?
     let infuraGasURL: URL?
 }
@@ -53,6 +54,9 @@ struct LiveProviderConfigurationResolver: ProviderConfigurationResolving {
         let alchemyNFTBaseURL = try alchemyKey.flatMap {
             try Self.url("https://\(chain.rawValue).g.alchemy.com/nft/v3/\($0)")
         }
+        let alchemyDataAPIBaseURL = try alchemyKey.flatMap {
+            try Self.url("https://api.g.alchemy.com/data/v1/\($0)")
+        }
         let alchemyRPCURL = try alchemyKey.flatMap {
             try Self.url("https://\(chain.rawValue).g.alchemy.com/v2/\($0)")
         }
@@ -63,6 +67,7 @@ struct LiveProviderConfigurationResolver: ProviderConfigurationResolving {
         return ProviderEndpointConfiguration(
             chain: chain,
             alchemyNFTBaseURL: alchemyNFTBaseURL,
+            alchemyDataAPIBaseURL: alchemyDataAPIBaseURL,
             alchemyRPCURL: chain.supportsEVMRPC ? alchemyRPCURL : nil,
             infuraGasURL: chain.supportsInfuraGas ? infuraGasURL : nil
         )
@@ -92,6 +97,10 @@ protocol NativeBalanceProviding {
     func nativeBalance(for address: String, chain: Chain) async throws -> NativeBalance
 }
 
+protocol TokenHoldingsProviding {
+    func tokenHoldings(for address: String, chain: Chain) async throws -> [ProviderTokenHolding]
+}
+
 struct NativeBalance: Equatable, Sendable {
     let weiHex: String
     let weiDecimal: String
@@ -99,6 +108,15 @@ struct NativeBalance: Equatable, Sendable {
     var formattedEtherDisplay: String {
         Self.formatEtherDisplay(fromWeiDecimal: weiDecimal)
     }
+}
+
+struct ProviderTokenHolding: Equatable, Sendable {
+    let contractAddress: String
+    let symbol: String?
+    let displayName: String
+    let amountDisplay: String
+    let updatedAt: Date
+    let isPlaceholder: Bool
 }
 
 struct ReadOnlyProviderFactory {
@@ -126,6 +144,13 @@ struct ReadOnlyProviderFactory {
 
     func makeNativeBalanceProvider() -> any NativeBalanceProviding {
         AlchemyRPCProvider(
+            configurationResolver: configurationResolver,
+            session: session
+        )
+    }
+
+    func makeTokenHoldingsProvider() -> any TokenHoldingsProviding {
+        AlchemyTokenHoldingsProvider(
             configurationResolver: configurationResolver,
             session: session
         )
@@ -181,6 +206,102 @@ struct AlchemyRPCProvider: NativeBalanceProviding {
         }
 
         return NativeBalance(weiHex: payload.result, weiDecimal: weiDecimal)
+    }
+}
+
+struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding {
+    private let configurationResolver: any ProviderConfigurationResolving
+    private let session: URLSession
+
+    init(
+        configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver(),
+        session: URLSession = .shared
+    ) {
+        self.configurationResolver = configurationResolver
+        self.session = session
+    }
+
+    func tokenHoldings(for address: String, chain: Chain) async throws -> [ProviderTokenHolding] {
+        guard chain.supportsERC20Holdings else {
+            throw ProviderAbstractionError.unsupportedChain(chain)
+        }
+        guard let normalizedAddress = address.extractedEthereumAddress else {
+            throw ProviderAbstractionError.invalidAddress
+        }
+
+        let configuration = try configurationResolver.configuration(for: chain)
+        guard let dataAPIBaseURL = configuration.alchemyDataAPIBaseURL else {
+            throw ProviderAbstractionError.missingAPIKey(.alchemy)
+        }
+
+        var pageKey: String?
+        var resolvedHoldings: [ProviderTokenHolding] = []
+
+        repeat {
+            let requestBody = TokensByAddressRequest(
+                addresses: [
+                    AddressRequest(
+                        address: normalizedAddress,
+                        networks: [chain.rawValue]
+                    )
+                ],
+                withMetadata: true,
+                withPrices: true,
+                includeNativeTokens: false,
+                includeErc20Tokens: true,
+                pageKey: pageKey
+            )
+
+            var request = URLRequest(url: dataAPIBaseURL.appending(path: "assets/tokens/by-address"))
+            request.httpMethod = "POST"
+            request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.addValue("application/json", forHTTPHeaderField: "Accept")
+            request.httpBody = try JSONEncoder().encode(requestBody)
+
+            let (data, response) = try await session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                throw ProviderAbstractionError.invalidResponse
+            }
+
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let payload = try decoder.decode(TokensByAddressResponse.self, from: data)
+
+            resolvedHoldings.append(
+                contentsOf: payload.data.tokens.compactMap { token in
+                    guard token.error == nil,
+                          let contractAddress = NFT.normalizedScopeComponent(token.tokenAddress),
+                          !Self.isZeroBalance(token.tokenBalance) else {
+                        return nil
+                    }
+
+                    let symbol = token.tokenMetadata?.symbol?.nilIfEmpty
+                    let displayName = token.tokenMetadata?.name?.nilIfEmpty
+                        ?? symbol
+                        ?? contractAddress.displayAddress
+                    let amountDisplay = DecimalQuantityFormatter.formatTokenAmountDisplay(
+                        from: token.tokenBalance,
+                        decimals: token.tokenMetadata?.decimals,
+                        symbol: symbol
+                    )
+
+                    return ProviderTokenHolding(
+                        contractAddress: contractAddress,
+                        symbol: symbol,
+                        displayName: displayName,
+                        amountDisplay: amountDisplay,
+                        updatedAt: token.tokenPrices?.compactMap(\.lastUpdatedAt).max() ?? .now,
+                        isPlaceholder: token.tokenMetadata?.name?.nilIfEmpty == nil &&
+                            token.tokenMetadata?.symbol?.nilIfEmpty == nil
+                    )
+                }
+            )
+
+            pageKey = payload.data.pageKey?.nilIfEmpty
+        } while pageKey != nil
+
+        return resolvedHoldings
     }
 }
 
@@ -262,31 +383,138 @@ private extension AlchemyRPCProvider {
     }
 }
 
-private extension NativeBalance {
+private extension AlchemyTokenHoldingsProvider {
+    struct TokensByAddressRequest: Encodable {
+        let addresses: [AddressRequest]
+        let withMetadata: Bool
+        let withPrices: Bool
+        let includeNativeTokens: Bool
+        let includeErc20Tokens: Bool
+        let pageKey: String?
+    }
+
+    struct AddressRequest: Encodable {
+        let address: String
+        let networks: [String]
+    }
+
+    struct TokensByAddressResponse: Decodable {
+        let data: DataEnvelope
+    }
+
+    struct DataEnvelope: Decodable {
+        let tokens: [Token]
+        let pageKey: String?
+    }
+
+    struct Token: Decodable {
+        let tokenAddress: String?
+        let tokenBalance: String
+        let tokenMetadata: TokenMetadata?
+        let tokenPrices: [TokenPrice]?
+        let error: String?
+    }
+
+    struct TokenMetadata: Decodable {
+        let decimals: Int?
+        let logo: String?
+        let name: String?
+        let symbol: String?
+    }
+
+    struct TokenPrice: Decodable {
+        let currency: String
+        let value: String
+        let lastUpdatedAt: Date
+    }
+
+    static func isZeroBalance(_ balance: String) -> Bool {
+        balance.allSatisfy { $0 == "0" }
+    }
+}
+
+private enum DecimalQuantityFormatter {
+    static func formatTokenAmountDisplay(
+        from rawBalance: String,
+        decimals: Int?,
+        symbol: String?
+    ) -> String {
+        let formattedAmount = formatDecimalQuantity(
+            rawBalance,
+            scale: max(decimals ?? 0, 0),
+            maxFractionDigits: 6
+        )
+
+        guard let symbol, !symbol.isEmpty else {
+            return formattedAmount
+        }
+
+        return "\(formattedAmount) \(symbol)"
+    }
+
     static func formatEtherDisplay(fromWeiDecimal weiDecimal: String) -> String {
-        let digits = weiDecimal.trimmingCharacters(in: CharacterSet(charactersIn: "0"))
-        let normalized = digits.isEmpty ? "0" : digits
-        let etherScale = 18
+        let formattedAmount = formatDecimalQuantity(
+            weiDecimal,
+            scale: 18,
+            maxFractionDigits: 6
+        )
+        return "\(formattedAmount) ETH"
+    }
+
+    private static func formatDecimalQuantity(
+        _ rawValue: String,
+        scale: Int,
+        maxFractionDigits: Int
+    ) -> String {
+        let normalized = stripLeadingZeroes(from: rawValue)
+        guard normalized != "0" else {
+            return "0"
+        }
+
+        guard scale > 0 else {
+            return normalized
+        }
 
         let wholePart: String
         let fractionalPart: String
 
-        if normalized.count <= etherScale {
+        if normalized.count <= scale {
             wholePart = "0"
-            let paddedFraction = String(repeating: "0", count: etherScale - normalized.count) + normalized
-            fractionalPart = paddedFraction
+            fractionalPart = String(repeating: "0", count: scale - normalized.count) + normalized
         } else {
-            let splitIndex = normalized.index(normalized.endIndex, offsetBy: -etherScale)
+            let splitIndex = normalized.index(normalized.endIndex, offsetBy: -scale)
             wholePart = String(normalized[..<splitIndex])
             fractionalPart = String(normalized[splitIndex...])
         }
 
-        let trimmedFraction = String(fractionalPart.prefix(6)).trimmingCharacters(in: CharacterSet(charactersIn: "0"))
+        let visibleFraction = String(fractionalPart.prefix(maxFractionDigits))
+        let trimmedFraction = visibleFraction.trimmingCharacters(in: CharacterSet(charactersIn: "0"))
         if trimmedFraction.isEmpty {
-            return "\(wholePart) ETH"
+            if wholePart == "0" && fractionalPart.contains(where: { $0 != "0" }) {
+                return "<0." + String(repeating: "0", count: max(maxFractionDigits - 1, 0)) + "1"
+            }
+            return wholePart
         }
 
-        return "\(wholePart).\(trimmedFraction) ETH"
+        return "\(wholePart).\(trimmedFraction)"
+    }
+
+    private static func stripLeadingZeroes(from value: String) -> String {
+        let trimmed = value.drop { $0 == "0" }
+        return trimmed.isEmpty ? "0" : String(trimmed)
+    }
+}
+
+private extension NativeBalance {
+    static func formatEtherDisplay(fromWeiDecimal weiDecimal: String) -> String {
+        DecimalQuantityFormatter.formatEtherDisplay(fromWeiDecimal: weiDecimal)
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 
@@ -315,6 +543,15 @@ extension Chain {
             return true
         default:
             return false
+        }
+    }
+
+    var supportsERC20Holdings: Bool {
+        switch self {
+        case .solanaMainnet, .solanaDevnetTestnet:
+            return false
+        default:
+            return true
         }
     }
 }

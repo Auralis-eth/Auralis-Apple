@@ -9,6 +9,27 @@ import CodeScanner
 import SwiftUI
 import SwiftData
 
+@MainActor
+enum QRScanValidationOutcome: Equatable {
+    case valid
+    case alert(title: String, message: String)
+
+    static func classify(_ scannedValue: String) -> QRScanValidationOutcome {
+        let validationResult = AccountStore.validateAddressInput(scannedValue)
+
+        switch validationResult {
+        case .empty:
+            return .alert(title: "Scan Failed", message: validationResult.userFacingMessage)
+        case .unsupportedENS:
+            return .alert(title: "ENS Not Supported Yet", message: validationResult.userFacingMessage)
+        case .invalidFormat:
+            return .alert(title: "Scan Failed", message: validationResult.userFacingMessage)
+        case .valid:
+            return .valid
+        }
+    }
+}
+
 struct QRScannerView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var isScanning = false
@@ -53,20 +74,12 @@ struct QRScannerView: View {
 
         switch result {
         case .success(let code):
-            let validationResult = AccountStore.validateAddressInput(code.string)
-
-            switch validationResult {
-            case .empty:
-                showAlert(title: "Scan Failed", message: validationResult.userFacingMessage)
-                return
-            case .unsupportedENS:
-                showAlert(title: "ENS Not Supported Yet", message: validationResult.userFacingMessage)
-                return
-            case .invalidFormat:
-                showAlert(title: "Scan Failed", message: validationResult.userFacingMessage)
-                return
+            switch QRScanValidationOutcome.classify(code.string) {
             case .valid:
                 break
+            case .alert(let title, let message):
+                showAlert(title: title, message: message)
+                return
             }
 
             do {

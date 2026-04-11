@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum AuraFeedbackTone {
+enum AuraFeedbackTone: Equatable {
     case neutral
     case warning
     case critical

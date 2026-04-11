@@ -11,12 +11,25 @@ public enum AppMode: String, Codable, CaseIterable, Equatable {
 /// Phase 0 persists via AppStorage and is locked to `.observe`.
 public final class ModeState: ObservableObject {
     @AppStorage("app.mode") private var storedModeRaw: String = AppMode.observe.rawValue
+    private let storageWriter: (String) -> Void
 
     @Published public private(set) var mode: AppMode = .observe
 
-    public init() {
+    public init(
+        userDefaults: UserDefaults? = nil,
+        storageKey: String = "app.mode"
+    ) {
+        if let userDefaults {
+            storageWriter = { value in
+                userDefaults.set(value, forKey: storageKey)
+            }
+        } else {
+            storageWriter = { _ in }
+        }
+
         // Phase 0 is hard-locked to Observe even if storage somehow contains another value.
         storedModeRaw = AppMode.observe.rawValue
+        storageWriter(AppMode.observe.rawValue)
         mode = .observe
     }
 }

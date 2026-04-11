@@ -35,7 +35,7 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-403` is now complete for the current receipt-aware inspector slice: the sheet has a Why-am-I-seeing-this section and can link to the latest scoped `context.built` receipt.
 - `P0-102A` is now complete as a conservative Home dashboard pass: the scenic glass aesthetic remains intact while Home is reorganized into identity, active scope summary, modules, quick links, recent activity, and temporary profile-studio sections.
 - `P0-451` is now complete for the current Music foundation slice: a SwiftData-backed music library index exists, it rebuilds from scoped local `NFT` records, emits dedicated library-index receipts, the mounted Music tab consumes the index, and Home now shows the local music count while Search remains attached through the local `NFT` store.
-- `P0-461` is now complete for the native-balance-first holdings slice: the ERC-20 tab mounts a real SwiftData-backed holdings list, native balance persists per account and chain scope, and the surface keeps cached native state visible when later refreshes fail.
+- `P0-461` is now complete for the provider-backed holdings slice: the ERC-20 tab mounts a real SwiftData-backed holdings list, native balance persists per account and chain scope, live Alchemy-backed ERC-20 rows reconcile into the same scoped store, and the surface keeps cached holdings visible when later refreshes fail.
 
 ## Remediation Closeout
 
@@ -61,7 +61,7 @@ Closeout summary:
 - `P0-403`: complete for the current receipt-aware inspector slice
 - `P0-102A`: complete for the current Home dashboard shell slice
 - `P0-451`: complete for the current SwiftData-backed music library index slice
-- `P0-461`: complete for the current native-balance-first holdings slice; provider-backed account token holdings retrieval remains deferred follow-on work
+- `P0-461`: complete for the current provider-backed holdings slice; richer pricing/history enrichment remains deferred follow-on work
 
 ## Planning Rules
 
@@ -76,12 +76,12 @@ Closeout summary:
 - `P0-103B` can begin as pure parsing/classification before local enrichment
 - `P0-451` can start by deriving its first library index from the existing SwiftData-backed local `NFT` store
 - `P0-461` can start with placeholder or local holdings data
-- provider-backed account token holdings retrieval remains a separate follow-on after `P0-461`; do not retroactively expand the ticket to claim full ERC-20 network enrichment
+- richer token pricing/history enrichment remains a separate follow-on after `P0-461`; do not retroactively expand the ticket to claim the full token detail roadmap
 - `P0-102A` can use placeholder-backed module data to break dependency cycles
 
 ## Upcoming Ticket Status Snapshot
 
-- `P0-461`: complete for the native-balance-first holdings slice
+- `P0-461`: complete for the provider-backed holdings slice
 - `P0-102E`: complete for the Home empty/first-run state slice
 - `P0-102B`: complete for the active account summary-card slice
 - `P0-102C`: complete for the Home modules/shortcuts slice
@@ -192,13 +192,13 @@ Why:
 
 Completed for the current slice
 
-19. `P0-461` Token holdings list (Completed for native-balance-first SwiftData-backed holdings)
+19. `P0-461` Token holdings list (Completed for provider-backed SwiftData-backed holdings)
 
 Why:
 
 - token holdings have their own provider, cache, freshness, and surface-shape concerns
 - separating them from Music avoids hiding a substantial token track inside a mixed phase
-- the next real token follow-on is no longer “create the holdings surface”; it is “add a provider-backed account token holdings API call and persist the returned rows”
+- the next real token follow-on is no longer “create the holdings surface”; it is “deepen token pricing/history and richer detail enrichment on top of the landed provider-backed holdings sync”
 
 ### Phase 8: Home expansion and detail surfaces
 

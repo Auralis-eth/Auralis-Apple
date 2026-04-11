@@ -590,7 +590,8 @@ struct MainTabView: View {
                         nftService: nftService,
                         refreshAction: refreshActiveScopeFromUserAction,
                         router: router,
-                        tokenHoldingsStoreFactory: services.tokenHoldingsStoreFactory
+                        tokenHoldingsStoreFactory: services.tokenHoldingsStoreFactory,
+                        tokenHoldingsProviderFactory: services.tokenHoldingsProviderFactory
                     )
                         .navigationDestination(for: ERC20TokenRoute.self) { route in
                             ERC20TokenDetailView(
@@ -1021,8 +1022,10 @@ private struct ERC20TokensRootView: View {
     let refreshAction: @MainActor () async -> Void
     let router: AppRouter
     let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
+    let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
 
     @State private var persistenceErrorMessage: String?
+    @State private var providerErrorMessage: String?
 
     init(
         currentAccountAddress: String,
@@ -1031,7 +1034,8 @@ private struct ERC20TokensRootView: View {
         nftService: NFTService,
         refreshAction: @escaping @MainActor () async -> Void,
         router: AppRouter,
-        tokenHoldingsStoreFactory: @escaping @MainActor (ModelContext) -> TokenHoldingsStore
+        tokenHoldingsStoreFactory: @escaping @MainActor (ModelContext) -> TokenHoldingsStore,
+        tokenHoldingsProviderFactory: @escaping () -> any TokenHoldingsProviding
     ) {
         self.currentAccountAddress = currentAccountAddress
         self.currentChain = currentChain
@@ -1040,6 +1044,7 @@ private struct ERC20TokensRootView: View {
         self.refreshAction = refreshAction
         self.router = router
         self.tokenHoldingsStoreFactory = tokenHoldingsStoreFactory
+        self.tokenHoldingsProviderFactory = tokenHoldingsProviderFactory
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
         let chainRawValue = currentChain.rawValue
@@ -1073,7 +1078,8 @@ private struct ERC20TokensRootView: View {
             accountAddress: NFT.normalizedScopeComponent(currentAccountAddress) ?? "",
             chain: currentChain,
             nativeBalanceDisplay: nativeBalanceDisplay,
-            updatedAt: nativeBalanceUpdatedAt
+            updatedAt: nativeBalanceUpdatedAt,
+            refreshAnchor: contextSnapshot.freshness.lastSuccessfulRefreshAt
         )
     }
 
@@ -1081,7 +1087,20 @@ private struct ERC20TokensRootView: View {
         Group {
             if holdings.isEmpty {
                 AuraScenicScreen(contentAlignment: .center) {
-                    if let failure = nftService.providerFailurePresentation(isShowingCachedContent: false) {
+                    if let providerErrorMessage {
+                        ShellStatusCard(
+                            eyebrow: "Provider Error",
+                            title: "Token Holdings Unavailable",
+                            message: providerErrorMessage,
+                            systemImage: "externaldrive.badge.wifi",
+                            tone: .critical,
+                            primaryAction: ShellStatusAction(
+                                title: "Retry",
+                                systemImage: "arrow.clockwise",
+                                handler: refresh
+                            )
+                        )
+                    } else if let failure = nftService.providerFailurePresentation(isShowingCachedContent: false) {
                         ShellProviderFailureStateView(
                             failure: failure,
                             retry: refresh
@@ -1102,6 +1121,20 @@ private struct ERC20TokensRootView: View {
                             systemImage: "externaldrive.badge.exclamationmark",
                             tone: .warning,
                             action: nil
+                        )
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
+                    } else if let providerErrorMessage {
+                        ShellStatusBanner(
+                            title: "Showing Last Saved Holdings",
+                            message: providerErrorMessage,
+                            systemImage: "externaldrive.badge.wifi",
+                            tone: .warning,
+                            action: ShellStatusAction(
+                                title: "Retry",
+                                systemImage: "arrow.clockwise",
+                                handler: refresh
+                            )
                         )
                         .padding(.horizontal, 12)
                         .padding(.top, 8)
@@ -1145,13 +1178,42 @@ private struct ERC20TokensRootView: View {
         .navigationTitle("ERC-20")
         .accessibilityIdentifier("erc20.root")
         .task(id: syncKey) {
-            syncNativeHoldingIfAvailable()
+            await syncHoldings()
         }
     }
 
     private func refresh() {
         Task {
             await refreshAction()
+        }
+    }
+
+    private func syncHoldings() async {
+        syncNativeHoldingIfAvailable()
+
+        guard !currentAccountAddress.isEmpty,
+              currentChain.supportsERC20Holdings else {
+            providerErrorMessage = nil
+            return
+        }
+
+        do {
+            let providerHoldings = try await tokenHoldingsProviderFactory().tokenHoldings(
+                for: currentAccountAddress,
+                chain: currentChain
+            )
+            try tokenHoldingsStoreFactory(modelContext).replaceERC20Holdings(
+                accountAddress: currentAccountAddress,
+                chain: currentChain,
+                holdings: providerHoldings
+            )
+            providerErrorMessage = nil
+        } catch is CancellationError {
+            return
+        } catch {
+            providerErrorMessage = holdings.isEmpty
+                ? "Auralis could not load token holdings for the active wallet and chain just now. Try again in a moment."
+                : "Auralis kept the last saved ERC-20 holdings because the live token provider did not respond cleanly for this scope."
         }
     }
 
@@ -1386,6 +1448,7 @@ private struct ERC20HoldingsSyncKey: Hashable {
     let chain: Chain
     let nativeBalanceDisplay: String?
     let updatedAt: Date?
+    let refreshAnchor: Date?
 }
 
 private struct BadgeLabel: View {

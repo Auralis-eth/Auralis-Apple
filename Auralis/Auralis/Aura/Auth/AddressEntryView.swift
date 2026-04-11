@@ -9,6 +9,34 @@ import SwiftUI
 import SwiftData
 import UIKit
 
+@MainActor
+struct AddressEntryValidationPresentation: Equatable {
+    let validationMessage: String?
+    let normalizedAddress: String?
+
+    static func make(input: String) -> AddressEntryValidationPresentation {
+        let validationResult = AccountStore.validateAddressInput(input)
+        let isENSInput = AccountStore.looksLikeENSName(input)
+
+        let validationMessage: String?
+        if isENSInput {
+            validationMessage = nil
+        } else {
+            switch validationResult {
+            case .empty, .valid:
+                validationMessage = nil
+            case .unsupportedENS, .invalidFormat:
+                validationMessage = validationResult.userFacingMessage
+            }
+        }
+
+        return AddressEntryValidationPresentation(
+            validationMessage: validationMessage,
+            normalizedAddress: isENSInput ? nil : validationResult.normalizedAddress
+        )
+    }
+}
+
 struct AddressInputView: View {
     private struct PendingENSMappingChange: Identifiable, Equatable {
         let id = UUID()
@@ -34,8 +62,8 @@ struct AddressInputView: View {
     let ensResolver: any ENSResolving
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
 
-    private var validationResult: AccountAddressValidationResult {
-        AccountStore.validateAddressInput(address)
+    private var validationPresentation: AddressEntryValidationPresentation {
+        AddressEntryValidationPresentation.make(input: address)
     }
 
     private var isENSInput: Bool {
@@ -43,23 +71,11 @@ struct AddressInputView: View {
     }
 
     private var validationMessage: String? {
-        if isENSInput {
-            return nil
-        }
-
-        switch validationResult {
-        case .empty, .valid:
-            return nil
-        case .unsupportedENS, .invalidFormat:
-            return validationResult.userFacingMessage
-        }
+        validationPresentation.validationMessage
     }
 
     private var normalizedAddress: String? {
-        guard !isENSInput else {
-            return nil
-        }
-        return validationResult.normalizedAddress
+        validationPresentation.normalizedAddress
     }
 
     var body: some View {
