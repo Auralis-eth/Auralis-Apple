@@ -44,7 +44,7 @@ These tickets are already closed for their planned Phase 0 slice:
 - `P0-703` no bypass paths smoke tests
 - `P0-451` music library index derived from the existing SwiftData-backed local `NFT` store
 - `P0-452` music collection + item detail screens
-- `P0-461` native-balance-first SwiftData-backed token holdings slice
+- `P0-461` provider-backed SwiftData-backed token holdings slice
 - `P0-462` token detail screen
 
 Notes:

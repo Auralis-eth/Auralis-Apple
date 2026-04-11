@@ -269,7 +269,7 @@ struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalancesProvid
     }
 
     func tokenBalances(for request: TokenBalancesRequest) async throws -> TokenBalancesPage {
-        let dataAPIBaseURL = try resolveDataAPIBaseURL()
+        let dataAPIBaseURL = try resolveGlobalDataAPIBaseURL()
         let requestBody = TokenBalancesByAddressRequest(
             addresses: request.addresses.map {
                 AddressRequest(address: $0.address, networks: $0.networks)
@@ -320,7 +320,8 @@ struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalancesProvid
 
         let balances = try await fetchBalances(
             address: normalizedAddress,
-            chain: chain
+            chain: chain,
+            dataAPIBaseURL: dataAPIBaseURL
         )
 
         guard !balances.isEmpty else {
@@ -360,13 +361,14 @@ struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalancesProvid
         }
     }
 
-    private func resolveDataAPIBaseURL() throws -> URL {
+    private func resolveGlobalDataAPIBaseURL() throws -> URL {
         let configuration = try configurationResolver.configuration(for: .ethMainnet)
         guard let dataAPIBaseURL = configuration.alchemyDataAPIBaseURL else {
             throw ProviderAbstractionError.missingAPIKey(.alchemy)
         }
         return dataAPIBaseURL
     }
+
 }
 
 private extension AlchemyRPCProvider {
@@ -533,27 +535,40 @@ private extension AlchemyTokenHoldingsProvider {
 
     func fetchBalances(
         address: String,
-        chain: Chain
+        chain: Chain,
+        dataAPIBaseURL: URL
     ) async throws -> [BalanceSnapshot] {
         var pageKey: String?
         var balancesByContract: [String: BalanceSnapshot] = [:]
 
         repeat {
-            let payload = try await tokenBalances(
-                for: TokenBalancesRequest(
-                    addresses: [
-                        TokenBalancesAddress(
-                            address: address,
-                            networks: [chain.rawValue]
-                        )
-                    ],
-                    includeNativeTokens: false,
-                    includeErc20Tokens: true,
-                    pageKey: pageKey
-                )
+            let requestBody = TokenBalancesByAddressRequest(
+                addresses: [
+                    AddressRequest(
+                        address: address,
+                        networks: [chain.rawValue]
+                    )
+                ],
+                includeNativeTokens: false,
+                includeErc20Tokens: true,
+                pageKey: pageKey
             )
 
-            for token in payload.tokens {
+            var request = URLRequest(url: dataAPIBaseURL.appending(path: "assets/tokens/balances/by-address"))
+            request.httpMethod = "POST"
+            request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.addValue("application/json", forHTTPHeaderField: "Accept")
+            request.httpBody = try JSONEncoder().encode(requestBody)
+
+            let (data, response) = try await session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                throw ProviderAbstractionError.invalidResponse
+            }
+
+            let payload = try JSONDecoder().decode(TokenBalancesByAddressResponse.self, from: data)
+
+            for token in payload.data.tokens {
                 guard let contractAddress = NFT.normalizedScopeComponent(token.tokenAddress),
                       !Self.isZeroBalance(token.tokenBalance) else {
                     continue
@@ -565,7 +580,7 @@ private extension AlchemyTokenHoldingsProvider {
                 )
             }
 
-            pageKey = payload.pageKey
+            pageKey = payload.data.pageKey?.nilIfEmpty
         } while pageKey != nil
 
         return balancesByContract.values.sorted { lhs, rhs in
