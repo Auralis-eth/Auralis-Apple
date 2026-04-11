@@ -54,6 +54,24 @@ The right place to “finish ERC-20 holdings” was not the detail screen and no
 
 Provider-backed success should not mean “delete everything and hope the next call works.” The holdings reconciliation path only replaces ERC-20 rows after a successful scoped fetch. If the provider fails, the cached rows stay on screen and the UI admits it is showing last saved data.
 
+### War Story: Decimal math will happily lie if you let it
+
+There was a sneaky failure mode in the ERC-20 fallback path. `balances/by-address` gives you the raw integer balance, but not the token decimals. If enrichment from `tokens/by-address` failed, the app could still have a real balance like `1000000` and no idea whether that meant `1.0`, `0.001`, or something else entirely.
+
+The dangerous version of this bug is not a crash. It is confidence. The UI can calmly print a giant base-unit integer and make it look authoritative.
+
+The fix was to stop pretending. When decimals are missing, Auralis now uses an explicit policy: hide the amount and say why. The row and detail screen both surface that the balance is hidden until token decimals load, instead of guessing and risking a lie. Sometimes the senior-engineer move is not to be clever. It is to refuse to make up numbers.
+
+### War Story: Two Alchemy token endpoints that look like twins but are not
+
+This one is a classic integration banana peel. Alchemy has both `tokens/by-address` and `tokens/balances/by-address`. At a glance they look like the same endpoint wearing different hats. They are not.
+
+`balances/by-address` is the ledger. It tells you the raw balances and gives you paging over address-network pairs. `tokens/by-address` is the annotated museum label. It can bring back names, symbols, decimals, and prices, but it is a richer payload with a slightly different job.
+
+The trap would have been to keep using the richer endpoint everywhere and casually say the app “supports balances-by-address.” That is how roadmap docs drift away from reality.
+
+The fix was to make the exact endpoint a first-class provider contract in the codebase, then let the ERC-20 holdings flow use it for what it is good at: authoritative raw balances. Metadata enrichment still comes from `tokens/by-address`, but now that is an explicit second step instead of an accidental substitution. The code now matches the sentence.
+
 ## Engineer's Wisdom
 
 A good seam earns reuse. `ReadOnlyProviderFactory` already owned NFT, gas, and native balance creation, so token holdings belonged there too. This is the kind of decision that keeps a codebase boring in the good way.
@@ -61,6 +79,8 @@ A good seam earns reuse. `ReadOnlyProviderFactory` already owned NFT, gas, and n
 Scoped persistence matters more than clever UI. For token holdings, the hard problem is not drawing a list row. It is making sure account A on chain X never bleeds into account B on chain Y, even after retries, stale cache, and tab switches.
 
 Cached state is not a second-class fallback. In a provider-heavy app, cached rows are part of the product contract. If the network is shaky, the app still owes the user a truthful screen.
+
+Exact endpoint support is a different thing from “close enough.” If a plan or ticket names a specific provider path, treat that as a contract and wire that path explicitly. Adjacency is not implementation.
 
 ## If I Were Starting Over...
 

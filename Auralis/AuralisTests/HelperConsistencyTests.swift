@@ -176,6 +176,26 @@ struct HelperConsistencyTests {
         #expect(row.canOpenDetail == false)
     }
 
+    @Test("token holding row model hides ERC-20 amounts until decimals are known")
+    func tokenHoldingRowModelFlagsHiddenAmounts() {
+        let hiddenAmountHolding = TokenHolding(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet,
+            contractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            symbol: "USDC",
+            displayName: "USD Coin",
+            amountDisplay: "Amount hidden",
+            balanceKind: .erc20,
+            updatedAt: Date(timeIntervalSince1970: 100),
+            isPlaceholder: true
+        )
+
+        let row = TokenHoldingRowModel(holding: hiddenAmountHolding)
+
+        #expect(row.amountDisplay == "Amount hidden")
+        #expect(row.subtitle == "Amount hidden until token decimals load")
+    }
+
     @Test("provider-backed ERC-20 replacement updates the active scope and removes stale token rows")
     @MainActor
     func replacingScopedERC20HoldingsReconcilesRows() throws {
@@ -193,7 +213,8 @@ struct HelperConsistencyTests {
                     displayName: "USD Coin",
                     amountDisplay: "15.25 USDC",
                     updatedAt: Date(timeIntervalSince1970: 100),
-                    isPlaceholder: false
+                    isPlaceholder: false,
+                    isAmountHidden: false
                 ),
                 ProviderTokenHolding(
                     contractAddress: "0x6b175474e89094c44da98b954eedeac495271d0f",
@@ -201,7 +222,8 @@ struct HelperConsistencyTests {
                     displayName: "Dai",
                     amountDisplay: "7.5 DAI",
                     updatedAt: Date(timeIntervalSince1970: 100),
-                    isPlaceholder: false
+                    isPlaceholder: false,
+                    isAmountHidden: false
                 )
             ]
         )
@@ -216,7 +238,8 @@ struct HelperConsistencyTests {
                     displayName: "USD Coin",
                     amountDisplay: "20 USDC",
                     updatedAt: Date(timeIntervalSince1970: 200),
-                    isPlaceholder: false
+                    isPlaceholder: false,
+                    isAmountHidden: false
                 )
             ]
         )

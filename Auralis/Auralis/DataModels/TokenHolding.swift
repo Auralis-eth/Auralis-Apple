@@ -100,6 +100,7 @@ struct TokenHoldingRowModel: Identifiable, Equatable {
     let contractAddress: String?
     let updatedAt: Date
     let isPlaceholder: Bool
+    let isAmountHidden: Bool
 
     init(holding: TokenHolding) {
         self.id = holding.id
@@ -110,12 +111,15 @@ struct TokenHoldingRowModel: Identifiable, Equatable {
         self.contractAddress = holding.contractAddress
         self.updatedAt = holding.updatedAt
         self.isPlaceholder = holding.isPlaceholder
+        self.isAmountHidden = holding.hidesAmountUntilMetadataLoads
 
         switch holding.balanceKind {
         case .native:
             self.subtitle = "\(holding.chain.routingDisplayName) native asset"
         case .erc20:
-            if let contractAddress = holding.contractAddress, !contractAddress.isEmpty {
+            if holding.hidesAmountUntilMetadataLoads {
+                self.subtitle = "Amount hidden until token decimals load"
+            } else if let contractAddress = holding.contractAddress, !contractAddress.isEmpty {
                 self.subtitle = contractAddress.displayAddress
             } else if holding.isPlaceholder {
                 self.subtitle = "Placeholder token metadata"
@@ -127,6 +131,14 @@ struct TokenHoldingRowModel: Identifiable, Equatable {
 
     var canOpenDetail: Bool {
         kind == .erc20 && (contractAddress?.isEmpty == false)
+    }
+}
+
+extension TokenHolding {
+    static let hiddenAmountDisplay = "Amount hidden"
+
+    var hidesAmountUntilMetadataLoads: Bool {
+        amountDisplay == Self.hiddenAmountDisplay
     }
 }
 

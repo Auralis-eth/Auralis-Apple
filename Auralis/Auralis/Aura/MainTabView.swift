@@ -1290,6 +1290,10 @@ private struct ERC20TokenDetailView: View {
                                 BadgeLabel(title: "Metadata pending")
                             }
 
+                            if presentation.isAmountHidden {
+                                BadgeLabel(title: "Amount hidden")
+                            }
+
                             if presentation.isNativeStyleFallback {
                                 BadgeLabel(title: "Native-style fallback")
                             }
@@ -1337,6 +1341,7 @@ struct ERC20TokenDetailPresentation: Equatable {
     let contractAddress: String
     let updatedLabel: String?
     let isPlaceholder: Bool
+    let isAmountHidden: Bool
     let isNativeStyleFallback: Bool
     let metadataStatus: String?
 
@@ -1360,12 +1365,15 @@ struct ERC20TokenDetailPresentation: Equatable {
         self.contractAddress = resolvedContract
         self.updatedLabel = holding?.updatedAt.formatted(date: .abbreviated, time: .shortened)
         self.isPlaceholder = holding?.isPlaceholder ?? false
+        self.isAmountHidden = holding?.hidesAmountUntilMetadataLoads ?? false
         self.isNativeStyleFallback = holding?.balanceKind == .native
 
         if holding == nil {
             self.metadataStatus = "This token route is valid, but a scoped local holding is not currently available."
         } else if isNativeStyleFallback {
             self.metadataStatus = "This screen is using a native-style holding fallback inside the token detail contract."
+        } else if isAmountHidden {
+            self.metadataStatus = "Balance is hidden until token decimals load, so Auralis does not guess at base-unit values."
         } else if isPlaceholder || resolvedSymbol == nil {
             self.metadataStatus = "Some token metadata is still sparse for this holding."
         } else {
@@ -1426,6 +1434,12 @@ private struct ERC20HoldingRow: View {
 
                 if row.isPlaceholder {
                     Text("Metadata pending")
+                        .font(.caption2)
+                        .foregroundStyle(Color.textSecondary)
+                }
+
+                if row.isAmountHidden {
+                    Text("Amount hidden until decimals resolve")
                         .font(.caption2)
                         .foregroundStyle(Color.textSecondary)
                 }

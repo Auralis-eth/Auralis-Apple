@@ -36,9 +36,9 @@ import Testing
         #expect(configuration.infuraGasURL == nil)
     }
 
-    @Test("token holdings provider uses the shared Alchemy data API and formats ERC-20 balances for persistence")
+    @Test("token balances provider calls the exact Alchemy balances endpoint and preserves pagination state")
     @MainActor
-    func tokenHoldingsProviderLoadsFormattedERC20Rows() async throws {
+    func tokenBalancesProviderCallsExactEndpoint() async throws {
         let session = makeMockSession()
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
@@ -53,16 +53,20 @@ import Testing
         )
 
         ProviderMockURLProtocol.handler = { request in
-            #expect(request.url?.absoluteString == "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/by-address")
+            #expect(request.url?.absoluteString == "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address")
             #expect(request.httpMethod == "POST")
+
             let body = try #require(request.httpBody)
-            let payload = try JSONSerialization.jsonObject(with: body) as? [String: Any]
-            let addresses = try #require(payload?["addresses"] as? [[String: Any]])
-            let firstAddress = try #require(addresses.first)
-            #expect(firstAddress["address"] as? String == "0x1234567890abcdef1234567890abcdef12345678")
-            #expect(firstAddress["networks"] as? [String] == [Chain.baseMainnet.rawValue])
-            #expect(payload?["includeNativeTokens"] as? Bool == false)
-            #expect(payload?["includeErc20Tokens"] as? Bool == true)
+            let payload = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+            let addresses = try #require(payload["addresses"] as? [[String: Any]])
+            #expect(addresses.count == 2)
+            #expect(addresses[0]["address"] as? String == "0x1234567890abcdef1234567890abcdef12345678")
+            #expect(addresses[0]["networks"] as? [String] == [Chain.baseMainnet.rawValue, Chain.ethMainnet.rawValue])
+            #expect(addresses[1]["address"] as? String == "So11111111111111111111111111111111111111112")
+            #expect(addresses[1]["networks"] as? [String] == [Chain.solanaMainnet.rawValue])
+            #expect(payload["includeNativeTokens"] as? Bool == true)
+            #expect(payload["includeErc20Tokens"] as? Bool == true)
+            #expect(payload["pageKey"] as? String == "cursor-1")
 
             let response = HTTPURLResponse(
                 url: try #require(request.url),
@@ -79,27 +83,155 @@ import Testing
                         "address": "0x1234567890abcdef1234567890abcdef12345678",
                         "network": "base-mainnet",
                         "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-                        "tokenBalance": "1234567",
-                        "tokenMetadata": {
-                          "decimals": 6,
-                          "logo": "https://example.com/usdc.png",
-                          "name": "USD Coin",
-                          "symbol": "USDC"
-                        },
-                        "tokenPrices": [
-                          {
-                            "currency": "usd",
-                            "value": "1.0",
-                            "lastUpdatedAt": "2025-08-26T20:17:27Z"
-                          }
-                        ],
-                        "error": null
+                        "tokenBalance": "1234567"
+                      },
+                      {
+                        "address": "So11111111111111111111111111111111111111112",
+                        "network": "solana-mainnet",
+                        "tokenAddress": null,
+                        "tokenBalance": "42"
                       }
-                    ]
+                    ],
+                    "pageKey": "cursor-2"
                   }
                 }
                 """.utf8
             )
+            return (response, data)
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        let page = try await provider.tokenBalances(
+            for: TokenBalancesRequest(
+                addresses: [
+                    TokenBalancesAddress(
+                        address: "0x1234567890abcdef1234567890abcdef12345678",
+                        networks: [Chain.baseMainnet.rawValue, Chain.ethMainnet.rawValue]
+                    ),
+                    TokenBalancesAddress(
+                        address: "So11111111111111111111111111111111111111112",
+                        networks: [Chain.solanaMainnet.rawValue]
+                    )
+                ],
+                includeNativeTokens: true,
+                includeErc20Tokens: true,
+                pageKey: "cursor-1"
+            )
+        )
+
+        #expect(page.pageKey == "cursor-2")
+        #expect(page.tokens.count == 2)
+        #expect(page.tokens[0] == TokenBalanceRecord(
+            network: "base-mainnet",
+            address: "0x1234567890abcdef1234567890abcdef12345678",
+            tokenAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            tokenBalance: "1234567"
+        ))
+        #expect(page.tokens[1] == TokenBalanceRecord(
+            network: "solana-mainnet",
+            address: "So11111111111111111111111111111111111111112",
+            tokenAddress: nil,
+            tokenBalance: "42"
+        ))
+    }
+
+    @Test("token holdings provider uses the shared Alchemy data API and formats ERC-20 balances for persistence")
+    @MainActor
+    func tokenHoldingsProviderLoadsFormattedERC20Rows() async throws {
+        let session = makeMockSession()
+        let provider = AlchemyTokenHoldingsProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                switch provider {
+                case .alchemy:
+                    return "alchemy-key"
+                default:
+                    return nil
+                }
+            },
+            session: session
+        )
+
+        var requestedURLs: [String] = []
+        ProviderMockURLProtocol.handler = { request in
+            let requestURL = try #require(request.url?.absoluteString)
+            requestedURLs.append(requestURL)
+            #expect(request.httpMethod == "POST")
+            let body = try #require(request.httpBody)
+            let payload = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+            let addresses = try #require(payload?["addresses"] as? [[String: Any]])
+            let firstAddress = try #require(addresses.first)
+            #expect(firstAddress["address"] as? String == "0x1234567890abcdef1234567890abcdef12345678")
+            #expect(firstAddress["networks"] as? [String] == [Chain.baseMainnet.rawValue])
+
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+
+            let data: Data
+            switch requestURL {
+            case "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address":
+                #expect(payload?["includeNativeTokens"] as? Bool == false)
+                #expect(payload?["includeErc20Tokens"] as? Bool == true)
+                data = Data(
+                    """
+                    {
+                      "data": {
+                        "tokens": [
+                          {
+                            "address": "0x1234567890abcdef1234567890abcdef12345678",
+                            "network": "base-mainnet",
+                            "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                            "tokenBalance": "1234567"
+                          }
+                        ]
+                      }
+                    }
+                    """.utf8
+                )
+            case "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/by-address":
+                #expect(payload?["includeNativeTokens"] as? Bool == false)
+                #expect(payload?["includeErc20Tokens"] as? Bool == true)
+                #expect(payload?["withMetadata"] as? Bool == true)
+                #expect(payload?["withPrices"] as? Bool == true)
+                data = Data(
+                    """
+                    {
+                      "data": {
+                        "tokens": [
+                          {
+                            "address": "0x1234567890abcdef1234567890abcdef12345678",
+                            "network": "base-mainnet",
+                            "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                            "tokenBalance": "9999999",
+                            "tokenMetadata": {
+                              "decimals": 6,
+                              "logo": "https://example.com/usdc.png",
+                              "name": "USD Coin",
+                              "symbol": "USDC"
+                            },
+                            "tokenPrices": [
+                              {
+                                "currency": "usd",
+                                "value": "1.0",
+                                "lastUpdatedAt": "2025-08-26T20:17:27Z"
+                              }
+                            ],
+                            "error": null
+                          }
+                        ]
+                      }
+                    }
+                    """.utf8
+                )
+            default:
+                Issue.record("Unexpected URL: \(requestURL)")
+                data = Data()
+            }
             return (response, data)
         }
         defer {
@@ -111,6 +243,10 @@ import Testing
             chain: .baseMainnet
         )
 
+        #expect(requestedURLs == [
+            "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address",
+            "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/by-address"
+        ])
         #expect(holdings.count == 1)
         #expect(holdings[0].contractAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
         #expect(holdings[0].symbol == "USDC")
@@ -118,6 +254,76 @@ import Testing
         #expect(holdings[0].amountDisplay == "1.234567 USDC")
         #expect(holdings[0].updatedAt == ISO8601DateFormatter().date(from: "2025-08-26T20:17:27Z"))
         #expect(holdings[0].isPlaceholder == false)
+        #expect(holdings[0].isAmountHidden == false)
+    }
+
+    @Test("token holdings provider hides ERC-20 amounts when decimals are unavailable instead of showing raw base units")
+    @MainActor
+    func tokenHoldingsProviderHidesAmountWhenEnrichmentFails() async throws {
+        let session = makeMockSession()
+        let provider = AlchemyTokenHoldingsProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                switch provider {
+                case .alchemy:
+                    return "alchemy-key"
+                default:
+                    return nil
+                }
+            },
+            session: session
+        )
+
+        ProviderMockURLProtocol.handler = { request in
+            let requestURL = try #require(request.url?.absoluteString)
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+
+            switch requestURL {
+            case "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address":
+                return (
+                    response,
+                    Data(
+                        """
+                        {
+                          "data": {
+                            "tokens": [
+                              {
+                                "address": "0x1234567890abcdef1234567890abcdef12345678",
+                                "network": "base-mainnet",
+                                "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                                "tokenBalance": "1000000"
+                              }
+                            ]
+                          }
+                        }
+                        """.utf8
+                    )
+                )
+            case "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/by-address":
+                throw URLError(.badServerResponse)
+            default:
+                Issue.record("Unexpected URL: \(requestURL)")
+                return (response, Data())
+            }
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        let holdings = try await provider.tokenHoldings(
+            for: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet
+        )
+
+        #expect(holdings.count == 1)
+        #expect(holdings[0].displayName == "0xa0b8...eb48")
+        #expect(holdings[0].amountDisplay == "Amount hidden")
+        #expect(holdings[0].isPlaceholder)
+        #expect(holdings[0].isAmountHidden)
     }
 
     @Test("NFT fetcher uses the injected inventory provider factory instead of constructing Alchemy inline")
