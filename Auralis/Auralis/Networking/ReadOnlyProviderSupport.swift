@@ -124,6 +124,14 @@ struct ProviderTokenHolding: Equatable, Sendable {
     let isAmountHidden: Bool
 }
 
+enum TokenHoldingsMetadataFreshnessPolicy {
+    static let ttl: TimeInterval = 60 * 60 * 12
+
+    static func isStale(updatedAt: Date, now: Date = .now) -> Bool {
+        max(0, now.timeIntervalSince(updatedAt)) >= ttl
+    }
+}
+
 struct TokenBalancesRequest: Equatable, Sendable {
     let addresses: [TokenBalancesAddress]
     let includeNativeTokens: Bool
@@ -248,13 +256,16 @@ struct AlchemyRPCProvider: NativeBalanceProviding {
 struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalancesProviding {
     private let configurationResolver: any ProviderConfigurationResolving
     private let session: URLSession
+    private let nowProvider: @Sendable () -> Date
 
     init(
         configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver(),
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        nowProvider: @escaping @Sendable () -> Date = { .now }
     ) {
         self.configurationResolver = configurationResolver
         self.session = session
+        self.nowProvider = nowProvider
     }
 
     func tokenBalances(for request: TokenBalancesRequest) async throws -> TokenBalancesPage {
@@ -342,7 +353,7 @@ struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalancesProvid
                 symbol: symbol,
                 displayName: displayName,
                 amountDisplay: amountPresentation.displayText,
-                updatedAt: enrichment?.updatedAt ?? .now,
+                updatedAt: enrichment?.updatedAt ?? nowProvider(),
                 isPlaceholder: isPlaceholder,
                 isAmountHidden: amountPresentation.isHidden
             )
@@ -570,6 +581,7 @@ private extension AlchemyTokenHoldingsProvider {
     ) async throws -> [String: TokenEnrichment] {
         var pageKey: String?
         var enrichmentsByContract: [String: TokenEnrichment] = [:]
+        let fetchedAt = nowProvider()
 
         repeat {
             let requestBody = TokensByAddressRequest(
@@ -580,7 +592,7 @@ private extension AlchemyTokenHoldingsProvider {
                     )
                 ],
                 withMetadata: true,
-                withPrices: true,
+                withPrices: false,
                 includeNativeTokens: false,
                 includeErc20Tokens: true,
                 pageKey: pageKey
@@ -613,7 +625,7 @@ private extension AlchemyTokenHoldingsProvider {
                     decimals: token.tokenMetadata?.decimals,
                     symbol: token.tokenMetadata?.symbol?.nilIfEmpty,
                     name: token.tokenMetadata?.name?.nilIfEmpty,
-                    updatedAt: token.tokenPrices?.compactMap(\.lastUpdatedAt).max() ?? .now
+                    updatedAt: fetchedAt
                 )
             }
 

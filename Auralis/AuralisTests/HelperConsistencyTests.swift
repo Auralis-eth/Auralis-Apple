@@ -196,6 +196,26 @@ struct HelperConsistencyTests {
         #expect(row.subtitle == "Amount hidden until token decimals load")
     }
 
+    @Test("token holding row model marks stale ERC-20 metadata after the freshness window expires")
+    func tokenHoldingRowModelMarksStaleMetadata() {
+        let staleHolding = TokenHolding(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet,
+            contractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            symbol: "USDC",
+            displayName: "USD Coin",
+            amountDisplay: "15 USDC",
+            balanceKind: .erc20,
+            updatedAt: Date(timeIntervalSinceNow: -(TokenHoldingsMetadataFreshnessPolicy.ttl + 60)),
+            isPlaceholder: false
+        )
+
+        let row = TokenHoldingRowModel(holding: staleHolding)
+
+        #expect(row.isMetadataStale)
+        #expect(row.subtitle == "0xa0b8...eb48")
+    }
+
     @Test("provider-backed ERC-20 replacement updates the active scope and removes stale token rows")
     @MainActor
     func replacingScopedERC20HoldingsReconcilesRows() throws {

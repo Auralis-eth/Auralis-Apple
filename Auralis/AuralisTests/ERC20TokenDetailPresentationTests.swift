@@ -159,4 +159,29 @@ struct ERC20TokenDetailPresentationTests {
         #expect(presentation.scopeTitle == "\(Chain.baseMainnet.routingDisplayName) token scope")
         #expect(presentation.metadataStatus == nil)
     }
+
+    @Test("token detail marks stale token metadata honestly while a refresh catches up")
+    func presentationCallsOutStaleMetadata() {
+        let route = ERC20TokenRoute(
+            contractAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+            chain: .baseMainnet,
+            symbol: "USDC"
+        )
+        let staleHolding = TokenHolding(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet,
+            contractAddress: route.contractAddress,
+            symbol: "USDC",
+            displayName: "USD Coin",
+            amountDisplay: "50 USDC",
+            balanceKind: .erc20,
+            updatedAt: Date(timeIntervalSinceNow: -(TokenHoldingsMetadataFreshnessPolicy.ttl + 60)),
+            isPlaceholder: false
+        )
+
+        let presentation = ERC20TokenDetailPresentation(route: route, holding: staleHolding)
+
+        #expect(presentation.isMetadataStale)
+        #expect(presentation.metadataStatus == "Cached token metadata is older than the ERC-20 freshness window, so Auralis is refreshing it in the background.")
+    }
 }

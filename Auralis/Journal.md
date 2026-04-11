@@ -72,6 +72,20 @@ The trap would have been to keep using the richer endpoint everywhere and casual
 
 The fix was to make the exact endpoint a first-class provider contract in the codebase, then let the ERC-20 holdings flow use it for what it is good at: authoritative raw balances. Metadata enrichment still comes from `tokens/by-address`, but now that is an explicit second step instead of an accidental substitution. The code now matches the sentence.
 
+### War Story: Stale token metadata is a quiet liar
+
+Token metadata bugs are sneaky because they rarely throw a dramatic exception. They just sit there and age. Yesterday's token identity can keep looking respectable long after the fetch that produced it has drifted into archaeology.
+
+The fix here was not to build a giant token cache subsystem. That would have been premature theater. Instead, the app now has a simple freshness rule for ERC-20 enrichment: metadata gets a TTL, stale rows are marked honestly, and the token screen starts refreshing as soon as it appears. The stale badge is the important part. It tells the truth while the network catches up.
+
+There was another cleanup tucked into the same pass: we stopped asking the enrichment endpoint for prices just to borrow a timestamp. That was the software equivalent of ordering a whole pizza because you wanted the cardboard box. `updatedAt` now means "when Auralis last enriched this token," which is a much saner thing to age out.
+
+### Pitfall
+
+Wallet switches are concurrency tests wearing a UX costume. If one wallet's slower token sync finishes after the user has already moved to another account, stale async work can start writing or messaging as if nothing changed.
+
+The fix was to give ERC-20 sync a small coordinator that drops stale results when a newer scope takes over. This is not glamorous architecture. It is the kind of tiny guardrail that keeps a tab from becoming haunted when latency gets weird.
+
 ## Engineer's Wisdom
 
 A good seam earns reuse. `ReadOnlyProviderFactory` already owned NFT, gas, and native balance creation, so token holdings belonged there too. This is the kind of decision that keeps a codebase boring in the good way.
@@ -81,6 +95,8 @@ Scoped persistence matters more than clever UI. For token holdings, the hard pro
 Cached state is not a second-class fallback. In a provider-heavy app, cached rows are part of the product contract. If the network is shaky, the app still owes the user a truthful screen.
 
 Exact endpoint support is a different thing from “close enough.” If a plan or ticket names a specific provider path, treat that as a contract and wire that path explicitly. Adjacency is not implementation.
+
+Freshness beats false confidence. If data might be old, mark it old. A polished lie is still a lie.
 
 ## If I Were Starting Over...
 

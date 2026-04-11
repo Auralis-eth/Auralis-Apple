@@ -101,6 +101,7 @@ struct TokenHoldingRowModel: Identifiable, Equatable {
     let updatedAt: Date
     let isPlaceholder: Bool
     let isAmountHidden: Bool
+    let isMetadataStale: Bool
 
     init(holding: TokenHolding) {
         self.id = holding.id
@@ -112,6 +113,7 @@ struct TokenHoldingRowModel: Identifiable, Equatable {
         self.updatedAt = holding.updatedAt
         self.isPlaceholder = holding.isPlaceholder
         self.isAmountHidden = holding.hidesAmountUntilMetadataLoads
+        self.isMetadataStale = holding.hasStaleMetadata
 
         switch holding.balanceKind {
         case .native:
@@ -139,6 +141,10 @@ extension TokenHolding {
 
     var hidesAmountUntilMetadataLoads: Bool {
         amountDisplay == Self.hiddenAmountDisplay
+    }
+
+    var hasStaleMetadata: Bool {
+        balanceKind == .erc20 && TokenHoldingsMetadataFreshnessPolicy.isStale(updatedAt: updatedAt)
     }
 }
 

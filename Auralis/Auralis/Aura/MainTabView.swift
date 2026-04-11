@@ -1011,6 +1011,77 @@ private struct ObserveModePolicyView: View {
     }
 }
 
+@MainActor
+final class ERC20HoldingsSyncCoordinator: ObservableObject {
+    struct Request: Equatable, Sendable {
+        let accountAddress: String
+        let chain: Chain
+    }
+
+    enum Result: Equatable {
+        case applied
+        case fetchFailed
+        case persistFailed
+        case dropped
+        case cancelled
+    }
+
+    private var activeSyncID: UUID?
+
+    func sync(
+        request: Request,
+        fetch: @escaping (Request) async throws -> [ProviderTokenHolding],
+        persist: @escaping @MainActor (Request, [ProviderTokenHolding]) throws -> Void
+    ) async -> Result {
+        let syncID = UUID()
+        activeSyncID = syncID
+
+        do {
+            let holdings = try await fetch(request)
+            try Task.checkCancellation()
+            guard activeSyncID == syncID else {
+                return .dropped
+            }
+
+            do {
+                try persist(request, holdings)
+            } catch {
+                guard activeSyncID == syncID else {
+                    return .dropped
+                }
+                complete(syncID)
+                return .persistFailed
+            }
+
+            try Task.checkCancellation()
+            guard activeSyncID == syncID else {
+                return .dropped
+            }
+
+            complete(syncID)
+            return .applied
+        } catch is CancellationError {
+            if activeSyncID == syncID {
+                complete(syncID)
+                return .cancelled
+            }
+            return .dropped
+        } catch {
+            guard activeSyncID == syncID else {
+                return .dropped
+            }
+            complete(syncID)
+            return .fetchFailed
+        }
+    }
+
+    private func complete(_ syncID: UUID) {
+        if activeSyncID == syncID {
+            activeSyncID = nil
+        }
+    }
+}
+
 private struct ERC20TokensRootView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var holdings: [TokenHolding]
@@ -1024,8 +1095,11 @@ private struct ERC20TokensRootView: View {
     let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
 
+    @StateObject private var syncCoordinator = ERC20HoldingsSyncCoordinator()
     @State private var persistenceErrorMessage: String?
     @State private var providerErrorMessage: String?
+    @State private var isSyncingTokenHoldings = false
+    @State private var activeTokenSyncViewID: UUID?
 
     init(
         currentAccountAddress: String,
@@ -1087,7 +1161,9 @@ private struct ERC20TokensRootView: View {
         Group {
             if holdings.isEmpty {
                 AuraScenicScreen(contentAlignment: .center) {
-                    if let providerErrorMessage {
+                    if isSyncingTokenHoldings {
+                        ERC20HoldingsLoadingView(chain: currentChain)
+                    } else if let providerErrorMessage {
                         ShellStatusCard(
                             eyebrow: "Provider Error",
                             title: "Token Holdings Unavailable",
@@ -1191,29 +1267,61 @@ private struct ERC20TokensRootView: View {
     private func syncHoldings() async {
         syncNativeHoldingIfAvailable()
 
+        let viewSyncID = UUID()
+        activeTokenSyncViewID = viewSyncID
+        isSyncingTokenHoldings = true
+        defer {
+            if activeTokenSyncViewID == viewSyncID {
+                isSyncingTokenHoldings = false
+            }
+        }
+
         guard !currentAccountAddress.isEmpty,
               currentChain.supportsERC20Holdings else {
             providerErrorMessage = nil
+            persistenceErrorMessage = nil
             return
         }
 
-        do {
-            let providerHoldings = try await tokenHoldingsProviderFactory().tokenHoldings(
-                for: currentAccountAddress,
-                chain: currentChain
-            )
-            try tokenHoldingsStoreFactory(modelContext).replaceERC20Holdings(
-                accountAddress: currentAccountAddress,
-                chain: currentChain,
-                holdings: providerHoldings
-            )
-            providerErrorMessage = nil
-        } catch is CancellationError {
+        let request = ERC20HoldingsSyncCoordinator.Request(
+            accountAddress: currentAccountAddress,
+            chain: currentChain
+        )
+        let hadNoHoldings = holdings.isEmpty
+        let result = await syncCoordinator.sync(
+            request: request,
+            fetch: { request in
+                try await tokenHoldingsProviderFactory().tokenHoldings(
+                    for: request.accountAddress,
+                    chain: request.chain
+                )
+            },
+            persist: { request, providerHoldings in
+                try tokenHoldingsStoreFactory(modelContext).replaceERC20Holdings(
+                    accountAddress: request.accountAddress,
+                    chain: request.chain,
+                    holdings: providerHoldings
+                )
+            }
+        )
+
+        guard activeTokenSyncViewID == viewSyncID else {
             return
-        } catch {
-            providerErrorMessage = holdings.isEmpty
+        }
+
+        switch result {
+        case .applied:
+            providerErrorMessage = nil
+            persistenceErrorMessage = nil
+        case .fetchFailed:
+            providerErrorMessage = hadNoHoldings
                 ? "Auralis could not load token holdings for the active wallet and chain just now. Try again in a moment."
                 : "Auralis kept the last saved ERC-20 holdings because the live token provider did not respond cleanly for this scope."
+        case .persistFailed:
+            providerErrorMessage = nil
+            persistenceErrorMessage = "Auralis kept the last saved ERC-20 holdings, but the refreshed token rows could not be written on this device."
+        case .dropped, .cancelled:
+            return
         }
     }
 
@@ -1294,6 +1402,10 @@ private struct ERC20TokenDetailView: View {
                                 BadgeLabel(title: "Amount hidden")
                             }
 
+                            if presentation.isMetadataStale {
+                                BadgeLabel(title: "Metadata stale")
+                            }
+
                             if presentation.isNativeStyleFallback {
                                 BadgeLabel(title: "Native-style fallback")
                             }
@@ -1342,6 +1454,7 @@ struct ERC20TokenDetailPresentation: Equatable {
     let updatedLabel: String?
     let isPlaceholder: Bool
     let isAmountHidden: Bool
+    let isMetadataStale: Bool
     let isNativeStyleFallback: Bool
     let metadataStatus: String?
 
@@ -1366,12 +1479,15 @@ struct ERC20TokenDetailPresentation: Equatable {
         self.updatedLabel = holding?.updatedAt.formatted(date: .abbreviated, time: .shortened)
         self.isPlaceholder = holding?.isPlaceholder ?? false
         self.isAmountHidden = holding?.hidesAmountUntilMetadataLoads ?? false
+        self.isMetadataStale = holding?.hasStaleMetadata ?? false
         self.isNativeStyleFallback = holding?.balanceKind == .native
 
         if holding == nil {
             self.metadataStatus = "This token route is valid, but a scoped local holding is not currently available."
         } else if isNativeStyleFallback {
             self.metadataStatus = "This screen is using a native-style holding fallback inside the token detail contract."
+        } else if isMetadataStale {
+            self.metadataStatus = "Cached token metadata is older than the ERC-20 freshness window, so Auralis is refreshing it in the background."
         } else if isAmountHidden {
             self.metadataStatus = "Balance is hidden until token decimals load, so Auralis does not guess at base-unit values."
         } else if isPlaceholder || resolvedSymbol == nil {
@@ -1443,6 +1559,12 @@ private struct ERC20HoldingRow: View {
                         .font(.caption2)
                         .foregroundStyle(Color.textSecondary)
                 }
+
+                if row.isMetadataStale {
+                    Text("Metadata stale, refresh in progress")
+                        .font(.caption2)
+                        .foregroundStyle(Color.textSecondary)
+                }
             }
 
             Spacer(minLength: 12)
@@ -1454,6 +1576,29 @@ private struct ERC20HoldingRow: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
+    }
+}
+
+private struct ERC20HoldingsLoadingView: View {
+    let chain: Chain
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .controlSize(.large)
+
+            Text("Syncing Token Holdings")
+                .font(.headline)
+                .foregroundStyle(Color.textPrimary)
+
+            Text("Fetching \(chain.routingDisplayName) balances and metadata for the active wallet.")
+                .font(.subheadline)
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(24)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("erc20.loading")
     }
 }
 
