@@ -5,11 +5,11 @@ import Testing
 @Suite
 struct ShellStatusPresentationTests {
     @Test("provider failure status uses degraded warning chrome and retry when the provider is recoverable")
-    func providerFailureStatusUsesExpectedTone() {
-        let failure = NFTProviderFailure(
-            kind: .offline,
-            message: "Offline",
-            isRetryable: true
+    func providerFailureStatusUsesExpectedTone() throws {
+        let failure = try #require(
+            NFTProviderFailure(
+                error: NFTFetcher.FetcherError.networkError(URLError(.notConnectedToInternet))
+            )
         ).presentation(mode: .degraded)
 
         let presentation = ShellProviderFailureStateView.presentation(for: failure)
@@ -22,11 +22,13 @@ struct ShellStatusPresentationTests {
     }
 
     @Test("provider failure status uses blocking critical chrome when the failure replaces the surface")
-    func blockingFailureStatusUsesCriticalTone() {
-        let failure = NFTProviderFailure(
-            kind: .invalidResponse,
-            message: "Unreadable provider payload.",
-            isRetryable: true
+    func blockingFailureStatusUsesCriticalTone() throws {
+        let failure = try #require(
+            NFTProviderFailure(
+                error: DecodingError.dataCorrupted(
+                    .init(codingPath: [], debugDescription: "Unreadable provider payload.")
+                )
+            )
         ).presentation(mode: .blocking)
 
         let presentation = ShellProviderFailureStateView.presentation(for: failure)

@@ -1,14 +1,15 @@
+import Foundation
 import Testing
 @testable import Auralis
 
 @Suite
 struct NFTProviderFailurePresentationTests {
     @Test("degraded offline failures preserve cached-browsing language")
-    func degradedOfflinePresentation() {
-        let presentation = NFTProviderFailure(
-            kind: .offline,
-            message: "Offline",
-            isRetryable: true
+    func degradedOfflinePresentation() throws {
+        let presentation = try #require(
+            NFTProviderFailure(
+                error: NFTFetcher.FetcherError.networkError(URLError(.notConnectedToInternet))
+            )
         ).presentation(mode: .degraded)
 
         #expect(presentation.mode == .degraded)
@@ -19,11 +20,9 @@ struct NFTProviderFailurePresentationTests {
     }
 
     @Test("blocking rate-limited failures use explicit delay language")
-    func blockingRateLimitedPresentation() {
-        let presentation = NFTProviderFailure(
-            kind: .rateLimited,
-            message: "Rate-limited",
-            isRetryable: true
+    func blockingRateLimitedPresentation() throws {
+        let presentation = try #require(
+            NFTProviderFailure(error: NFTFetcher.FetcherError.rateLimited)
         ).presentation(mode: .blocking)
 
         #expect(presentation.mode == .blocking)
