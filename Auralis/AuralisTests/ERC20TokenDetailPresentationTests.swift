@@ -19,7 +19,7 @@ struct ERC20TokenDetailPresentationTests {
             displayName: "USD Coin",
             amountDisplay: "125.00",
             balanceKind: .erc20,
-            updatedAt: Date(timeIntervalSince1970: 100),
+            updatedAt: .now,
             isPlaceholder: false
         )
 
@@ -50,7 +50,7 @@ struct ERC20TokenDetailPresentationTests {
             displayName: "Unknown Token",
             amountDisplay: "Balance unavailable",
             balanceKind: .erc20,
-            updatedAt: Date(timeIntervalSince1970: 200),
+            updatedAt: .now,
             isPlaceholder: true
         )
 
@@ -94,7 +94,7 @@ struct ERC20TokenDetailPresentationTests {
             displayName: "Ethereum Native",
             amountDisplay: "1.25",
             balanceKind: .native,
-            updatedAt: Date(timeIntervalSince1970: 300),
+            updatedAt: .now,
             isPlaceholder: false
         )
 
@@ -121,7 +121,7 @@ struct ERC20TokenDetailPresentationTests {
             displayName: "USD Coin",
             amountDisplay: "Amount hidden",
             balanceKind: .erc20,
-            updatedAt: Date(timeIntervalSince1970: 250),
+            updatedAt: .now,
             isPlaceholder: true
         )
 
@@ -147,7 +147,7 @@ struct ERC20TokenDetailPresentationTests {
             displayName: "Token Name",
             amountDisplay: "42.00",
             balanceKind: .erc20,
-            updatedAt: Date(timeIntervalSince1970: 400),
+            updatedAt: .now,
             isPlaceholder: false
         )
 

@@ -175,11 +175,20 @@ extension ContextSnapshot {
     }
 
     var freshnessLabel: String {
-        freshness.label
+        switch freshness.label {
+        case "Unknown":
+            return "Freshness Unknown"
+        default:
+            return freshness.label
+        }
     }
 
     var modeDisplay: String {
-        mode.value ?? "Unknown"
+        guard let modeValue = mode.value, !modeValue.isEmpty else {
+            return "Unknown"
+        }
+
+        return modeValue.prefix(1).uppercased() + modeValue.dropFirst()
     }
 
     var selectedChainDisplayNames: String {
@@ -191,7 +200,7 @@ extension ContextSnapshot {
     }
 
     var scopeSummary: String {
-        "\(accountDisplay) • \(selectedChainDisplayNames)"
+        "\(chromeAccountTitle) • \(selectedChainDisplayNames)"
     }
 
     var librarySummary: String {

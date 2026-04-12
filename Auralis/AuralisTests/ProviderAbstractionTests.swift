@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Auralis
 
-@Suite struct ProviderAbstractionTests {
+@Suite(.serialized) struct ProviderAbstractionTests {
     @Test("provider configuration resolves centralized Alchemy and Infura endpoints for an EVM chain")
     func resolverBuildsExpectedEndpoints() throws {
         let resolver = LiveProviderConfigurationResolver { provider in
@@ -56,7 +56,7 @@ import Testing
             #expect(request.url?.absoluteString == "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address")
             #expect(request.httpMethod == "POST")
 
-            let body = try #require(request.httpBody)
+            let body = try #require(request.bodyData)
             let payload = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
             let addresses = try #require(payload["addresses"] as? [[String: Any]])
             #expect(addresses.count == 2)
@@ -160,7 +160,7 @@ import Testing
             let requestURL = try #require(request.url?.absoluteString)
             requestedURLs.append(requestURL)
             #expect(request.httpMethod == "POST")
-            let body = try #require(request.httpBody)
+            let body = try #require(request.bodyData)
             let payload = try JSONSerialization.jsonObject(with: body) as? [String: Any]
             let addresses = try #require(payload?["addresses"] as? [[String: Any]])
             let firstAddress = try #require(addresses.first)
@@ -422,7 +422,7 @@ import Testing
 
         ProviderMockURLProtocol.handler = { request in
             let requestURL = try #require(request.url?.absoluteString)
-            let body = try #require(request.httpBody)
+            let body = try #require(request.bodyData)
             let payload = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
             let response = HTTPURLResponse(
                 url: try #require(request.url),
@@ -948,7 +948,7 @@ private final class ManyPageNFTInventoryProvider: NFTInventoryProviding {
     ) async throws -> AlchemyNFTResponse {
         requestedPageKeys.append(pageKey)
 
-        let pageIndex = pageKey.flatMap(Int.init) ?? 0
+        let pageIndex = pageKey.flatMap { Int($0, radix: 10) } ?? 0
         let nextPageKey = pageIndex + 1 < pageCount ? String(pageIndex + 1) : nil
         let ownedNfts = (0..<itemsPerPage).map { itemOffset in
             let tokenNumber = pageIndex * itemsPerPage + itemOffset
@@ -995,7 +995,7 @@ private final class PartiallyFailingNFTInventoryProvider: NFTInventoryProviding 
         owner: String,
         pageKey: String?
     ) async throws -> AlchemyNFTResponse {
-        let pageIndex = pageKey.flatMap(Int.init) ?? 0
+        let pageIndex = pageKey.flatMap { Int($0, radix: 10) } ?? 0
 
         if pageIndex >= successfulPageCount {
             throw URLError(.badServerResponse)
@@ -1040,6 +1040,39 @@ private extension ProviderAbstractionTests {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ProviderMockURLProtocol.self]
         return URLSession(configuration: configuration)
+    }
+}
+
+private extension URLRequest {
+    var bodyData: Data? {
+        if let httpBody {
+            return httpBody
+        }
+
+        guard let stream = httpBodyStream else {
+            return nil
+        }
+
+        stream.open()
+        defer { stream.close() }
+
+        let bufferSize = 1024
+        var data = Data()
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+
+        while stream.hasBytesAvailable {
+            let readCount = stream.read(buffer, maxLength: bufferSize)
+            if readCount < 0 {
+                return nil
+            }
+            if readCount == 0 {
+                break
+            }
+            data.append(buffer, count: readCount)
+        }
+
+        return data.isEmpty ? nil : data
     }
 }
 

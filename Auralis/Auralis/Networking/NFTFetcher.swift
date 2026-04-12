@@ -255,7 +255,9 @@ class NFTFetcher: NFTFetching {
                 print("Error fetching NFTs (attempt \(attempt)): \(error)")
                 
                 let wrappedError: Error
-                if let urlError = error as? URLError {
+                if let fetcherError = error as? FetcherError {
+                    wrappedError = fetcherError
+                } else if let urlError = error as? URLError {
                     print("URL Error code: \(urlError.code.rawValue)")
                     if urlError.code == .cancelled {
                         throw CancellationError()
@@ -274,6 +276,11 @@ class NFTFetcher: NFTFetching {
                 }
                 
                 self.error = wrappedError
+
+                if let fetcherError = wrappedError as? FetcherError,
+                   case .retryExhausted = fetcherError {
+                    throw fetcherError
+                }
                 
                 if shouldRetry(error: wrappedError, attempt: attempt) {
                     let delay = backoffDelay(for: attempt)

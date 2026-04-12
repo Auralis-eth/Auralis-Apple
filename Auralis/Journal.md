@@ -32,9 +32,19 @@ One recent bug had a very familiar smell: tests were still constructing `NFTProv
 
 The fix was to route test fixtures through the same typed error mapping that production uses. Offline cases now come from `URLError(.notConnectedToInternet)`, rate-limit cases come from `NFTFetcher.FetcherError.rateLimited`, and invalid-response coverage comes from `DecodingError`. That keeps the tests honest: they now verify the public behavior instead of relying on construction shortcuts that production code cannot use.
 
+Another bug was less about logic and more about test physics. `ProviderAbstractionTests` used a single global `URLProtocol` handler while Swift Testing was free to run async tests in parallel. That is like giving four bartenders one shared cocktail shaker and then acting surprised when the martini tastes faintly like someone else's margarita. The symptom was wonderfully misleading: `tokenHoldingsProviderUsesBalanceEndpointAsAmountAuthority()` would occasionally crash with an index-out-of-range because another test had already swapped the mock network handler.
+
+The fix was to serialize that suite so the shared mock state stops racing itself. In the same cleanup pass, the chrome and address-entry contract tests were brought back in line with the user-facing wording they actually assert, and the ERC-20 presentation tests stopped using ancient fixed timestamps for cases that are supposed to represent fresh metadata. That last one matters because time-based tests love turning into tiny gremlins if you accidentally ask 1970 to behave like “just updated.”
+
+Then came the sneaky cursor bug. A pagination fixture used `pageKey.flatMap(Int.init)` and on this setup that behaved like a hex-flavored parser. So page keys walked `10 -> 17 -> 24 -> 37`, which made a perfectly healthy fetcher look like it was giving up after 14 pages. The lesson: if a cursor is decimal, say so out loud with `Int(value, radix: 10)`. Leaving number parsing to “whatever overload the compiler picked today” is how you end up debugging ghosts.
+
 ## Engineer's Wisdom
 
 If a type’s only public initializer becomes a classifier, tests should follow it. Otherwise the tests stop being customer-facing contracts and become secret friends with implementation details. Good tests do not ask for privileged backstage access unless that access is the thing being tested.
+
+Shared mutable state inside tests is a trap with nicer branding. If a suite relies on a global mock, either isolate it per test or serialize the suite on purpose. Parallel execution is not the villain here; vague ownership is.
+
+Cursor parsing is another place where explicit beats clever. If the protocol says decimal, parse decimal. Tiny ambiguities in test fixtures can impersonate production regressions for hours.
 
 ## If I Were Starting Over...
 

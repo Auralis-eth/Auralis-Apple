@@ -39,9 +39,9 @@ enum AccountAddressValidationResult: Equatable {
         case .valid:
             return ""
         case .unsupportedENS:
-            return "ENS names are not supported in this field yet. Enter the wallet address directly for now."
+            return "ENS names are not supported in this entry flow yet. Paste the resolved wallet address instead."
         case .invalidFormat:
-            return "Enter a valid EVM wallet address using 0x plus 40 hexadecimal characters."
+            return "Enter a valid EVM wallet address."
         }
     }
 }
