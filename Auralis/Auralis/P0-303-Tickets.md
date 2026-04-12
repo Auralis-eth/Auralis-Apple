@@ -4,6 +4,10 @@
 
 Define unified provider and degraded-mode errors so the app stays navigable through offline, parsing, and rate-limit failures.
 
+## Ticket Status
+
+Completed for the current degraded-mode slice.
+
 ## Execution Order
 
 1. Re-read the dependencies and confirm which ones are already complete.

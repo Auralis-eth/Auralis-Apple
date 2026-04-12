@@ -187,6 +187,17 @@ struct ChromeContextInspectorSheet: View {
                     LabeledContent("Summary", value: snapshot.librarySummary)
                 }
 
+                Section("Module Pointers") {
+                    ForEach(snapshot.modulePointers.items, id: \.routeID) { item in
+                        LabeledContent(item.title) {
+                            Text(modulePointerValue(item))
+                        }
+                    }
+                    LabeledContent("Primary", value: snapshot.primaryModuleSummary)
+                    LabeledContent("Shortcuts", value: snapshot.shortcutModuleSummary)
+                    LabeledContent("Pinned", value: snapshot.pinnedModuleSummary)
+                }
+
                 Section("Preferences") {
                     LabeledContent(
                         "Demo Data",
@@ -313,6 +324,15 @@ struct ChromeContextInspectorSheet: View {
         case nil:
             return "Unknown"
         }
+    }
+
+    private func modulePointerValue(_ item: ContextModulePointer) -> String {
+        let priority = item.priority.rawValue.capitalized
+        if item.isPinned {
+            return "\(priority) • Pinned"
+        }
+
+        return priority
     }
 
     private func refreshContext() {

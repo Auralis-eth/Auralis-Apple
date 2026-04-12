@@ -4,6 +4,10 @@
 
 Integrate receipt logging incrementally inside each feature area instead of deferring everything to the end.
 
+## Ticket Status
+
+Completed for the current receipt-integration slice.
+
 ## Execution Order
 
 1. Identify the feature slice currently being delivered.

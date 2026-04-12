@@ -47,6 +47,23 @@ struct ContextLocalPreferences: Equatable {
     let pinnedItemCount: ContextField<Int>
 }
 
+enum ContextModulePriority: String, Equatable, Sendable {
+    case primary
+    case shortcut
+}
+
+struct ContextModulePointer: Equatable {
+    let routeID: String
+    let title: String
+    let priority: ContextModulePriority
+    let isPinned: Bool
+    let isMounted: Bool
+}
+
+struct ContextModulePointers: Equatable {
+    let items: [ContextModulePointer]
+}
+
 enum ContextRefreshState: String, Equatable, Sendable {
     case idle
     case refreshing
@@ -107,12 +124,13 @@ struct ContextSnapshot: Equatable {
     let scope: ContextScope
     let balances: ContextBalancesSummary
     let libraryPointers: ContextLibraryPointers
+    let modulePointers: ContextModulePointers
     let localPreferences: ContextLocalPreferences
     let freshness: ContextFreshness
 }
 
-/// Legacy compatibility model used by the current shell UI while `P0-401`
-/// grows into the broader `ContextSnapshot` contract.
+/// Compatibility model used by shell consumers that still need the compact
+/// app-context shape derived from the shared `ContextSnapshot` contract.
 struct AppContext: Equatable {
     let accountAddress: String
     let accountName: String?
@@ -208,6 +226,27 @@ extension ContextSnapshot {
         .joined(separator: " • ")
     }
 
+    var modulePointersSummary: String {
+        moduleSummaryItems(for: modulePointers.items)
+    }
+
+    var primaryModuleSummary: String {
+        moduleSummaryItems(for: modulePointers.items.filter { $0.priority == .primary })
+    }
+
+    var shortcutModuleSummary: String {
+        moduleSummaryItems(for: modulePointers.items.filter { $0.priority == .shortcut })
+    }
+
+    var pinnedModuleSummary: String {
+        let pinnedItems = modulePointers.items.filter(\.isPinned)
+        guard !pinnedItems.isEmpty else {
+            return "No pinned shortcuts"
+        }
+
+        return pinnedItems.map(\.title).joined(separator: ", ")
+    }
+
     private func librarySummaryItem(label: String, value: Int?) -> String {
         "\(label): \(value.map(String.init) ?? "Unknown")"
     }
@@ -227,6 +266,14 @@ extension ContextSnapshot {
 
     private func integerPreferenceSummary(label: String, value: Int?) -> String {
         "\(label): \(value.map(String.init) ?? "Unknown")"
+    }
+
+    private func moduleSummaryItems(for items: [ContextModulePointer]) -> String {
+        guard !items.isEmpty else {
+            return "None"
+        }
+
+        return items.map(\.title).joined(separator: " • ")
     }
 }
 
@@ -293,6 +340,7 @@ struct LiveContextSource: ContextSource {
     let trackedNFTCountProvider: () -> Int?
     let musicCollectionCountProvider: () -> Int?
     let receiptCountProvider: () -> Int?
+    let pinnedActionsProvider: () -> [HomeLauncherAction]
     let prefersDemoDataProvider: () -> Bool?
     let pinnedItemCountProvider: () -> Int?
 
@@ -310,6 +358,7 @@ struct LiveContextSource: ContextSource {
         trackedNFTCountProvider: @escaping () -> Int? = { nil },
         musicCollectionCountProvider: @escaping () -> Int? = { nil },
         receiptCountProvider: @escaping () -> Int? = { nil },
+        pinnedActionsProvider: @escaping () -> [HomeLauncherAction] = { [] },
         prefersDemoDataProvider: @escaping () -> Bool? = { nil },
         pinnedItemCountProvider: @escaping () -> Int? = { nil }
     ) {
@@ -326,6 +375,7 @@ struct LiveContextSource: ContextSource {
         self.trackedNFTCountProvider = trackedNFTCountProvider
         self.musicCollectionCountProvider = musicCollectionCountProvider
         self.receiptCountProvider = receiptCountProvider
+        self.pinnedActionsProvider = pinnedActionsProvider
         self.prefersDemoDataProvider = prefersDemoDataProvider
         self.pinnedItemCountProvider = pinnedItemCountProvider
     }
@@ -382,6 +432,17 @@ struct LiveContextSource: ContextSource {
                     updatedAt: refreshTimestamp
                 )
             ),
+            modulePointers: ContextModulePointers(
+                items: HomeLauncherAction.allCases.map { action in
+                    ContextModulePointer(
+                        routeID: action.rawValue,
+                        title: action.contextTitle,
+                        priority: action.contextPriority,
+                        isPinned: pinnedActionsProvider().contains(action),
+                        isMounted: true
+                    )
+                }
+            ),
             localPreferences: ContextLocalPreferences(
                 prefersDemoData: ContextField(
                     prefersDemoDataProvider(),
@@ -400,5 +461,31 @@ struct LiveContextSource: ContextSource {
                 ttl: freshnessTTLProvider()
             )
         )
+    }
+}
+
+private extension HomeLauncherAction {
+    var contextTitle: String {
+        switch self {
+        case .openMusic:
+            return "Music"
+        case .openNFTTokens:
+            return "NFT Tokens"
+        case .openSearch:
+            return "Search"
+        case .openNews:
+            return "News Feed"
+        case .openReceipts:
+            return "Receipts"
+        }
+    }
+
+    var contextPriority: ContextModulePriority {
+        switch self {
+        case .openMusic, .openNFTTokens:
+            return .primary
+        case .openSearch, .openNews, .openReceipts:
+            return .shortcut
+        }
     }
 }

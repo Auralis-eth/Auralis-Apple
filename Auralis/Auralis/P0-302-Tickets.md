@@ -4,6 +4,10 @@
 
 Implement cache entries with timestamps, TTL policy, stale detection, refresh triggers, and UI-facing last-updated values.
 
+## Ticket Status
+
+Completed for the current freshness-contract slice.
+
 ## Execution Order
 
 1. Re-read the dependencies and confirm which ones are already complete.

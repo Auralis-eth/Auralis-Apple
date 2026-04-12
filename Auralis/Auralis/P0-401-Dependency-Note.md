@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress
+Complete
 
 ## Dependencies
 
@@ -16,20 +16,21 @@ In Progress
 - `P0-204` is complete enough to provide a real chain-scope field.
 - `P0-302` is complete enough for the current freshness contract used by the shell-facing snapshot, even if downstream policy cleanup may still evolve.
 
-## Safe Work Now
+## Delivered Contract
 
-- Define the typed `ContextSnapshot` schema and version it.
-- Move the shell inspector to the new snapshot contract.
-- Model provenance and timestamps using existing local values.
-- Feed schema sections from real local values where the app already owns them.
-- Keep balance and any not-yet-real provider sections placeholder-safe instead of fabricating provider-backed data.
+- `ContextSnapshot` is the real shell-facing context schema and remains versioned at `p0.context.v0`.
+- Scope, freshness, balances, library pointers, module pointers, and local preferences now all have real owned inputs.
+- The shell chrome and context inspector read the shared snapshot contract instead of ad hoc shell values.
+- Home now consumes the shared snapshot for scoped launcher and pinned-link copy instead of freelancing that copy from local bindings.
 
-## Still Deferred
+## Completion Read
 
-- Broader downstream adoption beyond the current shell and inspector path
-- Any follow-on freshness-policy cleanup if ownership shifts later in the `P0-301` / `P0-302` / `P0-402` family
-- Remaining placeholder-safe preference or module fields whose owning product surfaces are not finalized yet
+- `P0-201` provides the persisted account identity inputs the schema needs.
+- `P0-204` provides the live chain-scope truth the schema now carries through the shared snapshot.
+- `P0-302` provides the TTL-backed freshness contract already exposed in the snapshot and inspector.
 
-## Full Completion Condition
+## Remaining Work That Is Not A P0-401 Blocker
 
-The ticket is fully complete when the remaining deferred fields are fed by the real context/provider stack instead of placeholder-safe empty values, without relying on temporary placeholder-safe sections that have no settled owner yet.
+- Any later additive schema growth for future product surfaces
+- Any follow-on freshness-policy tuning in the broader `P0-301` / `P0-302` / `P0-402` family
+- Richer inspector storytelling beyond the current baseline contract

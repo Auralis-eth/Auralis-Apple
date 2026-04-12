@@ -445,6 +445,7 @@ struct NFTServiceReceiptTests {
             trackedNFTCountProvider: { account.trackedNFTCount },
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
+            pinnedActionsProvider: { [] },
             prefersDemoDataProvider: { false },
             pinnedItemCountProvider: { nil }
         )

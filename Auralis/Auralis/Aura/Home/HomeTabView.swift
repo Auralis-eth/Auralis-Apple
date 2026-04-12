@@ -283,6 +283,7 @@ struct HomeTabView: View {
     @Binding var currentAddress: String
     @Binding var currentChainId: String
     @Binding var currentChain: Chain
+    let contextSnapshot: ContextSnapshot
     @Query private var scopedNFTs: [NFT]
     @Query(
         sort: [
@@ -324,6 +325,7 @@ struct HomeTabView: View {
         currentAddress: Binding<String>,
         currentChainId: Binding<String>,
         currentChain: Binding<Chain>,
+        contextSnapshot: ContextSnapshot,
         onCurrentChainChanged: @escaping @MainActor (Chain, String) -> Void,
         router: AppRouter,
         ensResolver: any ENSResolving,
@@ -335,6 +337,7 @@ struct HomeTabView: View {
         self._currentAddress = currentAddress
         self._currentChainId = currentChainId
         self._currentChain = currentChain
+        self.contextSnapshot = contextSnapshot
         self.onCurrentChainChanged = onCurrentChainChanged
         self.router = router
         self.ensResolver = ensResolver
@@ -553,12 +556,10 @@ struct HomeTabView: View {
             VStack(alignment: .leading, spacing: 12) {
                 AuraSectionHeader(
                     title: "Quick Links",
-                    subtitle: pinnedItemCount > 0
-                        ? "\(pinnedItemCount) pinned link\(pinnedItemCount == 1 ? "" : "s") for this scope."
-                        : "Fast jumps into the other mounted product surfaces."
+                    subtitle: quickLinksSubtitle
                 ) {
                     AuraPill(
-                        pinnedItemCount > 0 ? "\(pinnedItemCount) pinned" : "Ready",
+                        quickLinksPillTitle,
                         systemImage: pinnedItemCount > 0 ? "pin.fill" : "bolt.fill",
                         emphasis: .accent
                     )
@@ -601,7 +602,7 @@ struct HomeTabView: View {
             VStack(alignment: .leading, spacing: 12) {
                 AuraSectionHeader(
                     title: "Recent Activity",
-                    subtitle: "Latest receipts for \(receiptScope.displayLabel)",
+                    subtitle: "Latest receipts for \(contextSnapshot.scopeSummary)",
                     trailing: {
                         Button("All Receipts") {
                             router.showReceipts()
@@ -1017,10 +1018,26 @@ struct HomeTabView: View {
         case .firstRun:
             return "Auralis knows who you are and which chain you are exploring, but this scope has no local NFTs or receipt activity yet. Use the next-step routes below to search, browse, or switch accounts without pretending the dashboard already has history."
         case .sparse:
-            return "Some Home sections are still quiet for \(receiptScope.displayLabel). That is an honest low-data state, not a broken dashboard. Use Search, News, or another account to keep moving while local history catches up."
+            return "Some Home sections are still quiet for \(contextSnapshot.scopeSummary). That is an honest low-data state, not a broken dashboard. Use Search, News, or another account to keep moving while local history catches up."
         case .normal:
             return ""
         }
+    }
+
+    private var quickLinksSubtitle: String {
+        if pinnedItemCount > 0 {
+            return "\(quickLinksPillTitle) for this scope. Pinned routes: \(contextSnapshot.pinnedModuleSummary)."
+        }
+
+        return "Fast jumps into the mounted product surfaces: \(contextSnapshot.shortcutModuleSummary)."
+    }
+
+    private var quickLinksPillTitle: String {
+        if pinnedItemCount > 0 {
+            return "\(pinnedItemCount) pinned"
+        }
+
+        return "\(contextSnapshot.modulePointers.items.filter { $0.priority == .shortcut }.count) routes"
     }
 
     private var sparseStateSystemImage: String {

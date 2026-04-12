@@ -4,6 +4,10 @@
 
 Implement the global Observe-only mode state, display it in chrome, persist it in app state, and include it in receipts.
 
+## Ticket Status
+
+Completed for the current Phase 0 mode-ownership slice.
+
 ## Execution Order
 
 1. Re-read the dependencies and confirm which ones are already complete.

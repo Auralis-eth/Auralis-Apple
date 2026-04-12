@@ -4,6 +4,10 @@
 
 Early structural scaffolding for layered boundaries.
 
+## Ticket Status
+
+Completed for the current structural scaffolding slice.
+
 ## Execution Order
 
 1. Identify the main service seams the UI should talk to.

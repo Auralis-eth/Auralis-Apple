@@ -4,6 +4,10 @@
 
 Add the Why-am-I-seeing-this inspector with scope, provenance, freshness, and links to related receipts.
 
+## Ticket Status
+
+Completed for the current inspector slice.
+
 ## Execution Order
 
 1. Re-read the dependencies and confirm which ones are already complete.

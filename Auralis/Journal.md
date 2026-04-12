@@ -38,6 +38,16 @@ Alchemy plus Infura because the product already depends on real provider-backed 
 
 ## The Journey
 
+### War Story: P0-401 stopped being a polite half-truth
+
+`ContextSnapshot` had reached the awkward teenage phase. The shell was already using it, the chrome inspector was already showing it, and the strategy doc was already calling `P0-401` complete. But the ticket handoff still had the old scar tissue: “not a defensible 100% close.”
+
+The reason was subtle. The schema had real scope, freshness, and library values, but Home launcher state was still half living off to the side like a neighbor borrowing your Wi-Fi. Pinned links and launcher routes were mounted product truth, yet the context contract did not model them explicitly.
+
+The fix was not glamorous. We taught `ContextSnapshot` about module pointers, fed that from the real mounted Home launcher contract plus the pinned-links store, and pushed Home copy to read the shared snapshot instead of improvising its own version of the same story.
+
+This is one of those senior-engineering moments that does not look dramatic in the diff. No new animation. No giant refactor. Just a contract that finally says what the product already knows.
+
 ### War Story: P0-461 grew up
 
 The original `P0-461` landing was honest but incomplete: the ERC-20 tab was a real SwiftData surface, but it was basically native balance plus empty promises. The missing piece was live ERC-20 inventory.
@@ -85,6 +95,30 @@ There was another cleanup tucked into the same pass: we stopped asking the enric
 Wallet switches are concurrency tests wearing a UX costume. If one wallet's slower token sync finishes after the user has already moved to another account, stale async work can start writing or messaging as if nothing changed.
 
 The fix was to give ERC-20 sync a small coordinator that drops stale results when a newer scope takes over. This is not glamorous architecture. It is the kind of tiny guardrail that keeps a tab from becoming haunted when latency gets weird.
+
+### War Story: The tickets said "startable" long after the code had shipped
+
+This audit turned up a very specific kind of failure: documentation drift with a straight face. The global Phase 0 reports were saying whole slices were complete, while several individual handoff docs were still written like someone had just sharpened a pencil and was about to begin.
+
+That mismatch is not harmless paperwork. It changes planning decisions. A stale `Startable` at the top of a delivered ticket is the product-management version of a stale cache entry in code: somebody eventually believes it and makes the wrong move.
+
+The cleanup was intentionally boring and therefore valuable. We normalized the explicit status in the ticket docs, wrote a hard closeout report for every P0 ticket except the still-blocked `P0-801` through `P0-803` set, and called out the exact places where the repo still lacks trustworthy closeout artifacts or validation signal.
+
+The lesson is simple: architecture debt and documentation debt use the same disguise. Both pretend to be tomorrow's problem right up until they start steering today's roadmap.
+
+### War Story: The ERC-20 tab looked like a CSV export wearing a tab icon
+
+The provider-backed holdings work was real, but the screen still looked like the app had given up five minutes before the demo. A plain `List`, a few gray captions, and a token amount floating off to the right is not a product surface. It is a debug readout with better manners.
+
+The fix was not to throw motion or gradients at the problem blindly. The right move was hierarchy. We turned the ERC-20 root into a scoped wallet surface with a summary card, explicit freshness, clear native-vs-ERC-20 distinction, and rows that actually scan: title, amount, metadata state, route affordance, and update time all have jobs now.
+
+This is a useful reminder that data plumbing does not finish a feature. A backend-complete tab with weak hierarchy still feels unfinished because the human eye is the real integration point.
+
+### Pitfall
+
+The Xcode MCP test runner can fail in a particularly annoying way: not red, not green, just `No result` and a vague complaint that testing was cancelled because the build failed, while a standalone build reports success and no live compiler issues exist.
+
+That is not validation. It is fog. The right engineering move is to document the exact limitation, keep the successful build signal, and defer the unit-test verdict instead of pretending the runner said something it did not.
 
 ## Engineer's Wisdom
 

@@ -60,9 +60,10 @@ Current read on `P0-401`:
 
 - the shell-facing `ContextSnapshot` contract is real and in use
 - local playlist and scoped-receipt counts now feed the schema where local data already exists
+- mounted Home launcher routes now exist as first-class module pointers in the shared context contract
 - guest-pass/demo preference is represented in the shared context contract
 - provider-backed native balance now flows through `ContextService`
-- shell-owned pinned Home links now feed a real pinned-item preference count instead of a placeholder-safe field
+- shell-owned pinned Home links now feed both a real pinned-item preference count and pinned module-pointer state instead of placeholder-safe fields
 
 Current read on `P0-301`:
 

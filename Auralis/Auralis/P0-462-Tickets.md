@@ -6,7 +6,7 @@ Implement the token detail screen that deepens the holdings list into a real per
 
 ## Ticket Status
 
-Startable.
+Completed for the current slice.
 
 ## Execution Checklist
 
@@ -84,10 +84,6 @@ Step 4 notes:
   - transfer/history views
   - charts and market data
   - token logos or provider-enriched branding beyond the current local holdings contract
-
-## Ticket Status
-
-Completed for the current slice.
 
 ## Critical Edge Case
 

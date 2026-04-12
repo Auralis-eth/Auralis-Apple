@@ -6,7 +6,7 @@ Implement the first music collection and item detail screens on top of the `P0-4
 
 ## Ticket Status
 
-Startable.
+Completed for the current slice.
 
 ## Execution Checklist
 
@@ -70,10 +70,6 @@ Step 4 notes:
   - `MusicCollectionPresentationTests/summariesFallbackWhenCollectionNameIsMissing()`
   - `MusicCollectionPresentationTests/detailPresentationReportsSparseMetadata()`
 - Deeper playback and capture work remains outside this ticket: richer collection playback controls, queue/cueing behavior from collection detail, and any capture/provenance-specific affordances belong in later tickets instead of stretching `P0-452`.
-
-## Ticket Status
-
-Completed for the current slice.
 
 ## Critical Edge Case
 

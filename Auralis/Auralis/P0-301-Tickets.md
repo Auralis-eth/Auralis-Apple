@@ -4,6 +4,10 @@
 
 Create the injected, read-only provider interface for chain-aware balance and metadata fetches with centralized RPC configuration.
 
+## Ticket Status
+
+Completed for the current read-only provider slice.
+
 ## Execution Order
 
 1. Re-read the dependencies and confirm which ones are already complete.
@@ -42,7 +46,18 @@ This ticket is complete for the current Phase 0 read-only provider slice, but so
 Validation completed in this pass:
 
 - project build succeeded after the provider-seam integration
+- a fresh `BuildProject` run succeeded again during the closeout pass after the broader P0 and ERC-20 surface updates
+- live Xcode diagnostics returned no issues for the active provider-layer source touched in this pass
+- focused provider-suite identifiers were resolved successfully, so the intended validation target set is now explicit for the next test pass:
+  - `ProviderAbstractionTests/resolverBuildsExpectedEndpoints()`
+  - `ProviderAbstractionTests/resolverDropsUnsupportedRPCEndpoints()`
+  - `ProviderAbstractionTests/tokenBalancesProviderCallsExactEndpoint()`
+  - `ProviderAbstractionTests/tokenHoldingsProviderLoadsFormattedERC20Rows()`
+  - `ProviderAbstractionTests/tokenHoldingsProviderHidesAmountWhenEnrichmentFails()`
+  - `ProviderAbstractionTests/tokenHoldingsProviderUsesBalanceEndpointAsAmountAuthority()`
+  - `ProviderAbstractionTests/tokenHoldingsProviderPaginatesBalancesAndEnrichments()`
+  - `ProviderAbstractionTests/tokenHoldingsProviderDiscardsMismatchedEnrichmentRows()`
 
 Validation limitation:
 
-- the focused Xcode test run failed because the result bundle was incomplete in this environment, so there is no trustworthy targeted pass/fail signal from that run
+- the MCP Xcode test runner still returned `No result` and reported `Testing cancelled because the build failed` without surfacing actionable compile diagnostics, so targeted unit-test pass/fail evidence is deferred to the next pass by user direction

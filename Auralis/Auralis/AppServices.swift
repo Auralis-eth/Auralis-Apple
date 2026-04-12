@@ -16,6 +16,7 @@ protocol ShellContextSourceBuilding {
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
         receiptCountProvider: @escaping () -> Int?,
+        pinnedActionsProvider: @escaping () -> [HomeLauncherAction],
         prefersDemoDataProvider: @escaping () -> Bool?,
         pinnedItemCountProvider: @escaping () -> Int?
     ) -> any ContextSource
@@ -35,6 +36,7 @@ protocol ShellContextServiceBuilding {
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
         receiptCountProvider: @escaping () -> Int?,
+        pinnedActionsProvider: @escaping () -> [HomeLauncherAction],
         prefersDemoDataProvider: @escaping () -> Bool?,
         pinnedItemCountProvider: @escaping () -> Int?
     ) -> ContextService
@@ -61,6 +63,7 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
         receiptCountProvider: @escaping () -> Int?,
+        pinnedActionsProvider: @escaping () -> [HomeLauncherAction],
         prefersDemoDataProvider: @escaping () -> Bool?,
         pinnedItemCountProvider: @escaping () -> Int?
     ) -> any ContextSource {
@@ -78,6 +81,7 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
             trackedNFTCountProvider: trackedNFTCountProvider,
             musicCollectionCountProvider: musicCollectionCountProvider,
             receiptCountProvider: receiptCountProvider,
+            pinnedActionsProvider: pinnedActionsProvider,
             prefersDemoDataProvider: prefersDemoDataProvider,
             pinnedItemCountProvider: pinnedItemCountProvider
         )
@@ -134,6 +138,7 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
         receiptCountProvider: @escaping () -> Int?,
+        pinnedActionsProvider: @escaping () -> [HomeLauncherAction],
         prefersDemoDataProvider: @escaping () -> Bool?,
         pinnedItemCountProvider: @escaping () -> Int?
     ) -> ContextService {
@@ -150,6 +155,7 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
             trackedNFTCountProvider: trackedNFTCountProvider,
             musicCollectionCountProvider: musicCollectionCountProvider,
             receiptCountProvider: receiptCountProvider,
+            pinnedActionsProvider: pinnedActionsProvider,
             prefersDemoDataProvider: prefersDemoDataProvider,
             pinnedItemCountProvider: pinnedItemCountProvider
         )

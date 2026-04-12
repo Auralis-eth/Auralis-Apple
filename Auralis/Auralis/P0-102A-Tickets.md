@@ -4,6 +4,10 @@
 
 Build the OS-level Home dashboard with active account summary, module tiles, recent activity preview, and quick links.
 
+## Ticket Status
+
+Completed for the current dashboard shell slice.
+
 ## Execution Order
 
 1. Re-read the dependencies and confirm which ones are already complete.

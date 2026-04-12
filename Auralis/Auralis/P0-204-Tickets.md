@@ -4,6 +4,10 @@
 
 Add per-account chain scope settings that drive Context Builder and downstream library surfaces.
 
+## Ticket Status
+
+Completed for the current shell baseline.
+
 ## Execution Order
 
 1. Re-read the dependencies and confirm which ones are already complete.

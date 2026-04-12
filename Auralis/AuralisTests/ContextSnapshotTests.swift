@@ -43,6 +43,10 @@ import Testing
         #expect(snapshot.libraryPointers.trackedNFTCount.value == 42)
         #expect(snapshot.libraryPointers.musicCollectionCount.value == 3)
         #expect(snapshot.libraryPointers.receiptCount.value == 7)
+        #expect(snapshot.modulePointers.items.count == HomeLauncherAction.allCases.count)
+        #expect(snapshot.primaryModuleSummary == "Music • NFT Tokens")
+        #expect(snapshot.shortcutModuleSummary == "Search • News Feed • Receipts")
+        #expect(snapshot.pinnedModuleSummary == "No pinned shortcuts")
         #expect(snapshot.localPreferences.prefersDemoData.value == true)
         #expect(snapshot.localPreferences.pinnedItemCount.value == 2)
         #expect(snapshot.freshness.refreshState == .idle)
@@ -64,6 +68,7 @@ import Testing
             trackedNFTCountProvider: { 12 },
             musicCollectionCountProvider: { 4 },
             receiptCountProvider: { 9 },
+            pinnedActionsProvider: { [.openSearch, .openReceipts] },
             prefersDemoDataProvider: { true },
             pinnedItemCountProvider: { 3 }
         )
@@ -73,11 +78,13 @@ import Testing
         #expect(snapshot.libraryPointers.trackedNFTCount.value == 12)
         #expect(snapshot.libraryPointers.musicCollectionCount.value == 4)
         #expect(snapshot.libraryPointers.receiptCount.value == 9)
+        #expect(snapshot.modulePointers.items.filter(\.isPinned).map(\.routeID).sorted() == ["openReceipts", "openSearch"])
         #expect(snapshot.localPreferences.prefersDemoData.value == true)
         #expect(snapshot.localPreferences.pinnedItemCount.value == 3)
         #expect(snapshot.libraryPointers.receiptCount.updatedAt == Date(timeIntervalSince1970: 1_700_000_500))
         #expect(snapshot.librarySummary == "NFTs: 12 • Playlists: 4 • Receipts: 9")
         #expect(snapshot.preferencesSummary == "Demo Data: On • Pinned Items: 3")
+        #expect(snapshot.pinnedModuleSummary == "Search, Receipts")
     }
 
     @Test("context snapshot remains valid when optional provider-backed values are absent")
@@ -236,6 +243,7 @@ struct ContextServiceTests {
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
+            pinnedActionsProvider: { [] },
             prefersDemoDataProvider: { false },
             pinnedItemCountProvider: { 0 }
         )
@@ -270,6 +278,7 @@ struct ContextServiceTests {
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
+            pinnedActionsProvider: { [] },
             prefersDemoDataProvider: { false },
             pinnedItemCountProvider: { 0 },
             beforeResolve: {
@@ -314,6 +323,7 @@ struct ContextServiceTests {
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
+            pinnedActionsProvider: { [] },
             prefersDemoDataProvider: { false },
             pinnedItemCountProvider: { 0 }
         )
@@ -355,6 +365,7 @@ struct ContextServiceTests {
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
+            pinnedActionsProvider: { [] },
             prefersDemoDataProvider: { false },
             pinnedItemCountProvider: { 0 },
             beforeResolve: {
@@ -407,6 +418,7 @@ struct ContextServiceTests {
             trackedNFTCountProvider: { nil },
             musicCollectionCountProvider: { nil },
             receiptCountProvider: { nil },
+            pinnedActionsProvider: { [] },
             prefersDemoDataProvider: { false },
             pinnedItemCountProvider: { 0 }
         )
@@ -437,6 +449,7 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
         trackedNFTCountProvider: @escaping () -> Int?,
         musicCollectionCountProvider: @escaping () -> Int?,
         receiptCountProvider: @escaping () -> Int?,
+        pinnedActionsProvider: @escaping () -> [HomeLauncherAction],
         prefersDemoDataProvider: @escaping () -> Bool?,
         pinnedItemCountProvider: @escaping () -> Int?
     ) -> any ContextSource {
@@ -455,6 +468,7 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
             trackedNFTCountProvider: trackedNFTCountProvider,
             musicCollectionCountProvider: musicCollectionCountProvider,
             receiptCountProvider: receiptCountProvider,
+            pinnedActionsProvider: pinnedActionsProvider,
             prefersDemoDataProvider: prefersDemoDataProvider,
             pinnedItemCountProvider: pinnedItemCountProvider
         )

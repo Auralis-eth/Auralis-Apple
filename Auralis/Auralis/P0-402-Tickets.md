@@ -4,6 +4,10 @@
 
 Implement ContextService as the only UI entry point for scoped context, coordinating provider reads, cache use, snapshot assembly, and receipts.
 
+## Ticket Status
+
+Completed for the current shell-facing context-service slice.
+
 ## Execution Order
 
 1. Re-read the dependencies and confirm which ones are already complete.

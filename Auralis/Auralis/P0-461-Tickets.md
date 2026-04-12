@@ -39,6 +39,11 @@ Implementation notes:
 - Replaced the `ERC20TokensRootView` placeholder with a real holdings list that reads persisted rows for the active scope.
 - Expanded the existing read-only provider configuration with Alchemy Data API support and added a provider-backed token holdings fetcher instead of introducing new networking outside the existing stack.
 - The list now persists and renders the native holding row first, reconciles live ERC-20 rows into the same store, and keeps cached rows visible when a later refresh does not return a fresh provider response.
+- The holdings surface has now been visually reworked from a bare `List` into a card-based scoped wallet surface with:
+  - a summary card for wallet scope, freshness, and asset counts
+  - stronger row hierarchy for token name, amount, route affordance, and metadata state
+  - visible distinction between native balance and ERC-20 rows
+  - explicit metadata-pending, amount-hidden, and stale-state pills instead of low-signal caption text
 
 ### 3. Cover required edge cases
 
@@ -73,6 +78,7 @@ Manual QA still required:
 - Confirm the native-only surface reads clearly with no ERC-20 rows present.
 - Confirm known ERC-20 holdings appear for a supported wallet and chain.
 - Confirm the degraded/banner messaging is understandable after a live provider failure while cached holdings remain visible.
+- Confirm the redesigned card rows feel materially better on device for dense wallets, sparse wallets, and Dynamic Type.
 
 Follow-on work explicitly deferred:
 

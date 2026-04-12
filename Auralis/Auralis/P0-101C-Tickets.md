@@ -4,6 +4,10 @@
 
 Wire the chrome freshness and scope UI to Context Builder, support stale detection, and open Context Inspector from the chrome with consistent refresh behavior.
 
+## Ticket Status
+
+Completed for the current context-sheet interpretation.
+
 ## Execution Order
 
 1. Re-read the dependencies and confirm which ones are already complete.
