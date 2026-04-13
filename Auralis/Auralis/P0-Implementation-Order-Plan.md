@@ -98,9 +98,9 @@ Closeout summary:
 - `P0-702`: complete for the current first trust-label slice; broader rollout across every provider-backed field remains follow-on work
 - `P0-703`: complete for the current first no-bypass smoke-test slice; broader smoke expansion remains follow-on work
 - `P0-502B`: complete for the current receipt verification-and-cleanup slice
-- `P0-801`: startable for deterministic demo/offline behavior definition
-- `P0-802`: partially blocked until the representative mounted flows are settled enough to benchmark honestly
-- `P0-803`: startable for the Phase 0 privacy/security checklist pass
+- `P0-801`: startable with a defined bundled demo-data and non-production entry contract
+- `P0-802`: partially blocked, but the first benchmark slice is now defined around address-entry-to-shell and ERC-20 opening flows
+- `P0-803`: startable with full active Phase 0 surface scope
 
 ## Recommended Order
 
@@ -239,9 +239,9 @@ Why:
 
 ### Phase 11: Release-readiness pass
 
-38. `P0-801` Deterministic demo dataset + offline mode behavior
-39. `P0-802` Performance + stability baseline
-40. `P0-803` Privacy + security checklist for Phase 0
+38. `P0-801` Deterministic demo dataset + offline mode behavior (Resolved for planning/readiness)
+39. `P0-802` Performance + stability baseline (Resolved for planning/readiness)
+40. `P0-803` Privacy + security checklist for Phase 0 (Resolved for planning/readiness)
 
 Why:
 

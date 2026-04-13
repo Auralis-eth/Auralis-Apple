@@ -38,6 +38,10 @@ The fix was to serialize that suite so the shared mock state stops racing itself
 
 Then came the sneaky cursor bug. A pagination fixture used `pageKey.flatMap(Int.init)` and on this setup that behaved like a hex-flavored parser. So page keys walked `10 -> 17 -> 24 -> 37`, which made a perfectly healthy fetcher look like it was giving up after 14 pages. The lesson: if a cursor is decimal, say so out loud with `Int(value, radix: 10)`. Leaving number parsing to “whatever overload the compiler picked today” is how you end up debugging ghosts.
 
+The next sharp edge was demo mode pretending to be more magical than it really was. The guest-pass cards were driven by hardcoded data and a sprinkle of `Bool.random()`, which meant the same demo wallet could wear different iconography depending on the launch. That is funny exactly once. The fix was to move the guest-pass catalog to bundled JSON, make the icon contract deterministic, and wire the entry flow so guest passes are only exposed in non-production builds. In other words: the stage props now live in the prop closet, not scattered around backstage.
+
+That cleanup also forced an honesty check on the shell itself. “Offline” and “demo” are not the same thing, and neither should masquerade as a generic provider tantrum. The shell now surfaces a dedicated provenance banner: guest-pass sessions announce that they came from a fixed demo identity, and offline sessions tell the truth about cached local content versus paused live panels. Software gets calmer when it stops bluffing.
+
 ## Engineer's Wisdom
 
 If a type’s only public initializer becomes a classifier, tests should follow it. Otherwise the tests stop being customer-facing contracts and become secret friends with implementation details. Good tests do not ask for privileged backstage access unless that access is the thing being tested.
@@ -45,6 +49,8 @@ If a type’s only public initializer becomes a classifier, tests should follow 
 Shared mutable state inside tests is a trap with nicer branding. If a suite relies on a global mock, either isolate it per test or serialize the suite on purpose. Parallel execution is not the villain here; vague ownership is.
 
 Cursor parsing is another place where explicit beats clever. If the protocol says decimal, parse decimal. Tiny ambiguities in test fixtures can impersonate production regressions for hours.
+
+Demo paths need the same rigor as live paths. If a guest experience exists, it should have a real contract, stable fixtures, and clear boundaries about where demo identity ends and live provider data begins. Otherwise the product starts behaving like a theme park map drawn on a napkin.
 
 ## If I Were Starting Over...
 

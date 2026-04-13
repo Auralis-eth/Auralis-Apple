@@ -4,6 +4,12 @@
 
 This audit covers every Phase 0 ticket except `P0-801`, `P0-802`, and `P0-803`.
 
+Current read on those excluded Phase 11 tickets:
+
+- `P0-801`: resolved for planning/readiness with clarified bundled-demo, non-production-only entry, and real-account/no-demo rules
+- `P0-802`: resolved for planning/readiness with the first baseline flows and leak-remediation rule defined
+- `P0-803`: resolved for planning/readiness with the full active Phase 0 surface in scope
+
 Status source of truth used for this pass:
 
 - `P0-Implementation-Order-Plan.md`
@@ -12,9 +18,8 @@ Status source of truth used for this pass:
 
 ## Hard Blockers
 
-1. Validation signal is still weaker than the status wording implies for `P0-301` and `P0-401`. Their ticket docs explicitly note incomplete or untrustworthy focused Xcode test results in this environment.
-2. `P0-461` still has one real closeout gap: automated validation is documented as complete, but manual UI QA remains open.
-3. `P0-203` is not blocked on implementation, but its ticket doc still records unrelated full-suite noise in `AuralisTests/NFTServiceReceiptTests.swift`.
+1. `P0-461` still has one real closeout gap: automated validation is documented as complete, but manual UI QA remains open.
+2. `P0-203` is not blocked on implementation, but its ticket doc still records unrelated full-suite noise in `AuralisTests/NFTServiceReceiptTests.swift`.
 
 ## Status Normalization Completed In This Audit
 
@@ -79,13 +84,13 @@ These missing closeout artifacts were added in this audit:
 
 ### `30x` Provider, Freshness, And Failure Handling
 
-- `P0-301` Status: completed for the current read-only provider slice. Code: `Networking/ReadOnlyProviderSupport.swift`, `Networking/AlchemyNFTService.swift`, `AppServices.swift`, `ContextService.swift`. Tests: `ProviderAbstractionTests.swift`. Docs: `P0-301-Strategy.md`, `P0-301-Dependency-Note.md`, `P0-301-Tickets.md`. Gap/blocker: ticket doc still records incomplete focused test signal because the Xcode result bundle was not trustworthy in this environment.
+- `P0-301` Status: completed for the current read-only provider slice. Code: `Networking/ReadOnlyProviderSupport.swift`, `Networking/AlchemyNFTService.swift`, `AppServices.swift`, `ContextService.swift`. Tests: `ProviderAbstractionTests.swift`. Docs: `P0-301-Strategy.md`, `P0-301-Dependency-Note.md`, `P0-301-Tickets.md`. Gap/blocker: no remaining validation blocker after the provider suite passed.
 - `P0-302` Status: completed for the current freshness-contract slice. Code: `ContextService.swift`, `Networking/NFTService.swift`, `Networking/GasPriceCache.swift`. Tests: `ContextSnapshotTests.swift`, `NFTServiceReceiptTests.swift`. Docs: `P0-302-Strategy.md`, `P0-302-Dependency-Note.md`, `P0-302-Tickets.md`. Gap/blocker: status drift in the handoff doc was corrected in this audit.
 - `P0-303` Status: completed for the current degraded-mode slice. Code: `Networking/NFTService.swift`, `Aura/ShellStatusView.swift`, `Aura/Newsfeed/EmptyNewsFeedView.swift`. Tests: `NFTProviderFailurePresentationTests.swift`, `NFTServiceReceiptTests.swift`. Docs: `P0-303-Strategy.md`, `P0-303-Dependency-Note.md`, `P0-303-Tickets.md`. Gap/blocker: status drift in the handoff doc was corrected in this audit.
 
 ### `40x` Context Contract And Inspector
 
-- `P0-401` Status: completed for the current context-contract slice. Code: `AppContext.swift`, `ContextService.swift`, `Aura/GlobalChromeView.swift`, `Aura/Home/HomeTabView.swift`. Tests: `ContextSnapshotTests.swift`. Docs: `P0-401-Strategy.md`, `P0-401-Dependency-Note.md`, `P0-401-Tickets.md`. Gap/blocker: ticket doc still records an untrustworthy targeted Xcode test run with `No result`.
+- `P0-401` Status: completed for the current context-contract slice. Code: `AppContext.swift`, `ContextService.swift`, `Aura/GlobalChromeView.swift`, `Aura/Home/HomeTabView.swift`. Tests: `ContextSnapshotTests.swift`. Docs: `P0-401-Strategy.md`, `P0-401-Dependency-Note.md`, `P0-401-Tickets.md`. Gap/blocker: no remaining unit-test signal blocker now that the relevant suites pass.
 - `P0-402` Status: completed for the current shell-facing context-service slice. Code: `ContextService.swift`, `Aura/MainTabView.swift`, `Aura/GlobalChromeView.swift`. Tests: `MainAuraShellLogicTests.swift`, `ContextSnapshotTests.swift`. Docs: `P0-402-Strategy.md`, `P0-402-Dependency-Note.md`, `P0-402-Tickets.md`. Gap/blocker: status drift in the handoff doc was corrected in this audit.
 - `P0-403` Status: completed for the current inspector slice. Code: `Aura/GlobalChromeView.swift`, `Receipts/ReceiptTimelineView.swift`. Tests: `GlobalChromeContractTests.swift`, `ReceiptTimelineStateTests.swift`. Docs: `P0-403-Strategy.md`, `P0-403-Dependency-Note.md`, `P0-403-Tickets.md`. Gap/blocker: status drift in the handoff doc was corrected in this audit.
 
@@ -123,5 +128,5 @@ These missing closeout artifacts were added in this audit:
 The repo's current Phase 0 posture is:
 
 - every P0 ticket outside `P0-801` through `P0-803` is documented as delivered for its current slice
-- the remaining hard blockers are incomplete validation signal for `P0-301`, `P0-401`, and manual UI QA on `P0-461`
+- the remaining hard blocker is manual UI QA on `P0-461`
 - no additional implementation blocker surfaced in this audit that re-opens any closed ticket outside those exact gaps

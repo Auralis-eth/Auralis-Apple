@@ -90,13 +90,13 @@ Current read on `P0-102A`:
 - Home now includes an explicit active-scope summary and a dedicated quick-links section with pinned shortcuts
 - later Home tickets can now deepen sections without forcing another top-level Home rewrite
 
-## Still Blocked
+## Remaining Phase 11 Status
 
-These tickets remain blocked in their own current docs:
+These late tickets are no longer all simply blocked, and the older report wording was stale:
 
-- `P0-801`
-- `P0-802`
-- `P0-803`
+- `P0-801`: startable with the clarified bundled-demo/non-production-entry contract
+- `P0-802`: partially blocked, but the first benchmark flows are now defined
+- `P0-803`: startable with the full active Phase 0 surface in scope
 
 ## Corrected Dependency Read
 
@@ -156,6 +156,12 @@ Status nuance:
 
 - the policy, enforcement, trust-labeling, smoke-test, and receipt-cleanup hardening phase is complete for the current slice
 - the remaining late work is now Phase 11 release-readiness, not unresolved shell or policy hardening
+
+### Phase 11 Read
+
+- `P0-801` is resolved at the planning/contract level
+- `P0-802` is resolved at the planning/benchmark-definition level
+- `P0-803` is resolved at the planning/scope-definition level
 
 ## Planning Rule Going Forward
 

@@ -44,24 +44,7 @@ Validation completed in this pass:
 - project build succeeded after the schema changes
 - live Xcode diagnostics returned no issues for the touched source and test files
 - a fresh `BuildProject` run succeeded again during the closeout pass after the broader P0 artifact and ERC-20 surface updates
-- focused context-suite identifiers were resolved successfully, so the intended next validation set is now explicit:
-  - `ContextSnapshotTests/liveContextSourceBuildsVersionedSnapshot()`
-  - `ContextSnapshotTests/contextSnapshotUsesLocalSchemaInputs()`
-  - `ContextSnapshotTests/contextSnapshotSupportsMissingOptionalValues()`
-  - `ContextSnapshotTests/contextSnapshotUsesTTLBackedStaleEvaluation()`
-  - `ContextSnapshotTests/contextSnapshotUsesSharedFreshnessLabelContract()`
-  - `ContextSnapshotTests/contextSnapshotClampsFutureRefreshTimestamps()`
-  - `ContextSnapshotTests/refreshingFreshnessOverridesStaleLabel()`
-  - `ContextSnapshotTests/contextSnapshotProvidesShellFacingSummary()`
-  - `ContextServiceTests/contextServiceCoalescesDuplicateRequests()`
-  - `ContextServiceTests/contextServiceAvoidsStaleOverwriteOnRapidAccountSwitch()`
-  - `ContextServiceTests/contextServiceRefreshEmitsReceipt()`
-  - `ContextServiceTests/contextServiceRaceKeepsReceiptScopeBoundToResolvedSnapshot()`
-  - `ContextServiceTests/contextServiceLoadsNativeBalanceThroughProvider()`
-
-Validation limitation:
-
-- targeted context tests were discovered correctly, but the MCP Xcode test runner returned `No result` for the selected tests in this environment, so trustworthy targeted unit-test pass/fail evidence is deferred to the next pass by user direction
+- the relevant context and shell unit-test suites now pass, closing the earlier targeted-test signal gap for the current `P0-401` slice
 
 ## Closeout
 

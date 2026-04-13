@@ -13,7 +13,7 @@ Startable
 ## Safe First Slice
 
 - Build the checklist first.
-- Review the highest-value surfaces next.
+- Review the highest-value surfaces next, with the full active Phase 0 product surface treated as in scope.
 - Record deferrals explicitly rather than pretending the checklist implies every hardening ticket is done.
 
 ## Rule For Planning

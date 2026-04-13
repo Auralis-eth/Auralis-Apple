@@ -13,18 +13,21 @@ Startable.
 ### 1. Confirm the demo/offline contract
 
 - [ ] Re-read `P0-801-Strategy.md` and `P0-801-Dependency-Note.md`.
-- [ ] Confirm what counts as deterministic demo data.
+- [ ] Treat bundled fixed JSON as the canonical deterministic demo dataset.
+- [ ] Keep demo entry on the address-entry screen, but only in non-production builds.
 - [ ] Confirm how offline mode differs from stale cached mode and provider failure.
 
 ### 2. Implement the first demo/offline behavior
 
 - [ ] Define the first deterministic demo dataset contract.
 - [ ] Define or implement the first offline-mode shell behavior.
+- [ ] Cover `Home`, `Newsfeed`, `NFT Tokens`, `ERC-20 Tokens`, `Music`, `Receipts`, and `Gas`.
 - [ ] Keep provenance explicit across surfaces.
 
 ### 3. Cover required edge cases
 
 - [ ] Demo and live data are not visually conflated.
+- [ ] Real-address flows never substitute demo data.
 - [ ] Offline mode does not look like a broken shell.
 - [ ] Cached stale state stays distinct from deliberate demo/offline state.
 
@@ -36,7 +39,7 @@ Startable.
 
 ## Critical Edge Case
 
-Users must be able to tell the difference between demo truth, cached truth, stale truth, and unavailable truth.
+Users must be able to tell the difference between demo truth, cached real truth, stale truth, offline truth, and unavailable truth, and real accounts must never silently fall into demo content.
 
 ## Validation
 

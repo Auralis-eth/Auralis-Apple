@@ -13,7 +13,7 @@ Startable.
 ### 1. Confirm the review scope
 
 - [ ] Re-read `P0-803-Strategy.md` and `P0-803-Dependency-Note.md`.
-- [ ] Confirm which active surfaces belong in the Phase 0 checklist.
+- [ ] Treat all active Phase 0 surfaces as in scope for the checklist.
 - [ ] Confirm which pending hardening tickets should be tracked as deferrals rather than blockers.
 
 ### 2. Build the checklist

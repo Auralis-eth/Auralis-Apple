@@ -13,8 +13,10 @@ Partially blocked
 ## Safe First Slice
 
 - Identify representative baseline flows now.
+- Use address-entry submit to usable shell and ERC-20 detail opening as the first measured flows.
 - Defer heavy tuning until those flows are stable enough to measure honestly.
 - Prefer concrete performance/stability observations over vague optimization work.
+- Treat leak checking as part of the baseline, but do not let speculative or broad architectural cleanup block the ticket.
 
 ## Rule For Planning
 

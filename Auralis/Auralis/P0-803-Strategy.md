@@ -17,6 +17,7 @@ Assemble and verify the Phase 0 privacy and security checklist so the shipped ba
 ## Strategy
 
 - Treat this as an explicit checklist and verification pass, not as a vague future concern.
+- Treat every active Phase 0 surface as in scope for the review.
 - Review the highest-value privacy and security surfaces first.
 - Leave a clear record of what was checked, what was deferred, and why.
 
