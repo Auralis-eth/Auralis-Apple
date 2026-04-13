@@ -65,6 +65,7 @@ struct LiveProviderConfigurationResolver: ProviderConfigurationResolving {
             alchemyDataAPIBaseURL: alchemyDataAPIBaseURL,
             alchemyRPCURL: chain.supportsEVMRPC ? alchemyRPCURL : nil
         )
+
         return configuration
     }
 

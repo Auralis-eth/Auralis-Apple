@@ -254,11 +254,13 @@ final class AlchemyNFTService: NFTInventoryProviding {
         request.timeoutInterval = requestTimeoutSeconds
         request.addValue("application/json", forHTTPHeaderField: "Accept")
 
+
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.badServerResponse
         }
+
 
         // Decode or throw typed errors
         switch httpResponse.statusCode {
