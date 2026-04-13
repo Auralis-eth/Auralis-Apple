@@ -141,7 +141,22 @@ final class AlchemyNFTService: NFTInventoryProviding {
         owner: String,
         pageKey: String?
     ) async throws -> AlchemyNFTResponse {
-        try await getNFTsForOwner(owner: owner, pageKey: pageKey)
+        do {
+            return try await getNFTsForOwner(owner: owner, pageKey: pageKey)
+        } catch let error as APIError {
+            guard case .serverError = error else {
+                throw error
+            }
+
+            print("[AlchemyNFTService] primary owner fetch failed; retrying degraded request")
+            return try await getNFTsForOwner(
+                owner: owner,
+                withMetadata: false,
+                tokenUriTimeoutInMs: 1,
+                pageKey: pageKey,
+                pageSize: 50
+            )
+        }
     }
 
     func getNFTsForOwner(
@@ -346,6 +361,22 @@ final class AlchemyNFTService: NFTInventoryProviding {
             return seconds
         }
         return nil
+    }
+
+    private static func redactedURLString(_ url: URL) -> String {
+        let absoluteString = url.absoluteString
+        guard let range = absoluteString.range(of: "/nft/v3/") else {
+            return absoluteString
+        }
+
+        let suffix = absoluteString[range.upperBound...]
+        guard let nextSlash = suffix.firstIndex(of: "/") else {
+            return absoluteString
+        }
+
+        let redactedStart = range.upperBound
+        let redactedEnd = nextSlash
+        return absoluteString.replacingCharacters(in: redactedStart..<redactedEnd, with: "<redacted>")
     }
 
     // MARK: - Validation

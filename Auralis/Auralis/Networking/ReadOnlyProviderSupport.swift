@@ -59,12 +59,13 @@ struct LiveProviderConfigurationResolver: ProviderConfigurationResolving {
             try Self.url("https://\(chain.rawValue).g.alchemy.com/v2/\($0)")
         }
 
-        return ProviderEndpointConfiguration(
+        let configuration = ProviderEndpointConfiguration(
             chain: chain,
             alchemyNFTBaseURL: alchemyNFTBaseURL,
             alchemyDataAPIBaseURL: alchemyDataAPIBaseURL,
             alchemyRPCURL: chain.supportsEVMRPC ? alchemyRPCURL : nil
         )
+        return configuration
     }
 
     private static func url(_ string: String) throws -> URL {

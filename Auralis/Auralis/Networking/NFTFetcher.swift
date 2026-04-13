@@ -124,6 +124,31 @@ class NFTFetcher: NFTFetching {
         if let fetcherError = error as? FetcherError {
             return fetcherError.isRetryable
         }
+
+        if let apiError = error as? AlchemyNFTService.APIError {
+            switch apiError {
+            case .rateLimited, .requestTimeout:
+                return true
+            case .serverError,
+                    .badRequest,
+                    .unauthorized,
+                    .forbidden,
+                    .notFound,
+                    .httpError,
+                    .badURL,
+                    .badServerResponse,
+                    .emptyOwner,
+                    .invalidOwnerFormat,
+                    .invalidContractAddress,
+                    .invalidPageSize,
+                    .tooManyContractAddresses,
+                    .mutuallyExclusiveFilters,
+                    .orderingNotSupportedOnNetwork,
+                    .invalidTokenUriTimeout,
+                    .invalidRequestTimeout:
+                return false
+            }
+        }
         
         if let urlError = error as? URLError {
             switch urlError.code {
@@ -257,6 +282,8 @@ class NFTFetcher: NFTFetching {
                 let wrappedError: Error
                 if let fetcherError = error as? FetcherError {
                     wrappedError = fetcherError
+                } else if let apiError = error as? AlchemyNFTService.APIError {
+                    wrappedError = apiError
                 } else if let urlError = error as? URLError {
                     print("URL Error code: \(urlError.code.rawValue)")
                     if urlError.code == .cancelled {

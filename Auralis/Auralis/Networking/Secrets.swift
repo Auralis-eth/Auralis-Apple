@@ -31,6 +31,7 @@ struct Secrets {
     }
 
     static func apiKey(_ provider: APIKeyProvider, bundle: Bundle = .main) throws -> String {
+        let plistValue = bundle.infoDictionary?[provider.infoPlistKeyName] as? String
         guard let infoDictionary = bundle.infoDictionary,
               let value = sanitizedKeyValue(infoDictionary[provider.infoPlistKeyName] as? String) else {
             throw SecretsError.providerKeyNotFound(provider)

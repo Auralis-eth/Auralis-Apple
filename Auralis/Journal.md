@@ -65,12 +65,17 @@ The practical result:
 
 The provider configuration story also got less theatrical. The app no longer pretends it has a whole bag of optional provider secrets. Runtime configuration is now `Info.plist`-only, populated through xcconfig, and release builds fail immediately if the Alchemy key is missing. Gas pricing was moved off the old Infura-shaped dependency path and onto the shared Alchemy RPC seam, which means the build now depends on one actual key instead of a secret-management hydra.
 
+Then came the classic Xcode booby trap: the project had xcconfig wiring for `INFOPLIST_KEY_AURALIS_ALCHEMY_API_KEY`, the local secret file existed, and the app still launched with `rawPresent=false`. In other words, the pipe was "configured" in theory but dry in practice. The pragmatic fix was to stop being coy and add `AURALIS_ALCHEMY_API_KEY` directly to `Info.plist` with the `$(AURALIS_ALCHEMY_API_KEY)` build-setting placeholder. Same secret source, less magic, fewer haunted-house debugging sessions.
+
+The next trap was more subtle: once the key worked, Alchemy itself started returning HTTP 500 for a real wallet on `getNFTsForOwner`. That is the kind of failure that can waste a lot of time if the app treats every provider error like flaky Wi‑Fi. The better move was to degrade the request shape inside the provider client: if the rich metadata request explodes, retry once with a lighter owner fetch and stop the outer fetcher from hammering the same 500 ten times in a row.
+
 ### Pitfalls worth remembering
 
 - xcconfig-to-Info.plist injection is now the intended secret path, and release builds fail fast if required keys are missing.
 - Search history and ENS cache now participate in one privacy reset, but receipt payload growth still needs ongoing review.
 - Receipt sanitization is stronger now, but every new payload shape still needs deliberate sensitivity classification at the emitter.
 - Audio temp files are cleaned up on active replacement paths, but lifecycle edge cases still deserve a focused review.
+- If NFT loading suddenly looks dead on first launch, check the startup logs before blaming pagination or wallet parsing. In this app, `rawPresent=false` plus `nftURL=nil` is the smoking gun that the Alchemy key never made it from `Secrets.local.xcconfig` into `Info.plist`.
 
 ## Engineer's Wisdom
 
