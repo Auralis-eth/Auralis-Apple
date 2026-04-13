@@ -61,7 +61,7 @@ Current read on `P0-401`:
 - the shell-facing `ContextSnapshot` contract is real and in use
 - local playlist and scoped-receipt counts now feed the schema where local data already exists
 - mounted Home launcher routes now exist as first-class module pointers in the shared context contract
-- guest-pass/demo preference is represented in the shared context contract
+- guest-pass preference is represented in the shared context contract
 - provider-backed native balance now flows through `ContextService`
 - shell-owned pinned Home links now feed both a real pinned-item preference count and pinned module-pointer state instead of placeholder-safe fields
 
@@ -94,7 +94,7 @@ Current read on `P0-102A`:
 
 These late tickets are no longer all simply blocked, and the older report wording was stale:
 
-- `P0-801`: startable with the clarified bundled-demo/non-production-entry contract
+- `P0-801`: canceled; no bundled demo-data or dedicated offline-mode follow-on remains active
 - `P0-802`: partially blocked, but the first benchmark flows are now defined
 - `P0-803`: startable with the full active Phase 0 surface in scope
 
@@ -159,7 +159,7 @@ Status nuance:
 
 ### Phase 11 Read
 
-- `P0-801` is resolved at the planning/contract level
+- `P0-801` is canceled and should not be treated as an active dependency
 - `P0-802` is resolved at the planning/benchmark-definition level
 - `P0-803` is resolved at the planning/scope-definition level
 

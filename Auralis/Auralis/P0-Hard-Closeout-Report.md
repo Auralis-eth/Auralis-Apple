@@ -6,7 +6,7 @@ This audit covers every Phase 0 ticket except `P0-801`, `P0-802`, and `P0-803`.
 
 Current read on those excluded Phase 11 tickets:
 
-- `P0-801`: resolved for planning/readiness with clarified bundled-demo, non-production-only entry, and real-account/no-demo rules
+- `P0-801`: canceled; guest passes remain, but no bundled demo-data or dedicated offline-mode product slice is planned
 - `P0-802`: resolved for planning/readiness with the first baseline flows and leak-remediation rule defined
 - `P0-803`: resolved for planning/readiness with the full active Phase 0 surface in scope
 

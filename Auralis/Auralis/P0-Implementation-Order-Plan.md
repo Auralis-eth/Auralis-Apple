@@ -28,7 +28,7 @@ It is not a restatement of every raw JIRA dependency. It is the working order in
 - `P0-502` is now complete for the current shell/context/action slice: app launch, context builds, NFT refresh, account and chain changes, explorer opens, and the active copy action all emit receipts on the shared foundation.
 - `P0-402` is now complete for the strengthened shell-facing context slice: context builds emit receipts and the mounted chrome plus inspector read the shared `ContextSnapshot` instead of parallel shell-state lookups.
 - `P0-101B` has been re-validated as complete after the shell, mode, and chain remediation passes.
-- `P0-401` is now complete for the current Phase 0 context-contract slice: `ContextSnapshot` exists, the shell inspector reads it, provenance-bearing scope/freshness fields are formalized, local playlist and scoped-receipt counts now feed the schema, guest-pass/demo preference is represented in the shared contract, shell-owned pinned Home links now provide a real pinned-item preference count, and provider-backed native balance now flows through `ContextService`.
+- `P0-401` is now complete for the current Phase 0 context-contract slice: `ContextSnapshot` exists, the shell inspector reads it, provenance-bearing scope/freshness fields are formalized, local playlist and scoped-receipt counts now feed the schema, guest-pass preference is represented in the shared contract, shell-owned pinned Home links now provide a real pinned-item preference count, and provider-backed native balance now flows through `ContextService`.
 - `P0-301` is now complete for the current read-only provider slice: endpoint resolution is centralized, NFT fetching is injected, gas pricing is protocol-backed, the shell service hub owns the shared provider factory, and native balance is consumed by the shell-facing context layer.
 - `P0-701A` is now complete as a structural scaffolding slice: root-owned mode state, a shell service hub, shared receipt-store factories, and a shell-owned pinned-link preference seam are in place.
 - `P0-101C` is now complete under the context-sheet interpretation: the chrome keeps a dedicated inspector entry, visibly surfaces scope and freshness state, and the inspector freshness section handles stale labeling plus explicit refresh.
@@ -98,7 +98,7 @@ Closeout summary:
 - `P0-702`: complete for the current first trust-label slice; broader rollout across every provider-backed field remains follow-on work
 - `P0-703`: complete for the current first no-bypass smoke-test slice; broader smoke expansion remains follow-on work
 - `P0-502B`: complete for the current receipt verification-and-cleanup slice
-- `P0-801`: startable with a defined bundled demo-data and non-production entry contract
+- `P0-801`: canceled; guest passes remain, but bundled demo-data and dedicated offline-mode work are out of scope
 - `P0-802`: partially blocked, but the first benchmark slice is now defined around address-entry-to-shell and ERC-20 opening flows
 - `P0-803`: startable with full active Phase 0 surface scope
 
@@ -239,7 +239,7 @@ Why:
 
 ### Phase 11: Release-readiness pass
 
-38. `P0-801` Deterministic demo dataset + offline mode behavior (Resolved for planning/readiness)
+38. `P0-801` Deterministic demo dataset + offline mode behavior (Canceled)
 39. `P0-802` Performance + stability baseline (Resolved for planning/readiness)
 40. `P0-803` Privacy + security checklist for Phase 0 (Resolved for planning/readiness)
 

@@ -1,39 +1,29 @@
-# P0-801 Strategy: Deterministic demo dataset + offline mode behavior
+# P0-801 Strategy: Canceled
 
 ## Status
 
-Startable
+Canceled
 
-## Ticket
+## Decision
 
-Define the deterministic demo dataset and offline mode behavior for Phase 0 so the app remains coherent when live data is absent or intentionally replaced.
+`P0-801` is no longer an active Phase 0 ticket.
 
-## Dependencies
+The earlier plan proposed a deterministic bundled demo dataset plus a dedicated offline-mode product behavior. That approach was rejected because it would introduce a parallel truth source across Home, Newsfeed, NFT Tokens, ERC-20 Tokens, Music, Receipts, and Gas without a strong enough product need.
 
-- `P0-101D`
-- active shell/data surfaces that the demo/offline slice will exercise
+## What We Kept Instead
 
-## Strategy
+- guest passes remain as a lightweight onboarding path to curated public wallets
+- real account and guest-pass sessions still use the normal shell and live/cached data seams
+- SwiftData-backed local persistence remains the default offline story for already-fetched content
+- provider failures and degraded states should stay explicit in the shell instead of being reframed as a separate fake mode
 
-- Use bundled fixed JSON as the canonical deterministic demo dataset.
-- Launch demo mode from the address-entry surface in non-production builds only.
-- Cover Home, Newsfeed, NFT Tokens, ERC-20 Tokens, Music, Receipts, and Gas in demo mode.
-- Keep demo data clearly separate from live and cached real data.
-- Treat offline mode as a post-entry product behavior, not just a network failure side effect.
-- For real accounts, show cached real data first and never substitute demo data.
-- Make the shell honest about what is demo, cached, stale, offline, or unavailable.
+## What We Are Not Doing
 
-## Key Risk
+- no bundled demo dataset
+- no special non-production demo-data mode
+- no cross-surface demo/offline second source of truth
+- no ticket work to make every tab render fixture-backed fake content
 
-Avoid mixing demo and live data so loosely that users or later code paths cannot tell which truth they are looking at.
+## Practical Rule
 
-## Definition Of Done
-
-- A deterministic demo dataset contract exists.
-- Demo mode entry and non-production gating are defined.
-- Offline mode behavior is defined and usable.
-- The shell communicates data provenance honestly.
-
-## Validation Target
-
-Run the app in deterministic demo/offline conditions and preserve understandable provenance and fallback behavior.
+If the app is offline, it should show whatever real local state SwiftData already has and remain honest about missing provider-backed refreshes. If a future product requirement wants a deliberate scripted demo experience, that must come back as a new ticket with a concrete consumer.

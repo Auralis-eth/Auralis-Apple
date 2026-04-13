@@ -6,7 +6,7 @@ Auralis is a SwiftUI app for wallet-based NFT discovery, Aura-branded browsing, 
 
 The shell flow is:
 
-- authenticate or select a demo account
+- authenticate by pasting/scanning a wallet or selecting a guest pass
 - restore account/chain state
 - fetch and persist NFTs with SwiftData
 - route across Home, News, Gas, Music, ERC-20 Tokens, and NFT Tokens
@@ -41,5 +41,6 @@ The shell flow is:
 
 - `NFT.swift` is oversized and contains multiple responsibilities.
 - Account changes should reset routed detail stacks to root.
+- Guest passes are a lightweight onboarding shortcut to curated public wallets, not a separate demo-data product mode.
 - Deep links may arrive during cold start; queue them until shell state is ready.
 - Receipt routing is intentionally safe-fail for now. Full receipt support is deferred.

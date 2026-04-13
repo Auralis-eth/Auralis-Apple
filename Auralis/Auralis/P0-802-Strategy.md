@@ -11,7 +11,6 @@ Establish the Phase 0 performance and stability baseline once the core product s
 ## Dependencies
 
 - major Phase 0 product slices in place
-- `P0-801`
 - active shell/data/media surfaces
 
 ## Strategy

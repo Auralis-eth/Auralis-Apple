@@ -38,9 +38,9 @@ The fix was to serialize that suite so the shared mock state stops racing itself
 
 Then came the sneaky cursor bug. A pagination fixture used `pageKey.flatMap(Int.init)` and on this setup that behaved like a hex-flavored parser. So page keys walked `10 -> 17 -> 24 -> 37`, which made a perfectly healthy fetcher look like it was giving up after 14 pages. The lesson: if a cursor is decimal, say so out loud with `Int(value, radix: 10)`. Leaving number parsing to “whatever overload the compiler picked today” is how you end up debugging ghosts.
 
-The next sharp edge was demo mode pretending to be more magical than it really was. The guest-pass cards were driven by hardcoded data and a sprinkle of `Bool.random()`, which meant the same demo wallet could wear different iconography depending on the launch. That is funny exactly once. The fix was to move the guest-pass catalog to bundled JSON, make the icon contract deterministic, and wire the entry flow so guest passes are only exposed in non-production builds. In other words: the stage props now live in the prop closet, not scattered around backstage.
+Another design fork looked attractive on paper and expensive everywhere else: turning guest passes into a full deterministic demo-data product mode. That path would have added bundled datasets, separate provenance rules, and second-source behavior across every major tab. After walking into the implementation weeds, the better call was to stop. Guest passes stayed as curated public-wallet shortcuts, and the app did not grow a parallel fake-data universe just to make screenshots feel tidy. Sometimes the senior-engineering move is not heroic completion; it is backing out of the side quest before it becomes permanent rent.
 
-That cleanup also forced an honesty check on the shell itself. “Offline” and “demo” are not the same thing, and neither should masquerade as a generic provider tantrum. The shell now surfaces a dedicated provenance banner: guest-pass sessions announce that they came from a fixed demo identity, and offline sessions tell the truth about cached local content versus paused live panels. Software gets calmer when it stops bluffing.
+That decision clarified the offline story too. SwiftData already gives the app a real local persistence layer, which means the default offline behavior is straightforward: show what is already cached locally, surface provider failure honestly, and do not invent a special “offline mode” product unless the product truly needs one. A clean degraded mode beats a theatrical fake mode.
 
 ## Engineer's Wisdom
 
@@ -50,7 +50,7 @@ Shared mutable state inside tests is a trap with nicer branding. If a suite reli
 
 Cursor parsing is another place where explicit beats clever. If the protocol says decimal, parse decimal. Tiny ambiguities in test fixtures can impersonate production regressions for hours.
 
-Demo paths need the same rigor as live paths. If a guest experience exists, it should have a real contract, stable fixtures, and clear boundaries about where demo identity ends and live provider data begins. Otherwise the product starts behaving like a theme park map drawn on a napkin.
+Guest passes still need rigor, but they do not need to become a whole second application. A lightweight public-wallet shortcut is cheap to reason about. A fake cross-tab demo universe is not.
 
 ## If I Were Starting Over...
 

@@ -32,7 +32,7 @@ Do not build throwaway scaffolding. It is acceptable to ship the typed schema an
 - strengthened `ContextSnapshot` so local schema sections no longer rely only on placeholder `nil` values when the app already has local data
 - wired playlist count and scoped receipt count into the context contract through local, non-provider-backed inputs
 - added real module-pointer rows for the mounted Home launcher contract instead of keeping module ownership implicit
-- replaced the hard-coded demo-data flag with the active account's guest-pass state
+- replaced the hard-coded placeholder preference with the active account's guest-pass state in the shared context contract
 - expanded the chrome context inspector so schema consumers can see library pointers, preferences, placeholder-safe balance fields, and freshness metadata from the shared snapshot
 - moved the chrome mode badge and context accessibility metadata onto snapshot-backed mode, freshness, and scope labels
 - pushed snapshot scope text into the NFT empty-library shell state so that path stops free-styling account/chain context

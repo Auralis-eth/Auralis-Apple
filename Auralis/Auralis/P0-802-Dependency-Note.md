@@ -7,7 +7,7 @@ Partially blocked
 ## Dependency Read
 
 - This ticket is most valuable after the major Phase 0 product slices are mounted.
-- `P0-801` may influence what offline/demo conditions should be included in the baseline.
+- `P0-801` is canceled, so the baseline should measure normal live/cached/degraded behavior instead of waiting on a demo/offline product mode.
 - Active shell, media, search, and receipt flows should be real enough to measure before deep tuning starts.
 
 ## Safe First Slice

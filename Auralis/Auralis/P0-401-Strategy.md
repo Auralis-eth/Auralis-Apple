@@ -30,7 +30,7 @@ Missing values must remain valid, provenance rules must stay consistent, and the
 - `ContextSnapshot` now exists as the Phase 0 context contract.
 - The live shell context source produces typed scope, provenance-bearing fields, library pointers, local preferences, and freshness metadata.
 - The schema now carries real local counts for tracked NFTs, playlists, and scoped receipts where that data already exists in local storage.
-- The schema now records whether the active account is running through the guest-pass/demo path instead of hard-coding that preference to false.
+- The schema now records whether the active account is running through the guest-pass path instead of hard-coding that preference to false.
 - The chrome inspector reads the new snapshot instead of the older ad hoc shape and now exposes library, preference, balance, provenance, and freshness sections from the shared contract.
 - Provider-backed native balance display now flows through `ContextService` for supported scopes.
 - The chrome mode and context affordances now read mode/freshness labels from `ContextSnapshot` instead of mixing in separate ad hoc shell values.
