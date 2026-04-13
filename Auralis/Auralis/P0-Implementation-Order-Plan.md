@@ -99,8 +99,8 @@ Closeout summary:
 - `P0-703`: complete for the current first no-bypass smoke-test slice; broader smoke expansion remains follow-on work
 - `P0-502B`: complete for the current receipt verification-and-cleanup slice
 - `P0-801`: canceled; guest passes remain, but bundled demo-data and dedicated offline-mode work are out of scope
-- `P0-802`: partially blocked, but the first benchmark slice is now defined around address-entry-to-shell and ERC-20 opening flows
-- `P0-803`: startable with full active Phase 0 surface scope
+- `P0-802`: complete for the current release-readiness slice; the first baseline report now covers address-entry-to-shell and ERC-20 opening flows
+- `P0-803`: complete for the current release-readiness slice with an explicit privacy/security checklist and deferral record
 
 ## Recommended Order
 
@@ -240,8 +240,8 @@ Why:
 ### Phase 11: Release-readiness pass
 
 38. `P0-801` Deterministic demo dataset + offline mode behavior (Canceled)
-39. `P0-802` Performance + stability baseline (Resolved for planning/readiness)
-40. `P0-803` Privacy + security checklist for Phase 0 (Resolved for planning/readiness)
+39. `P0-802` Performance + stability baseline (Completed for current release-readiness slice)
+40. `P0-803` Privacy + security checklist for Phase 0 (Completed for current release-readiness slice)
 
 Why:
 

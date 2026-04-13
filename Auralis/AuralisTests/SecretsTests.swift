@@ -16,8 +16,6 @@ import Testing
     }
     // Test valid API key retrieval for each provider
     @Test(arguments: [
-        TestCase(provider: .moralis, expected: "moralis_key"),
-        TestCase(provider: .infura, expected: "infura_key"),
         TestCase(provider: .alchemy, expected: "alchemy_key"),
     ])
     func testApiKeyValidCases(testcase: TestCase) {
@@ -35,4 +33,3 @@ import Testing
 
 class BundleLocatorClass {
 }
-

@@ -60,50 +60,48 @@ enum AccountEventRecorders {
 
 private extension ReceiptBackedAccountEventRecorder {
     func makeDraft(for event: AccountEvent, correlationID: String?) -> ReceiptDraft {
-        let (kind, summary, payloadValues): (String, String, [String: ReceiptJSONValue]) = switch event {
+        let (kind, summary, rawPayload): (String, String, RawReceiptPayload) = switch event {
         case .added(let address):
             (
                 "account.added",
                 "Added watch-only account",
-                ["address": .string(address)]
+                AccountAddressReceiptPayload(address: address).rawPayload
             )
         case .removed(let address):
             (
                 "account.removed",
                 "Removed watch-only account",
-                ["address": .string(address)]
+                AccountAddressReceiptPayload(address: address).rawPayload
             )
         case .selected(let address):
             (
                 "account.selected",
                 "Selected active account",
-                ["address": .string(address)]
+                AccountAddressReceiptPayload(address: address).rawPayload
             )
         case .preferredChainChanged(let address, let from, let to):
             (
                 "account.chain.preferred.changed",
                 "Updated preferred chain scope",
-                [
-                    "address": .string(address),
-                    "from_chain": .string(from.rawValue),
-                    "to_chain": .string(to.rawValue)
-                ]
+                ChainChangeReceiptPayload(
+                    address: address,
+                    from: from,
+                    to: to
+                ).rawPayload
             )
         case .currentChainChanged(let address, let from, let to):
             (
                 "account.chain.current.changed",
                 "Updated active chain scope",
-                [
-                    "address": .string(address),
-                    "from_chain": .string(from.rawValue),
-                    "to_chain": .string(to.rawValue)
-                ]
+                ChainChangeReceiptPayload(
+                    address: address,
+                    from: from,
+                    to: to
+                ).rawPayload
             )
         }
 
-        let payload = payloadSanitizer.sanitize(
-            RawReceiptPayload(values: payloadValues)
-        )
+        let payload = payloadSanitizer.sanitize(rawPayload)
 
         return ReceiptDraft(
             actor: .user,
@@ -116,5 +114,29 @@ private extension ReceiptBackedAccountEventRecorder {
             correlationID: correlationID,
             details: payload
         )
+    }
+}
+
+private struct AccountAddressReceiptPayload: TypedReceiptPayload {
+    let address: String
+
+    var fields: [ReceiptPayloadField] {
+        [
+            .hashed("address", string: address, kind: .walletAddress)
+        ]
+    }
+}
+
+private struct ChainChangeReceiptPayload: TypedReceiptPayload {
+    let address: String
+    let from: Chain
+    let to: Chain
+
+    var fields: [ReceiptPayloadField] {
+        [
+            .hashed("address", string: address, kind: .walletAddress),
+            .public("from_chain", string: from.rawValue, kind: .chain),
+            .public("to_chain", string: to.rawValue, kind: .chain)
+        ]
     }
 }

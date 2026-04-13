@@ -139,4 +139,13 @@ struct TokenHoldingsStore {
 
         return try modelContext.fetch(descriptor)
     }
+
+    func clearAll() throws {
+        let holdings = try modelContext.fetch(FetchDescriptor<TokenHolding>())
+        for holding in holdings {
+            modelContext.delete(holding)
+        }
+
+        try modelContext.save()
+    }
 }

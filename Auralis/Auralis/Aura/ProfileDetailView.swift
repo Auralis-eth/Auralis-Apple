@@ -24,6 +24,7 @@ struct ProfileDetailView: View {
     let showsPolicySection: Bool
     let modeState: ModeState?
     let services: ShellServiceHub?
+    let onOpenSettings: (() -> Void)?
 
     @State private var denialMessage: String?
 
@@ -33,7 +34,8 @@ struct ProfileDetailView: View {
         isCurrentAccount: Bool = false,
         showsPolicySection: Bool = false,
         modeState: ModeState? = nil,
-        services: ShellServiceHub? = nil
+        services: ShellServiceHub? = nil,
+        onOpenSettings: (() -> Void)? = nil
     ) {
         self.accountAddress = accountAddress
         self.currentChain = currentChain
@@ -41,6 +43,7 @@ struct ProfileDetailView: View {
         self.showsPolicySection = showsPolicySection
         self.modeState = modeState
         self.services = services
+        self.onOpenSettings = onOpenSettings
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
         _accounts = Query(
@@ -154,6 +157,15 @@ struct ProfileDetailView: View {
         }
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            if let onOpenSettings {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: onOpenSettings) {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                }
+            }
+        }
         .alert("Not available in Observe mode", isPresented: denialAlertBinding) {
             Button("OK", role: .cancel) {
                 denialMessage = nil

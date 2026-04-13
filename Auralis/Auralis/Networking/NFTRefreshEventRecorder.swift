@@ -99,7 +99,10 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         append(
             kind: "nft.refresh.started",
             correlationID: correlationID,
-            rawPayload: RawReceiptPayload(values: basePayload(accountAddress: accountAddress, chain: chain)),
+            rawPayload: NFTRefreshStartedPayload(
+                accountAddress: accountAddress,
+                chain: chain
+            ).rawPayload,
             summary: "Started NFT refresh",
             isSuccess: true
         )
@@ -112,17 +115,15 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         itemCount: Int,
         totalCount: Int?
     ) async {
-        var payload = basePayload(accountAddress: accountAddress, chain: chain)
-        payload["itemCount"] = .number(Double(itemCount))
-
-        if let totalCount {
-            payload["totalCount"] = .number(Double(totalCount))
-        }
-
         append(
             kind: "nft.fetch.succeeded",
             correlationID: correlationID,
-            rawPayload: RawReceiptPayload(values: payload),
+            rawPayload: NFTFetchSucceededPayload(
+                accountAddress: accountAddress,
+                chain: chain,
+                itemCount: itemCount,
+                totalCount: totalCount
+            ).rawPayload,
             summary: "Fetched NFT page successfully",
             isSuccess: true
         )
@@ -134,17 +135,15 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         correlationID: String,
         error: Error
     ) async {
-        var payload = basePayload(accountAddress: accountAddress, chain: chain)
-        payload["error"] = .string(String(describing: error))
-        if let providerFailure = NFTProviderFailure(error: error) {
-            payload["errorKind"] = .string(providerFailure.kind.rawValue)
-            payload["isRetryable"] = .bool(providerFailure.isRetryable)
-        }
-
         append(
             kind: "nft.fetch.failed",
             correlationID: correlationID,
-            rawPayload: RawReceiptPayload(values: payload),
+            rawPayload: NFTFetchFailedPayload(
+                accountAddress: accountAddress,
+                chain: chain,
+                errorDescription: String(describing: error),
+                providerFailure: NFTProviderFailure(error: error)
+            ).rawPayload,
             summary: "NFT fetch failed",
             isSuccess: false
         )
@@ -156,13 +155,14 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         correlationID: String,
         persistedCount: Int
     ) async {
-        var payload = basePayload(accountAddress: accountAddress, chain: chain)
-        payload["persistedCount"] = .number(Double(persistedCount))
-
         append(
             kind: "nft.persistence.completed",
             correlationID: correlationID,
-            rawPayload: RawReceiptPayload(values: payload),
+            rawPayload: NFTPersistenceCompletedPayload(
+                accountAddress: accountAddress,
+                chain: chain,
+                persistedCount: persistedCount
+            ).rawPayload,
             summary: "Persisted refreshed NFTs",
             isSuccess: true
         )
@@ -174,13 +174,14 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         correlationID: String,
         error: Error
     ) async {
-        var payload = basePayload(accountAddress: accountAddress, chain: chain)
-        payload["error"] = .string(String(describing: error))
-
         append(
             kind: "nft.persistence.failed",
             correlationID: correlationID,
-            rawPayload: RawReceiptPayload(values: payload),
+            rawPayload: NFTPersistenceFailedPayload(
+                accountAddress: accountAddress,
+                chain: chain,
+                errorDescription: String(describing: error)
+            ).rawPayload,
             summary: "Persisting refreshed NFTs failed",
             isSuccess: false
         )
@@ -225,11 +226,87 @@ private extension ReceiptBackedNFTRefreshEventRecorder {
             logger.error("Failed to append NFT refresh receipt: \(error.localizedDescription, privacy: .public)")
         }
     }
+}
 
-    func basePayload(accountAddress: String, chain: Chain) -> [String: ReceiptJSONValue] {
+private struct NFTRefreshStartedPayload: TypedReceiptPayload {
+    let accountAddress: String
+    let chain: Chain
+
+    var fields: [ReceiptPayloadField] {
         [
-            "accountAddress": .string(accountAddress),
-            "chain": .string(chain.rawValue)
+            .hashed("accountAddress", string: accountAddress, kind: .walletAddress),
+            .public("chain", string: chain.rawValue, kind: .chain)
+        ]
+    }
+}
+
+private struct NFTFetchSucceededPayload: TypedReceiptPayload {
+    let accountAddress: String
+    let chain: Chain
+    let itemCount: Int
+    let totalCount: Int?
+
+    var fields: [ReceiptPayloadField] {
+        var fields: [ReceiptPayloadField] = [
+            .hashed("accountAddress", string: accountAddress, kind: .walletAddress),
+            .public("chain", string: chain.rawValue, kind: .chain),
+            .number("itemCount", Double(itemCount))
+        ]
+
+        if let totalCount {
+            fields.append(.number("totalCount", Double(totalCount)))
+        }
+
+        return fields
+    }
+}
+
+private struct NFTFetchFailedPayload: TypedReceiptPayload {
+    let accountAddress: String
+    let chain: Chain
+    let errorDescription: String
+    let providerFailure: NFTProviderFailure?
+
+    var fields: [ReceiptPayloadField] {
+        var fields: [ReceiptPayloadField] = [
+            .hashed("accountAddress", string: accountAddress, kind: .walletAddress),
+            .public("chain", string: chain.rawValue, kind: .chain),
+            .redacted("error", string: errorDescription, kind: .errorMessage)
+        ]
+
+        if let providerFailure {
+            fields.append(.public("errorKind", string: providerFailure.kind.rawValue, kind: .label))
+            fields.append(.bool("isRetryable", providerFailure.isRetryable))
+        }
+
+        return fields
+    }
+}
+
+private struct NFTPersistenceCompletedPayload: TypedReceiptPayload {
+    let accountAddress: String
+    let chain: Chain
+    let persistedCount: Int
+
+    var fields: [ReceiptPayloadField] {
+        [
+            .hashed("accountAddress", string: accountAddress, kind: .walletAddress),
+            .public("chain", string: chain.rawValue, kind: .chain),
+            .number("persistedCount", Double(persistedCount))
+        ]
+    }
+}
+
+private struct NFTPersistenceFailedPayload: TypedReceiptPayload {
+    let accountAddress: String
+    let chain: Chain
+    let errorDescription: String
+
+    var fields: [ReceiptPayloadField] {
+        [
+            .hashed("accountAddress", string: accountAddress, kind: .walletAddress),
+            .public("chain", string: chain.rawValue, kind: .chain),
+            .redacted("error", string: errorDescription, kind: .errorMessage)
         ]
     }
 }

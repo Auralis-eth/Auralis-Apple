@@ -72,6 +72,10 @@ struct SearchHistoryStore {
         saveEntries(loadEntries().filter { $0.accountAddress != normalizedAccountAddress })
     }
 
+    func clearAll() {
+        userDefaults.removeObject(forKey: storageKey)
+    }
+
     private func normalizedAccount(_ address: String?) -> String {
         NFT.normalizedScopeComponent(address) ?? "global"
     }

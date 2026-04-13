@@ -25,6 +25,7 @@ enum MusicRoute: Hashable {
 
 enum ProfileRoute: Hashable {
     case detail(address: String)
+    case settings
 }
 
 enum NFTTokensRoute: Hashable {
@@ -131,6 +132,11 @@ final class AppRouter {
     func showProfileDetail(address: String) {
         selectedTab = .profile
         profilePath = profilePath + [.detail(address: address)]
+    }
+
+    func showSettings() {
+        selectedTab = .profile
+        profilePath = profilePath + [.settings]
     }
 
     func showReceipt(id: String) {
@@ -564,7 +570,8 @@ struct MainTabView: View {
                         isCurrentAccount: true,
                         showsPolicySection: true,
                         modeState: modeState,
-                        services: services
+                        services: services,
+                        onOpenSettings: router.showSettings
                     )
                     .navigationDestination(for: ProfileRoute.self) { route in
                         switch route {
@@ -573,6 +580,12 @@ struct MainTabView: View {
                                 accountAddress: address,
                                 currentChain: currentChain,
                                 isCurrentAccount: address == (currentAccount?.address ?? currentAddress)
+                            )
+                        case .settings:
+                            SettingsView(
+                                currentAccountAddress: currentAccount?.address ?? currentAddress,
+                                currentChain: currentChain,
+                                services: services
                             )
                         }
                     }
@@ -1432,6 +1445,8 @@ private struct ERC20TokenDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 AuraSurfaceCard(style: .soft, cornerRadius: 28, padding: 18) {
                     VStack(alignment: .leading, spacing: 12) {
+                        AuraTrustLabel(kind: .provider)
+
                         Text(presentation.title)
                             .font(.title2.weight(.bold))
                             .foregroundStyle(Color.textPrimary)
@@ -1585,6 +1600,8 @@ private struct ERC20HoldingRow: View {
     var body: some View {
         AuraSurfaceCard(style: .soft, cornerRadius: 26, padding: 16) {
             VStack(alignment: .leading, spacing: 14) {
+                AuraTrustLabel(kind: .provider)
+
                 HStack(alignment: .top, spacing: 14) {
                     tokenMark
 
@@ -1713,6 +1730,8 @@ private struct ERC20HoldingsOverviewCard: View {
     var body: some View {
         AuraSurfaceCard(style: .regular, cornerRadius: 30, padding: 18) {
             VStack(alignment: .leading, spacing: 16) {
+                AuraTrustLabel(kind: .provider)
+
                 AuraSectionHeader(
                     title: "Token Scope",
                     subtitle: holdingsSubtitle

@@ -3,17 +3,10 @@ import Testing
 @testable import Auralis
 
 @Suite(.serialized) struct ProviderAbstractionTests {
-    @Test("provider configuration resolves centralized Alchemy and Infura endpoints for an EVM chain")
+    @Test("provider configuration resolves centralized Alchemy endpoints for an EVM chain")
     func resolverBuildsExpectedEndpoints() throws {
         let resolver = LiveProviderConfigurationResolver { provider in
-            switch provider {
-            case .alchemy:
-                return "alchemy-key"
-            case .infura:
-                return "infura-key"
-            default:
-                return nil
-            }
+            provider == .alchemy ? "alchemy-key" : nil
         }
 
         let configuration = try resolver.configuration(for: .baseMainnet)
@@ -21,7 +14,6 @@ import Testing
         #expect(configuration.alchemyNFTBaseURL?.absoluteString == "https://base-mainnet.g.alchemy.com/nft/v3/alchemy-key")
         #expect(configuration.alchemyDataAPIBaseURL?.absoluteString == "https://api.g.alchemy.com/data/v1/alchemy-key")
         #expect(configuration.alchemyRPCURL?.absoluteString == "https://base-mainnet.g.alchemy.com/v2/alchemy-key")
-        #expect(configuration.infuraGasURL?.absoluteString == "https://gas.api.infura.io/v3/infura-key/networks/8453/suggestedGasFees")
     }
 
     @Test("provider configuration leaves unsupported RPC-backed endpoints empty for Solana")
@@ -33,7 +25,6 @@ import Testing
         #expect(configuration.alchemyNFTBaseURL?.absoluteString == "https://solana-mainnet.g.alchemy.com/nft/v3/shared-key")
         #expect(configuration.alchemyDataAPIBaseURL?.absoluteString == "https://api.g.alchemy.com/data/v1/shared-key")
         #expect(configuration.alchemyRPCURL == nil)
-        #expect(configuration.infuraGasURL == nil)
     }
 
     @Test("token balances provider calls the exact Alchemy balances endpoint and preserves pagination state")

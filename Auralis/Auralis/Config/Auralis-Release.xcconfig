@@ -1,0 +1,3 @@
+#include? "Secrets.local.xcconfig"
+
+INFOPLIST_KEY_AURALIS_ALCHEMY_API_KEY = $(AURALIS_ALCHEMY_API_KEY)

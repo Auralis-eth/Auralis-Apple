@@ -57,10 +57,141 @@ struct ReceiptPayload: Codable, Equatable, Sendable {
     let values: [String: ReceiptJSONValue]
 }
 
+enum ReceiptPayloadFieldSensitivity: Equatable, Sendable {
+    case `public`
+    case redact
+    case hash
+    case truncate(maxLength: Int)
+}
+
+enum ReceiptPayloadValueKind: Equatable, Sendable {
+    case chain
+    case url
+    case walletAddress
+    case timestamp
+    case label
+    case errorMessage
+    case copiedText
+    case freeformText
+    case opaqueToken
+    case unknownString
+    case number
+    case bool
+    case object
+    case array
+    case null
+}
+
+struct ReceiptPayloadField: Equatable, Sendable {
+    let key: String
+    let value: ReceiptJSONValue
+    let sensitivity: ReceiptPayloadFieldSensitivity
+    let valueKind: ReceiptPayloadValueKind
+}
+
 /// Unsanitized input used at orchestration boundaries before persistence.
 struct RawReceiptPayload: Equatable, Sendable {
-    let values: [String: ReceiptJSONValue]
+    let fields: [ReceiptPayloadField]
+
+    init(fields: [ReceiptPayloadField]) {
+        self.fields = fields
+    }
 }
+
+protocol TypedReceiptPayload {
+    var fields: [ReceiptPayloadField] { get }
+}
+
+extension TypedReceiptPayload {
+    var rawPayload: RawReceiptPayload {
+        RawReceiptPayload(fields: fields)
+    }
+}
+
+extension ReceiptPayloadField {
+    static func `public`(_ key: String, string value: String, kind: ReceiptPayloadValueKind) -> ReceiptPayloadField {
+        ReceiptPayloadField(
+            key: key,
+            value: .string(value),
+            sensitivity: .public,
+            valueKind: kind
+        )
+    }
+
+    static func redacted(_ key: String, string value: String, kind: ReceiptPayloadValueKind) -> ReceiptPayloadField {
+        ReceiptPayloadField(
+            key: key,
+            value: .string(value),
+            sensitivity: .redact,
+            valueKind: kind
+        )
+    }
+
+    static func hashed(_ key: String, string value: String, kind: ReceiptPayloadValueKind) -> ReceiptPayloadField {
+        ReceiptPayloadField(
+            key: key,
+            value: .string(value),
+            sensitivity: .hash,
+            valueKind: kind
+        )
+    }
+
+    static func truncated(
+        _ key: String,
+        string value: String,
+        kind: ReceiptPayloadValueKind,
+        maxLength: Int
+    ) -> ReceiptPayloadField {
+        ReceiptPayloadField(
+            key: key,
+            value: .string(value),
+            sensitivity: .truncate(maxLength: maxLength),
+            valueKind: kind
+        )
+    }
+
+    static func number(_ key: String, _ value: Double) -> ReceiptPayloadField {
+        ReceiptPayloadField(
+            key: key,
+            value: .number(value),
+            sensitivity: .public,
+            valueKind: .number
+        )
+    }
+
+    static func bool(_ key: String, _ value: Bool) -> ReceiptPayloadField {
+        ReceiptPayloadField(
+            key: key,
+            value: .bool(value),
+            sensitivity: .public,
+            valueKind: .bool
+        )
+    }
+
+    static func stringArray(
+        _ key: String,
+        values: [String],
+        kind: ReceiptPayloadValueKind,
+        sensitivity: ReceiptPayloadFieldSensitivity = .public
+    ) -> ReceiptPayloadField {
+        ReceiptPayloadField(
+            key: key,
+            value: .array(values.map(ReceiptJSONValue.string)),
+            sensitivity: sensitivity,
+            valueKind: .array
+        )
+    }
+
+    static func null(_ key: String) -> ReceiptPayloadField {
+        ReceiptPayloadField(
+            key: key,
+            value: .null,
+            sensitivity: .public,
+            valueKind: .null
+        )
+    }
+}
+
 
 enum ReceiptActor: String, Codable, Equatable, Sendable {
     case user

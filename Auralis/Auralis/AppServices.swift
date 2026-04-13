@@ -205,6 +205,7 @@ struct ShellServiceHub {
     let homePinnedItemsStoreFactory: () -> HomePinnedItemsStore
     let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
+    let privacyResetServiceFactory: @MainActor (ModelContext) -> any PrivacyResetting
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
 
     static let live: ShellServiceHub = {
@@ -256,6 +257,9 @@ struct ShellServiceHub {
             },
             tokenHoldingsProviderFactory: {
                 readOnlyProviderFactory.makeTokenHoldingsProvider()
+            },
+            privacyResetServiceFactory: { modelContext in
+                PrivacyResetServices.live(modelContext: modelContext)
             },
             policyActionHandlerFactory: { modelContext, modeState in
                 PolicyActionGateService(

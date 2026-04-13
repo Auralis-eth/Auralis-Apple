@@ -10,6 +10,16 @@ import SwiftData
 
 @main
 struct AuralisApp: App {
+    init() {
+        #if !DEBUG
+        do {
+            try Secrets.validateRequiredProviders([.alchemy])
+        } catch {
+            preconditionFailure("Release configuration is invalid: \(error.localizedDescription)")
+        }
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             MainAuraView()

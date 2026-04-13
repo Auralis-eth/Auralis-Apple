@@ -132,11 +132,10 @@ enum ActionPolicyGate {
         log("Policy denied: \(action.rawValue)")
 
         let payload = payloadSanitizer.sanitize(
-            RawReceiptPayload(values: [
-                "action": .string(action.rawValue),
-                "policy_denied": .bool(true),
-                "message": .string(userMessage)
-            ])
+            PolicyDeniedReceiptPayload(
+                action: action.rawValue,
+                userMessage: userMessage
+            ).rawPayload
         )
 
         do {
@@ -157,5 +156,18 @@ enum ActionPolicyGate {
         }
 
         return PolicyGateResult(isAllowed: false, userMessage: userMessage)
+    }
+}
+
+private struct PolicyDeniedReceiptPayload: TypedReceiptPayload {
+    let action: String
+    let userMessage: String
+
+    var fields: [ReceiptPayloadField] {
+        [
+            .public("action", string: action, kind: .label),
+            .bool("policy_denied", true),
+            .redacted("message", string: userMessage, kind: .freeformText)
+        ]
     }
 }

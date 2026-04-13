@@ -2,6 +2,7 @@ import SwiftUI
 
 enum AuraUntrustedValueKind: String, Equatable, Sendable {
     case metadata
+    case provider
     case link
     case scan
     case deepLink
@@ -10,6 +11,8 @@ enum AuraUntrustedValueKind: String, Equatable, Sendable {
         switch self {
         case .metadata:
             return "Untrusted metadata"
+        case .provider:
+            return "Provider-backed value"
         case .link:
             return "Untrusted link"
         case .scan:
@@ -57,6 +60,7 @@ struct AuraTrustLabel: View {
 #Preview {
     VStack(spacing: 12) {
         AuraTrustLabel(kind: .metadata)
+        AuraTrustLabel(kind: .provider)
         AuraTrustLabel(kind: .link)
         AuraTrustLabel(kind: .scan)
         AuraTrustLabel(kind: .deepLink)

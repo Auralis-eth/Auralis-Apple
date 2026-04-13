@@ -2,56 +2,82 @@
 
 ## The Big Picture
 
-Auralis is what happens when a wallet explorer, an NFT gallery, a gas dashboard, and a music player all decide to live in the same apartment and mostly get along. The app restores a wallet context, fetches NFT and token data, persists the useful pieces locally, and then turns that data into a few distinct product surfaces instead of one giant scrolling junk drawer.
+Auralis is what you get if a wallet tracker, an NFT browser, a receipts notebook, and a music player all agreed to share one apartment. You bring a wallet address to the front door, the app pulls in what it can see on-chain, stores the useful pieces locally, and then lets you explore that world through Home, News, Tokens, Receipts, and Music. The vibe is not "crypto terminal." It is more like "ambient dashboard with a long memory."
 
 ## Architecture Deep Dive
 
-The app shell is the stage manager. `MainAuraView` and its surrounding shell code decide who gets to walk on stage: auth, loading, or the main experience. `NFTService` is the logistics crew behind the curtain. It talks to the fetcher, classifies provider failures, keeps SwiftData in sync, and makes sure the UI gets a clean story instead of raw network chaos.
+The app shell behaves like the front desk at a busy hotel. `MainAuraView` and the mounted shell decide who is checked in, which chain they are looking at, and which service needs to answer the next question. `NFTService` and `NFTFetcher` are the delivery crew bringing in inventory from providers, while SwiftData is the storeroom where the app keeps the parts it wants to reuse without asking the network every five seconds.
 
-Think of `NFTFetcher` as the delivery driver and `NFTService` as the restaurant expediter. The driver brings in boxes from the provider. The expediter checks whether the order makes sense, decides whether a delay is temporary or serious, and tells the dining room what to say to the customer.
+The audio stack is its own little stage crew. `AudioEngine` keeps the playback machinery alive across screens so the music UI can act more like a remote control than a disposable toy. Receipts are the black box recorder: when important things happen, the app writes down what happened, where it happened, and enough surrounding context to explain it later without dumping raw sensitive values all over the floor.
 
 ## The Codebase Map
 
-`Auralis/Auralis/Aura/` is the visible product shell and feature UI.
-
-`Auralis/Auralis/Networking/` is where provider communication, throttling, and refresh orchestration live.
-
-`Auralis/Auralis/DataModels/` holds the durable shapes the app cares about.
-
-`Auralis/Auralis/MusicApp/AI/` is the active music path. `OLD/` is the attic. Useful for archaeology, dangerous for assumptions.
-
-`AuralisTests/` contains contract-style coverage for presentation logic, routing, persistence helpers, and service behavior.
+- `Auralis/Aura/`: shell, tabs, auth, Home, search, newsfeed, and shared visual primitives
+- `Auralis/Accounts/`: account persistence and holdings state
+- `Auralis/DataModels/`: SwiftData-backed models and domain types
+- `Auralis/Networking/`: provider seams, fetchers, caches, retry logic, and config
+- `Auralis/Receipts/`: receipt schema, stores, reset, and sanitization
+- `Auralis/MusicApp/AI/`: active music UI and audio engine
+- `Auralis/MusicApp/OLD/`: the attic; interesting, but not where the current player lives
 
 ## Tech Stack & Why
 
-SwiftUI is doing the UI work because the app is heavily state-driven and that matches the problem well. SwiftData handles local persistence so the app can keep useful state on-device instead of treating every screen as a fresh network gamble. Swift Concurrency is the right fit for refresh pipelines, background loading, and “this can fail, but don’t freeze the UI” work.
+SwiftUI is doing the UI heavy lifting because the app is fundamentally state-driven and needs the shell to react cleanly to account, chain, and loading-state changes. SwiftData is the local pantry because this app needs durable scoped storage for NFTs, holdings, receipts, and account metadata without building a custom database story from scratch. Swift Concurrency fits the networking and media flows because cancellation, retry, and long-lived tasks are normal here, not exotic.
+
+The provider layer exists because direct provider code in views would turn the app into wet cement. The receipt system exists because once you have multiple surfaces sharing identity and state, "why did this happen?" stops being a nice-to-have and becomes table stakes.
 
 ## The Journey
 
-One recent bug had a very familiar smell: tests were still constructing `NFTProviderFailure` with the old memberwise initializer even though production had moved to a failable `init(error:)` classifier. That made the tests compile against a version of the API that no longer existed, which is the software equivalent of trying to unlock your front door with a hotel keycard from last month.
+### War story: release-readiness is where the loose floorboards show up
 
-The fix was to route test fixtures through the same typed error mapping that production uses. Offline cases now come from `URLError(.notConnectedToInternet)`, rate-limit cases come from `NFTFetcher.FetcherError.rateLimited`, and invalid-response coverage comes from `DecodingError`. That keeps the tests honest: they now verify the public behavior instead of relying on construction shortcuts that production code cannot use.
+The `P0-802` and `P0-803` pass was less about adding shiny UI and more about turning hand-wavy confidence into explicit artifacts. Performance baselines are easy to fake by saying "it feels okay." Security checklists are easy to fake by saying "we should review that later." Both are useless if the next engineer cannot tell what was actually checked.
 
-Another bug was less about logic and more about test physics. `ProviderAbstractionTests` used a single global `URLProtocol` handler while Swift Testing was free to run async tests in parallel. That is like giving four bartenders one shared cocktail shaker and then acting surprised when the martini tastes faintly like someone else's margarita. The symptom was wonderfully misleading: `tokenHoldingsProviderUsesBalanceEndpointAsAmountAuthority()` would occasionally crash with an index-out-of-range because another test had already swapped the mock network handler.
+The fix was documentation with teeth:
 
-The fix was to serialize that suite so the shared mock state stops racing itself. In the same cleanup pass, the chrome and address-entry contract tests were brought back in line with the user-facing wording they actually assert, and the ERC-20 presentation tests stopped using ancient fixed timestamps for cases that are supposed to represent fresh metadata. That last one matters because time-based tests love turning into tiny gremlins if you accidentally ask 1970 to behave like “just updated.”
+- `P0-802-Baseline-Report.md` now defines the first two benchmark flows that matter: address-entry-to-shell and opening the ERC-20 surface.
+- `P0-803-Privacy-Security-Checklist.md` now names the active surfaces that were reviewed and the hardening that is still deferred.
 
-Then came the sneaky cursor bug. A pagination fixture used `pageKey.flatMap(Int.init)` and on this setup that behaved like a hex-flavored parser. So page keys walked `10 -> 17 -> 24 -> 37`, which made a perfectly healthy fetcher look like it was giving up after 14 pages. The lesson: if a cursor is decimal, say so out loud with `Int(value, radix: 10)`. Leaving number parsing to “whatever overload the compiler picked today” is how you end up debugging ghosts.
+### Aha moment
 
-Another design fork looked attractive on paper and expensive everywhere else: turning guest passes into a full deterministic demo-data product mode. That path would have added bundled datasets, separate provenance rules, and second-source behavior across every major tab. After walking into the implementation weeds, the better call was to stop. Guest passes stayed as curated public-wallet shortcuts, and the app did not grow a parallel fake-data universe just to make screenshots feel tidy. Sometimes the senior-engineering move is not heroic completion; it is backing out of the side quest before it becomes permanent rent.
+The app already had more privacy discipline than it first appeared. Receipt sanitization, scoped search history, validation-first account entry, and explicit trust labels were all there in pieces. The problem was not "nothing exists." The problem was "the evidence was scattered across the building like receipts in different jacket pockets."
 
-That decision clarified the offline story too. SwiftData already gives the app a real local persistence layer, which means the default offline behavior is straightforward: show what is already cached locally, surface provider failure honestly, and do not invent a special “offline mode” product unless the product truly needs one. A clean degraded mode beats a theatrical fake mode.
+### New move: settings as the control room, not a junk drawer
+
+The latest `P0-803` follow-on turned that scattered privacy work into something a real user can actually operate. A settings page now exists under Profile, and it does two useful things instead of ten decorative things:
+
+- it shows whether the single shipped Alchemy key was injected into `Info.plist` at build time through xcconfig
+- it exposes one privacy reset that clears receipts, search history, ENS cache, gas cache, and token-holdings cache in one shot
+
+That sounds small, but it fixes a classic app problem: all the safety seams existed, yet nobody had built the dashboard to drive them.
+
+### New move: receipts stop trusting mystery strings
+
+The next hardening pass taught the receipt system a better habit. Instead of tossing loose dictionaries over the wall and hoping the sanitizer guesses which strings are dangerous, the active receipt emitters now describe each field with intent: public, redact, hash, truncate. That is much closer to how grown-up audit logs behave.
+
+The practical result:
+
+- URLs are sanitized structurally instead of only being hidden when the key happens to be named `url`
+- wallet addresses are hashed or masked deliberately
+- copied text and raw errors stop pretending to be harmless metadata
+- unknown strings default to suspicious until a payload builder classifies them
+
+### New move: one real shipped key means one real runtime dependency
+
+The provider configuration story also got less theatrical. The app no longer pretends it has a whole bag of optional provider secrets. Runtime configuration is now `Info.plist`-only, populated through xcconfig, and release builds fail immediately if the Alchemy key is missing. Gas pricing was moved off the old Infura-shaped dependency path and onto the shared Alchemy RPC seam, which means the build now depends on one actual key instead of a secret-management hydra.
+
+### Pitfalls worth remembering
+
+- xcconfig-to-Info.plist injection is now the intended secret path, and release builds fail fast if required keys are missing.
+- Search history and ENS cache now participate in one privacy reset, but receipt payload growth still needs ongoing review.
+- Receipt sanitization is stronger now, but every new payload shape still needs deliberate sensitivity classification at the emitter.
+- Audio temp files are cleaned up on active replacement paths, but lifecycle edge cases still deserve a focused review.
 
 ## Engineer's Wisdom
 
-If a type’s only public initializer becomes a classifier, tests should follow it. Otherwise the tests stop being customer-facing contracts and become secret friends with implementation details. Good tests do not ask for privileged backstage access unless that access is the thing being tested.
+Good engineers do not confuse "there is code" with "there is a contract." This codebase keeps getting better when ownership is explicit: shell state lives in the shell, providers stay behind seams, receipts sanitize before they persist, and views do not get to freeload on global knowledge they do not own.
 
-Shared mutable state inside tests is a trap with nicer branding. If a suite relies on a global mock, either isolate it per test or serialize the suite on purpose. Parallel execution is not the villain here; vague ownership is.
-
-Cursor parsing is another place where explicit beats clever. If the protocol says decimal, parse decimal. Tiny ambiguities in test fixtures can impersonate production regressions for hours.
-
-Guest passes still need rigor, but they do not need to become a whole second application. A lightweight public-wallet shortcut is cheap to reason about. A fake cross-tab demo universe is not.
+Another recurring lesson: the safest path is usually the narrowest one. Read-only wallet watching is safer than pretending to be a signing wallet. Scoped local history is safer than global logs. Clear deferrals are safer than fake completeness.
 
 ## If I Were Starting Over...
 
-I would make the intended fixture story more obvious up front, either with dedicated test helpers or with a tiny set of factory methods next to the tests. When a type intentionally hides its memberwise init, that usually means the design wants every caller, including tests, to speak in domain events rather than raw stored properties.
+I would establish the privacy reset story and the production secrets story earlier. Both are easier to design before a dozen surfaces accumulate their own little caches and local stores. I would also wire in a small automated benchmark harness sooner, because "we'll measure it later" is how performance work quietly becomes folklore.

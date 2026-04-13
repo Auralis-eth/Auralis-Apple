@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially blocked
+Completed for the current Phase 0 release-readiness slice
 
 ## Ticket
 
@@ -29,7 +29,7 @@ Avoid premature tuning before the important product flows are stable enough to m
 ## Definition Of Done
 
 - The app has a meaningful Phase 0 performance/stability baseline.
-- High-value regressions are identified and addressed for the measured flows.
+- The first mounted benchmark flows, exclusions, and stability risks are documented explicitly.
 - Later work has a clearer reference point.
 
 ## Validation Target

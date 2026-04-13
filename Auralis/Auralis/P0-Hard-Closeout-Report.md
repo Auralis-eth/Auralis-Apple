@@ -2,13 +2,13 @@
 
 ## Scope
 
-This audit covers every Phase 0 ticket except `P0-801`, `P0-802`, and `P0-803`.
+This audit covers every Phase 0 ticket except `P0-801`.
 
 Current read on those excluded Phase 11 tickets:
 
 - `P0-801`: canceled; guest passes remain, but no bundled demo-data or dedicated offline-mode product slice is planned
-- `P0-802`: resolved for planning/readiness with the first baseline flows and leak-remediation rule defined
-- `P0-803`: resolved for planning/readiness with the full active Phase 0 surface in scope
+- `P0-802`: complete for the current release-readiness slice with an explicit baseline report for address-entry-to-shell and ERC-20 opening flows
+- `P0-803`: complete for the current release-readiness slice with an explicit privacy/security checklist, reviewed surface list, and deferral record
 
 Status source of truth used for this pass:
 

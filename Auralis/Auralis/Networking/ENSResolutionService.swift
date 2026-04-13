@@ -145,6 +145,11 @@ actor ENSResolutionCacheStore {
         persist()
     }
 
+    func clearAll() {
+        state = .empty
+        userDefaults.removeObject(forKey: storageKey)
+    }
+
     private func persist() {
         guard let data = try? encoder.encode(state) else {
             return
@@ -255,11 +260,11 @@ final class ReceiptBackedENSEventRecorder: ENSEventRecording {
             summary: "Used cached ENS resolution",
             correlationID: correlationID,
             isSuccess: true,
-            rawPayload: RawReceiptPayload(values: [
-                "lookupKind": .string(kind),
-                "key": .string(key),
-                "fetchedAt": .string(ISO8601DateFormatter().string(from: fetchedAt))
-            ])
+            rawPayload: ENSCacheHitReceiptPayload(
+                kind: kind,
+                key: key,
+                fetchedAt: fetchedAt
+            ).rawPayload
         )
     }
 
@@ -273,10 +278,10 @@ final class ReceiptBackedENSEventRecorder: ENSEventRecording {
             summary: "Started ENS lookup",
             correlationID: correlationID,
             isSuccess: true,
-            rawPayload: RawReceiptPayload(values: [
-                "lookupKind": .string(kind),
-                "key": .string(key)
-            ])
+            rawPayload: ENSLookupStartedReceiptPayload(
+                kind: kind,
+                key: key
+            ).rawPayload
         )
     }
 
@@ -287,21 +292,17 @@ final class ReceiptBackedENSEventRecorder: ENSEventRecording {
         verification: Bool?,
         correlationID: String?
     ) async {
-        var payload: [String: ReceiptJSONValue] = [
-            "lookupKind": .string(kind),
-            "key": .string(key),
-            "value": .string(value)
-        ]
-        if let verification {
-            payload["isForwardVerified"] = .bool(verification)
-        }
-
         append(
             trigger: "ens.\(kind).succeeded",
             summary: "ENS lookup succeeded",
             correlationID: correlationID,
             isSuccess: true,
-            rawPayload: RawReceiptPayload(values: payload)
+            rawPayload: ENSLookupSucceededReceiptPayload(
+                kind: kind,
+                key: key,
+                value: value,
+                verification: verification
+            ).rawPayload
         )
     }
 
@@ -316,11 +317,11 @@ final class ReceiptBackedENSEventRecorder: ENSEventRecording {
             summary: "ENS lookup failed",
             correlationID: correlationID,
             isSuccess: false,
-            rawPayload: RawReceiptPayload(values: [
-                "lookupKind": .string(kind),
-                "key": .string(key),
-                "error": .string(String(describing: error))
-            ])
+            rawPayload: ENSLookupFailedReceiptPayload(
+                kind: kind,
+                key: key,
+                errorDescription: String(describing: error)
+            ).rawPayload
         )
     }
 
@@ -336,12 +337,12 @@ final class ReceiptBackedENSEventRecorder: ENSEventRecording {
             summary: "ENS mapping changed",
             correlationID: correlationID,
             isSuccess: true,
-            rawPayload: RawReceiptPayload(values: [
-                "lookupKind": .string(kind),
-                "key": .string(key),
-                "oldValue": .string(oldValue),
-                "newValue": .string(newValue)
-            ])
+            rawPayload: ENSMappingChangedReceiptPayload(
+                kind: kind,
+                key: key,
+                oldValue: oldValue,
+                newValue: newValue
+            ).rawPayload
         )
     }
 }
@@ -376,6 +377,87 @@ private extension ReceiptBackedENSEventRecorder {
                 "Failed to append ENS receipt trigger=\(trigger, privacy: .public) correlationID=\(correlationID ?? "nil", privacy: .public) error=\(error.localizedDescription, privacy: .public)"
             )
         }
+    }
+}
+
+private struct ENSCacheHitReceiptPayload: TypedReceiptPayload {
+    let kind: String
+    let key: String
+    let fetchedAt: Date
+
+    var fields: [ReceiptPayloadField] {
+        [
+            .public("lookupKind", string: kind, kind: .label),
+            .hashed("key", string: key, kind: .unknownString),
+            .public(
+                "fetchedAt",
+                string: ISO8601DateFormatter().string(from: fetchedAt),
+                kind: .timestamp
+            )
+        ]
+    }
+}
+
+private struct ENSLookupStartedReceiptPayload: TypedReceiptPayload {
+    let kind: String
+    let key: String
+
+    var fields: [ReceiptPayloadField] {
+        [
+            .public("lookupKind", string: kind, kind: .label),
+            .hashed("key", string: key, kind: .unknownString)
+        ]
+    }
+}
+
+private struct ENSLookupSucceededReceiptPayload: TypedReceiptPayload {
+    let kind: String
+    let key: String
+    let value: String
+    let verification: Bool?
+
+    var fields: [ReceiptPayloadField] {
+        var fields: [ReceiptPayloadField] = [
+            .public("lookupKind", string: kind, kind: .label),
+            .hashed("key", string: key, kind: .unknownString),
+            .hashed("value", string: value, kind: .unknownString)
+        ]
+
+        if let verification {
+            fields.append(.bool("isForwardVerified", verification))
+        }
+
+        return fields
+    }
+}
+
+private struct ENSLookupFailedReceiptPayload: TypedReceiptPayload {
+    let kind: String
+    let key: String
+    let errorDescription: String
+
+    var fields: [ReceiptPayloadField] {
+        [
+            .public("lookupKind", string: kind, kind: .label),
+            .hashed("key", string: key, kind: .unknownString),
+            .redacted("error", string: errorDescription, kind: .errorMessage)
+        ]
+    }
+}
+
+private struct ENSMappingChangedReceiptPayload: TypedReceiptPayload {
+    let kind: String
+    let key: String
+    let oldValue: String
+    let newValue: String
+
+    var fields: [ReceiptPayloadField] {
+        [
+            .public("lookupKind", string: kind, kind: .label),
+            .hashed("key", string: key, kind: .unknownString),
+            .hashed("oldValue", string: oldValue, kind: .unknownString),
+            .hashed("newValue", string: newValue, kind: .unknownString)
+        ]
     }
 }
 
@@ -699,6 +781,10 @@ enum ENSResolvers {
         }
 
         return Web3EthereumNameServiceClient(rpcURL: rpcURL)
+    }
+
+    static func cacheResetService() -> ENSCacheResetService {
+        ENSCacheResetService()
     }
 }
 

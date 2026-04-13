@@ -2,7 +2,7 @@
 
 ## Status
 
-Startable
+Completed for the current Phase 0 release-readiness slice
 
 ## Ticket
 
@@ -28,7 +28,7 @@ Avoid a checklist that is too generic to guide actual review or too aspirational
 ## Definition Of Done
 
 - The Phase 0 privacy/security checklist exists.
-- The highest-value surfaces are reviewed against it.
+- The highest-value shell, data, search, networking, and media surfaces are reviewed against it.
 - Deferrals are recorded explicitly.
 
 ## Validation Target

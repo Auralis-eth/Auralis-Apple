@@ -31,7 +31,6 @@ struct ProviderEndpointConfiguration: Equatable {
     let alchemyNFTBaseURL: URL?
     let alchemyDataAPIBaseURL: URL?
     let alchemyRPCURL: URL?
-    let infuraGasURL: URL?
 }
 
 protocol ProviderConfigurationResolving {
@@ -49,7 +48,6 @@ struct LiveProviderConfigurationResolver: ProviderConfigurationResolving {
 
     func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration {
         let alchemyKey = keyProvider(.alchemy)
-        let infuraKey = keyProvider(.infura)
 
         let alchemyNFTBaseURL = try alchemyKey.flatMap {
             try Self.url("https://\(chain.rawValue).g.alchemy.com/nft/v3/\($0)")
@@ -60,16 +58,12 @@ struct LiveProviderConfigurationResolver: ProviderConfigurationResolving {
         let alchemyRPCURL = try alchemyKey.flatMap {
             try Self.url("https://\(chain.rawValue).g.alchemy.com/v2/\($0)")
         }
-        let infuraGasURL = try infuraKey.flatMap {
-            try Self.url("https://gas.api.infura.io/v3/\($0)/networks/\(chain.chainId)/suggestedGasFees")
-        }
 
         return ProviderEndpointConfiguration(
             chain: chain,
             alchemyNFTBaseURL: alchemyNFTBaseURL,
             alchemyDataAPIBaseURL: alchemyDataAPIBaseURL,
-            alchemyRPCURL: chain.supportsEVMRPC ? alchemyRPCURL : nil,
-            infuraGasURL: chain.supportsInfuraGas ? infuraGasURL : nil
+            alchemyRPCURL: chain.supportsEVMRPC ? alchemyRPCURL : nil
         )
     }
 
@@ -176,7 +170,10 @@ struct ReadOnlyProviderFactory {
     }
 
     func makeGasPricingProvider() -> any GasPricingProviding {
-        Infura(configurationResolver: configurationResolver)
+        AlchemyGasPricingProvider(
+            configurationResolver: configurationResolver,
+            session: session
+        )
     }
 
     func makeNativeBalanceProvider() -> any NativeBalanceProviding {
@@ -761,24 +758,6 @@ extension Chain {
             return false
         default:
             return true
-        }
-    }
-
-    var supportsInfuraGas: Bool {
-        switch self {
-        case .ethMainnet,
-             .ethSepoliaTestnet,
-             .baseMainnet,
-             .baseSepoliaTestnet,
-             .arbMainnet,
-             .arbSepoliaTestnet,
-             .optMainnet,
-             .optSepoliaTestnet,
-             .polygonMainnet,
-             .polygonAmoyTestnet:
-            return true
-        default:
-            return false
         }
     }
 

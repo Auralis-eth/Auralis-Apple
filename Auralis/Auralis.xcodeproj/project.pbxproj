@@ -35,6 +35,8 @@
 
 /* Begin PBXFileReference section */
 		6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AuralisIcon.icon; sourceTree = "<group>"; };
+		6F6A10012F90000100BEEF01 /* Auralis/Config/Auralis-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Auralis/Config/Auralis-Debug.xcconfig"; sourceTree = "<group>"; };
+		6F6A10022F90000100BEEF01 /* Auralis/Config/Auralis-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Auralis/Config/Auralis-Release.xcconfig"; sourceTree = "<group>"; };
 		6F81C0752F67551F00A6EA77 /* P0-201-Strategy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "P0-201-Strategy.md"; sourceTree = "<group>"; };
 		6F81C0E52F678AE300A6EA77 /* P0-201-Dependency-Report.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "P0-201-Dependency-Report.md"; sourceTree = "<group>"; };
 		6F81C0F72F68B6FC00A6EA77 /* P0-501-Strategy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "P0-501-Strategy.md"; sourceTree = "<group>"; };
@@ -102,6 +104,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		6F0BD4D92F8D490B00AAB5F8 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				6F6A10012F90000100BEEF01 /* Auralis/Config/Auralis-Debug.xcconfig */,
+				6F6A10022F90000100BEEF01 /* Auralis/Config/Auralis-Release.xcconfig */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		6FB1D9B02D8D117E00CD1B30 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -122,6 +133,7 @@
 				6F81C0E52F678AE300A6EA77 /* P0-201-Dependency-Report.md */,
 				6F81C0F72F68B6FC00A6EA77 /* P0-501-Strategy.md */,
 				6F81C0F82F68B6FC00A6EA77 /* P0-501-Dependency-Report.md */,
+				6F0BD4D92F8D490B00AAB5F8 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -349,6 +361,7 @@
 /* Begin XCBuildConfiguration section */
 		6FB456032CC5BEBD009A055C /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6F6A10012F90000100BEEF01 /* Auralis/Config/Auralis-Debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AuralisIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -386,6 +399,7 @@
 		};
 		6FB456042CC5BEBD009A055C /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6F6A10022F90000100BEEF01 /* Auralis/Config/Auralis-Release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AuralisIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

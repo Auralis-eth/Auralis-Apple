@@ -211,6 +211,7 @@ struct ChromeContextInspectorSheet: View {
                 }
 
                 Section("Balances") {
+                    AuraTrustLabel(kind: .provider)
                     LabeledContent(
                         "Native Balance",
                         value: snapshot.balances.nativeBalanceDisplay.value ?? "Unavailable"

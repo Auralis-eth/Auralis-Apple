@@ -173,7 +173,7 @@ final class GasPriceEstimateViewModel: ObservableObject {
     private var currentTask: Task<Void, Never>?
     private var refreshTimer: Timer?
 
-    init(provider: any GasPricingProviding = Infura()) {
+    init(provider: any GasPricingProviding = AlchemyGasPricingProvider()) {
         self.provider = provider
     }
     

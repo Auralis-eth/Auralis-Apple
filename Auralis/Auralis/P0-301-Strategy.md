@@ -25,7 +25,7 @@ Handle rate limits, slow responses, unexpected payload shapes, and future provid
 
 ## Current Slice
 
-- Centralized provider endpoint resolution now exists for Alchemy and Infura.
+- Centralized provider endpoint resolution now exists for the shared Alchemy-backed provider seam.
 - NFT inventory fetching now goes through an injected provider seam instead of constructing Alchemy inline inside `NFTFetcher`.
 - Gas pricing now goes through a provider protocol instead of a hard-coded concrete client in the view model.
 - The shell service hub now owns the shared read-only provider factory for inventory, gas, and native balance reads.

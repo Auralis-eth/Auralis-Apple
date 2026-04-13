@@ -29,7 +29,7 @@ Do not build throwaway scaffolding. It is acceptable to land injectable provider
 
 ## Completion Summary
 
-- centralized read-only provider configuration behind one shared resolver for Alchemy and Infura-backed endpoints
+- centralized read-only provider configuration behind one shared resolver for Alchemy-backed endpoints
 - routed NFT inventory fetching through an injected provider factory instead of inline concrete construction
 - kept gas pricing behind a provider protocol and aligned the live path to the shared configuration resolver
 - introduced a shared read-only provider factory in the shell service hub so the app has one consistent place to construct provider-backed reads
