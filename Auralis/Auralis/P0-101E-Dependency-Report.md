@@ -34,7 +34,7 @@ Downstream consumers unblocked or supported by this work:
 
 Explicitly out of primitive scope:
 
-- [`Auralis/Auralis/Aura/Auth/GuestPassCard.swift`](/Users/danielbell/Dev/Auralis-Apple/Auralis/Auralis/Aura/Auth/GuestPassCard.swift) remains a product-specific component, not a generic primitive
+- Product-specific auth components remain outside the generic primitive layer
 
 ## Delivered Primitive Layer
 

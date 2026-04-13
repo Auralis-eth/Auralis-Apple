@@ -86,7 +86,7 @@ struct AddressInputView: View {
             normalizedAddress: normalizedAddress,
             isSubmitting: isSubmitting,
             handleSubmit: handleSubmit,
-            selectDemo: selectDemo,
+            selectGuestPass: selectGuestPass,
             accountStoreFactory: accountStoreFactory
         )
         .glassEffect(.clear.tint(.surface), in: .containerRelative)
@@ -124,7 +124,7 @@ struct AddressInputView: View {
         }
     }
 
-    private func selectDemo(address: String) {
+    private func selectGuestPass(address: String) {
         self.address = address
         handleSubmit(source: .guestPass)
     }
@@ -302,7 +302,7 @@ private struct AddressEntryContentView: View {
     let normalizedAddress: String?
     let isSubmitting: Bool
     let handleSubmit: () -> Void
-    let selectDemo: (String) -> Void
+    let selectGuestPass: (String) -> Void
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
 
     var body: some View {
@@ -359,11 +359,11 @@ private struct AddressEntryContentView: View {
                     .tint(Color.textPrimary)
                     .padding(.top, 8)
             }
-            
+
             GuestExploreDividerView()
             GuestPassesHeaderView()
-            GuestPassCarousel(items: DemoAccount.accounts) { acct in
-                selectDemo(acct.address)
+            GuestPassCarousel(items: GuestPassAccount.accounts) { account in
+                selectGuestPass(account.address)
             }
         }
     }
@@ -413,7 +413,7 @@ struct GuestPassesHeaderView: View {
             Title2FontText("Guest passes")
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
-            
+
             SubheadlineFontText("Try Auralis with curated public collections.")
                 .multilineTextAlignment(.center)
         }

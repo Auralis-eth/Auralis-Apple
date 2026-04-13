@@ -34,7 +34,7 @@ Completed and in maintenance mode for the current Phase 0 primitive layer.
 
 - [x] Verify the primitive-backed surfaces build cleanly.
 - [x] Verify Dynamic Type and compact-width behavior on migrated surfaces.
-- [x] Keep product-specific components such as `GuestPassCard` out of the generic primitive layer.
+- [x] Keep product-specific auth components out of the generic primitive layer.
 
 ## Implementation Notes
 

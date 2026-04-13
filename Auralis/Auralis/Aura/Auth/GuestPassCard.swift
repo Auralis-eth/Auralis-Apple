@@ -1,14 +1,7 @@
-//
-//  LiquidGlassCard.swift
-//  Auralis
-//
-//  Created by Daniel Bell on 6/14/25.
-//
-
 import SwiftUI
 
 struct GuestPassCard: View {
-    let account: DemoAccount
+    let account: GuestPassAccount
     var onTap: (() -> Void)? = nil
 
     @State private var isAnimating = false
@@ -53,8 +46,8 @@ struct GuestPassCard: View {
                 Spacer()
 
                 HStack {
-                    ForEach(account.metadata) { md in
-                        SystemImage(md.systemImage)
+                    ForEach(account.metadata) { metadata in
+                        SystemImage(metadata.systemImage)
                             .font(.footnote)
                             .foregroundStyle(Color.textPrimary.opacity(0.75))
                     }
@@ -63,12 +56,10 @@ struct GuestPassCard: View {
             .foregroundStyle(Color.textPrimary.opacity(0.85))
             .padding(.top, 20)
             .padding(.horizontal, 24)
-            
+
             Spacer(minLength: 8)
 
-            // Main Text
             VStack(spacing: 8) {
-                // Primary title (monospaced heavy)
                 Text(account.title)
                     .font(.title3)
                     .fontWeight(.black)
@@ -78,7 +69,6 @@ struct GuestPassCard: View {
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.textPrimary)
 
-                // Secondary title (thin monospaced)
                 Text(account.subtitle)
                     .font(.subheadline)
                     .fontWeight(.thin)
@@ -89,10 +79,9 @@ struct GuestPassCard: View {
                     .foregroundStyle(Color.textSecondary)
             }
             .padding(.horizontal)
-            
+
             Spacer(minLength: 8)
 
-            // Footer Data
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ADDRESS")
@@ -106,24 +95,20 @@ struct GuestPassCard: View {
 
                 Spacer()
 
-                // Faux Barcode
                 SystemImage("barcode")
                     .font(.system(size: 40, weight: .black))
                     .aspectRatio(contentMode: .fit)
                     .foregroundStyle(.white.opacity(0.7))
-                
             }
             .padding(.bottom, 30)
             .padding(.horizontal, 24)
         }
         .background {
-            // 1. The Glass Material
             RoundedRectangle(cornerRadius: 30)
                 .fill(.ultraThinMaterial)
                 .opacity(0.9)
         }
         .overlay {
-            // 2. The Liquid Shimmer Overlay
             RoundedRectangle(cornerRadius: 30)
                 .strokeBorder(.white.opacity(0.2), lineWidth: 1)
                 .overlay(
@@ -136,7 +121,6 @@ struct GuestPassCard: View {
                             ),
                             lineWidth: 2
                         )
-                        // Animate the gradient mask
                         .mask(
                             LinearGradient(
                                 colors: [.clear, .black, .clear],

@@ -140,4 +140,19 @@ enum EOAccountSource: String, Codable {
     case manualEntry
     case qrScan
     case guestPass
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        self = switch rawValue {
+        case Self.manualEntry.rawValue:
+            .manualEntry
+        case Self.qrScan.rawValue:
+            .qrScan
+        case "guestPass":
+            .guestPass
+        default:
+            .manualEntry
+        }
+    }
 }

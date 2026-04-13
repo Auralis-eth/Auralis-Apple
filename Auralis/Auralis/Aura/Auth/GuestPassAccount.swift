@@ -1,14 +1,8 @@
-//
-//  DemoAccount.swift
-//  Auralis
-//
-//  Created by Daniel Bell on 11/21/25.
-//
-
 struct MetadataChunk: Identifiable, Hashable {
     var id: String {
         systemImage + text
     }
+
     let systemImage: String
     let text: String
 }
@@ -17,7 +11,7 @@ enum AccountRole {
     case label
     case collector
     case artist
-    
+
     var image: String {
         switch self {
         case .label:
@@ -30,7 +24,7 @@ enum AccountRole {
     }
 }
 
-struct DemoAccount: Identifiable, Hashable {
+struct GuestPassAccount: Identifiable, Hashable {
     var id: String { address }
     let address: String
     let ens: String?
@@ -40,10 +34,9 @@ struct DemoAccount: Identifiable, Hashable {
     let metadata: [MetadataChunk]
 }
 
-extension DemoAccount {
-    static let accounts: [DemoAccount] = [
-        // Coop Records – Label/Treasury Wallet
-        DemoAccount(
+extension GuestPassAccount {
+    static let accounts: [GuestPassAccount] = [
+        GuestPassAccount(
             address: "0x9266f125fb2ecb730d9953b46de9c32e2fa83e4a",
             ens: "cooprecords.eth",
             role: .label,
@@ -55,9 +48,7 @@ extension DemoAccount {
                 MetadataChunk(systemImage: "sparkles", text: "On-chain music launchpad with daily collectible drops")
             ]
         ),
-        
-        // Coopahtroopa – Main Collector Wallet
-        DemoAccount(
+        GuestPassAccount(
             address: "0x5b93ff82faaf241c15997ea3975419dddd8362c5",
             ens: "coopahtroopa.eth",
             role: .collector,
@@ -65,13 +56,11 @@ extension DemoAccount {
             subtitle: "Multi-chain music NFT super-collector and Coop Records founder wallet.",
             metadata: [
                 MetadataChunk(systemImage: "globe", text: "Balances spread across ~14 chains on EVM L1/L2s"),
-                MetadataChunk(systemImage: "music.mic", text: "Music NFT–heavy portfolio, including artist, label, and collector drops"),
+                MetadataChunk(systemImage: "music.mic", text: "Music NFT-heavy portfolio, including artist, label, and collector drops"),
                 MetadataChunk(systemImage: "person.3.sequence", text: "Connected to Coop Records' on-chain label ecosystem")
             ]
         ),
-        
-        // Cozomo de' Medici – Blue-Chip NFT Vault
-        DemoAccount(
+        GuestPassAccount(
             address: "0xce90a7949bb78892f159f428d0dc23a8e3584d75",
             ens: "cozomomedici.eth",
             role: .collector,
@@ -83,9 +72,7 @@ extension DemoAccount {
                 MetadataChunk(systemImage: "sparkles", text: "Frequently cited as a culturally influential NFT patron")
             ]
         ),
-        
-        // 3LAU – Artist/Founder Vault
-        DemoAccount(
+        GuestPassAccount(
             address: "0x38b6b4387Ff2776678E2B42f5EB2af4a452177d7",
             ens: "3lauvault.eth",
             role: .artist,
