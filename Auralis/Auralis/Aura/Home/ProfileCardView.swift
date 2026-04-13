@@ -74,7 +74,7 @@ struct ProfileCardView: View {
                 }
 
                 HStack(spacing: 8) {
-                    AuraPill(summary.chainTitle, systemImage: "point.3.connected.trianglepath", emphasis: .accent)
+                    AuraPill(summary.chainTitle, systemImage: "globe", emphasis: .accent)
                     AuraPill(summary.trackedNFTLabel, systemImage: "square.stack.3d.up", emphasis: .neutral)
                 }
 

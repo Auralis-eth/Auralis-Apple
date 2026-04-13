@@ -13,6 +13,7 @@ import Foundation
 final class AlchemyNFTService: NFTInventoryProviding {
     private let baseURL: URL
     private let network: String
+    private var ownerFetchMode: OwnerFetchMode = .primary
 
     // MARK: - Initialization
 
@@ -47,6 +48,11 @@ final class AlchemyNFTService: NFTInventoryProviding {
 
     enum OrderBy: String {
         case transferTime = "transferTime"
+    }
+
+    private enum OwnerFetchMode {
+        case primary
+        case degraded
     }
 
     // Common error envelope shapes
@@ -141,6 +147,10 @@ final class AlchemyNFTService: NFTInventoryProviding {
         owner: String,
         pageKey: String?
     ) async throws -> AlchemyNFTResponse {
+        if ownerFetchMode == .degraded {
+            return try await degradedNFTsForOwner(owner: owner, pageKey: pageKey)
+        }
+
         do {
             return try await getNFTsForOwner(owner: owner, pageKey: pageKey)
         } catch let error as APIError {
@@ -148,6 +158,7 @@ final class AlchemyNFTService: NFTInventoryProviding {
                 throw error
             }
 
+            ownerFetchMode = .degraded
             print("[AlchemyNFTService] primary owner fetch failed; retrying degraded request")
             return try await getNFTsForOwner(
                 owner: owner,

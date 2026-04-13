@@ -1057,7 +1057,14 @@ public class NFT: Codable {
 
         let tokenId = try container.decode(String.self, forKey: .tokenId)
         self.tokenId = tokenId
-        let contract = try container.decode(Contract.self, forKey: .contract)
+        let fallbackContractAddress = Self.fallbackContractAddress(
+            tokenId: tokenId,
+            tokenType: tokenType,
+            name: name,
+            tokenUri: tokenUri
+        )
+        let contract = try container.decodeIfPresent(Contract.self, forKey: .contract)
+            ?? Contract(address: fallbackContractAddress)
         self.contract = contract
         id = Self.makeScopedNFTID(
             accountAddress: nil,
@@ -1096,9 +1103,23 @@ public class NFT: Codable {
         tokenUri: String?
     ) -> String {
         let resolvedAccountAddress = normalizedScopeComponent(accountAddress) ?? "unscoped"
-        let fallbackContractAddress = "unknown" + (tokenType ?? "") + (name ?? "") + (tokenUri ?? "")
+        let fallbackContractAddress = fallbackContractAddress(
+            tokenId: tokenId,
+            tokenType: tokenType,
+            name: name,
+            tokenUri: tokenUri
+        )
         let resolvedContractAddress = Self.normalizedScopeComponent(contractAddress) ?? fallbackContractAddress
         return "\(resolvedAccountAddress):\(chain.rawValue):\(resolvedContractAddress):\(tokenId)"
+    }
+
+    private static func fallbackContractAddress(
+        tokenId: String,
+        tokenType: String?,
+        name: String?,
+        tokenUri: String?
+    ) -> String {
+        "__missing_contract__\(tokenType ?? ""):\(name ?? ""):\(tokenUri ?? ""):\(tokenId)"
     }
 
     static func normalizedScopeComponent(_ value: String?) -> String? {
@@ -1128,7 +1149,7 @@ public class NFT: Codable {
         
         required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            let decodedAddress = try container.decode(String.self, forKey: .address)
+            let decodedAddress = try container.decodeIfPresent(String.self, forKey: .address)
             address = decodedAddress
             chainRawValue = Chain.ethMainnet.rawValue
             id = Self.makeScopedID(chain: .ethMainnet, address: decodedAddress)

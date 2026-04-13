@@ -32,11 +32,17 @@ struct Secrets {
 
     static func apiKey(_ provider: APIKeyProvider, bundle: Bundle = .main) throws -> String {
         let plistValue = bundle.infoDictionary?[provider.infoPlistKeyName] as? String
+        print(
+            "[Secrets] resolving \(provider.rawValue) key from \(provider.infoPlistKeyName) " +
+            "bundle=\(bundle.bundleURL.lastPathComponent) rawPresent=\(plistValue != nil)"
+        )
         guard let infoDictionary = bundle.infoDictionary,
               let value = sanitizedKeyValue(infoDictionary[provider.infoPlistKeyName] as? String) else {
+            print("[Secrets] missing or invalid \(provider.rawValue) key in Info.plist")
             throw SecretsError.providerKeyNotFound(provider)
         }
 
+        print("[Secrets] resolved \(provider.rawValue) key length=\(value.count)")
         return value
     }
 

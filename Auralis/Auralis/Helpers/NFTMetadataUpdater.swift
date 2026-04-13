@@ -115,15 +115,8 @@ class NFTMetadataUpdater {
                 if let imageURL = URL(string: convertedURLString) {
                     nft.image?.secureUrl = ensureSecureURL(imageURL)?.absoluteString
                 }
-            case .failure:
-                print("URL conversion failed for \(imageURLString)")  // Log for debugging
-
-                // Fallback only if original is a valid URL
-                if let originalURL = URL(string: imageURLString) {
-                    nft.image?.originalUrl = imageURLString
-                    nft.image?.secureUrl = ensureSecureURL(originalURL)?.absoluteString
-                }
-                // Otherwise, skip to avoid bad data
+            case .failure(let error):
+                preserveOriginalImageURL(imageURLString, for: nft, conversionError: error)
             }
         }
 
@@ -159,6 +152,51 @@ class NFTMetadataUpdater {
 
         if let imageHash = metadata["imageHash"]?.stringValue {
             nft.imageHash = imageHash
+        }
+    }
+
+    private static func preserveOriginalImageURL(
+        _ imageURLString: String,
+        for nft: NFT,
+        conversionError: URLConversionError
+    ) {
+        nft.image?.originalUrl = imageURLString
+
+        guard let originalURL = URL(string: imageURLString) else {
+            if shouldLogURLConversionFailure(for: imageURLString, error: conversionError) {
+                print("URL conversion failed for \(imageURLString)")
+            }
+            return
+        }
+
+        if let scheme = originalURL.scheme?.lowercased(),
+           scheme == "http" || scheme == "https" {
+            nft.image?.secureUrl = ensureSecureURL(originalURL)?.absoluteString
+        }
+
+        if shouldLogURLConversionFailure(for: imageURLString, error: conversionError) {
+            print("URL conversion failed for \(imageURLString)")
+        }
+    }
+
+    private static func shouldLogURLConversionFailure(
+        for urlString: String,
+        error: URLConversionError
+    ) -> Bool {
+        let normalizedValue = urlString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        if normalizedValue.hasPrefix("data:") ||
+            normalizedValue.hasPrefix("ar://") ||
+            normalizedValue.hasPrefix("ipfs://") ||
+            normalizedValue.hasPrefix("ipns://") {
+            return false
+        }
+
+        switch error {
+        case .emptyString:
+            return false
+        case .malformedURI, .unsupportedScheme, .invalidIdentifier:
+            return true
         }
     }
 

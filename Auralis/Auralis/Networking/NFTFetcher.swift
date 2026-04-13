@@ -149,6 +149,10 @@ class NFTFetcher: NFTFetching {
                 return false
             }
         }
+
+        if error is DecodingError {
+            return false
+        }
         
         if let urlError = error as? URLError {
             switch urlError.code {
@@ -284,6 +288,8 @@ class NFTFetcher: NFTFetching {
                     wrappedError = fetcherError
                 } else if let apiError = error as? AlchemyNFTService.APIError {
                     wrappedError = apiError
+                } else if error is DecodingError {
+                    wrappedError = error
                 } else if let urlError = error as? URLError {
                     print("URL Error code: \(urlError.code.rawValue)")
                     if urlError.code == .cancelled {

@@ -28,6 +28,19 @@ The provider layer exists because direct provider code in views would turn the a
 
 ## The Journey
 
+### New move: turning Phase 0 into something another engineer can actually inherit
+
+One quiet failure mode in app projects is "the code works, but the next person has to become a detective." Phase 0 had reached the point where implementation-order docs and ticket closeout notes existed, but they still assumed the reader was willing to play archaeological dig across dozens of files.
+
+The fix was to add four operating documents with distinct jobs instead of one giant sludge file:
+
+- `LLM_CONTEXT.md` for the compressed mental model of the app
+- `P0-Future-Work.md` for what actually matters next
+- `P0-Physical-Device-QA-Suite.md` for real-device validation of P0
+- `P0-UI-Design-Audit-Checklist.md` for product/design review of P0
+
+That matters because Phase 0 is not "done forever." It is more like finishing the foundation and then taping labels onto the breaker box so the next engineer does not shut off the house by accident.
+
 ### War story: release-readiness is where the loose floorboards show up
 
 The `P0-802` and `P0-803` pass was less about adding shiny UI and more about turning hand-wavy confidence into explicit artifacts. Performance baselines are easy to fake by saying "it feels okay." Security checklists are easy to fake by saying "we should review that later." Both are useless if the next engineer cannot tell what was actually checked.
@@ -69,6 +82,16 @@ Then came the classic Xcode booby trap: the project had xcconfig wiring for `INF
 
 The next trap was more subtle: once the key worked, Alchemy itself started returning HTTP 500 for a real wallet on `getNFTsForOwner`. That is the kind of failure that can waste a lot of time if the app treats every provider error like flaky Wi‑Fi. The better move was to degrade the request shape inside the provider client: if the rich metadata request explodes, retry once with a lighter owner fetch and stop the outer fetcher from hammering the same 500 ten times in a row.
 
+Then the provider did one more annoying but very realistic thing: the degraded response shape stopped including `contract` for some NFTs. The app was decoding that field as mandatory, which turned one ugly page into a full retry storm. The repair was not glamorous; it was correct. `NFT` and `Contract` now decode missing contract data defensively, and `NFTFetcher` treats `DecodingError` like a schema problem instead of cosplay network turbulence.
+
+That fix had a sequel. The first fallback implementation used `Contract(address: nil)`, which looked harmless until SwiftData reminded us that `Contract.id` is unique. A whole page of "missing contract" NFTs all tried to become the same contract record, and persistence started throwing identity-remap failures like a database smoke alarm. The better move was to synthesize a per-item fallback contract identity from token metadata so degraded provider rows can still be saved without pretending they all share one phantom contract.
+
+Then SwiftData pulled out one more rake from the grass. Even after contracts were fixed, the save path still blindly called `insert` on every fetched NFT, including items that already existed in the store or showed up twice in the same provider batch. That is how you get the unforgettable message about a `PersistentIdentifier` being remapped "to a temporary identifier during save," which is SwiftData's way of saying, "you tried to create a second version of the same person and now the seating chart is on fire." The cure was straightforward and important: dedupe the fetched batch by scoped NFT id, then upsert persisted rows in place instead of always inserting new ones.
+
+The token URI path also got a much-needed volume knob. NFT metadata in the wild is a flea market, not a museum. Some tokens hand you `data:application/json;base64,...`, some hand you `data:image/svg+xml`, some point at `ar://`, and some are just weird. The parser now only base64-decodes URIs that actually claim to be embedded JSON, keeps known non-HTTP media schemes without yelling about them, and stops narrating every duplicate token URI like it has discovered a crime. The result is a log stream that highlights malformed data instead of normal NFT chaos.
+
+One last provider lesson came from pagination. Falling back from a rich Alchemy request to a degraded one is not enough if the next page quietly switches back to the rich request and explodes all over again. That creates a tedious loop of `500 -> degrade -> next page -> 500 -> degrade`, which is technically resilient but operationally obnoxious. The fix was to make the fallback sticky for the lifetime of that refresh: once the provider proves it needs the lighter request shape, keep using it until the pagination run is over.
+
 ### Pitfalls worth remembering
 
 - xcconfig-to-Info.plist injection is now the intended secret path, and release builds fail fast if required keys are missing.
@@ -76,6 +99,7 @@ The next trap was more subtle: once the key worked, Alchemy itself started retur
 - Receipt sanitization is stronger now, but every new payload shape still needs deliberate sensitivity classification at the emitter.
 - Audio temp files are cleaned up on active replacement paths, but lifecycle edge cases still deserve a focused review.
 - If NFT loading suddenly looks dead on first launch, check the startup logs before blaming pagination or wallet parsing. In this app, `rawPresent=false` plus `nftURL=nil` is the smoking gun that the Alchemy key never made it from `Secrets.local.xcconfig` into `Info.plist`.
+- If a provider fallback endpoint returns "valid enough" but thinner JSON, decoding rigidity becomes a product bug. Missing `contract` data should degrade identity quality, not trap the fetcher in ten retries and a fake loading hang.
 
 ## Engineer's Wisdom
 

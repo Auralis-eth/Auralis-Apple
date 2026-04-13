@@ -103,19 +103,24 @@ extension String {
 extension String {
     //// Function to decode a raw token URI string to a dictionary
     var base64JSON: [String: JSONValue]? {
+        let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedValue = trimmedValue.lowercased()
+
+        guard normalizedValue.hasPrefix("data:application/json") else {
+            return nil
+        }
+
         // Extract the base64 part from the URI
         // Format is: data:application/json;base64,<BASE64_ENCODED_JSON>
-        guard let base64StartRange = self.range(of: "base64,") else {
-            print("Failed to decode token URI: Missing base64 prefix")
+        guard let base64StartRange = trimmedValue.range(of: "base64,", options: .caseInsensitive) else {
             return nil
         }
 
         let base64StartIndex = base64StartRange.upperBound
-        let base64String = String(self[base64StartIndex...])
+        let base64String = String(trimmedValue[base64StartIndex...])
 
         // Decode the base64 string to data
         guard let jsonData = Data(base64Encoded: base64String.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            print("Failed to decode token URI: Invalid base64 encoding")
             return nil
         }
 
@@ -123,7 +128,6 @@ extension String {
         do {
             return try JSONDecoder().decode([String: JSONValue].self, from: jsonData)
         } catch {
-            print("Failed to decode token URI: \(error.localizedDescription)")
             return nil
         }
     }

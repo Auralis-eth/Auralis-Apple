@@ -289,19 +289,20 @@ class NFTService {
         )
 
         do {
-            let nfts = try await nftFetcher.fetchAllNFTs(
+            let fetchedNFTs = try await nftFetcher.fetchAllNFTs(
                 for: accountAddress,
                 chain: chain,
                 correlationID: correlationID,
                 eventRecorder: eventRecorder
             )
 
-            refreshPhase = .processingMetadata(itemCount: nfts.count)
+            refreshPhase = .processingMetadata(itemCount: fetchedNFTs.count)
             await Task.yield()
-            nfts.forEach {
+            fetchedNFTs.forEach {
                 $0.applyRefreshScope(accountAddress: accountAddress, chain: chain)
                 $0.parseMetadata()
             }
+            let nfts = deduplicateFetchedNFTs(fetchedNFTs)
 
             do {
                 refreshPhase = .persisting(itemCount: nfts.count)
@@ -309,7 +310,7 @@ class NFTService {
                 try canonicalizePersistenceScope(for: nfts, modelContext: modelContext)
                 for nft in nfts {
                     try reusePersistedRelationships(for: nft, modelContext: modelContext)
-                    modelContext.insert(nft)
+                    try upsert(nft: nft, modelContext: modelContext)
                 }
                 try modelContext.save()
 
@@ -488,6 +489,97 @@ class NFTService {
         }
     }
 
+    private func deduplicateFetchedNFTs(_ nfts: [NFT]) -> [NFT] {
+        var seenIDs = Set<String>()
+        var deduplicatedNFTs: [NFT] = []
+        deduplicatedNFTs.reserveCapacity(nfts.count)
+
+        for nft in nfts where seenIDs.insert(nft.id).inserted {
+            deduplicatedNFTs.append(nft)
+        }
+
+        return deduplicatedNFTs
+    }
+
+    private func upsert(
+        nft incomingNFT: NFT,
+        modelContext: ModelContext
+    ) throws {
+        let descriptor = FetchDescriptor<NFT>(
+            predicate: #Predicate<NFT> { $0.id == incomingNFT.id }
+        )
+
+        if let persistedNFT = try modelContext.fetch(descriptor).first {
+            merge(into: persistedNFT, from: incomingNFT)
+            return
+        }
+
+        modelContext.insert(incomingNFT)
+    }
+
+    private func merge(
+        into persistedNFT: NFT,
+        from incomingNFT: NFT
+    ) {
+        persistedNFT.id = incomingNFT.id
+        persistedNFT.contract = incomingNFT.contract
+        persistedNFT.tokenId = incomingNFT.tokenId
+        persistedNFT.tokenType = incomingNFT.tokenType
+        persistedNFT.name = incomingNFT.name
+        persistedNFT.nftDescription = incomingNFT.nftDescription
+        persistedNFT.image = incomingNFT.image
+        persistedNFT.raw = incomingNFT.raw
+        persistedNFT.collection = incomingNFT.collection
+        persistedNFT.tokenUri = incomingNFT.tokenUri
+        persistedNFT.timeLastUpdated = incomingNFT.timeLastUpdated
+        persistedNFT.acquiredAt = incomingNFT.acquiredAt
+        persistedNFT.networkRawValue = incomingNFT.networkRawValue
+        persistedNFT.accountAddressRawValue = incomingNFT.accountAddressRawValue
+        persistedNFT.contentType = incomingNFT.contentType
+        persistedNFT.collectionName = incomingNFT.collectionName
+        persistedNFT.artistName = incomingNFT.artistName
+        persistedNFT.animationUrl = incomingNFT.animationUrl
+        persistedNFT.secureAnimationUrl = incomingNFT.secureAnimationUrl
+        persistedNFT.audioUrl = incomingNFT.audioUrl
+        persistedNFT.externalUrl = incomingNFT.externalUrl
+        persistedNFT.modelUrl = incomingNFT.modelUrl
+        persistedNFT.backgroundColor = incomingNFT.backgroundColor
+        persistedNFT.collectionID = incomingNFT.collectionID
+        persistedNFT.projectID = incomingNFT.projectID
+        persistedNFT.series = incomingNFT.series
+        persistedNFT.seriesID = incomingNFT.seriesID
+        persistedNFT.primaryAssetUrl = incomingNFT.primaryAssetUrl
+        persistedNFT.securePrimaryAssetUrl = incomingNFT.securePrimaryAssetUrl
+        persistedNFT.previewAssetUrl = incomingNFT.previewAssetUrl
+        persistedNFT.securePreviewAssetUrl = incomingNFT.securePreviewAssetUrl
+        persistedNFT.artistWebsite = incomingNFT.artistWebsite
+        persistedNFT.uniqueID = incomingNFT.uniqueID
+        persistedNFT.timestamp = incomingNFT.timestamp
+        persistedNFT.tokenHash = incomingNFT.tokenHash
+        persistedNFT.medium = incomingNFT.medium
+        persistedNFT.metadataVersion = incomingNFT.metadataVersion
+        persistedNFT.imageDataUrl = incomingNFT.imageDataUrl
+        persistedNFT.secureImageDataUrl = incomingNFT.secureImageDataUrl
+        persistedNFT.imageHrUrl = incomingNFT.imageHrUrl
+        persistedNFT.secureImageHrUrl = incomingNFT.secureImageHrUrl
+        persistedNFT.imageHash = incomingNFT.imageHash
+        persistedNFT.symbols = incomingNFT.symbols
+        persistedNFT.seed = incomingNFT.seed
+        persistedNFT.original = incomingNFT.original
+        persistedNFT.agreement = incomingNFT.agreement
+        persistedNFT.website = incomingNFT.website
+        persistedNFT.payoutAddress = incomingNFT.payoutAddress
+        persistedNFT.scriptType = incomingNFT.scriptType
+        persistedNFT.engineType = incomingNFT.engineType
+        persistedNFT.accessArtworkFiles = incomingNFT.accessArtworkFiles
+        persistedNFT.sellerFeeBasisPoints = incomingNFT.sellerFeeBasisPoints
+        persistedNFT.minted = incomingNFT.minted
+        persistedNFT.isStatic = incomingNFT.isStatic
+        persistedNFT.aspectRatio = incomingNFT.aspectRatio
+        persistedNFT.attributes = incomingNFT.attributes
+        persistedNFT.tags = incomingNFT.tags
+    }
+
     private func resolveContract(
         for contract: NFT.Contract,
         modelContext: ModelContext,
@@ -569,16 +661,11 @@ extension NFT {
 
         guard !siftedTokenURIs.isEmpty else { return }
 
-        if siftedTokenURIs.count > 1 {
-            print("Multiple token URIs found for NFT \(id)")
+        if let decodedTokenURI = siftedTokenURIs.lazy.compactMap(\.base64JSON).first {
+            NFTMetadataUpdater.updateNFTFromMetadata(nft: self, metadata: decodedTokenURI)
+            return
         }
 
-        for tokenURI in siftedTokenURIs {
-            if let decodedTokenURI = tokenURI.base64JSON {
-                NFTMetadataUpdater.updateNFTFromMetadata(nft: self, metadata: decodedTokenURI)
-            } else {
-                NFTMetadataUpdater.updateNFTFromMetadata(nft: self, metadata: raw?.metadata)
-            }
-        }
+        NFTMetadataUpdater.updateNFTFromMetadata(nft: self, metadata: raw?.metadata)
     }
 }

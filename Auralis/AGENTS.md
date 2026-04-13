@@ -37,6 +37,13 @@ The shell flow is:
 - Unit tests live in `AuralisTests`.
 - UI tests live in `AuralisUITests`.
 
+## High-Value Docs
+
+- `LLM_CONTEXT.md` is the fastest repo orientation file for engineers or models that need the working mental model without rereading the entire codebase.
+- `P0-Future-Work.md` is the post-Phase-0 backlog and should be updated when hardening or architecture follow-on work becomes clearer.
+- `P0-Physical-Device-QA-Suite.md` is the real-device manual QA contract for Phase 0.
+- `P0-UI-Design-Audit-Checklist.md` is the product/design quality checklist for Phase 0 surfaces.
+
 ## Quirks And Gotchas
 
 - `NFT.swift` is oversized and contains multiple responsibilities.
@@ -44,3 +51,4 @@ The shell flow is:
 - Guest passes are a lightweight onboarding shortcut to curated public wallets, not a separate demo-data product mode.
 - Deep links may arrive during cold start; queue them until shell state is ready.
 - Receipt routing is intentionally safe-fail for now. Full receipt support is deferred.
+- The active audio path lives under `MusicApp/AI/`; `MusicApp/OLD/` is legacy until proven otherwise.
