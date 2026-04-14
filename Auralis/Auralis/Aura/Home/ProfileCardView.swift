@@ -141,18 +141,25 @@ struct ProfileCardView: View {
 
     private func refreshENSName() async {
         resolvedENSName = nil
+        let requestedAddress = currentAddress
 
-        guard !currentAddress.isEmpty else {
+        guard !requestedAddress.isEmpty else {
             return
         }
 
-        if let cached = await ensResolver.cachedReverseResolution(forAddress: currentAddress),
+        if let cached = await ensResolver.cachedReverseResolution(forAddress: requestedAddress),
            cached.isForwardVerified {
+            guard requestedAddress == currentAddress else { return }
             resolvedENSName = cached.ensName
+
+            if !cached.isStale {
+                return
+            }
         }
 
-        if let resolved = await ensResolver.reverseLookup(address: currentAddress, correlationID: nil),
+        if let resolved = await ensResolver.reverseLookup(address: requestedAddress, correlationID: nil),
            resolved.isForwardVerified {
+            guard requestedAddress == currentAddress else { return }
             resolvedENSName = resolved.ensName
         }
     }
