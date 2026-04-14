@@ -61,3 +61,5 @@ Defense in depth is not paranoia here. Sanitizing media URLs during parsing is g
 I would make URL trust policy a first-class type much earlier. Something like `TrustedRemoteMediaURL` would be cleaner than letting raw strings drift through the model and hoping every consumer remembers to behave.
 
 I would also add size and MIME enforcement closer to the network layer for images and audio so malicious NFTs cannot turn the app into a bandwidth vacuum cleaner.
+
+War story: Phase 0 planning docs multiplied like rabbits with clipboards. That was useful while the work was moving, but bad project memory once the dust settled. The repo now keeps one compact `Phase-0-LLM-Handoff.md` file for the durable decisions and leaves the temporary ticket choreography in the trash where it belongs.
