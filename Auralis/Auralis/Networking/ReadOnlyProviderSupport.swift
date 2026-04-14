@@ -48,10 +48,6 @@ struct LiveProviderConfigurationResolver: ProviderConfigurationResolving {
 
     func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration {
         let alchemyKey = keyProvider(.alchemy)
-        print(
-            "[ProviderConfig] chain=\(chain.rawValue) alchemyKeyPresent=\(alchemyKey != nil) " +
-            "supportsEVMRPC=\(chain.supportsEVMRPC)"
-        )
 
         let alchemyNFTBaseURL = try alchemyKey.flatMap {
             try Self.url("https://\(chain.rawValue).g.alchemy.com/nft/v3/\($0)")
@@ -68,11 +64,6 @@ struct LiveProviderConfigurationResolver: ProviderConfigurationResolving {
             alchemyNFTBaseURL: alchemyNFTBaseURL,
             alchemyDataAPIBaseURL: alchemyDataAPIBaseURL,
             alchemyRPCURL: chain.supportsEVMRPC ? alchemyRPCURL : nil
-        )
-
-        print(
-            "[ProviderConfig] chain=\(chain.rawValue) nftURL=\(configuration.alchemyNFTBaseURL?.absoluteString ?? "nil") " +
-            "rpcURLPresent=\(configuration.alchemyRPCURL != nil)"
         )
         return configuration
     }

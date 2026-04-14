@@ -1,6 +1,8 @@
 import Foundation
 
 struct Secrets {
+    private static var loggedMissingProviders = Set<APIKeyProvider>()
+
     struct ConfigurationStatus: Equatable, Identifiable {
         let provider: APIKeyProvider
         let isConfigured: Bool
@@ -31,18 +33,12 @@ struct Secrets {
     }
 
     static func apiKey(_ provider: APIKeyProvider, bundle: Bundle = .main) throws -> String {
-        let plistValue = bundle.infoDictionary?[provider.infoPlistKeyName] as? String
-        print(
-            "[Secrets] resolving \(provider.rawValue) key from \(provider.infoPlistKeyName) " +
-            "bundle=\(bundle.bundleURL.lastPathComponent) rawPresent=\(plistValue != nil)"
-        )
         guard let infoDictionary = bundle.infoDictionary,
               let value = sanitizedKeyValue(infoDictionary[provider.infoPlistKeyName] as? String) else {
-            print("[Secrets] missing or invalid \(provider.rawValue) key in Info.plist")
+            logMissingProviderIfNeeded(provider)
             throw SecretsError.providerKeyNotFound(provider)
         }
 
-        print("[Secrets] resolved \(provider.rawValue) key length=\(value.count)")
         return value
     }
 
@@ -84,6 +80,14 @@ struct Secrets {
 }
 
 private extension Secrets {
+    static func logMissingProviderIfNeeded(_ provider: APIKeyProvider) {
+        guard loggedMissingProviders.insert(provider).inserted else {
+            return
+        }
+
+        print("[Secrets] missing or invalid \(provider.rawValue) key in Info.plist")
+    }
+
     static func sanitizedKeyValue(_ rawValue: String?) -> String? {
         guard let trimmed = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines),
               !trimmed.isEmpty,
