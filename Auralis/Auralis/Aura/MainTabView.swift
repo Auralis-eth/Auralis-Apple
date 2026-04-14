@@ -1,6 +1,7 @@
 import SwiftData
 import SwiftUI
 import Observation
+import OSLog
 
 enum AppTab: Hashable {
     case home
@@ -231,6 +232,7 @@ final class AppRouter {
 }
 
 struct MainTabView: View {
+    private let logger = Logger(subsystem: "Auralis", category: "MainTabView")
     @Environment(\.modelContext) private var modelContext
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
@@ -248,6 +250,7 @@ struct MainTabView: View {
     @State private var showContextInspector = false
     @State private var contextService: ContextService
     @State private var pinnedItemCount: Int
+    @State private var feedbackAlert: MainTabAlert?
 
     private var contextRefreshKey: ContextRefreshKey {
         ContextRefreshKey(
@@ -382,14 +385,31 @@ struct MainTabView: View {
             }
         }
         .onChange(of: currentChain) { _, newValue in
-            currentChainId = newValue.rawValue
-
             guard let currentAccount, currentAccount.currentChain != newValue else {
+                currentChainId = newValue.rawValue
                 return
             }
 
-            currentAccount.currentChain = newValue
-            try? modelContext.save()
+            persistCurrentChainSelection(newValue, for: currentAccount)
+        }
+        .alert(
+            feedbackAlert?.title ?? "",
+            isPresented: Binding(
+                get: { feedbackAlert != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        feedbackAlert = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                feedbackAlert = nil
+            }
+        } message: {
+            if let message = feedbackAlert?.message {
+                Text(message)
+            }
         }
         .modeState(modeState)
     }
@@ -404,6 +424,29 @@ struct MainTabView: View {
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 8)
+    }
+
+    private func persistCurrentChainSelection(_ newValue: Chain, for account: EOAccount) {
+        let previousChain = account.currentChain
+        let previousChainId = currentChainId
+
+        currentChainId = newValue.rawValue
+        account.currentChain = newValue
+
+        do {
+            try modelContext.save()
+        } catch {
+            account.currentChain = previousChain
+            currentChain = previousChain
+            currentChainId = previousChainId
+            logger.error(
+                "Failed to persist current chain change address=\(account.address, privacy: .public) from=\(previousChain.rawValue, privacy: .public) to=\(newValue.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+            )
+            feedbackAlert = MainTabAlert(
+                title: "Chain Change Failed",
+                message: "Auralis could not save the selected chain. Your previous chain is still active."
+            )
+        }
     }
 
     @MainActor
@@ -672,6 +715,12 @@ struct MainTabView: View {
                 .ignoresSafeArea()
         }
     }
+}
+
+private struct MainTabAlert: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
 }
 
 private struct ContextRefreshKey: Hashable {

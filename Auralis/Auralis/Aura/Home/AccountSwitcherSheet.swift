@@ -1,7 +1,9 @@
 import SwiftData
 import SwiftUI
+import OSLog
 
 struct AccountSwitcherSheet: View {
+    private let logger = Logger(subsystem: "Auralis", category: "AccountSwitcherSheet")
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query private var persistedAccounts: [EOAccount]
@@ -186,6 +188,9 @@ struct AccountSwitcherSheet: View {
         }
 
         let correlationID = UUID().uuidString
+        let previousPreferredChain = account.preferredChain
+        let previousCurrentChain = account.currentChain
+        let previousShellChain = currentChain
 
         switch plan.kind {
         case .preferred:
@@ -197,14 +202,30 @@ struct AccountSwitcherSheet: View {
             }
         }
 
-        try? modelContext.save()
-        AccountEventRecorders.live(modelContext: modelContext).record(
-            event,
-            correlationID: correlationID
-        )
+        do {
+            try modelContext.save()
+            AccountEventRecorders.live(modelContext: modelContext).record(
+                event,
+                correlationID: correlationID
+            )
 
-        if plan.shouldRefreshActiveScope {
-            onCurrentChainChanged(plan.to, correlationID)
+            if plan.shouldRefreshActiveScope {
+                onCurrentChainChanged(plan.to, correlationID)
+            }
+        } catch {
+            account.preferredChain = previousPreferredChain
+            account.currentChain = previousCurrentChain
+            if currentAccount?.address == account.address {
+                currentChain = previousShellChain
+            }
+
+            logger.error(
+                "Failed to persist chain scope change address=\(account.address, privacy: .public) kind=\(String(describing: plan.kind), privacy: .public) fromPreferred=\(previousPreferredChain.rawValue, privacy: .public) fromCurrent=\(previousCurrentChain.rawValue, privacy: .public) to=\(plan.to.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+            )
+            feedbackAlert = AccountSwitcherAlert(
+                title: "Chain Change Failed",
+                message: "Auralis could not save that chain change. Your previous chain settings are still active."
+            )
         }
     }
 
