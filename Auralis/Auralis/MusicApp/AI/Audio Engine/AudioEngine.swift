@@ -212,75 +212,6 @@ public class AudioEngine: ObservableObject {
     }
 
     
-    // MARK: - Remote File Download
-    private func downloadAudioFile(from url: URL) async throws -> URL {
-        let (tempURL, response) = try await URLSession.shared.download(from: url)
-        
-        try Task.checkCancellation()
-        
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw AudioEngineError.downloadFailed
-        }
-        
-        // Create a permanent temp file with proper extension
-        let documentsPath = FileManager.default.temporaryDirectory
-        let baseName = url.lastPathComponent.isEmpty ? "audio" : url.deletingPathExtension().lastPathComponent
-        let fileExtension = url.pathExtension.isEmpty ? "mp3" : url.pathExtension
-        let fileName = "\(baseName)-\(UUID().uuidString).\(fileExtension)"
-        let permanentURL = documentsPath.appendingPathComponent(fileName)
-
-        // Move downloaded file to permanent location
-        try FileManager.default.moveItem(at: tempURL, to: permanentURL)
-        
-        return permanentURL
-    }
-    
-    // MARK: - Audio Loading and Playback
-    private func loadAudio(from url: URL, trackID: String, title: String?, artist: String?, imageUrl: String?, loadID: UUID) async throws {
-        playbackState = .loading
-        
-        // Respect task cancellation and staleness
-        try Task.checkCancellation()
-        guard loadID == activeLoadID else { throw CancellationError() }
-        
-        // Clean up previous temp file
-        if let tempURL = tempAudioURL {
-            try? FileManager.default.removeItem(at: tempURL)
-            tempAudioURL = nil
-        }
-        
-        let localURL: URL
-        
-        if url.scheme == "http" || url.scheme == "https" {
-            let downloadedURL = try await downloadAudioFile(from: url)
-            try Task.checkCancellation()
-            guard loadID == activeLoadID else {
-                // Clean up stale downloaded file
-                try? FileManager.default.removeItem(at: downloadedURL)
-                throw CancellationError()
-            }
-            localURL = downloadedURL
-            tempAudioURL = localURL
-        } else {
-            localURL = url
-        }
-        
-        try Task.checkCancellation()
-        guard loadID == activeLoadID else { throw CancellationError() }
-        
-        do {
-            audioFile = try AVAudioFile(forReading: localURL)
-            seekPosition = 0
-            pausedAt = 0
-            playbackState = .stopped
-            currentTrack = Track(id: trackID, title: title, artist: artist, duration: self.duration, imageUrl: imageUrl)
-        } catch {
-            playbackState = .stopped
-            throw AudioEngineError.fileLoadFailed
-        }
-    }
-    
     public func play() throws {
         // If no audio file is loaded, try to advance to the next queued item
         guard let audioFile = audioFile else {
@@ -451,7 +382,59 @@ public class AudioEngine: ObservableObject {
             throw AudioEngineError.unsupportedFormat
         }
 
-        try await loadAudio(from: url, trackID: trackID, title: title, artist: artist, imageUrl: imageUrl, loadID: loadID)
+        playbackState = .loading
+
+        try Task.checkCancellation()
+        guard loadID == activeLoadID else { throw CancellationError() }
+
+        if let tempURL = tempAudioURL {
+            try? FileManager.default.removeItem(at: tempURL)
+            tempAudioURL = nil
+        }
+
+        let localURL: URL
+        if url.scheme == "http" || url.scheme == "https" {
+            let (downloadedTemporaryURL, response) = try await URLSession.shared.download(from: url)
+            try Task.checkCancellation()
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                throw AudioEngineError.downloadFailed
+            }
+
+            let temporaryDirectory = FileManager.default.temporaryDirectory
+            let baseName = url.lastPathComponent.isEmpty ? "audio" : url.deletingPathExtension().lastPathComponent
+            let fileExtension = url.pathExtension.isEmpty ? "mp3" : url.pathExtension
+            let fileName = "\(baseName)-\(UUID().uuidString).\(fileExtension)"
+            let downloadedURL = temporaryDirectory.appendingPathComponent(fileName)
+            try FileManager.default.moveItem(at: downloadedTemporaryURL, to: downloadedURL)
+
+            try Task.checkCancellation()
+            guard loadID == activeLoadID else {
+                try? FileManager.default.removeItem(at: downloadedURL)
+                throw CancellationError()
+            }
+
+            localURL = downloadedURL
+            tempAudioURL = downloadedURL
+        } else {
+            localURL = url
+        }
+
+        try Task.checkCancellation()
+        guard loadID == activeLoadID else { throw CancellationError() }
+
+        do {
+            audioFile = try AVAudioFile(forReading: localURL)
+            seekPosition = 0
+            pausedAt = 0
+            playbackState = .stopped
+            currentTrack = Track(id: trackID, title: title, artist: artist, duration: self.duration, imageUrl: imageUrl)
+        } catch {
+            playbackState = .stopped
+            throw AudioEngineError.fileLoadFailed
+        }
+
         try Task.checkCancellation()
         guard loadID == activeLoadID else { throw CancellationError() }
         try play()

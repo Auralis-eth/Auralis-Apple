@@ -113,6 +113,10 @@ Good engineers do not confuse "there is code" with "there is a contract." This c
 
 Another recurring lesson: the safest path is usually the narrowest one. Read-only wallet watching is safer than pretending to be a signing wallet. Scoped local history is safer than global logs. Clear deferrals are safer than fake completeness.
 
+One smaller but worthwhile cleanup came from the audio stack. The live `AudioEngine` had split remote loading across private helper layers, which made it too easy for playback-state transitions to live in one room while download failures happened in another. The better answer here was subtraction: collapse the helper chain back into the existing private `loadAndPlay` path so the loading state sits next to the work that can actually fail.
+
+We also deleted the old `MusicApp/OLD/AudioPlayerManager.swift` file. It had no live callers and only one commented-out reference in another legacy file. Unused audio code is not a harmless keepsake; it is a future debugging detour waiting for a tired engineer.
+
 ## If I Were Starting Over...
 
 I would establish the privacy reset story and the production secrets story earlier. Both are easier to design before a dozen surfaces accumulate their own little caches and local stores. I would also wire in a small automated benchmark harness sooner, because "we'll measure it later" is how performance work quietly becomes folklore.
