@@ -4,14 +4,18 @@ import SwiftData
 @MainActor
 final class SwiftDataReceiptStore: ReceiptStore {
     private let modelContext: ModelContext
-    private var nextSequenceIDCache: Int?
+    private let sequenceAllocator: ReceiptSequenceAllocator
 
-    init(modelContext: ModelContext) {
+    init(
+        modelContext: ModelContext,
+        sequenceAllocator: ReceiptSequenceAllocator
+    ) {
         self.modelContext = modelContext
+        self.sequenceAllocator = sequenceAllocator
     }
 
     func append(_ receipt: ReceiptDraft) throws -> ReceiptRecord {
-        let nextSequenceID = try nextSequenceID()
+        let nextSequenceID = try sequenceAllocator.allocate(using: modelContext)
         let storedReceipt = try StoredReceipt(
             sequenceID: nextSequenceID,
             createdAt: receipt.createdAt,
@@ -93,19 +97,44 @@ final class SwiftDataReceiptStore: ReceiptStore {
             modelContext.delete(receipt)
         }
         try modelContext.save()
-        nextSequenceIDCache = nil
+        sequenceAllocator.reset()
     }
 }
 
 @MainActor
 enum ReceiptStores {
+    private static var cachedStores: [ObjectIdentifier: SwiftDataReceiptStore] = [:]
+    private static var cachedAllocators: [ObjectIdentifier: ReceiptSequenceAllocator] = [:]
+
     static func live(modelContext: ModelContext) -> any ReceiptStore {
-        SwiftDataReceiptStore(modelContext: modelContext)
+        let key = ObjectIdentifier(modelContext)
+        if let cachedStore = cachedStores[key] {
+            return cachedStore
+        }
+
+        let allocator: ReceiptSequenceAllocator
+        if let cachedAllocator = cachedAllocators[key] {
+            allocator = cachedAllocator
+        } else {
+            let newAllocator = ReceiptSequenceAllocator()
+            cachedAllocators[key] = newAllocator
+            allocator = newAllocator
+        }
+
+        let store = SwiftDataReceiptStore(
+            modelContext: modelContext,
+            sequenceAllocator: allocator
+        )
+        cachedStores[key] = store
+        return store
     }
 }
 
-private extension SwiftDataReceiptStore {
-    func nextSequenceID() throws -> Int {
+@MainActor
+final class ReceiptSequenceAllocator {
+    private var nextSequenceIDCache: Int?
+
+    func allocate(using modelContext: ModelContext) throws -> Int {
         if let nextSequenceIDCache {
             self.nextSequenceIDCache = nextSequenceIDCache + 1
             return nextSequenceIDCache
@@ -118,6 +147,10 @@ private extension SwiftDataReceiptStore {
         let nextSequenceID = (try modelContext.fetch(descriptor).first?.sequenceID ?? 0) + 1
         nextSequenceIDCache = nextSequenceID + 1
         return nextSequenceID
+    }
+
+    func reset() {
+        nextSequenceIDCache = nil
     }
 }
 
