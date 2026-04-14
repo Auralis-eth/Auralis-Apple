@@ -102,6 +102,8 @@ There was a quieter engineering lesson hiding behind all of this: debug logs sho
 - Audio temp files are cleaned up on active replacement paths, but lifecycle edge cases still deserve a focused review.
 - If NFT loading suddenly looks dead on first launch, check the startup logs before blaming pagination or wallet parsing. In this app, `rawPresent=false` plus `nftURL=nil` is the smoking gun that the Alchemy key never made it from `Secrets.local.xcconfig` into `Info.plist`.
 - If a provider fallback endpoint returns "valid enough" but thinner JSON, decoding rigidity becomes a product bug. Missing `contract` data should degrade identity quality, not trap the fetcher in ten retries and a fake loading hang.
+- A test helper can turn into a security hole if its scope check is lazy. `Password.isRunningTests` used to return `true` for every `DEBUG` build, which quietly routed wallet-password storage into `UserDefaults` during ordinary development. The fix was simple and worth remembering: detect actual XCTest process markers, not build configuration. "Running debug" and "running tests" are cousins, not twins.
+- The better follow-up was to delete the hidden mode switch entirely. `Password` now talks to an injected `PasswordStore`, with `PasswordStores.live` using Keychain and `PasswordStores.test(...)` using explicit `UserDefaults` fallback. That is the healthier shape: production security as the default, tests opting into their fake world on purpose instead of by horoscope.
 
 ## Engineer's Wisdom
 

@@ -11,6 +11,128 @@ import Security
 
 typealias Password = String
 
+struct PasswordStore {
+    let save: (Password) -> Void
+    let load: () -> Password?
+    let clear: () -> Void
+}
+
+enum PasswordStores {
+    static let live = PasswordStore(
+        save: { password in
+            KeychainPasswordStore().save(password)
+        },
+        load: {
+            KeychainPasswordStore().load()
+        },
+        clear: {
+            KeychainPasswordStore().clear()
+        }
+    )
+
+    static func test(userDefaults: UserDefaults = .standard) -> PasswordStore {
+        let store = UserDefaultsPasswordStore(userDefaults: userDefaults)
+        return PasswordStore(
+            save: { password in
+                store.save(password)
+            },
+            load: {
+                store.load()
+            },
+            clear: {
+                store.clear()
+            }
+        )
+    }
+}
+
+private struct KeychainPasswordStore {
+    private var keychainBaseQuery: [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: "WalletPasswordAccount",
+            kSecAttrService as String: "WalletPasswordService"
+        ]
+    }
+
+    func save(_ password: Password) {
+        guard let passwordData = password.data(using: .utf8) else {
+            return
+        }
+
+        let keychainQuery = keychainBaseQuery.merging(
+            [
+                kSecValueData as String: passwordData,
+                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+            ],
+            uniquingKeysWith: { _, new in new }
+        )
+
+        SecItemDelete(keychainBaseQuery as CFDictionary)
+
+        let status = SecItemAdd(keychainQuery as CFDictionary, nil)
+        if status == errSecDuplicateItem {
+            let updateStatus = SecItemUpdate(
+                keychainBaseQuery as CFDictionary,
+                [kSecValueData as String: passwordData] as CFDictionary
+            )
+            guard updateStatus == errSecSuccess else {
+                print("Error updating password in Keychain: \(updateStatus)")
+                return
+            }
+            return
+        }
+
+        guard status == errSecSuccess else {
+            print("Error saving password to Keychain: \(status)")
+            return
+        }
+    }
+
+    func load() -> Password? {
+        let keychainQuery: [String: Any] = keychainBaseQuery.merging([
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ], uniquingKeysWith: { _, new in new })
+
+        var dataTypeRef: AnyObject?
+        let status = SecItemCopyMatching(keychainQuery as CFDictionary, &dataTypeRef)
+
+        if status == errSecSuccess,
+           let retrievedData = dataTypeRef as? Data,
+           let password = String(data: retrievedData, encoding: .utf8) {
+            return password
+        }
+
+        return nil
+    }
+
+    func clear() {
+        SecItemDelete(keychainBaseQuery as CFDictionary)
+    }
+}
+
+private struct UserDefaultsPasswordStore {
+    private let userDefaults: UserDefaults
+    private let testFallbackKey = "WalletPasswordTestFallback"
+
+    init(userDefaults: UserDefaults) {
+        self.userDefaults = userDefaults
+    }
+
+    func save(_ password: Password) {
+        userDefaults.set(password, forKey: testFallbackKey)
+    }
+
+    func load() -> Password? {
+        userDefaults.string(forKey: testFallbackKey)
+    }
+
+    func clear() {
+        userDefaults.removeObject(forKey: testFallbackKey)
+    }
+}
+
 enum PasswordStrength: String {
     case weak, medium, strong
     var message: String {
@@ -75,83 +197,15 @@ extension Password {
 }
 
 extension Password {
-    private static let testFallbackKey = "WalletPasswordTestFallback"
-
-    private static var keychainBaseQuery: [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: "WalletPasswordAccount",
-            kSecAttrService as String: "WalletPasswordService"
-        ]
+    func save(using store: PasswordStore = PasswordStores.live) {
+        store.save(self)
     }
 
-    private static var isRunningTests: Bool {
-#if DEBUG
-        return true
-#else
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
-        Bundle.allBundles.contains(where: { $0.bundlePath.hasSuffix(".xctest") })
-#endif
+    static func load(using store: PasswordStore = PasswordStores.live) -> Password? {
+        store.load()
     }
 
-    func saveToKeychain() {
-        if Self.isRunningTests {
-            UserDefaults.standard.set(self, forKey: Self.testFallbackKey)
-            return
-        }
-
-        guard let passwordData = self.data(using: .utf8) else {
-            return
-        }
-
-        let keychainQuery = Self.keychainBaseQuery.merging(
-            [
-                kSecValueData as String: passwordData,
-                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
-            ],
-            uniquingKeysWith: { _, new in new }
-        )
-
-        // Delete existing item first
-        SecItemDelete(Self.keychainBaseQuery as CFDictionary)
-
-        // Add new item
-        let status = SecItemAdd(keychainQuery as CFDictionary, nil)
-        if status == errSecDuplicateItem {
-            let updateStatus = SecItemUpdate(
-                Self.keychainBaseQuery as CFDictionary,
-                [kSecValueData as String: passwordData] as CFDictionary
-            )
-            guard updateStatus == errSecSuccess else {
-                print("Error updating password in Keychain: \(updateStatus)")
-                return
-            }
-            return
-        }
-
-        guard status == errSecSuccess else {
-            print("Error saving password to Keychain: \(status)")
-            return
-        }
-    }
-
-    static func loadFromKeychain() -> Password? {
-        if isRunningTests {
-            return UserDefaults.standard.string(forKey: testFallbackKey)
-        }
-
-        let keychainQuery: [String: Any] = keychainBaseQuery.merging([
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ], uniquingKeysWith: { _, new in new })
-
-        var dataTypeRef: AnyObject?
-        let status = SecItemCopyMatching(keychainQuery as CFDictionary, &dataTypeRef)
-
-        if status == errSecSuccess, let retrievedData = dataTypeRef as? Data, let password = String(data: retrievedData, encoding: .utf8) {
-            return password
-        }
-
-        return nil
+    static func clear(using store: PasswordStore = PasswordStores.live) {
+        store.clear()
     }
 }
