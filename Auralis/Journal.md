@@ -92,6 +92,8 @@ The token URI path also got a much-needed volume knob. NFT metadata in the wild 
 
 One last provider lesson came from pagination. Falling back from a rich Alchemy request to a degraded one is not enough if the next page quietly switches back to the rich request and explodes all over again. That creates a tedious loop of `500 -> degrade -> next page -> 500 -> degrade`, which is technically resilient but operationally obnoxious. The fix was to make the fallback sticky for the lifetime of that refresh: once the provider proves it needs the lighter request shape, keep using it until the pagination run is over.
 
+There was a quieter engineering lesson hiding behind all of this: debug logs should act like instrument panels, not slot machines. Per-page request dumps were useful while the fetch path was on fire, but once the bug was understood they mostly buried the signal under repetitive noise. The better steady-state policy is one summary line per refresh, explicit logs for non-2xx responses, and one clear note when the provider switches into degraded mode. That keeps the console readable when something breaks for real.
+
 ### Pitfalls worth remembering
 
 - xcconfig-to-Info.plist injection is now the intended secret path, and release builds fail fast if required keys are missing.

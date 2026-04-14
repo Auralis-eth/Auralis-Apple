@@ -229,6 +229,7 @@ class NFTFetcher: NFTFetching {
         var cursor: String? = nil
         var stalledPaginationPageCount = 0
         let maxStalledPaginationPages = maxRetryCount * 3
+        var pageCount = 0
         
         repeat {
             try Task.checkCancellation()
@@ -237,6 +238,7 @@ class NFTFetcher: NFTFetching {
             do {
                 let requestedPageKey = cursor
                 let nfts = try await service.nftsForOwner(owner: account, pageKey: cursor)
+                pageCount += 1
 
                 seenItems += nfts.ownedNfts.count
                 itemsLoaded = seenItems
@@ -330,6 +332,14 @@ class NFTFetcher: NFTFetching {
                         )
                     }
                     if !nftMetaData.isEmpty {
+                        logRefreshSummary(
+                            account: account,
+                            chain: chain,
+                            pageCount: pageCount,
+                            itemCount: nftMetaData.count,
+                            totalCount: total,
+                            completedFullRefresh: false
+                        )
                         return nftMetaData
                     }
                     throw wrappedError
@@ -348,6 +358,15 @@ class NFTFetcher: NFTFetching {
             )
         }
 
+        logRefreshSummary(
+            account: account,
+            chain: chain,
+            pageCount: pageCount,
+            itemCount: nftMetaData.count,
+            totalCount: total,
+            completedFullRefresh: true
+        )
+
         return nftMetaData
     }
 
@@ -357,5 +376,20 @@ class NFTFetcher: NFTFetching {
         loading = false
         currentCursor = nil
         error = nil
+    }
+
+    private func logRefreshSummary(
+        account: String,
+        chain: Chain,
+        pageCount: Int,
+        itemCount: Int,
+        totalCount: Int?,
+        completedFullRefresh: Bool
+    ) {
+        print(
+            "[NFTFetcher] refresh summary account=\(account.displayAddress) " +
+            "chain=\(chain.rawValue) pages=\(pageCount) items=\(itemCount) " +
+            "total=\(totalCount.map(String.init) ?? "nil") complete=\(completedFullRefresh)"
+        )
     }
 }

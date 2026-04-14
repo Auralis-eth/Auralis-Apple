@@ -22,12 +22,15 @@ final class AlchemyNFTService: NFTInventoryProviding {
         configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver()
     ) throws {
         let configuration = try configurationResolver.configuration(for: chain)
+        print("[AlchemyNFTService] init chain=\(chain.rawValue)")
         guard let baseURL = configuration.alchemyNFTBaseURL else {
+            print("[AlchemyNFTService] missing Alchemy NFT base URL for chain=\(chain.rawValue)")
             throw ProviderAbstractionError.missingAPIKey(.alchemy)
         }
 
         self.network = chain.rawValue
         self.baseURL = baseURL
+        print("[AlchemyNFTService] baseURL=\(baseURL.absoluteString)")
     }
 
     // MARK: - Types
@@ -160,13 +163,7 @@ final class AlchemyNFTService: NFTInventoryProviding {
 
             ownerFetchMode = .degraded
             print("[AlchemyNFTService] primary owner fetch failed; retrying degraded request")
-            return try await getNFTsForOwner(
-                owner: owner,
-                withMetadata: false,
-                tokenUriTimeoutInMs: 1,
-                pageKey: pageKey,
-                pageSize: 50
-            )
+            return try await degradedNFTsForOwner(owner: owner, pageKey: pageKey)
         }
     }
 
@@ -265,13 +262,18 @@ final class AlchemyNFTService: NFTInventoryProviding {
         request.timeoutInterval = requestTimeoutSeconds
         request.addValue("application/json", forHTTPHeaderField: "Accept")
 
-
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.badServerResponse
         }
 
+        if !(200...299).contains(httpResponse.statusCode) {
+            print(
+                "[AlchemyNFTService] response status=\(httpResponse.statusCode) " +
+                "message=\(parseErrorMessage(from: data) ?? "nil")"
+            )
+        }
 
         // Decode or throw typed errors
         switch httpResponse.statusCode {
@@ -356,6 +358,19 @@ final class AlchemyNFTService: NFTInventoryProviding {
         }
 
         return items
+    }
+
+    private func degradedNFTsForOwner(
+        owner: String,
+        pageKey: String?
+    ) async throws -> AlchemyNFTResponse {
+        try await getNFTsForOwner(
+            owner: owner,
+            withMetadata: false,
+            tokenUriTimeoutInMs: 1,
+            pageKey: pageKey,
+            pageSize: 50
+        )
     }
 
     private func parseErrorMessage(from data: Data) -> String? {
