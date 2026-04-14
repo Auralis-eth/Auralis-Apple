@@ -303,8 +303,18 @@ private extension SwiftDataMusicLibraryIndexer {
         let title = cleanedText(nft.name) ?? "Unknown Track"
         let artistName = cleanedText(nft.artistName)
         let collectionName = cleanedText(nft.collectionName ?? nft.collection?.name)
-        let playbackURLString = nft.musicURL?.absoluteString ?? cleanedText(nft.audioUrl)
+        let playbackURLString = nft.musicURL?.absoluteString
         let availability: MusicLibraryAvailability = playbackURLString == nil ? .unavailable : .ready
+        let artworkCandidates: [String?] = [nft.image?.thumbnailUrl, nft.image?.originalUrl]
+        let artworkURLString = artworkCandidates
+            .compactMap { rawValue -> String? in
+                guard let rawValue else {
+                    return nil
+                }
+
+                return URL.sanitizedRemoteMediaURL(from: rawValue)?.absoluteString
+            }
+            .first
 
         return MusicLibraryItemDescriptor(
             id: nft.id,
@@ -317,7 +327,7 @@ private extension SwiftDataMusicLibraryIndexer {
             normalizedTitleKey: normalizedKey(title),
             normalizedArtistKey: normalizedKey(artistName),
             normalizedCollectionKey: normalizedKey(collectionName),
-            artworkURLString: cleanedText(nft.image?.thumbnailUrl ?? nft.image?.originalUrl),
+            artworkURLString: artworkURLString,
             contentType: cleanedText(nft.contentType),
             playbackURLString: playbackURLString,
             availability: availability,

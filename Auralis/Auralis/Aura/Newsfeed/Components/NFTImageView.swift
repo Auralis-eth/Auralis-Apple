@@ -42,6 +42,7 @@ class ImageLoader: ObservableObject {
         case networkError
         case svgData
         case videoData
+        case unsupportedURL
     }
     @Published var image: UIImage?
     @Published var isLoading = false
@@ -68,6 +69,11 @@ class ImageLoader: ObservableObject {
         isLoading = true
         image = nil
         error = nil
+        guard url.isSupportedRemoteMediaURL else {
+            error = .unsupportedURL
+            isLoading = false
+            return
+        }
         guard url.pathExtension.lowercased() != "mp4" else {
             error = .videoData
             isLoading = false

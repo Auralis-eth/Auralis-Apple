@@ -11,6 +11,48 @@ extension URL {
     var isIPFS: Bool {
         scheme == "ipfs"
     }
+
+    var isSupportedRemoteMediaURL: Bool {
+        guard let scheme = scheme?.lowercased(),
+              let host,
+              !host.isEmpty else {
+            return false
+        }
+
+        return scheme == "https"
+    }
+
+    static func sanitizedRemoteMediaURL(from rawValue: String) -> URL? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+
+        let candidateString: String
+        switch URLConverter.convertToPreferredHTTPS(trimmed) {
+        case .success(let convertedURLString):
+            candidateString = convertedURLString
+        case .failure:
+            candidateString = trimmed
+        }
+
+        guard let candidateURL = URL(string: candidateString) else {
+            return nil
+        }
+
+        if candidateURL.isIPFS,
+           let gatewayURL = candidateURL.toPinataGatewayURL(),
+           gatewayURL.isSupportedRemoteMediaURL {
+            return gatewayURL
+        }
+
+        guard candidateURL.isSupportedRemoteMediaURL else {
+            return nil
+        }
+
+        return candidateURL
+    }
+
     var ipfsHTML: URL? {
         toPinataGatewayURL()
     }

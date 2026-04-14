@@ -985,17 +985,11 @@ public class NFT: Codable {
     }
     
     var musicURL: URL? {
-        
         guard let audioUrl else {
             return nil
         }
-        
-        switch URLConverter.convertToPreferredHTTPS(audioUrl) {
-        case .success(let convertedURLString):
-            return URL(string: convertedURLString)
-        case .failure:
-            return URL(string: audioUrl)
-        }
+
+        return URL.sanitizedRemoteMediaURL(from: audioUrl)
     }
 
     enum CodingKeys: String, CodingKey {

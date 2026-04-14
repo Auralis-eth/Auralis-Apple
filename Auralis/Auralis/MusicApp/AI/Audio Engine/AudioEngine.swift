@@ -176,6 +176,10 @@ public class AudioEngine: ObservableObject {
     }
 
     private func canPlayFormat(_ url: URL) -> Bool {
+        guard url.isSupportedRemoteMediaURL else {
+            return false
+        }
+
         // File extensions supported by AVAudioFile/Core Audio
         let supportedFormats: Set<String> = [
             // Uncompressed / PCM

@@ -104,49 +104,56 @@ class NFTMetadataUpdater {
     // MARK: - Helper Methods for URL Updates
     private static func updateImageURLs(nft: NFT, metadata: [String: JSONValue]) {
         // Handle main image URLs
-        // Updated caller code with validated fallback
         if let imageURLString = metadata["image"]?.stringValue ?? metadata["imageUrl"]?.stringValue {
             if nft.image == nil {
                 nft.image = NFT.Image()
             }
-            switch URLConverter.convertToPreferredHTTPS(imageURLString) {
-            case .success(let convertedURLString):
-                nft.image?.originalUrl = convertedURLString
-                if let imageURL = URL(string: convertedURLString) {
-                    nft.image?.secureUrl = ensureSecureURL(imageURL)?.absoluteString
-                }
-            case .failure(let error):
-                preserveOriginalImageURL(imageURLString, for: nft, conversionError: error)
+
+            if let sanitizedURL = sanitizedMediaURL(from: imageURLString) {
+                nft.image?.originalUrl = sanitizedURL.absoluteString
+                nft.image?.secureUrl = sanitizedURL.absoluteString
+            } else {
+                nft.image?.originalUrl = nil
+                nft.image?.secureUrl = nil
+                logRejectedMediaURL(imageURLString, field: "image")
             }
         }
 
 
         // Handle specialized image URLs
         if let primaryAssetUrl = metadata["primaryAssetUrl"]?.stringValue {
-            nft.primaryAssetUrl = primaryAssetUrl
-            if let assetURL = URL(string: primaryAssetUrl) {
-                nft.securePrimaryAssetUrl = ensureSecureURL(assetURL)?.absoluteString
+            let sanitizedURL = sanitizedMediaURL(from: primaryAssetUrl)
+            nft.primaryAssetUrl = sanitizedURL?.absoluteString
+            nft.securePrimaryAssetUrl = sanitizedURL?.absoluteString
+            if sanitizedURL == nil {
+                logRejectedMediaURL(primaryAssetUrl, field: "primaryAssetUrl")
             }
         }
 
         if let previewAssetUrl = metadata["previewAssetUrl"]?.stringValue {
-            nft.previewAssetUrl = previewAssetUrl
-            if let assetURL = URL(string: previewAssetUrl) {
-                nft.securePreviewAssetUrl = ensureSecureURL(assetURL)?.absoluteString
+            let sanitizedURL = sanitizedMediaURL(from: previewAssetUrl)
+            nft.previewAssetUrl = sanitizedURL?.absoluteString
+            nft.securePreviewAssetUrl = sanitizedURL?.absoluteString
+            if sanitizedURL == nil {
+                logRejectedMediaURL(previewAssetUrl, field: "previewAssetUrl")
             }
         }
 
         if let imageDataUrl = metadata["imageData"]?.stringValue {
-            nft.imageDataUrl = imageDataUrl
-            if let imageURL = URL(string: imageDataUrl) {
-                nft.secureImageDataUrl = ensureSecureURL(imageURL)?.absoluteString
+            let sanitizedURL = sanitizedMediaURL(from: imageDataUrl)
+            nft.imageDataUrl = sanitizedURL?.absoluteString
+            nft.secureImageDataUrl = sanitizedURL?.absoluteString
+            if sanitizedURL == nil {
+                logRejectedMediaURL(imageDataUrl, field: "imageData")
             }
         }
 
         if let imageHrUrl = metadata["imageHrUrl"]?.stringValue {
-            nft.imageHrUrl = imageHrUrl
-            if let imageURL = URL(string: imageHrUrl) {
-                nft.secureImageHrUrl = ensureSecureURL(imageURL)?.absoluteString
+            let sanitizedURL = sanitizedMediaURL(from: imageHrUrl)
+            nft.imageHrUrl = sanitizedURL?.absoluteString
+            nft.secureImageHrUrl = sanitizedURL?.absoluteString
+            if sanitizedURL == nil {
+                logRejectedMediaURL(imageHrUrl, field: "imageHrUrl")
             }
         }
 
@@ -155,56 +162,15 @@ class NFTMetadataUpdater {
         }
     }
 
-    private static func preserveOriginalImageURL(
-        _ imageURLString: String,
-        for nft: NFT,
-        conversionError: URLConversionError
-    ) {
-        nft.image?.originalUrl = imageURLString
-
-        guard let originalURL = URL(string: imageURLString) else {
-            if shouldLogURLConversionFailure(for: imageURLString, error: conversionError) {
-                print("URL conversion failed for \(imageURLString)")
-            }
-            return
-        }
-
-        if let scheme = originalURL.scheme?.lowercased(),
-           scheme == "http" || scheme == "https" {
-            nft.image?.secureUrl = ensureSecureURL(originalURL)?.absoluteString
-        }
-
-        if shouldLogURLConversionFailure(for: imageURLString, error: conversionError) {
-            print("URL conversion failed for \(imageURLString)")
-        }
-    }
-
-    private static func shouldLogURLConversionFailure(
-        for urlString: String,
-        error: URLConversionError
-    ) -> Bool {
-        let normalizedValue = urlString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-
-        if normalizedValue.hasPrefix("data:") ||
-            normalizedValue.hasPrefix("ar://") ||
-            normalizedValue.hasPrefix("ipfs://") ||
-            normalizedValue.hasPrefix("ipns://") {
-            return false
-        }
-
-        switch error {
-        case .emptyString:
-            return false
-        case .malformedURI, .unsupportedScheme, .invalidIdentifier:
-            return true
-        }
-    }
-
     private static func updateAnimationURLs(nft: NFT, metadata: [String: JSONValue]) {
         if let animationURLString = metadata["animation_url"]?.stringValue ?? metadata["animationUrl"]?.stringValue ?? metadata["animation"]?.stringValue {
-            nft.animationUrl = animationURLString
-            if let animationURL = URL(string: animationURLString) {
-                nft.secureAnimationUrl = ensureSecureURL(animationURL)?.absoluteString
+            if let sanitizedURL = sanitizedMediaURL(from: animationURLString) {
+                nft.animationUrl = sanitizedURL.absoluteString
+                nft.secureAnimationUrl = sanitizedURL.absoluteString
+            } else {
+                nft.animationUrl = nil
+                nft.secureAnimationUrl = nil
+                logRejectedMediaURL(animationURLString, field: "animation")
             }
         }
     }
@@ -215,7 +181,12 @@ class NFTMetadataUpdater {
                            metadata["audio"]?.stringValue ??
                            metadata["losslessAudio"]?.stringValue
         if let audioURLString = audioURLString {
-            nft.audioUrl = audioURLString
+            if let sanitizedURL = sanitizedMediaURL(from: audioURLString) {
+                nft.audioUrl = sanitizedURL.absoluteString
+            } else {
+                nft.audioUrl = nil
+                logRejectedMediaURL(audioURLString, field: "audio")
+            }
         }
     }
 
@@ -325,15 +296,17 @@ class NFTMetadataUpdater {
         }
     }
 
-    // Helper function to ensure URLs are secure (HTTPS) or point to a gateway
-    private static func ensureSecureURL(_ url: URL) -> URL? {
-        if url.isIPFS, let ipfsGatewayURL = url.ipfsHTML {
-            return ipfsGatewayURL
-        } else if url.scheme?.lowercased() == "http", var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-            components.scheme = "https"
-            return components.url
+    private static func sanitizedMediaURL(from rawValue: String) -> URL? {
+        URL.sanitizedRemoteMediaURL(from: rawValue)
+    }
+
+    private static func logRejectedMediaURL(_ rawValue: String, field: String) {
+        let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedValue.isEmpty else {
+            return
         }
-        return url
+
+        print("[NFTMetadataUpdater] rejected \(field) URL: \(trimmedValue)")
     }
 }
 

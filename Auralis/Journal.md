@@ -1,34 +1,63 @@
-# The Big Picture
+# Journal
 
-Auralis is a wallet-aware SwiftUI app that treats NFTs like first-class media, identity, and navigation inputs. The app shell restores an account, scopes data by chain, fetches NFT inventory, and then routes that state across Home, News, Gas, Receipts, and Music without pretending those are separate products.
+## The Big Picture
 
-# Architecture Deep Dive
+Auralis is a wallet-aware NFT browser with a music engine hiding under the hood. The app lets you step into a public wallet, fetch what it owns, cache the collection locally, and then wander through art, tokens, and audio without needing to hold private keys like a dragon guarding a vault.
 
-The shell works like an airport control tower. `MainAuraView` and friends decide which runway is active, which account is in scope, and which long-lived services stay alive. Networking brings cargo in, SwiftData stores it in the hangar, and the feature tabs consume the same shared inventory rather than each building their own importer.
+## Architecture Deep Dive
 
-# The Codebase Map
+Think of the app like a museum with a front desk, a storage room, and a listening room.
 
-- `Auralis/Aura/`: shell and product surfaces
-- `Auralis/DataModels/`: persisted models and domain types
-- `Auralis/Networking/`: provider orchestration, fetchers, throttling, config
-- `Auralis/Gas/`: gas fee presentation and polling
-- `Auralis/MusicApp/AI/`: active music engine and UI
+`MainAuraView` is the front desk. It decides who is currently checked in, what chain they are visiting, and which room they should be sent to next.
 
-# Tech Stack & Why
+`NFTService` is the storage crew. It fetches crates of NFT metadata from providers, cleans them up, deduplicates them, and shelves them in SwiftData so the UI is not living fetch-to-fetch like it forgot its lunch.
 
-SwiftUI drives the UI because the app is heavily state-scoped by account and chain. SwiftData holds local inventory because the product needs persistence, filtering, and relationship reuse without bolting on a separate database layer. Async/await is the right fit for fetch orchestration and long-lived services because it keeps cancellation and scope changes legible.
+The music stack is the listening room. `MusicLibraryIndex` turns NFTs into playable catalog entries, and `AudioEngine` is the actual stereo system. That means media URLs are not decorative metadata. They are inputs that can make the app perform work, allocate memory, hit the network, and touch the file system.
 
-# The Journey
+## The Codebase Map
 
-- A force unwrap in `OpenSeaLink` looked harmless because the hosts are hardcoded, but that is exactly how crash landmines age badly. The fix was to construct the explorer destination through `URLComponents` so malformed future edits fail closed instead of taking down the UI.
-- Search had a classic “dictionary ate my data” bug. NFT names and collection names were deduped by normalized text, which meant two identically named NFTs collapsed into one result. The fix preserves duplicate NFT name matches and only dedupes collections by a scoped identity.
-- `GasPriceEstimateViewModel` used a repeating `Timer` that retained `self`. It would usually unwind eventually, but “usually” is not a lifecycle policy. The timer now captures weakly and hands work back into a main-actor helper.
-- `AlchemyNFTService` logged the full provider base URL. In a codebase where API keys can live inside URLs, that is an accidental credential spill waiting for a log export. Logging now stops at the host.
+`Auralis/Aura/` is the shell and product UI.
 
-# Engineer's Wisdom
+`Auralis/DataModels/` holds the main persisted types like `NFT`, `EOAccount`, and token holdings.
 
-Good engineering is often subtractive. Removing a force unwrap, removing accidental deduplication, and removing a credential-bearing log line each make the system safer without making it fancier. The trick is to treat “probably fine” as suspicious when the blast radius is a crash, silent data loss, or secret leakage.
+`Auralis/Networking/` is where provider calls and refresh orchestration live.
 
-# If I Were Starting Over...
+`Auralis/Helpers/` is where parsing and URL normalization helpers sit. This folder now matters a lot for trust boundaries because media URL policy belongs close to ingestion, not scattered through random views.
 
-I would split `NFT.swift` much earlier. It currently behaves like an overpacked suitcase: model, tag UI, color helpers, and sample data all jammed together. It still zips, but every change risks knocking loose something unrelated.
+`Auralis/MusicApp/AI/` is the active music feature path. If you are debugging playback, start there, not in `OLD/`.
+
+## Tech Stack & Why
+
+SwiftUI drives the app because the shell is state-heavy and route-heavy, which is exactly where declarative updates pay rent.
+
+SwiftData stores fetched NFTs locally because the app wants a persistent collection view instead of making the user stare at loading spinners every time they breathe.
+
+AVFoundation runs playback because once NFT metadata graduates into “play this audio,” you need the grown-up Apple media APIs, not a toy abstraction.
+
+## The Journey
+
+War story: untrusted NFT media URLs are a classic “this looks harmless until it isn’t” bug class. NFT metadata can point anywhere. That means `file:` URLs, malformed schemes, local bundle paths, giant remote files, weird gateways, and whatever else the internet had for breakfast.
+
+What we changed:
+
+- Added a single remote-media policy in `Auralis/Helpers/URL.swift`.
+- Sanitized media URLs at ingestion time in `Auralis/Helpers/NFTMetadataUpdater.swift`.
+- Made `NFT.musicURL` return only validated remote URLs.
+- Removed fallback paths that would silently reuse raw `audioUrl` strings in the music index and detail presentation.
+- Added loader-side guardrails so old persisted junk does not get a free pass.
+
+Lesson learned: if metadata is untrusted, “we’ll validate it later” is engineering for future regret. The app should decide at the boundary whether something is a valid remote media URL and store only that answer.
+
+## Engineer's Wisdom
+
+Good engineers separate “data we received” from “data we are willing to act on.” Those are not the same thing.
+
+If a value can trigger network I/O, disk I/O, or file reads, it is not just display data anymore. It is effectively a command input, and it deserves a policy.
+
+Defense in depth is not paranoia here. Sanitizing media URLs during parsing is good. Re-checking them in the image/audio loaders is also good. Old persisted rows, future migrations, and partially trusted imports are how weird bugs sneak past “but we already validate that.”
+
+## If I Were Starting Over...
+
+I would make URL trust policy a first-class type much earlier. Something like `TrustedRemoteMediaURL` would be cleaner than letting raw strings drift through the model and hoping every consumer remembers to behave.
+
+I would also add size and MIME enforcement closer to the network layer for images and audio so malicious NFTs cannot turn the app into a bandwidth vacuum cleaner.

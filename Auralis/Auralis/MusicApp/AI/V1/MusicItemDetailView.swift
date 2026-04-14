@@ -226,7 +226,6 @@ struct MusicItemDetailPresentation: Equatable {
             ?? Self.cleanedText(nft?.contentType)
         let playbackURLString = Self.cleanedText(libraryItem?.playbackURLString)
             ?? Self.cleanedText(nft?.musicURL?.absoluteString)
-            ?? Self.cleanedText(nft?.audioUrl)
 
         self.title = resolvedTitle
         self.navigationTitle = resolvedTitle
@@ -301,7 +300,7 @@ struct MusicItemDetailPresentation: Equatable {
         guard let cleaned = cleanedText(value) else {
             return nil
         }
-        return URL(string: cleaned)
+        return URL.sanitizedRemoteMediaURL(from: cleaned)
     }
 }
 
