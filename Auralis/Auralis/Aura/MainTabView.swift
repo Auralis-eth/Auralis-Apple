@@ -1855,7 +1855,7 @@ private extension TokenHoldingRowModel {
     var symbolGlyph: String {
         let source = (symbol?.isEmpty == false ? symbol : title)
             .map { String($0.prefix(2)).uppercased() }
-        return source?.isEmpty == false ? source! : "TK"
+        return (source?.isEmpty == false ? source : nil) ?? "TK"
     }
 
     var updatedLabel: String {

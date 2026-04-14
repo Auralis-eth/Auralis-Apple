@@ -216,12 +216,18 @@ final class GasPriceEstimateViewModel: ObservableObject {
     
     private func startAutoRefresh() {
         refreshTimer?.invalidate()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { _ in
-            Task { @MainActor in
-                guard !self.isLoading else { return }
-                await self.fetchGasPrice()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.handleAutoRefreshTick()
             }
         }
+    }
+
+    private func handleAutoRefreshTick() async {
+        guard !isLoading else { return }
+        await fetchGasPrice()
     }
     
     private func performFetch(for chain: Chain) async {

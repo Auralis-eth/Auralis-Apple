@@ -156,7 +156,7 @@ struct HomeTabLogic {
         inputs: HomeAccountSummaryInputs
     ) -> HomeAccountSummaryPresentation {
         let resolvedTitle = inputs.accountName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let title = (resolvedTitle?.isEmpty == false ? resolvedTitle! : "Active Account")
+        let title = (resolvedTitle?.isEmpty == false ? resolvedTitle : nil) ?? "Active Account"
         let chainTitle = "\(inputs.chain.routingDisplayName) scope"
         let trackedNFTLabel = inputs.scopedNFTCount == 0
             ? "No scoped NFTs yet"
@@ -826,7 +826,7 @@ struct HomeTabView: View {
             arr[Int(bytes[byteIndex]) % arr.count]
         }
 
-        let moodAtom = (mood?.isEmpty == false ? mood! : pick(AuroraConfig.moods, 5))
+        let moodAtom = (mood?.isEmpty == false ? mood : nil) ?? pick(AuroraConfig.moods, 5)
         let motif = AuroraConfig.chainThemes[chain] ?? "natural light physics emphasis"
         let chainBias: Double = ["1", "mainnet", "ethereum", "10", "42161", "8453", "137"].contains(chain) ? 0.15 : 0.0
         let seededIntensity = Double(bytes[9]) / 255.0

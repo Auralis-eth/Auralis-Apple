@@ -174,6 +174,7 @@ struct SearchLocalIndex: Equatable, Sendable {
     }
 
     struct CollectionEntry: Equatable, Sendable {
+        let id: String
         let normalizedName: String
         let displayName: String
         let chain: Chain
@@ -279,51 +280,56 @@ struct SearchLocalIndex: Equatable, Sendable {
             uniquingKeysWith: { first, _ in first }
         )
 
-        let nameEntries = Dictionary(
-            scopedNFTs.compactMap { nft -> (String, NameEntry)? in
+        let nameEntries = scopedNFTs.compactMap { nft -> NameEntry? in
                 guard let name = Self.cleanedText(nft.name) else {
                     return nil
                 }
 
-                return (
-                    name.lowercased(),
-                    NameEntry(
-                        nftID: nft.id,
-                        normalizedName: name.lowercased(),
-                        displayName: name,
-                        collectionDisplayName: Self.cleanedText(nft.collectionName ?? nft.collection?.name)
-                    )
+                return NameEntry(
+                    nftID: nft.id,
+                    normalizedName: name.lowercased(),
+                    displayName: name,
+                    collectionDisplayName: Self.cleanedText(nft.collectionName ?? nft.collection?.name)
                 )
-            },
-            uniquingKeysWith: { first, _ in first }
-        )
+            }
 
-        let collectionEntries = Dictionary(
-            scopedNFTs.compactMap { nft -> (String, CollectionEntry)? in
+        var seenCollectionIDs = Set<String>()
+        let collectionEntries = scopedNFTs.compactMap { nft -> CollectionEntry? in
                 guard let name = Self.cleanedText(nft.collectionName ?? nft.collection?.name) else {
                     return nil
                 }
 
-                return (
-                    name.lowercased(),
-                    CollectionEntry(
-                        normalizedName: name.lowercased(),
-                        displayName: name,
-                        chain: currentChain,
-                        contractAddress: NFT.normalizedScopeComponent(nft.contract.address)
-                    )
+                let normalizedContractAddress = NFT.normalizedScopeComponent(nft.contract.address)
+                let entryID = [
+                    currentChain.rawValue,
+                    normalizedContractAddress ?? "name:\(name.lowercased())",
+                    name.lowercased()
+                ].joined(separator: ":")
+
+                guard seenCollectionIDs.insert(entryID).inserted else {
+                    return nil
+                }
+
+                return CollectionEntry(
+                    id: entryID,
+                    normalizedName: name.lowercased(),
+                    displayName: name,
+                    chain: currentChain,
+                    contractAddress: normalizedContractAddress
                 )
-            },
-            uniquingKeysWith: { first, _ in first }
-        )
+            }
 
         return SearchLocalIndex(
             accounts: uniqueAccounts.values.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending },
             ensEntries: ensEntries.values.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending },
             contracts: contractEntries.values.sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending },
             tokenSymbols: symbolEntries.values.sorted { $0.symbol < $1.symbol },
-            nftNames: nameEntries.values.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending },
-            collections: collectionEntries.values.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+            nftNames: nameEntries.sorted { lhs, rhs in
+                lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+            },
+            collections: collectionEntries.sorted { lhs, rhs in
+                lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+            }
         )
     }
 

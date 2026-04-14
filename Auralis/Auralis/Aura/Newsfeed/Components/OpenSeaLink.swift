@@ -13,6 +13,18 @@ struct NFTExternalDestination: Equatable {
 }
 
 extension Chain {
+    private static func externalDestination(label: String, host: String) -> NFTExternalDestination? {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = host
+
+        guard let url = components.url else {
+            return nil
+        }
+
+        return NFTExternalDestination(label: label, url: url)
+    }
+
     var openSeaChainSlug: String? {
         switch self {
         case .ethMainnet:
@@ -33,48 +45,32 @@ extension Chain {
     }
 
     var nftExplorerDestination: NFTExternalDestination? {
-        let host: String
-        let label: String
-
         switch self {
         case .ethMainnet:
-            host = "etherscan.io"
-            label = "Etherscan"
+            return Self.externalDestination(label: "Etherscan", host: "etherscan.io")
         case .ethSepoliaTestnet:
-            host = "sepolia.etherscan.io"
-            label = "Etherscan"
+            return Self.externalDestination(label: "Etherscan", host: "sepolia.etherscan.io")
         case .baseMainnet:
-            host = "basescan.org"
-            label = "BaseScan"
+            return Self.externalDestination(label: "BaseScan", host: "basescan.org")
         case .baseSepoliaTestnet:
-            host = "sepolia.basescan.org"
-            label = "BaseScan"
+            return Self.externalDestination(label: "BaseScan", host: "sepolia.basescan.org")
         case .arbMainnet:
-            host = "arbiscan.io"
-            label = "Arbiscan"
+            return Self.externalDestination(label: "Arbiscan", host: "arbiscan.io")
         case .arbSepoliaTestnet:
-            host = "sepolia.arbiscan.io"
-            label = "Arbiscan"
+            return Self.externalDestination(label: "Arbiscan", host: "sepolia.arbiscan.io")
         case .arbNovaMainnet:
-            host = "nova.arbiscan.io"
-            label = "Arbiscan"
+            return Self.externalDestination(label: "Arbiscan", host: "nova.arbiscan.io")
         case .optMainnet:
-            host = "optimistic.etherscan.io"
-            label = "Optimistic Etherscan"
+            return Self.externalDestination(label: "Optimistic Etherscan", host: "optimistic.etherscan.io")
         case .optSepoliaTestnet:
-            host = "sepolia-optimism.etherscan.io"
-            label = "Optimistic Etherscan"
+            return Self.externalDestination(label: "Optimistic Etherscan", host: "sepolia-optimism.etherscan.io")
         case .polygonMainnet:
-            host = "polygonscan.com"
-            label = "PolygonScan"
+            return Self.externalDestination(label: "PolygonScan", host: "polygonscan.com")
         case .polygonAmoyTestnet:
-            host = "amoy.polygonscan.com"
-            label = "PolygonScan"
+            return Self.externalDestination(label: "PolygonScan", host: "amoy.polygonscan.com")
         default:
             return nil
         }
-
-        return NFTExternalDestination(label: label, url: URL(string: "https://\(host)")!)
     }
 
     func openSeaURL(contractAddress: String, tokenId: String) -> URL? {

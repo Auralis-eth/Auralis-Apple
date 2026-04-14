@@ -30,7 +30,7 @@ final class AlchemyNFTService: NFTInventoryProviding {
 
         self.network = chain.rawValue
         self.baseURL = baseURL
-        print("[AlchemyNFTService] baseURL=\(baseURL.absoluteString)")
+        print("[AlchemyNFTService] baseURL host=\(baseURL.host ?? "unknown")")
     }
 
     // MARK: - Types

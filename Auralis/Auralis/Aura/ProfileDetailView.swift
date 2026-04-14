@@ -243,7 +243,7 @@ struct ProfileDetailView: View {
         let activityDate = account?.mostRecentActivityAt ?? account?.addedAt ?? .now
 
         return ProfileDetailPresentation(
-            title: (resolvedTitle?.isEmpty == false ? resolvedTitle! : EOAccount.defaultName(for: accountAddress)),
+            title: (resolvedTitle?.isEmpty == false ? resolvedTitle : nil) ?? EOAccount.defaultName(for: accountAddress),
             addressLine: accountAddress.displayAddress,
             chainTitle: "\(currentChain.routingDisplayName) scope",
             sourceTitle: sourceTitle,
