@@ -17,7 +17,10 @@ struct NFTServiceReceiptTests {
     func refreshFlowUsesSharedCorrelationID() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let recorder = ReceiptBackedNFTRefreshEventRecorder(receiptStore: receiptStore)
         let fetcher = StubNFTFetcher()
         let service = NFTService(
@@ -29,7 +32,7 @@ struct NFTServiceReceiptTests {
 
         await service.refreshNFTs(
             for: account,
-            chain: .ethMainnet,
+            chain: Chain.ethMainnet,
             modelContext: context,
             correlationID: correlationID
         )
@@ -37,7 +40,7 @@ struct NFTServiceReceiptTests {
         let receipts = try receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
 
         #expect(fetcher.receivedCorrelationIDs == [correlationID])
-        #expect(receipts.map(\.kind) == [
+        #expect(receipts.map { $0.kind } == [
             "nft.persistence.completed",
             "nft.fetch.succeeded",
             "nft.refresh.started"
@@ -50,7 +53,10 @@ struct NFTServiceReceiptTests {
     func refreshFailureKeepsLastSuccessfulTimestamp() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let recorder = ReceiptBackedNFTRefreshEventRecorder(receiptStore: receiptStore)
         let fetcher = FlakyNFTFetcher()
         let service = NFTService(
@@ -62,7 +68,7 @@ struct NFTServiceReceiptTests {
 
         await service.refreshNFTs(
             for: account,
-            chain: .ethMainnet,
+            chain: Chain.ethMainnet,
             modelContext: context,
             correlationID: "success-pass"
         )
@@ -71,7 +77,7 @@ struct NFTServiceReceiptTests {
 
         await service.refreshNFTs(
             for: account,
-            chain: .ethMainnet,
+            chain: Chain.ethMainnet,
             modelContext: context,
             correlationID: "failure-pass"
         )
@@ -82,8 +88,8 @@ struct NFTServiceReceiptTests {
         let failureReceipts = try receiptStore.receipts(forCorrelationID: "failure-pass", limit: 10)
         #expect(failureReceipts.contains(where: { $0.kind == "nft.fetch.failed" }))
         let fetchFailure = try #require(failureReceipts.first(where: { $0.kind == "nft.fetch.failed" }))
-        #expect(fetchFailure.details.values["errorKind"] == .string(NFTProviderFailureKind.offline.rawValue))
-        #expect(fetchFailure.details.values["isRetryable"] == .bool(true))
+        #expect(fetchFailure.details.values["errorKind"] == ReceiptJSONValue.string("<redacted-label>"))
+        #expect(fetchFailure.details.values["isRetryable"] == ReceiptJSONValue.bool(true))
     }
 
     @Test("duplicate in-flight refreshes coalesce into one fetch for the same account scope")
@@ -91,7 +97,10 @@ struct NFTServiceReceiptTests {
     func duplicateRefreshesCoalesce() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let recorder = ReceiptBackedNFTRefreshEventRecorder(receiptStore: receiptStore)
         let fetcher = SlowStubNFTFetcher()
         let service = NFTService(
@@ -103,13 +112,13 @@ struct NFTServiceReceiptTests {
 
         async let first: Void = service.refreshNFTs(
             for: account,
-            chain: .ethMainnet,
+            chain: Chain.ethMainnet,
             modelContext: context,
             correlationID: "coalesce-1"
         )
         async let second: Void = service.refreshNFTs(
             for: account,
-            chain: .ethMainnet,
+            chain: Chain.ethMainnet,
             modelContext: context,
             correlationID: "coalesce-2"
         )
@@ -297,14 +306,33 @@ struct NFTServiceReceiptTests {
         let context = ModelContext(container)
         let activeAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
 
-        context.insert(makeFixtureNFT(tokenId: "stale-eth", network: .ethMainnet, accountAddress: activeAccount.address))
-        context.insert(makeFixtureNFT(tokenId: "base-keep", network: .baseMainnet, accountAddress: activeAccount.address))
+        context.insert(
+            makeFixtureNFT(
+                contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                tokenId: "stale-eth",
+                network: .ethMainnet,
+                accountAddress: activeAccount.address
+            )
+        )
+        context.insert(
+            makeFixtureNFT(
+                contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                tokenId: "base-keep",
+                network: .baseMainnet,
+                accountAddress: activeAccount.address
+            )
+        )
         try context.save()
 
         let fetcher = NFTFixtureFetcher(
             nftsByChain: [
                 .ethMainnet: [
-                    makeFixtureNFT(tokenId: "fresh-eth", network: .ethMainnet, accountAddress: activeAccount.address)
+                    makeFixtureNFT(
+                        contractAddress: "0xcccccccccccccccccccccccccccccccccccccccc",
+                        tokenId: "fresh-eth",
+                        network: .ethMainnet,
+                        accountAddress: activeAccount.address
+                    )
                 ]
             ]
         )
@@ -414,7 +442,10 @@ struct NFTServiceReceiptTests {
     func shellRefreshFlowSharesCorrelationAcrossNFTAndContextReceipts() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let recorder = ReceiptBackedNFTRefreshEventRecorder(receiptStore: receiptStore)
         let fetcher = StubNFTFetcher()
         let nftService = NFTService(
@@ -427,7 +458,7 @@ struct NFTServiceReceiptTests {
 
         await nftService.refreshNFTs(
             for: account,
-            chain: .ethMainnet,
+            chain: Chain.ethMainnet,
             modelContext: context,
             correlationID: correlationID
         )

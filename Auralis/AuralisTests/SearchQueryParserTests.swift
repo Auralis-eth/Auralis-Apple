@@ -109,6 +109,7 @@ struct SearchQueryParserTests {
             ],
             collections: [
                 .init(
+                    id: "moonpunks:eth",
                     normalizedName: "moonpunks",
                     displayName: "Moonpunks",
                     chain: .ethMainnet,

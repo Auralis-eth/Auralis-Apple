@@ -23,7 +23,10 @@ struct NoBypassSmokeTests {
     func blockedObserveActionsWriteDenialReceipt() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let modeState = ModeState()
 
         let result = ActionPolicyGate.attempt(
@@ -38,7 +41,7 @@ struct NoBypassSmokeTests {
         #expect(result.userMessage == "Not available in Observe mode")
         #expect(receipts.count == 1)
         #expect(receipts.first?.trigger == "policy.denied")
-        #expect(receipts.first?.details.values["action"] == .string("draft_transaction"))
+        #expect(receipts.first?.details.values["action"] == ReceiptJSONValue.string("draft_transaction"))
     }
 
     @Test("allowed observe actions do not masquerade as denied policy events")
@@ -46,7 +49,10 @@ struct NoBypassSmokeTests {
     func allowedObserveActionsDoNotWriteDenialReceipts() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let modeState = ModeState()
 
         let result = ActionPolicyGate.attempt(

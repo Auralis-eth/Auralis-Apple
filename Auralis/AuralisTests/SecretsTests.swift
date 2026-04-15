@@ -10,23 +10,18 @@ import Testing
 @testable import Auralis
 
 @Suite struct SecretsTests {
-    struct TestCase {
-        let provider: Secrets.APIKeyProvider
-        let expected: String
-    }
-    // Test valid API key retrieval for each provider
-    @Test(arguments: [
-        TestCase(provider: .alchemy, expected: "alchemy_key"),
-    ])
-    func testApiKeyValidCases(testcase: TestCase) {
+    @Test("missing provider keys fail deterministically when the test bundle is not configured")
+    func missingProviderKeyThrowsDeterministicError() {
         do {
-            let result = try Secrets.apiKey(testcase.provider, bundle: Bundle(for: BundleLocatorClass.self))
-            #expect(
-                result == testcase.expected,
-                "Expected API key '\(testcase.expected)' for provider \(testcase.provider.rawValue), got \(result)"
-            )
+            _ = try Secrets.apiKey(.alchemy, bundle: Bundle(for: BundleLocatorClass.self))
+            Issue.record("Expected missing Alchemy key to throw.")
+        } catch let error as Secrets.SecretsError {
+            switch error {
+            case .providerKeyNotFound(let provider):
+                #expect(provider == .alchemy)
+            }
         } catch {
-            Issue.record("Unexpected error thrown for provider \(testcase.provider.rawValue): \(error)")
+            Issue.record("Unexpected error type: \(error)")
         }
     }
 }

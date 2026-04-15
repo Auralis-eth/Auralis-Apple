@@ -17,7 +17,10 @@ struct AccountReceiptRecorderTests {
     func accountStoreWritesReceiptsThroughRecorderSeam() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let recorder = ReceiptBackedAccountEventRecorder(
             receiptStore: receiptStore,
             payloadSanitizer: DefaultReceiptPayloadSanitizer()
@@ -40,15 +43,18 @@ struct AccountReceiptRecorderTests {
         let receipts = try receiptStore.latest(limit: 10)
 
         #expect(receipts.count == 3)
-        #expect(receipts.map(\.kind) == [
+        #expect(receipts.map { $0.kind } == [
             "account.removed",
             "account.selected",
             "account.added"
         ])
         #expect(receipts.allSatisfy { $0.category == "accounts" })
-        #expect(receipts.map(\.sequenceID) == [3, 2, 1])
+        #expect(receipts.map { $0.sequenceID } == [3, 2, 1])
         #expect(receipts.allSatisfy {
-            $0.payload.values["address"] == .string("0x1234567890abcdef1234567890abcdef12345678")
+            if case .string(let value)? = $0.payload.values["address"] {
+                return value == "<redacted-opaque-token>"
+            }
+            return false
         })
     }
 
@@ -57,7 +63,10 @@ struct AccountReceiptRecorderTests {
     func accountActivationReceiptsShareCorrelationID() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let recorder = ReceiptBackedAccountEventRecorder(
             receiptStore: receiptStore,
             payloadSanitizer: DefaultReceiptPayloadSanitizer()
@@ -67,14 +76,14 @@ struct AccountReceiptRecorderTests {
 
         _ = try accountStore.activateWatchAccount(
             from: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            source: .manualEntry,
+            source: EOAccountSource.manualEntry,
             selectedAt: Date(timeIntervalSince1970: 100),
             correlationID: correlationID
         )
 
         let receipts = try receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
 
-        #expect(receipts.map(\.kind) == [
+        #expect(receipts.map { $0.kind } == [
             "account.selected",
             "account.added"
         ])
@@ -86,7 +95,10 @@ struct AccountReceiptRecorderTests {
     func observeModePolicyGateWritesReceipt() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let modeState = ModeState()
 
         let result = ActionPolicyGate.attempt(
@@ -104,8 +116,8 @@ struct AccountReceiptRecorderTests {
         #expect(receipts.first?.scope == "policy")
         #expect(receipts.first?.mode == .observe)
         #expect(receipts.first?.isSuccess == false)
-        #expect(receipts.first?.details.values["action"] == .string("draft_transaction"))
-        #expect(receipts.first?.details.values["policy_denied"] == .bool(true))
+        #expect(receipts.first?.details.values["action"] == ReceiptJSONValue.string("draft_transaction"))
+        #expect(receipts.first?.details.values["policy_denied"] == ReceiptJSONValue.bool(true))
     }
 
     @Test("policy gate allows plugin actions in observe mode without writing denial receipts")
@@ -113,7 +125,10 @@ struct AccountReceiptRecorderTests {
     func observeModePolicyGateAllowsPluginActions() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let modeState = ModeState()
 
         let result = ActionPolicyGate.attempt(
@@ -134,37 +149,40 @@ struct AccountReceiptRecorderTests {
     func chainScopeEventsWriteReceipts() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let recorder = ReceiptBackedAccountEventRecorder(
             receiptStore: receiptStore,
             payloadSanitizer: DefaultReceiptPayloadSanitizer()
         )
 
         recorder.record(
-            .preferredChainChanged(
+            AccountEvent.preferredChainChanged(
                 address: "0x1234567890abcdef1234567890abcdef12345678",
-                from: .ethMainnet,
-                to: .baseMainnet
+                from: Chain.ethMainnet,
+                to: Chain.baseMainnet
             )
         )
         recorder.record(
-            .currentChainChanged(
+            AccountEvent.currentChainChanged(
                 address: "0x1234567890abcdef1234567890abcdef12345678",
-                from: .baseMainnet,
-                to: .baseSepoliaTestnet
+                from: Chain.baseMainnet,
+                to: Chain.baseSepoliaTestnet
             )
         )
 
         let receipts = try receiptStore.latest(limit: 10)
 
         #expect(receipts.count == 2)
-        #expect(receipts.map(\.trigger) == [
+        #expect(receipts.map { $0.trigger } == [
             "account.chain.current.changed",
             "account.chain.preferred.changed"
         ])
         #expect(receipts.allSatisfy { $0.scope == "accounts.chain_scope" })
-        #expect(receipts.first?.details.values["from_chain"] == .string(Chain.baseMainnet.rawValue))
-        #expect(receipts.first?.details.values["to_chain"] == .string(Chain.baseSepoliaTestnet.rawValue))
+        #expect(receipts.first?.details.values["from_chain"] == ReceiptJSONValue.string(Chain.baseMainnet.rawValue))
+        #expect(receipts.first?.details.values["to_chain"] == ReceiptJSONValue.string(Chain.baseSepoliaTestnet.rawValue))
     }
 
     @Test("chain-scope account receipts preserve caller correlation IDs for follow-on refresh chaining")
@@ -172,7 +190,10 @@ struct AccountReceiptRecorderTests {
     func chainScopeReceiptsPreserveCorrelationID() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let recorder = ReceiptBackedAccountEventRecorder(
             receiptStore: receiptStore,
             payloadSanitizer: DefaultReceiptPayloadSanitizer()
@@ -180,10 +201,10 @@ struct AccountReceiptRecorderTests {
         let correlationID = "chain-scope-correlation"
 
         recorder.record(
-            .currentChainChanged(
+            AccountEvent.currentChainChanged(
                 address: "0x1234567890abcdef1234567890abcdef12345678",
-                from: .ethMainnet,
-                to: .baseMainnet
+                from: Chain.ethMainnet,
+                to: Chain.baseMainnet
             ),
             correlationID: correlationID
         )

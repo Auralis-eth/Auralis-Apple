@@ -11,7 +11,10 @@ struct ENSEventRecorderTests {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)
-        return SwiftDataReceiptStore(modelContext: context)
+        return SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
     }
 
     @Test("ENS receipt recorder emits sanitized cache start success mapping and failure receipts")
@@ -58,7 +61,7 @@ struct ENSEventRecorderTests {
 
         let receipts = try store.receipts(forCorrelationID: "ens-flow", limit: 10)
 
-        #expect(receipts.map(\.trigger) == [
+        #expect(receipts.map { $0.trigger } == [
             "ens.forward.failed",
             "ens.forward.mapping_changed",
             "ens.forward.succeeded",
@@ -66,8 +69,8 @@ struct ENSEventRecorderTests {
             "ens.forward.cache_hit"
         ])
         #expect(receipts.allSatisfy { $0.scope == "identity.ens" })
-        #expect(receipts.first?.details.values["error"] == .string("<redacted-error>"))
-        #expect(receipts.last?.details.values["fetchedAt"] == .string("1970-01-01T00:02:03Z"))
+        #expect(receipts.first?.details.values["error"] == ReceiptJSONValue.string("<redacted-error>"))
+        #expect(receipts.last?.details.values["fetchedAt"] == ReceiptJSONValue.string("1970-01-01T00:02:03Z"))
     }
 }
 

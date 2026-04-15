@@ -113,7 +113,10 @@ struct MusicLibraryIndexTests {
     func rebuildEmitsReceipts() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let receiptLogger = ReceiptEventLogger(receiptStore: receiptStore)
 
         context.insert(
@@ -137,15 +140,15 @@ struct MusicLibraryIndexTests {
 
         let receipts = try receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
 
-        #expect(receipts.map(\.kind) == [
+        #expect(receipts.map { $0.kind } == [
             "music.library_index.completed",
             "music.library_index.started"
         ])
         #expect(receipts.allSatisfy { $0.correlationID == correlationID })
         let completed = try #require(receipts.first(where: { $0.kind == "music.library_index.completed" }))
-        #expect(completed.details.values["scannedCount"] == .number(1))
-        #expect(completed.details.values["writtenCount"] == .number(1))
-        #expect(completed.details.values["removedCount"] == .number(0))
+        #expect(completed.details.values["scannedCount"] == ReceiptJSONValue.number(1))
+        #expect(completed.details.values["writtenCount"] == ReceiptJSONValue.number(1))
+        #expect(completed.details.values["removedCount"] == ReceiptJSONValue.number(0))
     }
 
     @Test("saved music library rows remain readable from a fresh model context after rebuild")

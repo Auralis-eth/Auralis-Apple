@@ -100,18 +100,18 @@ struct ReceiptContractTests {
     func payloadSanitizationBoundary() {
         let sanitizer = DefaultReceiptPayloadSanitizer()
         let rawPayload = RawReceiptPayload(
-            values: [
-                "rpcURL": .string("https://rpc.example"),
-                "error": .string("Boom"),
-                "url": .string("https://example.com/nft/123"),
-                "value": .string("0xabc")
+            fields: [
+                .public("rpcURL", string: "https://rpc.example", kind: .url),
+                .public("error", string: "Boom", kind: .errorMessage),
+                .public("url", string: "https://example.com/nft/123", kind: .url),
+                .public("value", string: "0xabc", kind: .copiedText)
             ]
         )
 
         let sanitized = sanitizer.sanitize(rawPayload)
 
         #expect(sanitized.values == [
-            "rpcURL": .string("<redacted-rpc-url>"),
+            "rpcURL": .string("<redacted-url>"),
             "error": .string("<redacted-error>"),
             "url": .string("<redacted-url>"),
             "value": .string("<redacted-copied-value>")

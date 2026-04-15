@@ -17,7 +17,10 @@ struct ReceiptEventLoggerTests {
     func loggerRecordsPhaseFourActions() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let store = SwiftDataReceiptStore(modelContext: context)
+        let store = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let logger = ReceiptEventLogger(receiptStore: store)
         let snapshot = LiveContextSource(
             accountProvider: { nil },
@@ -33,7 +36,7 @@ struct ReceiptEventLoggerTests {
 
         logger.recordAppLaunch(
             accountAddress: snapshot.scope.accountAddress.value ?? "",
-            chain: .baseMainnet,
+            chain: Chain.baseMainnet,
             correlationID: "launch-1"
         )
         logger.recordContextBuilt(snapshot: snapshot, correlationID: "context-1")
@@ -42,7 +45,7 @@ struct ReceiptEventLoggerTests {
             url: URL(string: "https://opensea.io/assets/ethereum/0xabc/1")!,
             surface: "newsfeed.nft_detail",
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
-            chain: .baseMainnet,
+            chain: Chain.baseMainnet,
             correlationID: "link-1"
         )
         logger.recordCopyAction(
@@ -50,30 +53,38 @@ struct ReceiptEventLoggerTests {
             value: "nft-123",
             surface: "newsfeed.card",
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
-            chain: .baseMainnet,
+            chain: Chain.baseMainnet,
             correlationID: "copy-1"
         )
 
         let receipts = try store.latest(limit: 10)
 
-        #expect(receipts.map(\.kind) == [
+        #expect(receipts.map { $0.kind } == [
             "copy.performed",
             "external_link.opened",
             "context.built",
             "app.launch"
         ])
         let contextReceipt = try #require(receipts.first(where: { $0.kind == "context.built" }))
-        #expect(contextReceipt.details.values["refreshState"] == .string(ContextRefreshState.idle.rawValue))
-        #expect(contextReceipt.details.values["isStale"] == .bool(false))
+        #expect(contextReceipt.details.values["refreshState"] == ReceiptJSONValue.string(ContextRefreshState.idle.rawValue))
+        #expect(contextReceipt.details.values["isStale"] == ReceiptJSONValue.bool(false))
         let linkReceipt = try #require(receipts.first(where: { $0.kind == "external_link.opened" }))
         #expect(linkReceipt.scope == "navigation.external")
-        #expect(linkReceipt.details.values["chain"] == .string(Chain.baseMainnet.rawValue))
-        #expect(linkReceipt.details.values["accountAddress"] == .string("0x1234567890abcdef1234567890abcdef12345678"))
-        #expect(linkReceipt.details.values["url"] == .string("<redacted-url>"))
+        #expect(linkReceipt.details.values["chain"] == ReceiptJSONValue.string(Chain.baseMainnet.rawValue))
+        guard case .string(let maskedLinkAddress)? = linkReceipt.details.values["accountAddress"] else {
+            Issue.record("Expected sanitized accountAddress")
+            return
+        }
+        #expect(maskedLinkAddress == "<redacted-opaque-token>")
+        #expect(linkReceipt.details.values["url"] == ReceiptJSONValue.string("<redacted-url>"))
         let copyReceipt = try #require(receipts.first(where: { $0.kind == "copy.performed" }))
-        #expect(copyReceipt.details.values["chain"] == .string(Chain.baseMainnet.rawValue))
-        #expect(copyReceipt.details.values["accountAddress"] == .string("0x1234567890abcdef1234567890abcdef12345678"))
-        #expect(copyReceipt.details.values["value"] == .string("<redacted-copied-value>"))
+        #expect(copyReceipt.details.values["chain"] == ReceiptJSONValue.string(Chain.baseMainnet.rawValue))
+        guard case .string(let maskedCopyAddress)? = copyReceipt.details.values["accountAddress"] else {
+            Issue.record("Expected sanitized accountAddress")
+            return
+        }
+        #expect(maskedCopyAddress == "<redacted-opaque-token>")
+        #expect(copyReceipt.details.values["value"] == ReceiptJSONValue.string("<redacted-copied-value>"))
     }
 
     @Test("receipt event logger returns a failure result when the store append fails")
@@ -101,7 +112,10 @@ struct ReceiptEventLoggerTests {
     func loggerRedactsSensitivePayloadsWithoutDroppingFlowContext() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let store = SwiftDataReceiptStore(modelContext: context)
+        let store = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let logger = ReceiptEventLogger(receiptStore: store)
 
         logger.recordExternalLinkOpened(
@@ -109,7 +123,7 @@ struct ReceiptEventLoggerTests {
             url: URL(string: "https://basescan.org/token/0xabc?a=123")!,
             surface: "newsfeed.nft_detail",
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
-            chain: .baseMainnet,
+            chain: Chain.baseMainnet,
             correlationID: "link-flow"
         )
         logger.recordCopyAction(
@@ -117,19 +131,19 @@ struct ReceiptEventLoggerTests {
             value: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
             surface: "profile.detail",
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
-            chain: .baseMainnet,
+            chain: Chain.baseMainnet,
             correlationID: "copy-flow"
         )
 
         let linkReceipt = try #require(store.receipts(forCorrelationID: "link-flow", limit: 1).first)
         let copyReceipt = try #require(store.receipts(forCorrelationID: "copy-flow", limit: 1).first)
 
-        #expect(linkReceipt.details.values["label"] == .string("Explorer"))
-        #expect(linkReceipt.details.values["surface"] == .string("newsfeed.nft_detail"))
-        #expect(linkReceipt.details.values["url"] == .string("<redacted-url>"))
-        #expect(copyReceipt.details.values["subject"] == .string("wallet.address"))
-        #expect(copyReceipt.details.values["surface"] == .string("profile.detail"))
-        #expect(copyReceipt.details.values["value"] == .string("<redacted-copied-value>"))
+        #expect(linkReceipt.details.values["label"] == ReceiptJSONValue.string("Explorer"))
+        #expect(linkReceipt.details.values["surface"] == ReceiptJSONValue.string("newsfeed.nft_detail"))
+        #expect(linkReceipt.details.values["url"] == ReceiptJSONValue.string("<redacted-url>"))
+        #expect(copyReceipt.details.values["subject"] == ReceiptJSONValue.string("wallet.address"))
+        #expect(copyReceipt.details.values["surface"] == ReceiptJSONValue.string("profile.detail"))
+        #expect(copyReceipt.details.values["value"] == ReceiptJSONValue.string("<redacted-opaque-token>"))
     }
 }
 

@@ -16,7 +16,10 @@ struct ReceiptStoreTests {
     private func makeStore() throws -> SwiftDataReceiptStore {
         let container = try makeContainer()
         let context = ModelContext(container)
-        return SwiftDataReceiptStore(modelContext: context)
+        return SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
     }
 
     @Test("append assigns monotonic sequence IDs and preserves caller-provided fields")
@@ -162,9 +165,9 @@ struct ReceiptStoreTests {
         let sanitizer = DefaultReceiptPayloadSanitizer()
         let sanitizedPayload = sanitizer.sanitize(
             RawReceiptPayload(
-                values: [
-                    "rpcURL": .string("https://rpc.example/secret"),
-                    "error": .string("provider failure")
+                fields: [
+                    .public("rpcURL", string: "https://rpc.example/secret", kind: .url),
+                    .public("error", string: "provider failure", kind: .errorMessage)
                 ]
             )
         )
@@ -182,7 +185,7 @@ struct ReceiptStoreTests {
         let records = try JSONDecoder().decode([ReceiptRecord].self, from: exportedData)
 
         #expect(records.count == 1)
-        #expect(records.first?.payload.values["rpcURL"] == .string("<redacted-rpc-url>"))
+        #expect(records.first?.payload.values["rpcURL"] == .string("<redacted-url>"))
         #expect(records.first?.payload.values["error"] == .string("<redacted-error>"))
     }
 

@@ -16,7 +16,10 @@ struct ReceiptResetServiceTests {
     private func makeStoreAndResetService() throws -> (SwiftDataReceiptStore, ReceiptResetService) {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let store = SwiftDataReceiptStore(modelContext: context)
+        let store = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let resetService = ReceiptResetService(receiptStore: store)
         return (store, resetService)
     }

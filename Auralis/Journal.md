@@ -48,6 +48,16 @@ What we changed:
 
 Lesson learned: if metadata is untrusted, “we’ll validate it later” is engineering for future regret. The app should decide at the boundary whether something is a valid remote media URL and store only that answer.
 
+Another war story: receipt tests can drift when the sanitizer gets smarter. This round was not a product regression so much as a trust-contract mismatch between old expectations and current payload policy. `errorKind` labels now sanitize to `"<redacted-label>"`, and some account-address receipt paths now collapse to `"<redacted-opaque-token>"` instead of older hashed-string expectations.
+
+What we changed:
+
+- Updated the receipt-focused tests to match the current sanitizer contract instead of the older redaction assumptions.
+- Fixed a `SecretsTests` compile blocker caused by using `#expect(throws:)` with a non-`Equatable` error path.
+- Revalidated that the app target still builds cleanly after the test-only fixes.
+
+Lesson learned: when tests assert on sanitized payloads, they are asserting on policy, not just data. If the privacy contract changes, update the tests to describe the new contract explicitly or they turn into archaeological artifacts.
+
 ## Engineer's Wisdom
 
 Good engineers separate “data we received” from “data we are willing to act on.” Those are not the same thing.

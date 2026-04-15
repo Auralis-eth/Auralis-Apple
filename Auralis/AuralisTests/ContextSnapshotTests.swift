@@ -307,7 +307,10 @@ struct ContextServiceTests {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let modelContext = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: modelContext)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: modelContext,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let logger = ReceiptEventLogger(receiptStore: receiptStore)
 
         let service = ContextService(
@@ -348,7 +351,10 @@ struct ContextServiceTests {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let modelContext = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(modelContext: modelContext)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: modelContext,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
         let logger = ReceiptEventLogger(receiptStore: receiptStore)
 
         var currentAddress = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -397,8 +403,16 @@ struct ContextServiceTests {
         #expect(resolvedFirstSnapshot.scope.accountAddress.value == "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
         #expect(secondSnapshot.scope.accountAddress.value == "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
         #expect(service.snapshot.scope.accountAddress.value == "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
-        #expect(firstReceipt.details.values["accountAddress"] == .string("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
-        #expect(secondReceipt.details.values["accountAddress"] == .string("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"))
+        guard case .string(let firstAccountValue)? = firstReceipt.details.values["accountAddress"] else {
+            Issue.record("Expected hashed first account address")
+            return
+        }
+        guard case .string(let secondAccountValue)? = secondReceipt.details.values["accountAddress"] else {
+            Issue.record("Expected hashed second account address")
+            return
+        }
+        #expect(firstAccountValue == "<redacted-opaque-token>")
+        #expect(secondAccountValue == "<redacted-opaque-token>")
     }
 
     @Test("context service resolves native balance through the injected read-only provider seam")
