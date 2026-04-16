@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import OSLog
+
+private let nftMetadataUpdaterLogger = Logger(subsystem: "Auralis", category: "NFTMetadataUpdater")
 import SwiftData
 
 // MARK: - NFTMetadataUpdater Utility Class
@@ -306,7 +309,7 @@ class NFTMetadataUpdater {
             return
         }
 
-        print("[NFTMetadataUpdater] rejected \(field) URL: \(trimmedValue)")
+        nftMetadataUpdaterLogger.notice("Rejected \(field, privacy: .public) URL: \(trimmedValue, privacy: .private(mask: .hash))")
     }
 }
 

@@ -4,6 +4,7 @@ import OSLog
 
 private let playlistStoreLogger = Logger(subsystem: "Auralis", category: "PlaylistStore")
 
+/// Errors emitted while mutating playlist items.
 public enum PlaylistItemError: Error, LocalizedError, Sendable {
     case duplicateItem
     case indexOutOfBounds
@@ -12,6 +13,7 @@ public enum PlaylistItemError: Error, LocalizedError, Sendable {
     case saveFailed(underlying: Error)
     case fetchFailed(underlying: Error)
 
+    /// A user-facing description for the failure.
     public var errorDescription: String? {
         switch self {
         case .duplicateItem:
@@ -31,10 +33,12 @@ public enum PlaylistItemError: Error, LocalizedError, Sendable {
 }
 
 @MainActor
+/// Main-actor wrapper for mutating playlist membership safely through SwiftData.
 public final class PlaylistStore {
     private let context: ModelContext
     private let allowDuplicates: Bool
 
+    /// Creates a playlist store for a specific model context.
     public init(context: ModelContext, allowDuplicates: Bool = false) {
         self.context = context
         self.allowDuplicates = allowDuplicates
@@ -68,8 +72,8 @@ private extension PlaylistStore {
 }
 
 public extension PlaylistStore {
-    // MARK: Add Item
     @discardableResult
+    /// Adds a single NFT to a playlist.
     func addItem(trackId: String, to playlist: Playlist, at index: Int? = nil) async throws -> Playlist {
         try ensurePlaylistExists(playlist)
         guard let nft = try fetchNFT(by: trackId) else { throw PlaylistItemError.notFound }
@@ -102,8 +106,8 @@ public extension PlaylistStore {
         }
     }
 
-    // MARK: Remove Item (by trackId)
     @discardableResult
+    /// Removes a single NFT from a playlist using its track identifier.
     func removeItem(trackId: String, from playlist: Playlist) async throws -> Playlist {
         try ensurePlaylistExists(playlist)
         guard let idx = playlist.tracks.firstIndex(where: { $0.id == trackId }) else {
@@ -112,8 +116,8 @@ public extension PlaylistStore {
         return try await removeItem(at: idx, from: playlist)
     }
 
-    // MARK: Remove Item (by index)
     @discardableResult
+    /// Removes a single NFT from a playlist using its current index.
     func removeItem(at index: Int, from playlist: Playlist) async throws -> Playlist {
         try ensurePlaylistExists(playlist)
         let count = playlist.tracks.count
@@ -137,8 +141,8 @@ public extension PlaylistStore {
         }
     }
 
-    // MARK: Reorder Item
     @discardableResult
+    /// Moves one item to a new index inside the playlist.
     func moveItem(in playlist: Playlist, from sourceIndex: Int, to destinationIndex: Int) async throws -> Playlist {
         try ensurePlaylistExists(playlist)
         let count = playlist.tracks.count
@@ -168,6 +172,7 @@ public extension PlaylistStore {
     }
 
     @discardableResult
+    /// Moves a block of items to a new destination index inside the playlist.
     func moveItems(in playlist: Playlist, from sourceIndices: IndexSet, to destinationIndex: Int) async throws -> Playlist {
         try ensurePlaylistExists(playlist)
 
@@ -212,6 +217,7 @@ public extension PlaylistStore {
 
 public extension PlaylistStore {
     @discardableResult
+    /// Adds multiple NFTs to a playlist in order.
     func addItems(trackIds: [String], to playlist: Playlist, at index: Int? = nil) async throws -> Playlist {
         try ensurePlaylistExists(playlist)
         if !allowDuplicates {

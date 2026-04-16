@@ -11,14 +11,18 @@ import AVFoundation
 import Foundation
 
 @MainActor
+/// Shared playback engine for loading remote NFT audio, managing queue state, and exposing playback status to SwiftUI.
 public class AudioEngine: ObservableObject {
     private var currentNFT: NFT?
     private var audioEngine = AVAudioEngine()
     private var playerNode = AVAudioPlayerNode()
     private var interruptionObserver: NSObjectProtocol?
     
+    /// The currently loaded audio file, if any.
     public var audioFile: AVAudioFile?
+    /// Queue of previously played items.
     public var previousAudio = Playlist(name: "Previous")
+    /// Queue of upcoming items.
     public var nextAudio = Playlist(name: "Next")
     
     
@@ -29,6 +33,7 @@ public class AudioEngine: ObservableObject {
     private var currentLoadTask: Task<Void, Error>?
     private var activeLoadID = UUID()
     
+    /// High-level playback states exposed to the UI.
     public enum PlaybackState: Equatable, Sendable, Codable  {
         case stopped
         case playing
@@ -38,7 +43,9 @@ public class AudioEngine: ObservableObject {
     }
 
     
+    /// Lightweight presentation model for the currently playing track.
     public struct Track: Identifiable, Equatable, Hashable, Codable, Sendable {
+        /// Stable identifier that matches the NFT identifier.
         public let id: String
         var title: String?
         var artist: String?
@@ -216,6 +223,7 @@ public class AudioEngine: ObservableObject {
     }
 
     
+    /// Starts playback for the current file or advances to the next queued item.
     public func play() throws {
         // If no audio file is loaded, try to advance to the next queued item
         guard let audioFile = audioFile else {
@@ -256,6 +264,7 @@ public class AudioEngine: ObservableObject {
     }
     
     // Fixed pause implementation - AVAudioPlayerNode doesn't have pause()
+    /// Pauses playback and remembers the current time.
     public func pause() {
         guard playbackState == .playing else { return }
         pausedAt = currentTime
@@ -263,6 +272,7 @@ public class AudioEngine: ObservableObject {
         playbackState = .paused
     }
     
+    /// Resumes playback from the last paused position.
     public func resume() throws {
         guard playbackState == .paused else { return }
         seekPosition = pausedAt
@@ -277,6 +287,7 @@ public class AudioEngine: ObservableObject {
     }
     
     // MARK: - Fixed Seek Functionality
+    /// Seeks to a time within the current file.
     public func seek(to time: TimeInterval) throws {
         guard audioFile != nil else { return }
         
@@ -300,6 +311,7 @@ public class AudioEngine: ObservableObject {
     
     // MARK: - Playlist Navigation
     @MainActor
+    /// Advances playback to the next queued item.
     public func playNext() async {
         // If there's an item queued in Next, play it
         guard !nextAudio.tracks.isEmpty else {
@@ -335,6 +347,7 @@ public class AudioEngine: ObservableObject {
     }
 
     @MainActor
+    /// Returns playback to the previous queued item.
     public func playPrevious() async {
         guard !previousAudio.tracks.isEmpty else {
             // If nothing in previous, restart current or stop
@@ -445,6 +458,7 @@ public class AudioEngine: ObservableObject {
     }
     
     // Convenience: Play directly from an NFT and track current item for prev/next
+    /// Loads the NFT audio source and starts playback immediately.
     public func loadAndPlay(nft: NFT) async throws {
         let loadID = await beginNewLoad()
         guard let url = nft.musicURL else {

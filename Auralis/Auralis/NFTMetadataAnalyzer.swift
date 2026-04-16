@@ -7,6 +7,9 @@
 
 import SwiftData
 import Foundation
+import OSLog
+
+private let metadataAnalysisLogger = Logger(subsystem: "Auralis", category: "NFTMetadataAnalyzer")
 
 // MARK: - Metadata Analysis Models
 struct MetadataKeyInfo {
@@ -29,20 +32,19 @@ struct MetadataAnalysisResult {
     let totalAddressesProcessed: Int
 
     func printSummary() {
-        print("\n=== NFT Metadata Analysis Results ===")
-        print("Total Addresses Processed: \(totalAddressesProcessed)")
-        print("Total NFTs Analyzed: \(totalNFTsAnalyzed)")
-        print("Unique Processed Keys: \(processedKeys.count)")
-        print("Unique Unprocessed Keys: \(unprocessedKeys.count)")
-
-        print("\n--- UNPROCESSED METADATA KEYS ---")
+        metadataAnalysisLogger.notice("=== NFT Metadata Analysis Results ===")
+        metadataAnalysisLogger.notice("Total Addresses Processed: \(totalAddressesProcessed, privacy: .public)")
+        metadataAnalysisLogger.notice("Total NFTs Analyzed: \(totalNFTsAnalyzed, privacy: .public)")
+        metadataAnalysisLogger.notice("Unique Processed Keys: \(processedKeys.count, privacy: .public)")
+        metadataAnalysisLogger.notice("Unique Unprocessed Keys: \(unprocessedKeys.count, privacy: .public)")
+        metadataAnalysisLogger.notice("--- UNPROCESSED METADATA KEYS ---")
         for keyInfo in unprocessedKeys.sorted(by: { $0.occurrenceCount > $1.occurrenceCount }) {
-            print(keyInfo.description)
+            metadataAnalysisLogger.notice("\(keyInfo.description, privacy: .public)")
         }
 
-        print("\n--- PROCESSED KEYS (for reference) ---")
+        metadataAnalysisLogger.notice("--- PROCESSED KEYS (for reference) ---")
         for key in processedKeys.sorted() {
-            print("✓ \(key)")
+            metadataAnalysisLogger.notice("✓ \(key, privacy: .public)")
         }
     }
 }
@@ -50,6 +52,7 @@ struct MetadataAnalysisResult {
 // MARK: - Main Analysis Function
 @MainActor
 class NFTMetadataAnalyzer {
+    private let logger = metadataAnalysisLogger
     private let nftService = NFTService()
 
     // Keys that are currently being processed by NFTMetadataUpdater
@@ -95,10 +98,10 @@ class NFTMetadataAnalyzer {
         var totalNFTsAnalyzed = 0
         var successfulAddresses = 0
 
-        print("Starting metadata analysis for \(addresses.count) addresses...")
+        logger.notice("Starting metadata analysis for \(addresses.count, privacy: .public) addresses")
 
         for (index, address) in addresses.enumerated() {
-            print("Processing address \(index + 1)/\(addresses.count): \(address)")
+            logger.notice("Processing address \(index + 1, privacy: .public)/\(addresses.count, privacy: .public): \(address, privacy: .public)")
 
             do {
                 // Fetch NFTs for this address
@@ -120,7 +123,7 @@ class NFTMetadataAnalyzer {
                 )
                 let nfts = try modelContext.fetch(fetchDescriptor)
 
-                print("  Found \(nfts.count) NFTs for address \(address)")
+                logger.notice("Found \(nfts.count, privacy: .public) NFTs for address \(address, privacy: .public)")
 
                 // Analyze metadata for each NFT
                 for nft in nfts {
@@ -133,7 +136,7 @@ class NFTMetadataAnalyzer {
                 successfulAddresses += 1
 
             } catch {
-                print("  Error processing address \(address): \(error)")
+                logger.error("Error processing address \(address, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 continue
             }
 
@@ -362,10 +365,9 @@ func runMetadataAnalysis() async {
 
     result.printSummary()
 
-    // You can also access individual results:
-    print("\nTop 5 most common unprocessed keys:")
+    metadataAnalysisLogger.notice("Top 5 most common unprocessed keys:")
     for keyInfo in result.unprocessedKeys.prefix(5) {
-        print("- \(keyInfo.key): appears \(keyInfo.occurrenceCount) times")
+        metadataAnalysisLogger.notice("- \(keyInfo.key, privacy: .public): appears \(keyInfo.occurrenceCount, privacy: .public) times")
     }
 
 }

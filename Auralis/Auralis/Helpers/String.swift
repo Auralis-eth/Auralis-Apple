@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import OSLog
+
+private let stringLogger = Logger(subsystem: "Auralis", category: "StringHelpers")
 
 extension String {
     var isHexIgnorePrefix: Bool {
@@ -94,7 +97,7 @@ extension String {
                 }
             }
         } catch {
-            print("Regex error: \(error)")
+            stringLogger.error("Regex error while extracting SVG data: \(error.localizedDescription, privacy: .public)")
         }
         return nil
     }

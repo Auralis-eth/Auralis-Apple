@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 struct NFTNewsfeedLoadingView: View {
     enum Size {
@@ -51,6 +52,7 @@ struct NFTNewsfeedLoadingView: View {
 }
 
 struct LoadingProgressView: View {
+    private static let logger = Logger(subsystem: "Auralis", category: "NFTNewsfeedLoadingView")
     var total: Int? = nil
     var itemsLoaded: Int? = nil
     var phase: NFTService.RefreshPhase = .idle
@@ -61,9 +63,9 @@ struct LoadingProgressView: View {
         }
 
         if loaded < 0 {
-            print("WARNING: itemsLoaded cannot be negative: \(loaded)")
+            Self.logger.warning("itemsLoaded cannot be negative: \(loaded, privacy: .public)")
         } else if total < 0 {
-            print("WARNING: total cannot be negative: \(total)")
+            Self.logger.warning("total cannot be negative: \(total, privacy: .public)")
         }
 
         if loaded > total {

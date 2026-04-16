@@ -6,11 +6,10 @@
 //
 
 import Foundation
-
-// Define AlchemyNFTResponse elsewhere in your project
-// struct AlchemyNFTResponse: Decodable { ... }
+import OSLog
 
 final class AlchemyNFTService: NFTInventoryProviding {
+    private let logger = Logger(subsystem: "Auralis", category: "AlchemyNFTService")
     private let baseURL: URL
     private let network: String
     private var ownerFetchMode: OwnerFetchMode = .primary
@@ -22,15 +21,14 @@ final class AlchemyNFTService: NFTInventoryProviding {
         configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver()
     ) throws {
         let configuration = try configurationResolver.configuration(for: chain)
-        print("[AlchemyNFTService] init chain=\(chain.rawValue)")
         guard let baseURL = configuration.alchemyNFTBaseURL else {
-            print("[AlchemyNFTService] missing Alchemy NFT base URL for chain=\(chain.rawValue)")
+            logger.error("Missing Alchemy NFT base URL for chain=\(chain.rawValue, privacy: .public)")
             throw ProviderAbstractionError.missingAPIKey(.alchemy)
         }
 
         self.network = chain.rawValue
         self.baseURL = baseURL
-        print("[AlchemyNFTService] baseURL host=\(baseURL.host ?? "unknown")")
+        logger.notice("Initialized Alchemy NFT service chain=\(chain.rawValue, privacy: .public) host=\(baseURL.host ?? "unknown", privacy: .public)")
     }
 
     // MARK: - Types
@@ -162,7 +160,7 @@ final class AlchemyNFTService: NFTInventoryProviding {
             }
 
             ownerFetchMode = .degraded
-            print("[AlchemyNFTService] primary owner fetch failed; retrying degraded request")
+            logger.notice("Primary owner fetch failed; retrying degraded request")
             return try await degradedNFTsForOwner(owner: owner, pageKey: pageKey)
         }
     }
@@ -269,9 +267,8 @@ final class AlchemyNFTService: NFTInventoryProviding {
         }
 
         if !(200...299).contains(httpResponse.statusCode) {
-            print(
-                "[AlchemyNFTService] response status=\(httpResponse.statusCode) " +
-                "message=\(parseErrorMessage(from: data) ?? "nil")"
+            logger.error(
+                "Alchemy response status=\(httpResponse.statusCode, privacy: .public) message=\(self.parseErrorMessage(from: data) ?? "nil", privacy: .public)"
             )
         }
 
@@ -335,19 +332,6 @@ final class AlchemyNFTService: NFTInventoryProviding {
         if let includeFilters, !includeFilters.isEmpty {
             items.append(contentsOf: includeFilters.map { URLQueryItem(name: "includeFilters[]", value: $0.rawValue) })
         }
-
-//        let effectiveSpamLevel: SpamConfidenceLevel? = {
-//            if let provided = spamConfidenceLevel { return provided }
-//            switch network {
-//            case "eth-mainnet": return .veryHigh
-//            case "polygon-mainnet": return .medium
-//            default: return nil
-//            }
-//        }()
-//
-//        if let level = effectiveSpamLevel {
-//            items.append(URLQueryItem(name: "spamConfidenceLevel", value: level.rawValue))
-//        }
 
         if let tokenUriTimeoutInMs {
             items.append(URLQueryItem(name: "tokenUriTimeoutInMs", value: String(tokenUriTimeoutInMs)))

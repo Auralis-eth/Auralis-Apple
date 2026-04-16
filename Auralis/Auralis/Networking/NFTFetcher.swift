@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import RegexBuilder
+import OSLog
 
 protocol NFTFetching: AnyObject {
     var total: Int? { get set }
@@ -28,6 +29,7 @@ protocol NFTFetching: AnyObject {
 
 @Observable
 class NFTFetcher: NFTFetching {
+    private let logger = Logger(subsystem: "Auralis", category: "NFTFetcher")
     typealias NFTProviderFactory = (Chain) throws -> any NFTInventoryProviding
 
     enum FetcherError: Error, LocalizedError {
@@ -177,7 +179,6 @@ class NFTFetcher: NFTFetching {
         correlationID: String?,
         eventRecorder: any NFTRefreshEventRecording
     ) async throws -> [NFT] {
-//        return NFTExamples.allExamples
         guard !loading else {
             if let correlationID {
                 await eventRecorder.recordFetchFailed(
@@ -283,8 +284,6 @@ class NFTFetcher: NFTFetching {
                 
             } catch {
                 attempt += 1
-                print("Error fetching NFTs (attempt \(attempt)): \(error)")
-                
                 let wrappedError: Error
                 if let fetcherError = error as? FetcherError {
                     wrappedError = fetcherError
@@ -293,7 +292,6 @@ class NFTFetcher: NFTFetching {
                 } else if error is DecodingError {
                     wrappedError = error
                 } else if let urlError = error as? URLError {
-                    print("URL Error code: \(urlError.code.rawValue)")
                     if urlError.code == .cancelled {
                         throw CancellationError()
                     }
@@ -311,6 +309,7 @@ class NFTFetcher: NFTFetching {
                 }
                 
                 self.error = wrappedError
+                logger.error("Error fetching NFTs attempt=\(attempt, privacy: .public) error=\(wrappedError.localizedDescription, privacy: .public)")
 
                 if let fetcherError = wrappedError as? FetcherError,
                    case .retryExhausted = fetcherError {
@@ -319,10 +318,10 @@ class NFTFetcher: NFTFetching {
                 
                 if shouldRetry(error: wrappedError, attempt: attempt) {
                     let delay = backoffDelay(for: attempt)
-                    print("Retrying in \(Double(delay) / 1_000_000_000) seconds...")
+                    logger.notice("Retrying NFT fetch in \(Double(delay) / 1_000_000_000, privacy: .public) seconds")
                     try await Task.sleep(nanoseconds: delay)
                 } else {
-                    print("Not retrying error: \(error)")
+                    logger.notice("Stopping NFT fetch retries after error=\(wrappedError.localizedDescription, privacy: .public)")
                     if let correlationID {
                         await eventRecorder.recordFetchFailed(
                             accountAddress: account,
@@ -386,10 +385,8 @@ class NFTFetcher: NFTFetching {
         totalCount: Int?,
         completedFullRefresh: Bool
     ) {
-        print(
-            "[NFTFetcher] refresh summary account=\(account.displayAddress) " +
-            "chain=\(chain.rawValue) pages=\(pageCount) items=\(itemCount) " +
-            "total=\(totalCount.map(String.init) ?? "nil") complete=\(completedFullRefresh)"
+        logger.notice(
+            "Refresh summary account=\(account.displayAddress, privacy: .public) chain=\(chain.rawValue, privacy: .public) pages=\(pageCount, privacy: .public) items=\(itemCount, privacy: .public) total=\(totalCount.map(String.init) ?? "nil", privacy: .public) complete=\(completedFullRefresh, privacy: .public)"
         )
     }
 }

@@ -6,8 +6,10 @@
 //
 
 import Foundation
+import OSLog
 import Security
 
+private let passwordStoreLogger = Logger(subsystem: "Auralis", category: "PasswordStore")
 
 typealias Password = String
 
@@ -77,14 +79,14 @@ private struct KeychainPasswordStore {
                 [kSecValueData as String: passwordData] as CFDictionary
             )
             guard updateStatus == errSecSuccess else {
-                print("Error updating password in Keychain: \(updateStatus)")
+                passwordStoreLogger.error("Error updating password in Keychain: \(updateStatus, privacy: .public)")
                 return
             }
             return
         }
 
         guard status == errSecSuccess else {
-            print("Error saving password to Keychain: \(status)")
+            passwordStoreLogger.error("Error saving password to Keychain: \(status, privacy: .public)")
             return
         }
     }

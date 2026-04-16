@@ -80,6 +80,7 @@ extension URL {
     /// - Returns: A new `URL` object for the Pinata IPFS gateway, or `nil` if the
     ///            original URL does not have a scheme or a non-empty host.
     ///
+    /// Returns the Pinata gateway representation of an IPFS URL when the URL has a usable host component.
     public func toPinataGatewayURL() -> URL? {
         // 1. The original URL must have a scheme.
         //    This handles cases like "://example.com", where `self.scheme` would be nil.

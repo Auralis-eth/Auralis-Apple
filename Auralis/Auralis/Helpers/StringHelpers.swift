@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import OSLog
+
+private let nftImageSourceLogger = Logger(subsystem: "Auralis", category: "NFTImageSource")
 
 enum NFTImageSource: Hashable {
     case url(URL)
@@ -26,7 +29,6 @@ extension NFTImageSource: Equatable {
 
 extension Optional where Wrapped == String {
     var imageSource: NFTImageSource? {
-        // Implementation remains the same
         var imageURL = URL(string: self ?? "")
         let imageData: Data? = nil
         var imageSVG: String?
@@ -34,7 +36,7 @@ extension Optional where Wrapped == String {
             if let host = imageURL?.ipfsHTML {
                 imageURL = host
             } else {
-                print(String(describing: imageURL))
+                nftImageSourceLogger.notice("Failed to convert IPFS image URL: \(String(describing: imageURL), privacy: .private(mask: .hash))")
             }
         } else if imageURL?.scheme != "https" && imageURL?.scheme != "http" {
             if imageURL?.scheme == nil, let hash = imageURL?.path {
@@ -48,7 +50,7 @@ extension Optional where Wrapped == String {
                 imageURL = nil
             }
             else if let imageURL {
-                print(imageURL)
+                nftImageSourceLogger.notice("Rejected unsupported image URL: \(imageURL.absoluteString, privacy: .private(mask: .hash))")
             }
         } else {
             if imageURL?.scheme == "http" {
@@ -60,13 +62,13 @@ extension Optional where Wrapped == String {
                     // Return the modified URL or fall back to the original URL
                     imageURL = components.url ?? url
                 } else {
-                    print(String(describing: imageURL))
+                    nftImageSourceLogger.notice("Failed to upgrade HTTP image URL: \(String(describing: imageURL), privacy: .private(mask: .hash))")
                 }
 
             }
 
             if let imageURL, imageURL.host == nil {
-                print(imageURL)
+                nftImageSourceLogger.notice("Rejected image URL missing host: \(imageURL.absoluteString, privacy: .private(mask: .hash))")
                 return nil
             }
         }
@@ -482,12 +484,6 @@ extension String {
 
 
 
-
-import Foundation
-
-// Existing enums and structs (unchanged)...
-
-// Updated error enum with LocalizedError
 enum URLConversionError: Error, LocalizedError {
     case emptyString
     case malformedURI

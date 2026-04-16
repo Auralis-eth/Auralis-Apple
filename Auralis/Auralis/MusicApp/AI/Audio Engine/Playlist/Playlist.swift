@@ -19,27 +19,36 @@ import Foundation
 import SwiftData
 
 @Model
+/// A persisted playlist model that stores library metadata and compatible queue items.
 public final class Playlist: Equatable {
-    // Unified identifier (persisted)
+    /// Stable identifier for the playlist.
     public var id: UUID = UUID()
 
-    // Library (persisted) fields
+    /// User-visible playlist title.
     public var title: String
+    /// Optional descriptive text shown alongside the playlist.
     public var descriptionText: String?
+    /// Optional reference to a remote image asset.
     public var imageRef: String?
+    /// Optional locally persisted artwork data.
     @Attribute(.externalStorage) public var imageData: Data? = nil
+    /// Creation timestamp.
     public var createdAt: Date = Date()
+    /// Last mutation timestamp.
     public var updatedAt: Date = Date()
 
     // Transient QueueManager compatibility (kept to avoid widespread refactor)
     // Note: This array was previously used by QueueManager as an in-memory queue container.
     // It remains available for compatibility, but app logic should prefer `QueueManager` state for playback sequencing.
+    /// Persisted NFT items associated with the playlist.
     public var tracks: [NFT] = []
 
     // MARK: - Computed properties (Library)
+    /// Number of items currently in the playlist.
     public var itemCount: Int { tracks.count }
 
-    public var duration: TimeInterval { 0 } // Placeholder until durations available
+    /// Aggregate duration placeholder until track durations are available.
+    public var duration: TimeInterval { 0 }
 
     // MARK: - Initializers
     /// Legacy initializer used by QueueManager. Maps `name` to `title` and `textBlurb` to `descriptionText`.
@@ -66,6 +75,7 @@ public final class Playlist: Equatable {
     }
 
     /// Library-style initializer (formerly on LibraryPlaylist).
+    /// Creates a persisted playlist using library-facing metadata.
     public init(
         title: String,
         description: String? = nil,
@@ -87,36 +97,43 @@ public final class Playlist: Equatable {
     }
 
     // MARK: - Library mutators (update timestamps)
+    /// Updates the playlist title and refreshes the modification timestamp.
     public func setTitle(_ new: String) {
         title = new
         touch()
     }
 
+    /// Updates the playlist description and refreshes the modification timestamp.
     public func setDescription(_ new: String?) {
         descriptionText = new
         touch()
     }
 
+    /// Updates the remote artwork reference and refreshes the modification timestamp.
     public func setImageRef(_ new: String?) {
         imageRef = new
         touch()
     }
 
+    /// Updates the local artwork data and refreshes the modification timestamp.
     public func setImageData(_ new: Data?) {
         imageData = new
         touch()
     }
 
+    /// Replaces all playlist items and refreshes the modification timestamp.
     public func replaceItems(_ new: [NFT]) {
         tracks = new
         touch()
     }
 
+    /// Appends items to the playlist and refreshes the modification timestamp.
     public func appendItems(_ more: [NFT]) {
         tracks.append(contentsOf: more)
         touch()
     }
 
+    /// Removes matching items from the playlist and refreshes the modification timestamp.
     public func removeItems(where predicate: (NFT) -> Bool) {
         tracks.removeAll(where: predicate)
         touch()
@@ -134,6 +151,7 @@ public final class Playlist: Equatable {
     func _replace(with tracks: [NFT]) { self.tracks = tracks }
 
     // MARK: - Equatable
+    /// Returns whether two playlists have matching identity and persisted content.
     public static func == (lhs: Playlist, rhs: Playlist) -> Bool {
         return lhs.id == rhs.id &&
         lhs.title == rhs.title &&

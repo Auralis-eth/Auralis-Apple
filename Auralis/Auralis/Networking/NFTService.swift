@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import OSLog
 
 enum NFTProviderFailureKind: String, Equatable {
     case offline
@@ -227,6 +228,7 @@ extension NFTProviderFailure {
 @MainActor
 @Observable
 class NFTService {
+    private let logger = Logger(subsystem: "Auralis", category: "NFTService")
     enum RefreshPhase: Equatable {
         case idle
         case fetching
@@ -265,12 +267,6 @@ class NFTService {
         self.refreshTTL = refreshTTL
         self.eventRecorderFactory = eventRecorderFactory
     }
-
-    //TODO: re-arch for getting ModelContainer instead of ModelContext
-//    func fetchAllNFTs(for accountAddress: String, chain: Chain, container: ModelContainer) async {
-//        let newContext = ModelContext(container)
-//        await fetchAllNFTs(for: accountAddress, chain: chain, modelContext: newContext)
-//    }
 
     func fetchAllNFTs(
         for accountAddress: String,
@@ -428,7 +424,7 @@ class NFTService {
             }
             try modelContext.save()
         } catch {
-            print("Failed to cleanup old NFTs from SwiftData: \(error)")
+            logger.error("Failed to cleanup old NFTs from SwiftData: \(error.localizedDescription, privacy: .public)")
             nftFetcher.error = error
             await eventRecorder.recordPersistenceFailed(
                 accountAddress: accountAddress,

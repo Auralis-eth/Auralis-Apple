@@ -3,22 +3,11 @@ import UIKit
 import PhotosUI
 import SwiftData
 import ImagePlayground
-
-
-//func generateImageFromPlayground() async throws {
-//    let seletedStyle: ImagePlaygroundStyle = .animation
-//    let creator = try await ImageCreator()
-//    let images = creator.images(for: [.text("Aurora Borealis over the Arctic and Rocky Mounts")], style: seletedStyle, limit: 4)
-//
-//    for try await image in images {
-//        print("Generated image:")
-//        print(image.cgImage)
-//    }
-//}
-//
+import OSLog
 
 
 struct NewPlaylistView: View {
+    private static let logger = Logger(subsystem: "Auralis", category: "NewPlaylistView")
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.supportsImagePlayground) private var supportsImagePlayground
@@ -224,7 +213,8 @@ struct NewPlaylistView: View {
                                 }
                             }
                         } catch {
-                            print("Failed to load selected image data: \(error.localizedDescription)")
+                            Self.logger.error("Failed to load selected image data: \(error.localizedDescription, privacy: .public)")
+                            errorMessage = "Auralis could not load the selected image."
                         }
                     } else {
                         selectedImageData = nil

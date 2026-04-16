@@ -1,4 +1,7 @@
 import SwiftUI
+import OSLog
+
+private let modeStateLogger = Logger(subsystem: "Auralis", category: "ModeState")
 
 // MARK: - P0-601 Mode System (Observe v0)
 
@@ -58,6 +61,7 @@ public extension View {
 
 /// Lightweight helper for attaching the current mode to receipt-like payloads.
 public struct ModeReceiptAugmentor {
+    /// Returns a copy of the payload dictionary with the current app mode attached.
     public static func attachMode(to dict: [String: Any], modeState: ModeState) -> [String: Any] {
         var out = dict
         out["mode"] = modeState.mode.rawValue
@@ -122,7 +126,7 @@ enum ActionPolicyGate {
         modeState: ModeState,
         receiptStore: any ReceiptStore,
         payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer(),
-        log: (String) -> Void = { print($0) }
+        log: (String) -> Void = { modeStateLogger.notice("\($0, privacy: .public)") }
     ) -> PolicyGateResult {
         guard modeState.mode == .observe, action.isBlockedInObserveMode else {
             return PolicyGateResult(isAllowed: true, userMessage: "")

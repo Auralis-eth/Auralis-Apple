@@ -1,6 +1,8 @@
 import Foundation
+import OSLog
 
 struct Secrets {
+    private static let logger = Logger(subsystem: "Auralis", category: "Secrets")
     private static var loggedMissingProviders = Set<APIKeyProvider>()
 
     struct ConfigurationStatus: Equatable, Identifiable {
@@ -85,7 +87,7 @@ private extension Secrets {
             return
         }
 
-        print("[Secrets] missing or invalid \(provider.rawValue) key in Info.plist")
+        logger.error("Missing or invalid \(provider.rawValue, privacy: .public) key in Info.plist")
     }
 
     static func sanitizedKeyValue(_ rawValue: String?) -> String? {

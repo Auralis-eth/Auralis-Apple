@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 import OSLog
 
+/// Errors emitted by playlist persistence helpers.
 public enum PlaylistError: Error, LocalizedError, Sendable {
     case notFound
     case invalidData(String)
@@ -10,6 +11,7 @@ public enum PlaylistError: Error, LocalizedError, Sendable {
     case migrationFailed(underlying: Error)
     case corruptData
     
+    /// A user-facing description for the failure.
     public var errorDescription: String? {
         switch self {
         case .notFound:
@@ -28,13 +30,17 @@ public enum PlaylistError: Error, LocalizedError, Sendable {
     }
 }
 
+/// Lightweight wrapper that exposes a SwiftData container for playlist operations.
 public struct PlaylistRepository: Sendable {
+    /// The backing SwiftData container.
     public let container: ModelContainer
     
+    /// Creates a repository around an existing SwiftData container.
     public init(container: ModelContainer) {
         self.container = container
     }
     
+    /// Creates a fresh `ModelContext` bound to the repository container.
     public func context() -> ModelContext {
         ModelContext(container)
     }
@@ -45,6 +51,7 @@ private let logger = Logger(subsystem: "Auralis", category: "PlaylistCRUD")
 @MainActor
 public extension ModelContext {
     @discardableResult
+    /// Creates and persists a new playlist.
     func createPlaylist(
         title: String,
         description: String? = nil,
@@ -74,6 +81,7 @@ public extension ModelContext {
         }
     }
     
+    /// Updates mutable playlist fields and persists the changes.
     func updatePlaylist(
         _ playlist: Playlist,
         title: String? = nil,
@@ -108,6 +116,7 @@ public extension ModelContext {
         }
     }
     
+    /// Deletes a playlist and persists the removal.
     func deletePlaylist(_ playlist: Playlist) throws {
         delete(playlist)
         do {
@@ -120,6 +129,7 @@ public extension ModelContext {
     }
 }
 
+/// Fetches all playlists using the provided sort order.
 public func fetchAllPlaylists(
     _ context: ModelContext,
     sort: SortDescriptor<Playlist> = SortDescriptor(\.createdAt, order: .reverse)
@@ -136,6 +146,7 @@ public func fetchAllPlaylists(
     }
 }
 
+/// Searches playlists by title and description text.
 public func searchPlaylists(
     _ context: ModelContext,
     searchText: String
@@ -155,6 +166,7 @@ public func searchPlaylists(
     }
 }
 
+/// Fetches a playlist by identifier.
 public func fetchPlaylist(
     _ context: ModelContext,
     by id: UUID
@@ -171,6 +183,7 @@ public func fetchPlaylist(
     }
 }
 
+/// Deletes a playlist by identifier.
 public func deletePlaylist(
     _ context: ModelContext,
     by id: UUID

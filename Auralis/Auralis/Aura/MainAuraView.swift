@@ -9,7 +9,6 @@ import SwiftUI
 import SwiftData
 import OSLog
 
-//    var account: EOAccount? //= EOAccount(address: "0x5b93ff82faaf241c15997ea3975419dddd8362c5", access: .readonly)
 struct MainAuraView: View {
     @AppStorage("currentAccountAddress") var currentAddress: String = ""
     @AppStorage("currentChainId") var currentChainId: String = Chain.ethMainnet.rawValue

@@ -13,8 +13,13 @@ public enum AvatarStyle: String, CaseIterable {
     case character
     case geometric
 }
+
+/// Supported rendering lanes for Aura-generated scenery.
 public enum AuroraLane: String { case poster, photoreal, synthwave }
+
+/// Supported scenery presets for Aura background generation.
 public enum AuroraScene: String, Identifiable, CaseIterable {
+    /// Stable identifier for use in SwiftUI selection APIs.
     public var id: String {
         rawValue
     }

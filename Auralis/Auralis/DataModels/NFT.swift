@@ -6,9 +6,12 @@
 //
 
 import Foundation
+import OSLog
 import SwiftData
 import web3
 import UIKit
+
+private let nftLogger = Logger(subsystem: "Auralis", category: "NFT")
 
 // MARK: - Helper Functions & Computed Properties
 enum JSONValue: Codable {
@@ -852,10 +855,12 @@ class Tag: Codable, Equatable, Hashable {
 }
 //-----------------------------------------------------------
 @Model
+/// Persisted NFT model scoped by account and chain for use across browsing and playback features.
 public class NFT: Codable {
     #Unique<NFT>([\.contract, \.tokenId, \.networkRawValue, \.accountAddressRawValue])
     #Index<NFT>([\.id], [\.acquiredAt], [\.collection], [\.tokenId], [\.accountAddressRawValue, \.networkRawValue])
 
+    /// Stable scoped identifier for the NFT.
     @Attribute(.unique) public var id: String
     
     var contract: Contract
@@ -921,25 +926,6 @@ public class NFT: Codable {
     var attributes: [NFT.Attribute]?
     @Relationship(deleteRule: .nullify, inverse: \Tag.nfts)
     var tags: [Tag]?
-
-    // Complex data structures
-//    var imageDetails: [String: Any]?
-//    var animationDetails: [String: Any]?
-//    var artistRoyalty: [String: Any]?
-//    var platform: [String: Any]?
-//    var copyright: [String: Any]?
-//    var license: [String: Any]?
-//    var generatorUrl: [String: Any]?
-//    var termsOfService: [String: Any]?
-//    var feeRecipient: [String: Any]?
-//    var royalties: [String: Any]?
-//    var royaltyInfo: [String: Any]?
-//    var properties: [String: Any]?
-//    var exhibitionInfo: [String: Any]?
-//    var features: [String: Any]?
-    // MARK: Image properties
-    // MARK: Artist properties
-    // MARK: Project properties
 
     @Transient var network: Chain? {
         get {
@@ -1031,6 +1017,7 @@ public class NFT: Codable {
         applyRefreshScope(accountAddress: accountAddress, chain: network)
     }
 
+    /// Decodes an NFT from provider payloads and rebuilds its scoped identifier.
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
@@ -1072,6 +1059,7 @@ public class NFT: Codable {
         applyRefreshScope(accountAddress: nil, chain: .ethMainnet)
     }
     
+    /// Encodes the provider-facing NFT payload.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(contract, forKey: .contract)
@@ -1412,7 +1400,7 @@ extension Dictionary where Key == String, Value == JSONValue {
             let data = try JSONEncoder().encode(dict)
             return try JSONDecoder().decode(NFT.Attribute.self, from: data)
         } catch {
-            print("Failed to decode Attribute: \(error)")
+            nftLogger.error("Failed to decode NFT attribute: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }
