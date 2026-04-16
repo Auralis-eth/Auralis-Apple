@@ -1,156 +1,5 @@
 import Foundation
 
-enum ProviderAbstractionError: LocalizedError, Equatable {
-    case missingAPIKey(Secrets.APIKeyProvider)
-    case unsupportedChain(Chain)
-    case invalidURL
-    case invalidAddress
-    case invalidResponse
-    case invalidBalancePayload
-
-    var errorDescription: String? {
-        switch self {
-        case .missingAPIKey(let provider):
-            return "Missing API key for \(provider.rawValue)."
-        case .unsupportedChain(let chain):
-            return "Chain \(chain.rawValue) is not supported by this provider."
-        case .invalidURL:
-            return "Provider URL configuration is invalid."
-        case .invalidAddress:
-            return "The wallet address is invalid."
-        case .invalidResponse:
-            return "Provider returned an invalid response."
-        case .invalidBalancePayload:
-            return "Provider returned an invalid native balance payload."
-        }
-    }
-}
-
-struct ProviderEndpointConfiguration: Equatable {
-    let chain: Chain
-    let alchemyNFTBaseURL: URL?
-    let alchemyDataAPIBaseURL: URL?
-    let alchemyRPCURL: URL?
-}
-
-protocol ProviderConfigurationResolving {
-    func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration
-}
-
-struct LiveProviderConfigurationResolver: ProviderConfigurationResolving {
-    private let keyProvider: (Secrets.APIKeyProvider) -> String?
-
-    init(
-        keyProvider: @escaping (Secrets.APIKeyProvider) -> String? = { Secrets.apiKeyOrNil($0) }
-    ) {
-        self.keyProvider = keyProvider
-    }
-
-    func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration {
-        let alchemyKey = keyProvider(.alchemy)
-
-        let alchemyNFTBaseURL = try alchemyKey.flatMap {
-            try Self.url("https://\(chain.rawValue).g.alchemy.com/nft/v3/\($0)")
-        }
-        let alchemyDataAPIBaseURL = try alchemyKey.flatMap {
-            try Self.url("https://api.g.alchemy.com/data/v1/\($0)")
-        }
-        let alchemyRPCURL = try alchemyKey.flatMap {
-            try Self.url("https://\(chain.rawValue).g.alchemy.com/v2/\($0)")
-        }
-
-        let configuration = ProviderEndpointConfiguration(
-            chain: chain,
-            alchemyNFTBaseURL: alchemyNFTBaseURL,
-            alchemyDataAPIBaseURL: alchemyDataAPIBaseURL,
-            alchemyRPCURL: chain.supportsEVMRPC ? alchemyRPCURL : nil
-        )
-        return configuration
-    }
-
-    private static func url(_ string: String) throws -> URL {
-        guard let url = URL(string: string) else {
-            throw ProviderAbstractionError.invalidURL
-        }
-
-        return url
-    }
-}
-
-protocol NFTInventoryProviding {
-    func nftsForOwner(
-        owner: String,
-        pageKey: String?
-    ) async throws -> AlchemyNFTResponse
-}
-
-protocol GasPricingProviding {
-    func gasPriceEstimate(for chain: Chain) async throws -> GasPriceEstimate
-}
-
-protocol NativeBalanceProviding {
-    func nativeBalance(for address: String, chain: Chain) async throws -> NativeBalance
-}
-
-protocol TokenHoldingsProviding {
-    func tokenHoldings(for address: String, chain: Chain) async throws -> [ProviderTokenHolding]
-}
-
-protocol TokenBalancesProviding {
-    func tokenBalances(for request: TokenBalancesRequest) async throws -> TokenBalancesPage
-}
-
-struct NativeBalance: Equatable, Sendable {
-    let weiHex: String
-    let weiDecimal: String
-
-    var formattedEtherDisplay: String {
-        Self.formatEtherDisplay(fromWeiDecimal: weiDecimal)
-    }
-}
-
-struct ProviderTokenHolding: Equatable, Sendable {
-    let contractAddress: String
-    let symbol: String?
-    let displayName: String
-    let amountDisplay: String
-    let updatedAt: Date
-    let isPlaceholder: Bool
-    let isAmountHidden: Bool
-}
-
-enum TokenHoldingsMetadataFreshnessPolicy {
-    static let ttl: TimeInterval = 60 * 60 * 12
-
-    static func isStale(updatedAt: Date, now: Date = .now) -> Bool {
-        max(0, now.timeIntervalSince(updatedAt)) >= ttl
-    }
-}
-
-struct TokenBalancesRequest: Equatable, Sendable {
-    let addresses: [TokenBalancesAddress]
-    let includeNativeTokens: Bool
-    let includeErc20Tokens: Bool
-    let pageKey: String?
-}
-
-struct TokenBalancesAddress: Equatable, Sendable {
-    let address: String
-    let networks: [String]
-}
-
-struct TokenBalancesPage: Equatable, Sendable {
-    let tokens: [TokenBalanceRecord]
-    let pageKey: String?
-}
-
-struct TokenBalanceRecord: Equatable, Sendable {
-    let network: String
-    let address: String
-    let tokenAddress: String?
-    let tokenBalance: String
-}
-
 struct ReadOnlyProviderFactory {
     private let configurationResolver: any ProviderConfigurationResolving
     private let session: URLSession
@@ -649,7 +498,7 @@ private extension AlchemyTokenHoldingsProvider {
     }
 }
 
-private enum DecimalQuantityFormatter {
+enum DecimalQuantityFormatter {
     struct TokenAmountPresentation: Equatable {
         let displayText: String
         let isHidden: Bool
@@ -736,12 +585,6 @@ private enum DecimalQuantityFormatter {
     private static func stripLeadingZeroes(from value: String) -> String {
         let trimmed = value.drop { $0 == "0" }
         return trimmed.isEmpty ? "0" : String(trimmed)
-    }
-}
-
-private extension NativeBalance {
-    static func formatEtherDisplay(fromWeiDecimal weiDecimal: String) -> String {
-        DecimalQuantityFormatter.formatEtherDisplay(fromWeiDecimal: weiDecimal)
     }
 }
 
