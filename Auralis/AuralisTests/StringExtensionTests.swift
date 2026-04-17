@@ -31,7 +31,7 @@ import Testing
     }
 
     // Test isHexIgnorePrefix property
-    @Test(arguments:[
+    @Test(arguments: [
         // Valid hex strings with/without 0x
         TestCase(json: "0x123", expected: true),
         TestCase(json: "123", expected: true),
@@ -88,7 +88,7 @@ import Testing
         TestCase(
             json: "123456789", // 9 characters
             expected: "123456789"
-        ),
+        )
     ])
     func testAddressDisplay(testcase: TestCase<String>) {
         #expect(testcase.json.displayAddress == testcase.expected)

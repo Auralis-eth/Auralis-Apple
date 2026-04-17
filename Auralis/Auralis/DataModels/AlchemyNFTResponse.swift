@@ -19,4 +19,3 @@ struct AlchemyNFTResponse: Codable {
         let blockTimestamp: String
     }
 }
-

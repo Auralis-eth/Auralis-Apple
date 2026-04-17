@@ -191,15 +191,12 @@ struct ProfileCardView: View {
                 avatarImage = uiImage
                 break
             }
-        }
-        catch ImageCreator.Error.notSupported {
+        } catch ImageCreator.Error.notSupported {
             avatarImage = nil
             return
-        }
-        catch is CancellationError {
+        } catch is CancellationError {
             return
-        }
-        catch {
+        } catch {
             avatarErrorMessage = "Failed to generate avatar image. Please try again.\n\(error.localizedDescription)"
             showAvatarErrorAlert = true
             return

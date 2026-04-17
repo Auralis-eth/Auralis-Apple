@@ -28,4 +28,3 @@ struct TorchToggleButton: View {
         .tint(.surface.opacity(0.5))
     }
 }
-

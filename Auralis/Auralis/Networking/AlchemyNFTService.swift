@@ -48,7 +48,7 @@ final class AlchemyNFTService: NFTInventoryProviding {
     }
 
     enum OrderBy: String {
-        case transferTime = "transferTime"
+        case transferTime
     }
 
     private enum OwnerFetchMode {
@@ -58,12 +58,7 @@ final class AlchemyNFTService: NFTInventoryProviding {
 
     // Common error envelope shapes
     private struct ErrorEnvelope1: Decodable {
-        struct Inner: Decodable {
-            let code: String?
-            let message: String?
-            let details: String?
-        }
-        let error: Inner
+        let error: ErrorEnvelope1Inner
     }
 
     private struct ErrorEnvelope2: Decodable {
@@ -418,4 +413,10 @@ final class AlchemyNFTService: NFTInventoryProviding {
         let range = NSRange(trimmed.startIndex..., in: trimmed)
         return regex.firstMatch(in: trimmed, options: [], range: range) != nil
     }
+}
+
+private struct ErrorEnvelope1Inner: Decodable {
+    let code: String?
+    let message: String?
+    let details: String?
 }

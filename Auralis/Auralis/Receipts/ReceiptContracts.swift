@@ -92,10 +92,6 @@ struct ReceiptPayloadField: Equatable, Sendable {
 /// Unsanitized input used at orchestration boundaries before persistence.
 struct RawReceiptPayload: Equatable, Sendable {
     let fields: [ReceiptPayloadField]
-
-    init(fields: [ReceiptPayloadField]) {
-        self.fields = fields
-    }
 }
 
 protocol TypedReceiptPayload {

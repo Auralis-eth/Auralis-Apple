@@ -11,7 +11,6 @@ struct AppContext: Equatable {
     let lastSuccessfulRefreshAt: Date?
     let freshnessTTL: TimeInterval?
 }
-
 extension AppContext {
     init(snapshot: ContextSnapshot) {
         self = snapshot.appContext
@@ -54,4 +53,3 @@ extension AppContext {
         return [resolvedChain]
     }
 }
-

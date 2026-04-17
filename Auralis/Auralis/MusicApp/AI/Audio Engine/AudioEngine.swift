@@ -31,7 +31,7 @@ public class AudioEngine: ObservableObject {
     private var activeLoadID = UUID()
 
     /// High-level playback states exposed to the UI.
-    public enum PlaybackState: Equatable, Sendable, Codable  {
+    public enum PlaybackState: Equatable, Sendable, Codable {
         case stopped
         case playing
         case paused

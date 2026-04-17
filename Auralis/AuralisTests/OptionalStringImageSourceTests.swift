@@ -52,7 +52,7 @@ import Testing
         TestCase(
             input: String(repeating: "a", count: 100),
             expected: .url(URL(string: "https://ipfs.io/ipfs/" + String(repeating: "a", count: 100) + "/")!)
-        ),
+        )
     ])
     func testImageSource(testcase: TestCase) {
         let result = testcase.input.imageSource

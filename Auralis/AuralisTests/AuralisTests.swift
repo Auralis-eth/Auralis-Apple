@@ -5,10 +5,10 @@
 ////  Created by Daniel Bell on 10/20/24.
 ////
 //
-//import Testing
-//@testable import Auralis
+// import Testing
+// @testable import Auralis
 //
-//struct AuralisTests {
+// struct AuralisTests {
 //    @Test func example() async throws {
 //        let abc: Password = ""
 //        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
@@ -35,14 +35,14 @@
 ////      let foodTruck = FoodTruck(selling: food)
 ////      #expect(await foodTruck.cook(food, quantity: count))
 ////    }
-//}
+// }
 //
-////@Suite("Food truck tests") struct FoodTruckTests {
+//// @Suite("Food truck tests") struct FoodTruckTests {
 ////  @Test func foodTruckExists() { ... }
-////}
+//// }
 //
-//////@Suite("keychain")
-////struct KeychainServiceTests {
+////// @Suite("keychain")
+//// struct KeychainServiceTests {
 ////
 ////
 //////    @Test("TEST_NAME")
@@ -62,5 +62,5 @@
 ////        #expect(success)
 ////        #expect(try service.loadData(forKey: "test") == "test")
 ////    }
-////}
+//// }
 ////

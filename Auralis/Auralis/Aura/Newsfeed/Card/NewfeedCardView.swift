@@ -112,9 +112,9 @@ struct NewsFeedCardButtons: View {
                 Menu {
                     Button(action: {
                         copyNFTIdentifier()
-                    }) {
+                    }, label: {
                         Label("Copy ID", systemImage: "doc.on.doc")
-                    }
+                    })
                 } label: {
                     SystemImage("ellipsis")
                         .foregroundStyle(Color.textPrimary)

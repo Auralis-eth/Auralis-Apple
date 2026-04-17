@@ -47,8 +47,7 @@ extension Optional where Wrapped == String {
                     return nil
                 }
                 imageURL = nil
-            }
-            else if let imageURL {
+            } else if let imageURL {
                 nftImageSourceLogger.notice("Rejected unsupported image URL: \(imageURL.absoluteString, privacy: .private(mask: .hash))")
             }
         } else {
@@ -93,36 +92,34 @@ extension Set where Element == String {
             // Try to find a matching configuration
             var foundMatch = false
 
-            for config in URIConfig.uriConfigurations {
-                if uri.hasPrefix(config.prefix) {
-                    guard uri.count > config.prefix.count else {
-                        otherURIs.insert(uri)
-                        continue
-                    }
+            for config in URIConfig.uriConfigurations where uri.hasPrefix(config.prefix) {
+                guard uri.count > config.prefix.count else {
+                    otherURIs.insert(uri)
+                    continue
+                }
 
-                    let startIndex = uri.index(uri.startIndex, offsetBy: config.prefix.count)
-                    let remainder = String(uri[startIndex...])
-                    let components = remainder.split(separator: "/", maxSplits: 1)
+                let startIndex = uri.index(uri.startIndex, offsetBy: config.prefix.count)
+                let remainder = String(uri[startIndex...])
+                let components = remainder.split(separator: "/", maxSplits: 1)
 
-                    if components.count >= 1, !components[0].isEmpty {
-                        let hash = String(components[0])
-                        let path = components.count > 1 ? String(components[1]) : ""
-                        let resource = NormalizedResource(type: config.type, identifier: hash, path: path)
-                        let canonical = resource.canonicalForm
+                if components.count >= 1, !components[0].isEmpty {
+                    let hash = String(components[0])
+                    let path = components.count > 1 ? String(components[1]) : ""
+                    let resource = NormalizedResource(type: config.type, identifier: hash, path: path)
+                    let canonical = resource.canonicalForm
 
-                        if let existing = bestURIs[canonical] {
-                            // Keep the higher priority URI format
-                            if config.format > existing.priority {
-                                bestURIs[canonical] = (uri, config.format)
-                            }
-                        } else {
-                            // First time seeing this resource
+                    if let existing = bestURIs[canonical] {
+                        // Keep the higher priority URI format
+                        if config.format > existing.priority {
                             bestURIs[canonical] = (uri, config.format)
                         }
-
-                        foundMatch = true
-                        break
+                    } else {
+                        // First time seeing this resource
+                        bestURIs[canonical] = (uri, config.format)
                     }
+
+                    foundMatch = true
+                    break
                 }
             }
 

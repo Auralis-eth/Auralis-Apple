@@ -1067,7 +1067,7 @@ private extension URLRequest {
     }
 }
 
-private final class ProviderMockURLProtocol: URLProtocol {
+private class ProviderMockURLProtocol: URLProtocol {
     static var handler: ((URLRequest) throws -> (URLResponse, Data))?
 
     override class func canInit(with request: URLRequest) -> Bool {

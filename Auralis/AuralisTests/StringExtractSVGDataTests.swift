@@ -57,7 +57,7 @@ import Testing
             // Long base64
             input: "data:image/svg+xml;base64," + Data(("<svg>" + String(repeating: "x", count: 1000) + "</svg>").utf8).base64EncodedString(),
             expected: "<svg>" + String(repeating: "x", count: 1000) + "</svg>"
-        ),
+        )
     ])
     func testExtractSVGData(testcase: TestCase) {
         let result = testcase.input.extractSVGData()

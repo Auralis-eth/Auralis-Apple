@@ -88,7 +88,7 @@ struct FootnoteFontText: View {
     }
 }
 
-fileprivate struct CaptionFontText: View {
+private struct CaptionFontText: View {
     let text: String
     var body: Text {
         Text(text)

@@ -150,11 +150,9 @@ actor GasPriceCache {
         var lruKey: Int?
         var oldestAccessTime = CFAbsoluteTimeGetCurrent()
 
-        for (chainId, entry) in store {
-            if entry.lastAccessTime < oldestAccessTime {
-                oldestAccessTime = entry.lastAccessTime
-                lruKey = chainId
-            }
+        for (chainId, entry) in store where entry.lastAccessTime < oldestAccessTime {
+            oldestAccessTime = entry.lastAccessTime
+            lruKey = chainId
         }
 
         if let keyToRemove = lruKey {

@@ -11,7 +11,7 @@ import Testing
 
 @Suite struct URLExtensionTests {
     // Test isIPFS property
-    @Test(arguments:[
+    @Test(arguments: [
         // Valid IPFS URLs
         TestCase(json: "ipfs://QmHash", expected: true),
         TestCase(json: "ipfs://QmHash/path/to/file", expected: true),
@@ -58,10 +58,10 @@ import Testing
         TestCase(
             json: "ipfs://QmHash?query=param#fragment",
             expected: "https://gateway.pinata.cloud/ipfs/QmHash?query=param#fragment"
-        ),
+        )
     ])
     func testIpfsHTML(testCase: TestCase<String?>) {
-        let result = testCase.json.ipfsGatewayURL()//"https://gateway.pinata.cloud/ipfs/QmHash"
+        let result = testCase.json.ipfsGatewayURL() // "https://gateway.pinata.cloud/ipfs/QmHash"
         #expect(
             result?.absoluteString == testCase.expected,
             "\(testCase.json) should produce \(testCase.expected), got \(result?.absoluteString ?? "nil")"

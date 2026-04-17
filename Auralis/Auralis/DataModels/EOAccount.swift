@@ -123,10 +123,10 @@ enum EthereumAddressAccess: Codable {
     /// Whether this address can sign transactions
     var canSign: Bool {
         switch self {
-            case .wallet:
-                return true
-            case .readonly:
-                return false
+        case .wallet:
+            return true
+        case .readonly:
+            return false
         }
     }
 }

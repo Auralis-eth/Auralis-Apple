@@ -54,7 +54,7 @@ struct NFTImageLoaderTests {
     }
 }
 
-private final class MockURLProtocol: URLProtocol {
+private class MockURLProtocol: URLProtocol {
     static var handler: ((URLRequest) throws -> (URLResponse, Data))?
 
     override class func canInit(with request: URLRequest) -> Bool {
