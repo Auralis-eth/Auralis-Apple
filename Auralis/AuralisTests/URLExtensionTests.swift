@@ -22,7 +22,7 @@ import Testing
         // Edge cases
         TestCase(json: "ipfs://", expected: true), // No host, but scheme is ipfs
         TestCase(json: "ftp://server.com", expected: false), // Other scheme
-        TestCase(json: "://example.com", expected: false), // Malformed scheme
+        TestCase(json: "://example.com", expected: false) // Malformed scheme
     ])
     func testIsIPFS(testCase: TestCase<Bool>) throws {
         let url = try #require(URL(string: testCase.json))
@@ -83,7 +83,7 @@ import Testing
         // Edge cases
         TestCase(json: "https://example.com/video.mp4?query=param", expected: true), // With query
         TestCase(json: "https://example.com/video.mp4#fragment", expected: true), // With fragment
-        TestCase(json: "https://example.com/path.mp4/file", expected: false), // .mp4 not at end
+        TestCase(json: "https://example.com/path.mp4/file", expected: false) // .mp4 not at end
     ])
     func testIsVideoMP4(testCase: TestCase<Bool>) throws {
         let url = try #require(URL(string: testCase.json))

@@ -235,7 +235,7 @@ struct ProfileCardView: View {
                 return [
                 "abstract",
                 "colorful",
-                "modern style",
+                "modern style"
             ]
             case .character:
                 let characterSubjects = [

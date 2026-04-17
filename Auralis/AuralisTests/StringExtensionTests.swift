@@ -24,7 +24,7 @@ import Testing
         TestCase(json: "0X123", expected: false), // Wrong case for prefix
         TestCase(json: "0x 123", expected: false), // Space in string
         TestCase(json: "hello", expected: false), // Non-hex string
-        TestCase(json: "", expected: false), // Empty string
+        TestCase(json: "", expected: false) // Empty string
     ])
     func testIsHex(testCase: TestCase<Bool>) {
         #expect(testCase.json.isHex == testCase.expected)
@@ -50,7 +50,7 @@ import Testing
         TestCase(json: "0X123", expected: false), // Wrong case for prefix
         TestCase(json: " 123", expected: false), // Leading space
         // Edge case: long hex string
-        TestCase(json: "1234567890ABCDEF1234567890ABCDEF", expected: true),
+        TestCase(json: "1234567890ABCDEF1234567890ABCDEF", expected: true)
     ])
     func testIsHexIgnorePrefix(testcase: TestCase<Bool>) {
         #expect(testcase.json.isHexIgnorePrefix == testcase.expected)

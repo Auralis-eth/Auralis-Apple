@@ -63,7 +63,7 @@ import Security
         TestCase(
             password: "A".padding(toLength: 100, withPad: "a", startingAt: 0),
             expected: .medium
-        ), // Long, mixed case
+        ) // Long, mixed case
     ])
     func testPasswordStrength(testcase: TestCase) {
         #expect(

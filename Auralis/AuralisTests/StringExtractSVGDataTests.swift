@@ -70,7 +70,7 @@ import Foundation
     // Test regex error handling
     @Test(arguments: [
         "data:image/svg+xml;invalid,<svg></svg>", // Unexpected MIME parameter
-        "data:image/svg+xml;base64,==", // Malformed base64
+        "data:image/svg+xml;base64,==" // Malformed base64
     ])
     func testRegexErrorHandling(input: String) {
         // Simulate a regex error by using an invalid pattern (not possible with hardcoded regex)
