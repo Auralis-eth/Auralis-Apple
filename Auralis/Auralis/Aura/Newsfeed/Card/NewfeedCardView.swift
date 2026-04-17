@@ -13,7 +13,7 @@ import UIKit
 struct NewsFeedCardView: View {
     let nft: NFT
     @State private var isExpanded: Bool = false
-    
+
     @ViewBuilder
     private var imageView: some View {
         if let imageUrlString = nft.image?.originalUrl,
@@ -29,11 +29,11 @@ struct NewsFeedCardView: View {
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
                     .ignoresSafeArea()
-                
+
                 VStack {
                     SystemImage("photo")
                         .font(.system(size: 50))
-                    
+
                     if let urlString = nft.image?.originalUrl,
                        !urlString.isEmpty {
                         Text(urlString)
@@ -52,7 +52,7 @@ struct NewsFeedCardView: View {
             ZStack(alignment: .bottom) {
                 // Background NFT image
                 imageView
-                
+
                 HStack(alignment: .bottom, spacing: 16) {
                     // NFT details
                     if isExpanded {
@@ -72,7 +72,7 @@ struct NewsFeedCardView: View {
                             .padding(.leading, 15)
                             .frame(maxWidth: geo.size.width * 0.65, alignment: .leading)
                     }
-                    
+
                     // Action buttons
                     NewsFeedCardButtons(nft: nft)
                         .frame(width: 70) // fixed width so it never clips offscreen
@@ -85,8 +85,8 @@ struct NewsFeedCardView: View {
         }
         .ignoresSafeArea(.all)
     }
-    
-    
+
+
 }
 
 struct NewsFeedCardButtons: View {
@@ -268,7 +268,7 @@ struct NewsFeedCardExpandedDetailsView: View {
 struct NewsFeedCardDetailsView: View {
     let nft: NFT
     @Binding var isExpanded: Bool
-    
+
     // Modern, efficient, and localizable formatters
     private static let isoFormatters: [ISO8601DateFormatter] = {
         var f1 = ISO8601DateFormatter()
@@ -292,7 +292,7 @@ struct NewsFeedCardDetailsView: View {
                 HeadlineFontText(nft.collection?.name ?? "Unknown Collection")
                     .fontWeight(.semibold)
                     .foregroundStyle(Color.textPrimary)
-                
+
                 HStack {
                     FootnoteFontText("Updated: ")
                     SecondaryCaptionFontText(formattedUpdateTime)
@@ -345,13 +345,13 @@ struct NewsFeedCardDetailsView: View {
               let date = parseISODate(timeUpdated) else {
             return "Not available"
         }
-        
+
         let now = Date()
         // Handle future dates by clamping them to "just now"
         if date > now {
             return Self.relativeFormatter.localizedString(fromTimeInterval: -1)
         }
-        
+
         return Self.relativeFormatter.localizedString(for: date, relativeTo: now)
     }
 

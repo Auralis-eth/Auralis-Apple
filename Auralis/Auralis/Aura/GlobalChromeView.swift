@@ -22,7 +22,7 @@ struct GlobalChromeView: View {
                     accessibilityLabel: snapshot.modeDisplay
                 )
                 .accessibilityHint("Mode is sourced from the shared shell context snapshot.")
-                
+
                 Button(action: onOpenContextInspector) {
                     AuraPill(
                         snapshot.freshnessLabel,
@@ -48,7 +48,7 @@ struct GlobalChromeView: View {
                 }
                 .accessibilityLabel("Search")
                 .accessibilityHint("Opens global search.")
-                
+
             }
         }
         .accessibilityElement(children: .contain)

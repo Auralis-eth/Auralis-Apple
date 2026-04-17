@@ -18,7 +18,7 @@ public class NFT: Codable {
 
     /// Stable scoped identifier for the NFT.
     @Attribute(.unique) public var id: String
-    
+
     var contract: Contract
     var tokenId: String
     var tokenType: String?
@@ -121,11 +121,11 @@ public class NFT: Codable {
         let normalizedAccountAddress = Self.normalizedScopeComponent(accountAddress) ?? ""
         return accountAddressRawValue == normalizedAccountAddress && networkRawValue == chain.rawValue
     }
-    
+
     func isMusic() -> Bool {
         audioUrl?.isEmpty == false
     }
-    
+
     var musicURL: URL? {
         guard let audioUrl else {
             return nil
@@ -147,7 +147,7 @@ public class NFT: Codable {
         case timeLastUpdated
         case acquiredAt
     }
-    
+
     init(id: String, contract: Contract, tokenId: String, tokenType: String? = nil, name: String? = nil, nftDescription: String? = nil, image: Image? = nil, raw: Raw? = nil, collection: Collection?, tokenUri: String? = nil, timeLastUpdated: String? = nil, acquiredAt: AcquiredAt? = nil, network: Chain = .ethMainnet, accountAddress: String? = nil, contentType: String? = nil, collectionName: String? = nil, artistName: String? = nil, animationUrl: String? = nil, secureAnimationUrl: String? = nil, audioUrl: String? = nil, tags: [Tag]? = nil) {
         self.id = id
         self.contract = contract
@@ -176,7 +176,7 @@ public class NFT: Codable {
     /// Decodes an NFT from provider payloads and rebuilds its scoped identifier.
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         let tokenType = try container.decodeIfPresent(String.self, forKey: .tokenType)
         self.tokenType = tokenType
         let name = try container.decodeIfPresent(String.self, forKey: .name)
@@ -214,7 +214,7 @@ public class NFT: Codable {
         )
         applyRefreshScope(accountAddress: nil, chain: .ethMainnet)
     }
-    
+
     /// Encodes the provider-facing NFT payload.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -267,8 +267,8 @@ public class NFT: Codable {
 
         return trimmedValue.lowercased()
     }
-    
-    
+
+
     @Model
     class Contract: Codable {
         @Attribute(.unique) var id: String
@@ -280,11 +280,11 @@ public class NFT: Codable {
             self.address = address
             self.chainRawValue = chain.rawValue
         }
-        
+
         enum CodingKeys: String, CodingKey {
             case address
         }
-        
+
         required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let decodedAddress = try container.decodeIfPresent(String.self, forKey: .address)
@@ -292,7 +292,7 @@ public class NFT: Codable {
             chainRawValue = Chain.ethMainnet.rawValue
             id = Self.makeScopedID(chain: .ethMainnet, address: decodedAddress)
         }
-        
+
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(address, forKey: .address)
@@ -308,7 +308,7 @@ public class NFT: Codable {
             return "\(chain.rawValue):\(resolvedAddress)"
         }
     }
-    
+
     @Model
     class Image: Codable {
         var originalUrl: String?
@@ -319,25 +319,25 @@ public class NFT: Codable {
             self.originalUrl = originalUrl
             self.thumbnailUrl = thumbnailUrl
         }
-        
+
         enum CodingKeys: String, CodingKey {
             case originalUrl
             case thumbnailUrl
         }
-        
+
         required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             originalUrl = try container.decodeIfPresent(String.self, forKey: .originalUrl)
             thumbnailUrl = try container.decodeIfPresent(String.self, forKey: .thumbnailUrl)
         }
-        
+
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(originalUrl, forKey: .originalUrl)
             try container.encodeIfPresent(thumbnailUrl, forKey: .thumbnailUrl)
         }
     }
-    
+
     @Model
     class Raw: Codable {
         var tokenUri: String?
@@ -348,12 +348,12 @@ public class NFT: Codable {
             self.tokenUri = tokenUri
             self.metadata = metadata
         }
-        
+
         enum CodingKeys: String, CodingKey {
             case tokenUri
             case metadata
         }
-        
+
         required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             tokenUri = try container.decodeIfPresent(String.self, forKey: .tokenUri)
@@ -364,35 +364,35 @@ public class NFT: Codable {
                 metadata = ["data": .string(website ?? "")]
             }
         }
-        
+
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(tokenUri, forKey: .tokenUri)
             try container.encodeIfPresent(metadata, forKey: .metadata)
         }
     }
-    
+
     @Model
     class NFTMetadata: Codable {
         var image: String?
         var name: String?
         var metadataDescription: String?
         var attributes: [Attribute]?
-        
+
         enum CodingKeys: String, CodingKey {
             case image
             case name
             case metadataDescription = "description"
             case attributes
         }
-        
+
         init(image: String? = nil, name: String? = nil, metadataDescription: String? = nil, attributes: [Attribute]? = nil) {
             self.image = image
             self.name = name
             self.metadataDescription = metadataDescription
             self.attributes = attributes
         }
-        
+
         required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             image = try container.decodeIfPresent(String.self, forKey: .image)
@@ -400,7 +400,7 @@ public class NFT: Codable {
             metadataDescription = try container.decodeIfPresent(String.self, forKey: .metadataDescription)
             attributes = try container.decodeIfPresent([Attribute].self, forKey: .attributes)
         }
-        
+
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(image, forKey: .image)
@@ -409,7 +409,7 @@ public class NFT: Codable {
             try container.encodeIfPresent(attributes, forKey: .attributes)
         }
     }
-    
+
     @Model
     class Attribute: Codable, Identifiable {
         var value: String
@@ -421,36 +421,36 @@ public class NFT: Codable {
             case value
             case traitType = "trait_type"
         }
-        
+
         init(value: String, traitType: String? = nil) {
             self.value = value
             self.traitType = traitType
         }
-        
+
         required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             value = try container.decode(String.self, forKey: .value)
             traitType = try container.decodeIfPresent(String.self, forKey: .traitType)
         }
-        
+
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(value, forKey: .value)
             try container.encodeIfPresent(traitType, forKey: .traitType)
         }
     }
-    
+
     @Model
     class Collection: Codable {
         @Attribute(.unique) var id: String
         var name: String?
         var chainRawValue: String
         var contractAddress: String?
-        
+
         enum CodingKeys: String, CodingKey {
             case name
         }
-        
+
         init(
             name: String?,
             chain: Chain = .ethMainnet,
@@ -465,7 +465,7 @@ public class NFT: Codable {
             self.chainRawValue = chain.rawValue
             self.contractAddress = contractAddress
         }
-        
+
         required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let decodedName = try container.decodeIfPresent(String.self, forKey: .name)
@@ -474,7 +474,7 @@ public class NFT: Codable {
             contractAddress = nil
             id = Self.makeScopedID(chain: .ethMainnet, name: decodedName, contractAddress: nil)
         }
-        
+
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(name, forKey: .name)
@@ -503,24 +503,24 @@ public class NFT: Codable {
             return "\(chain.rawValue):name:\(resolvedName)"
         }
     }
-    
+
     @Model
     class AcquiredAt: Codable {
         var blockTimestamp: String?
-        
+
         enum CodingKeys: String, CodingKey {
             case blockTimestamp
         }
-        
+
         init(blockTimestamp: String? = nil) {
             self.blockTimestamp = blockTimestamp
         }
-        
+
         required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             blockTimestamp = try container.decodeIfPresent(String.self, forKey: .blockTimestamp)
         }
-        
+
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(blockTimestamp, forKey: .blockTimestamp)

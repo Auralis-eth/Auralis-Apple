@@ -298,9 +298,9 @@ private struct AccountRow: View {
                     } else {
                         Text(account.address.displayAddress)
                             .foregroundStyle(Color.textSecondary)
-                            .fontWeight(.semibold)                        
+                            .fontWeight(.semibold)
                     }
-                    
+
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

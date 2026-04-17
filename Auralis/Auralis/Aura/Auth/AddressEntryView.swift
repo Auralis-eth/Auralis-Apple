@@ -309,7 +309,7 @@ private struct AddressEntryContentView: View {
         VStack(alignment: .center) {
             // Header
             AddressEntryHeaderView()
-            
+
             HStack {
                 QRScannerView(
                     account: $currentAccount,
@@ -347,7 +347,7 @@ private struct AddressEntryContentView: View {
                 }
                 .padding(.horizontal, 20)
             }
-            
+
             AuraActionButton("Enter Auralis", style: .hero) {
                 handleSubmit()
             }
@@ -376,7 +376,7 @@ struct AddressEntryHeaderView: View {
             Title2FontText("Check in with your Ethereum address")
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
-            
+
             SubheadlineFontText("Paste an EVM wallet address, enter an ENS name, or scan a QR code to get started.")
                 .multilineTextAlignment(.center)
         }

@@ -17,22 +17,22 @@ public class AudioEngine: ObservableObject {
     private var audioEngine = AVAudioEngine()
     private var playerNode = AVAudioPlayerNode()
     private var interruptionObserver: NSObjectProtocol?
-    
+
     /// The currently loaded audio file, if any.
     public var audioFile: AVAudioFile?
     /// Queue of previously played items.
     public var previousAudio = Playlist(name: "Previous")
     /// Queue of upcoming items.
     public var nextAudio = Playlist(name: "Next")
-    
-    
+
+
     private var pausedAt: TimeInterval = 0
     private var seekPosition: TimeInterval = 0
     private var tempAudioURL: URL? // Track temporary downloaded file
 
     private var currentLoadTask: Task<Void, Error>?
     private var activeLoadID = UUID()
-    
+
     /// High-level playback states exposed to the UI.
     public enum PlaybackState: Equatable, Sendable, Codable  {
         case stopped
@@ -42,7 +42,7 @@ public class AudioEngine: ObservableObject {
         case error
     }
 
-    
+
     /// Lightweight presentation model for the currently playing track.
     public struct Track: Identifiable, Equatable, Hashable, Codable, Sendable {
         /// Stable identifier that matches the NFT identifier.
@@ -55,12 +55,12 @@ public class AudioEngine: ObservableObject {
 
     @Published var currentTrack: Track? = nil
     @Published var playbackState: PlaybackState = .stopped
-    
+
     // Computed property to eliminate state redundancy
     var isPlaying: Bool {
         playbackState == .playing
     }
-    
+
     var progress: Double {
         currentTime
     }
@@ -68,7 +68,7 @@ public class AudioEngine: ObservableObject {
     var currentTrackNFTID: String? {
         currentTrack?.id
     }
-    
+
     enum AudioEngineError: Error {
         case sessionSetupFailed
         case engineStartFailed
@@ -76,7 +76,7 @@ public class AudioEngine: ObservableObject {
         case unsupportedFormat
         case seekFailed
         case downloadFailed
-        
+
         var localizedDescription: String {
             switch self {
             case .sessionSetupFailed:
@@ -94,13 +94,13 @@ public class AudioEngine: ObservableObject {
             }
         }
     }
-    
+
     init() throws {
         try setupAudioSession()
         try setupAudioEngine()
         setupInterruptionHandling()
     }
-    
+
     // MARK: - Audio Session Configuration
     private func setupAudioSession() throws {
         let session = AVAudioSession.sharedInstance()
@@ -112,19 +112,19 @@ public class AudioEngine: ObservableObject {
             throw AudioEngineError.sessionSetupFailed
         }
     }
-    
+
     // MARK: - Audio Engine Setup
     private func setupAudioEngine() throws {
         audioEngine.attach(playerNode)
         audioEngine.connect(playerNode, to: audioEngine.mainMixerNode, format: nil)
-        
+
         do {
             try audioEngine.start()
         } catch {
             throw AudioEngineError.engineStartFailed
         }
     }
-    
+
     // MARK: - Audio Interruption Handling
     private func setupInterruptionHandling() {
         interruptionObserver = NotificationCenter.default.addObserver(
@@ -206,23 +206,23 @@ public class AudioEngine: ObservableObject {
             // FLAC (iOS 11+ / macOS 10.13+)
             "flac"
         ]
-        
+
         // Domains that serve audio content without file extensions
         let audioServingDomains: Set<String> = [
             "arweave.net",
             "ipfs.io",
             "gateway.pinata.cloud"
         ]
-        
+
         if let host = url.host?.lowercased(), audioServingDomains.contains(host) {
             return true
         }
-        
+
         let fileExtension = url.pathExtension.lowercased()
         return supportedFormats.contains(fileExtension)
     }
 
-    
+
     /// Starts playback for the current file or advances to the next queued item.
     public func play() throws {
         // If no audio file is loaded, try to advance to the next queued item
@@ -262,7 +262,7 @@ public class AudioEngine: ObservableObject {
         playerNode.play()
         playbackState = .playing
     }
-    
+
     // Fixed pause implementation - AVAudioPlayerNode doesn't have pause()
     /// Pauses playback and remembers the current time.
     public func pause() {
@@ -271,44 +271,44 @@ public class AudioEngine: ObservableObject {
         playerNode.stop()
         playbackState = .paused
     }
-    
+
     /// Resumes playback from the last paused position.
     public func resume() throws {
         guard playbackState == .paused else { return }
         seekPosition = pausedAt
         try play()
     }
-    
+
     private func stop() {
         playerNode.stop()
         seekPosition = 0
         pausedAt = 0
         playbackState = .stopped
     }
-    
+
     // MARK: - Fixed Seek Functionality
     /// Seeks to a time within the current file.
     public func seek(to time: TimeInterval) throws {
         guard audioFile != nil else { return }
-        
+
         let duration = self.duration
         let clampedTime = max(0, min(time, duration))
-        
+
         let wasPlaying = playbackState == .playing
-        
+
         // Stop and clear buffers
         playerNode.stop()
-        
+
         // Update seek position
         seekPosition = clampedTime
         pausedAt = clampedTime
-        
+
         // If we were playing, restart from new position
         if wasPlaying {
             try play()
         }
     }
-    
+
     // MARK: - Playlist Navigation
     @MainActor
     /// Advances playback to the next queued item.
@@ -385,7 +385,7 @@ public class AudioEngine: ObservableObject {
             await playPrevious()
         }
     }
-    
+
     // Note: This method loads the file and immediately starts playback (auto-play).
     private func loadAndPlay(
         url: URL,
@@ -456,7 +456,7 @@ public class AudioEngine: ObservableObject {
         guard loadID == activeLoadID else { throw CancellationError() }
         try play()
     }
-    
+
     // Convenience: Play directly from an NFT and track current item for prev/next
     /// Loads the NFT audio source and starts playback immediately.
     public func loadAndPlay(nft: NFT) async throws {
@@ -492,7 +492,7 @@ public class AudioEngine: ObservableObject {
         }
         try await task.value
     }
-    
+
     // MARK: - Improved Playback Information
     private var currentTime: TimeInterval {
         switch playbackState {
@@ -511,12 +511,12 @@ public class AudioEngine: ObservableObject {
             return .zero
         }
     }
-    
+
     private var duration: TimeInterval {
         guard let audioFile = audioFile else { return 0 }
         return Double(audioFile.length) / audioFile.processingFormat.sampleRate
     }
-    
+
     // MARK: - Resource Cleanup
     deinit {
         if let interruptionObserver {
@@ -526,21 +526,21 @@ public class AudioEngine: ObservableObject {
         if audioEngine.isRunning {
             audioEngine.stop()
         }
-        
+
         audioEngine.detach(playerNode)
-        
+
         // Clean up temp file
         if let tempURL = tempAudioURL {
             try? FileManager.default.removeItem(at: tempURL)
         }
-        
+
         do {
             try AVAudioSession.sharedInstance().setActive(false)
         } catch {
             // Log cleanup error but don't throw in deinit
         }
     }
-    
+
     func skipBackward() {
         // If we're a few seconds into the current track, restart it; otherwise go to the previous track
         let threshold: TimeInterval = 3

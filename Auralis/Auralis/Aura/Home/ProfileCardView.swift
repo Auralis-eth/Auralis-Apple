@@ -32,7 +32,7 @@ struct ProfileCardView: View {
             scopedNFTCount: scopedNFTCount
         )
     }
-    
+
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             Group {
@@ -114,10 +114,10 @@ struct ProfileCardView: View {
         })
         .padding()
     }
-    
-    
+
+
     // MARK: - Avatar Image Generation
-    
+
     private func refreshAvatar() async {
         let requestID = UUID()
         activeAvatarRequestID = requestID
@@ -163,28 +163,28 @@ struct ProfileCardView: View {
             resolvedENSName = resolved.ensName
         }
     }
-    
+
     func generateAvatarImage(style: AvatarStyle = .abstract, requestID: UUID? = nil) async {
         guard !currentAddress.isEmpty else {
             avatarImage = nil
             return
         }
-        
+
         isLoadingAvatar = true
         defer {
             if requestID == nil || requestID == activeAvatarRequestID {
                 isLoadingAvatar = false
             }
         }
-        
+
         let prompts = avatarPrompt(address: currentAddress, style: style)
-        
+
         do {
             let imageCreator = try await ImageCreator()
-            
+
             // Generate only 1 avatar image with square aspect ratio
             let images = imageCreator.images(for: prompts, style: .illustration, limit: 1)
-            
+
             for try await image in images {
                 try Task.checkCancellation()
                 guard requestID == nil || requestID == activeAvatarRequestID else { return }
@@ -206,15 +206,15 @@ struct ProfileCardView: View {
             return
         }
     }
-    
+
     private func fallbackAvatarImage(for address: String) -> UIImage? {
         let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let imageIndex = (Int(normalizedAddress.seedBytes[0]) % 8) + 1
         let suffix = String(format: "%02d", imageIndex)
         return UIImage(named: "testProfile-\(suffix)")
     }
-    
-    
+
+
     /// Build a deterministic avatar prompt array for the given address and optional style.
     /// - Parameters:
     ///   - address: Wallet address string; will be normalized.
@@ -223,7 +223,7 @@ struct ProfileCardView: View {
     @discardableResult
     func avatarPrompt(address: String, style: AvatarStyle = .abstract) -> [ImagePlaygroundConcept] {
         let addr = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        
+
         // Cache key includes style and address
         let key = "\(addr)|\(style.rawValue)"
         if let cached = avatarPromptCache[key] {
@@ -274,7 +274,7 @@ struct ProfileCardView: View {
             ]
             }
         }()
-        
+
         // Mood variants for avatar
         let moods = ["friendly", "mysterious", "energetic", "calm", "bold"]
         // Deterministic pick helper
@@ -282,9 +282,9 @@ struct ProfileCardView: View {
         func pick<T>(_ arr: [T], _ b: Int) -> T {
             arr[Int(addr.seedBytes[b]) % arr.count]
         }
-        
+
         let moodAtom = pick(moods, 5)
-        
+
         // Compose atoms
         var atoms: [String] = [
             "digital art",
@@ -296,7 +296,7 @@ struct ProfileCardView: View {
         ]
         atoms.append(contentsOf: styleAtoms)
         atoms.append("mood \(moodAtom)")
-        
+
         let concepts = atoms.map { ImagePlaygroundConcept.text($0) }
         avatarPromptCache[key] = concepts
         return concepts

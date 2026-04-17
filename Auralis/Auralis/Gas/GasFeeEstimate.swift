@@ -12,7 +12,7 @@ enum UrgencyLevel: String, CaseIterable {
     case low = "low"
     case medium = "medium"
     case high = "high"
-    
+
     var displayName: String {
         switch self {
         case .low: return "Safe"
@@ -20,7 +20,7 @@ enum UrgencyLevel: String, CaseIterable {
         case .high: return "Fast"
         }
     }
-    
+
     var description: String {
         switch self {
         case .low: return "Cheapest option, may take longer"
@@ -34,7 +34,7 @@ enum CongestionLevel: String, CaseIterable {
     case low = "low"
     case medium = "medium"
     case high = "high"
-    
+
     var displayName: String {
         switch self {
         case .low: return "Low"
@@ -42,7 +42,7 @@ enum CongestionLevel: String, CaseIterable {
         case .high: return "High"
         }
     }
-    
+
     var color: Color {
         switch self {
         case .low: return .green
@@ -54,9 +54,9 @@ enum CongestionLevel: String, CaseIterable {
 
 enum TrendDirection {
     case up, down, stable
-    
+
     var isUp: Bool { self == .up }
-    
+
     var icon: String {
         switch self {
         case .up: return "arrow.up.circle.fill"
@@ -64,7 +64,7 @@ enum TrendDirection {
         case .stable: return "minus.circle.fill"
         }
     }
-    
+
     var color: Color {
         switch self {
         case .up: return .red // Up trend = more expensive = bad for users
@@ -82,7 +82,7 @@ extension GasPriceEstimate {
         if networkCongestion >= 0.3 { return .medium }
         return .low
     }
-    
+
     var baseFeeTrendDirection: TrendDirection {
         switch baseFeeTrend.lowercased() {
         case "up": return .up
@@ -90,7 +90,7 @@ extension GasPriceEstimate {
         default: return .stable
         }
     }
-    
+
     var priorityFeeTrendDirection: TrendDirection {
         switch priorityFeeTrend.lowercased() {
         case "up": return .up
@@ -98,31 +98,31 @@ extension GasPriceEstimate {
         default: return .stable
         }
     }
-    
+
     // Display properties with proper units
     var networkCongestionDisplay: String {
         String(format: "%.1f%%", networkCongestion * 100)
     }
-    
+
     var estimatedBaseFeeDisplay: String {
         formatGweiValue(estimatedBaseFee)
     }
-    
+
     var historicalBaseFeeDisplay: String {
         guard historicalBaseFeeRange.count >= 2 else { return "N/A" }
         return "\(formatGweiValue(historicalBaseFeeRange[0])) - \(formatGweiValue(historicalBaseFeeRange[1]))"
     }
-    
+
     var latestPriorityFeeDisplay: String {
         guard latestPriorityFeeRange.count >= 2 else { return "N/A" }
         return "\(formatGweiValue(latestPriorityFeeRange[0])) - \(formatGweiValue(latestPriorityFeeRange[1]))"
     }
-    
+
     var historicalPriorityFeeDisplay: String {
         guard historicalPriorityFeeRange.count >= 2 else { return "N/A" }
         return "\(formatGweiValue(historicalPriorityFeeRange[0])) - \(formatGweiValue(historicalPriorityFeeRange[1]))"
     }
-    
+
     private func formatGweiValue(_ value: String) -> String {
         guard let doubleValue = Double(value) else { return value }
         if doubleValue < 0.001 {
@@ -140,16 +140,16 @@ extension GasPriceEstimate.FeeDetails {
         guard let doubleValue = Double(suggestedMaxFeePerGas) else { return suggestedMaxFeePerGas }
         return String(format: "%.1f Gwei", doubleValue)
     }
-    
+
     var priorityFeeDisplay: String {
         guard let doubleValue = Double(suggestedMaxPriorityFeePerGas) else { return suggestedMaxPriorityFeePerGas }
         return String(format: "%.3f Gwei", doubleValue)
     }
-    
+
     var waitTimeDisplay: String {
         let minSeconds = minWaitTimeEstimate / 1000
         let maxSeconds = maxWaitTimeEstimate / 1000
-        
+
         if maxSeconds < 60 {
             return "\(minSeconds)-\(maxSeconds)s"
         } else {
@@ -168,7 +168,7 @@ final class GasPriceEstimateViewModel: ObservableObject {
     @Published private(set) var error: Error?
     @Published private(set) var currentChain: Chain?
     @Published private(set) var lastUpdated: Date?
-    
+
     private let provider: any GasPricingProviding
     private var currentTask: Task<Void, Never>?
     private var refreshTimer: Timer?
@@ -176,28 +176,28 @@ final class GasPriceEstimateViewModel: ObservableObject {
     init(provider: any GasPricingProviding = AlchemyGasPricingProvider()) {
         self.provider = provider
     }
-    
+
     deinit {
         currentTask?.cancel()
         refreshTimer?.invalidate()
     }
-    
+
     func setChain(_ chain: Chain) {
         guard currentChain?.chainId != chain.chainId else { return }
-        
+
         // Clear stale data immediately when changing chains
         if currentChain != nil {
             estimate = nil
             error = nil
             lastUpdated = nil
         }
-        
+
         currentChain = chain
-        
+
         // Cancel any existing fetch
         currentTask?.cancel()
         refreshTimer?.invalidate()
-        
+
         // Start new fetch with slight debounce for chain changes
         currentTask = Task {
             defer { currentTask = nil }
@@ -208,12 +208,12 @@ final class GasPriceEstimateViewModel: ObservableObject {
             }
         }
     }
-    
+
     func fetchGasPrice() async {
         guard let chain = currentChain else { return }
         await performFetch(for: chain)
     }
-    
+
     private func startAutoRefresh() {
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
@@ -229,18 +229,18 @@ final class GasPriceEstimateViewModel: ObservableObject {
         guard !isLoading else { return }
         await fetchGasPrice()
     }
-    
+
     private func performFetch(for chain: Chain) async {
         isLoading = true
         error = nil
-        
+
         defer {
             isLoading = false
         }
-        
+
         do {
             let result = try await provider.gasPriceEstimate(for: chain)
-            
+
             // Only update if we're still on the same chain and not cancelled
             if !Task.isCancelled && currentChain?.chainId == chain.chainId {
                 self.estimate = result
@@ -268,7 +268,7 @@ struct GasPriceEstimateView: View {
                 lastUpdated: viewModel.lastUpdated,
                 isLoading: viewModel.isLoading
             )
-            
+
             content
         }
         .padding()
@@ -276,19 +276,19 @@ struct GasPriceEstimateView: View {
             viewModel.setChain(chain)
         }
     }
-    
+
     @ViewBuilder
     private var content: some View {
         if let estimate = viewModel.estimate {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     FeeEstimateCardView(estimate: estimate)
-                    
+
                     HStack(spacing: 12) {
                         BaseFeeCardView(estimate: estimate)
                         NetworkCongestionView(estimate: estimate)
                     }
-                    
+
                     PriorityFeeCardView(estimate: estimate)
                 }
                 .padding(.horizontal)
@@ -315,7 +315,7 @@ extension GasPriceEstimateView {
         let chainName: String
         let lastUpdated: Date?
         let isLoading: Bool
-        
+
         var body: some View {
             VStack(spacing: 8) {
                 AuraSectionHeader(
@@ -371,7 +371,7 @@ extension GasPriceEstimateView {
     struct ErrorView: View {
         let error: Error?
         let onRetry: () async -> Void
-        
+
         var body: some View {
             AuraSurfaceCard {
                 ContentUnavailableView {
@@ -389,7 +389,7 @@ extension GasPriceEstimateView {
                 .frame(maxWidth: .infinity, minHeight: 200)
             }
         }
-        
+
         private var errorMessage: String {
             guard let error = error else {
                 return "Failed to fetch gas price estimate. Please try again later."
@@ -402,12 +402,12 @@ extension GasPriceEstimateView {
     struct CardView<Content: View>: View {
         let title: String
         let content: () -> Content
-        
+
         init(title: String, @ViewBuilder content: @escaping () -> Content) {
             self.title = title
             self.content = content
         }
-        
+
         var body: some View {
             AuraSurfaceCard {
                 VStack(alignment: .leading, spacing: 12) {
@@ -458,7 +458,7 @@ extension GasPriceEstimateView {
                         value: estimate.estimatedBaseFeeDisplay,
                         trend: estimate.baseFeeTrendDirection
                     )
-                    
+
                     DataRowView(
                         title: "24h Range",
                         value: estimate.historicalBaseFeeDisplay,
@@ -481,7 +481,7 @@ extension GasPriceEstimateView {
                         value: estimate.latestPriorityFeeDisplay,
                         trend: estimate.priorityFeeTrendDirection
                     )
-                    
+
                     DataRowView(
                         title: "Historical",
                         value: estimate.historicalPriorityFeeDisplay,
@@ -505,12 +505,12 @@ extension GasPriceEstimateView {
                                 .fontWeight(.semibold)
                             SecondaryText("Congestion")
                         }
-                        
+
                         Spacer()
-                        
+
                         CongestionIndicator(level: estimate.congestionLevel)
                     }
-                    
+
                     HStack {
                         SecondaryText("Activity: \(estimate.networkCongestionDisplay)")
                         Spacer()
@@ -519,7 +519,7 @@ extension GasPriceEstimateView {
             }
         }
     }
-    
+
     // MARK: - Congestion Indicator
     struct CongestionIndicator: View {
         let level: CongestionLevel
@@ -538,7 +538,7 @@ extension GasPriceEstimateView {
             let isActive = index < activeBars
             return isActive ? level.color : Color.textSecondary.opacity(0.3)
         }
-        
+
         private var activeBars: Int {
             switch level {
             case .low: return 1
@@ -562,9 +562,9 @@ extension GasPriceEstimateView {
                         SecondaryText(urgency.description)
                             .font(.caption)
                     }
-                    
+
                     Spacer()
-                    
+
                     VStack(alignment: .trailing, spacing: 2) {
                         PrimaryText(feeDetails.maxFeeDisplay)
                             .fontWeight(.medium)
@@ -572,7 +572,7 @@ extension GasPriceEstimateView {
                             .font(.caption)
                     }
                 }
-                
+
                 if urgency != .high {
                     Divider()
                         .background(Color.textSecondary.opacity(0.2))
@@ -593,10 +593,10 @@ extension GasPriceEstimateView {
                     .fontWeight(.medium)
 
                 Spacer()
-                
+
                 HStack(spacing: 4) {
                     PrimaryText(value)
-                    
+
                     if let trend = trend, trend != .stable {
                         SystemImage(trend.icon)
                             .foregroundStyle(trend.color)

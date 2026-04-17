@@ -34,7 +34,7 @@ struct NewsFeedListingView: View {
                     }
             }
         }
-        
+
         return currentNFTs
     }
 

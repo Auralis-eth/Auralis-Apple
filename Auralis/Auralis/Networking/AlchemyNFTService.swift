@@ -65,7 +65,7 @@ final class AlchemyNFTService: NFTInventoryProviding {
         }
         let error: Inner
     }
-    
+
     private struct ErrorEnvelope2: Decodable {
         let code: String?
         let message: String?

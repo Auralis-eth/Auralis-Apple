@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - Mini Player (bottom accessory)
 struct MiniPlayerView: View {
     @ObservedObject var audioEngine: AudioEngine
-    
+
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
     @State private var showNowPlaying: Bool = false
     @State private var miniSeekValue: Double = 0
@@ -52,7 +52,7 @@ struct MiniPlayerView: View {
         }
         .accessibilityElement(children: .contain)
     }
-    
+
     private func timeString(from seconds: TimeInterval) -> String {
         guard seconds.isFinite else { return "0:00" }
         let s = Int(seconds)
@@ -77,7 +77,7 @@ struct MiniPlayerContentView: View {
                         .id(currentTrack.id) // forces a full rebuild when the track identity changes
                     Spacer()
                 }
-                
+
                 // playback controls
                 HStack(spacing: 8) {
                     // Previous track
@@ -105,7 +105,7 @@ struct MiniPlayerContentView: View {
                 }
                 .buttonStyle(.glass)
             }
-            
+
             // Adaptive progress/seek
             switch (accessoryMode, audioEngine.currentTrack) {
             case (.expanded, let track?):
@@ -164,7 +164,7 @@ struct MiniPlayerPlayingView: View {
                 )
                 .padding(.trailing)
         }
-            
+
         // title / artist
         VStack(alignment: .leading) {
             Text(currentTrack.title ?? "Unknown Title")

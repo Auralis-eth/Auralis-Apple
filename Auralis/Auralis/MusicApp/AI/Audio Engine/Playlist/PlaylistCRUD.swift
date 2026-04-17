@@ -10,7 +10,7 @@ public enum PlaylistError: Error, LocalizedError, Sendable {
     case fetchFailed(underlying: Error)
     case migrationFailed(underlying: Error)
     case corruptData
-    
+
     /// A user-facing description for the failure.
     public var errorDescription: String? {
         switch self {
@@ -34,12 +34,12 @@ public enum PlaylistError: Error, LocalizedError, Sendable {
 public struct PlaylistRepository: Sendable {
     /// The backing SwiftData container.
     public let container: ModelContainer
-    
+
     /// Creates a repository around an existing SwiftData container.
     public init(container: ModelContainer) {
         self.container = container
     }
-    
+
     /// Creates a fresh `ModelContext` bound to the repository container.
     public func context() -> ModelContext {
         ModelContext(container)
@@ -80,7 +80,7 @@ public extension ModelContext {
             throw PlaylistError.saveFailed(underlying: error)
         }
     }
-    
+
     /// Updates mutable playlist fields and persists the changes.
     func updatePlaylist(
         _ playlist: Playlist,
@@ -115,7 +115,7 @@ public extension ModelContext {
             throw PlaylistError.saveFailed(underlying: error)
         }
     }
-    
+
     /// Deletes a playlist and persists the removal.
     func deletePlaylist(_ playlist: Playlist) throws {
         delete(playlist)

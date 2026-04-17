@@ -11,7 +11,7 @@ struct NewPlaylistView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.supportsImagePlayground) private var supportsImagePlayground
-    
+
     @State private var title: String = ""
     @State private var descriptionText: String = ""
     @State private var photoItem: PhotosPickerItem? = nil
@@ -21,25 +21,25 @@ struct NewPlaylistView: View {
     @State private var errorMessage: String? = nil
     @State private var isShowingPlayground = false
     @State private var isProcessingImage: Bool = false
-    
+
     @State private var sourceMenuPresented: Bool = false
     @State private var showCameraSheet: Bool = false
     @State private var showPhotoPickerSheet: Bool = false
     @State private var shouldLaunchPlaygroundAfterPick: Bool = false
     @State private var capturedImage: UIImage? = nil
-    
+
     let onSuccess: (String) -> Void
-    
+
     @FocusState private var titleFieldFocused: Bool
-    
+
     private var trimmedTitle: String {
         title.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    
+
     private var isTitleValid: Bool {
         !trimmedTitle.isEmpty
     }
-    
+
     var body: some View {
         NavigationStack {
             Form {
@@ -86,7 +86,7 @@ struct NewPlaylistView: View {
                         }
                     }
                     HStack {
-                        
+
                         Spacer()
                         if supportsImagePlayground {
                             Button {
@@ -109,7 +109,7 @@ struct NewPlaylistView: View {
                         Spacer()
                     }
                 }
-                
+
                 Section {
                     VStack(alignment: .leading, spacing: 2) {
                         TextField(NSLocalizedString("Title", comment: "Title field placeholder"), text: $title)
@@ -122,7 +122,7 @@ struct NewPlaylistView: View {
                                     descriptionFieldFocus = true
                                 }
                             }
-                        
+
                         if !isTitleValid && !title.isEmpty {
                             Text(NSLocalizedString("Title is required", comment: "Error message for empty title"))
                                 .foregroundColor(.red)
@@ -130,7 +130,7 @@ struct NewPlaylistView: View {
                                 .accessibilityLabel(NSLocalizedString("Title is required", comment: "Accessibility label for title error message"))
                         }
                     }
-                    
+
                     TextEditor(text: $descriptionText)
                         .frame(minHeight: 80, maxHeight: 150)
                         .accessibilityLabel(NSLocalizedString("Description", comment: "Accessibility label for description field"))
@@ -229,13 +229,13 @@ struct NewPlaylistView: View {
             .imagePlaygroundGenerationStyle(.illustration)
         }
     }
-    
+
     var sourceImage: Image? {
         guard let selectedImageData else { return nil }
         guard let image = UIImage(data: selectedImageData) else { return nil }
         return Image(uiImage: image)
     }
-    
+
     @FocusState private var descriptionFieldFocus: Bool
 
     private func startFromCamera() {
@@ -250,16 +250,16 @@ struct NewPlaylistView: View {
     private func startFromBlank() {
         isShowingPlayground = true
     }
-    
+
     private func saveTapped() {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             errorMessage = NSLocalizedString("Title is required", comment: "Error message for empty title")
             return
         }
-        
+
         isSaving = true
-        
+
         // Note: imageRef is nil here as integration with Image Playground is a dependency and not implemented (TICKET-DM001).
         do {
             try modelContext.createPlaylist(
@@ -274,7 +274,7 @@ struct NewPlaylistView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
-        
+
         isSaving = false
     }
 }

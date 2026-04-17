@@ -216,7 +216,7 @@ enum Chain: String, Codable, Equatable, CaseIterable, Identifiable {
             return false
         }
     }
-    
+
     var routingDisplayName: String {
         switch self {
         case .ethMainnet:

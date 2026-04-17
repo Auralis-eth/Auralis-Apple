@@ -39,7 +39,7 @@ class NFTFetcher: NFTFetching {
         case rateLimited
         case networkError(Error)
         case retryExhausted(lastError: Error?)
-        
+
         var isRetryable: Bool {
             switch self {
             case .rateLimited, .networkError:
@@ -48,7 +48,7 @@ class NFTFetcher: NFTFetching {
                 return false
             }
         }
-        
+
         var errorDescription: String? {
             switch self {
             case .missingAPIKey:
@@ -74,23 +74,23 @@ class NFTFetcher: NFTFetching {
     var itemsLoaded: Int? = nil
     var loading: Bool = false
     var error: Error? = nil
-    
+
     var currentCursor: String? = nil
-    
+
     private let maxRetryCount: Int
     private let baseDelayNanoseconds: UInt64
     private let maxDelayNanoseconds: UInt64
     private let nftProviderFactory: NFTProviderFactory
-    
+
     private static let hexAddressRegex = Regex {
         Anchor.startOfSubject
         "0x"
         Repeat(count: 40) { .hexDigit }
         Anchor.endOfSubject
     }
-    
+
     private let throttler = RequestThrottler()
-    
+
     init(maxRetryCount: Int = 10,
          baseDelayNanoseconds: UInt64 = 100_000_000,
          maxDelayNanoseconds: UInt64 = 5_000_000_000,
@@ -100,7 +100,7 @@ class NFTFetcher: NFTFetching {
         self.maxDelayNanoseconds = maxDelayNanoseconds
         self.nftProviderFactory = nftProviderFactory
     }
-    
+
     private func validateAccount(_ account: String) throws {
         guard account.hasPrefix("0x") else {
             throw FetcherError.invalidAccount(reason: "Address must start with 0x")
@@ -114,15 +114,15 @@ class NFTFetcher: NFTFetching {
             throw FetcherError.invalidAccount(reason: "Address must be 0x followed by 40 hexadecimal characters")
         }
     }
-    
+
     private func backoffDelay(for attempt: Int) -> UInt64 {
         let exponentialDelay = UInt64(pow(2.0, Double(attempt))) * baseDelayNanoseconds
         return min(exponentialDelay, maxDelayNanoseconds)
     }
-    
+
     private func shouldRetry(error: Error, attempt: Int) -> Bool {
         guard attempt < maxRetryCount else { return false }
-        
+
         if let fetcherError = error as? FetcherError {
             return fetcherError.isRetryable
         }
@@ -155,7 +155,7 @@ class NFTFetcher: NFTFetching {
         if error is DecodingError {
             return false
         }
-        
+
         if let urlError = error as? URLError {
             switch urlError.code {
             case .timedOut, .cannotConnectToHost, .networkConnectionLost, .notConnectedToInternet:
@@ -164,12 +164,12 @@ class NFTFetcher: NFTFetching {
                 return false
             }
         }
-        
+
         let nsError = error as NSError
         if nsError.domain == NSURLErrorDomain, nsError.code == -1011 {
             return true
         }
-        
+
         return false
     }
 
@@ -231,7 +231,7 @@ class NFTFetcher: NFTFetching {
         var stalledPaginationPageCount = 0
         let maxStalledPaginationPages = maxRetryCount * 3
         var pageCount = 0
-        
+
         repeat {
             try Task.checkCancellation()
             try await throttler.throttle()
@@ -270,7 +270,7 @@ class NFTFetcher: NFTFetching {
                 } else {
                     stalledPaginationPageCount = 0
                 }
-                
+
                 if let totalItems = total {
                     if seenItems >= totalItems {
                         cursor = nil
@@ -278,10 +278,10 @@ class NFTFetcher: NFTFetching {
                         break
                     }
                 }
-                
+
                 attempt = 0
                 self.error = nil
-                
+
             } catch {
                 attempt += 1
                 let wrappedError: Error
@@ -307,7 +307,7 @@ class NFTFetcher: NFTFetching {
                         wrappedError = FetcherError.networkError(error)
                     }
                 }
-                
+
                 self.error = wrappedError
                 logger.error("Error fetching NFTs attempt=\(attempt, privacy: .public) error=\(wrappedError.localizedDescription, privacy: .public)")
 
@@ -315,7 +315,7 @@ class NFTFetcher: NFTFetching {
                    case .retryExhausted = fetcherError {
                     throw fetcherError
                 }
-                
+
                 if shouldRetry(error: wrappedError, attempt: attempt) {
                     let delay = backoffDelay(for: attempt)
                     logger.notice("Retrying NFT fetch in \(Double(delay) / 1_000_000_000, privacy: .public) seconds")
@@ -344,7 +344,7 @@ class NFTFetcher: NFTFetching {
                     throw wrappedError
                 }
             }
-            
+
         } while cursor != nil
 
         if let correlationID {

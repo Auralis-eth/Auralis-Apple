@@ -64,7 +64,7 @@ class ImageLoader: ObservableObject {
 
         loadImage()
     }
-    
+
     private func loadImage() {
         isLoading = true
         image = nil
@@ -87,7 +87,7 @@ class ImageLoader: ObservableObject {
 
             do {
                 let (data, response) = try await URLSession.shared.data(from: url)
-                
+
                 if let httpResponse = response as? HTTPURLResponse,
                    let contentType = httpResponse.allHeaderFields["Content-Type"] as? String ?? httpResponse.value(forHTTPHeaderField: "Content-Type") {
                     let content = contentType.lowercased()
@@ -198,7 +198,7 @@ enum SVGConstants {
     static let prefixSize: Int = 4096 // 4KB, covers typical SVG headers (XML prologs, comments)
     static let svgTagPrefix: String = "<svg"
     static let pattern: String = #"<svg\b[^>]*>"#
-    
+
     static let regex: NSRegularExpression = {
         do {
             return try NSRegularExpression(pattern: pattern, options: .caseInsensitive)
@@ -228,21 +228,21 @@ extension Data {
         guard !isEmpty else {
             return false
         }
-        
+
         // Reject files exceeding max size
         guard count <= SVGConstants.maxFileSize else {
             throw SVGDetectionError.fileTooLarge
         }
-        
+
         // Convert prefix of data to string (UTF-8)
         guard let string = String(data: prefix(SVGConstants.prefixSize), encoding: .utf8) else {
             throw SVGDetectionError.invalidEncoding
         }
-        
+
         // Regex validation for proper SVG opening tag
         let range = NSRange(location: 0, length: string.utf16.count)
         let match = SVGConstants.regex.firstMatch(in: string, options: [], range: range)
-        
+
         return match != nil
     }
 }

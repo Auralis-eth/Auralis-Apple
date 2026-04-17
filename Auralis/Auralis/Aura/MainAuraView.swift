@@ -215,7 +215,7 @@ struct MainAuraView: View {
             }
         }
     }
-    
+
     @MainActor
     init() {
         self.init(services: .live)

@@ -172,7 +172,7 @@ struct NowPlayingView: View {
                                     }
                                 }
                             }
-                            
+
                             // Neighbor previews (Previous / Next)
                             VStack(spacing: 8) {
                                 if let prev = previousPreviewNFT {
@@ -312,7 +312,7 @@ struct NowPlayingView: View {
         let secs = s % 60
         return String(format: "%d:%02d", mins, secs)
     }
-    
+
     // MARK: - Compact Preview Row
     @ViewBuilder
     private func previewRow(title: String,

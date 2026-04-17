@@ -23,7 +23,7 @@ public enum AuroraScene: String, Identifiable, CaseIterable {
     public var id: String {
         rawValue
     }
-    
+
     // Natural landscapes
     case prairie
     case mountain
