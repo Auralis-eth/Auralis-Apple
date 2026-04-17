@@ -5,9 +5,9 @@
 //  Created by Daniel Bell on 5/17/25.
 //
 
-import Testing
 @testable import Auralis
 import Foundation
+import Testing
 
 @Suite struct StringExtractSVGDataTests {
     struct TestCase {

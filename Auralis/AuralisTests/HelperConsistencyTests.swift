@@ -1,7 +1,7 @@
+@testable import Auralis
 import SwiftData
 import SwiftUI
 import Testing
-@testable import Auralis
 
 @Suite
 struct HelperConsistencyTests {

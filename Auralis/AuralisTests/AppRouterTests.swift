@@ -1,5 +1,5 @@
-import Testing
 @testable import Auralis
+import Testing
 
 @Suite struct AppRouterTests {
     @Test("music detail flow keeps the music tab and unwinds one level at a time")

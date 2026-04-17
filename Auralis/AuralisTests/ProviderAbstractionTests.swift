@@ -1,6 +1,6 @@
+@testable import Auralis
 import Foundation
 import Testing
-@testable import Auralis
 
 @Suite(.serialized) struct ProviderAbstractionTests {
     @Test("provider configuration resolves centralized Alchemy endpoints for an EVM chain")

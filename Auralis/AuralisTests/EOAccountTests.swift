@@ -1,6 +1,6 @@
+@testable import Auralis
 import Foundation
 import Testing
-@testable import Auralis
 
 @Suite struct EOAccountTests {
     @Test("phase 0 defaults preserve the current address behavior while filling metadata")

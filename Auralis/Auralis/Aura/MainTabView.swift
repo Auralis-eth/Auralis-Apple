@@ -1,5 +1,5 @@
-import OSLog
 import Observation
+import OSLog
 import SwiftData
 import SwiftUI
 

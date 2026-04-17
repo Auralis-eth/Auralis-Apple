@@ -1,7 +1,7 @@
+@testable import Auralis
 import Foundation
 import SwiftData
 import Testing
-@testable import Auralis
 
 @Suite struct ContextSnapshotTests {
     @Test("live context source builds a versioned snapshot with provenance-bearing scope fields")

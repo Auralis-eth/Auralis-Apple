@@ -1,7 +1,7 @@
+@testable import Auralis
 import Foundation
 import SwiftData
 import Testing
-@testable import Auralis
 
 @Suite
 struct P0201FlowValidationTests {

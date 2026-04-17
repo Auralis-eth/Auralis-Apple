@@ -5,9 +5,9 @@
 //  Created by Daniel Bell on 5/16/25.
 //
 
+@testable import Auralis
 import Foundation
 import Testing
-@testable import Auralis
 
 @Suite struct SecretsTests {
     @Test("missing provider keys fail deterministically when the test bundle is not configured")

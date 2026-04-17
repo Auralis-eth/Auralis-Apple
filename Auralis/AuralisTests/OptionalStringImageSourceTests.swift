@@ -5,9 +5,9 @@
 //  Created by Daniel Bell on 5/17/25.
 //
 
+@testable import Auralis
 import Foundation
 import Testing
-@testable import Auralis
 
 @Suite struct OptionalStringImageSourceTests {
     struct TestCase {

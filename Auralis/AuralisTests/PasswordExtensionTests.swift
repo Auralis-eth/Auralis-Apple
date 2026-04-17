@@ -5,10 +5,10 @@
 //  Created by Daniel Bell on 5/16/25.
 //
 
-import Foundation
-import Testing
-import Security
 @testable import Auralis
+import Foundation
+import Security
+import Testing
 
 // Helper to clean up Keychain before/after tests
 

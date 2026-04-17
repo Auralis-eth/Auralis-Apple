@@ -1,5 +1,5 @@
-import Testing
 @testable import Auralis
+import Testing
 
 @Suite
 struct AuraTrustLabelContractTests {

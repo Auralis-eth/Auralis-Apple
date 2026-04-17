@@ -1,6 +1,6 @@
+@testable import Auralis
 import Foundation
 import Testing
-@testable import Auralis
 
 @Suite struct MainAuraShellLogicTests {
     private let logic = MainAuraShellLogic()

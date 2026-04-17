@@ -5,8 +5,8 @@
 //  Created by Daniel Bell on 5/16/25.
 //
 
-import Testing
 @testable import Auralis
+import Testing
 
 @Suite struct StringExtensionTests {
     // Test isHex property
