@@ -179,8 +179,6 @@ struct SystemFontText: View {
     }
 }
 
-
-
 struct PrimaryTextButton: View {
     let text: String
     let action: () -> Void
@@ -244,7 +242,6 @@ struct SecondarySystemImage: View {
         self.systemName = systemName
     }
 }
-
 
 struct SuccessTextSystemImage: View {
     let systemName: String

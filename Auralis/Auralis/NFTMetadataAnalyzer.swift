@@ -335,7 +335,6 @@ func runMetadataAnalysis() async {
         "0x144757a24B61Cee2e593ADe64DA776759D786d73"
     ]
 
-
     // You'll need to get your ModelContext instance
     let schema = Schema([NFT.self, EOAccount.self])
     let configuration = ModelConfiguration(isStoredInMemoryOnly: true)

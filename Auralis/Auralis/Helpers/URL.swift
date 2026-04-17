@@ -70,7 +70,6 @@ extension URL {
         return [".mp4", ".mov", ".m4v", ".avi"].contains { lowercasePath.hasSuffix($0) }
     }
 
-
     /// Converts the URL to its Pinata IPFS gateway representation.
     ///
     /// This method takes the host and path of the current URL and constructs

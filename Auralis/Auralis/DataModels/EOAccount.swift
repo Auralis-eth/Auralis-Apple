@@ -116,11 +116,6 @@ class EOAccount: Codable, Identifiable {
     var currentChain: Chain { get { Chain(rawValue: currentChainRawValue) ?? .ethMainnet } set { currentChainRawValue = newValue.rawValue } }
 }
 
-
-
-
-
-
 enum EthereumAddressAccess: Codable {
     case wallet
     case readonly

@@ -5,7 +5,6 @@
 //  Created by Daniel Bell on 10/20/25.
 //
 
-
 struct AuroraConfig {
     static let compositions = [
         "rayed arcs",

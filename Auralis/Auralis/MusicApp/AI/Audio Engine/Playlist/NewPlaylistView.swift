@@ -5,7 +5,6 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-
 struct NewPlaylistView: View {
     private static let logger = Logger(subsystem: "Auralis", category: "NewPlaylistView")
     @Environment(\.dismiss) private var dismiss

@@ -369,7 +369,6 @@ private struct AddressEntryContentView: View {
     }
 }
 
-
 struct AddressEntryHeaderView: View {
     var body: some View {
         VStack(spacing: 6) {

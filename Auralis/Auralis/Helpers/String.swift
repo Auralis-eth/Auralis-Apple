@@ -68,7 +68,6 @@ extension String {
     }
 }
 
-
 extension String {
     func extractSVGData() -> String? {
         do {

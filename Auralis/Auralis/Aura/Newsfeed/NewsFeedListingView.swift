@@ -100,7 +100,6 @@ struct NewsFeedListingView: View {
         }
     }
 
-
     init(
         currentAccount: Binding<EOAccount?>,
         selectedNFT: Binding<NFT?>,

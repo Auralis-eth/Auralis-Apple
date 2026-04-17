@@ -67,7 +67,6 @@ extension Color {
     //    for highlights, ensuring good contrast with white text.
     static let accent = Color(hexString: "7751A9")        // Purple
 
-
     // MARK: Background colors
     //    for a sleek, dark mode look, with white text for readability.
     static let background = Color(hexString: "121212")    // Very Dark Gray
@@ -84,7 +83,6 @@ extension Color {
     //black text is recommended
     static let error = Color(hexString: "FF3B30")         // Error Red
     static let success = Color(hexString: "4CD964")       // Success Green
-
 
 //    static let textDark = Color(hexString: "4AD7D1")
     static let auroraGreen = Color(hexString: "39FF14")      // Electric lime green

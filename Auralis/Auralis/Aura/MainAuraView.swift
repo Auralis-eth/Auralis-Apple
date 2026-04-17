@@ -41,7 +41,6 @@ struct MainAuraView: View {
         nftService.isLoading || isloading
     }
 
-
     var body: some View {
         Group {
             if !nftsAreLoading, currentAccount != .none {

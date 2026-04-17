@@ -115,7 +115,6 @@ struct ProfileCardView: View {
         .padding()
     }
 
-
     // MARK: - Avatar Image Generation
 
     private func refreshAvatar() async {
@@ -213,7 +212,6 @@ struct ProfileCardView: View {
         let suffix = String(format: "%02d", imageIndex)
         return UIImage(named: "testProfile-\(suffix)")
     }
-
 
     /// Build a deterministic avatar prompt array for the given address and optional style.
     /// - Parameters:

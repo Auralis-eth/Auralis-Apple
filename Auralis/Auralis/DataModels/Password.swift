@@ -149,7 +149,6 @@ enum PasswordStrength: String {
     }
 }
 
-
 extension Password {
     var strength: PasswordStrength {
         if count < 5 {

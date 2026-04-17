@@ -122,7 +122,6 @@ class NFTMetadataUpdater {
             }
         }
 
-
         // Handle specialized image URLs
         if let primaryAssetUrl = metadata["primaryAssetUrl"]?.stringValue {
             let sanitizedURL = sanitizedMediaURL(from: primaryAssetUrl)

@@ -147,7 +147,6 @@ extension Set where Element == String {
     }
 }
 
-
 // Define priority for URI formats (higher = better)
 enum URIFormat: Int {
     case other = 0
@@ -194,8 +193,6 @@ struct URIConfig {
     ]
 
 }
-
-
 
 extension String {
     static var audioUrl: String {
@@ -452,34 +449,6 @@ extension String {
         "audio"
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 enum URLConversionError: Error, LocalizedError {
     case emptyString

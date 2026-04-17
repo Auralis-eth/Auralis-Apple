@@ -268,7 +268,6 @@ public class NFT: Codable {
         return trimmedValue.lowercased()
     }
 
-
     @Model
     class Contract: Codable {
         @Attribute(.unique) var id: String

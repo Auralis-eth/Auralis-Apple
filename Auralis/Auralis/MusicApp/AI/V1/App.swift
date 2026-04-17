@@ -33,7 +33,6 @@ struct NFTMusicPlayerApp: View {
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
 
-
                 List(sidebarItems, selection: $selection) { item in
                     Label(item.title, systemImage: item.systemImage)
                         .foregroundStyle(Color.textSecondary)

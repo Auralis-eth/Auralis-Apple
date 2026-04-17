@@ -192,7 +192,6 @@ extension ReceiptPayloadField {
     }
 }
 
-
 enum ReceiptActor: String, Codable, Equatable, Sendable {
     case user
     case system

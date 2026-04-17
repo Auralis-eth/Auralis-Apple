@@ -5,8 +5,6 @@
 //  Created by Daniel Bell on 9/4/25.
 //
 
-
-
 import AVFoundation
 import Foundation
 
@@ -25,7 +23,6 @@ public class AudioEngine: ObservableObject {
     /// Queue of upcoming items.
     public var nextAudio = Playlist(name: "Next")
 
-
     private var pausedAt: TimeInterval = 0
     private var seekPosition: TimeInterval = 0
     private var tempAudioURL: URL? // Track temporary downloaded file
@@ -41,7 +38,6 @@ public class AudioEngine: ObservableObject {
         case loading
         case error
     }
-
 
     /// Lightweight presentation model for the currently playing track.
     public struct Track: Identifiable, Equatable, Hashable, Codable, Sendable {
@@ -221,7 +217,6 @@ public class AudioEngine: ObservableObject {
         let fileExtension = url.pathExtension.lowercased()
         return supportedFormats.contains(fileExtension)
     }
-
 
     /// Starts playback for the current file or advances to the next queued item.
     public func play() throws {

@@ -8,8 +8,6 @@
 import SwiftData
 import SwiftUI
 
-
-
 // MARK: - Updated Views
 
 struct NewsFeedView: View {

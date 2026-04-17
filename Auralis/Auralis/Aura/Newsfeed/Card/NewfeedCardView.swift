@@ -86,7 +86,6 @@ struct NewsFeedCardView: View {
         .ignoresSafeArea(.all)
     }
 
-
 }
 
 struct NewsFeedCardButtons: View {
