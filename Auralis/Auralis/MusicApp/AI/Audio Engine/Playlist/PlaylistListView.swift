@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import OSLog
+import SwiftData
+import SwiftUI
 
 struct PlaylistListView: View {
     @Environment(\.modelContext) var modelContext

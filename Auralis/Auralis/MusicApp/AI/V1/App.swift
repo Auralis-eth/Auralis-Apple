@@ -6,10 +6,10 @@
 //  iOS 26 NFT-first music player with Liquid Glass design
 //
 
-import SwiftUI
-import MediaPlayer
 import AVFoundation
+import MediaPlayer
 import SwiftData
+import SwiftUI
 
 struct NFTMusicPlayerApp: View {
     @ObservedObject var audioEngine: AudioEngine

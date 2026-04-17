@@ -5,9 +5,9 @@
 //  Extracted from AuralisApp.swift on request.
 //
 
-import SwiftData
 import Foundation
 import OSLog
+import SwiftData
 
 private let metadataAnalysisLogger = Logger(subsystem: "Auralis", category: "NFTMetadataAnalyzer")
 

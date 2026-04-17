@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct NFTMusicPlayerLibraryView: View {
     @ObservedObject var audioEngine: AudioEngine

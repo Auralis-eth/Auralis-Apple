@@ -1,5 +1,5 @@
-import SwiftUI
 import OSLog
+import SwiftUI
 
 private let modeStateLogger = Logger(subsystem: "Auralis", category: "ModeState")
 

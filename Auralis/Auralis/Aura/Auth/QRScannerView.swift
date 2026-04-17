@@ -6,8 +6,8 @@
 //
 
 import CodeScanner
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 @MainActor
 enum QRScanValidationOutcome: Equatable {

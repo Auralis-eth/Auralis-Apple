@@ -5,9 +5,9 @@
 //  Created by Daniel Bell on 6/19/25.
 //
 
-import SwiftUI
-import SwiftData
 import OSLog
+import SwiftData
+import SwiftUI
 
 struct MainAuraView: View {
     @AppStorage("currentAccountAddress") var currentAddress: String = ""

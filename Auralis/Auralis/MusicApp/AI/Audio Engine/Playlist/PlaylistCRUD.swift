@@ -1,6 +1,6 @@
 import Foundation
-import SwiftData
 import OSLog
+import SwiftData
 
 /// Errors emitted by playlist persistence helpers.
 public enum PlaylistError: Error, LocalizedError, Sendable {

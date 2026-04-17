@@ -1,6 +1,6 @@
+import OSLog
 import SwiftData
 import SwiftUI
-import OSLog
 
 struct AccountSwitcherSheet: View {
     private let logger = Logger(subsystem: "Auralis", category: "AccountSwitcherSheet")

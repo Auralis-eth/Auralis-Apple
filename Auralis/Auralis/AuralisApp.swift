@@ -5,8 +5,8 @@
 //  Created by Daniel Bell on 10/20/24.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 @main
 struct AuralisApp: App {

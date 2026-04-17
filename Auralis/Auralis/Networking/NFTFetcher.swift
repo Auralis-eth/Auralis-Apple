@@ -5,10 +5,10 @@
 //  Created by Daniel Bell on 4/9/25.
 //
 
-import SwiftUI
-import SwiftData
-import RegexBuilder
 import OSLog
+import RegexBuilder
+import SwiftData
+import SwiftUI
 
 protocol NFTFetching: AnyObject {
     var total: Int? { get set }

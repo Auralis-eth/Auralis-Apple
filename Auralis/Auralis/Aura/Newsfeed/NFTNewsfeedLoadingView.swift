@@ -5,8 +5,8 @@
 //  Created by Daniel Bell on 6/24/25.
 //
 
-import SwiftUI
 import OSLog
+import SwiftUI
 
 struct NFTNewsfeedLoadingView: View {
     enum Size {

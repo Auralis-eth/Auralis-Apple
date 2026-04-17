@@ -6,8 +6,8 @@
 //
 
 import Foundation
-import SwiftData
 import OSLog
+import SwiftData
 
 @MainActor
 @Observable
