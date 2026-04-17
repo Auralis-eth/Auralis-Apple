@@ -198,7 +198,7 @@ struct NewPlaylistView: View {
                     isShowingPlayground = true
                 }
             }
-            .onChange(of: photoItem) { oldItem, newItem in
+            .onChange(of: photoItem) { _, newItem in
                 Task {
                     isProcessingImage = true
                     defer { isProcessingImage = false }

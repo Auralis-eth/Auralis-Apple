@@ -116,7 +116,7 @@ struct MainAuraView: View {
         .onOpenURL { url in
             handleIncomingURL(url)
         }
-        .onChange(of: currentAccount) { oldValue, newValue in
+        .onChange(of: currentAccount) { _, newValue in
             let result = shellLogic.accountDidChange(newAccount: newValue, persistedAddress: currentAddress)
 
             currentChain = result.currentChain
@@ -181,10 +181,10 @@ struct MainAuraView: View {
             accountRefreshTask?.cancel()
             accountRefreshTask = nil
         }
-        .onChange(of: currentChain) { oldValue, newValue in
+        .onChange(of: currentChain) { _, newValue in
             currentChainId = newValue.rawValue
         }
-        .onChange(of: currentAddress) { oldValue, newValue in
+        .onChange(of: currentAddress) { _, newValue in
             let result = shellLogic.addressDidChange(
                 newAddress: newValue,
                 currentChain: currentChain,

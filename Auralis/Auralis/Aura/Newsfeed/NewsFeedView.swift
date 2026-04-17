@@ -33,7 +33,7 @@ struct NewsFeedView: View {
         .refreshable {
             await refreshAction()
         }
-        .onChange(of: selectedNFT) { oldValue, newValue in
+        .onChange(of: selectedNFT) { _, newValue in
             guard let newValue else { return }
             router.showNewsNFTDetail(id: newValue.id)
             selectedNFT = nil
