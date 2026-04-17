@@ -508,7 +508,7 @@ private struct ContextRefreshKey: Hashable {
 #Preview {
     struct Wrapper: View {
         @Environment(\.modelContext) private var modelContext
-        @State private var currentAccount: EOAccount? = nil
+        @State private var currentAccount: EOAccount?
         @State private var currentAddress: String = ""
         @State private var currentChainId: String = Chain.ethMainnet.rawValue
         @State private var currentChain: Chain = .ethMainnet

@@ -14,11 +14,11 @@ struct NewPlaylistView: View {
 
     @State private var title: String = ""
     @State private var descriptionText: String = ""
-    @State private var photoItem: PhotosPickerItem? = nil
-    @State private var playlistImage: Image? = nil
-    @State private var selectedImageData: Data? = nil
+    @State private var photoItem: PhotosPickerItem?
+    @State private var playlistImage: Image?
+    @State private var selectedImageData: Data?
     @State private var isSaving: Bool = false
-    @State private var errorMessage: String? = nil
+    @State private var errorMessage: String?
     @State private var isShowingPlayground = false
     @State private var isProcessingImage: Bool = false
 
@@ -26,7 +26,7 @@ struct NewPlaylistView: View {
     @State private var showCameraSheet: Bool = false
     @State private var showPhotoPickerSheet: Bool = false
     @State private var shouldLaunchPlaygroundAfterPick: Bool = false
-    @State private var capturedImage: UIImage? = nil
+    @State private var capturedImage: UIImage?
 
     let onSuccess: (String) -> Void
 

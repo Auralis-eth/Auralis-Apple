@@ -70,12 +70,12 @@ class NFTFetcher: NFTFetching {
         }
     }
 
-    var total: Int? = nil
-    var itemsLoaded: Int? = nil
+    var total: Int?
+    var itemsLoaded: Int?
     var loading: Bool = false
-    var error: Error? = nil
+    var error: Error?
 
-    var currentCursor: String? = nil
+    var currentCursor: String?
 
     private let maxRetryCount: Int
     private let baseDelayNanoseconds: UInt64
@@ -227,7 +227,7 @@ class NFTFetcher: NFTFetching {
             }
             throw error
         }
-        var cursor: String? = nil
+        var cursor: String?
         var stalledPaginationPageCount = 0
         let maxStalledPaginationPages = maxRetryCount * 3
         var pageCount = 0

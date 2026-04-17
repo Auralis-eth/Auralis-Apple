@@ -30,7 +30,6 @@ extension NFTImageSource: Equatable {
 extension Optional where Wrapped == String {
     var imageSource: NFTImageSource? {
         var imageURL = URL(string: self ?? "")
-        let imageData: Data? = nil
         var imageSVG: String?
         if imageURL?.isIPFS ?? false {
             if let host = imageURL?.ipfsHTML {
@@ -76,8 +75,6 @@ extension Optional where Wrapped == String {
         var imageSource: NFTImageSource?
         if let url = imageURL {
             imageSource = .url(url)
-        } else if let imageData {
-            imageSource = .data(imageData)
         } else if let imageSVG {
             imageSource = .svg(imageSVG)
         }

@@ -171,7 +171,7 @@ struct CalloutFontText: View {
 struct SystemFontText: View {
     let text: String
     let size: CGFloat
-    var weight: Font.Weight? = nil
+    var weight: Font.Weight?
     var body: Text {
         Text(text)
             .font(.system(size: size, weight: weight))
@@ -378,4 +378,3 @@ struct AccentTextSystemImage: View {
     }
     .preferredColorScheme(.dark)
 }
-

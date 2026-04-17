@@ -31,7 +31,7 @@ public final class Playlist: Equatable {
     /// Optional reference to a remote image asset.
     public var imageRef: String?
     /// Optional locally persisted artwork data.
-    @Attribute(.externalStorage) public var imageData: Data? = nil
+    @Attribute(.externalStorage) public var imageData: Data?
     /// Creation timestamp.
     public var createdAt: Date = Date()
     /// Last mutation timestamp.

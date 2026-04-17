@@ -2,7 +2,7 @@ import SwiftUI
 
 struct GuestPassCard: View {
     let account: GuestPassAccount
-    var onTap: (() -> Void)? = nil
+    var onTap: (() -> Void)?
 
     @State private var isAnimating = false
 

@@ -191,7 +191,7 @@ final class AlchemyNFTService: NFTInventoryProviding {
         guard (1...100).contains(pageSize) else { throw APIError.invalidPageSize }
 
         // Contract address validation and limit
-        var normalizedAddresses: [String]? = nil
+        var normalizedAddresses: [String]?
         if let addresses = contractAddresses {
             if addresses.count > 45 {
                 throw APIError.tooManyContractAddresses(max: 45)

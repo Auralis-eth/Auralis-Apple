@@ -53,7 +53,7 @@ public class AudioEngine: ObservableObject {
         var imageUrl: String?
     }
 
-    @Published var currentTrack: Track? = nil
+    @Published var currentTrack: Track?
     @Published var playbackState: PlaybackState = .stopped
 
     // Computed property to eliminate state redundancy

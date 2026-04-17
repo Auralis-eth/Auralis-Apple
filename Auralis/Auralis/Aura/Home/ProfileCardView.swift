@@ -17,7 +17,7 @@ struct ProfileCardView: View {
     let ensResolver: any ENSResolving
     let onOpenAccountSwitcher: () -> Void
     @State private var isLoadingAvatar: Bool = false
-    @State private var avatarErrorMessage: String? = nil
+    @State private var avatarErrorMessage: String?
     @State private var showAvatarErrorAlert: Bool = false
     @State private var avatarPromptCache = [String: [ImagePlaygroundConcept]]()
     @State private var activeAvatarRequestID = UUID()

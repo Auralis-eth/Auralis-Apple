@@ -53,8 +53,8 @@ struct NFTNewsfeedLoadingView: View {
 
 struct LoadingProgressView: View {
     private static let logger = Logger(subsystem: "Auralis", category: "NFTNewsfeedLoadingView")
-    var total: Int? = nil
-    var itemsLoaded: Int? = nil
+    var total: Int?
+    var itemsLoaded: Int?
     var phase: NFTService.RefreshPhase = .idle
 
     private var progressValue: Double {

@@ -8,7 +8,7 @@ struct PlaylistListView: View {
     @Query(sort: \Playlist.createdAt, order: .reverse) private var playlists: [Playlist]
 
     @State private var showingNewPlaylist: Bool = false
-    @State private var successMessage: String? = nil
+    @State private var successMessage: String?
 
     private var filteredPlaylists: [Playlist] {
         let t = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
