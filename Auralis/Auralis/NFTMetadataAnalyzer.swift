@@ -228,19 +228,19 @@ class NFTMetadataAnalyzer {
 
     private func getDataType(from value: JSONValue) -> String {
         switch value {
-        case .string(_):
+        case .string:
             return "String"
-        case .bool(_):
+        case .bool:
             return "Bool"
-        case .array(_):
+        case .array:
             return "Array"
-        case .object(_):
+        case .object:
             return "Object"
         case .null:
             return "Null"
-        case .int(_):
+        case .int:
             return "Integer"
-        case .double(_):
+        case .double:
             return "Double"
         }
     }
