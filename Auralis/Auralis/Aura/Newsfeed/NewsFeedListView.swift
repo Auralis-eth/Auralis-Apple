@@ -50,9 +50,9 @@ struct NewsFeedListView: View {
                     Task {
                         await refreshAction()
                     }
-                }) {
+                }, label: {
                     SystemImage("arrow.clockwise")
-                }
+                })
                 .disabled(nftService.isLoading)
             }
         }

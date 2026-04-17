@@ -13,7 +13,7 @@ import SwiftData
 
 // MARK: - NFTMetadataUpdater Utility Class
 class NFTMetadataUpdater {
-    static func updateNFTFromMetadata(nft: NFT, metadata: [String : JSONValue]?) {
+    static func updateNFTFromMetadata(nft: NFT, metadata: [String: JSONValue]?) {
         guard let metadata else {
             return
         }
@@ -266,7 +266,7 @@ class NFTMetadataUpdater {
     }
 
     private static func updateTraitsAndAttributes(nft: NFT, metadata: [String: JSONValue]) {
-        if let attributesArray = metadata["attributes"]?.arrayValue  {//as? [[String: Any]]
+        if let attributesArray = metadata["attributes"]?.arrayValue { // as? [[String: Any]]
             nft.attributes = attributesArray.compactMap {
                 guard let attribute = $0.objectValue else {
                     return nil

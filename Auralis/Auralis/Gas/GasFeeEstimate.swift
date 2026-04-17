@@ -9,9 +9,9 @@ import SwiftUI
 
 // MARK: - Enums for Type Safety
 enum UrgencyLevel: String, CaseIterable {
-    case low = "low"
-    case medium = "medium"
-    case high = "high"
+    case low
+    case medium
+    case high
 
     var displayName: String {
         switch self {
@@ -31,9 +31,9 @@ enum UrgencyLevel: String, CaseIterable {
 }
 
 enum CongestionLevel: String, CaseIterable {
-    case low = "low"
-    case medium = "medium"
-    case high = "high"
+    case low
+    case medium
+    case high
 
     var displayName: String {
         switch self {

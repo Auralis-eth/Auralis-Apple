@@ -183,13 +183,13 @@ struct PrimaryTextButton: View {
     let text: String
     let action: () -> Void
     var body: some View {
-        Button(action: action) {
+        Button(action: action, label: {
             PrimaryText(text)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(Color.deepBlue)
                 .cornerRadius(8)
-        }
+        })
     }
 
     init(_ text: String, action: @escaping () -> Void) {
@@ -203,7 +203,7 @@ struct SystemImage: View {
     var body: some View {
         Image(systemName: systemName)
             .symbolColorRenderingMode(.gradient)
-//            .resizable()
+            // .resizable()
     }
     init(_ systemName: String) {
         self.systemName = systemName

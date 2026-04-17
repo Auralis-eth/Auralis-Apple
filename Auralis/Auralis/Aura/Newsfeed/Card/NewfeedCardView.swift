@@ -96,7 +96,7 @@ struct NewsFeedCardButtons: View {
     var body: some View {
         GlassEffectContainer {
             VStack {
-                Button(action: {}) {
+                Button(action: {}, label: {
                     ZStack {
                         Circle()
                             .stroke(Color.textPrimary, lineWidth: 2)
@@ -107,7 +107,7 @@ struct NewsFeedCardButtons: View {
                             .fill(Color.orange)
                             .frame(width: 20, height: 20)
                     }
-                }
+                })
 
                 Menu {
                     Button(action: {
@@ -122,27 +122,27 @@ struct NewsFeedCardButtons: View {
 
                 Button(action: {
                     // Like action
-                }) {
+                }, label: {
                     PrimaryTextSystemImage("heart")
-                }
+                })
 
                 Button(action: {
                     // Comment action
-                }) {
+                }, label: {
                     PrimaryTextSystemImage("bubble.right")
-                }
+                })
 
                 Button(action: {
                     // Share action
-                }) {
+                }, label: {
                     PrimaryTextSystemImage("paperplane")
-                }
+                })
 
                 Button(action: {
                     // Bookmark action
-                }) {
+                }, label: {
                     PrimaryTextSystemImage("bookmark")
-                }
+                })
             }
             .font(.title2)
             .padding()

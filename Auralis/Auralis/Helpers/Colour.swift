@@ -80,7 +80,7 @@ extension Color {
     static let textSecondary = Color(hexString: "BDBDBD") // Light Gray
 
     // Status colors
-    //black text is recommended
+    // black text is recommended
     static let error = Color(hexString: "FF3B30")         // Error Red
     static let success = Color(hexString: "4CD964")       // Success Green
 

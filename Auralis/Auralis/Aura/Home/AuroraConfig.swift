@@ -23,7 +23,7 @@ struct AuroraConfig {
     ]
 
     /// Tasteful chain motifs (no logos, no on-canvas text)
-    static let chainThemes: [String:String] = [
+    static let chainThemes: [String: String] = [
         "1"    : "diamond-facet shimmer, prismatic refractions",
         "mainnet":"diamond-facet shimmer, prismatic refractions",
         "ethereum":"diamond-facet shimmer, prismatic refractions",

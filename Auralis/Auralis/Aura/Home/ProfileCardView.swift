@@ -54,7 +54,7 @@ struct ProfileCardView: View {
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         .scaleEffect(1.5)
                 } else {
-                    Image(systemName:"person.crop.circle.fill")
+                    Image(systemName: "person.crop.circle.fill")
                         .resizable()
                         .scaledToFit()
                         .foregroundColor(.deepBlue)

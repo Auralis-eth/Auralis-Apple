@@ -25,7 +25,7 @@ struct NewsFeedListingView: View {
 
     var displayNFTs: [NFT] {
         var currentNFTs = nfts
-        //filter search
+        // Filter search
         if !searchString.trimmingCharacters(in: .whitespaces).isEmpty {
             currentNFTs = currentNFTs.filter {
                 [$0.name, $0.collection?.name, $0.nftDescription]

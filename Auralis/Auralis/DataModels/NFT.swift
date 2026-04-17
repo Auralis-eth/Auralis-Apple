@@ -280,12 +280,8 @@ public class NFT: Codable {
             self.chainRawValue = chain.rawValue
         }
 
-        enum CodingKeys: String, CodingKey {
-            case address
-        }
-
         required init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let container = try decoder.container(keyedBy: NFTContractCodingKeys.self)
             let decodedAddress = try container.decodeIfPresent(String.self, forKey: .address)
             address = decodedAddress
             chainRawValue = Chain.ethMainnet.rawValue
@@ -293,7 +289,7 @@ public class NFT: Codable {
         }
 
         func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
+            var container = encoder.container(keyedBy: NFTContractCodingKeys.self)
             try container.encode(address, forKey: .address)
         }
 
@@ -319,19 +315,14 @@ public class NFT: Codable {
             self.thumbnailUrl = thumbnailUrl
         }
 
-        enum CodingKeys: String, CodingKey {
-            case originalUrl
-            case thumbnailUrl
-        }
-
         required init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let container = try decoder.container(keyedBy: NFTImageCodingKeys.self)
             originalUrl = try container.decodeIfPresent(String.self, forKey: .originalUrl)
             thumbnailUrl = try container.decodeIfPresent(String.self, forKey: .thumbnailUrl)
         }
 
         func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
+            var container = encoder.container(keyedBy: NFTImageCodingKeys.self)
             try container.encodeIfPresent(originalUrl, forKey: .originalUrl)
             try container.encodeIfPresent(thumbnailUrl, forKey: .thumbnailUrl)
         }
@@ -348,13 +339,8 @@ public class NFT: Codable {
             self.metadata = metadata
         }
 
-        enum CodingKeys: String, CodingKey {
-            case tokenUri
-            case metadata
-        }
-
         required init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let container = try decoder.container(keyedBy: NFTRawCodingKeys.self)
             tokenUri = try container.decodeIfPresent(String.self, forKey: .tokenUri)
             do {
                 metadata = try container.decodeIfPresent([String: JSONValue].self, forKey: .metadata)
@@ -365,7 +351,7 @@ public class NFT: Codable {
         }
 
         func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
+            var container = encoder.container(keyedBy: NFTRawCodingKeys.self)
             try container.encodeIfPresent(tokenUri, forKey: .tokenUri)
             try container.encodeIfPresent(metadata, forKey: .metadata)
         }
@@ -378,13 +364,6 @@ public class NFT: Codable {
         var metadataDescription: String?
         var attributes: [Attribute]?
 
-        enum CodingKeys: String, CodingKey {
-            case image
-            case name
-            case metadataDescription = "description"
-            case attributes
-        }
-
         init(image: String? = nil, name: String? = nil, metadataDescription: String? = nil, attributes: [Attribute]? = nil) {
             self.image = image
             self.name = name
@@ -393,7 +372,7 @@ public class NFT: Codable {
         }
 
         required init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let container = try decoder.container(keyedBy: NFTMetadataCodingKeys.self)
             image = try container.decodeIfPresent(String.self, forKey: .image)
             name = try container.decodeIfPresent(String.self, forKey: .name)
             metadataDescription = try container.decodeIfPresent(String.self, forKey: .metadataDescription)
@@ -401,7 +380,7 @@ public class NFT: Codable {
         }
 
         func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
+            var container = encoder.container(keyedBy: NFTMetadataCodingKeys.self)
             try container.encodeIfPresent(image, forKey: .image)
             try container.encodeIfPresent(name, forKey: .name)
             try container.encodeIfPresent(metadataDescription, forKey: .metadataDescription)
@@ -416,24 +395,19 @@ public class NFT: Codable {
 
         var nft: NFT?
 
-        enum CodingKeys: String, CodingKey {
-            case value
-            case traitType = "trait_type"
-        }
-
         init(value: String, traitType: String? = nil) {
             self.value = value
             self.traitType = traitType
         }
 
         required init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let container = try decoder.container(keyedBy: NFTAttributeCodingKeys.self)
             value = try container.decode(String.self, forKey: .value)
             traitType = try container.decodeIfPresent(String.self, forKey: .traitType)
         }
 
         func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
+            var container = encoder.container(keyedBy: NFTAttributeCodingKeys.self)
             try container.encode(value, forKey: .value)
             try container.encodeIfPresent(traitType, forKey: .traitType)
         }
@@ -445,10 +419,6 @@ public class NFT: Codable {
         var name: String?
         var chainRawValue: String
         var contractAddress: String?
-
-        enum CodingKeys: String, CodingKey {
-            case name
-        }
 
         init(
             name: String?,
@@ -466,7 +436,7 @@ public class NFT: Codable {
         }
 
         required init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let container = try decoder.container(keyedBy: NFTCollectionCodingKeys.self)
             let decodedName = try container.decodeIfPresent(String.self, forKey: .name)
             name = decodedName
             chainRawValue = Chain.ethMainnet.rawValue
@@ -475,7 +445,7 @@ public class NFT: Codable {
         }
 
         func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
+            var container = encoder.container(keyedBy: NFTCollectionCodingKeys.self)
             try container.encodeIfPresent(name, forKey: .name)
         }
 
@@ -507,22 +477,52 @@ public class NFT: Codable {
     class AcquiredAt: Codable {
         var blockTimestamp: String?
 
-        enum CodingKeys: String, CodingKey {
-            case blockTimestamp
-        }
-
         init(blockTimestamp: String? = nil) {
             self.blockTimestamp = blockTimestamp
         }
 
         required init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let container = try decoder.container(keyedBy: NFTAcquiredAtCodingKeys.self)
             blockTimestamp = try container.decodeIfPresent(String.self, forKey: .blockTimestamp)
         }
 
         func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
+            var container = encoder.container(keyedBy: NFTAcquiredAtCodingKeys.self)
             try container.encodeIfPresent(blockTimestamp, forKey: .blockTimestamp)
         }
     }
+}
+
+private enum NFTContractCodingKeys: String, CodingKey {
+    case address
+}
+
+private enum NFTImageCodingKeys: String, CodingKey {
+    case originalUrl
+    case thumbnailUrl
+}
+
+private enum NFTRawCodingKeys: String, CodingKey {
+    case tokenUri
+    case metadata
+}
+
+private enum NFTMetadataCodingKeys: String, CodingKey {
+    case image
+    case name
+    case metadataDescription = "description"
+    case attributes
+}
+
+private enum NFTAttributeCodingKeys: String, CodingKey {
+    case value
+    case traitType = "trait_type"
+}
+
+private enum NFTCollectionCodingKeys: String, CodingKey {
+    case name
+}
+
+private enum NFTAcquiredAtCodingKeys: String, CodingKey {
+    case blockTimestamp
 }
