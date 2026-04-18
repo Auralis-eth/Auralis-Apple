@@ -49,6 +49,7 @@ public struct PlaylistRepository: Sendable {
 private let logger = Logger(subsystem: "Auralis", category: "PlaylistCRUD")
 
 @MainActor
+/// Convenience playlist persistence helpers layered onto `ModelContext`.
 public extension ModelContext {
     @discardableResult
     /// Creates and persists a new playlist.

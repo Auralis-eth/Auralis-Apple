@@ -45,13 +45,16 @@ private struct ModeStateKey: EnvironmentKey {
     nonisolated(unsafe) static let defaultValue: ModeState = ModeState()
 }
 
+/// Environment accessors for reading and overriding the shared mode state.
 public extension EnvironmentValues {
+    /// The shared mode state injected into the SwiftUI environment.
     var modeState: ModeState {
         get { self[ModeStateKey.self] }
         set { self[ModeStateKey.self] = newValue }
     }
 }
 
+/// Convenience helpers for installing mode state into SwiftUI view hierarchies.
 public extension View {
     /// Injects a shared ModeState into the environment.
     func modeState(_ state: ModeState) -> some View {
