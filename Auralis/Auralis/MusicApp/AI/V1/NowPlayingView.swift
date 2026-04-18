@@ -101,6 +101,8 @@ struct NowPlayingView: View {
                                         Image(systemName: "gobackward.10")
                                             .font(.title3)
                                     }
+                                    .accessibilityLabel("Skip backward 10 seconds")
+                                    .accessibilityHint("Moves playback backward by ten seconds")
 
                                     // Previous track
                                     Button {
@@ -112,6 +114,8 @@ struct NowPlayingView: View {
                                             .font(.title2)
                                             .foregroundStyle(.primary)
                                     }
+                                    .accessibilityLabel("Previous track")
+                                    .accessibilityHint("Plays the previous track")
 
                                     // Main play/pause handling including loading state
                                     switch audioEngine.playbackState {
@@ -126,12 +130,16 @@ struct NowPlayingView: View {
                                                 .progressViewStyle(CircularProgressViewStyle())
                                                 .scaleEffect(1.2)
                                         }
+                                        .accessibilityLabel("Loading playback")
+                                        .accessibilityHint("Playback is loading")
 
                                     case .playing:
                                         Button(action: audioEngine.pause) {
                                             Image(systemName: "pause.fill")
                                                 .font(.system(size: 56))
                                         }
+                                        .accessibilityLabel("Pause")
+                                        .accessibilityHint("Pauses the current track")
 
                                     case .paused:
                                         Button {
@@ -140,6 +148,8 @@ struct NowPlayingView: View {
                                             Image(systemName: "play.fill")
                                                 .font(.system(size: 56))
                                         }
+                                        .accessibilityLabel("Resume")
+                                        .accessibilityHint("Resumes the current track")
 
                                     case .stopped:
                                         Button {
@@ -148,6 +158,8 @@ struct NowPlayingView: View {
                                             Image(systemName: "play.fill")
                                                 .font(.system(size: 56))
                                         }
+                                        .accessibilityLabel("Play")
+                                        .accessibilityHint("Starts playback")
                                     case .error:
                                         EmptyView()
                                     }
@@ -162,6 +174,8 @@ struct NowPlayingView: View {
                                             .font(.title2)
                                             .foregroundStyle(.primary)
                                     }
+                                    .accessibilityLabel("Next track")
+                                    .accessibilityHint("Plays the next track")
 
                                     // Coarse skip forward
                                     Button {
@@ -170,6 +184,8 @@ struct NowPlayingView: View {
                                         Image(systemName: "goforward.10")
                                             .font(.title3)
                                     }
+                                    .accessibilityLabel("Skip forward 10 seconds")
+                                    .accessibilityHint("Moves playback forward by ten seconds")
                                 }
                             }
 

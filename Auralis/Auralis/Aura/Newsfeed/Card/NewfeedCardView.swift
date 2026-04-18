@@ -13,6 +13,12 @@ import UIKit
 struct NewsFeedCardView: View {
     let nft: NFT
     @State private var isExpanded: Bool = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .body) private var actionRailWidth = 70
+
+    private var detailsWidthRatio: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 0.78 : 0.65
+    }
 
     @ViewBuilder
     private var imageView: some View {
@@ -61,7 +67,7 @@ struct NewsFeedCardView: View {
                                 .glassEffect(.regular.tint(.surface),
                                            in: .rect(cornerRadius: 30, style: .continuous))
                                 .padding(.leading, 15)
-                                .frame(maxWidth: geo.size.width * 0.65, alignment: .leading)
+                                .frame(maxWidth: geo.size.width * detailsWidthRatio, alignment: .leading)
                         }
                         .defaultScrollAnchor(.top)
                         .frame(maxHeight: geo.size.height * 0.4)
@@ -70,12 +76,12 @@ struct NewsFeedCardView: View {
                             .glassEffect(.regular.tint(.surface),
                                        in: .rect(cornerRadius: 30, style: .continuous))
                             .padding(.leading, 15)
-                            .frame(maxWidth: geo.size.width * 0.65, alignment: .leading)
+                            .frame(maxWidth: geo.size.width * detailsWidthRatio, alignment: .leading)
                     }
 
                     // Action buttons
                     NewsFeedCardButtons(nft: nft)
-                        .frame(width: 70) // fixed width so it never clips offscreen
+                        .frame(width: max(actionRailWidth, 70))
                         .padding(.trailing, 5)
                 }
                 .padding(.horizontal, 15)
@@ -108,6 +114,9 @@ struct NewsFeedCardButtons: View {
                             .frame(width: 20, height: 20)
                     }
                 })
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("Open creator profile")
+                .accessibilityHint("Shows profile details for this NFT")
 
                 Menu {
                     Button(action: {
@@ -119,30 +128,41 @@ struct NewsFeedCardButtons: View {
                     SystemImage("ellipsis")
                         .foregroundStyle(Color.textPrimary)
                 }
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("More actions")
+                .accessibilityHint("Shows actions for this NFT")
 
                 Button(action: {
                     // Like action
                 }, label: {
                     PrimaryTextSystemImage("heart")
                 })
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("Like NFT")
 
                 Button(action: {
                     // Comment action
                 }, label: {
                     PrimaryTextSystemImage("bubble.right")
                 })
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("Comment on NFT")
 
                 Button(action: {
                     // Share action
                 }, label: {
                     PrimaryTextSystemImage("paperplane")
                 })
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("Share NFT")
 
                 Button(action: {
                     // Bookmark action
                 }, label: {
                     PrimaryTextSystemImage("bookmark")
                 })
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("Bookmark NFT")
             }
             .font(.title2)
             .padding()

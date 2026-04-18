@@ -26,5 +26,8 @@ struct TorchToggleButton: View {
         }
         .buttonStyle(.glass) // Apply custom button style for subtle animation
         .tint(.surface.opacity(0.5))
+        .accessibilityLabel("Torch")
+        .accessibilityValue(torchOn ? "On" : "Off")
+        .accessibilityHint(torchOn ? "Turns the torch off" : "Turns the torch on")
     }
 }

@@ -87,6 +87,7 @@ struct MiniPlayerContentView: View {
                         Image(systemName: "backward.fill")
                             .font(.title3)
                     }
+                    .accessibilityLabel("Previous track")
 
                     PlaybackStateButton(
                         sourceState: audioEngine.playbackState,
@@ -102,6 +103,7 @@ struct MiniPlayerContentView: View {
                         Image(systemName: "forward.fill")
                             .font(.title3)
                     }
+                    .accessibilityLabel("Next track")
                 }
                 .buttonStyle(.glass)
             }
@@ -228,5 +230,35 @@ struct PlaybackStateButton: View {
             }
         }
         .animation(nil, value: sourceState)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(accessibilityHint)
+    }
+
+    private var accessibilityLabel: String {
+        switch sourceState {
+        case .loading:
+            return "Loading playback"
+        case .playing:
+            return "Pause"
+        case .paused, .stopped:
+            return "Play"
+        case .error:
+            return "Playback unavailable"
+        }
+    }
+
+    private var accessibilityHint: String {
+        switch sourceState {
+        case .loading:
+            return "Playback is loading"
+        case .playing:
+            return "Pauses the current track"
+        case .paused:
+            return "Resumes the current track"
+        case .stopped:
+            return "Starts playback"
+        case .error:
+            return "Playback controls are unavailable"
+        }
     }
 }

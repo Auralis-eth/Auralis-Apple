@@ -1,15 +1,19 @@
 import SwiftUI
 
 struct RecentlyPlayedMiniCard: View {
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter
+    }()
+
     let nft: NFT
     let lastPlayed: Date?
     let onTap: () -> Void
 
     private func relativeDescription(for date: Date?) -> String {
         guard let date else { return NSLocalizedString("Recently played", comment: "Fallback relative time") }
-        let f = RelativeDateTimeFormatter()
-        f.unitsStyle = .full
-        return f.localizedString(for: date, relativeTo: Date())
+        return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
     }
 
     var body: some View {

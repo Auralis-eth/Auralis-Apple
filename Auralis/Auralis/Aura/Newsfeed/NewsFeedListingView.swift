@@ -23,80 +23,74 @@ struct NewsFeedListingView: View {
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
 
-    var displayNFTs: [NFT] {
-        var currentNFTs = nfts
-        // Filter search
-        if !searchString.trimmingCharacters(in: .whitespaces).isEmpty {
-            currentNFTs = currentNFTs.filter {
-                [$0.name, $0.collection?.name, $0.nftDescription]
-                    .contains { field in
-                        field?.localizedStandardContains(searchString) ?? false
-                    }
-            }
+    private var displayNFTs: [NFT] {
+        let trimmedSearchString = searchString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSearchString.isEmpty else {
+            return nfts
         }
 
-        return currentNFTs
+        return nfts.filter { nft in
+            [nft.name, nft.collection?.name, nft.nftDescription]
+                .contains { field in
+                    field?.localizedStandardContains(trimmedSearchString) ?? false
+                }
+        }
     }
 
     var body: some View {
-        if nfts.isEmpty {
-            ZStack {
-                Image("aurora-1")
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
-                    .ignoresSafeArea()
+        Group {
+            if nfts.isEmpty {
+                ZStack {
+                    Image("aurora-1")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
+                        .ignoresSafeArea()
 
-                EmptyNewsFeedView(
-                    currentAccount: currentAccount,
-                    currentChain: currentChain,
-                    nftService: nftService,
-                    refreshAction: refreshAction
-                )
-            }
-        } else {
-            VStack(spacing: 12) {
-                if let failure = nftService.providerFailurePresentation(isShowingCachedContent: true) {
-                    ShellStatusBanner(
-                        title: failure.title,
-                        message: failure.message,
-                        systemImage: failure.systemImage,
-                        tone: .warning,
-                        action: failure.isRetryable ? ShellStatusAction(
-                            title: "Retry",
-                            systemImage: "arrow.clockwise",
-                            handler: refresh
-                        ) : nil
+                    EmptyNewsFeedView(
+                        currentAccount: currentAccount,
+                        currentChain: currentChain,
+                        nftService: nftService,
+                        refreshAction: refreshAction
                     )
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
                 }
-
-                GeometryReader { geometry in
-                    ScrollView(.vertical, showsIndicators: false) {
-                        LazyVStack(spacing: 0) {
-                            ForEach(displayNFTs) { metaData in
-                                Button {
-                                    selectedNFT = metaData
-                                } label: {
-                                    NewsFeedCardView(nft: metaData)
-                                        .frame(width: geometry.size.width,
-                                               height: geometry.size.height)
-                                        .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(metaData.name ?? metaData.collection?.name ?? "Open NFT")
-                                .accessibilityHint("Shows NFT details")
-                                .accessibilityAddTraits(.isButton)
-                            }
-                        }
+            } else {
+                VStack(spacing: 12) {
+                    if let failure = nftService.providerFailurePresentation(isShowingCachedContent: true) {
+                        ShellStatusBanner(
+                            title: failure.title,
+                            message: failure.message,
+                            systemImage: failure.systemImage,
+                            tone: .warning,
+                            action: failure.isRetryable ? ShellStatusAction(
+                                title: "Retry",
+                                systemImage: "arrow.clockwise",
+                                handler: refresh
+                            ) : nil
+                        )
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
                     }
-                    .scrollTargetBehavior(.paging)
+
+                    GeometryReader { geometry in
+                        let cardWidth = geometry.size.width
+                        let cardHeight = geometry.size.height
+
+                        ScrollView(.vertical, showsIndicators: false) {
+                            LazyVStack(spacing: 0) {
+                                ForEach(displayNFTs) { metaData in
+                                    newsFeedCardButton(for: metaData, width: cardWidth, height: cardHeight)
+                                }
+                            }
+                            .scrollTargetLayout()
+                        }
+                        .scrollTargetBehavior(.paging)
+                    }
                 }
+                .background(Color.background)
+                .ignoresSafeArea(.all)
             }
-            .background(Color.background)
-            .ignoresSafeArea(.all)
         }
     }
 
@@ -130,6 +124,21 @@ struct NewsFeedListingView: View {
         Task {
             await refreshAction()
         }
+    }
+
+    private func newsFeedCardButton(for nft: NFT, width: CGFloat, height: CGFloat) -> some View {
+        Button {
+            selectedNFT = nft
+        } label: {
+            NewsFeedCardView(nft: nft)
+                .frame(width: width)
+                .frame(minHeight: height, maxHeight: height)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(nft.name ?? nft.collection?.name ?? "Open NFT")
+        .accessibilityHint("Shows NFT details")
+        .accessibilityAddTraits(.isButton)
     }
 
 }

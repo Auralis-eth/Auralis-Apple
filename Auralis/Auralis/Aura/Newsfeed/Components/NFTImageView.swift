@@ -9,8 +9,7 @@ import ImageIO
 import SwiftUI
 
 // Image Cache Manager
-@MainActor
-class ImageCache {
+final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
     private let cache = NSCache<NSString, UIImage>()
 
@@ -35,8 +34,8 @@ class ImageCache {
 
 // Image Loader that handles caching
 @MainActor
-class ImageLoader: ObservableObject {
-    private static let maxPixelDimension = 1_024
+final class ImageLoader: ObservableObject {
+    nonisolated private static let maxPixelDimension = 1_024
 
     enum LoadingError: Error {
         case invalidData
@@ -50,23 +49,27 @@ class ImageLoader: ObservableObject {
     @Published var error: LoadingError?
 
     private var loadingTask: Task<Void, Never>?
-    private let url: URL
+    let url: URL
     private let cacheKey: String
 
     init(url: URL) {
         self.url = url
         self.cacheKey = url.absoluteString
 
-        // Check cache first
         if let cachedImage = ImageCache.shared.get(for: cacheKey) {
             self.image = cachedImage
+        }
+    }
+
+    func loadIfNeeded() {
+        guard image == nil, !isLoading else {
             return
         }
-
         loadImage()
     }
 
     private func loadImage() {
+        loadingTask?.cancel()
         isLoading = true
         image = nil
         error = nil
@@ -81,38 +84,19 @@ class ImageLoader: ObservableObject {
             return
         }
 
-        loadingTask = Task { @MainActor in
-            defer {
-                isLoading = false
-            }
+        let currentURL = url
+        let currentCacheKey = cacheKey
+        loadingTask = Task {
+            let result = await Self.fetchImage(url: currentURL, cacheKey: currentCacheKey)
+            guard !Task.isCancelled else { return }
 
-            do {
-                let (data, response) = try await URLSession.shared.data(from: url)
+            isLoading = false
 
-                if let httpResponse = response as? HTTPURLResponse,
-                   let contentType = httpResponse.allHeaderFields["Content-Type"] as? String ?? httpResponse.value(forHTTPHeaderField: "Content-Type") {
-                    let content = contentType.lowercased()
-                    if content.contains("video/mp4") || contentType.contains("video/mpeg4") {
-                        error = .videoData
-                        return
-                    }
-                }
-
-                guard !Task.isCancelled else { return }
-
-                if let downloadedImage = Self.downsampledImage(from: data, maxPixelDimension: Self.maxPixelDimension) {
-                    ImageCache.shared.set(downloadedImage, for: cacheKey)
-                    image = downloadedImage
-                } else if (try? data.isSVGData()) == true {
-                    error = .svgData
-                } else {
-                    error = .invalidData
-                }
-            } catch let loadingError {
-                if !Task.isCancelled {
-                    _ = loadingError
-                    error = .networkError
-                }
+            switch result {
+            case .success(let image):
+                self.image = image
+            case .failure(let error):
+                self.error = error
             }
         }
     }
@@ -120,9 +104,10 @@ class ImageLoader: ObservableObject {
     func cancel() {
         loadingTask?.cancel()
         loadingTask = nil
+        isLoading = false
     }
 
-    private static func downsampledImage(from data: Data, maxPixelDimension: Int) -> UIImage? {
+    nonisolated private static func downsampledImage(from data: Data, maxPixelDimension: Int) -> UIImage? {
         let options = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let imageSource = CGImageSourceCreateWithData(data as CFData, options) else {
             return nil
@@ -141,13 +126,49 @@ class ImageLoader: ObservableObject {
 
         return UIImage(cgImage: cgImage)
     }
+
+    nonisolated private static func fetchImage(url: URL, cacheKey: String) async -> Result<UIImage, LoadingError> {
+        if let cachedImage = ImageCache.shared.get(for: cacheKey) {
+            return .success(cachedImage)
+        }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard !Task.isCancelled else { return .failure(.networkError) }
+
+            if let httpResponse = response as? HTTPURLResponse,
+               let contentType = httpResponse.allHeaderFields["Content-Type"] as? String ?? httpResponse.value(forHTTPHeaderField: "Content-Type") {
+                let content = contentType.lowercased()
+                if content.contains("video/mp4") || content.contains("video/mpeg4") {
+                    return .failure(.videoData)
+                }
+            }
+
+            return await Task.detached(priority: .userInitiated) {
+                if let downloadedImage = downsampledImage(from: data, maxPixelDimension: maxPixelDimension) {
+                    ImageCache.shared.set(downloadedImage, for: cacheKey)
+                    return .success(downloadedImage)
+                }
+
+                if (try? data.isSVGData()) == true {
+                    return .failure(.svgData)
+                }
+
+                return .failure(.invalidData)
+            }.value
+        } catch {
+            return .failure(.networkError)
+        }
+    }
 }
 
 // Cached async image view
 struct CachedAsyncImage: View {
     @StateObject private var loader: ImageLoader
+    private let url: URL
 
     init(url: URL) {
+        self.url = url
         _loader = StateObject(wrappedValue: ImageLoader(url: url))
     }
 
@@ -190,6 +211,12 @@ struct CachedAsyncImage: View {
                         .foregroundStyle(Color.textSecondary.opacity(0.3))
                 }
             }
+        }
+        .task(id: url) {
+            loader.loadIfNeeded()
+        }
+        .onDisappear {
+            loader.cancel()
         }
     }
 }

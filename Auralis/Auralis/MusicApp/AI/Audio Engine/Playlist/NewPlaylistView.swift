@@ -221,8 +221,8 @@ struct NewPlaylistView: View {
                 }
             }
             .imagePlaygroundSheet(isPresented: $isShowingPlayground, concept: title, sourceImage: sourceImage) { url in
-                if let data = try? Data(contentsOf: url) {
-                    selectedImageData = data
+                Task {
+                    await loadGeneratedImage(from: url)
                 }
             }
             .imagePlaygroundGenerationStyle(.illustration)
@@ -275,6 +275,22 @@ struct NewPlaylistView: View {
         }
 
         isSaving = false
+    }
+
+    @MainActor
+    private func loadGeneratedImage(from url: URL) async {
+        isProcessingImage = true
+        defer { isProcessingImage = false }
+
+        do {
+            let data = try await Task.detached(priority: .userInitiated) {
+                try Data(contentsOf: url)
+            }.value
+            selectedImageData = data
+        } catch {
+            Self.logger.error("Failed to load generated playlist image: \(error.localizedDescription, privacy: .public)")
+            errorMessage = "Auralis could not load the generated image."
+        }
     }
 }
 

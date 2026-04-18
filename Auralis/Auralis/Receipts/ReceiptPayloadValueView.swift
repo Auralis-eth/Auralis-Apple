@@ -4,6 +4,7 @@ struct ReceiptPayloadValueView: View {
     let label: String
     let value: ReceiptJSONValue
     let depth: Int
+    @ScaledMetric(relativeTo: .body) private var labelColumnWidth = 120
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -25,21 +26,41 @@ struct ReceiptPayloadValueView: View {
                 }
                 .padding(.leading, 12)
             default:
-                HStack(alignment: .top, spacing: 12) {
-                    Text(label)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.textSecondary)
-                        .frame(width: 120, alignment: .leading)
-
-                    Text(formattedScalar(value))
-                        .font(.system(.subheadline, design: .monospaced))
-                        .foregroundStyle(Color.textPrimary)
-                        .textSelection(.enabled)
-
-                    Spacer(minLength: 0)
+                ViewThatFits(in: .horizontal) {
+                    scalarRow
+                    VStack(alignment: .leading, spacing: 6) {
+                        scalarLabel
+                        scalarText
+                    }
                 }
             }
         }
+    }
+
+    private var scalarRow: some View {
+        HStack(alignment: .top, spacing: 12) {
+            scalarLabel
+                .frame(minWidth: min(labelColumnWidth, 120), idealWidth: labelColumnWidth, maxWidth: labelColumnWidth, alignment: .leading)
+
+            scalarText
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var scalarLabel: some View {
+        Text(label)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Color.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var scalarText: some View {
+        Text(formattedScalar(value))
+            .font(.system(.subheadline, design: .monospaced))
+            .foregroundStyle(Color.textPrimary)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func formattedScalar(_ value: ReceiptJSONValue) -> String {
@@ -56,4 +77,5 @@ struct ReceiptPayloadValueView: View {
             return ""
         }
     }
+
 }

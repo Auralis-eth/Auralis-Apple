@@ -8,6 +8,12 @@
 import SwiftUI
 
 struct EnergyCardView: View {
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        return formatter
+    }()
+
     // MARK: - Config
     let title: String = "Energy"
     var time: Date = {
@@ -20,42 +26,50 @@ struct EnergyCardView: View {
     var statusTitle: String = "Warming up"
     var statusSubtitle: String = "Morning energy"
     var symbolName: String = "sun.max.fill"
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     // MARK: - Formatting
     private var timeString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "hh:mm a"
-        return formatter.string(from: time)
+        Self.timeFormatter.string(from: time)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             AuraSectionHeader(title: title)
 
-            // Content
-            HStack(alignment: .center) {
-                // Left: Time
-                Title2FontText(timeString)
-
-                Spacer()
-
-                // Right: Status + Icon
-                HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        PrimaryText(statusTitle)
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                        SecondaryText(statusSubtitle)
-                            .font(.footnote)
-                    }
-
-                    SystemImage(symbolName)
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.yellow, .orange)
-                        .font(.system(size: 34, weight: .bold))
-                        .accessibilityHidden(true)
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 12) {
+                    Title2FontText(timeString)
+                    statusContent(alignment: .leading)
+                }
+            } else {
+                HStack(alignment: .center) {
+                    Title2FontText(timeString)
+                    Spacer()
+                    statusContent(alignment: .trailing)
                 }
             }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func statusContent(alignment: HorizontalAlignment) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: alignment, spacing: 4) {
+                PrimaryText(statusTitle)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                SecondaryText(statusSubtitle)
+                    .font(.footnote)
+            }
+
+            SystemImage(symbolName)
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.yellow, .orange)
+                .font(.system(size: 34, weight: .bold))
+                .accessibilityHidden(true)
+                .accessibilityElement(children: .ignore)
         }
     }
 }

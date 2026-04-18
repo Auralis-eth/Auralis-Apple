@@ -109,28 +109,33 @@ struct GuestPassCard: View {
                 .opacity(0.9)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 30)
-                .strokeBorder(.white.opacity(0.2), lineWidth: 1)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 30)
-                        .stroke(
-                            LinearGradient(
-                                colors: [.clear, .accent.opacity(0.8), .white, .accent.opacity(0.8), .clear],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 2
-                        )
-                        .mask(
-                            LinearGradient(
-                                colors: [.clear, .black, .clear],
-                                startPoint: isAnimating ? .topLeading : .bottomTrailing,
-                                endPoint: isAnimating ? .bottomTrailing : .topLeading
+            GeometryReader { geometry in
+                let maskSide = max(geometry.size.width, geometry.size.height) * 1.6
+                let travel = max(geometry.size.width, geometry.size.height) * 0.35
+
+                RoundedRectangle(cornerRadius: 30)
+                    .strokeBorder(.white.opacity(0.2), lineWidth: 1)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 30)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [.clear, .accent.opacity(0.8), .white, .accent.opacity(0.8), .clear],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 2
                             )
-                            .frame(width: 800, height: 800)
-                            .offset(x: isAnimating ? 200 : -200, y: isAnimating ? 200 : -200)
-                        )
-                )
+                            .mask(
+                                LinearGradient(
+                                    colors: [.clear, .black, .clear],
+                                    startPoint: isAnimating ? .topLeading : .bottomTrailing,
+                                    endPoint: isAnimating ? .bottomTrailing : .topLeading
+                                )
+                                .frame(width: maskSide, height: maskSide)
+                                .offset(x: isAnimating ? travel : -travel, y: isAnimating ? travel : -travel)
+                            )
+                    )
+            }
         }
         .overlay {
             RoundedRectangle(cornerRadius: 30)
