@@ -113,6 +113,28 @@ Three regressions showed up immediately once the uncommitted changes were review
 
 The fix in all three cases was a nice reminder that not every repeated computation is a caching opportunity. If a value is cheap enough and directly derived from live source-of-truth data, letting SwiftUI recompute it is often the more correct move. Local state should own user intent or view-local lifecycle, not become a sidecar database because it feels "faster."
 
+### Swift 6 Test Harness Cleanup: The Compiler Became the Grumpiest Reviewer in the Room
+
+A batch of test failures turned out not to be product bugs at all, but Swift 6 concurrency rules finally collecting old debts from the test target.
+
+What broke:
+
+- several test doubles conformed to `Sendable` protocols while still keeping mutable arrays and dictionaries as plain stored properties
+- a couple of tests pushed `@MainActor` types like `NFTService`, `NFTFetcher`, and `AppRouter` across nonisolated boundaries
+- the URLProtocol-based network mocks used shared static handlers, which is basically a polite way of saying “global mutable state with good intentions”
+- parameterized tests had helper case types that were not `Sendable`, which made Swift Testing’s macros unhappy
+
+The cleanup was surgical:
+
+- stub state that needed mutation moved behind actors or tiny synchronized wrappers
+- tests that were already dealing with main-actor production types were explicitly marked `@MainActor` instead of pretending they were actor-neutral
+- generic `TestCase` helpers were made `Sendable` so Swift Testing could safely package arguments
+- the URLProtocol mocks were rewritten to use explicit `nonisolated(unsafe)` handlers with a documented test-only invariant: install, run one request flow, clear immediately
+
+This was a good reminder that test code is still code. A flaky test double is just production chaos in a fake mustache. Swift 6 is forcing the suite to be honest about who owns mutable state and which execution lane a type actually lives on. Annoying in the moment, very useful in the long run.
+
+One small but telling follow-up bug showed up in `ShellStatusPresentationTests`: the suite was calling main-actor presentation helpers from a nonisolated context, then trying to carry a tuple containing `ShellStatusAction` back across that boundary. The compiler quite reasonably objected. The right fix was not to weaken the production API, but to admit what the test was already doing and mark the suite `@MainActor`. That is a very Swift 6 lesson: if the code lives on the main actor, say so plainly and stop pretending it is actor-agnostic.
+
 ## Engineer's Wisdom
 
 - Dead code removal is only “safe” after verifying inbound references and then building the project. Grep without validation is guesswork.

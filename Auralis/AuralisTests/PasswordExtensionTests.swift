@@ -13,7 +13,7 @@ import Testing
 // Helper to clean up Keychain before/after tests
 
 @Suite class PasswordExtensionTests {
-    struct TestCase {
+    struct TestCase: Sendable {
         let password: String
         let expected: PasswordStrength
     }

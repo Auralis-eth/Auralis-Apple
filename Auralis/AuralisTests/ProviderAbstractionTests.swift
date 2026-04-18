@@ -146,7 +146,7 @@ import Testing
             nowProvider: { fixedNow }
         )
 
-        var requestedURLs: [String] = []
+        let requestedURLs = ArrayRecorder<String>()
         ProviderMockURLProtocol.handler = { request in
             let requestURL = try #require(request.url?.absoluteString)
             requestedURLs.append(requestURL)
@@ -229,7 +229,7 @@ import Testing
             chain: .baseMainnet
         )
 
-        #expect(requestedURLs == [
+        #expect(requestedURLs.values() == [
             "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address",
             "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/by-address"
         ])
@@ -408,8 +408,8 @@ import Testing
             session: session
         )
 
-        var balancePageKeys: [String?] = []
-        var enrichmentPageKeys: [String?] = []
+        let balancePageKeys = ArrayRecorder<String?>()
+        let enrichmentPageKeys = ArrayRecorder<String?>()
 
         ProviderMockURLProtocol.handler = { request in
             let requestURL = try #require(request.url?.absoluteString)
@@ -539,8 +539,8 @@ import Testing
             chain: .baseMainnet
         )
 
-        #expect(balancePageKeys == [nil, "balances-page-2"])
-        #expect(enrichmentPageKeys == [nil, "enrichment-page-2"])
+        #expect(balancePageKeys.values() == [nil, "balances-page-2"])
+        #expect(enrichmentPageKeys.values() == [nil, "enrichment-page-2"])
         #expect(holdings.map(\.contractAddress) == [
             "0x6b175474e89094c44da98b954eedeac495271d0f",
             "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
@@ -656,7 +656,7 @@ import Testing
             session: session
         )
 
-        var requestedURLs: [String] = []
+        let requestedURLs = ArrayRecorder<String>()
         ProviderMockURLProtocol.handler = { request in
             let requestURL = try #require(request.url?.absoluteString)
             requestedURLs.append(requestURL)
@@ -690,7 +690,7 @@ import Testing
         )
 
         #expect(holdings.isEmpty)
-        #expect(requestedURLs == [
+        #expect(requestedURLs.values() == [
             "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address"
         ])
     }
@@ -781,6 +781,7 @@ import Testing
     }
 
     @Test("NFT fetcher uses the injected inventory provider factory instead of constructing Alchemy inline")
+    @MainActor
     func nftFetcherUsesInjectedInventoryProvider() async throws {
         let provider = StubNFTInventoryProvider()
         let fetcher = NFTFetcher(
@@ -797,13 +798,14 @@ import Testing
             eventRecorder: NoOpNFTRefreshEventRecorder()
         )
 
-        #expect(provider.receivedOwners == ["0x1234567890abcdef1234567890abcdef12345678"])
+        #expect(await provider.receivedOwners() == ["0x1234567890abcdef1234567890abcdef12345678"])
         #expect(response.isEmpty)
         #expect(fetcher.total == 0)
         #expect(fetcher.itemsLoaded == 0)
     }
 
     @Test("retry exhaustion throws and records failure instead of success")
+    @MainActor
     func retryExhaustionThrowsAndSkipsSuccessReceipt() async {
         let provider = ExhaustingPaginationNFTInventoryProvider()
         let recorder = SpyNFTRefreshEventRecorder()
@@ -833,11 +835,12 @@ import Testing
             Issue.record("Expected NFTFetcher.FetcherError, got \(error)")
         }
 
-        #expect(recorder.fetchFailedCount == 1)
-        #expect(recorder.fetchSucceededCount == 0)
+        #expect(await recorder.fetchFailedCount() == 1)
+        #expect(await recorder.fetchSucceededCount() == 0)
     }
 
     @Test("large successful paginated collections do not exhaust retry budget just because they span many pages")
+    @MainActor
     func largeSuccessfulPaginationDoesNotExhaust() async throws {
         let provider = ManyPageNFTInventoryProvider(pageCount: 40, itemsPerPage: 1)
         let fetcher = NFTFetcher(
@@ -855,11 +858,12 @@ import Testing
         )
 
         #expect(response.count == 40)
-        #expect(provider.requestedPageKeys.count == 40)
+        #expect(await provider.requestedPageKeys().count == 40)
         #expect(fetcher.error == nil)
     }
 
     @Test("partial paginated success is returned when a later page fails after items were already fetched")
+    @MainActor
     func partialPaginationReturnsFetchedItemsBeforeFailure() async throws {
         let provider = PartiallyFailingNFTInventoryProvider(successfulPageCount: 3, itemsPerPage: 2)
         let recorder = SpyNFTRefreshEventRecorder()
@@ -879,19 +883,32 @@ import Testing
 
         #expect(response.count == 6)
         #expect(fetcher.error != nil)
-        #expect(recorder.fetchFailedCount == 1)
-        #expect(recorder.fetchSucceededCount == 0)
+        #expect(await recorder.fetchFailedCount() == 1)
+        #expect(await recorder.fetchSucceededCount() == 0)
     }
 }
 
-private final class StubNFTInventoryProvider: NFTInventoryProviding {
-    private(set) var receivedOwners: [String] = []
+private final class StubNFTInventoryProvider: NFTInventoryProviding, @unchecked Sendable {
+    // Safety invariant: mutation and reads flow through the nested actor state only.
+    private let state = State()
+
+    private actor State {
+        var owners: [String] = []
+
+        func record(owner: String) {
+            owners.append(owner)
+        }
+
+        func snapshot() -> [String] {
+            owners
+        }
+    }
 
     func nftsForOwner(
         owner: String,
         pageKey: String?
     ) async throws -> AlchemyNFTResponse {
-        receivedOwners.append(owner)
+        await state.record(owner: owner)
         return AlchemyNFTResponse(
             ownedNfts: [],
             totalCount: 0,
@@ -902,6 +919,10 @@ private final class StubNFTInventoryProvider: NFTInventoryProviding {
                 blockTimestamp: "2025-01-01T00:00:00Z"
             )
         )
+    }
+
+    func receivedOwners() async -> [String] {
+        await state.snapshot()
     }
 }
 
@@ -923,10 +944,23 @@ private final class ExhaustingPaginationNFTInventoryProvider: NFTInventoryProvid
     }
 }
 
-private final class ManyPageNFTInventoryProvider: NFTInventoryProviding {
+private final class ManyPageNFTInventoryProvider: NFTInventoryProviding, @unchecked Sendable {
     let pageCount: Int
     let itemsPerPage: Int
-    private(set) var requestedPageKeys: [String?] = []
+    // Safety invariant: mutation and reads flow through the nested actor state only.
+    private let state = State()
+
+    private actor State {
+        var pageKeys: [String?] = []
+
+        func record(pageKey: String?) {
+            pageKeys.append(pageKey)
+        }
+
+        func snapshot() -> [String?] {
+            pageKeys
+        }
+    }
 
     init(pageCount: Int, itemsPerPage: Int) {
         self.pageCount = pageCount
@@ -937,7 +971,7 @@ private final class ManyPageNFTInventoryProvider: NFTInventoryProviding {
         owner: String,
         pageKey: String?
     ) async throws -> AlchemyNFTResponse {
-        requestedPageKeys.append(pageKey)
+        await state.record(pageKey: pageKey)
 
         let pageIndex = pageKey.flatMap { Int($0, radix: 10) } ?? 0
         let nextPageKey = pageIndex + 1 < pageCount ? String(pageIndex + 1) : nil
@@ -970,6 +1004,10 @@ private final class ManyPageNFTInventoryProvider: NFTInventoryProviding {
                 blockTimestamp: "2025-01-01T00:00:00Z"
             )
         )
+    }
+
+    func requestedPageKeys() async -> [String?] {
+        await state.snapshot()
     }
 }
 
@@ -1067,8 +1105,11 @@ private extension URLRequest {
     }
 }
 
-private class ProviderMockURLProtocol: URLProtocol {
-    static var handler: ((URLRequest) throws -> (URLResponse, Data))?
+private final class ProviderMockURLProtocol: URLProtocol {
+    typealias Handler = (URLRequest) throws -> (URLResponse, Data)
+
+    // Safety invariant: tests install and clear the handler around a single request flow.
+    nonisolated(unsafe) static var handler: Handler?
 
     override class func canInit(with request: URLRequest) -> Bool {
         true
@@ -1097,17 +1138,43 @@ private class ProviderMockURLProtocol: URLProtocol {
     override func stopLoading() {}
 }
 
+@MainActor
 private final class SpyNFTRefreshEventRecorder: NFTRefreshEventRecording {
-    private(set) var fetchSucceededCount = 0
-    private(set) var fetchFailedCount = 0
+    private var succeededCount = 0
+    private var failedCount = 0
 
     func recordRefreshStarted(accountAddress: String, chain: Chain, correlationID: String) async {}
     func recordFetchSucceeded(accountAddress: String, chain: Chain, correlationID: String, itemCount: Int, totalCount: Int?) async {
-        fetchSucceededCount += 1
+        succeededCount += 1
     }
     func recordFetchFailed(accountAddress: String, chain: Chain, correlationID: String, error: Error) async {
-        fetchFailedCount += 1
+        failedCount += 1
     }
     func recordPersistenceCompleted(accountAddress: String, chain: Chain, correlationID: String, persistedCount: Int) async {}
     func recordPersistenceFailed(accountAddress: String, chain: Chain, correlationID: String, error: Error) async {}
+
+    func fetchSucceededCount() -> Int {
+        succeededCount
+    }
+
+    func fetchFailedCount() -> Int {
+        failedCount
+    }
+}
+
+private final class ArrayRecorder<Element: Sendable>: @unchecked Sendable {
+    private var storage: [Element] = []
+    private let lock = NSLock()
+
+    func append(_ element: Element) {
+        lock.lock()
+        storage.append(element)
+        lock.unlock()
+    }
+
+    func values() -> [Element] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
 }

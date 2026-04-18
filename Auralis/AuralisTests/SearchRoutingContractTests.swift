@@ -2,6 +2,7 @@
 import Testing
 
 @Suite
+@MainActor
 struct SearchRoutingContractTests {
     @Test("search routes profile matches to the profile owner")
     func searchRoutesProfileMatch() {

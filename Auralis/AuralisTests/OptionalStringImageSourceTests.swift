@@ -10,7 +10,7 @@ import Foundation
 import Testing
 
 @Suite struct OptionalStringImageSourceTests {
-    struct TestCase {
+    struct TestCase: Sendable {
         let input: String?
         let expected: NFTImageSource?
     }

@@ -54,8 +54,11 @@ struct NFTImageLoaderTests {
     }
 }
 
-private class MockURLProtocol: URLProtocol {
-    static var handler: ((URLRequest) throws -> (URLResponse, Data))?
+private final class MockURLProtocol: URLProtocol {
+    typealias Handler = (URLRequest) throws -> (URLResponse, Data)
+
+    // Safety invariant: tests install and clear the handler around a single request flow.
+    nonisolated(unsafe) static var handler: Handler?
 
     override class func canInit(with request: URLRequest) -> Bool {
         request.url?.host == "example.com"

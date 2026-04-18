@@ -7,7 +7,10 @@ struct ENSResolutionServiceTests {
     @Test("forward resolution uses fresh cache before touching the client again")
     func forwardResolutionUsesFreshCache() async throws {
         let client = StubEthereumNameServiceClient()
-        client.forwardResults["vitalik.eth"] = .success("0x1234567890abcdef1234567890abcdef12345678")
+        await client.setForwardResult(
+            .success("0x1234567890abcdef1234567890abcdef12345678"),
+            for: "vitalik.eth"
+        )
 
         let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.cache.\(UUID().uuidString)")!
         let cacheStore = ENSResolutionCacheStore(
@@ -24,20 +27,23 @@ struct ENSResolutionServiceTests {
         )
 
         let first = try await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "first")
-        client.forwardResults["vitalik.eth"] = .failure(StubClientError.lookupFailed)
+        await client.setForwardResult(.failure(StubClientError.lookupFailed), for: "vitalik.eth")
         clock.value = Date(timeIntervalSince1970: 1_100)
         let second = try await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "second")
 
         #expect(first.provenance == .network)
         #expect(second.provenance == .cache)
         #expect(first.address == second.address)
-        #expect(client.forwardCallCount == 1)
+        #expect(await client.forwardCallCount() == 1)
     }
 
     @Test("forward resolution falls back to stale cache when refresh fails")
     func forwardResolutionFallsBackToStaleCache() async throws {
         let client = StubEthereumNameServiceClient()
-        client.forwardResults["vitalik.eth"] = .success("0x1234567890abcdef1234567890abcdef12345678")
+        await client.setForwardResult(
+            .success("0x1234567890abcdef1234567890abcdef12345678"),
+            for: "vitalik.eth"
+        )
 
         let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.stale.\(UUID().uuidString)")!
         let cacheStore = ENSResolutionCacheStore(
@@ -54,21 +60,27 @@ struct ENSResolutionServiceTests {
         )
 
         _ = try await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "first")
-        client.forwardResults["vitalik.eth"] = .failure(StubClientError.lookupFailed)
+        await client.setForwardResult(.failure(StubClientError.lookupFailed), for: "vitalik.eth")
         clock.value = Date(timeIntervalSince1970: 1_200)
         let stale = try await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "second")
 
         #expect(stale.provenance == .staleCache)
         #expect(stale.isStale)
         #expect(stale.address == "0x1234567890abcdef1234567890abcdef12345678")
-        #expect(client.forwardCallCount == 2)
+        #expect(await client.forwardCallCount() == 2)
     }
 
     @Test("reverse lookup returns verified names only")
     func reverseLookupRequiresForwardVerification() async {
         let verifiedClient = StubEthereumNameServiceClient()
-        verifiedClient.reverseResults["0x1234567890abcdef1234567890abcdef12345678"] = .success("vitalik.eth")
-        verifiedClient.forwardResults["vitalik.eth"] = .success("0x1234567890abcdef1234567890abcdef12345678")
+        await verifiedClient.setReverseResult(
+            .success("vitalik.eth"),
+            for: "0x1234567890abcdef1234567890abcdef12345678"
+        )
+        await verifiedClient.setForwardResult(
+            .success("0x1234567890abcdef1234567890abcdef12345678"),
+            for: "vitalik.eth"
+        )
 
         let verifiedResolver = Web3EthereumNameServiceResolver(
             client: verifiedClient,
@@ -86,8 +98,14 @@ struct ENSResolutionServiceTests {
         #expect(verified?.isForwardVerified == true)
 
         let mismatchedClient = StubEthereumNameServiceClient()
-        mismatchedClient.reverseResults["0x1234567890abcdef1234567890abcdef12345678"] = .success("vitalik.eth")
-        mismatchedClient.forwardResults["vitalik.eth"] = .success("0x9999999999999999999999999999999999999999")
+        await mismatchedClient.setReverseResult(
+            .success("vitalik.eth"),
+            for: "0x1234567890abcdef1234567890abcdef12345678"
+        )
+        await mismatchedClient.setForwardResult(
+            .success("0x9999999999999999999999999999999999999999"),
+            for: "vitalik.eth"
+        )
 
         let mismatchedResolver = Web3EthereumNameServiceResolver(
             client: mismatchedClient,
@@ -107,7 +125,10 @@ struct ENSResolutionServiceTests {
     @Test("forward resolution refuses to silently overwrite a changed cached mapping")
     func forwardResolutionSurfacesMappingChanges() async {
         let client = StubEthereumNameServiceClient()
-        client.forwardResults["vitalik.eth"] = .success("0x1234567890abcdef1234567890abcdef12345678")
+        await client.setForwardResult(
+            .success("0x1234567890abcdef1234567890abcdef12345678"),
+            for: "vitalik.eth"
+        )
 
         let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.mapping.\(UUID().uuidString)")!
         let cacheStore = ENSResolutionCacheStore(
@@ -124,7 +145,10 @@ struct ENSResolutionServiceTests {
 
         _ = try? await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "initial")
 
-        client.forwardResults["vitalik.eth"] = .success("0x9999999999999999999999999999999999999999")
+        await client.setForwardResult(
+            .success("0x9999999999999999999999999999999999999999"),
+            for: "vitalik.eth"
+        )
         clock.value = Date(timeIntervalSince1970: 1_200)
 
         await #expect(throws: ENSResolutionError.mappingChanged(
@@ -145,14 +169,14 @@ private enum StubClientError: Error {
     case lookupFailed
 }
 
-private final class StubEthereumNameServiceClient: EthereumNameServiceClient {
-    var forwardResults: [String: Result<String, Error>] = [:]
-    var reverseResults: [String: Result<String, Error>] = [:]
-    private(set) var forwardCallCount = 0
-    private(set) var reverseCallCount = 0
+private actor StubEthereumNameServiceClient: EthereumNameServiceClient {
+    private var forwardResults: [String: Result<String, Error>] = [:]
+    private var reverseResults: [String: Result<String, Error>] = [:]
+    private var forwardCallCountValue = 0
+    private var reverseCallCountValue = 0
 
     func resolveAddress(forENS name: String) async throws -> String {
-        forwardCallCount += 1
+        forwardCallCountValue += 1
         switch forwardResults[name, default: .failure(StubClientError.lookupFailed)] {
         case .success(let value):
             return value
@@ -162,13 +186,29 @@ private final class StubEthereumNameServiceClient: EthereumNameServiceClient {
     }
 
     func resolveName(forAddress address: String) async throws -> String {
-        reverseCallCount += 1
+        reverseCallCountValue += 1
         switch reverseResults[address, default: .failure(StubClientError.lookupFailed)] {
         case .success(let value):
             return value
         case .failure(let error):
             throw error
         }
+    }
+
+    func setForwardResult(_ result: Result<String, Error>, for name: String) {
+        forwardResults[name] = result
+    }
+
+    func setReverseResult(_ result: Result<String, Error>, for address: String) {
+        reverseResults[address] = result
+    }
+
+    func forwardCallCount() -> Int {
+        forwardCallCountValue
+    }
+
+    func reverseCallCount() -> Int {
+        reverseCallCountValue
     }
 }
 

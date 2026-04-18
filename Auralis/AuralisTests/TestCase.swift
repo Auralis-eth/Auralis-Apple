@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct TestCase<T> {
+struct TestCase<T: Sendable>: Sendable {
     let json: String
     let expected: T
 }

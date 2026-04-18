@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @Suite
+@MainActor
 struct ShellStatusPresentationTests {
     @Test("provider failure status uses degraded warning chrome and retry when the provider is recoverable")
     func providerFailureStatusUsesExpectedTone() throws {

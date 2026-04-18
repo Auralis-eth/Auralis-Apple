@@ -439,7 +439,7 @@ struct ContextServiceTests {
 
         let snapshot = await service.refresh()
 
-        #expect(provider.requests.count == 1)
+        #expect(await provider.requestCount() == 1)
         #expect(snapshot.balances.nativeBalanceDisplay.value == "1.5 ETH")
         #expect(snapshot.balances.nativeBalanceDisplay.provenance == .onChain)
     }
@@ -489,8 +489,8 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
     }
 }
 
-private final class StubNativeBalanceProvider: NativeBalanceProviding {
-    private(set) var requests: [(address: String, chain: Chain)] = []
+private actor StubNativeBalanceProvider: NativeBalanceProviding {
+    private var requests: [(address: String, chain: Chain)] = []
 
     func nativeBalance(for address: String, chain: Chain) async throws -> NativeBalance {
         requests.append((address, chain))
@@ -498,6 +498,10 @@ private final class StubNativeBalanceProvider: NativeBalanceProviding {
             weiHex: "0x14d1120d7b160000",
             weiDecimal: "1500000000000000000"
         )
+    }
+
+    func requestCount() -> Int {
+        requests.count
     }
 }
 

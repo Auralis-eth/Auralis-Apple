@@ -110,20 +110,24 @@ struct NFTServiceReceiptTests {
         )
         let account = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
 
-        async let first: Void = service.refreshNFTs(
-            for: account,
-            chain: Chain.ethMainnet,
-            modelContext: context,
-            correlationID: "coalesce-1"
-        )
-        async let second: Void = service.refreshNFTs(
-            for: account,
-            chain: Chain.ethMainnet,
-            modelContext: context,
-            correlationID: "coalesce-2"
-        )
+        let first = Task { @MainActor in
+            await service.refreshNFTs(
+                for: account,
+                chain: Chain.ethMainnet,
+                modelContext: context,
+                correlationID: "coalesce-1"
+            )
+        }
+        let second = Task { @MainActor in
+            await service.refreshNFTs(
+                for: account,
+                chain: Chain.ethMainnet,
+                modelContext: context,
+                correlationID: "coalesce-2"
+            )
+        }
 
-        _ = await (first, second)
+        _ = await (first.value, second.value)
 
         #expect(fetcher.fetchCallCount == 1)
     }
@@ -137,7 +141,7 @@ struct NFTServiceReceiptTests {
         let service = NFTService(nftFetcher: fetcher)
         let account = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
 
-        let refreshTask = Task {
+        let refreshTask = Task { @MainActor in
             await service.refreshNFTs(
                 for: account,
                 chain: .ethMainnet,
