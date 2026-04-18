@@ -42,6 +42,9 @@
 		6FB456012CC5BEBD009A055C /* Exceptions for "Auralis" folder in "Auralis" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Config/Auralis-Debug.xcconfig",
+				"Config/Auralis-Release.xcconfig",
+				Config/Secrets.local.xcconfig,
 				Info.plist,
 			);
 			target = 6FB455DA2CC5BEBB009A055C /* Auralis */;
@@ -217,7 +220,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1600;
-				LastUpgradeCheck = 2600;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					6FB455DA2CC5BEBB009A055C = {
 						CreatedOnToolsVersion = 16.0;
@@ -298,10 +301,11 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"$(DERIVED_FILE_DIR)/swiftlint-lint.stamp",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n\nSWIFTLINT_BIN=\"${BUILD_DIR%Build/*}SourcePackages/artifacts/swiftlintplugins/SwiftLintBinary/SwiftLintBinary.artifactbundle/macos/swiftlint\"\n\nif [ ! -x \"$SWIFTLINT_BIN\" ]; then\n  echo \"warning: SwiftLint binary is missing. Resolve package dependencies to enable linting.\"\n  exit 0\nfi\n\n\"$SWIFTLINT_BIN\" lint --config \"$SRCROOT/.swiftlint.yml\"\n";
+			shellScript = "set -e\n\nSWIFTLINT_BIN=\"${BUILD_DIR%Build/*}SourcePackages/artifacts/swiftlintplugins/SwiftLintBinary/SwiftLintBinary.artifactbundle/macos/swiftlint\"\nOUTPUT_STAMP=\"${DERIVED_FILE_DIR}/swiftlint-lint.stamp\"\n\nif [ ! -x \"$SWIFTLINT_BIN\" ]; then\n  echo \"warning: SwiftLint binary is missing. Resolve package dependencies to enable linting.\"\n  exit 0\nfi\n\n\"$SWIFTLINT_BIN\" lint --config \"$SRCROOT/.swiftlint.yml\"\ntouch \"$OUTPUT_STAMP\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
