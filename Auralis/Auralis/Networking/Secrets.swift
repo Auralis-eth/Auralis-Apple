@@ -3,7 +3,7 @@ import OSLog
 
 struct Secrets {
     private static let logger = Logger(subsystem: "Auralis", category: "Secrets")
-    private static var loggedMissingProviders = Set<APIKeyProvider>()
+    private static let missingProviderLogState = MissingProviderLogState()
 
     struct ConfigurationStatus: Equatable, Identifiable {
         let provider: APIKeyProvider
@@ -83,7 +83,7 @@ struct Secrets {
 
 private extension Secrets {
     static func logMissingProviderIfNeeded(_ provider: APIKeyProvider) {
-        guard loggedMissingProviders.insert(provider).inserted else {
+        guard missingProviderLogState.shouldLog(provider) else {
             return
         }
 
@@ -107,5 +107,16 @@ private extension Secrets {
             || uppercase.contains("PLACEHOLDER")
             || uppercase.hasPrefix("$(")
             || uppercase.hasPrefix("<#")
+    }
+}
+
+private final class MissingProviderLogState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var loggedProviders = Set<Secrets.APIKeyProvider>()
+
+    func shouldLog(_ provider: Secrets.APIKeyProvider) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return loggedProviders.insert(provider).inserted
     }
 }

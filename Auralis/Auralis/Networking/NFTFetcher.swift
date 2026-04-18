@@ -10,6 +10,7 @@ import RegexBuilder
 import SwiftData
 import SwiftUI
 
+@MainActor
 protocol NFTFetching: AnyObject {
     var total: Int? { get set }
     var itemsLoaded: Int? { get set }
@@ -27,6 +28,7 @@ protocol NFTFetching: AnyObject {
     func reset()
 }
 
+@MainActor
 @Observable
 class NFTFetcher: NFTFetching {
     private let logger = Logger(subsystem: "Auralis", category: "NFTFetcher")
@@ -82,13 +84,6 @@ class NFTFetcher: NFTFetching {
     private let maxDelayNanoseconds: UInt64
     private let nftProviderFactory: NFTProviderFactory
 
-    private static let hexAddressRegex = Regex {
-        Anchor.startOfSubject
-        "0x"
-        Repeat(count: 40) { .hexDigit }
-        Anchor.endOfSubject
-    }
-
     private let throttler = RequestThrottler()
 
     init(maxRetryCount: Int = 10,
@@ -110,7 +105,14 @@ class NFTFetcher: NFTFetching {
             throw FetcherError.invalidAccount(reason: "Address must be exactly 42 characters: 0x followed by 40 hexadecimal characters")
         }
 
-        guard account.wholeMatch(of: Self.hexAddressRegex) != nil else {
+        let hexAddressRegex = Regex {
+            Anchor.startOfSubject
+            "0x"
+            Repeat(count: 40) { .hexDigit }
+            Anchor.endOfSubject
+        }
+
+        guard account.wholeMatch(of: hexAddressRegex) != nil else {
             throw FetcherError.invalidAccount(reason: "Address must be 0x followed by 40 hexadecimal characters")
         }
     }
