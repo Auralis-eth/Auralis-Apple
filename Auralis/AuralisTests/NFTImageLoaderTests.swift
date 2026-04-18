@@ -8,6 +8,7 @@ struct NFTImageLoaderTests {
     @Test("mp4 URL extension rejects immediately and clears loading state")
     func mp4ExtensionRejectClearsLoading() async {
         let loader = ImageLoader(url: URL(string: "https://example.com/clip.mp4")!)
+        loader.loadIfNeeded()
 
         await Task.yield()
 
@@ -37,6 +38,7 @@ struct NFTImageLoaderTests {
         }
 
         let loader = ImageLoader(url: URL(string: "https://example.com/not-an-image")!)
+        loader.loadIfNeeded()
 
         for _ in 0..<20 {
             if loader.isLoading == false {
