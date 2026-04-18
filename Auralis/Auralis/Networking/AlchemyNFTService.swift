@@ -8,7 +8,7 @@
 import Foundation
 import OSLog
 
-final class AlchemyNFTService: NFTInventoryProviding {
+final class AlchemyNFTService: NFTInventoryProviding, @unchecked Sendable {
     private let logger = Logger(subsystem: "Auralis", category: "AlchemyNFTService")
     private let baseURL: URL
     private let network: String

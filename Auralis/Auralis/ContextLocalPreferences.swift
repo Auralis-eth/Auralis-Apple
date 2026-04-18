@@ -1,6 +1,6 @@
 import Foundation
 
-struct ContextLocalPreferences: Equatable {
+struct ContextLocalPreferences: Equatable, Sendable {
     let prefersDemoData: ContextField<Bool>
     let pinnedItemCount: ContextField<Int>
 }

@@ -1,6 +1,6 @@
 import Foundation
 
-struct ContextSnapshot: Equatable {
+struct ContextSnapshot: Equatable, Sendable {
     let version: ContextSchemaVersion
     let mode: ContextField<String>
     let scope: ContextScope

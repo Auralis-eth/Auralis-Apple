@@ -1,10 +1,10 @@
 import Foundation
 
 struct LiveProviderConfigurationResolver: ProviderConfigurationResolving {
-    private let keyProvider: (Secrets.APIKeyProvider) -> String?
+    private let keyProvider: @Sendable (Secrets.APIKeyProvider) -> String?
 
     init(
-        keyProvider: @escaping (Secrets.APIKeyProvider) -> String? = { Secrets.apiKeyOrNil($0) }
+        keyProvider: @escaping @Sendable (Secrets.APIKeyProvider) -> String? = { Secrets.apiKeyOrNil($0) }
     ) {
         self.keyProvider = keyProvider
     }

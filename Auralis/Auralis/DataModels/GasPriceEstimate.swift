@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-final class GasPriceEstimate: Codable {
+final class GasPriceEstimate: Codable, Sendable {
     let version: String
     let high: FeeDetails
     let networkCongestion: Double
@@ -20,7 +20,7 @@ final class GasPriceEstimate: Codable {
     let low: FeeDetails
     let historicalBaseFeeRange: [String]
 
-    struct FeeDetails: Codable {
+    struct FeeDetails: Codable, Sendable {
         let maxWaitTimeEstimate: Int
         let minWaitTimeEstimate: Int
         let suggestedMaxFeePerGas: String

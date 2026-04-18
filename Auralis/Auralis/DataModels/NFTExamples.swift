@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 class NFTExamples {
     static let musicNFT1 = NFT(
         id: "0x1234567890abcdef1234567890abcdef12345678:1",

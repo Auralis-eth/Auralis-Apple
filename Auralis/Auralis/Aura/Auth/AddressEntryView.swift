@@ -137,11 +137,14 @@ struct AddressInputView: View {
         activeSubmissionTask?.cancel()
         let submissionID = UUID()
         activeSubmissionID = submissionID
+        let input = address
+        let ensResolver = self.ensResolver
         activeSubmissionTask = Task {
             await submit(
-                input: address,
+                input: input,
                 source: source,
-                submissionID: submissionID
+                submissionID: submissionID,
+                ensResolver: ensResolver
             )
         }
     }
@@ -156,7 +159,8 @@ struct AddressInputView: View {
     private func submit(
         input: String,
         source: EOAccountSource,
-        submissionID: UUID
+        submissionID: UUID,
+        ensResolver: any ENSResolving
     ) async {
         let validationResult = AccountStore.validateAddressInput(input)
         let isENSInput = AccountStore.looksLikeENSName(input)

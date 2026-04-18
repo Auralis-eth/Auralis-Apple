@@ -1,6 +1,6 @@
 import Foundation
 
-struct ContextFreshness: Equatable {
+struct ContextFreshness: Equatable, Sendable {
     let refreshState: ContextRefreshState
     let lastSuccessfulRefreshAt: Date?
     let lastSuccessfulRefreshProvenance: ContextProvenance

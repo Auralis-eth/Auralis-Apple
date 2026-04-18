@@ -12,9 +12,9 @@ import Foundation
 /// Shared playback engine for loading remote NFT audio, managing queue state, and exposing playback status to SwiftUI.
 public class AudioEngine: ObservableObject {
     private var currentNFT: NFT?
-    private var audioEngine = AVAudioEngine()
-    private var playerNode = AVAudioPlayerNode()
-    private var interruptionObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var audioEngine = AVAudioEngine()
+    nonisolated(unsafe) private var playerNode = AVAudioPlayerNode()
+    nonisolated(unsafe) private var interruptionObserver: NSObjectProtocol?
 
     /// The currently loaded audio file, if any.
     public var audioFile: AVAudioFile?
@@ -129,8 +129,11 @@ public class AudioEngine: ObservableObject {
             queue: .main
         ) { [weak self] notification in
             guard let self else { return }
+            let userInfo = notification.userInfo
+            let typeValue = userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            let optionsValue = userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt
             Task { @MainActor in
-                self.handleInterruption(notification)
+                self.handleInterruption(typeValue: typeValue, optionsValue: optionsValue)
             }
         }
     }
@@ -147,9 +150,8 @@ public class AudioEngine: ObservableObject {
         return id
     }
 
-    private func handleInterruption(_ notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+    private func handleInterruption(typeValue: UInt?, optionsValue: UInt?) {
+        guard let typeValue,
               let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
             return
         }
@@ -166,7 +168,7 @@ public class AudioEngine: ObservableObject {
                 return
             }
 
-            guard let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt else {
+            guard let optionsValue else {
                 return
             }
             let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)

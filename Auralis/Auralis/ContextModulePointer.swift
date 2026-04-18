@@ -1,6 +1,6 @@
 import Foundation
 
-struct ContextModulePointer: Equatable {
+struct ContextModulePointer: Equatable, Sendable {
     let routeID: String
     let title: String
     let priority: ContextModulePriority

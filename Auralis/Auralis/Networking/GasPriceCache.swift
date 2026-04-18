@@ -8,7 +8,7 @@
 import Foundation
 
 /// Result type for cache operations providing clear differentiation between states
-enum CacheResult<T> {
+enum CacheResult<T: Sendable>: Sendable {
     case hit(T)
     case miss
     case expired(T) // Contains expired value for potential fallback use

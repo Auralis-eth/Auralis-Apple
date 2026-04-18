@@ -171,7 +171,7 @@ final class GasPriceEstimateViewModel: ObservableObject {
 
     private let provider: any GasPricingProviding
     private var currentTask: Task<Void, Never>?
-    private var refreshTimer: Timer?
+    nonisolated(unsafe) private var refreshTimer: Timer?
 
     init(provider: any GasPricingProviding = AlchemyGasPricingProvider()) {
         self.provider = provider

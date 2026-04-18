@@ -34,9 +34,9 @@ struct NewsFeedListView: View {
         .toolbar {
             ToolbarItemGroup {
                 Menu {
-                    NFTSortButton(title: "Acquired", sortOrder: $sortOrder, keyPath: \.acquiredAt?.blockTimestamp)
-                    NFTSortButton(title: "Collection Name", sortOrder: $sortOrder, keyPath: \.collection?.name)
-                    NFTSortButton(title: "Item Name", sortOrder: $sortOrder, keyPath: \.name)
+                    NFTSortButton(title: "Acquired", field: .acquired, sortOrder: $sortOrder)
+                    NFTSortButton(title: "Collection Name", field: .collectionName, sortOrder: $sortOrder)
+                    NFTSortButton(title: "Item Name", field: .itemName, sortOrder: $sortOrder)
                 } label: {
                     SystemImage("ellipsis")
                         .padding(8)

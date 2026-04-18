@@ -1,5 +1,5 @@
 import Foundation
 
-protocol ProviderConfigurationResolving {
+protocol ProviderConfigurationResolving: Sendable {
     func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration
 }

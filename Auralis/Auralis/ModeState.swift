@@ -16,8 +16,10 @@ public final class ModeState: ObservableObject {
     @AppStorage("app.mode") private var storedModeRaw: String = AppMode.observe.rawValue
     private let storageWriter: (String) -> Void
 
+    /// The currently active application mode.
     @Published public private(set) var mode: AppMode = .observe
 
+    /// Creates a mode state store and normalizes persisted values to the Phase 0 observe-only mode.
     public init(
         userDefaults: UserDefaults? = nil,
         storageKey: String = "app.mode"
@@ -40,7 +42,7 @@ public final class ModeState: ObservableObject {
 // MARK: - Environment integration
 
 private struct ModeStateKey: EnvironmentKey {
-    static let defaultValue: ModeState = ModeState()
+    nonisolated(unsafe) static let defaultValue: ModeState = ModeState()
 }
 
 public extension EnvironmentValues {

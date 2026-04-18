@@ -1,6 +1,6 @@
 import Foundation
 
-protocol NFTInventoryProviding {
+protocol NFTInventoryProviding: Sendable {
     func nftsForOwner(
         owner: String,
         pageKey: String?

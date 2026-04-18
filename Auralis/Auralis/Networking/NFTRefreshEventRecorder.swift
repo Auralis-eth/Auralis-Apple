@@ -3,6 +3,7 @@ import OSLog
 import SwiftData
 import SwiftUI
 
+@MainActor
 protocol NFTRefreshEventRecording {
     func recordRefreshStarted(
         accountAddress: String,

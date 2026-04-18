@@ -1,5 +1,5 @@
 import Foundation
 
-struct ContextModulePointers: Equatable {
+struct ContextModulePointers: Equatable, Sendable {
     let items: [ContextModulePointer]
 }

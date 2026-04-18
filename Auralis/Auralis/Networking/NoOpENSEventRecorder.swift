@@ -1,6 +1,6 @@
 import Foundation
 
-struct NoOpENSEventRecorder: ENSEventRecording {
+struct NoOpENSEventRecorder: ENSEventRecording, Sendable {
     func recordCacheHit(
         kind: String,
         key: String,

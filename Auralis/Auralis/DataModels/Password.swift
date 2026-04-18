@@ -20,17 +20,19 @@ struct PasswordStore {
 }
 
 enum PasswordStores {
-    static let live = PasswordStore(
-        save: { password in
-            KeychainPasswordStore().save(password)
-        },
-        load: {
-            KeychainPasswordStore().load()
-        },
-        clear: {
-            KeychainPasswordStore().clear()
-        }
-    )
+    static var live: PasswordStore {
+        PasswordStore(
+            save: { password in
+                KeychainPasswordStore().save(password)
+            },
+            load: {
+                KeychainPasswordStore().load()
+            },
+            clear: {
+                KeychainPasswordStore().clear()
+            }
+        )
+    }
 
     static func test(userDefaults: UserDefaults = .standard) -> PasswordStore {
         let store = UserDefaultsPasswordStore(userDefaults: userDefaults)

@@ -1,7 +1,7 @@
 import Foundation
 import web3
 
-struct Web3EthereumNameServiceClient: EthereumNameServiceClient {
+struct Web3EthereumNameServiceClient: EthereumNameServiceClient, @unchecked Sendable {
     private let ethereumNameService: EthereumNameService
 
     init(rpcURL: URL) {

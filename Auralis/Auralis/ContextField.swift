@@ -1,6 +1,6 @@
 import Foundation
 
-struct ContextField<Value: Equatable>: Equatable {
+struct ContextField<Value: Equatable & Sendable>: Equatable, Sendable {
     let value: Value?
     let provenance: ContextProvenance
     let updatedAt: Date?

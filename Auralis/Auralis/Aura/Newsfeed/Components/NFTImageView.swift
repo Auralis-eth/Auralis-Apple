@@ -9,6 +9,7 @@ import ImageIO
 import SwiftUI
 
 // Image Cache Manager
+@MainActor
 class ImageCache {
     static let shared = ImageCache()
     private let cache = NSCache<NSString, UIImage>()

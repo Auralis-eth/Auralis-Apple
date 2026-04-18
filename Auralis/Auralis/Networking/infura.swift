@@ -1,6 +1,6 @@
 import Foundation
 
-struct AlchemyGasPricingProvider: GasPricingProviding {
+struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
     enum GasPricingError: Error {
         case unsupportedChain(Chain)
         case invalidConfiguration
