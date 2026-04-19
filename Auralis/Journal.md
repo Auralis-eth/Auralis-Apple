@@ -103,6 +103,32 @@ What changed:
 
 The practical lesson here is that SwiftUI usually behaves well when views stay honest: declare UI, react to state, and keep anything expensive or side-effectful out of the hot path. Once a view starts doing filtering, formatting, network work, file IO, and identity synthesis at render time, it is basically trying to be a stage manager, lighting rig, and lead actor all at once. That show gets messy.
 
+### Privacy and Concurrency Paper Cuts: The Bugs That Look Administrative Until They Ship
+
+This round of cleanup had two different flavors of risk, and both are the kind that love to hide behind “probably fine.”
+
+First, the Swift 6 concurrency audit. Two service wrappers were using `@unchecked Sendable` as a hall pass:
+
+- `AlchemyNFTService` had mutable request-degradation state hanging off an otherwise sendable service wrapper
+- `Web3EthereumNameServiceClient` wrapped a third-party ENS client that the compiler could not prove safe to share across async boundaries
+
+The right fix was not to keep arguing with the compiler. `AlchemyNFTService` now keeps its mutable mode behind a tiny internal actor while the public wrapper stays genuinely `Sendable`. The ENS client took a different route: instead of sharing one questionable object forever, it now stores only the RPC URL and builds the `EthereumNameService` on demand per request. Same behavior, much cleaner ownership story. The compiler stopped complaining because the code actually became safer, which is usually a good sign that the compiler is being annoying for the right reason.
+
+Second, the App Store metadata cleanup. This was the paperwork version of “the plane flies great, shame about the missing wings.” The app already used:
+
+- camera capture for playlist artwork
+- photo-library selection for playlist artwork flows
+- `UserDefaults` and `@AppStorage` across search, pinned items, ENS caching, passwords, and shell state
+
+But the bundle metadata had holes:
+
+- `Info.plist` was missing camera and photo-library purpose strings
+- there was no `PrivacyInfo.xcprivacy` manifest at all
+
+That is exactly the kind of issue that waits patiently until the first review submission, then smacks you with a rejection email. The fix was intentionally small and explicit: add the usage descriptions, add a privacy manifest, and declare the required-reason API usage we can substantiate today, which is `UserDefaults` with reason `CA92.1`.
+
+There was one more small but memorable lesson in tooling humility. `Journal.md` and `AGENTS.md` existed on disk the whole time, but the Xcode project tools could not see them because the workspace uses filesystem-synced groups and those root docs sit outside the synced folders. In other words, the files were real, but not real to that particular lens. Good reminder: when a tool says “missing,” always ask “missing where?”
+
 ### Regression Cleanup: When "Optimization" Turns Into a Hallucination
 
 Three regressions showed up immediately once the uncommitted changes were reviewed together:

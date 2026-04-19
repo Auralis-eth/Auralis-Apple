@@ -12,9 +12,9 @@ import Foundation
 /// Shared playback engine for loading remote NFT audio, managing queue state, and exposing playback status to SwiftUI.
 public class AudioEngine: ObservableObject {
     private var currentNFT: NFT?
-    nonisolated(unsafe) private var audioEngine = AVAudioEngine()
-    nonisolated(unsafe) private var playerNode = AVAudioPlayerNode()
-    nonisolated(unsafe) private var interruptionObserver: NSObjectProtocol?
+    private var audioEngine = AVAudioEngine()
+    private var playerNode = AVAudioPlayerNode()
+    private var interruptionObserver: NSObjectProtocol?
 
     /// The currently loaded audio file, if any.
     public var audioFile: AVAudioFile?
@@ -515,7 +515,7 @@ public class AudioEngine: ObservableObject {
     }
 
     // MARK: - Resource Cleanup
-    deinit {
+    isolated deinit {
         if let interruptionObserver {
             NotificationCenter.default.removeObserver(interruptionObserver)
         }

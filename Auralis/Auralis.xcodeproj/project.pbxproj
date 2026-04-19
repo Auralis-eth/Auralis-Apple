@@ -31,6 +31,8 @@
 
 /* Begin PBXFileReference section */
 		6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AuralisIcon.icon; sourceTree = "<group>"; };
+		6F6446602DFFC11F001674D2 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		6F6446612DFFC11F001674D2 /* Journal.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Journal.md; sourceTree = "<group>"; };
 		6F6A10012F90000100BEEF01 /* Auralis/Config/Auralis-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Auralis/Config/Auralis-Debug.xcconfig"; sourceTree = "<group>"; };
 		6F6A10022F90000100BEEF01 /* Auralis/Config/Auralis-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Auralis/Config/Auralis-Release.xcconfig"; sourceTree = "<group>"; };
 		6FB455DB2CC5BEBB009A055C /* Auralis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Auralis.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -118,6 +120,8 @@
 		6FB455D22CC5BEBB009A055C = {
 			isa = PBXGroup;
 			children = (
+				6F6446602DFFC11F001674D2 /* AGENTS.md */,
+				6F6446612DFFC11F001674D2 /* Journal.md */,
 				6FB455DD2CC5BEBB009A055C /* Auralis */,
 				6FB455F22CC5BEBD009A055C /* AuralisTests */,
 				6FB455FC2CC5BEBD009A055C /* AuralisUITests */,

@@ -1,16 +1,15 @@
 import Foundation
 import web3
 
-struct Web3EthereumNameServiceClient: EthereumNameServiceClient, @unchecked Sendable {
-    private let ethereumNameService: EthereumNameService
+final class Web3EthereumNameServiceClient: EthereumNameServiceClient, Sendable {
+    private let rpcURL: URL
 
     init(rpcURL: URL) {
-        let client = EthereumHttpClient(url: rpcURL, network: .mainnet)
-        self.ethereumNameService = EthereumNameService(client: client)
+        self.rpcURL = rpcURL
     }
 
     func resolveAddress(forENS name: String) async throws -> String {
-        let address = try await ethereumNameService.resolve(
+        let address = try await makeEthereumNameService().resolve(
             ens: name,
             mode: .allowOffchainLookup
         )
@@ -18,10 +17,14 @@ struct Web3EthereumNameServiceClient: EthereumNameServiceClient, @unchecked Send
     }
 
     func resolveName(forAddress address: String) async throws -> String {
-        let name = try await ethereumNameService.resolve(
+        try await makeEthereumNameService().resolve(
             address: EthereumAddress(address),
             mode: .allowOffchainLookup
         )
-        return name
+    }
+
+    private func makeEthereumNameService() -> EthereumNameService {
+        let client = EthereumHttpClient(url: rpcURL, network: .mainnet)
+        return EthereumNameService(client: client)
     }
 }
