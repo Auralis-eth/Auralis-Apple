@@ -48,6 +48,7 @@
 				"Config/Auralis-Release.xcconfig",
 				Config/Secrets.local.xcconfig,
 				Info.plist,
+				"MusicApp/OLD",
 			);
 			target = 6FB455DA2CC5BEBB009A055C /* Auralis */;
 		};
@@ -368,7 +369,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Auralis/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Scan a wallet address QR code to add it to your account or switch to a saved account.";
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "Auralis uses Face ID to securely access and protect your private key, ensuring only you can access your encrypted data.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Auralis uses Face ID to help protect access to your saved secure app data on this device.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -404,7 +405,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Auralis/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Scan a wallet address QR code to add it to your account or switch to a saved account.";
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "Auralis uses Face ID to securely access and protect your private key, ensuring only you can access your encrypted data.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Auralis uses Face ID to help protect access to your saved secure app data on this device.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
