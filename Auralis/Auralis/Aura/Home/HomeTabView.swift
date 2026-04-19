@@ -1,8 +1,10 @@
 import ImagePlayground
+import OSLog
 import SwiftData
 import SwiftUI
 
 struct HomeTabView: View {
+    private let logger = Logger(subsystem: "Auralis", category: "HomeTabView")
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     @Binding var currentChainId: String
@@ -698,16 +700,23 @@ struct HomeTabView: View {
     private func logout() {
         let plan = logic.logoutPlan()
 
-        if plan.shouldDeleteNFTs {
-            try? modelContext.delete(model: NFT.self)
-        }
+        do {
+            if plan.shouldDeleteNFTs {
+                try modelContext.delete(model: NFT.self)
+            }
 
-        if plan.shouldDeleteAccounts {
-            try? modelContext.delete(model: EOAccount.self)
-        }
+            if plan.shouldDeleteAccounts {
+                try modelContext.delete(model: EOAccount.self)
+            }
 
-        if plan.shouldDeleteTags {
-            try? modelContext.delete(model: Tag.self)
+            if plan.shouldDeleteTags {
+                try modelContext.delete(model: Tag.self)
+            }
+        } catch {
+            logger.error("Logout cleanup failed error=\(error.localizedDescription, privacy: .public)")
+            errorMessage = "Auralis could not clear local data for logout. Nothing was changed."
+            showErrorAlert = true
+            return
         }
 
         currentAccount = nil

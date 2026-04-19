@@ -31,7 +31,7 @@ struct AppDeepLinkParser {
             )
         case "receipt", "receipts":
             return wrapTopLevelDestination(
-                parseDestination(url: url, segments: segments, requireTokenChain: true),
+                parseDestination(url: url, segments: segments, requireTokenChain: false),
                 url: url,
                 routeName: "Receipt"
             )

@@ -221,7 +221,7 @@ struct AccountSwitcherSheet: View {
             }
 
             logger.error(
-                "Failed to persist chain scope change address=\(account.address, privacy: .public) kind=\(String(describing: plan.kind), privacy: .public) fromPreferred=\(previousPreferredChain.rawValue, privacy: .public) fromCurrent=\(previousCurrentChain.rawValue, privacy: .public) to=\(plan.to.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+                "Failed to persist chain scope change address=\(account.address, privacy: .private(mask: .hash)) kind=\(String(describing: plan.kind), privacy: .public) fromPreferred=\(previousPreferredChain.rawValue, privacy: .public) fromCurrent=\(previousCurrentChain.rawValue, privacy: .public) to=\(plan.to.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
             )
             feedbackAlert = AccountSwitcherAlert(
                 title: "Chain Change Failed",

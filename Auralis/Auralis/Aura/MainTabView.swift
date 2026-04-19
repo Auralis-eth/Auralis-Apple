@@ -213,7 +213,7 @@ struct MainTabView: View {
             currentChain = previousChain
             currentChainId = previousChainId
             logger.error(
-                "Failed to persist current chain change address=\(account.address, privacy: .public) from=\(previousChain.rawValue, privacy: .public) to=\(newValue.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+                "Failed to persist current chain change address=\(account.address, privacy: .private(mask: .hash)) from=\(previousChain.rawValue, privacy: .public) to=\(newValue.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
             )
             feedbackAlert = MainTabAlert(
                 title: "Chain Change Failed",
