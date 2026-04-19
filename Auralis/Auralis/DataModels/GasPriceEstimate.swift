@@ -42,12 +42,37 @@ final class GasPriceEstimate: Codable, Sendable {
     }
 
     static var example: GasPriceEstimate {
-        let int1 = 420
-        let string1 = "ethereum"
-        let string2 = "solana"
-        let double1: Double = 420.0
-        let feeDetails = FeeDetails.init(maxWaitTimeEstimate: int1, minWaitTimeEstimate: int1, suggestedMaxFeePerGas: string1, suggestedMaxPriorityFeePerGas: string1)
+        let low = FeeDetails(
+            maxWaitTimeEstimate: 75_000,
+            minWaitTimeEstimate: 45_000,
+            suggestedMaxFeePerGas: "12.4",
+            suggestedMaxPriorityFeePerGas: "0.35"
+        )
+        let medium = FeeDetails(
+            maxWaitTimeEstimate: 45_000,
+            minWaitTimeEstimate: 20_000,
+            suggestedMaxFeePerGas: "18.9",
+            suggestedMaxPriorityFeePerGas: "0.75"
+        )
+        let high = FeeDetails(
+            maxWaitTimeEstimate: 20_000,
+            minWaitTimeEstimate: 8_000,
+            suggestedMaxFeePerGas: "26.7",
+            suggestedMaxPriorityFeePerGas: "1.25"
+        )
 
-        return GasPriceEstimate.init(version: string1, high: feeDetails, networkCongestion: double1, historicalPriorityFeeRange: [string1, string2], estimatedBaseFee: string1, baseFeeTrend: string1, latestPriorityFeeRange: [string1, string2], medium: feeDetails, priorityFeeTrend: string1, low: feeDetails, historicalBaseFeeRange: [string1, string2])
+        return GasPriceEstimate(
+            version: "2",
+            high: high,
+            networkCongestion: 0.42,
+            historicalPriorityFeeRange: ["0.21", "1.37"],
+            estimatedBaseFee: "11.8",
+            baseFeeTrend: "down",
+            latestPriorityFeeRange: ["0.35", "1.25"],
+            medium: medium,
+            priorityFeeTrend: "stable",
+            low: low,
+            historicalBaseFeeRange: ["9.4", "15.1"]
+        )
     }
 }

@@ -48,7 +48,6 @@
 				"Config/Auralis-Release.xcconfig",
 				Config/Secrets.local.xcconfig,
 				Info.plist,
-				"MusicApp/OLD",
 			);
 			target = 6FB455DA2CC5BEBB009A055C /* Auralis */;
 		};

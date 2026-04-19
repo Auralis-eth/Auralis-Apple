@@ -230,7 +230,9 @@ enum Chain: String, Codable, Equatable, CaseIterable, Identifiable {
         case .baseMainnet:
             return "Base"
         default:
-            return rawValue.capitalized
+            return networkName
+                .replacingOccurrences(of: " Mainnet", with: "")
+                .replacingOccurrences(of: " Testnet", with: "")
         }
     }
 }

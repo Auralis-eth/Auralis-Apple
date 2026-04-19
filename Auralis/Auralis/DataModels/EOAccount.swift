@@ -6,7 +6,10 @@
 //
 
 import Foundation
+import OSLog
 import SwiftData
+
+private let eoAccountLogger = Logger(subsystem: "Auralis", category: "EOAccount")
 
 @Model
 class EOAccount: Codable, Identifiable {
@@ -139,15 +142,16 @@ enum EOAccountSource: String, Codable {
     init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()
         let rawValue = try container.decode(String.self)
-        self = switch rawValue {
+        switch rawValue {
         case Self.manualEntry.rawValue:
-            .manualEntry
+            self = .manualEntry
         case Self.qrScan.rawValue:
-            .qrScan
+            self = .qrScan
         case "guestPass":
-            .guestPass
+            self = .guestPass
         default:
-            .manualEntry
+            eoAccountLogger.error("Unknown EOAccountSource raw value encountered during decode: \(rawValue, privacy: .public)")
+            self = .manualEntry
         }
     }
 }

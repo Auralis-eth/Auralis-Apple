@@ -9,11 +9,25 @@ enum AccountStoreError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidAddress:
-            return "The wallet address is invalid."
+            return NSLocalizedString(
+                "account_store.error.invalid_address",
+                value: "The wallet address is invalid.",
+                comment: "Error shown when a wallet address fails validation"
+            )
         case .duplicateAddress(let address):
-            return "An account for \(address) already exists."
+            let format = NSLocalizedString(
+                "account_store.error.duplicate_address",
+                value: "An account for %@ already exists.",
+                comment: "Error shown when attempting to create a duplicate account"
+            )
+            return String(format: format, address)
         case .accountNotFound(let address):
-            return "No persisted account exists for \(address)."
+            let format = NSLocalizedString(
+                "account_store.error.account_not_found",
+                value: "No persisted account exists for %@.",
+                comment: "Error shown when an account cannot be found in local storage"
+            )
+            return String(format: format, address)
         }
     }
 }

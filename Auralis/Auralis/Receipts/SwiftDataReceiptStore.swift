@@ -103,6 +103,10 @@ final class SwiftDataReceiptStore: ReceiptStore {
 
 @MainActor
 enum ReceiptStores {
+    // These caches are keyed by long-lived shell-owned ModelContext instances.
+    // We intentionally keep one receipt store and sequence allocator per context
+    // rather than evicting aggressively, because churning either object would
+    // break receipt ordering guarantees within that context.
     private static var cachedStores: [ObjectIdentifier: SwiftDataReceiptStore] = [:]
     private static var cachedAllocators: [ObjectIdentifier: ReceiptSequenceAllocator] = [:]
 

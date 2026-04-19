@@ -484,8 +484,13 @@ class NFTMetadataUpdater {
             nft.image = NFT.Image()
         }
 
-        apply(patch.imageOriginalURL, to: &nft.image!.originalUrl)
-        apply(patch.imageSecureURL, to: &nft.image!.secureUrl)
+        guard let image = nft.image else {
+            return
+        }
+
+        apply(patch.imageOriginalURL, to: &image.originalUrl)
+        apply(patch.imageSecureURL, to: &image.secureUrl)
+        nft.image = image
     }
 
     private static func applyAttributesPatch(_ update: MetadataUpdate<[ParsedAttribute]>, to nft: NFT) {

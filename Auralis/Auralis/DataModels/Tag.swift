@@ -144,9 +144,19 @@ enum TagError: LocalizedError, Equatable {
                 comment: "Error when color contrast is too low"
             )
         case .operationFailed(let underlying):
-            return "Operation failed: \(underlying.localizedDescription)"
+            let format = NSLocalizedString(
+                "tag.error.operationFailed",
+                value: "Operation failed: %@",
+                comment: "Error shown when a tag operation fails for an underlying reason"
+            )
+            return String(format: format, underlying.localizedDescription)
         case .fetchFailed(let underlying):
-            return "Failed to fetch tags: \(underlying.localizedDescription)"
+            let format = NSLocalizedString(
+                "tag.error.fetchFailed",
+                value: "Failed to fetch tags: %@",
+                comment: "Error shown when fetching tags fails for an underlying reason"
+            )
+            return String(format: format, underlying.localizedDescription)
         }
     }
 

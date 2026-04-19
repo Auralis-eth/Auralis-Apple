@@ -30,7 +30,6 @@ struct AuralisApp: App {
         Settings {
             Text("Settings")
         }
-        // MenuBarExtra(content: <#T##() -> _#>, label: <#T##() -> _#>)
         MenuBarExtra {
             Text("Settings")
         }.menuBarExtraStyle(.window)
