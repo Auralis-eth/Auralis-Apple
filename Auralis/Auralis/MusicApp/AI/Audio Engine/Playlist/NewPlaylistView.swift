@@ -14,7 +14,6 @@ struct NewPlaylistView: View {
     @State private var title: String = ""
     @State private var descriptionText: String = ""
     @State private var photoItem: PhotosPickerItem?
-    @State private var playlistImage: Image?
     @State private var selectedImageData: Data?
     @State private var isSaving: Bool = false
     @State private var errorMessage: String?
@@ -259,7 +258,6 @@ struct NewPlaylistView: View {
 
         isSaving = true
 
-        // Note: imageRef is nil here as integration with Image Playground is a dependency and not implemented (TICKET-DM001).
         do {
             try modelContext.createPlaylist(
                 title: trimmed,

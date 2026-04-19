@@ -222,46 +222,6 @@ struct NowPlayingView: View {
                             RecentlyPlayedSection(audioEngine: audioEngine)
 
                             // Details card
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Details")
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-
-//                                VStack(spacing: 8) {
-//                                    if let tokenId = track.tokenId, !tokenId.isEmpty {
-//                                        DetailRow(title: "Token ID", value: tokenId)
-//                                    }
-//                                    if let contractAddress = track.contractAddress ?? track.contract?.address, !contractAddress.isEmpty {
-//                                        DetailRow(title: "Contract", value: contractAddress)
-//                                    }
-//                                    if let networkName = track.networkName ?? track.network?.displayName, !networkName.isEmpty {
-//                                        DetailRow(title: "Network", value: networkName)
-//                                    }
-//                                    if let contentType = track.contentType, !contentType.isEmpty {
-//                                        DetailRow(title: "Content Type", value: contentType)
-//                                    }
-//                                    if let updated = track.timeLastUpdated, !updated.isEmpty {
-//                                        DetailRow(title: "Updated", value: updated)
-//                                    }
-//                                }
-                            }
-                            .padding()
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-
-                            // Description
-//                            if let description = track.nftDescription ?? track.description, !description.isEmpty {
-//                                VStack(alignment: .leading, spacing: 8) {
-//                                    Text("Description")
-//                                        .font(.headline)
-//                                        .foregroundStyle(.primary)
-//                                    Text(description)
-//                                        .font(.body)
-//                                        .foregroundStyle(.secondary)
-//                                        .fixedSize(horizontal: false, vertical: true)
-//                                }
-//                                .frame(maxWidth: .infinity, alignment: .leading)
-//                            }
-
                             // Bottom spacer for scrollable content
                             Color.clear.frame(height: 20)
                         }

@@ -161,6 +161,7 @@ struct HomeTabView: View {
                 currentAddress: $currentAddress,
                 currentChain: $currentChain,
                 accountStoreFactory: services.accountStoreFactory,
+                accountEventRecorderFactory: services.accountEventRecorderFactory,
                 onAccountSelectionStarted: { _ in },
                 onCurrentChainChanged: onCurrentChainChanged
             )

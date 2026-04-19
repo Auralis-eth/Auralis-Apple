@@ -12,6 +12,7 @@ struct AccountSwitcherSheet: View {
     @Binding var currentAddress: String
     @Binding var currentChain: Chain
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let accountEventRecorderFactory: @MainActor (ModelContext) -> any AccountEventRecorder
     let onAccountSelectionStarted: @MainActor (String) -> Void
     let onCurrentChainChanged: @MainActor (Chain, String) -> Void
 
@@ -204,7 +205,7 @@ struct AccountSwitcherSheet: View {
 
         do {
             try modelContext.save()
-            AccountEventRecorders.live(modelContext: modelContext).record(
+            accountEventRecorderFactory(modelContext).record(
                 event,
                 correlationID: correlationID
             )

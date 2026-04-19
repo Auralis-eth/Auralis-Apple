@@ -23,9 +23,6 @@ struct AuralisApp: App {
     var body: some Scene {
         WindowGroup {
             MainAuraView()
-//                .task {
-//                    await runMetadataAnalysis()
-//                }
         }
         .modelContainer(for: [EOAccount.self, NFT.self, Tag.self, StoredReceipt.self, Playlist.self, MusicLibraryItem.self, TokenHolding.self])
 

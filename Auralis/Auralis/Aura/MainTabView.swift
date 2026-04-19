@@ -124,6 +124,7 @@ struct MainTabView: View {
                 currentAddress: $currentAddress,
                 currentChain: $currentChain,
                 accountStoreFactory: services.accountStoreFactory,
+                accountEventRecorderFactory: services.accountEventRecorderFactory,
                 onAccountSelectionStarted: { correlationID in
                     pendingShellFlowCorrelationID = correlationID
                 },

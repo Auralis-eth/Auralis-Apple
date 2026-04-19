@@ -196,6 +196,7 @@ struct ShellServiceHub {
     let ensResolverFactory: @MainActor (ModelContext) -> any ENSResolving
     let readOnlyProviderFactory: ReadOnlyProviderFactory
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let accountEventRecorderFactory: @MainActor (ModelContext) -> any AccountEventRecorder
     let contextServiceBuilder: any ShellContextServiceBuilding
     let libraryContextProviderFactory: @MainActor (ModelContext) -> any ShellLibraryContextProviding
     let musicLibraryIndexerFactory: @MainActor (ModelContext) -> any MusicLibraryIndexing
@@ -230,6 +231,9 @@ struct ShellServiceHub {
                     modelContext: modelContext,
                     eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
                 )
+            },
+            accountEventRecorderFactory: { modelContext in
+                AccountEventRecorders.live(modelContext: modelContext)
             },
             contextServiceBuilder: LiveShellContextServiceBuilder(),
             libraryContextProviderFactory: { modelContext in
