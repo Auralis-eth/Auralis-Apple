@@ -381,7 +381,10 @@ struct MainAuraView: View {
         }
 
         let isStale: Bool
-        if let lastSuccessfulRefreshAt = nftService.lastSuccessfulRefreshAt {
+        if let lastSuccessfulRefreshAt = nftService.lastSuccessfulRefreshAt(
+            for: currentAccount.address,
+            chain: currentChain
+        ) {
             isStale = Date().timeIntervalSince(lastSuccessfulRefreshAt) >= nftService.refreshTTL
         } else {
             isStale = true

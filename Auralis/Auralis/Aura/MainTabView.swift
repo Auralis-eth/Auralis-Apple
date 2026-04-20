@@ -24,13 +24,22 @@ struct MainTabView: View {
     @State private var pinnedItemCount: Int
     @State private var feedbackAlert: MainTabAlert?
 
-    private var contextRefreshKey: ContextRefreshKey {
-        ContextRefreshKey(
-            accountAddress: currentAccount?.address ?? currentAddress,
+    private var contextRemoteRefreshKey: ContextRemoteRefreshKey {
+        let activeAccountAddress = currentAccount?.address ?? currentAddress
+        return ContextRemoteRefreshKey(
+            accountAddress: activeAccountAddress,
             chain: currentChain,
             mode: modeState.mode,
             isLoading: nftService.isLoading,
-            refreshedAt: nftService.lastSuccessfulRefreshAt,
+            refreshedAt: nftService.lastSuccessfulRefreshAt(
+                for: activeAccountAddress,
+                chain: currentChain
+            )
+        )
+    }
+
+    private var contextLocalRefreshKey: ContextLocalRefreshKey {
+        ContextLocalRefreshKey(
             trackedNFTCount: currentAccount?.trackedNFTCount,
             pinnedItemCount: pinnedItemCount
         )
@@ -76,7 +85,14 @@ struct MainTabView: View {
                 chainProvider: { currentChain.wrappedValue },
                 modeProvider: { modeState.mode },
                 loadingProvider: { nftService.wrappedValue.isLoading },
-                refreshedAtProvider: { nftService.wrappedValue.lastSuccessfulRefreshAt },
+                refreshedAtProvider: {
+                    let activeAccountAddress = currentAccount.wrappedValue?.address
+                        ?? currentAddress.wrappedValue
+                    return nftService.wrappedValue.lastSuccessfulRefreshAt(
+                        for: activeAccountAddress,
+                        chain: currentChain.wrappedValue
+                    )
+                },
                 nativeBalanceProvider: services.readOnlyProviderFactory.makeNativeBalanceProvider(),
                 freshnessTTLProvider: { nftService.wrappedValue.refreshTTL },
                 trackedNFTCountProvider: { currentAccount.wrappedValue?.trackedNFTCount },
@@ -141,15 +157,21 @@ struct MainTabView: View {
                 }
             )
         }
-        .task(id: contextRefreshKey) {
+        .task(id: contextRemoteRefreshKey) {
             let correlationID = nftService.isLoading ? nil : pendingShellFlowCorrelationID
             await contextService.refresh(
                 correlationID: correlationID,
-                receiptEventLogger: services.receiptEventLoggerFactory(modelContext)
+                receiptEventLogger: services.receiptEventLoggerFactory(modelContext),
+                strategy: .remoteAllowed
             )
             if !nftService.isLoading, pendingShellFlowCorrelationID == correlationID {
                 pendingShellFlowCorrelationID = nil
             }
+        }
+        .task(id: contextLocalRefreshKey) {
+            await contextService.refresh(
+                strategy: .reuseCachedBalance
+            )
         }
         .onChange(of: currentAccount) { _, newAccount in
             if let acct = newAccount {
@@ -496,12 +518,15 @@ private struct MainTabAlert: Identifiable {
     let message: String
 }
 
-private struct ContextRefreshKey: Hashable {
+private struct ContextRemoteRefreshKey: Hashable {
     let accountAddress: String
     let chain: Chain
     let mode: AppMode
     let isLoading: Bool
     let refreshedAt: Date?
+}
+
+private struct ContextLocalRefreshKey: Hashable {
     let trackedNFTCount: Int?
     let pinnedItemCount: Int
 }

@@ -4,6 +4,11 @@ import Observation
 @MainActor
 @Observable
 final class ContextService {
+    enum RefreshStrategy {
+        case remoteAllowed
+        case reuseCachedBalance
+    }
+
     struct RequestScope: Equatable {
         let accountAddress: String
         let chain: Chain
@@ -128,9 +133,10 @@ final class ContextService {
     @discardableResult
     func refresh(
         correlationID: String? = nil,
-        receiptEventLogger: ReceiptEventLogger? = nil
+        receiptEventLogger: ReceiptEventLogger? = nil,
+        strategy: RefreshStrategy = .remoteAllowed
     ) async -> ContextSnapshot {
-        let capturedInputs = await captureInputs()
+        let capturedInputs = await captureInputs(strategy: strategy)
 
         if let inFlightTask, inFlightScope == capturedInputs.scope {
             return await inFlightTask.value
@@ -156,17 +162,21 @@ final class ContextService {
             inFlightScope = nil
         }
 
-        receiptEventLogger?.recordContextBuilt(
-            snapshot: resolvedSnapshot,
-            correlationID: correlationID
-        )
+        if didWinGeneration {
+            receiptEventLogger?.recordContextBuilt(
+                snapshot: resolvedSnapshot,
+                correlationID: correlationID
+            )
+        }
 
         return didWinGeneration ? snapshot : resolvedSnapshot
     }
 }
 
 private extension ContextService {
-    private func captureInputs() async -> CapturedInputs {
+    private func captureInputs(
+        strategy: RefreshStrategy
+    ) async -> CapturedInputs {
         await Self.captureInputs(
             accountProvider: accountProvider,
             addressProvider: addressProvider,
@@ -181,7 +191,9 @@ private extension ContextService {
             receiptCountProvider: receiptCountProvider,
             pinnedActionsProvider: pinnedActionsProvider,
             prefersDemoDataProvider: prefersDemoDataProvider,
-            pinnedItemCountProvider: pinnedItemCountProvider
+            pinnedItemCountProvider: pinnedItemCountProvider,
+            strategy: strategy,
+            cachedSnapshot: snapshot
         )
     }
 
@@ -199,14 +211,18 @@ private extension ContextService {
         receiptCountProvider: () -> Int?,
         pinnedActionsProvider: () -> [HomeLauncherAction],
         prefersDemoDataProvider: () -> Bool?,
-        pinnedItemCountProvider: () -> Int?
+        pinnedItemCountProvider: () -> Int?,
+        strategy: RefreshStrategy,
+        cachedSnapshot: ContextSnapshot
     ) async -> CapturedInputs {
         let address = addressProvider()
         let chain = chainProvider()
         let nativeBalanceSnapshot = await resolveNativeBalance(
             address: address,
             chain: chain,
-            provider: nativeBalanceProvider
+            provider: nativeBalanceProvider,
+            strategy: strategy,
+            cachedSnapshot: cachedSnapshot
         )
 
         return CapturedInputs(
@@ -262,13 +278,25 @@ private extension ContextService {
     private static func resolveNativeBalance(
         address: String,
         chain: Chain,
-        provider: any NativeBalanceProviding
+        provider: any NativeBalanceProviding,
+        strategy: RefreshStrategy,
+        cachedSnapshot: ContextSnapshot
     ) async -> NativeBalanceSnapshot {
         guard !address.isEmpty else {
             return NativeBalanceSnapshot(
                 displayValue: nil,
                 updatedAt: nil,
                 provenance: .localCache
+            )
+        }
+
+        if strategy == .reuseCachedBalance,
+           cachedSnapshot.scope.accountAddress.value == address,
+           cachedSnapshot.scope.selectedChains.value == [chain] {
+            return NativeBalanceSnapshot(
+                displayValue: cachedSnapshot.balances.nativeBalanceDisplay.value,
+                updatedAt: cachedSnapshot.balances.nativeBalanceDisplay.updatedAt,
+                provenance: cachedSnapshot.balances.nativeBalanceDisplay.provenance
             )
         }
 

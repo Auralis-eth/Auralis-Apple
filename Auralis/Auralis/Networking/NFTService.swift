@@ -392,7 +392,7 @@ class NFTService {
         case cleaningUp(itemCount: Int)
     }
 
-    private struct RefreshScope: Equatable {
+    private struct RefreshScope: Hashable {
         let accountAddress: String
         let chain: Chain
     }
@@ -412,7 +412,7 @@ class NFTService {
     var error: Error? { nftFetcher.error }
     var providerFailure: NFTProviderFailure? { NFTProviderFailure(error: error) }
     private(set) var refreshPhase: RefreshPhase = .idle
-    var lastSuccessfulRefreshAt: Date?
+    private var successfulRefreshTimestamps: [RefreshScope: Date] = [:]
     private var inFlightRefreshScope: RefreshScope?
     private var inFlightRefreshTask: Task<Void, Never>?
     private var inFlightRefreshToken: UUID?
@@ -427,6 +427,20 @@ class NFTService {
         self.nftFetcher = nftFetcher ?? NFTFetcher()
         self.refreshTTL = refreshTTL
         self.eventRecorderFactory = eventRecorderFactory
+    }
+
+    func lastSuccessfulRefreshAt(
+        for accountAddress: String?,
+        chain: Chain
+    ) -> Date? {
+        guard let refreshScope = refreshScope(
+            accountAddress: accountAddress,
+            chain: chain
+        ) else {
+            return nil
+        }
+
+        return successfulRefreshTimestamps[refreshScope]
     }
 
     func fetchAllNFTs(
@@ -482,11 +496,11 @@ class NFTService {
                         accountAddress: accountAddress,
                         chain: chain
                     )
-                } else if let currentCursor = nftFetcher.currentCursor {
-                    UserDefaults.standard.set(currentCursor, forKey: "currentCursor")
                 }
 
-                lastSuccessfulRefreshAt = .now
+                successfulRefreshTimestamps[
+                    RefreshScope(accountAddress: accountAddress, chain: chain)
+                ] = .now
                 await eventRecorder.recordPersistenceCompleted(
                     accountAddress: accountAddress,
                     chain: chain,
@@ -528,7 +542,12 @@ class NFTService {
             return
         }
 
-        let requestedScope = RefreshScope(accountAddress: accountAddress, chain: chain)
+        guard let requestedScope = refreshScope(
+            accountAddress: accountAddress,
+            chain: chain
+        ) else {
+            return
+        }
 
         if let inFlightRefreshTask {
             if inFlightRefreshScope == requestedScope {
@@ -595,6 +614,17 @@ class NFTService {
         }
 
         return deduplicateFetchedNFTs(fetchedNFTs)
+    }
+
+    private func refreshScope(
+        accountAddress: String?,
+        chain: Chain
+    ) -> RefreshScope? {
+        guard let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) else {
+            return nil
+        }
+
+        return RefreshScope(accountAddress: normalizedAccountAddress, chain: chain)
     }
 
     private func prepareMetadataPatches(
