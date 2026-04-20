@@ -31,13 +31,17 @@ struct NFTImageLoaderTests {
             )!
             return (response, Data())
         }
-        URLProtocol.registerClass(MockURLProtocol.self)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
         defer {
-            URLProtocol.unregisterClass(MockURLProtocol.self)
             MockURLProtocol.handler = nil
         }
 
-        let loader = ImageLoader(url: URL(string: "https://example.com/not-an-image")!)
+        let loader = ImageLoader(
+            url: URL(string: "https://example.com/not-an-image")!,
+            session: session
+        )
         loader.loadIfNeeded()
 
         for _ in 0..<20 {

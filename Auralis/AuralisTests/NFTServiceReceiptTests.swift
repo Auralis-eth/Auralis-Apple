@@ -73,7 +73,12 @@ struct NFTServiceReceiptTests {
             correlationID: "success-pass"
         )
 
-        let firstSuccessTimestamp = try #require(service.lastSuccessfulRefreshAt)
+        let firstSuccessTimestamp = try #require(
+            service.lastSuccessfulRefreshAt(
+                for: account.address,
+                chain: .ethMainnet
+            )
+        )
 
         await service.refreshNFTs(
             for: account,
@@ -82,7 +87,12 @@ struct NFTServiceReceiptTests {
             correlationID: "failure-pass"
         )
 
-        #expect(service.lastSuccessfulRefreshAt == firstSuccessTimestamp)
+        #expect(
+            service.lastSuccessfulRefreshAt(
+                for: account.address,
+                chain: .ethMainnet
+            ) == firstSuccessTimestamp
+        )
         #expect(service.error != nil)
         #expect(service.providerFailure?.kind == .offline)
         let failureReceipts = try receiptStore.receipts(forCorrelationID: "failure-pass", limit: 10)
@@ -474,7 +484,12 @@ struct NFTServiceReceiptTests {
             chainProvider: { .ethMainnet },
             modeProvider: { .observe },
             loadingProvider: { nftService.isLoading },
-            refreshedAtProvider: { nftService.lastSuccessfulRefreshAt },
+            refreshedAtProvider: {
+                nftService.lastSuccessfulRefreshAt(
+                    for: account.address,
+                    chain: .ethMainnet
+                )
+            },
             nativeBalanceProvider: StubNativeBalanceProvider(),
             freshnessTTLProvider: { nftService.refreshTTL },
             trackedNFTCountProvider: { account.trackedNFTCount },

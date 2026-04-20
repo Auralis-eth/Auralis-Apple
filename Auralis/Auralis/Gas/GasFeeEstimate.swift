@@ -5,6 +5,7 @@
 //  Created by Daniel Bell on 10/1/24.
 //
 
+import Observation
 import SwiftUI
 
 // MARK: - Enums for Type Safety
@@ -162,12 +163,13 @@ extension GasPriceEstimate.FeeDetails {
 
 // MARK: - ViewModel
 @MainActor
-final class GasPriceEstimateViewModel: ObservableObject {
-    @Published private(set) var estimate: GasPriceEstimate?
-    @Published private(set) var isLoading = false
-    @Published private(set) var error: Error?
-    @Published private(set) var currentChain: Chain?
-    @Published private(set) var lastUpdated: Date?
+@Observable
+final class GasPriceEstimateViewModel {
+    private(set) var estimate: GasPriceEstimate?
+    private(set) var isLoading = false
+    private(set) var error: Error?
+    private(set) var currentChain: Chain?
+    private(set) var lastUpdated: Date?
 
     private let provider: any GasPricingProviding
     private var currentTask: Task<Void, Never>?
@@ -266,14 +268,14 @@ final class GasPriceEstimateViewModel: ObservableObject {
 // MARK: - Main View
 struct GasPriceEstimateView: View {
     @Binding var chain: Chain
-    @StateObject private var viewModel: GasPriceEstimateViewModel
+    @State private var viewModel: GasPriceEstimateViewModel
 
     init(
         chain: Binding<Chain>,
         viewModel: GasPriceEstimateViewModel = GasPriceEstimateViewModel()
     ) {
         _chain = chain
-        _viewModel = StateObject(wrappedValue: viewModel)
+        _viewModel = State(initialValue: viewModel)
     }
 
     var body: some View {

@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 struct HomePinnedItemRecord: Codable, Equatable {
     let accountAddress: String
@@ -7,6 +8,7 @@ struct HomePinnedItemRecord: Codable, Equatable {
 }
 
 struct HomePinnedItemsStore {
+    private static let logger = Logger(subsystem: "Auralis", category: "HomePinnedItemsStore")
     private let userDefaults: UserDefaults
     private let storageKey: String
     private let maximumPinnedItemsPerAccount: Int
@@ -73,19 +75,25 @@ struct HomePinnedItemsStore {
     }
 
     private func loadRecords() -> [HomePinnedItemRecord] {
-        guard let data = userDefaults.data(forKey: storageKey),
-              let records = try? JSONDecoder().decode([HomePinnedItemRecord].self, from: data) else {
+        guard let data = userDefaults.data(forKey: storageKey) else {
             return []
         }
 
-        return records
+        do {
+            return try JSONDecoder().decode([HomePinnedItemRecord].self, from: data)
+        } catch {
+            Self.logger.error("Failed to decode pinned items for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
+        }
     }
 
     private func saveRecords(_ records: [HomePinnedItemRecord]) {
-        guard let data = try? JSONEncoder().encode(records) else {
+        do {
+            let data = try JSONEncoder().encode(records)
+            userDefaults.set(data, forKey: storageKey)
+        } catch {
+            Self.logger.error("Failed to encode pinned items for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return
         }
-
-        userDefaults.set(data, forKey: storageKey)
     }
 }

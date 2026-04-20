@@ -36,12 +36,12 @@ final class ImageCache: @unchecked Sendable {
 @MainActor
 final class ImageLoader: ObservableObject {
     nonisolated private static let maxPixelDimension = 1_024
-    nonisolated private static let session: URLSession = {
+    nonisolated private static func makeDefaultSession() -> URLSession {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 15
         configuration.timeoutIntervalForResource = 30
         return URLSession(configuration: configuration)
-    }()
+    }
 
     enum LoadingError: Error {
         case invalidData
@@ -83,10 +83,15 @@ final class ImageLoader: ObservableObject {
     private var loadingTask: Task<Void, Never>?
     let url: URL
     private let cacheKey: String
+    private let session: URLSession
 
-    init(url: URL) {
+    init(
+        url: URL,
+        session: URLSession = ImageLoader.makeDefaultSession()
+    ) {
         self.url = url
         self.cacheKey = url.absoluteString
+        self.session = session
 
         if let cachedImage = ImageCache.shared.get(for: cacheKey) {
             self.image = cachedImage
@@ -126,7 +131,11 @@ final class ImageLoader: ObservableObject {
                 return
             }
 
-            let result = await Self.fetchImage(url: currentURL, cacheKey: currentCacheKey)
+            let result = await Self.fetchImage(
+                url: currentURL,
+                cacheKey: currentCacheKey,
+                session: session
+            )
             guard !Task.isCancelled else { return }
 
             isLoading = false
@@ -166,7 +175,11 @@ final class ImageLoader: ObservableObject {
         return UIImage(cgImage: cgImage)
     }
 
-    nonisolated private static func fetchImage(url: URL, cacheKey: String) async -> Result<UIImage, LoadingError> {
+    nonisolated private static func fetchImage(
+        url: URL,
+        cacheKey: String,
+        session: URLSession
+    ) async -> Result<UIImage, LoadingError> {
         if let cachedImage = ImageCache.shared.get(for: cacheKey) {
             return .success(cachedImage)
         }

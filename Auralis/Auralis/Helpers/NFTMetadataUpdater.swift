@@ -11,8 +11,8 @@ import OSLog
 private let nftMetadataUpdaterLogger = Logger(subsystem: "Auralis", category: "NFTMetadataUpdater")
 import SwiftData
 
-// MARK: - NFTMetadataUpdater Utility Class
-class NFTMetadataUpdater {
+// MARK: - NFTMetadataUpdater Utility Type
+enum NFTMetadataUpdater {
     struct ParsedAttribute: Sendable {
         let value: String
         let traitType: String?

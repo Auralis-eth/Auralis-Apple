@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 struct SearchHistoryEntry: Codable, Equatable, Identifiable, Sendable {
     let accountAddress: String
@@ -12,6 +13,7 @@ struct SearchHistoryEntry: Codable, Equatable, Identifiable, Sendable {
 }
 
 struct SearchHistoryStore {
+    private static let logger = Logger(subsystem: "Auralis", category: "SearchHistoryStore")
     private let userDefaults: UserDefaults
     private let storageKey: String
     private let maxEntriesPerAccount: Int
@@ -81,19 +83,25 @@ struct SearchHistoryStore {
     }
 
     private func loadEntries() -> [SearchHistoryEntry] {
-        guard let data = userDefaults.data(forKey: storageKey),
-              let entries = try? JSONDecoder().decode([SearchHistoryEntry].self, from: data) else {
+        guard let data = userDefaults.data(forKey: storageKey) else {
             return []
         }
 
-        return entries
+        do {
+            return try JSONDecoder().decode([SearchHistoryEntry].self, from: data)
+        } catch {
+            Self.logger.error("Failed to decode search history for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
+        }
     }
 
     private func saveEntries(_ entries: [SearchHistoryEntry]) {
-        guard let data = try? JSONEncoder().encode(entries) else {
+        do {
+            let data = try JSONEncoder().encode(entries)
+            userDefaults.set(data, forKey: storageKey)
+        } catch {
+            Self.logger.error("Failed to encode search history for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return
         }
-
-        userDefaults.set(data, forKey: storageKey)
     }
 }
