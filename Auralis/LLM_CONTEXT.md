@@ -59,7 +59,6 @@ If a bug feels "global," it is usually in the shell, router, scoped persistence,
 - active code is under `Auralis/Auralis/MusicApp/AI/`
 - `AudioEngine` is the shared playback engine
 - `MusicLibraryIndex` builds a local library view from persisted/scoped NFT data
-- `Auralis/Auralis/MusicApp/OLD/` is legacy; do not change it unless you confirm it is active
 
 ## Where to look first
 

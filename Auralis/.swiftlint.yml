@@ -3,9 +3,6 @@ included:
   - AuralisTests
   - AuralisUITests
 
-excluded:
-  - Auralis/MusicApp/OLD
-
 reporter: xcode
 
 disabled_rules:

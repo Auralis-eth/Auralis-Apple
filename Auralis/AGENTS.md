@@ -51,4 +51,4 @@ The shell flow is:
 - Guest passes are a lightweight onboarding shortcut to curated public wallets, not a separate demo-data product mode.
 - Deep links may arrive during cold start; queue them until shell state is ready.
 - Receipt routing is intentionally safe-fail for now. Full receipt support is deferred.
-- The active audio path lives under `MusicApp/AI/`; `MusicApp/OLD/` is legacy until proven otherwise.
+- The active audio path lives under `MusicApp/AI/`.

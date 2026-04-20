@@ -18,7 +18,6 @@
 ### Known Limitations
 - Some tabs and feature areas are still scaffold-level and not equally mature.
 - Receipt routing is intentionally safe-fail; full receipt support is still incomplete.
-- Legacy music code remains in `Auralis/Auralis/MusicApp/OLD/` and should not be treated as active without verification.
 - Some oversized files, especially `Auralis/Auralis/DataModels/NFT.swift`, still carry too many responsibilities.
 
 ### Deferred Nice-to-Haves
