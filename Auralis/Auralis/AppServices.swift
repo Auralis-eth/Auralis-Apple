@@ -202,7 +202,7 @@ struct ShellServiceHub {
     let musicLibraryIndexerFactory: @MainActor (ModelContext) -> any MusicLibraryIndexing
     let receiptStoreFactory: @MainActor (ModelContext) -> any ReceiptStore
     let receiptEventLoggerFactory: @MainActor (ModelContext) -> ReceiptEventLogger
-    let searchHistoryStoreFactory: () -> SearchHistoryStore
+    let searchHistoryStoreFactory: @MainActor (ModelContext) -> SearchHistoryStore
     let homePinnedItemsStoreFactory: () -> HomePinnedItemsStore
     let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
@@ -250,8 +250,8 @@ struct ShellServiceHub {
                     receiptStore: ReceiptStores.live(modelContext: modelContext)
                 )
             },
-            searchHistoryStoreFactory: {
-                SearchHistoryStore()
+            searchHistoryStoreFactory: { modelContext in
+                SearchHistoryStore(modelContext: modelContext)
             },
             homePinnedItemsStoreFactory: {
                 HomePinnedItemsStore()

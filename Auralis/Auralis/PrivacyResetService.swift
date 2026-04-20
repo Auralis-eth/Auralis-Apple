@@ -39,7 +39,7 @@ enum PrivacyResetServices {
     static func live(modelContext: ModelContext) -> PrivacyResetService {
         PrivacyResetService(
             receiptStore: ReceiptStores.live(modelContext: modelContext),
-            searchHistoryStore: SearchHistoryStore(),
+            searchHistoryStore: SearchHistoryStore(modelContext: modelContext),
             ensCacheResetService: ENSResolvers.cacheResetService(),
             tokenHoldingsStore: TokenHoldingsStore(modelContext: modelContext)
         )

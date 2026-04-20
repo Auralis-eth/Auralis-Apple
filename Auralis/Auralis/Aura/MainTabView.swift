@@ -435,7 +435,7 @@ struct MainTabView: View {
                     router: router,
                     currentAccountAddress: currentAccount?.address ?? currentAddress,
                     currentChain: currentChain,
-                    historyStore: services.searchHistoryStoreFactory()
+                    historyStore: services.searchHistoryStoreFactory(modelContext)
                 )
             }
 

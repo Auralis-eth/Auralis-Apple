@@ -24,7 +24,7 @@ struct AuralisApp: App {
         WindowGroup {
             MainAuraView()
         }
-        .modelContainer(for: [EOAccount.self, NFT.self, Tag.self, StoredReceipt.self, Playlist.self, MusicLibraryItem.self, TokenHolding.self])
+        .modelContainer(for: [EOAccount.self, NFT.self, Tag.self, StoredReceipt.self, Playlist.self, MusicLibraryItem.self, TokenHolding.self, SearchHistoryRecord.self])
 
 #if os(macOS)
         Settings {
