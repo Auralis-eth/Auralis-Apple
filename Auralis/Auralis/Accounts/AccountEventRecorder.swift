@@ -60,24 +60,30 @@ enum AccountEventRecorders {
 
 private extension ReceiptBackedAccountEventRecorder {
     func makeDraft(for event: AccountEvent, correlationID: String?) -> ReceiptDraft {
-        let (kind, summary, rawPayload): (String, String, RawReceiptPayload) = switch event {
+        let (kind, summary, rawPayload, timelineAccountAddress, timelineChainRawValue): (String, String, RawReceiptPayload, String?, String?) = switch event {
         case .added(let address):
             (
                 "account.added",
                 "Added watch-only account",
-                AccountAddressReceiptPayload(address: address).rawPayload
+                AccountAddressReceiptPayload(address: address).rawPayload,
+                address,
+                nil
             )
         case .removed(let address):
             (
                 "account.removed",
                 "Removed watch-only account",
-                AccountAddressReceiptPayload(address: address).rawPayload
+                AccountAddressReceiptPayload(address: address).rawPayload,
+                address,
+                nil
             )
         case .selected(let address):
             (
                 "account.selected",
                 "Selected active account",
-                AccountAddressReceiptPayload(address: address).rawPayload
+                AccountAddressReceiptPayload(address: address).rawPayload,
+                address,
+                nil
             )
         case .preferredChainChanged(let address, let from, let to):
             (
@@ -87,7 +93,9 @@ private extension ReceiptBackedAccountEventRecorder {
                     address: address,
                     from: from,
                     to: to
-                ).rawPayload
+                ).rawPayload,
+                address,
+                to.rawValue
             )
         case .currentChainChanged(let address, let from, let to):
             (
@@ -97,7 +105,9 @@ private extension ReceiptBackedAccountEventRecorder {
                     address: address,
                     from: from,
                     to: to
-                ).rawPayload
+                ).rawPayload,
+                address,
+                to.rawValue
             )
         }
 
@@ -112,6 +122,8 @@ private extension ReceiptBackedAccountEventRecorder {
             provenance: "user_provided",
             isSuccess: true,
             correlationID: correlationID,
+            timelineAccountAddress: timelineAccountAddress,
+            timelineChainRawValue: timelineChainRawValue,
             details: payload
         )
     }

@@ -79,6 +79,23 @@ struct ReceiptTimelineRecord: Identifiable, Equatable, Sendable {
         actor.rawValue.capitalized
     }
 
+    var accountTitle: String? {
+        guard let accountAddress, !accountAddress.isEmpty else {
+            return nil
+        }
+
+        return accountAddress.displayAddress
+    }
+
+    var chainTitle: String? {
+        guard let chainRawValue,
+              let chain = Chain(rawValue: chainRawValue) else {
+            return nil
+        }
+
+        return chain.routingDisplayName
+    }
+
     var searchIndex: String {
         [
             summary,
@@ -95,20 +112,12 @@ struct ReceiptTimelineRecord: Identifiable, Equatable, Sendable {
     func matches(_ scope: ReceiptTimelineScope) -> Bool {
         let normalizedScopeAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
 
+        guard let normalizedScopeAddress else {
+            return true
+        }
+
         if let accountAddress {
             guard accountAddress == normalizedScopeAddress else {
-                return false
-            }
-        }
-
-        if let chainRawValue {
-            guard chainRawValue == scope.chain.rawValue else {
-                return false
-            }
-        }
-
-        if !selectedChainRawValues.isEmpty {
-            guard selectedChainRawValues.contains(scope.chain.rawValue) else {
                 return false
             }
         }

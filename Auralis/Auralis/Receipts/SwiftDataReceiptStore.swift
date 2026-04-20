@@ -27,6 +27,8 @@ final class SwiftDataReceiptStore: ReceiptStore {
             provenance: receipt.provenance,
             isSuccess: receipt.isSuccess,
             correlationID: receipt.correlationID,
+            timelineAccountAddress: receipt.timelineAccountAddress,
+            timelineChainRawValue: receipt.timelineChainRawValue,
             details: receipt.details
         )
 

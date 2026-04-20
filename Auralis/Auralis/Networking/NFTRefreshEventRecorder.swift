@@ -100,6 +100,8 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         append(
             kind: "nft.refresh.started",
             correlationID: correlationID,
+            accountAddress: accountAddress,
+            chain: chain,
             rawPayload: NFTRefreshStartedPayload(
                 accountAddress: accountAddress,
                 chain: chain
@@ -119,6 +121,8 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         append(
             kind: "nft.fetch.succeeded",
             correlationID: correlationID,
+            accountAddress: accountAddress,
+            chain: chain,
             rawPayload: NFTFetchSucceededPayload(
                 accountAddress: accountAddress,
                 chain: chain,
@@ -139,6 +143,8 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         append(
             kind: "nft.fetch.failed",
             correlationID: correlationID,
+            accountAddress: accountAddress,
+            chain: chain,
             rawPayload: NFTFetchFailedPayload(
                 accountAddress: accountAddress,
                 chain: chain,
@@ -159,6 +165,8 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         append(
             kind: "nft.persistence.completed",
             correlationID: correlationID,
+            accountAddress: accountAddress,
+            chain: chain,
             rawPayload: NFTPersistenceCompletedPayload(
                 accountAddress: accountAddress,
                 chain: chain,
@@ -178,6 +186,8 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         append(
             kind: "nft.persistence.failed",
             correlationID: correlationID,
+            accountAddress: accountAddress,
+            chain: chain,
             rawPayload: NFTPersistenceFailedPayload(
                 accountAddress: accountAddress,
                 chain: chain,
@@ -203,6 +213,8 @@ private extension ReceiptBackedNFTRefreshEventRecorder {
     func append(
         kind: String,
         correlationID: String,
+        accountAddress: String,
+        chain: Chain,
         rawPayload: RawReceiptPayload,
         summary: String,
         isSuccess: Bool
@@ -220,6 +232,8 @@ private extension ReceiptBackedNFTRefreshEventRecorder {
                     provenance: "on_chain",
                     isSuccess: isSuccess,
                     correlationID: correlationID,
+                    timelineAccountAddress: accountAddress,
+                    timelineChainRawValue: chain.rawValue,
                     details: payload
                 )
             )

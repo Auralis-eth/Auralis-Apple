@@ -208,6 +208,8 @@ struct ReceiptDraft: Equatable, Sendable {
     let provenance: String
     let isSuccess: Bool
     let correlationID: String?
+    let timelineAccountAddress: String?
+    let timelineChainRawValue: String?
     let details: ReceiptPayload
 
     init(
@@ -220,6 +222,8 @@ struct ReceiptDraft: Equatable, Sendable {
         provenance: String,
         isSuccess: Bool,
         correlationID: String? = nil,
+        timelineAccountAddress: String? = nil,
+        timelineChainRawValue: String? = nil,
         details: ReceiptPayload
     ) {
         self.createdAt = createdAt
@@ -231,6 +235,8 @@ struct ReceiptDraft: Equatable, Sendable {
         self.provenance = provenance
         self.isSuccess = isSuccess
         self.correlationID = correlationID
+        self.timelineAccountAddress = timelineAccountAddress
+        self.timelineChainRawValue = timelineChainRawValue
         self.details = details
     }
 
@@ -244,7 +250,9 @@ struct ReceiptDraft: Equatable, Sendable {
         mode: ReceiptMode = .observe,
         summary: String? = nil,
         provenance: String = "local",
-        isSuccess: Bool = true
+        isSuccess: Bool = true,
+        timelineAccountAddress: String? = nil,
+        timelineChainRawValue: String? = nil
     ) {
         self.init(
             createdAt: createdAt,
@@ -256,6 +264,8 @@ struct ReceiptDraft: Equatable, Sendable {
             provenance: provenance,
             isSuccess: isSuccess,
             correlationID: correlationID,
+            timelineAccountAddress: timelineAccountAddress,
+            timelineChainRawValue: timelineChainRawValue,
             details: payload
         )
     }

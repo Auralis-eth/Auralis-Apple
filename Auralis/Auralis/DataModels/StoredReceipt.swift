@@ -39,6 +39,8 @@ final class StoredReceipt {
         provenance: String,
         isSuccess: Bool,
         correlationID: String? = nil,
+        timelineAccountAddress: String? = nil,
+        timelineChainRawValue: String? = nil,
         details: ReceiptPayload
     ) throws {
         self.id = id
@@ -52,8 +54,8 @@ final class StoredReceipt {
         self.provenance = provenance
         self.isSuccess = isSuccess
         self.correlationID = correlationID
-        self.accountAddress = details.timelineAccountAddress
-        self.chainRawValue = details.timelineChainRawValue
+        self.accountAddress = timelineAccountAddress ?? details.timelineAccountAddress
+        self.chainRawValue = timelineChainRawValue ?? details.timelineChainRawValue
         self.detailsData = try Self.encodeDetails(details)
     }
 

@@ -26,6 +26,8 @@ struct ReceiptEventLogger {
             scope: "app",
             summary: "Launched Auralis",
             provenance: "local",
+            timelineAccountAddress: accountAddress,
+            timelineChainRawValue: chain.rawValue,
             rawPayload: AppLaunchReceiptPayload(
                 accountAddress: accountAddress,
                 chain: chain
@@ -46,6 +48,8 @@ struct ReceiptEventLogger {
             scope: "context",
             summary: "Built shell context snapshot",
             provenance: "local_cache",
+            timelineAccountAddress: snapshot.scope.accountAddress.value,
+            timelineChainRawValue: snapshot.scope.selectedChains.value?.first?.rawValue,
             rawPayload: ContextBuiltReceiptPayload(snapshot: snapshot).rawPayload,
             correlationID: correlationID,
             actor: .system,
@@ -67,6 +71,8 @@ struct ReceiptEventLogger {
             scope: "navigation.external",
             summary: "Opened external link",
             provenance: "user_provided",
+            timelineAccountAddress: accountAddress,
+            timelineChainRawValue: chain?.rawValue,
             rawPayload: ExternalLinkOpenedReceiptPayload(
                 label: label,
                 url: url,
@@ -94,6 +100,8 @@ struct ReceiptEventLogger {
             scope: "clipboard",
             summary: "Copied value",
             provenance: "user_provided",
+            timelineAccountAddress: accountAddress,
+            timelineChainRawValue: chain?.rawValue,
             rawPayload: CopyActionReceiptPayload(
                 subject: subject,
                 value: value,
@@ -118,6 +126,8 @@ struct ReceiptEventLogger {
             scope: "music.library",
             summary: "Started music library index rebuild",
             provenance: "local_cache",
+            timelineAccountAddress: accountAddress,
+            timelineChainRawValue: chain.rawValue,
             rawPayload: MusicLibraryIndexStartedReceiptPayload(
                 accountAddress: accountAddress,
                 chain: chain
@@ -142,6 +152,8 @@ struct ReceiptEventLogger {
             scope: "music.library",
             summary: "Rebuilt music library index",
             provenance: "local_cache",
+            timelineAccountAddress: accountAddress,
+            timelineChainRawValue: chain.rawValue,
             rawPayload: MusicLibraryIndexCompletedReceiptPayload(
                 accountAddress: accountAddress,
                 chain: chain,
@@ -167,6 +179,8 @@ struct ReceiptEventLogger {
             scope: "music.library",
             summary: "Music library index rebuild failed",
             provenance: "local_cache",
+            timelineAccountAddress: accountAddress,
+            timelineChainRawValue: chain.rawValue,
             rawPayload: MusicLibraryIndexFailedReceiptPayload(
                 accountAddress: accountAddress,
                 chain: chain,
@@ -186,6 +200,8 @@ private extension ReceiptEventLogger {
         scope: String,
         summary: String,
         provenance: String,
+        timelineAccountAddress: String?,
+        timelineChainRawValue: String?,
         rawPayload: RawReceiptPayload,
         correlationID: String?,
         actor: ReceiptActor,
@@ -204,6 +220,8 @@ private extension ReceiptEventLogger {
                     provenance: provenance,
                     isSuccess: isSuccess,
                     correlationID: correlationID,
+                    timelineAccountAddress: timelineAccountAddress,
+                    timelineChainRawValue: timelineChainRawValue,
                     details: payload
                 )
             )

@@ -36,6 +36,14 @@ struct ReceiptTimelineRow: View {
                     AuraPill(record.scope, systemImage: "square.stack.3d.up")
                     AuraPill(record.actorTitle, systemImage: record.actor == .user ? "person.fill" : "gearshape.fill")
 
+                    if let accountTitle = record.accountTitle {
+                        AuraPill(accountTitle, systemImage: "person.crop.circle")
+                    }
+
+                    if let chainTitle = record.chainTitle {
+                        AuraPill(chainTitle, systemImage: "link")
+                    }
+
                     if let correlationID = record.correlationID, !correlationID.isEmpty {
                         AuraPill(
                             String(correlationID.prefix(8)),

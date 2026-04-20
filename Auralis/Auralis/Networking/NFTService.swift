@@ -269,7 +269,7 @@ private actor NFTRefreshPersistenceStore {
         persistedNFT.isStatic = incomingNFT.isStatic
         persistedNFT.aspectRatio = incomingNFT.aspectRatio
         persistedNFT.attributes = incomingNFT.attributes
-        persistedNFT.tags = incomingNFT.tags
+        // Tags are local user state, not provider-owned refresh data.
     }
 
     private func resolveContract(
@@ -586,6 +586,7 @@ class NFTService {
             nft.applyRefreshScope(accountAddress: accountAddress, chain: chain)
             if let metadataPatch = metadataPatches[index] {
                 NFTMetadataUpdater.applyMetadataPatch(metadataPatch, to: nft)
+                nft.applyRefreshScope(accountAddress: accountAddress, chain: chain)
             }
 
             if index.isMultiple(of: 25) {

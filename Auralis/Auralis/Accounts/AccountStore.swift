@@ -167,7 +167,6 @@ struct AccountStore {
             }
 
             modelContext.delete(existingAccount)
-            eventRecorder.record(.removed(address: normalizedAddress), correlationID: correlationID)
         }
 
         let account = EOAccount(
@@ -182,6 +181,9 @@ struct AccountStore {
 
         modelContext.insert(account)
         try modelContext.save()
+        if overwriteExisting {
+            eventRecorder.record(.removed(address: normalizedAddress), correlationID: correlationID)
+        }
         eventRecorder.record(.added(address: normalizedAddress), correlationID: correlationID)
         return account
     }
