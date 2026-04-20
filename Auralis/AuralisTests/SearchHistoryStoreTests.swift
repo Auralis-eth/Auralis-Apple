@@ -25,9 +25,9 @@ struct SearchHistoryStoreTests {
     func recordsCommittedQueriesPerAccount() throws {
         let store = try makeStore()
 
-        store.recordCommittedQuery("Moonpunks", accountAddress: "0x1111111111111111111111111111111111111111")
-        store.recordCommittedQuery("moonpunks", accountAddress: "0x1111111111111111111111111111111111111111")
-        store.recordCommittedQuery("USDC", accountAddress: "0x2222222222222222222222222222222222222222")
+        try store.recordCommittedQuery("Moonpunks", accountAddress: "0x1111111111111111111111111111111111111111")
+        try store.recordCommittedQuery("moonpunks", accountAddress: "0x1111111111111111111111111111111111111111")
+        try store.recordCommittedQuery("USDC", accountAddress: "0x2222222222222222222222222222222222222222")
 
         let firstAccountEntries = store.entries(for: "0x1111111111111111111111111111111111111111")
         let secondAccountEntries = store.entries(for: "0x2222222222222222222222222222222222222222")
@@ -41,8 +41,8 @@ struct SearchHistoryStoreTests {
     func keepsScopesIndependentAcrossAccounts() throws {
         let store = try makeStore()
 
-        store.recordCommittedQuery("Moonpunks", accountAddress: "0x1111111111111111111111111111111111111111")
-        store.recordCommittedQuery("Moonpunks", accountAddress: "0x2222222222222222222222222222222222222222")
+        try store.recordCommittedQuery("Moonpunks", accountAddress: "0x1111111111111111111111111111111111111111")
+        try store.recordCommittedQuery("Moonpunks", accountAddress: "0x2222222222222222222222222222222222222222")
 
         #expect(store.entries(for: "0x1111111111111111111111111111111111111111").count == 1)
         #expect(store.entries(for: "0x2222222222222222222222222222222222222222").count == 1)
@@ -54,7 +54,7 @@ struct SearchHistoryStoreTests {
         let account = "0x1111111111111111111111111111111111111111"
 
         for index in 0..<14 {
-            store.recordCommittedQuery("query-\(index)", accountAddress: account)
+            try store.recordCommittedQuery("query-\(index)", accountAddress: account)
         }
 
         let entries = store.entries(for: account)
@@ -68,10 +68,10 @@ struct SearchHistoryStoreTests {
     func clearsOnlyScopedAccountHistory() throws {
         let store = try makeStore()
 
-        store.recordCommittedQuery("Moonpunks", accountAddress: "0x1111111111111111111111111111111111111111")
-        store.recordCommittedQuery("USDC", accountAddress: "0x2222222222222222222222222222222222222222")
+        try store.recordCommittedQuery("Moonpunks", accountAddress: "0x1111111111111111111111111111111111111111")
+        try store.recordCommittedQuery("USDC", accountAddress: "0x2222222222222222222222222222222222222222")
 
-        store.clear(accountAddress: "0x1111111111111111111111111111111111111111")
+        try store.clear(accountAddress: "0x1111111111111111111111111111111111111111")
 
         #expect(store.entries(for: "0x1111111111111111111111111111111111111111").isEmpty)
         #expect(store.entries(for: "0x2222222222222222222222222222222222222222").map(\.query) == ["USDC"])
@@ -81,13 +81,13 @@ struct SearchHistoryStoreTests {
     func nilAccountHistoryUsesIndependentScope() throws {
         let store = try makeStore()
 
-        store.recordCommittedQuery("Moonpunks", accountAddress: nil)
-        store.recordCommittedQuery("USDC", accountAddress: "0x2222222222222222222222222222222222222222")
+        try store.recordCommittedQuery("Moonpunks", accountAddress: nil)
+        try store.recordCommittedQuery("USDC", accountAddress: "0x2222222222222222222222222222222222222222")
 
         #expect(store.entries(for: nil).map(\.query) == ["Moonpunks"])
         #expect(store.entries(for: "0x2222222222222222222222222222222222222222").map(\.query) == ["USDC"])
 
-        store.clear(accountAddress: nil)
+        try store.clear(accountAddress: nil)
 
         #expect(store.entries(for: nil).isEmpty)
         #expect(store.entries(for: "0x2222222222222222222222222222222222222222").map(\.query) == ["USDC"])
@@ -97,10 +97,10 @@ struct SearchHistoryStoreTests {
     func clearAllRemovesAllRows() throws {
         let store = try makeStore()
 
-        store.recordCommittedQuery("Moonpunks", accountAddress: nil)
-        store.recordCommittedQuery("USDC", accountAddress: "0x2222222222222222222222222222222222222222")
+        try store.recordCommittedQuery("Moonpunks", accountAddress: nil)
+        try store.recordCommittedQuery("USDC", accountAddress: "0x2222222222222222222222222222222222222222")
 
-        store.clearAll()
+        try store.clearAll()
 
         #expect(store.entries(for: nil).isEmpty)
         #expect(store.entries(for: "0x2222222222222222222222222222222222222222").isEmpty)

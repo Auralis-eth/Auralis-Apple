@@ -1,3 +1,4 @@
+import OSLog
 import SwiftData
 import SwiftUI
 
@@ -14,6 +15,8 @@ struct SearchRootPresentation: Equatable {
 }
 
 struct SearchRootView: View {
+    private let logger = Logger(subsystem: "Auralis", category: "SearchRootView")
+
     private struct LocalIndexRefreshKey: Equatable {
         struct AccountSnapshot: Equatable {
             let address: String
@@ -58,6 +61,7 @@ struct SearchRootView: View {
 
     @State private var query = ""
     @State private var historyEntries: [SearchHistoryEntry] = []
+    @State private var historyErrorMessage: String?
     @State private var localIndex: SearchLocalIndex = .empty
     @FocusState private var isQueryFieldFocused: Bool
 
@@ -113,6 +117,14 @@ struct SearchRootView: View {
         AuraScenicScreen(horizontalPadding: 12, verticalPadding: 12) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    if let historyErrorMessage {
+                        AuraErrorBanner(
+                            title: "Search History Unavailable",
+                            message: historyErrorMessage,
+                            systemImage: "exclamationmark.triangle"
+                        )
+                    }
+
                     SearchInputCard(
                         query: $query,
                         isFocused: _isQueryFieldFocused
@@ -176,8 +188,13 @@ struct SearchRootView: View {
     }
 
     private func commitQuery() {
-        historyStore.recordCommittedQuery(query, accountAddress: currentAccountAddress)
-        reloadHistory()
+        do {
+            try historyStore.recordCommittedQuery(query, accountAddress: currentAccountAddress)
+            historyErrorMessage = nil
+            reloadHistory()
+        } catch {
+            handleHistoryWriteFailure(error, operation: "save")
+        }
     }
 
     private func reloadHistory() {
@@ -190,13 +207,23 @@ struct SearchRootView: View {
     }
 
     private func deleteHistoryEntry(_ entry: SearchHistoryEntry) {
-        historyStore.removeEntry(id: entry.id)
-        reloadHistory()
+        do {
+            try historyStore.removeEntry(id: entry.id)
+            historyErrorMessage = nil
+            reloadHistory()
+        } catch {
+            handleHistoryWriteFailure(error, operation: "delete")
+        }
     }
 
     private func clearHistory() {
-        historyStore.clear(accountAddress: currentAccountAddress)
-        reloadHistory()
+        do {
+            try historyStore.clear(accountAddress: currentAccountAddress)
+            historyErrorMessage = nil
+            reloadHistory()
+        } catch {
+            handleHistoryWriteFailure(error, operation: "clear")
+        }
     }
 
     private func refreshLocalIndex() {
@@ -207,6 +234,12 @@ struct SearchRootView: View {
             currentAccountAddress: currentAccountAddress,
             currentChain: currentChain
         )
+    }
+
+    private func handleHistoryWriteFailure(_ error: Error, operation: String) {
+        logger.error("Failed to \(operation, privacy: .public) search history: \(error.localizedDescription, privacy: .public)")
+        historyErrorMessage = "Auralis could not \(operation) recent searches right now. Existing results are still shown."
+        reloadHistory()
     }
 
     static func makePresentation(

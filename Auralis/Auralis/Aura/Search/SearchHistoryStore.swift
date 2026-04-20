@@ -51,13 +51,18 @@ struct SearchHistoryStore {
 
     func entries(for accountAddress: String?) -> [SearchHistoryEntry] {
         let normalizedAccountAddress = normalizedAccount(accountAddress)
-        return fetchRecords()
-            .filter { $0.accountAddressRawValue == normalizedAccountAddress }
-            .sorted { $0.recordedAt > $1.recordedAt }
-            .map(SearchHistoryEntry.init(record:))
+        do {
+            return try fetchRecords()
+                .filter { $0.accountAddressRawValue == normalizedAccountAddress }
+                .sorted { $0.recordedAt > $1.recordedAt }
+                .map(SearchHistoryEntry.init(record:))
+        } catch {
+            Self.logger.error("Failed to load search history entries: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
     }
 
-    func recordCommittedQuery(_ query: String, accountAddress: String?) {
+    func recordCommittedQuery(_ query: String, accountAddress: String?) throws {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else {
             return
@@ -66,7 +71,7 @@ struct SearchHistoryStore {
         let normalizedAccountAddress = normalizedAccount(accountAddress)
         let normalizedQuery = trimmedQuery.lowercased()
 
-        if let existingRecord = fetchRecords().first(where: {
+        if let existingRecord = try fetchRecords().first(where: {
             $0.accountAddressRawValue == normalizedAccountAddress && $0.normalizedQuery == normalizedQuery
         }) {
             existingRecord.query = trimmedQuery
@@ -82,47 +87,42 @@ struct SearchHistoryStore {
             )
         }
 
-        trimExcessEntries(for: normalizedAccountAddress)
-        saveContext()
+        try trimExcessEntries(for: normalizedAccountAddress)
+        try saveContext()
     }
 
-    func removeEntry(id: String) {
-        guard let record = fetchRecords().first(where: { $0.id == id }) else {
+    func removeEntry(id: String) throws {
+        guard let record = try fetchRecords().first(where: { $0.id == id }) else {
             return
         }
 
         modelContext.delete(record)
-        saveContext()
+        try saveContext()
     }
 
-    func clear(accountAddress: String?) {
+    func clear(accountAddress: String?) throws {
         let normalizedAccountAddress = normalizedAccount(accountAddress)
-        fetchRecords()
+        try fetchRecords()
             .filter { $0.accountAddressRawValue == normalizedAccountAddress }
             .forEach(modelContext.delete)
-        saveContext()
+        try saveContext()
     }
 
-    func clearAll() {
-        fetchRecords().forEach(modelContext.delete)
-        saveContext()
+    func clearAll() throws {
+        try fetchRecords().forEach(modelContext.delete)
+        try saveContext()
     }
 
     private func normalizedAccount(_ address: String?) -> String? {
         NFT.normalizedScopeComponent(address)
     }
 
-    private func fetchRecords() -> [SearchHistoryRecord] {
-        do {
-            return try modelContext.fetch(FetchDescriptor<SearchHistoryRecord>())
-        } catch {
-            Self.logger.error("Failed to fetch search history records: \(error.localizedDescription, privacy: .public)")
-            return []
-        }
+    private func fetchRecords() throws -> [SearchHistoryRecord] {
+        try modelContext.fetch(FetchDescriptor<SearchHistoryRecord>())
     }
 
-    private func trimExcessEntries(for accountAddress: String?) {
-        let overflowRecords = fetchRecords()
+    private func trimExcessEntries(for accountAddress: String?) throws {
+        let overflowRecords = try fetchRecords()
             .filter { $0.accountAddressRawValue == accountAddress }
             .sorted { $0.recordedAt > $1.recordedAt }
             .dropFirst(maxEntriesPerAccount)
@@ -130,11 +130,7 @@ struct SearchHistoryStore {
         overflowRecords.forEach(modelContext.delete)
     }
 
-    private func saveContext() {
-        do {
-            try modelContext.save()
-        } catch {
-            Self.logger.error("Failed to save search history records: \(error.localizedDescription, privacy: .public)")
-        }
+    private func saveContext() throws {
+        try modelContext.save()
     }
 }

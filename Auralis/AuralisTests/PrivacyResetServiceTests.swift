@@ -27,8 +27,8 @@ struct PrivacyResetServiceTests {
             tokenHoldingsStore: tokenHoldingsStore
         )
 
-        searchHistoryStore.recordCommittedQuery("Moonpunks", accountAddress: nil)
-        searchHistoryStore.recordCommittedQuery("USDC", accountAddress: "0x1111111111111111111111111111111111111111")
+        try searchHistoryStore.recordCommittedQuery("Moonpunks", accountAddress: nil)
+        try searchHistoryStore.recordCommittedQuery("USDC", accountAddress: "0x1111111111111111111111111111111111111111")
         try tokenHoldingsStore.upsertNativeHolding(
             accountAddress: "0x1111111111111111111111111111111111111111",
             chain: .ethMainnet,
