@@ -36,12 +36,12 @@ final class ImageCache: @unchecked Sendable {
 @MainActor
 final class ImageLoader: ObservableObject {
     nonisolated private static let maxPixelDimension = 1_024
-    nonisolated private static func makeDefaultSession() -> URLSession {
+    nonisolated static let defaultSession: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 15
         configuration.timeoutIntervalForResource = 30
         return URLSession(configuration: configuration)
-    }
+    }()
 
     enum LoadingError: Error {
         case invalidData
@@ -87,7 +87,7 @@ final class ImageLoader: ObservableObject {
 
     init(
         url: URL,
-        session: URLSession = ImageLoader.makeDefaultSession()
+        session: URLSession = ImageLoader.defaultSession
     ) {
         self.url = url
         self.cacheKey = url.absoluteString

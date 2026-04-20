@@ -5,6 +5,20 @@ import Testing
 @Suite
 @MainActor
 struct NFTImageLoaderTests {
+    @Test("default loaders share the reusable session")
+    func defaultLoadersReuseSharedSession() {
+        let firstLoader = ImageLoader(url: URL(string: "https://example.com/first.png")!)
+        let secondLoader = ImageLoader(url: URL(string: "https://example.com/second.png")!)
+
+        let firstSession = Mirror(reflecting: firstLoader).descendant("session") as? URLSession
+        let secondSession = Mirror(reflecting: secondLoader).descendant("session") as? URLSession
+
+        #expect(firstSession != nil)
+        #expect(secondSession != nil)
+        #expect(firstSession === secondSession)
+        #expect(firstSession === ImageLoader.defaultSession)
+    }
+
     @Test("mp4 URL extension rejects immediately and clears loading state")
     func mp4ExtensionRejectClearsLoading() async {
         let loader = ImageLoader(url: URL(string: "https://example.com/clip.mp4")!)
