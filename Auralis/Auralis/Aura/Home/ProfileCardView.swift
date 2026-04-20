@@ -23,6 +23,7 @@ struct ProfileCardView: View {
     @State private var activeAvatarRequestID = UUID()
     @State private var resolvedENSName: String?
     private let logic = HomeTabLogic()
+    private let maxAvatarPromptCacheEntries = 24
 
     private var summary: HomeAccountSummaryPresentation {
         logic.accountSummaryPresentation(
@@ -290,7 +291,15 @@ struct ProfileCardView: View {
         atoms.append("mood \(moodAtom)")
 
         let concepts = atoms.map { ImagePlaygroundConcept.text($0) }
-        avatarPromptCache[key] = concepts
+        cacheAvatarPrompts(concepts, for: key)
         return concepts
+    }
+
+    private func cacheAvatarPrompts(_ concepts: [ImagePlaygroundConcept], for key: String) {
+        avatarPromptCache[key] = concepts
+        while avatarPromptCache.count > maxAvatarPromptCacheEntries,
+              let eldestKey = avatarPromptCache.keys.first {
+            avatarPromptCache.removeValue(forKey: eldestKey)
+        }
     }
 }

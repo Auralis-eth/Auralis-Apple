@@ -45,6 +45,7 @@ struct HomeTabView: View {
     @State private var promptCache = [String: [ImagePlaygroundConcept]]()
     @State private var avatarImage: UIImage?
     @State private var pinnedActions: Set<HomeLauncherAction> = []
+    private let maxPromptCacheEntries = 32
 
     init(
         currentAccount: Binding<EOAccount?>,
@@ -297,31 +298,28 @@ struct HomeTabView: View {
         }
     }
 
+    @ViewBuilder
     private var sparseStateSection: some View {
-        guard let sparseStatePresentation else {
-            return AnyView(EmptyView())
-        }
-
-        return AnyView(
+        if let sparseStatePresentation {
             AuraEmptyState(
-            eyebrow: sparseStateEyebrow,
-            title: sparseStateTitle,
-            message: sparseStateMessage,
-            systemImage: sparseStateSystemImage,
-            tone: .neutral,
-            primaryAction: AuraFeedbackAction(
-                title: title(for: sparseStatePresentation.primaryAction),
-                systemImage: systemImage(for: sparseStatePresentation.primaryAction),
-                handler: { runSparseAction(sparseStatePresentation.primaryAction) }
-            ),
-            secondaryAction: AuraFeedbackAction(
-                title: title(for: sparseStatePresentation.secondaryAction),
-                systemImage: systemImage(for: sparseStatePresentation.secondaryAction),
-                handler: { runSparseAction(sparseStatePresentation.secondaryAction) }
+                eyebrow: sparseStateEyebrow,
+                title: sparseStateTitle,
+                message: sparseStateMessage,
+                systemImage: sparseStateSystemImage,
+                tone: .neutral,
+                primaryAction: AuraFeedbackAction(
+                    title: title(for: sparseStatePresentation.primaryAction),
+                    systemImage: systemImage(for: sparseStatePresentation.primaryAction),
+                    handler: { runSparseAction(sparseStatePresentation.primaryAction) }
+                ),
+                secondaryAction: AuraFeedbackAction(
+                    title: title(for: sparseStatePresentation.secondaryAction),
+                    systemImage: systemImage(for: sparseStatePresentation.secondaryAction),
+                    handler: { runSparseAction(sparseStatePresentation.secondaryAction) }
+                )
             )
-        )
-        .accessibilityIdentifier("home.sparseState")
-        )
+            .accessibilityIdentifier("home.sparseState")
+        }
     }
 
     private var recentActivitySection: some View {
@@ -646,8 +644,15 @@ struct HomeTabView: View {
         }
 
         let concepts = atoms.map { ImagePlaygroundConcept.text($0) }
-        promptCache[key] = concepts
+        cachePrompts(concepts, for: key)
         return concepts
+    }
+
+    private func cachePrompts(_ concepts: [ImagePlaygroundConcept], for key: String) {
+        promptCache[key] = concepts
+        while promptCache.count > maxPromptCacheEntries, let eldestKey = promptCache.keys.first {
+            promptCache.removeValue(forKey: eldestKey)
+        }
     }
 
     @MainActor

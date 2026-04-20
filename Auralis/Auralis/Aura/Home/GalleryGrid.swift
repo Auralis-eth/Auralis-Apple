@@ -13,6 +13,7 @@ struct GalleryGrid: View {
     @Binding var selectedScene: AuroraScene
     let onPick: (UIImage) -> Void
     let onRegenerate: (() async -> Void)?
+    @State private var regenerateTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,7 +29,8 @@ struct GalleryGrid: View {
                     Spacer()
 
                     Button {
-                        Task {
+                        regenerateTask?.cancel()
+                        regenerateTask = Task {
                             await onRegenerate?()
                         }
                     } label: {
@@ -74,6 +76,10 @@ struct GalleryGrid: View {
                     .padding()
                 }
             }
+        }
+        .onDisappear {
+            regenerateTask?.cancel()
+            regenerateTask = nil
         }
     }
 }

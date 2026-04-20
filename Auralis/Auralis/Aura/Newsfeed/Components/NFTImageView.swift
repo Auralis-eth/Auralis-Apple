@@ -36,6 +36,12 @@ final class ImageCache: @unchecked Sendable {
 @MainActor
 final class ImageLoader: ObservableObject {
     nonisolated private static let maxPixelDimension = 1_024
+    nonisolated private static let session: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 15
+        configuration.timeoutIntervalForResource = 30
+        return URLSession(configuration: configuration)
+    }()
 
     enum LoadingError: Error {
         case invalidData
@@ -113,6 +119,13 @@ final class ImageLoader: ObservableObject {
         let currentURL = url
         let currentCacheKey = cacheKey
         loadingTask = Task {
+            if let cachedImage = ImageCache.shared.get(for: currentCacheKey) {
+                guard !Task.isCancelled else { return }
+                image = cachedImage
+                isLoading = false
+                return
+            }
+
             let result = await Self.fetchImage(url: currentURL, cacheKey: currentCacheKey)
             guard !Task.isCancelled else { return }
 
@@ -159,7 +172,7 @@ final class ImageLoader: ObservableObject {
         }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await session.data(from: url)
             guard !Task.isCancelled else { return .failure(.networkError) }
 
             if let httpResponse = response as? HTTPURLResponse,
