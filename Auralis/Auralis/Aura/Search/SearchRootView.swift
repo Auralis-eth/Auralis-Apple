@@ -14,6 +14,39 @@ struct SearchRootPresentation: Equatable {
 }
 
 struct SearchRootView: View {
+    private struct LocalIndexRefreshKey: Equatable {
+        struct AccountSnapshot: Equatable {
+            let address: String
+            let name: String?
+        }
+
+        struct NFTSnapshot: Equatable {
+            let id: String
+            let name: String?
+            let collectionName: String?
+            let collectionDisplayName: String?
+            let contractAddress: String?
+            let accountAddress: String?
+            let networkRawValue: String?
+        }
+
+        struct HoldingSnapshot: Equatable {
+            let id: PersistentIdentifier
+            let accountAddressRawValue: String
+            let chainRawValue: String
+            let balanceKindRawValue: String
+            let contractAddress: String?
+            let symbol: String?
+            let displayName: String
+        }
+
+        let currentAccountAddress: String?
+        let currentChain: Chain
+        let accounts: [AccountSnapshot]
+        let nfts: [NFTSnapshot]
+        let holdings: [HoldingSnapshot]
+    }
+
     @Query private var accounts: [EOAccount]
     @Query private var nfts: [NFT]
     @Query private var holdings: [TokenHolding]
@@ -25,17 +58,43 @@ struct SearchRootView: View {
 
     @State private var query = ""
     @State private var historyEntries: [SearchHistoryEntry] = []
+    @State private var localIndex: SearchLocalIndex = .empty
     @FocusState private var isQueryFieldFocused: Bool
 
     private let parser = SearchQueryParser()
 
-    private var localIndex: SearchLocalIndex {
-        SearchLocalIndex.make(
-            nfts: nfts,
-            holdings: holdings,
-            accounts: accounts,
+    private var localIndexRefreshKey: LocalIndexRefreshKey {
+        LocalIndexRefreshKey(
             currentAccountAddress: currentAccountAddress,
-            currentChain: currentChain
+            currentChain: currentChain,
+            accounts: accounts.map {
+                LocalIndexRefreshKey.AccountSnapshot(
+                    address: $0.address,
+                    name: $0.name
+                )
+            },
+            nfts: nfts.map {
+                LocalIndexRefreshKey.NFTSnapshot(
+                    id: $0.id,
+                    name: $0.name,
+                    collectionName: $0.collectionName,
+                    collectionDisplayName: $0.collection?.name,
+                    contractAddress: $0.contract.address,
+                    accountAddress: $0.accountAddressRawValue,
+                    networkRawValue: $0.networkRawValue
+                )
+            },
+            holdings: holdings.map {
+                LocalIndexRefreshKey.HoldingSnapshot(
+                    id: $0.persistentModelID,
+                    accountAddressRawValue: $0.accountAddressRawValue,
+                    chainRawValue: $0.chainRawValue,
+                    balanceKindRawValue: $0.balanceKind.rawValue,
+                    contractAddress: $0.contractAddress,
+                    symbol: $0.symbol,
+                    displayName: $0.displayName
+                )
+            }
         )
     }
 
@@ -106,6 +165,9 @@ struct SearchRootView: View {
         .onSubmit(of: .text) {
             commitQuery()
         }
+        .task(id: localIndexRefreshKey) {
+            refreshLocalIndex()
+        }
     }
 
     private func openMatch(_ match: SearchLocalMatch) {
@@ -135,6 +197,16 @@ struct SearchRootView: View {
     private func clearHistory() {
         historyStore.clear(accountAddress: currentAccountAddress)
         reloadHistory()
+    }
+
+    private func refreshLocalIndex() {
+        localIndex = SearchLocalIndex.make(
+            nfts: nfts,
+            holdings: holdings,
+            accounts: accounts,
+            currentAccountAddress: currentAccountAddress,
+            currentChain: currentChain
+        )
     }
 
     static func makePresentation(

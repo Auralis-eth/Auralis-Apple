@@ -29,6 +29,7 @@ public class AudioEngine: ObservableObject {
 
     private var currentLoadTask: Task<Void, Error>?
     private var activeLoadID = UUID()
+    private var displayUpdateTask: Task<Void, Never>?
 
     /// High-level playback states exposed to the UI.
     public enum PlaybackState: Equatable, Sendable, Codable {
@@ -51,6 +52,7 @@ public class AudioEngine: ObservableObject {
 
     @Published var currentTrack: Track?
     @Published var playbackState: PlaybackState = .stopped
+    @Published private(set) var currentTime: TimeInterval = 0
 
     // Computed property to eliminate state redundancy
     var isPlaying: Bool {
@@ -258,15 +260,19 @@ public class AudioEngine: ObservableObject {
 
         playerNode.play()
         playbackState = .playing
+        updateCurrentTime()
+        startDisplayUpdates()
     }
 
     // Fixed pause implementation - AVAudioPlayerNode doesn't have pause()
     /// Pauses playback and remembers the current time.
     public func pause() {
         guard playbackState == .playing else { return }
-        pausedAt = currentTime
+        pausedAt = computedCurrentTime
         playerNode.stop()
         playbackState = .paused
+        updateCurrentTime()
+        stopDisplayUpdates()
     }
 
     /// Resumes playback from the last paused position.
@@ -281,6 +287,8 @@ public class AudioEngine: ObservableObject {
         seekPosition = 0
         pausedAt = 0
         playbackState = .stopped
+        updateCurrentTime()
+        stopDisplayUpdates()
     }
 
     // MARK: - Fixed Seek Functionality
@@ -299,6 +307,7 @@ public class AudioEngine: ObservableObject {
         // Update seek position
         seekPosition = clampedTime
         pausedAt = clampedTime
+        updateCurrentTime()
 
         // If we were playing, restart from new position
         if wasPlaying {
@@ -443,9 +452,11 @@ public class AudioEngine: ObservableObject {
             seekPosition = 0
             pausedAt = 0
             playbackState = .stopped
+            updateCurrentTime()
             currentTrack = Track(id: trackID, title: title, artist: artist, duration: self.duration, imageUrl: imageUrl)
         } catch {
             playbackState = .stopped
+            updateCurrentTime()
             throw AudioEngineError.fileLoadFailed
         }
 
@@ -491,7 +502,7 @@ public class AudioEngine: ObservableObject {
     }
 
     // MARK: - Improved Playback Information
-    private var currentTime: TimeInterval {
+    private var computedCurrentTime: TimeInterval {
         switch playbackState {
         case .playing:
             // For playing state, calculate from node time + seek position
@@ -509,6 +520,27 @@ public class AudioEngine: ObservableObject {
         }
     }
 
+    private func updateCurrentTime() {
+        currentTime = computedCurrentTime
+    }
+
+    private func startDisplayUpdates() {
+        stopDisplayUpdates()
+        displayUpdateTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                guard self.playbackState == .playing else { return }
+                self.updateCurrentTime()
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+        }
+    }
+
+    private func stopDisplayUpdates() {
+        displayUpdateTask?.cancel()
+        displayUpdateTask = nil
+    }
+
     private var duration: TimeInterval {
         guard let audioFile = audioFile else { return 0 }
         return Double(audioFile.length) / audioFile.processingFormat.sampleRate
@@ -523,6 +555,8 @@ public class AudioEngine: ObservableObject {
         if audioEngine.isRunning {
             audioEngine.stop()
         }
+
+        displayUpdateTask?.cancel()
 
         audioEngine.detach(playerNode)
 
@@ -541,7 +575,7 @@ public class AudioEngine: ObservableObject {
     func skipBackward() {
         // If we're a few seconds into the current track, restart it; otherwise go to the previous track
         let threshold: TimeInterval = 3
-        if currentTime > threshold {
+        if computedCurrentTime > threshold {
             try? seek(to: 0)
         } else {
             Task { @MainActor in

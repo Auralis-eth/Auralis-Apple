@@ -35,7 +35,7 @@ struct GuestPassCard: View {
     private var cardContent: some View {
         VStack {
             HStack(alignment: .center) {
-                SystemImage(account.role.image)
+                SystemImage(account.roleImage)
                     .font(.system(size: 20))
                 Spacer()
                 if let ens = account.ens {

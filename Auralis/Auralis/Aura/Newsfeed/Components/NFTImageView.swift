@@ -43,6 +43,32 @@ final class ImageLoader: ObservableObject {
         case svgData
         case videoData
         case unsupportedURL
+
+        var symbolName: String {
+            switch self {
+            case .invalidData, .svgData:
+                return "photo.badge.exclamationmark"
+            case .networkError:
+                return "network.slash"
+            case .videoData, .unsupportedURL:
+                return "nosign"
+            }
+        }
+
+        var userMessage: String {
+            switch self {
+            case .invalidData:
+                return "Auralis could not decode this image."
+            case .networkError:
+                return "Auralis could not load the image right now."
+            case .svgData:
+                return "This NFT image format is not supported here yet."
+            case .videoData:
+                return "This NFT preview is video-based."
+            case .unsupportedURL:
+                return "This image source is not supported."
+            }
+        }
     }
     @Published var image: UIImage?
     @Published var isLoading = false
@@ -190,17 +216,13 @@ struct CachedAsyncImage: View {
                     Color.surface
                         .aspectRatio(1, contentMode: .fit)
                     VStack {
-//                        switch error {
-//                            case .invalidData:
-//                                SystemImage("camera.macro.slash")
-//                            case .networkError:
-//                                SystemImage("network.slash")
-//                        }
-//                        SecondaryCaptionFontText(error == .invalidData ? "Invalid Image" : "Network Error")
-                        SecondaryText("\(error as NSError).code)")
-                        SecondaryText(error.localizedDescription)
+                        SystemImage(error.symbolName)
+                            .font(.title2)
+                        SecondaryText(error.userMessage)
+                            .multilineTextAlignment(.center)
                     }
                     .foregroundStyle(Color.error)
+                    .padding()
                 }
             } else {
                 ZStack {

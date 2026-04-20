@@ -29,7 +29,7 @@ struct MainAuraView: View {
     @State private var latestAccountRefreshRequestID: UUID?
     @State private var accountRefreshTask: Task<Void, Never>?
 
-    @State private var isloading: Bool = false
+    @State private var isLoading: Bool = false
     private let services: ShellServiceHub
     private let audioEngineInitializationErrorMessage: String?
     private let routeLogger = Logger(subsystem: "Auralis", category: "Routing")
@@ -38,7 +38,7 @@ struct MainAuraView: View {
     private let shellLogic = MainAuraShellLogic()
 
     var nftsAreLoading: Bool {
-        nftService.isLoading || isloading
+        nftService.isLoading || isLoading
     }
 
     var body: some View {
@@ -127,7 +127,7 @@ struct MainAuraView: View {
             }
 
             if result.shouldRefreshNFTs {
-                isloading = true
+                isLoading = true
                 let request = shellLogic.makeAccountRefreshRequest(
                     newAccount: newValue,
                     result: result,
@@ -140,7 +140,7 @@ struct MainAuraView: View {
                     guard let request else {
                         await MainActor.run {
                             if latestAccountRefreshRequestID == nil {
-                                isloading = false
+                                isLoading = false
                             }
                         }
                         return
@@ -162,7 +162,7 @@ struct MainAuraView: View {
 
                         latestAccountRefreshRequestID = nil
                         accountRefreshTask = nil
-                        isloading = false
+                        isLoading = false
                         currentAddress = request.currentAddress
                         processPendingDeepLinkIfPossible()
                     }

@@ -92,9 +92,6 @@ struct ProfileCardView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Manage accounts")
                 .accessibilityIdentifier("home.accounts.open")
-
-                SystemImage("qrcode.viewfinder")
-                    .accessibilityLabel("Scan wallet QR code")
             }
             .foregroundStyle(Color.accent)
             .font(.system(size: 30, weight: .medium))

@@ -102,21 +102,18 @@ struct NewsFeedCardButtons: View {
     var body: some View {
         GlassEffectContainer {
             VStack {
-                Button(action: {}, label: {
-                    ZStack {
-                        Circle()
-                            .stroke(Color.textPrimary, lineWidth: 2)
-                            .frame(width: 25, height: 25)
+                ZStack {
+                    Circle()
+                        .stroke(Color.textPrimary, lineWidth: 2)
+                        .frame(width: 25, height: 25)
 
-                        // Profile image placeholder
-                        Circle()
-                            .fill(Color.orange)
-                            .frame(width: 20, height: 20)
-                    }
-                })
+                    // Decorative placeholder until creator-profile routing exists.
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 20, height: 20)
+                }
                 .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("Open creator profile")
-                .accessibilityHint("Shows profile details for this NFT")
+                .accessibilityHidden(true)
 
                 Menu {
                     Button(action: {
@@ -131,38 +128,6 @@ struct NewsFeedCardButtons: View {
                 .frame(minWidth: 44, minHeight: 44)
                 .accessibilityLabel("More actions")
                 .accessibilityHint("Shows actions for this NFT")
-
-                Button(action: {
-                    // Like action
-                }, label: {
-                    PrimaryTextSystemImage("heart")
-                })
-                .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("Like NFT")
-
-                Button(action: {
-                    // Comment action
-                }, label: {
-                    PrimaryTextSystemImage("bubble.right")
-                })
-                .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("Comment on NFT")
-
-                Button(action: {
-                    // Share action
-                }, label: {
-                    PrimaryTextSystemImage("paperplane")
-                })
-                .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("Share NFT")
-
-                Button(action: {
-                    // Bookmark action
-                }, label: {
-                    PrimaryTextSystemImage("bookmark")
-                })
-                .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("Bookmark NFT")
             }
             .font(.title2)
             .padding()

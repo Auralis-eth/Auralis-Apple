@@ -12,14 +12,14 @@ enum AccountRole {
     case collector
     case artist
 
-    var image: String {
+    fileprivate var imageOptions: [String] {
         switch self {
         case .label:
-            return "music.note.house.fill"
+            return ["music.note.house.fill"]
         case .collector:
-            return Bool.random() ? "shippingbox.fill" : "headphones"
+            return ["shippingbox.fill", "headphones"]
         case .artist:
-            return Bool.random() ? "mic.fill" : "signature"
+            return ["mic.fill", "signature"]
         }
     }
 }
@@ -32,6 +32,21 @@ struct GuestPassAccount: Identifiable, Hashable {
     let title: String
     let subtitle: String
     let metadata: [MetadataChunk]
+
+    var roleImage: String {
+        let options = role.imageOptions
+        guard options.count > 1 else { return options[0] }
+        return options[addressIconSeed % options.count]
+    }
+
+    private var addressIconSeed: Int {
+        address
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .unicodeScalars
+            .reduce(into: 0) { partialResult, scalar in
+                partialResult = partialResult &* 31 &+ Int(scalar.value)
+            }
+    }
 }
 
 extension GuestPassAccount {
