@@ -451,6 +451,28 @@ struct NFTServiceReceiptTests {
         #expect(degraded?.isRetryable == true)
     }
 
+    @Test("terminal fetch errors survive fetcher reset cleanup")
+    @MainActor
+    func terminalFetchErrorSurvivesResetCleanup() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let expectedError = NFTFetcher.FetcherError.networkError(URLError(.notConnectedToInternet))
+        let fetcher = FailingStateNFTFetcher(error: expectedError)
+        let service = NFTService(nftFetcher: fetcher)
+
+        await service.fetchAllNFTs(
+            for: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet,
+            modelContext: context,
+            correlationID: "terminal-error-reset"
+        )
+
+        #expect(fetcher.total == nil)
+        #expect(fetcher.error != nil)
+        #expect(service.error != nil)
+        #expect(service.providerFailure?.kind == .offline)
+    }
+
     @Test("one shell refresh flow can share a correlation ID across NFT refresh and context build receipts")
     @MainActor
     func shellRefreshFlowSharesCorrelationAcrossNFTAndContextReceipts() async throws {

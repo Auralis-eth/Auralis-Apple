@@ -1,10 +1,3 @@
-//
-//  AuralisApp.swift
-//  Auralis
-//
-//  Created by Daniel Bell on 10/20/24.
-//
-
 import SwiftData
 import SwiftUI
 
@@ -25,14 +18,5 @@ struct AuralisApp: App {
             MainAuraView()
         }
         .modelContainer(for: [EOAccount.self, NFT.self, Tag.self, StoredReceipt.self, Playlist.self, MusicLibraryItem.self, TokenHolding.self, SearchHistoryRecord.self])
-
-#if os(macOS)
-        Settings {
-            Text("Settings")
-        }
-        MenuBarExtra {
-            Text("Settings")
-        }.menuBarExtraStyle(.window)
-#endif
     }
 }

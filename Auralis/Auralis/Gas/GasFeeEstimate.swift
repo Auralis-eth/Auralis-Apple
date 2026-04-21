@@ -165,11 +165,19 @@ extension GasPriceEstimate.FeeDetails {
 @MainActor
 @Observable
 final class GasPriceEstimateViewModel {
+    enum Phase: Equatable {
+        case initial
+        case loading
+        case loaded
+        case failed
+    }
+
     private(set) var estimate: GasPriceEstimate?
     private(set) var isLoading = false
     private(set) var error: Error?
     private(set) var currentChain: Chain?
     private(set) var lastUpdated: Date?
+    private(set) var phase: Phase = .initial
 
     private let provider: any GasPricingProviding
     private var currentTask: Task<Void, Never>?
@@ -195,6 +203,7 @@ final class GasPriceEstimateViewModel {
         }
 
         currentChain = chain
+        phase = .loading
 
         // Cancel any existing fetch
         currentTask?.cancel()
@@ -242,6 +251,7 @@ final class GasPriceEstimateViewModel {
     private func performFetch(for chain: Chain) async {
         isLoading = true
         error = nil
+        phase = .loading
 
         defer {
             isLoading = false
@@ -255,11 +265,13 @@ final class GasPriceEstimateViewModel {
                 self.estimate = result
                 self.error = nil
                 self.lastUpdated = Date()
+                self.phase = .loaded
             }
         } catch {
             if !Task.isCancelled && currentChain?.chainId == chain.chainId {
                 self.estimate = nil
                 self.error = error
+                self.phase = .failed
             }
         }
     }
@@ -283,7 +295,7 @@ struct GasPriceEstimateView: View {
             HeaderView(
                 chainName: chain.networkName,
                 lastUpdated: viewModel.lastUpdated,
-                isLoading: viewModel.isLoading
+                isLoading: viewModel.phase == .loading
             )
 
             content
@@ -313,15 +325,15 @@ struct GasPriceEstimateView: View {
             .refreshable {
                 await viewModel.fetchGasPrice()
             }
-        } else if viewModel.isLoading {
-            LoadingView()
-        } else {
+        } else if viewModel.phase == .failed {
             ErrorView(
                 error: viewModel.error,
                 onRetry: {
                     await viewModel.fetchGasPrice()
                 }
             )
+        } else {
+            LoadingView()
         }
     }
 }
