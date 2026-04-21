@@ -306,6 +306,16 @@ private extension ContextService {
                 provenance: .onChain
             )
         } catch {
+            if cachedSnapshot.scope.accountAddress.value == address,
+               cachedSnapshot.scope.selectedChains.value == [chain],
+               let cachedDisplayValue = cachedSnapshot.balances.nativeBalanceDisplay.value {
+                return NativeBalanceSnapshot(
+                    displayValue: cachedDisplayValue,
+                    updatedAt: cachedSnapshot.balances.nativeBalanceDisplay.updatedAt,
+                    provenance: .localCache
+                )
+            }
+
             return NativeBalanceSnapshot(
                 displayValue: nil,
                 updatedAt: nil,

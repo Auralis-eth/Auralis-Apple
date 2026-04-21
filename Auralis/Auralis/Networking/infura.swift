@@ -1,13 +1,42 @@
 import Foundation
 
 struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
-    enum GasPricingError: Error {
+    enum GasPricingError: Error, LocalizedError {
         case unsupportedChain(Chain)
         case invalidConfiguration
         case networkFailure(underlying: Error)
         case badStatus(Int)
         case invalidResponse
         case backoffOverflow
+        case rateLimited(message: String)
+        case unauthorized(message: String)
+        case unsupportedMethod(message: String)
+        case rpcError(code: Int, message: String)
+
+        var errorDescription: String? {
+            switch self {
+            case .unsupportedChain(let chain):
+                return "Gas pricing is not supported for \(chain.networkName)."
+            case .invalidConfiguration:
+                return "Gas pricing provider configuration is invalid."
+            case .networkFailure(let underlying):
+                return "Gas pricing request failed: \(underlying.localizedDescription)"
+            case .badStatus(let status):
+                return "Gas pricing request failed with HTTP \(status)."
+            case .invalidResponse:
+                return "Gas pricing provider returned an invalid response."
+            case .backoffOverflow:
+                return "Gas pricing retry scheduling overflowed."
+            case .rateLimited(let message):
+                return "Gas pricing provider is rate-limiting requests. \(message)"
+            case .unauthorized(let message):
+                return "Gas pricing provider authentication failed. \(message)"
+            case .unsupportedMethod(let message):
+                return "Gas pricing provider does not support this RPC method. \(message)"
+            case .rpcError(_, let message):
+                return "Gas pricing provider returned an RPC error. \(message)"
+            }
+        }
     }
 
     private static let session: URLSession = {
@@ -77,7 +106,7 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
 
     private func shouldRetry(after error: Error) -> Bool {
         switch error {
-        case GasPricingError.networkFailure:
+        case GasPricingError.networkFailure, GasPricingError.rateLimited:
             return true
         case GasPricingError.badStatus(let code):
             return (500...599).contains(code) || code == 429
@@ -97,28 +126,28 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
         }
 
         async let feeHistoryResponse = performRPCRequest(
-            FeeHistoryResponse.self,
+            FeeHistoryResult.self,
             method: "eth_feeHistory",
             params: [AnyEncodable("0x5"), AnyEncodable("latest"), AnyEncodable([10, 50, 90])],
             rpcURL: rpcURL
         )
         async let gasPriceResponse = performRPCRequest(
-            SingleValueResponse.self,
+            String.self,
             method: "eth_gasPrice",
             params: [],
             rpcURL: rpcURL
         )
 
         let (feeHistory, gasPrice) = try await (feeHistoryResponse, gasPriceResponse)
-        return Self.makeEstimate(feeHistory: feeHistory.result, gasPriceHex: gasPrice.result)
+        return Self.makeEstimate(feeHistory: feeHistory, gasPriceHex: gasPrice)
     }
 
-    private func performRPCRequest<Response: Decodable>(
-        _ responseType: Response.Type,
+    private func performRPCRequest<ResultType: Decodable>(
+        _ resultType: ResultType.Type,
         method: String,
         params: [AnyEncodable],
         rpcURL: URL
-    ) async throws -> Response {
+    ) async throws -> ResultType {
         var request = URLRequest(url: rpcURL)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -147,27 +176,60 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
         }
 
         do {
-            return try JSONDecoder().decode(responseType, from: data)
+            let envelope = try JSONDecoder().decode(RPCEnvelope<ResultType>.self, from: data)
+            if let error = envelope.error {
+                throw mapRPCError(error)
+            }
+
+            guard let result = envelope.result else {
+                throw GasPricingError.invalidResponse
+            }
+
+            return result
+        } catch let error as GasPricingError {
+            throw error
         } catch {
             throw GasPricingError.invalidResponse
         }
     }
+
+    private func mapRPCError(_ error: RPCErrorPayload) -> GasPricingError {
+        let normalizedMessage = error.message.lowercased()
+
+        if error.code == 429 || normalizedMessage.contains("rate limit") {
+            return .rateLimited(message: error.message)
+        }
+
+        if error.code == -32601 || normalizedMessage.contains("method not found") {
+            return .unsupportedMethod(message: error.message)
+        }
+
+        if normalizedMessage.contains("unauthorized")
+            || normalizedMessage.contains("forbidden")
+            || normalizedMessage.contains("api key") {
+            return .unauthorized(message: error.message)
+        }
+
+        return .rpcError(code: error.code, message: error.message)
+    }
 }
 
 private extension AlchemyGasPricingProvider {
+    struct RPCEnvelope<Result: Decodable>: Decodable {
+        let result: Result?
+        let error: RPCErrorPayload?
+    }
+
+    struct RPCErrorPayload: Decodable {
+        let code: Int
+        let message: String
+    }
+
     struct RPCRequest: Encodable {
         let jsonrpc: String
         let method: String
         let params: [AnyEncodable]
         let id: Int
-    }
-
-    struct SingleValueResponse: Decodable {
-        let result: String
-    }
-
-    struct FeeHistoryResponse: Decodable {
-        let result: FeeHistoryResult
     }
 
     struct FeeHistoryResult: Decodable {

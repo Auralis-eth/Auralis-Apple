@@ -443,6 +443,47 @@ struct ContextServiceTests {
         #expect(snapshot.balances.nativeBalanceDisplay.value == "1.5 ETH")
         #expect(snapshot.balances.nativeBalanceDisplay.provenance == .onChain)
     }
+
+    @Test("context service keeps the last native balance for the same scope when refresh fails")
+    func contextServiceKeepsCachedNativeBalanceOnRefreshFailure() async {
+        let builder = CountingContextSourceBuilder()
+        let provider = SequencedNativeBalanceProvider(
+            results: [
+                .success(
+                    NativeBalance(
+                        weiHex: "0x14d1120d7b160000",
+                        weiDecimal: "1500000000000000000"
+                    )
+                ),
+                .failure(URLError(.timedOut))
+            ]
+        )
+        let service = ContextService(
+            contextSourceBuilder: builder,
+            accountProvider: { nil },
+            addressProvider: { "0x1234567890abcdef1234567890abcdef12345678" },
+            chainProvider: { .ethMainnet },
+            modeProvider: { .observe },
+            loadingProvider: { false },
+            refreshedAtProvider: { nil },
+            nativeBalanceProvider: provider,
+            freshnessTTLProvider: { 300 },
+            trackedNFTCountProvider: { nil },
+            musicCollectionCountProvider: { nil },
+            receiptCountProvider: { nil },
+            pinnedActionsProvider: { [] },
+            prefersDemoDataProvider: { false },
+            pinnedItemCountProvider: { 0 }
+        )
+
+        let firstSnapshot = await service.refresh()
+        let secondSnapshot = await service.refresh()
+
+        #expect(firstSnapshot.balances.nativeBalanceDisplay.value == "1.5 ETH")
+        #expect(firstSnapshot.balances.nativeBalanceDisplay.provenance == .onChain)
+        #expect(secondSnapshot.balances.nativeBalanceDisplay.value == "1.5 ETH")
+        #expect(secondSnapshot.balances.nativeBalanceDisplay.provenance == .localCache)
+    }
 }
 
 private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
@@ -502,6 +543,24 @@ private actor StubNativeBalanceProvider: NativeBalanceProviding {
 
     func requestCount() -> Int {
         requests.count
+    }
+}
+
+private actor SequencedNativeBalanceProvider: NativeBalanceProviding {
+    private var results: [Result<NativeBalance, Error>]
+
+    init(results: [Result<NativeBalance, Error>]) {
+        self.results = results
+    }
+
+    func nativeBalance(for address: String, chain: Chain) async throws -> NativeBalance {
+        let nextResult = results.isEmpty ? .failure(URLError(.badServerResponse)) : results.removeFirst()
+        switch nextResult {
+        case .success(let balance):
+            return balance
+        case .failure(let error):
+            throw error
+        }
     }
 }
 

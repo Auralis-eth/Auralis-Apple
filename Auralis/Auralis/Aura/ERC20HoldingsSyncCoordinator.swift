@@ -8,7 +8,7 @@ final class ERC20HoldingsSyncCoordinator {
     }
 
     enum Result: Equatable {
-        case applied
+        case applied(TokenHoldingsProviderWarning?)
         case fetchFailed
         case persistFailed
         case dropped
@@ -19,21 +19,21 @@ final class ERC20HoldingsSyncCoordinator {
 
     func sync(
         request: Request,
-        fetch: @escaping (Request) async throws -> [ProviderTokenHolding],
+        fetch: @escaping (Request) async throws -> TokenHoldingsFetchResult,
         persist: @escaping @MainActor (Request, [ProviderTokenHolding]) throws -> Void
     ) async -> Result {
         let syncID = UUID()
         activeSyncID = syncID
 
         do {
-            let holdings = try await fetch(request)
+            let fetchResult = try await fetch(request)
             try Task.checkCancellation()
             guard activeSyncID == syncID else {
                 return .dropped
             }
 
             do {
-                try persist(request, holdings)
+                try persist(request, fetchResult.holdings)
             } catch {
                 guard activeSyncID == syncID else {
                     return .dropped
@@ -48,7 +48,7 @@ final class ERC20HoldingsSyncCoordinator {
             }
 
             complete(syncID)
-            return .applied
+            return .applied(fetchResult.warning)
         } catch is CancellationError {
             if activeSyncID == syncID {
                 complete(syncID)

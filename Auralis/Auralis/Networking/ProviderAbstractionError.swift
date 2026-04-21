@@ -7,6 +7,11 @@ enum ProviderAbstractionError: LocalizedError, Equatable {
     case invalidAddress
     case invalidResponse
     case invalidBalancePayload
+    case paginationStalled
+    case unauthorized
+    case rateLimited
+    case unsupportedMethod
+    case providerError(String)
 
     var errorDescription: String? {
         switch self {
@@ -22,6 +27,16 @@ enum ProviderAbstractionError: LocalizedError, Equatable {
             return "Provider returned an invalid response."
         case .invalidBalancePayload:
             return "Provider returned an invalid native balance payload."
+        case .paginationStalled:
+            return "Provider pagination stalled before the response completed."
+        case .unauthorized:
+            return "Provider authentication failed."
+        case .rateLimited:
+            return "Provider is rate-limiting requests right now."
+        case .unsupportedMethod:
+            return "Provider does not support the requested RPC method."
+        case .providerError(let message):
+            return "Provider returned an RPC error: \(message)"
         }
     }
 }

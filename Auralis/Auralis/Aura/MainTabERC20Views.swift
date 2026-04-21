@@ -17,6 +17,7 @@ struct ERC20TokensRootView: View {
     @State private var syncCoordinator = ERC20HoldingsSyncCoordinator()
     @State private var persistenceErrorMessage: String?
     @State private var providerErrorMessage: String?
+    @State private var providerWarningMessage: String?
     @State private var isSyncingTokenHoldings = false
     @State private var activeTokenSyncViewID: UUID?
 
@@ -206,6 +207,7 @@ struct ERC20TokensRootView: View {
         guard !currentAccountAddress.isEmpty,
               currentChain.supportsERC20Holdings else {
             providerErrorMessage = nil
+            providerWarningMessage = nil
             persistenceErrorMessage = nil
             return
         }
@@ -237,14 +239,17 @@ struct ERC20TokensRootView: View {
         }
 
         switch result {
-        case .applied:
+        case .applied(let warning):
             providerErrorMessage = nil
+            providerWarningMessage = warning?.message
             persistenceErrorMessage = nil
         case .fetchFailed:
+            providerWarningMessage = nil
             providerErrorMessage = hadNoHoldings
                 ? "Auralis could not load token holdings for the active wallet and chain just now. Try again in a moment."
                 : "Auralis kept the last saved ERC-20 holdings because the live token provider did not respond cleanly for this scope."
         case .persistFailed:
+            providerWarningMessage = nil
             providerErrorMessage = nil
             persistenceErrorMessage = "Auralis kept the last saved ERC-20 holdings, but the refreshed token rows could not be written on this device."
         case .dropped, .cancelled:
@@ -281,6 +286,18 @@ struct ERC20TokensRootView: View {
                 systemImage: "externaldrive.badge.exclamationmark",
                 tone: .warning,
                 action: nil
+            )
+        } else if let providerWarningMessage {
+            ShellStatusBanner(
+                title: "Token Metadata Limited",
+                message: providerWarningMessage,
+                systemImage: "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90",
+                tone: .warning,
+                action: ShellStatusAction(
+                    title: "Retry",
+                    systemImage: "arrow.clockwise",
+                    handler: refresh
+                )
             )
         } else if let providerErrorMessage {
             ShellStatusBanner(

@@ -265,10 +265,11 @@ import Testing
             ProviderMockURLProtocol.handler = nil
         }
 
-        let holdings = try await provider.tokenHoldings(
+        let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .baseMainnet
         )
+        let holdings = result.holdings
 
         #expect(requestedURLs.values() == [
             "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address",
@@ -341,16 +342,18 @@ import Testing
             ProviderMockURLProtocol.handler = nil
         }
 
-        let holdings = try await provider.tokenHoldings(
+        let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .baseMainnet
         )
+        let holdings = result.holdings
 
         #expect(holdings.count == 1)
         #expect(holdings[0].displayName == "0xa0b8...eb48")
         #expect(holdings[0].amountDisplay == "Amount hidden")
         #expect(holdings[0].isPlaceholder)
         #expect(holdings[0].isAmountHidden)
+        #expect(result.warning?.message.isEmpty == false)
     }
 
     @Test("token holdings provider treats balances-by-address as the quantity authority even when enrichment disagrees")
@@ -429,10 +432,11 @@ import Testing
             ProviderMockURLProtocol.handler = nil
         }
 
-        let holdings = try await provider.tokenHoldings(
+        let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .baseMainnet
         )
+        let holdings = result.holdings
 
         #expect(holdings.count == 1)
         #expect(holdings[0].amountDisplay == "1.234567 USDC")
@@ -575,10 +579,11 @@ import Testing
             ProviderMockURLProtocol.handler = nil
         }
 
-        let holdings = try await provider.tokenHoldings(
+        let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .baseMainnet
         )
+        let holdings = result.holdings
 
         #expect(balancePageKeys.values() == [nil, "balances-page-2"])
         #expect(enrichmentPageKeys.values() == [nil, "enrichment-page-2"])
@@ -677,10 +682,11 @@ import Testing
             ProviderMockURLProtocol.handler = nil
         }
 
-        let holdings = try await provider.tokenHoldings(
+        let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .baseMainnet
         )
+        let holdings = result.holdings
 
         #expect(holdings.count == 1)
         #expect(holdings[0].contractAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
@@ -725,10 +731,11 @@ import Testing
             ProviderMockURLProtocol.handler = nil
         }
 
-        let holdings = try await provider.tokenHoldings(
+        let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .baseMainnet
         )
+        let holdings = result.holdings
 
         #expect(holdings.isEmpty)
         #expect(requestedURLs.values() == [
@@ -812,13 +819,272 @@ import Testing
             ProviderMockURLProtocol.handler = nil
         }
 
-        let holdings = try await provider.tokenHoldings(
+        let result = try await provider.tokenHoldings(
+            for: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet
+        )
+        let holdings = result.holdings
+
+        #expect(holdings.count == 1)
+        #expect(holdings[0].amountDisplay == "<0.000001 TINY")
+    }
+
+    @Test("token holdings provider retries transient balance endpoint timeouts before succeeding")
+    @MainActor
+    func tokenHoldingsProviderRetriesTransientTimeouts() async throws {
+        let session = makeMockSession()
+        let provider = AlchemyTokenHoldingsProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session,
+            maxRetryCount: 3,
+            baseDelayNanoseconds: 0,
+            maxDelayNanoseconds: 0
+        )
+        let balanceAttempts = ArrayRecorder<Int>()
+
+        ProviderMockURLProtocol.handler = { request in
+            let requestURL = try #require(request.url?.absoluteString)
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+
+            switch requestURL {
+            case "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address":
+                balanceAttempts.append(1)
+                if balanceAttempts.values().count < 3 {
+                    throw URLError(.timedOut)
+                }
+
+                return (
+                    response,
+                    Data(
+                        """
+                        {
+                          "data": {
+                            "tokens": [
+                              {
+                                "address": "0x1234567890abcdef1234567890abcdef12345678",
+                                "network": "base-mainnet",
+                                "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                                "tokenBalance": "1000000"
+                              }
+                            ]
+                          }
+                        }
+                        """.utf8
+                    )
+                )
+            case "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/by-address":
+                return (
+                    response,
+                    Data(
+                        """
+                        {
+                          "data": {
+                            "tokens": [
+                              {
+                                "address": "0x1234567890abcdef1234567890abcdef12345678",
+                                "network": "base-mainnet",
+                                "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                                "tokenBalance": "1",
+                                "tokenMetadata": {
+                                  "decimals": 6,
+                                  "name": "USD Coin",
+                                  "symbol": "USDC"
+                                },
+                                "error": null
+                              }
+                            ]
+                          }
+                        }
+                        """.utf8
+                    )
+                )
+            default:
+                Issue.record("Unexpected URL: \(requestURL)")
+                return (response, Data())
+            }
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .baseMainnet
         )
 
-        #expect(holdings.count == 1)
-        #expect(holdings[0].amountDisplay == "<0.000001 TINY")
+        #expect(balanceAttempts.values().count == 3)
+        #expect(result.holdings.count == 1)
+        #expect(result.holdings[0].amountDisplay == "1 USDC")
+        #expect(result.warning == nil)
+    }
+
+    @Test("native balance provider retries transient RPC timeouts before succeeding")
+    @MainActor
+    func nativeBalanceProviderRetriesTransientTimeouts() async throws {
+        let session = makeMockSession()
+        let provider = AlchemyRPCProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session,
+            maxRetryCount: 3,
+            baseDelayNanoseconds: 0,
+            maxDelayNanoseconds: 0
+        )
+        let requestCount = ArrayRecorder<Int>()
+
+        ProviderMockURLProtocol.handler = { request in
+            let requestURL = try #require(request.url?.absoluteString)
+            #expect(requestURL == "https://eth-mainnet.g.alchemy.com/v2/alchemy-key")
+            requestCount.append(1)
+            let attempt = requestCount.values().count
+
+            if attempt < 3 {
+                throw URLError(.timedOut)
+            }
+
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (
+                response,
+                Data(
+                    """
+                    {
+                      "jsonrpc": "2.0",
+                      "id": 1,
+                      "result": "0x14d1120d7b160000"
+                    }
+                    """.utf8
+                )
+            )
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        let balance = try await provider.nativeBalance(
+            for: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet
+        )
+
+        #expect(requestCount.values().count == 3)
+        #expect(balance.formattedEtherDisplay == "1.5 ETH")
+    }
+
+    @Test("native balance provider maps JSON-RPC method errors from HTTP 200 envelopes")
+    @MainActor
+    func nativeBalanceProviderMapsRPCErrorEnvelope() async {
+        let session = makeMockSession()
+        let provider = AlchemyRPCProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session,
+            maxRetryCount: 1
+        )
+
+        ProviderMockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (
+                response,
+                Data(
+                    """
+                    {
+                      "jsonrpc": "2.0",
+                      "id": 1,
+                      "error": {
+                        "code": -32601,
+                        "message": "Method not found"
+                      }
+                    }
+                    """.utf8
+                )
+            )
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        do {
+            _ = try await provider.nativeBalance(
+                for: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .ethMainnet
+            )
+            Issue.record("Expected JSON-RPC error envelope to throw.")
+        } catch let error as ProviderAbstractionError {
+            #expect(error == .unsupportedMethod)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("gas pricing provider maps JSON-RPC rate limits from HTTP 200 envelopes")
+    @MainActor
+    func gasPricingProviderMapsRPCErrorEnvelope() async {
+        let session = makeMockSession()
+        let provider = AlchemyGasPricingProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session
+        )
+
+        ProviderMockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (
+                response,
+                Data(
+                    """
+                    {
+                      "jsonrpc": "2.0",
+                      "id": 1,
+                      "error": {
+                        "code": 429,
+                        "message": "rate limit exceeded"
+                      }
+                    }
+                    """.utf8
+                )
+            )
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        do {
+            _ = try await provider.gasPriceEstimate(for: .ethMainnet)
+            Issue.record("Expected JSON-RPC rate limit envelope to throw.")
+        } catch let error as AlchemyGasPricingProvider.GasPricingError {
+            switch error {
+            case .rateLimited(let message):
+                #expect(message == "rate limit exceeded")
+            default:
+                Issue.record("Unexpected gas pricing error: \(error)")
+            }
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
     }
 
     @Test("NFT fetcher uses the injected inventory provider factory instead of constructing Alchemy inline")
