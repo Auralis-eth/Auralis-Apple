@@ -12,13 +12,15 @@ final class AlchemyNFTService: NFTInventoryProviding, Sendable {
     private let logger = Logger(subsystem: "Auralis", category: "AlchemyNFTService")
     private let baseURL: URL
     private let network: String
+    private let session: URLSession
     private let fetchState = OwnerFetchState()
 
     // MARK: - Initialization
 
     init(
         chain: Chain,
-        configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver()
+        configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver(),
+        session: URLSession = .shared
     ) throws {
         let configuration = try configurationResolver.configuration(for: chain)
         guard let baseURL = configuration.alchemyNFTBaseURL else {
@@ -28,6 +30,7 @@ final class AlchemyNFTService: NFTInventoryProviding, Sendable {
 
         self.network = chain.rawValue
         self.baseURL = baseURL
+        self.session = session
         logger.notice("Initialized Alchemy NFT service chain=\(chain.rawValue, privacy: .public) host=\(baseURL.host ?? "unknown", privacy: .public)")
     }
 
@@ -267,7 +270,7 @@ final class AlchemyNFTService: NFTInventoryProviding, Sendable {
         request.timeoutInterval = requestTimeoutSeconds
         request.addValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.badServerResponse

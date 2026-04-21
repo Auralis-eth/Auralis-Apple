@@ -27,6 +27,47 @@ import Testing
         #expect(configuration.alchemyRPCURL == nil)
     }
 
+    @Test("Alchemy NFT service throws DecodingError when a success response body is malformed")
+    @MainActor
+    func alchemyNFTServiceSurfacesMalformedSuccessBody() async throws {
+        let session = makeMockSession()
+        let service = try AlchemyNFTService(
+            chain: .ethMainnet,
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session
+        )
+
+        ProviderMockURLProtocol.handler = { request in
+            #expect(request.url?.absoluteString == "https://eth-mainnet.g.alchemy.com/nft/v3/alchemy-key/getNFTsForOwner?owner=0x1234567890abcdef1234567890abcdef12345678&withMetadata=true&pageSize=100")
+            #expect(request.httpMethod == "GET")
+
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            let data = Data(#"{"ownedNfts":"definitely-not-an-array","totalCount":1}"#.utf8)
+            return (response, data)
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        do {
+            _ = try await service.nftsForOwner(
+                owner: "0x1234567890abcdef1234567890abcdef12345678",
+                pageKey: nil
+            )
+            Issue.record("Expected malformed success payload to throw DecodingError.")
+        } catch is DecodingError {
+        } catch {
+            Issue.record("Expected DecodingError, got \(error)")
+        }
+    }
+
     @Test("token balances provider calls the exact Alchemy balances endpoint and preserves pagination state")
     @MainActor
     func tokenBalancesProviderCallsExactEndpoint() async throws {
