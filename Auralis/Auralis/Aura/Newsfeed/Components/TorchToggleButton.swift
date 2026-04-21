@@ -17,7 +17,7 @@ struct TorchToggleButton: View {
             HStack {
                 SystemImage(torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
                     .font(.title2)
-                    .foregroundStyle(torchOn ? Color.secondary : .accent) // Use yellow when on, gray when off
+                    .foregroundStyle(torchOn ? .accent : Color.secondary)
                 PrimaryText(torchOn ? "Torch Off" : "Torch On")
                     .fontWeight(.semibold)
             }

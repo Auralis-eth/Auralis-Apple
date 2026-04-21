@@ -9,11 +9,15 @@ import SwiftUI
 
 struct GatewayBackgroundImage: View {
     var body: some View {
-        Color.clear
-            .overlay(
-                Image("aurora-1")
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            )
+        LinearGradient(
+            colors: [Color.deepBlue, Color.background],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(
+            Image("aurora-1")
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+        )
     }
 }

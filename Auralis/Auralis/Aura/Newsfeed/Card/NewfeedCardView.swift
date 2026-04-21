@@ -61,23 +61,16 @@ struct NewsFeedCardView: View {
 
                 HStack(alignment: .bottom, spacing: 16) {
                     // NFT details
-                    if isExpanded {
-                        ScrollView {
-                            NewsFeedCardDetailsView(nft: nft, isExpanded: $isExpanded)
-                                .glassEffect(.regular.tint(.surface),
-                                           in: .rect(cornerRadius: 30, style: .continuous))
-                                .padding(.leading, 15)
-                                .frame(maxWidth: geo.size.width * detailsWidthRatio, alignment: .leading)
-                        }
-                        .defaultScrollAnchor(.top)
-                        .frame(maxHeight: geo.size.height * 0.4)
-                    } else {
+                    ScrollView {
                         NewsFeedCardDetailsView(nft: nft, isExpanded: $isExpanded)
                             .glassEffect(.regular.tint(.surface),
                                        in: .rect(cornerRadius: 30, style: .continuous))
                             .padding(.leading, 15)
                             .frame(maxWidth: geo.size.width * detailsWidthRatio, alignment: .leading)
                     }
+                    .defaultScrollAnchor(.top)
+                    .scrollDisabled(!isExpanded)
+                    .frame(maxHeight: isExpanded ? geo.size.height * 0.4 : nil)
 
                     // Action buttons
                     NewsFeedCardButtons(nft: nft)

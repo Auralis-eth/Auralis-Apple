@@ -36,11 +36,14 @@ struct HomePinnedItemsStore {
     }
 
     @discardableResult
-    func togglePin(_ action: HomeLauncherAction, accountAddress: String?) -> Bool {
+    func togglePin(_ action: HomeLauncherAction, accountAddress: String?) throws -> Bool {
         let normalizedAccountAddress = normalizedAccount(accountAddress)
-        var records = loadRecords().filter { !($0.accountAddress == normalizedAccountAddress && $0.actionRawValue == action.rawValue) }
+        let existingRecords = loadRecords()
+        var records = existingRecords.filter {
+            !($0.accountAddress == normalizedAccountAddress && $0.actionRawValue == action.rawValue)
+        }
 
-        let wasPinned = records.count != loadRecords().count
+        let wasPinned = records.count != existingRecords.count
         if !wasPinned {
             records.append(
                 HomePinnedItemRecord(
@@ -59,7 +62,7 @@ struct HomePinnedItemsStore {
                     .prefix(maximumPinnedItemsPerAccount)
             }
 
-        saveRecords(Array(trimmed))
+        try saveRecords(Array(trimmed))
         return !wasPinned
     }
 
@@ -87,13 +90,13 @@ struct HomePinnedItemsStore {
         }
     }
 
-    private func saveRecords(_ records: [HomePinnedItemRecord]) {
+    private func saveRecords(_ records: [HomePinnedItemRecord]) throws {
         do {
             let data = try JSONEncoder().encode(records)
             userDefaults.set(data, forKey: storageKey)
         } catch {
             Self.logger.error("Failed to encode pinned items for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            return
+            throw error
         }
     }
 }

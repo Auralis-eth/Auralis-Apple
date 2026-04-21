@@ -14,7 +14,7 @@ struct ERC20TokensRootView: View {
     let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
 
-    @StateObject private var syncCoordinator = ERC20HoldingsSyncCoordinator()
+    @State private var syncCoordinator = ERC20HoldingsSyncCoordinator()
     @State private var persistenceErrorMessage: String?
     @State private var providerErrorMessage: String?
     @State private var isSyncingTokenHoldings = false

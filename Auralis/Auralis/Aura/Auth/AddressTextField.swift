@@ -16,7 +16,7 @@ struct AddressTextField: View {
             text: $address,
             prompt: Text("0x… wallet address").foregroundColor(.textSecondary)
         )
-        .autocapitalization(.none)
+        .textInputAutocapitalization(.never)
         .disableAutocorrection(true)
         .font(.body)
         .foregroundStyle(Color.textSecondary)

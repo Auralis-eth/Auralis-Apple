@@ -10,7 +10,7 @@ import Foundation
 
 @MainActor
 /// Shared playback engine for loading remote NFT audio, managing queue state, and exposing playback status to SwiftUI.
-public class AudioEngine: ObservableObject {
+public final class AudioEngine: ObservableObject {
     private var currentNFT: NFT?
     private var audioEngine = AVAudioEngine()
     private var playerNode = AVAudioPlayerNode()

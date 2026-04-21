@@ -148,6 +148,8 @@ struct MainAuraView: View {
                     processPendingDeepLinkIfPossible()
                 }
             }
+
+            updateAuthenticatedPresentationState()
         }
         .onChange(of: currentChain) { _, newValue in
             currentChainId = newValue.rawValue
@@ -182,9 +184,6 @@ struct MainAuraView: View {
             }
 
             refreshActiveScopeIfStaleAfterForeground()
-        }
-        .onChange(of: currentAccount) { _, _ in
-            updateAuthenticatedPresentationState()
         }
         .onChange(of: nftsAreLoading) { _, _ in
             updateAuthenticatedPresentationState()

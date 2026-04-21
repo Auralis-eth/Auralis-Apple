@@ -43,6 +43,7 @@ struct HomeTabView: View {
     @State private var showAccountSwitcher = false
     @State private var activeImageGenerationID = UUID()
     @State private var promptCache = [String: [ImagePlaygroundConcept]]()
+    @State private var promptCacheOrder: [String] = []
     @State private var avatarImage: UIImage?
     @State private var pinnedActions: Set<HomeLauncherAction> = []
     private let maxPromptCacheEntries = 32
@@ -650,7 +651,11 @@ struct HomeTabView: View {
 
     private func cachePrompts(_ concepts: [ImagePlaygroundConcept], for key: String) {
         promptCache[key] = concepts
-        while promptCache.count > maxPromptCacheEntries, let eldestKey = promptCache.keys.first {
+        promptCacheOrder.removeAll { $0 == key }
+        promptCacheOrder.append(key)
+
+        while promptCache.count > maxPromptCacheEntries, let eldestKey = promptCacheOrder.first {
+            promptCacheOrder.removeFirst()
             promptCache.removeValue(forKey: eldestKey)
         }
     }
@@ -710,6 +715,8 @@ struct HomeTabView: View {
                 try modelContext.delete(model: NFT.self)
             }
 
+            // Watch-only logout clears local app state but intentionally preserves
+            // saved accounts so people can hop back into previously scoped wallets.
             if plan.shouldDeleteAccounts {
                 try modelContext.delete(model: EOAccount.self)
             }
@@ -845,8 +852,13 @@ struct HomeTabView: View {
     }
 
     private func togglePin(for action: HomeLauncherAction) {
-        _ = pinnedItemsStore.togglePin(action, accountAddress: currentAccount?.address ?? currentAddress)
-        reloadPinnedActions()
+        do {
+            _ = try pinnedItemsStore.togglePin(action, accountAddress: currentAccount?.address ?? currentAddress)
+            reloadPinnedActions()
+        } catch {
+            errorMessage = "Failed to update pinned action: \(error.localizedDescription)"
+            showErrorAlert = true
+        }
     }
 
     private func accessibilityIdentifier(for action: HomeLauncherAction) -> String {

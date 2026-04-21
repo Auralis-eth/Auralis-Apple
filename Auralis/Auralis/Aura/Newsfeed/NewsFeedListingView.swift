@@ -9,11 +9,7 @@ import SwiftData
 import SwiftUI
 
 struct NewsFeedListingView: View {
-    @Query(sort: [
-        SortDescriptor(\NFT.acquiredAt?.blockTimestamp),
-        SortDescriptor(\NFT.collection?.name),
-        SortDescriptor(\NFT.tokenId)
-    ]) private var nfts: [NFT]
+    @Query private var nfts: [NFT]
 
     @Binding var currentAccount: EOAccount?
     @Binding var selectedNFT: NFT?

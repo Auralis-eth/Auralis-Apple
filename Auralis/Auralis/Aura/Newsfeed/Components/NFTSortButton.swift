@@ -44,7 +44,7 @@ struct NFTSortButton: View {
             if sortOrder.keyPath == field.descriptor().keyPath {
                     Label(title, systemImage: sortOrder.order == .forward ? "chevron.down" : "chevron.up")
             } else {
-                Label(title, systemImage: "basket.fill")
+                Label(title, systemImage: "arrow.up.arrow.down")
             }
         }
     }

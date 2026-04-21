@@ -1,7 +1,7 @@
-import SwiftUI
+import Foundation
 
 @MainActor
-final class ERC20HoldingsSyncCoordinator: ObservableObject {
+final class ERC20HoldingsSyncCoordinator {
     struct Request: Equatable, Sendable {
         let accountAddress: String
         let chain: Chain

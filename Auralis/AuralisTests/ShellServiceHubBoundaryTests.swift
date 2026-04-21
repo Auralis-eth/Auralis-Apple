@@ -77,11 +77,11 @@ struct ShellServiceHubBoundaryTests {
 
     @Test("live shell service hub creates home pinned-items stores through the shared preference seam")
     @MainActor
-    func homePinnedItemsStoreFactoryPersistsScopedPins() {
+    func homePinnedItemsStoreFactoryPersistsScopedPins() throws {
         let store = ShellServiceHub.live.homePinnedItemsStoreFactory()
         let accountAddress = "0x\(UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(40))"
 
-        let isPinned = store.togglePin(.openSearch, accountAddress: accountAddress)
+        let isPinned = try store.togglePin(.openSearch, accountAddress: accountAddress)
 
         #expect(isPinned)
         #expect(store.isPinned(.openSearch, accountAddress: accountAddress))

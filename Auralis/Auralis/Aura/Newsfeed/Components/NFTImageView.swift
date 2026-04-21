@@ -8,7 +8,8 @@
 import ImageIO
 import SwiftUI
 
-// Image Cache Manager
+// NSCache is internally synchronized for concurrent access, so this wrapper is
+// safe to share across tasks even though UIImage itself is not Sendable.
 final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
     private let cache = NSCache<NSString, UIImage>()

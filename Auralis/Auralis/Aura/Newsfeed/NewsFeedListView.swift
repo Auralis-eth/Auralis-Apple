@@ -9,7 +9,6 @@ import SwiftData
 import SwiftUI
 
 struct NewsFeedListView: View {
-    @Query private var collections: [NFT.Collection]
     @Binding var currentAccount: EOAccount?
     @Binding var selectedNFT: NFT?
     @Binding var currentChain: Chain

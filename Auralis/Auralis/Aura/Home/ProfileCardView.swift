@@ -20,10 +20,12 @@ struct ProfileCardView: View {
     @State private var avatarErrorMessage: String?
     @State private var showAvatarErrorAlert: Bool = false
     @State private var avatarPromptCache = [String: [ImagePlaygroundConcept]]()
+    @State private var avatarPromptCacheOrder: [String] = []
     @State private var activeAvatarRequestID = UUID()
     @State private var resolvedENSName: String?
     private let logic = HomeTabLogic()
     private let maxAvatarPromptCacheEntries = 24
+    private let fallbackAvatarAssetNames = (1...7).map { String(format: "testProfile-%02d", $0) }
 
     private var summary: HomeAccountSummaryPresentation {
         logic.accountSummaryPresentation(
@@ -203,9 +205,8 @@ struct ProfileCardView: View {
 
     private func fallbackAvatarImage(for address: String) -> UIImage? {
         let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let imageIndex = (Int(normalizedAddress.seedBytes[0]) % 8) + 1
-        let suffix = String(format: "%02d", imageIndex)
-        return UIImage(named: "testProfile-\(suffix)")
+        let imageIndex = Int(normalizedAddress.seedBytes[0]) % fallbackAvatarAssetNames.count
+        return UIImage(named: fallbackAvatarAssetNames[imageIndex])
     }
 
     /// Build a deterministic avatar prompt array for the given address and optional style.
@@ -297,8 +298,12 @@ struct ProfileCardView: View {
 
     private func cacheAvatarPrompts(_ concepts: [ImagePlaygroundConcept], for key: String) {
         avatarPromptCache[key] = concepts
+        avatarPromptCacheOrder.removeAll { $0 == key }
+        avatarPromptCacheOrder.append(key)
+
         while avatarPromptCache.count > maxAvatarPromptCacheEntries,
-              let eldestKey = avatarPromptCache.keys.first {
+              let eldestKey = avatarPromptCacheOrder.first {
+            avatarPromptCacheOrder.removeFirst()
             avatarPromptCache.removeValue(forKey: eldestKey)
         }
     }
