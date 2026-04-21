@@ -1,8 +1,9 @@
 @testable import Auralis
 import Foundation
 import Testing
+import UIKit
 
-@Suite
+@Suite(.serialized)
 @MainActor
 struct NFTImageLoaderTests {
     @Test("default loaders share the reusable session")
@@ -72,6 +73,115 @@ struct NFTImageLoaderTests {
             Issue.record("Expected videoData error for video content type.")
         }
     }
+
+    @Test("retry succeeds after a transient network failure")
+    func retryRecoversAfterNetworkFailure() async throws {
+        ImageCache.shared.clear()
+        let pngData = try #require(
+            UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2))
+                .image { context in
+                    UIColor.systemTeal.setFill()
+                    context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+                }
+                .pngData()
+        )
+        var requestCount = 0
+        var shouldSucceed = false
+        MockURLProtocol.handler = { request in
+            requestCount += 1
+            if shouldSucceed == false {
+                throw URLError(.notConnectedToInternet)
+            }
+
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "image/png"]
+            )!
+            return (response, pngData)
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer {
+            MockURLProtocol.handler = nil
+        }
+
+        let loader = ImageLoader(
+            url: URL(string: "https://example.com/transient.png")!,
+            session: session
+        )
+        loader.loadIfNeeded()
+
+        try await waitForLoaderToFinish(loader)
+
+        #expect(loader.image == nil)
+        if case .networkError = loader.error {
+        } else {
+            Issue.record("Expected networkError after the first failed request.")
+        }
+
+        shouldSucceed = true
+        loader.retry()
+
+        try await waitForLoaderToFinish(loader)
+
+        #expect(loader.isLoading == false)
+        #expect(loader.error == nil)
+        #expect(loader.image != nil)
+        #expect(requestCount == 2)
+    }
+
+    @Test("oversized payload reports file-too-large instead of generic invalid data")
+    func oversizedPayloadReportsFileTooLarge() async throws {
+        ImageCache.shared.clear()
+        let oversizedData = Data(
+            repeating: 0x61,
+            count: SVGConstants.maxFileSize + 1
+        )
+        MockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "image/svg+xml"]
+            )!
+            return (response, oversizedData)
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer {
+            MockURLProtocol.handler = nil
+        }
+
+        let loader = ImageLoader(
+            url: URL(string: "https://example.com/oversized.svg")!,
+            session: session
+        )
+        loader.loadIfNeeded()
+
+        try await waitForLoaderToFinish(loader)
+
+        #expect(loader.image == nil)
+        if case .fileTooLarge = loader.error {
+        } else {
+            Issue.record("Expected fileTooLarge for oversized payload.")
+        }
+    }
+}
+
+@MainActor
+private func waitForLoaderToFinish(_ loader: ImageLoader) async throws {
+    for _ in 0..<40 {
+        if loader.isLoading == false, loader.image != nil || loader.error != nil {
+            return
+        }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+
+    Issue.record("Timed out waiting for image loader to finish.")
 }
 
 private final class MockURLProtocol: URLProtocol {
@@ -107,7 +217,7 @@ private final class MockURLProtocol: URLProtocol {
     override func stopLoading() {}
 }
 
-@Suite
+@Suite(.serialized)
 struct AlchemyTokenHoldingsProviderPaginationTests {
     @Test("pagination guard rejects repeated cursors")
     func paginationGuardRejectsRepeatedCursors() {
@@ -167,7 +277,7 @@ struct AlchemyTokenHoldingsProviderPaginationTests {
         #expect(resetAtCompletion == 0)
     }
 }
-@Suite
+@Suite(.serialized)
 struct AlchemyTokenHoldingsProviderWarningTests {
     @Test("provider returns holdings plus warning when enrichment fails")
     func providerReturnsWarningForEnrichmentFailure() async throws {

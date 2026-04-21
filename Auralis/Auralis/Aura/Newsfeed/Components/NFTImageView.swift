@@ -50,6 +50,7 @@ final class ImageLoader: ObservableObject {
         case svgData
         case videoData
         case unsupportedURL
+        case fileTooLarge
 
         var symbolName: String {
             switch self {
@@ -59,6 +60,8 @@ final class ImageLoader: ObservableObject {
                 return "network.slash"
             case .videoData, .unsupportedURL:
                 return "nosign"
+            case .fileTooLarge:
+                return "exclamationmark.triangle"
             }
         }
 
@@ -74,6 +77,17 @@ final class ImageLoader: ObservableObject {
                 return "This NFT preview is video-based."
             case .unsupportedURL:
                 return "This image source is not supported."
+            case .fileTooLarge:
+                return "This NFT image is too large to preview here."
+            }
+        }
+
+        var allowsRetry: Bool {
+            switch self {
+            case .networkError:
+                return true
+            default:
+                return false
             }
         }
     }
@@ -156,6 +170,10 @@ final class ImageLoader: ObservableObject {
         isLoading = false
     }
 
+    func retry() {
+        loadImage()
+    }
+
     nonisolated private static func downsampledImage(from data: Data, maxPixelDimension: Int) -> UIImage? {
         let options = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let imageSource = CGImageSourceCreateWithData(data as CFData, options) else {
@@ -203,8 +221,14 @@ final class ImageLoader: ObservableObject {
                     return .success(downloadedImage)
                 }
 
-                if (try? data.isSVGData()) == true {
-                    return .failure(.svgData)
+                do {
+                    if try data.isSVGData() {
+                        return .failure(.svgData)
+                    }
+                } catch SVGDetectionError.fileTooLarge {
+                    return .failure(.fileTooLarge)
+                } catch {
+                    return .failure(.invalidData)
                 }
 
                 return .failure(.invalidData)
@@ -247,6 +271,13 @@ struct CachedAsyncImage: View {
                             .font(.title2)
                         SecondaryText(error.userMessage)
                             .multilineTextAlignment(.center)
+                        if error.allowsRetry {
+                            Button("Retry") {
+                                loader.retry()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .padding(.top, 8)
+                        }
                     }
                     .foregroundStyle(Color.error)
                     .padding()

@@ -45,4 +45,27 @@ struct HomePinnedItemsStoreTests {
         #expect(store.isPinned(.openReceipts, accountAddress: account))
         #expect(store.isPinned(.openNews, accountAddress: account))
     }
+
+    @Test("mutating pinned items fails closed when stored data is corrupted")
+    func corruptedPinnedItemsDoNotGetOverwrittenOnToggle() throws {
+        let suiteName = "HomePinnedItemsStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let storageKey = "auralis.tests.home-pinned-items"
+        defaults.set(Data("not-json".utf8), forKey: storageKey)
+
+        let store = HomePinnedItemsStore(
+            userDefaults: defaults,
+            storageKey: storageKey,
+            maximumPinnedItemsPerAccount: 3
+        )
+
+        #expect(throws: HomePinnedItemsStoreError.corruptedStorage) {
+            try store.togglePin(
+                .openSearch,
+                accountAddress: "0x1234567890abcdef1234567890abcdef12345678"
+            )
+        }
+        #expect(defaults.data(forKey: storageKey) == Data("not-json".utf8))
+    }
 }

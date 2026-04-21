@@ -7,6 +7,17 @@ struct HomePinnedItemRecord: Codable, Equatable {
     let pinnedAt: Date
 }
 
+enum HomePinnedItemsStoreError: LocalizedError, Equatable {
+    case corruptedStorage
+
+    var errorDescription: String? {
+        switch self {
+        case .corruptedStorage:
+            return "Pinned actions could not be updated because local pinned-item data is corrupted."
+        }
+    }
+}
+
 struct HomePinnedItemsStore {
     private static let logger = Logger(subsystem: "Auralis", category: "HomePinnedItemsStore")
     private let userDefaults: UserDefaults
@@ -38,7 +49,7 @@ struct HomePinnedItemsStore {
     @discardableResult
     func togglePin(_ action: HomeLauncherAction, accountAddress: String?) throws -> Bool {
         let normalizedAccountAddress = normalizedAccount(accountAddress)
-        let existingRecords = loadRecords()
+        let existingRecords = try loadRecordsForMutation()
         var records = existingRecords.filter {
             !($0.accountAddress == normalizedAccountAddress && $0.actionRawValue == action.rawValue)
         }
@@ -87,6 +98,19 @@ struct HomePinnedItemsStore {
         } catch {
             Self.logger.error("Failed to decode pinned items for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return []
+        }
+    }
+
+    private func loadRecordsForMutation() throws -> [HomePinnedItemRecord] {
+        guard let data = userDefaults.data(forKey: storageKey) else {
+            return []
+        }
+
+        do {
+            return try JSONDecoder().decode([HomePinnedItemRecord].self, from: data)
+        } catch {
+            Self.logger.error("Failed to decode pinned items for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            throw HomePinnedItemsStoreError.corruptedStorage
         }
     }
 
