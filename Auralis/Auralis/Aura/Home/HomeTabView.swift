@@ -283,13 +283,15 @@ struct HomeTabView: View {
                 }
             }
 
+#if DEBUG
             AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-                // This remains preview copy until Home has live energy data to drive the message.
+                // Keep the preview visible in debug builds until Home has live energy data.
                 EnergyCardView(
                     time: Date(),
                     placeholderMessage: "Preview only while live energy insights are still being connected."
                 )
             }
+#endif
         }
     }
 

@@ -140,7 +140,7 @@ private extension ReceiptBackedENSEventRecorder {
             )
         } catch {
             logger.error(
-                "Failed to append ENS receipt trigger=\(trigger, privacy: .public) correlationID=\(correlationID ?? "nil", privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+                "Failed to append ENS receipt trigger=\(trigger, privacy: .public) correlationID=\(correlationID ?? "nil", privacy: .private(mask: .hash)) error=\(error.localizedDescription, privacy: .public)"
             )
         }
     }

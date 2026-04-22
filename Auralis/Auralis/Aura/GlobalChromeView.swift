@@ -4,7 +4,7 @@ import SwiftUI
 struct GlobalChromeView: View {
     let snapshot: ContextSnapshot
     let onOpenAccountSwitcher: () -> Void
-    let onOpenContextInspector: () -> Void
+    let onOpenContextInspector: (() -> Void)?
     let onOpenSearch: () -> Void
 
     var body: some View {
@@ -23,19 +23,21 @@ struct GlobalChromeView: View {
                 )
                 .accessibilityHint("Mode is sourced from the shared shell context snapshot.")
 
-                Button(action: onOpenContextInspector) {
-                    AuraPill(
-                        snapshot.freshnessLabel,
-                        systemImage: "gyroscope",
-                        emphasis: .accent,
-                        imageSize: .title3.weight(.semibold),
-                        accessibilityLabel: snapshot.freshnessLabel
-                    )
-                    .accessibilityHidden(true)
+                if let onOpenContextInspector {
+                    Button(action: onOpenContextInspector) {
+                        AuraPill(
+                            snapshot.freshnessLabel,
+                            systemImage: "gyroscope",
+                            emphasis: .accent,
+                            imageSize: .title3.weight(.semibold),
+                            accessibilityLabel: snapshot.freshnessLabel
+                        )
+                        .accessibilityHidden(true)
+                    }
+                    .accessibilityLabel("Context")
+                    .accessibilityValue(snapshot.freshnessLabel)
+                    .accessibilityHint("Shows scope and freshness details for \(snapshot.scopeSummary).")
                 }
-                .accessibilityLabel("Context")
-                .accessibilityValue(snapshot.freshnessLabel)
-                .accessibilityHint("Shows scope and freshness details for \(snapshot.scopeSummary).")
 
                 Button(action: onOpenSearch) {
                     AuraPill(
