@@ -5,7 +5,7 @@
 	<key>AURALIS_ALCHEMY_API_KEY</key>
 	<string>$(AURALIS_ALCHEMY_API_KEY)</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Auralis uses the camera so you can capture playlist cover art.</string>
+	<string>Auralis uses the camera to scan Ethereum wallet QR codes and capture playlist cover art.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Auralis uses your photo library so you can choose playlist cover art.</string>
 	<key>UIBackgroundModes</key>

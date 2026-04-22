@@ -1,9 +1,11 @@
 import OSLog
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct AccountSwitcherSheet: View {
     private let logger = Logger(subsystem: "Auralis", category: "AccountSwitcherSheet")
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query private var persistedAccounts: [EOAccount]
@@ -18,6 +20,10 @@ struct AccountSwitcherSheet: View {
 
     @State private var pendingRemovalAccount: EOAccount?
     @State private var feedbackAlert: AccountSwitcherAlert?
+
+    private var haptics: AuraHaptics {
+        AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
+    }
 
     private var orderedAccounts: [EOAccount] {
         persistedAccounts.sorted { lhs, rhs in
@@ -120,12 +126,14 @@ struct AccountSwitcherSheet: View {
     }
 
     private func select(_ account: EOAccount) {
+        haptics.impact(.light)
         onSelectAccount(account.address)
         dismiss()
     }
 
     private func remove(_ account: EOAccount) {
         pendingRemovalAccount = nil
+        haptics.notification(.warning)
         onRemoveAccount(account.address)
 
         if activeSelection?.address == account.address {

@@ -1,6 +1,30 @@
 import Foundation
 
 struct SearchLocalIndex: Equatable, Sendable {
+    struct AccountSnapshot: Sendable {
+        let address: String
+        let name: String?
+    }
+
+    struct NFTSnapshot: Sendable {
+        let id: String
+        let name: String?
+        let collectionName: String?
+        let collectionDisplayName: String?
+        let contractAddress: String?
+        let accountAddressRawValue: String?
+        let networkRawValue: String?
+    }
+
+    struct HoldingSnapshot: Sendable {
+        let accountAddressRawValue: String
+        let chainRawValue: String
+        let balanceKind: TokenHoldingKind
+        let contractAddress: String?
+        let symbol: String?
+        let displayName: String
+    }
+
     struct AccountEntry: Equatable, Sendable {
         let address: String
         let displayName: String
@@ -63,11 +87,52 @@ struct SearchLocalIndex: Equatable, Sendable {
         currentAccountAddress: String?,
         currentChain: Chain
     ) -> SearchLocalIndex {
+        make(
+            nftSnapshots: nfts.map {
+                NFTSnapshot(
+                    id: $0.id,
+                    name: $0.name,
+                    collectionName: $0.collectionName,
+                    collectionDisplayName: $0.collection?.name,
+                    contractAddress: $0.contract.address,
+                    accountAddressRawValue: $0.accountAddressRawValue,
+                    networkRawValue: $0.networkRawValue
+                )
+            },
+            holdingSnapshots: holdings.map {
+                HoldingSnapshot(
+                    accountAddressRawValue: $0.accountAddressRawValue,
+                    chainRawValue: $0.chainRawValue,
+                    balanceKind: $0.balanceKind,
+                    contractAddress: $0.contractAddress,
+                    symbol: $0.symbol,
+                    displayName: $0.displayName
+                )
+            },
+            accountSnapshots: accounts.map {
+                AccountSnapshot(
+                    address: $0.address,
+                    name: $0.name
+                )
+            },
+            currentAccountAddress: currentAccountAddress,
+            currentChain: currentChain
+        )
+    }
+
+    static func make(
+        nftSnapshots: [NFTSnapshot],
+        holdingSnapshots: [HoldingSnapshot],
+        accountSnapshots: [AccountSnapshot],
+        currentAccountAddress: String?,
+        currentChain: Chain
+    ) -> SearchLocalIndex {
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
-        let scopedNFTs = nfts.filter {
-            $0.matchesScope(accountAddress: currentAccountAddress, chain: currentChain)
+        let scopedNFTs = nftSnapshots.filter {
+            $0.accountAddressRawValue == normalizedAccountAddress &&
+            $0.networkRawValue == currentChain.rawValue
         }
-        let scopedHoldings = holdings.filter {
+        let scopedHoldings = holdingSnapshots.filter {
             $0.accountAddressRawValue == normalizedAccountAddress &&
             $0.chainRawValue == currentChain.rawValue &&
             $0.balanceKind == .erc20 &&
@@ -75,7 +140,7 @@ struct SearchLocalIndex: Equatable, Sendable {
         }
 
         let uniqueAccounts = Dictionary(
-            accounts.map {
+            accountSnapshots.map {
                 (
                     NFT.normalizedScopeComponent($0.address) ?? $0.address.lowercased(),
                     AccountEntry(
@@ -88,7 +153,7 @@ struct SearchLocalIndex: Equatable, Sendable {
         )
 
         let ensEntries = Dictionary(
-            accounts.compactMap { account -> (String, ENSEntry)? in
+            accountSnapshots.compactMap { account -> (String, ENSEntry)? in
                 guard let name = account.name?.trimmingCharacters(in: .whitespacesAndNewlines),
                       SearchQueryParser.looksLikeENSName(name) else {
                     return nil
@@ -109,11 +174,11 @@ struct SearchLocalIndex: Equatable, Sendable {
 
         let contractEntries = Dictionary(
             scopedNFTs.compactMap { nft -> (String, ContractEntry)? in
-                guard let address = nft.contract.address.flatMap(NFT.normalizedScopeComponent) else {
+                guard let address = nft.contractAddress.flatMap(NFT.normalizedScopeComponent) else {
                     return nil
                 }
 
-                let label = nft.collectionName ?? nft.collection?.name ?? nft.name ?? address.displayAddress
+                let label = nft.collectionName ?? nft.collectionDisplayName ?? nft.name ?? address.displayAddress
                 return (address, ContractEntry(address: address, label: label, chain: currentChain))
             },
             uniquingKeysWith: { first, _ in first }
@@ -132,7 +197,7 @@ struct SearchLocalIndex: Equatable, Sendable {
                         symbol: symbol,
                         label: holding.displayName,
                         contractAddress: contractAddress,
-                        chain: holding.chain
+                        chain: Chain(rawValue: holding.chainRawValue) ?? currentChain
                     )
                 )
             },
@@ -148,17 +213,17 @@ struct SearchLocalIndex: Equatable, Sendable {
                 nftID: nft.id,
                 normalizedName: name.lowercased(),
                 displayName: name,
-                collectionDisplayName: Self.cleanedText(nft.collectionName ?? nft.collection?.name)
+                collectionDisplayName: Self.cleanedText(nft.collectionName ?? nft.collectionDisplayName)
             )
         }
 
         var seenCollectionIDs = Set<String>()
         let collectionEntries = scopedNFTs.compactMap { nft -> CollectionEntry? in
-            guard let name = Self.cleanedText(nft.collectionName ?? nft.collection?.name) else {
+            guard let name = Self.cleanedText(nft.collectionName ?? nft.collectionDisplayName) else {
                 return nil
             }
 
-            let normalizedContractAddress = NFT.normalizedScopeComponent(nft.contract.address)
+            let normalizedContractAddress = NFT.normalizedScopeComponent(nft.contractAddress)
             let entryID = [
                 currentChain.rawValue,
                 normalizedContractAddress ?? "name:\(name.lowercased())",

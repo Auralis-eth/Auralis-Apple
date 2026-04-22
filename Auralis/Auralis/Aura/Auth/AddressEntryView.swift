@@ -56,6 +56,7 @@ struct AddressInputView: View {
     @State private var activeSubmissionTask: Task<Void, Never>?
     @State private var activeSubmissionID = UUID()
     @State private var pendingENSMappingChange: PendingENSMappingChange?
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.modelContext) private var modelContext
     let ensResolver: any ENSResolving
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
@@ -75,6 +76,10 @@ struct AddressInputView: View {
 
     private var normalizedAddress: String? {
         validationPresentation.normalizedAddress
+    }
+
+    private var haptics: AuraHaptics {
+        AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
     }
 
     var body: some View {
@@ -148,10 +153,15 @@ struct AddressInputView: View {
         }
     }
 
-    private func showAlert(title: String, message: String) {
+    private func showAlert(
+        title: String,
+        message: String,
+        feedback: UINotificationFeedbackGenerator.FeedbackType = .error
+    ) {
         alertTitle = title
         alertMessage = message
         showingAlert = true
+        haptics.notification(feedback)
     }
 
     @MainActor
@@ -214,13 +224,15 @@ struct AddressInputView: View {
             }
             address = ""
             onAccountActivated(activation.account, correlationID)
+            haptics.notification(.success)
             isSubmitting = false
             activeSubmissionTask = nil
 
             if !activation.wasCreated {
                 showAlert(
                     title: "Account Already Added",
-                    message: "Switched to the existing saved account for that address."
+                    message: "Switched to the existing saved account for that address.",
+                    feedback: .success
                 )
             }
         } catch let error as ENSResolutionError {
@@ -284,7 +296,8 @@ struct AddressInputView: View {
             if !activation.wasCreated {
                 showAlert(
                     title: "Account Already Added",
-                    message: "Switched to the existing saved account for that address."
+                    message: "Switched to the existing saved account for that address.",
+                    feedback: .success
                 )
             }
         } catch {

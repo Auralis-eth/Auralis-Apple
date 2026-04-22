@@ -8,6 +8,7 @@
 import CodeScanner
 import SwiftData
 import SwiftUI
+import UIKit
 
 @MainActor
 enum QRScanValidationOutcome: Equatable {
@@ -31,6 +32,7 @@ enum QRScanValidationOutcome: Equatable {
 }
 
 struct QRScannerView: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.modelContext) private var modelContext
     @State private var isScanning = false
     @State private var torchOn = false
@@ -39,6 +41,10 @@ struct QRScannerView: View {
     @State private var showingAlert = false
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
     let onAccountActivated: @MainActor (EOAccount, String?) -> Void
+
+    private var haptics: AuraHaptics {
+        AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
+    }
 
     var body: some View {
         Button {
@@ -91,11 +97,13 @@ struct QRScannerView: View {
                     correlationID: correlationID
                 )
                 onAccountActivated(activation.account, correlationID)
+                haptics.notification(.success)
 
                 if !activation.wasCreated {
                     showAlert(
                         title: "Account Already Added",
-                        message: "Switched to the existing saved account for that scanned address."
+                        message: "Switched to the existing saved account for that scanned address.",
+                        feedback: .success
                     )
                 }
             } catch {
@@ -112,9 +120,14 @@ struct QRScannerView: View {
         }
     }
 
-    private func showAlert(title: String, message: String) {
+    private func showAlert(
+        title: String,
+        message: String,
+        feedback: UINotificationFeedbackGenerator.FeedbackType = .error
+    ) {
         alertTitle = title
         alertMessage = message
         showingAlert = true
+        haptics.notification(feedback)
     }
 }

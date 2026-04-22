@@ -8,19 +8,19 @@
 import Foundation
 
 /// Public knobs for style and scenery
-public enum AvatarStyle: String, CaseIterable {
+enum AvatarStyle: String, CaseIterable {
     case abstract
     case character
     case geometric
 }
 
 /// Supported rendering lanes for Aura-generated scenery.
-public enum AuroraLane: String { case poster, photoreal, synthwave }
+enum AuroraLane: String { case poster, photoreal, synthwave }
 
 /// Supported scenery presets for Aura background generation.
-public enum AuroraScene: String, Identifiable, CaseIterable {
+enum AuroraScene: String, Identifiable, CaseIterable {
     /// Stable identifier for use in SwiftUI selection APIs.
-    public var id: String {
+    var id: String {
         rawValue
     }
 

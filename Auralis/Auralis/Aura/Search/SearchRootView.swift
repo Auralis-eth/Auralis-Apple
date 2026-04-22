@@ -178,7 +178,7 @@ struct SearchRootView: View {
             commitQuery()
         }
         .task(id: localIndexRefreshKey) {
-            refreshLocalIndex()
+            await refreshLocalIndex()
         }
     }
 
@@ -226,14 +226,52 @@ struct SearchRootView: View {
         }
     }
 
-    private func refreshLocalIndex() {
-        localIndex = SearchLocalIndex.make(
-            nfts: nfts,
-            holdings: holdings,
-            accounts: accounts,
-            currentAccountAddress: currentAccountAddress,
-            currentChain: currentChain
-        )
+    private func refreshLocalIndex() async {
+        let nftSnapshots = nfts.map {
+            SearchLocalIndex.NFTSnapshot(
+                id: $0.id,
+                name: $0.name,
+                collectionName: $0.collectionName,
+                collectionDisplayName: $0.collection?.name,
+                contractAddress: $0.contract.address,
+                accountAddressRawValue: $0.accountAddressRawValue,
+                networkRawValue: $0.networkRawValue
+            )
+        }
+        let holdingSnapshots = holdings.map {
+            SearchLocalIndex.HoldingSnapshot(
+                accountAddressRawValue: $0.accountAddressRawValue,
+                chainRawValue: $0.chainRawValue,
+                balanceKind: $0.balanceKind,
+                contractAddress: $0.contractAddress,
+                symbol: $0.symbol,
+                displayName: $0.displayName
+            )
+        }
+        let accountSnapshots = accounts.map {
+            SearchLocalIndex.AccountSnapshot(
+                address: $0.address,
+                name: $0.name
+            )
+        }
+
+        do {
+            let refreshedIndex = await Task.detached(priority: .userInitiated) {
+                SearchLocalIndex.make(
+                    nftSnapshots: nftSnapshots,
+                    holdingSnapshots: holdingSnapshots,
+                    accountSnapshots: accountSnapshots,
+                    currentAccountAddress: currentAccountAddress,
+                    currentChain: currentChain
+                )
+            }.value
+            try Task.checkCancellation()
+            localIndex = refreshedIndex
+        } catch is CancellationError {
+            return
+        } catch {
+            logger.error("Failed to rebuild local search index: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     private func handleHistoryWriteFailure(_ error: Error, operation: String) {

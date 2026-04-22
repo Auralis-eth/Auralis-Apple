@@ -284,7 +284,11 @@ struct HomeTabView: View {
             }
 
             AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-                EnergyCardView(time: Date())
+                // TODO: Replace the preview copy with a real time-of-day energy source when Home owns live energy data.
+                EnergyCardView(
+                    time: Date(),
+                    placeholderMessage: "Preview only while live energy insights are still being connected."
+                )
             }
         }
     }

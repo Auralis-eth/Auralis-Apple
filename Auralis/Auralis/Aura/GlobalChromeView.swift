@@ -154,20 +154,20 @@ struct ChromeContextInspectorSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Schema") {
-                    LabeledContent("Version", value: snapshot.version.rawValue)
+                Section("App Version Info") {
+                    LabeledContent("Context Format", value: snapshot.version.userFacingDescription)
                 }
 
                 Section("Mode") {
                     LabeledContent("Current Mode", value: snapshot.modeDisplay)
-                    LabeledContent("Mode Provenance", value: snapshot.mode.provenance.displayLabel)
+                    LabeledContent("Mode Source", value: snapshot.mode.provenance.userFacingLabel)
                 }
 
                 Section("Scope") {
                     LabeledContent("Account", value: snapshot.accountDisplay)
-                    LabeledContent("Account Provenance", value: snapshot.scope.accountAddress.provenance.displayLabel)
+                    LabeledContent("Account Source", value: snapshot.scope.accountAddress.provenance.userFacingLabel)
                     LabeledContent("Chains", value: snapshot.selectedChainDisplayNames)
-                    LabeledContent("Chain Provenance", value: snapshot.scope.selectedChains.provenance.displayLabel)
+                    LabeledContent("Chain Source", value: snapshot.scope.selectedChains.provenance.userFacingLabel)
                     LabeledContent("Summary", value: snapshot.scopeSummary)
                 }
 
@@ -217,8 +217,8 @@ struct ChromeContextInspectorSheet: View {
                         value: snapshot.balances.nativeBalanceDisplay.value ?? "Unavailable"
                     )
                     LabeledContent(
-                        "Balance Provenance",
-                        value: snapshot.balances.nativeBalanceDisplay.provenance.displayLabel
+                        "Balance Source",
+                        value: snapshot.balances.nativeBalanceDisplay.provenance.userFacingLabel
                     )
                     LabeledContent(
                         "Balance Updated",
@@ -241,8 +241,8 @@ struct ChromeContextInspectorSheet: View {
                         )
                     }
                     LabeledContent(
-                        "Last Refresh Provenance",
-                        value: snapshot.freshness.lastSuccessfulRefreshProvenance.displayLabel
+                        "Last Refresh Source",
+                        value: snapshot.freshness.lastSuccessfulRefreshProvenance.userFacingLabel
                     )
                     LabeledContent(
                         "Last Successful Refresh",
@@ -258,8 +258,11 @@ struct ChromeContextInspectorSheet: View {
                         Button {
                             refreshContext()
                         } label: {
-                            Label("Refresh Active Scope", systemImage: "arrow.clockwise")
+                            Label("Refresh Wallet Data", systemImage: "arrow.clockwise")
                         }
+                        Text("Re-syncs wallet data for the current account and chain.")
+                            .font(.footnote)
+                            .foregroundStyle(Color.textSecondary)
                     }
                 }
 
@@ -281,7 +284,7 @@ struct ChromeContextInspectorSheet: View {
                                     .font(.caption)
                                     .foregroundStyle(Color.textSecondary)
                                 if !relatedContextReceipts.isEmpty {
-                                    Text("\(relatedContextReceipts.count) related receipt(s) share this correlation flow.")
+                                    Text("\(relatedContextReceipts.count) related activity update(s) are linked to this refresh.")
                                         .font(.caption)
                                         .foregroundStyle(Color.textSecondary)
                                 }
@@ -355,19 +358,49 @@ struct ChromeContextInspectorSheet: View {
 
     private func receiptDetailSummary(for receipt: ReceiptTimelineRecord) -> String {
         let timestamp = receipt.createdAt.formatted(date: .abbreviated, time: .shortened)
-        let correlation = receipt.correlationID.map { "Flow \($0.prefix(8))" } ?? "No correlation"
-        return "\(timestamp) • \(correlation)"
+        guard let correlationID = receipt.correlationID else {
+            return timestamp
+        }
+
+        guard !correlationID.isEmpty else {
+            return timestamp
+        }
+
+        return "\(timestamp) • Activity reference available"
     }
 }
 
 private extension ContextProvenance {
-    var displayLabel: String {
-        rawValue.replacingOccurrences(of: "_", with: " ").capitalized
+    var userFacingLabel: String {
+        switch self {
+        case .userProvided:
+            return "Set by you"
+        case .onChain:
+            return "Freshly fetched"
+        case .localCache:
+            return "Loaded from cache"
+        }
     }
 }
 
 private extension ContextRefreshState {
     var displayLabel: String {
-        rawValue.capitalized
+        switch self {
+        case .idle:
+            return "Up to date"
+        case .refreshing:
+            return "Refreshing now"
+        case .unknown:
+            return "Not yet loaded"
+        }
+    }
+}
+
+private extension ContextSchemaVersion {
+    var userFacingDescription: String {
+        switch self {
+        case .v0:
+            return "Current app context format"
+        }
     }
 }

@@ -26,6 +26,7 @@ struct EnergyCardView: View {
     var statusTitle: String = "Warming up"
     var statusSubtitle: String = "Morning energy"
     var symbolName: String = "sun.max.fill"
+    var placeholderMessage: String?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     // MARK: - Formatting
@@ -35,7 +36,11 @@ struct EnergyCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            AuraSectionHeader(title: title)
+            AuraSectionHeader(title: title) {
+                if placeholderMessage != nil {
+                    AuraPill("Preview", systemImage: "clock.badge.exclamationmark", emphasis: .neutral)
+                }
+            }
 
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 12) {
@@ -48,6 +53,11 @@ struct EnergyCardView: View {
                     Spacer()
                     statusContent(alignment: .trailing)
                 }
+            }
+
+            if let placeholderMessage {
+                SecondaryText(placeholderMessage)
+                    .font(.footnote)
             }
         }
         .accessibilityElement(children: .combine)
