@@ -2,7 +2,8 @@
 import Foundation
 import Testing
 
-@Suite(.serialized) struct ProviderAbstractionTests {
+@Suite(.serialized)
+struct ProviderAbstractionTests {
     @Test("provider configuration resolves centralized Alchemy endpoints for an EVM chain")
     func resolverBuildsExpectedEndpoints() throws {
         let resolver = LiveProviderConfigurationResolver { provider in
@@ -1253,7 +1254,7 @@ import Testing
         )
 
         await #expect(throws: Error.self) {
-            try await fetcher.fetchAllNFTs(
+            _ = try await fetcher.fetchAllNFTs(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .ethMainnet,
                 correlationID: "partial-pages",
