@@ -1,32 +1,44 @@
 import Observation
-import OSLog
 import SwiftData
 import SwiftUI
 
 struct MainTabView: View {
-    private let logger = Logger(subsystem: "Auralis", category: "MainTabView")
     @Environment(\.modelContext) private var modelContext
-    @Binding var currentAccount: EOAccount?
-    @Binding var currentAddress: String
-    @Binding var currentChainId: String
-    @Binding var currentChain: Chain
+
+    let shellStore: ShellStore
+    let resolveCurrentAccount: @MainActor () -> EOAccount?
     @Binding var nftService: NFTService
-    @Binding var pendingShellFlowCorrelationID: String?
     @Bindable var router: AppRouter
     let audioEngine: AudioEngine?
     let audioUnavailableMessage: String?
     let modeState: ModeState
     let services: ShellServiceHub
+
     private let homePinnedItemsStore: HomePinnedItemsStore
+
     @State private var showAccountSwitcher = false
     @State private var showContextInspector = false
     @State private var contextService: ContextService
     @State private var pinnedItemCount: Int
-    @State private var feedbackAlert: MainTabAlert?
+
+    private var currentAccount: EOAccount? {
+        resolveCurrentAccount()
+    }
+
+    private var currentAddress: String {
+        shellStore.state.selection?.address ?? ""
+    }
+
+    private var currentChain: Chain {
+        shellStore.state.selection?.chain ?? .ethMainnet
+    }
+
+    private var activeAccountAddress: String {
+        currentAccount?.address ?? currentAddress
+    }
 
     private var contextRemoteRefreshKey: ContextRemoteRefreshKey {
-        let activeAccountAddress = currentAccount?.address ?? currentAddress
-        return ContextRemoteRefreshKey(
+        ContextRemoteRefreshKey(
             accountAddress: activeAccountAddress,
             chain: currentChain,
             mode: modeState.mode,
@@ -46,12 +58,9 @@ struct MainTabView: View {
     }
 
     init(
-        currentAccount: Binding<EOAccount?>,
-        currentAddress: Binding<String>,
-        currentChainId: Binding<String>,
-        currentChain: Binding<Chain>,
+        shellStore: ShellStore,
+        resolveCurrentAccount: @escaping @MainActor () -> EOAccount?,
         nftService: Binding<NFTService>,
-        pendingShellFlowCorrelationID: Binding<String?>,
         router: AppRouter,
         audioEngine: AudioEngine?,
         audioUnavailableMessage: String?,
@@ -59,66 +68,68 @@ struct MainTabView: View {
         services: ShellServiceHub,
         modelContext: ModelContext
     ) {
-        self._currentAccount = currentAccount
-        self._currentAddress = currentAddress
-        self._currentChainId = currentChainId
-        self._currentChain = currentChain
+        self.shellStore = shellStore
+        self.resolveCurrentAccount = resolveCurrentAccount
         self._nftService = nftService
-        self._pendingShellFlowCorrelationID = pendingShellFlowCorrelationID
         self.router = router
         self.audioEngine = audioEngine
         self.audioUnavailableMessage = audioUnavailableMessage
         self.modeState = modeState
         self.services = services
+
         let homePinnedItemsStore = services.homePinnedItemsStoreFactory()
         self.homePinnedItemsStore = homePinnedItemsStore
+
         let libraryContextProvider = services.libraryContextProviderFactory(modelContext)
         _pinnedItemCount = State(
             initialValue: homePinnedItemsStore.pinnedCount(
-                for: currentAddress.wrappedValue
+                for: shellStore.state.selection?.address ?? ""
             )
         )
         _contextService = State(
             initialValue: services.contextServiceBuilder.makeContextService(
-                accountProvider: { currentAccount.wrappedValue },
-                addressProvider: { currentAddress.wrappedValue },
-                chainProvider: { currentChain.wrappedValue },
+                accountProvider: { resolveCurrentAccount() },
+                addressProvider: { shellStore.state.selection?.address ?? "" },
+                chainProvider: { shellStore.state.selection?.chain ?? .ethMainnet },
                 modeProvider: { modeState.mode },
                 loadingProvider: { nftService.wrappedValue.isLoading },
                 refreshedAtProvider: {
-                    let activeAccountAddress = currentAccount.wrappedValue?.address
-                        ?? currentAddress.wrappedValue
+                    let activeAddress = resolveCurrentAccount()?.address
+                        ?? shellStore.state.selection?.address
+                        ?? ""
                     return nftService.wrappedValue.lastSuccessfulRefreshAt(
-                        for: activeAccountAddress,
-                        chain: currentChain.wrappedValue
+                        for: activeAddress,
+                        chain: shellStore.state.selection?.chain ?? .ethMainnet
                     )
                 },
                 nativeBalanceProvider: services.readOnlyProviderFactory.makeNativeBalanceProvider(),
                 freshnessTTLProvider: { nftService.wrappedValue.refreshTTL },
-                trackedNFTCountProvider: { currentAccount.wrappedValue?.trackedNFTCount },
+                trackedNFTCountProvider: { resolveCurrentAccount()?.trackedNFTCount },
                 musicCollectionCountProvider: {
                     libraryContextProvider.playlistCount()
                 },
                 receiptCountProvider: {
                     libraryContextProvider.receiptCount(
                         scope: ReceiptTimelineScope(
-                            accountAddress: currentAddress.wrappedValue,
-                            chain: currentChain.wrappedValue
+                            accountAddress: shellStore.state.selection?.address ?? "",
+                            chain: shellStore.state.selection?.chain ?? .ethMainnet
                         )
                     )
                 },
                 pinnedActionsProvider: {
                     Array(
-                        homePinnedItemsStore.pinnedActions(for: currentAddress.wrappedValue)
+                        homePinnedItemsStore.pinnedActions(
+                            for: shellStore.state.selection?.address ?? ""
+                        )
                     )
                     .sorted { $0.rawValue < $1.rawValue }
                 },
                 prefersDemoDataProvider: {
-                    currentAccount.wrappedValue?.source == .guestPass
+                    resolveCurrentAccount()?.source == .guestPass
                 },
                 pinnedItemCountProvider: {
                     homePinnedItemsStore.pinnedCount(
-                        for: currentAddress.wrappedValue
+                        for: shellStore.state.selection?.address ?? ""
                     )
                 }
             )
@@ -128,7 +139,6 @@ struct MainTabView: View {
     var body: some View {
         VStack(spacing: 0) {
             chromeContainer
-
             tabContent
         }
         .background {
@@ -136,15 +146,13 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $showAccountSwitcher) {
             AccountSwitcherSheet(
-                currentAccount: $currentAccount,
-                currentAddress: $currentAddress,
-                currentChain: $currentChain,
+                currentAccount: currentAccount,
+                activeSelection: shellStore.state.selection,
                 accountStoreFactory: services.accountStoreFactory,
                 accountEventRecorderFactory: services.accountEventRecorderFactory,
-                onAccountSelectionStarted: { correlationID in
-                    pendingShellFlowCorrelationID = correlationID
-                },
-                onCurrentChainChanged: refreshActiveChainScope
+                onSelectAccount: selectAccount,
+                onRemoveAccount: removeAccount,
+                onCurrentChainChange: changeCurrentChain
             )
         }
         .sheet(isPresented: $showContextInspector) {
@@ -158,53 +166,18 @@ struct MainTabView: View {
             )
         }
         .task(id: contextRemoteRefreshKey) {
-            let correlationID = nftService.isLoading ? nil : pendingShellFlowCorrelationID
+            let correlationID = nftService.isLoading ? nil : shellStore.state.pendingCorrelationID
             await contextService.refresh(
                 correlationID: correlationID,
                 receiptEventLogger: services.receiptEventLoggerFactory(modelContext),
                 strategy: .remoteAllowed
             )
-            if !nftService.isLoading, pendingShellFlowCorrelationID == correlationID {
-                pendingShellFlowCorrelationID = nil
+            if !nftService.isLoading {
+                await shellStore.send(.pendingCorrelationConsumed(correlationID))
             }
         }
         .task(id: contextLocalRefreshKey) {
-            await contextService.refresh(
-                strategy: .reuseCachedBalance
-            )
-        }
-        .onChange(of: currentAccount) { _, newAccount in
-            if let acct = newAccount {
-                currentChain = acct.currentChain
-                currentChainId = acct.currentChain.rawValue
-            }
-        }
-        .onChange(of: currentChain) { _, newValue in
-            guard let currentAccount, currentAccount.currentChain != newValue else {
-                currentChainId = newValue.rawValue
-                return
-            }
-
-            persistCurrentChainSelection(newValue, for: currentAccount)
-        }
-        .alert(
-            feedbackAlert?.title ?? "",
-            isPresented: Binding(
-                get: { feedbackAlert != nil },
-                set: { isPresented in
-                    if !isPresented {
-                        feedbackAlert = nil
-                    }
-                }
-            )
-        ) {
-            Button("OK", role: .cancel) {
-                feedbackAlert = nil
-            }
-        } message: {
-            if let message = feedbackAlert?.message {
-                Text(message)
-            }
+            await contextService.refresh(strategy: .reuseCachedBalance)
         }
         .modeState(modeState)
     }
@@ -221,55 +194,45 @@ struct MainTabView: View {
         .padding(.bottom, 8)
     }
 
-    private func persistCurrentChainSelection(_ newValue: Chain, for account: EOAccount) {
-        let previousChain = account.currentChain
-        let previousChainId = currentChainId
-
-        currentChainId = newValue.rawValue
-        account.currentChain = newValue
-
-        do {
-            try modelContext.save()
-        } catch {
-            account.currentChain = previousChain
-            currentChain = previousChain
-            currentChainId = previousChainId
-            logger.error(
-                "Failed to persist current chain change address=\(account.address, privacy: .private(mask: .hash)) from=\(previousChain.rawValue, privacy: .public) to=\(newValue.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
-            )
-            feedbackAlert = MainTabAlert(
-                title: "Chain Change Failed",
-                message: "Auralis could not save the selected chain. Your previous chain is still active."
+    private func selectAccount(_ address: String) {
+        Task {
+            await shellStore.send(
+                .accountSelectionRequested(
+                    address: address,
+                    correlationID: UUID().uuidString
+                )
             )
         }
     }
 
-    @MainActor
-    private func refreshActiveChainScope(_ chain: Chain, correlationID: String) {
-        guard let activeAccount = currentAccount else {
-            return
-        }
-
+    private func removeAccount(_ address: String) {
         Task {
-            pendingShellFlowCorrelationID = correlationID
-            await nftService.refreshNFTs(
-                for: activeAccount,
-                chain: chain,
-                modelContext: modelContext,
-                correlationID: correlationID
+            await shellStore.send(
+                .activeAccountRemovalRequested(
+                    address: address,
+                    correlationID: UUID().uuidString
+                )
+            )
+        }
+    }
+
+    private func changeCurrentChain(_ chain: Chain) {
+        Task {
+            await shellStore.send(
+                .chainChangeRequested(
+                    chain: chain,
+                    correlationID: UUID().uuidString
+                )
             )
         }
     }
 
     @MainActor
     private func refreshActiveScopeFromUserAction() async {
-        let correlationID = UUID().uuidString
-        pendingShellFlowCorrelationID = correlationID
-        await nftService.refreshNFTs(
-            for: currentAccount,
-            chain: currentChain,
-            modelContext: modelContext,
-            correlationID: correlationID
+        await shellStore.send(
+            .refreshCurrentSelectionRequested(
+                correlationID: UUID().uuidString
+            )
         )
     }
 
@@ -277,12 +240,11 @@ struct MainTabView: View {
         TabView(selection: $router.selectedTab) {
             Tab("Home", systemImage: "house", value: AppTab.home) {
                 HomeTabView(
-                    currentAccount: $currentAccount,
-                    currentAddress: $currentAddress,
-                    currentChainId: $currentChainId,
-                    currentChain: $currentChain,
+                    shellStore: shellStore,
+                    currentAccount: currentAccount,
+                    currentAddress: currentAddress,
+                    currentChain: currentChain,
                     contextSnapshot: contextService.snapshot,
-                    onCurrentChainChanged: refreshActiveChainScope,
                     router: router,
                     ensResolver: services.ensResolverFactory(modelContext),
                     services: services,
@@ -294,9 +256,9 @@ struct MainTabView: View {
             Tab("NewsFeed", systemImage: "bubble.right", value: AppTab.news) {
                 NavigationStack(path: $router.newsPath) {
                     NewsFeedView(
-                        currentAccount: $currentAccount,
+                        currentAccount: readOnlyAccountBinding,
                         nftService: $nftService,
-                        currentChain: $currentChain,
+                        currentChain: readOnlyChainBinding,
                         refreshAction: refreshActiveScopeFromUserAction,
                         router: router
                     )
@@ -313,7 +275,7 @@ struct MainTabView: View {
 
             Tab("Gas", systemImage: "fuelpump", value: AppTab.gas) {
                 AuraScenicScreen {
-                    GasPriceEstimateView(chain: $currentChain)
+                    GasPriceEstimateView(chain: readOnlyChainBinding)
                 }
             }
 
@@ -355,6 +317,7 @@ struct MainTabView: View {
                                             )
                                         }
                                     )
+
                                 case .collection(let key, let title):
                                     MusicCollectionDetailView(
                                         collectionKey: key,
@@ -384,18 +347,18 @@ struct MainTabView: View {
             Tab("Receipts", systemImage: "doc.text", value: AppTab.receipts) {
                 NavigationStack(path: $router.receiptsPath) {
                     ReceiptsRootView(
-                        currentAddress: currentAccount?.address ?? currentAddress,
+                        currentAddress: activeAccountAddress,
                         currentChain: currentChain
                     )
-                        .navigationDestination(for: ReceiptRoute.self) { route in
-                            ReceiptDetailView(
-                                route: route,
-                                scope: ReceiptTimelineScope(
-                                    accountAddress: currentAccount?.address ?? currentAddress,
-                                    chain: currentChain
-                                )
+                    .navigationDestination(for: ReceiptRoute.self) { route in
+                        ReceiptDetailView(
+                            route: route,
+                            scope: ReceiptTimelineScope(
+                                accountAddress: activeAccountAddress,
+                                chain: currentChain
                             )
-                        }
+                        )
+                    }
                 }
                 .accessibilityIdentifier("tab.receipts")
             }
@@ -403,7 +366,7 @@ struct MainTabView: View {
             Tab("Profile", systemImage: "person.circle", value: AppTab.profile) {
                 NavigationStack(path: $router.profilePath) {
                     ProfileDetailView(
-                        accountAddress: currentAccount?.address ?? currentAddress,
+                        accountAddress: activeAccountAddress,
                         currentChain: currentChain,
                         isCurrentAccount: true,
                         showsPolicySection: true,
@@ -417,11 +380,12 @@ struct MainTabView: View {
                             ProfileDetailView(
                                 accountAddress: address,
                                 currentChain: currentChain,
-                                isCurrentAccount: address == (currentAccount?.address ?? currentAddress)
+                                isCurrentAccount: address == activeAccountAddress
                             )
+
                         case .settings:
                             SettingsView(
-                                currentAccountAddress: currentAccount?.address ?? currentAddress,
+                                currentAccountAddress: activeAccountAddress,
                                 currentChain: currentChain,
                                 services: services
                             )
@@ -433,7 +397,7 @@ struct MainTabView: View {
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
                 SearchRootView(
                     router: router,
-                    currentAccountAddress: currentAccount?.address ?? currentAddress,
+                    currentAccountAddress: activeAccountAddress,
                     currentChain: currentChain,
                     historyStore: services.searchHistoryStoreFactory(modelContext)
                 )
@@ -442,7 +406,7 @@ struct MainTabView: View {
             Tab("ERC-20", systemImage: "dollarsign.circle", value: AppTab.erc20Tokens) {
                 NavigationStack(path: $router.erc20TokensPath) {
                     ERC20TokensRootView(
-                        currentAccountAddress: currentAccount?.address ?? currentAddress,
+                        currentAccountAddress: activeAccountAddress,
                         currentChain: currentChain,
                         contextSnapshot: contextService.snapshot,
                         nftService: nftService,
@@ -451,12 +415,12 @@ struct MainTabView: View {
                         tokenHoldingsStoreFactory: services.tokenHoldingsStoreFactory,
                         tokenHoldingsProviderFactory: services.tokenHoldingsProviderFactory
                     )
-                        .navigationDestination(for: ERC20TokenRoute.self) { route in
-                            ERC20TokenDetailView(
-                                route: route,
-                                currentAccountAddress: currentAccount?.address ?? currentAddress
-                            )
-                        }
+                    .navigationDestination(for: ERC20TokenRoute.self) { route in
+                        ERC20TokenDetailView(
+                            route: route,
+                            currentAccountAddress: activeAccountAddress
+                        )
+                    }
                 }
                 .accessibilityIdentifier("tab.erc20")
             }
@@ -471,25 +435,26 @@ struct MainTabView: View {
                         refreshAction: refreshActiveScopeFromUserAction,
                         router: router
                     )
-                        .navigationDestination(for: NFTTokensRoute.self) { route in
-                            switch route {
-                            case .item(let id):
-                                SharedNFTDetailView(
-                                    route: .detail(id: id),
-                                    currentAccountAddress: currentAccount?.address,
-                                    currentChain: currentChain
-                                )
-                            case .collection:
-                                NFTCollectionDetailView(
-                                    route: route,
-                                    currentAccountAddress: currentAccount?.address,
-                                    currentChain: currentChain,
-                                    onOpenItem: { itemID in
-                                        router.showNFTTokensDetail(id: itemID)
-                                    }
-                                )
-                            }
+                    .navigationDestination(for: NFTTokensRoute.self) { route in
+                        switch route {
+                        case .item(let id):
+                            SharedNFTDetailView(
+                                route: .detail(id: id),
+                                currentAccountAddress: currentAccount?.address,
+                                currentChain: currentChain
+                            )
+
+                        case .collection:
+                            NFTCollectionDetailView(
+                                route: route,
+                                currentAccountAddress: currentAccount?.address,
+                                currentChain: currentChain,
+                                onOpenItem: { itemID in
+                                    router.showNFTTokensDetail(id: itemID)
+                                }
+                            )
                         }
+                    }
                 }
                 .accessibilityIdentifier("tab.nftTokens")
             }
@@ -505,17 +470,26 @@ struct MainTabView: View {
                 .ignoresSafeArea()
             Color.background.opacity(0.3)
                 .ignoresSafeArea()
+
         default:
             Color.background
                 .ignoresSafeArea()
         }
     }
-}
 
-private struct MainTabAlert: Identifiable {
-    let id = UUID()
-    let title: String
-    let message: String
+    private var readOnlyAccountBinding: Binding<EOAccount?> {
+        Binding(
+            get: { currentAccount },
+            set: { _ in }
+        )
+    }
+
+    private var readOnlyChainBinding: Binding<Chain> {
+        Binding(
+            get: { currentChain },
+            set: { _ in }
+        )
+    }
 }
 
 private struct ContextRemoteRefreshKey: Hashable {
@@ -534,25 +508,23 @@ private struct ContextLocalRefreshKey: Hashable {
 #Preview {
     struct Wrapper: View {
         @Environment(\.modelContext) private var modelContext
-        @State private var currentAccount: EOAccount?
-        @State private var currentAddress: String = ""
-        @State private var currentChainId: String = Chain.ethMainnet.rawValue
-        @State private var currentChain: Chain = .ethMainnet
         @State private var nftService = NFTService()
-        @State private var pendingShellFlowCorrelationID: String?
         @State private var router = AppRouter()
         let audioEngine: AudioEngine? = try? AudioEngine()
         @StateObject private var modeState = ModeState()
         private let services = ShellServiceHub.live
+        private let shellStore = ShellStore.preview(
+            selection: ActiveShellSelection(
+                address: "0xpreview0000000000000000000000000000000000",
+                chain: .ethMainnet
+            )
+        )
 
         var body: some View {
             MainTabView(
-                currentAccount: $currentAccount,
-                currentAddress: $currentAddress,
-                currentChainId: $currentChainId,
-                currentChain: $currentChain,
+                shellStore: shellStore,
+                resolveCurrentAccount: { nil },
                 nftService: $nftService,
-                pendingShellFlowCorrelationID: $pendingShellFlowCorrelationID,
                 router: router,
                 audioEngine: audioEngine,
                 audioUnavailableMessage: nil,
@@ -562,5 +534,6 @@ private struct ContextLocalRefreshKey: Hashable {
             )
         }
     }
+
     return Wrapper()
 }

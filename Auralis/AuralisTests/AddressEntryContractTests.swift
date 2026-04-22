@@ -44,4 +44,17 @@ struct AddressEntryContractTests {
                 )
         )
     }
+
+    @Test("pasteboard normalization trims whitespace and keeps non-empty wallet input")
+    func pasteboardNormalizationKeepsTrimmedInput() {
+        let value = AddressPasteboardValue(rawValue: "  0xb713338a3986312774cF274931802eD6Ea94bA93\n")
+
+        #expect(value?.address == "0xb713338a3986312774cF274931802eD6Ea94bA93")
+    }
+
+    @Test("pasteboard normalization rejects empty clipboard strings")
+    func pasteboardNormalizationRejectsEmptyInput() {
+        #expect(AddressPasteboardValue(rawValue: "   \n\t") == nil)
+        #expect(AddressPasteboardValue(rawValue: nil) == nil)
+    }
 }

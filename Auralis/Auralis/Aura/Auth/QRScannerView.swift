@@ -37,8 +37,8 @@ struct QRScannerView: View {
     @State private var alertTitle = ""
     @State private var alertMessage = ""
     @State private var showingAlert = false
-    @Binding var account: EOAccount?
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let onAccountActivated: @MainActor (EOAccount, String?) -> Void
 
     var body: some View {
         Button {
@@ -90,7 +90,7 @@ struct QRScannerView: View {
                     source: .qrScan,
                     correlationID: correlationID
                 )
-                account = activation.account
+                onAccountActivated(activation.account, correlationID)
 
                 if !activation.wasCreated {
                     showAlert(

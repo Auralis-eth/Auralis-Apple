@@ -245,6 +245,45 @@ This cleanup round was not glamorous, but it was exactly the sort of work that k
 
 The lesson is that defect resolution is not always about dramatic stack traces. Sometimes it is about refusing to let “quietly wrong” stay quiet: hidden logout failures, misleading parser wiring, or logs that leak more than they should. That is how a codebase gradually stops surprising you in production.
 
+### Shell State Consolidation: Replacing The Four-Way Argument With One Adult In The Room
+
+This was the big shell refactor the codebase had been asking for in increasingly passive-aggressive ways.
+
+Before the change, the active shell scope was split across four values:
+
+- `currentAddress`
+- `currentAccount`
+- `currentChain`
+- `currentChainId`
+
+That setup worked the same way four people carrying one couch up the stairs “works” right up until somebody turns too early and the whole thing wedges in the hallway.
+
+The new setup puts a real foreman on the job:
+
+- `ActiveShellSelection` is the single address-plus-chain scope.
+- `ShellState` is the canonical snapshot of shell control-plane state.
+- `ShellAction` is the explicit list of state transitions.
+- `ShellStore` is the only owner allowed to mutate shell selection.
+
+The nice part is not just fewer properties. It is fewer *arguments*.
+
+- `MainAuraView` no longer runs a web of shell sync observers.
+- `MainTabView` no longer “fixes” chain persistence in `onChange`.
+- `AccountSwitcherSheet` no longer writes straight into shell bindings like it found the spare keys.
+- gateway/auth flows now activate accounts by sending shell intents instead of poking `currentAccount` directly.
+
+The real war story here was not the reducer itself. It was the migration edge cases.
+
+- The first draft accidentally created the new shell files under a duplicated `Auralis/Auralis/...` subtree. Classic refactor tax: the architecture was cleaner while the file paths briefly looked like a hall of mirrors.
+- `HomeTabView` still had a couple of old binding assumptions hiding in its query setup and profile card handoff, which is exactly the kind of leftover that makes a build fail even after the “big” work is done.
+- The new shell tests also reminded us that tuple arrays are not automatically pleasant to compare in expectations, which is a tiny but very Swift-shaped papercut.
+
+The payoff is worth it. The shell now behaves like a state machine instead of a negotiation between `@State`, `@AppStorage`, and a few optimistic `onChange` callbacks.
+
+One follow-up bug showed up immediately in review, and it was exactly the kind that architecture refactors love to smuggle in under a fake mustache: cold-start deep links could arrive before `ShellStore` existed, hit `MainAuraView`, and get dropped on the floor. The fix was simple and important. `MainAuraView` now queues the parsed deep link or route error until the store is created and the initial restore has run, then replays that startup routing into the store. In other words: if the user shows up with directions before the front desk has finished booting, we now write them down instead of pretending they never walked in.
+
+We also filled in the reducer test gaps the review called out. `ShellStoreTests` now covers same-account no-ops, inactive and last-account removal, chain persistence failure, deep-link routing and deep-link error surfacing, explicit route-error dismissal, fresh/loading foreground no-op refresh cases, and logout state reset. That is not just more green dots. It means the shell store is now tested on the awkward branches, not just the friendly ones.
+
 ## Engineer's Wisdom
 
 - Dead code removal is only “safe” after verifying inbound references and then building the project. Grep without validation is guesswork.
@@ -255,6 +294,7 @@ The lesson is that defect resolution is not always about dramatic stack traces. 
 - If a control looks tappable, it should usually be a `Button`. Accessibility is much easier when semantics and visuals are aligned instead of retrofitted later.
 - But the inverse also matters: if a region contains other controls, making the whole thing a `Button` can create an interaction turf war. One tap target per job keeps the peace.
 - Derived data from `@Query` should stay derived unless you have a strong invalidation story. Caching without complete invalidation rules is just a polite form of lying.
+- If a shell selection is conceptually one thing, model it as one thing. Address-now-chain-later is how routing bugs grow legs.
 
 ## If I Were Starting Over...
 

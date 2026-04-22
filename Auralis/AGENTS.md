@@ -13,9 +13,10 @@ The shell flow is:
 
 ## Architecture Decisions
 
-- `MainAuraView` owns shell state, account restoration, deep-link handling, and the shared router.
+- `ShellStore` is the canonical shell state machine. It owns active selection, refresh sequencing, persistence mirrors, and pending deep-link replay.
+- `MainAuraView` owns the shared router and long-lived services, but it now consumes `ShellStore` state instead of synchronizing `currentAddress` / `currentAccount` / `currentChain` / `currentChainId` itself.
 - `AppRouter` is the central navigation store for selected tab, per-tab back stacks, and routed errors.
-- `MainTabView` renders top-level tabs only. Pushed detail state lives in per-tab paths.
+- `MainTabView` renders top-level tabs and sends shell intents upward. It no longer repairs shell state through `onChange` fan-out.
 - Home is a launcher tab, not a second navigation hierarchy.
 - Shared NFT detail is reused across Music, News, and NFT Tokens.
 - Deep links are parsed first, then replayed only when shell state is ready.
@@ -47,6 +48,7 @@ The shell flow is:
 ## Quirks And Gotchas
 
 - `NFT.swift` is oversized and contains multiple responsibilities.
+- Account, chain, logout, and deep-link shell transitions should go through `ShellStore.send(_:)`, not direct binding mutation.
 - Account changes should reset routed detail stacks to root.
 - Guest passes are a lightweight onboarding shortcut to curated public wallets, not a separate demo-data product mode.
 - Deep links may arrive during cold start; queue them until shell state is ready.

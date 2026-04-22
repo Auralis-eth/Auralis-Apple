@@ -5,10 +5,10 @@ import SwiftUI
 
 struct HomeTabView: View {
     private let logger = Logger(subsystem: "Auralis", category: "HomeTabView")
-    @Binding var currentAccount: EOAccount?
-    @Binding var currentAddress: String
-    @Binding var currentChainId: String
-    @Binding var currentChain: Chain
+    let shellStore: ShellStore
+    let currentAccount: EOAccount?
+    let currentAddress: String
+    let currentChain: Chain
     let contextSnapshot: ContextSnapshot
     @Query private var scopedNFTs: [NFT]
     @Query(
@@ -18,7 +18,6 @@ struct HomeTabView: View {
         ]
     ) private var storedReceipts: [StoredReceipt]
 
-    let onCurrentChainChanged: @MainActor (Chain, String) -> Void
     let router: AppRouter
     let ensResolver: any ENSResolving
     let services: ShellServiceHub
@@ -49,32 +48,30 @@ struct HomeTabView: View {
     private let maxPromptCacheEntries = 32
 
     init(
-        currentAccount: Binding<EOAccount?>,
-        currentAddress: Binding<String>,
-        currentChainId: Binding<String>,
-        currentChain: Binding<Chain>,
+        shellStore: ShellStore,
+        currentAccount: EOAccount?,
+        currentAddress: String,
+        currentChain: Chain,
         contextSnapshot: ContextSnapshot,
-        onCurrentChainChanged: @escaping @MainActor (Chain, String) -> Void,
         router: AppRouter,
         ensResolver: any ENSResolving,
         services: ShellServiceHub,
         pinnedItemsStore: HomePinnedItemsStore,
         pinnedItemCountBinding: Binding<Int>
     ) {
-        self._currentAccount = currentAccount
-        self._currentAddress = currentAddress
-        self._currentChainId = currentChainId
-        self._currentChain = currentChain
+        self.shellStore = shellStore
+        self.currentAccount = currentAccount
+        self.currentAddress = currentAddress
+        self.currentChain = currentChain
         self.contextSnapshot = contextSnapshot
-        self.onCurrentChainChanged = onCurrentChainChanged
         self.router = router
         self.ensResolver = ensResolver
         self.services = services
         self.pinnedItemsStore = pinnedItemsStore
         self._pinnedItemCount = pinnedItemCountBinding
 
-        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount.wrappedValue?.address ?? currentAddress.wrappedValue) ?? ""
-        let chainRawValue = currentChain.wrappedValue.rawValue
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address ?? currentAddress) ?? ""
+        let chainRawValue = currentChain.rawValue
         _scopedNFTs = Query(
             filter: #Predicate<NFT> {
                 $0.accountAddressRawValue == normalizedAccountAddress &&
@@ -161,13 +158,40 @@ struct HomeTabView: View {
         }
         .sheet(isPresented: $showAccountSwitcher) {
             AccountSwitcherSheet(
-                currentAccount: $currentAccount,
-                currentAddress: $currentAddress,
-                currentChain: $currentChain,
+                currentAccount: currentAccount,
+                activeSelection: shellStore.state.selection,
                 accountStoreFactory: services.accountStoreFactory,
                 accountEventRecorderFactory: services.accountEventRecorderFactory,
-                onAccountSelectionStarted: { _ in },
-                onCurrentChainChanged: onCurrentChainChanged
+                onSelectAccount: { address in
+                    Task {
+                        await shellStore.send(
+                            .accountSelectionRequested(
+                                address: address,
+                                correlationID: UUID().uuidString
+                            )
+                        )
+                    }
+                },
+                onRemoveAccount: { address in
+                    Task {
+                        await shellStore.send(
+                            .activeAccountRemovalRequested(
+                                address: address,
+                                correlationID: UUID().uuidString
+                            )
+                        )
+                    }
+                },
+                onCurrentChainChange: { chain in
+                    Task {
+                        await shellStore.send(
+                            .chainChangeRequested(
+                                chain: chain,
+                                correlationID: UUID().uuidString
+                            )
+                        )
+                    }
+                }
             )
         }
         .overlay {
@@ -218,8 +242,8 @@ struct HomeTabView: View {
 
             AuraSurfaceCard(style: .soft, cornerRadius: 25, padding: 8) {
                 ProfileCardView(
-                    currentAccount: $currentAccount,
-                    currentAddress: $currentAddress,
+                    currentAccount: readOnlyCurrentAccountBinding,
+                    currentAddress: readOnlyCurrentAddressBinding,
                     currentChain: currentChain,
                     scopedNFTCount: scopedNFTs.count,
                     avatarImage: $avatarImage,
@@ -673,7 +697,7 @@ struct HomeTabView: View {
             }
         }
 
-        let prompts = themedPrompt(address: currentAddress, chainId: currentChainId, lane: .poster, scene: scene)
+        let prompts = themedPrompt(address: currentAddress, chainId: currentChain.rawValue, lane: .poster, scene: scene)
 
         do {
             let imageCreator = try await ImageCreator()
@@ -731,10 +755,11 @@ struct HomeTabView: View {
             return
         }
 
-        currentAccount = nil
-        currentAddress = plan.nextCurrentAddress
         avatarImage = nil
         generatedImages = nil
+        Task {
+            await shellStore.send(.logoutRequested)
+        }
     }
 
     private var sparseStateEyebrow: String {
@@ -874,5 +899,19 @@ struct HomeTabView: View {
         case .openReceipts:
             return "home.openReceipts"
         }
+    }
+
+    private var readOnlyCurrentAccountBinding: Binding<EOAccount?> {
+        Binding(
+            get: { currentAccount },
+            set: { _ in }
+        )
+    }
+
+    private var readOnlyCurrentAddressBinding: Binding<String> {
+        Binding(
+            get: { currentAddress },
+            set: { _ in }
+        )
     }
 }

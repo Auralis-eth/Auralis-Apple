@@ -8,13 +8,13 @@ struct AccountSwitcherSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var persistedAccounts: [EOAccount]
 
-    @Binding var currentAccount: EOAccount?
-    @Binding var currentAddress: String
-    @Binding var currentChain: Chain
+    let currentAccount: EOAccount?
+    let activeSelection: ActiveShellSelection?
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
     let accountEventRecorderFactory: @MainActor (ModelContext) -> any AccountEventRecorder
-    let onAccountSelectionStarted: @MainActor (String) -> Void
-    let onCurrentChainChanged: @MainActor (Chain, String) -> Void
+    let onSelectAccount: @MainActor (String) -> Void
+    let onRemoveAccount: @MainActor (String) -> Void
+    let onCurrentChainChange: @MainActor (Chain) -> Void
 
     @State private var pendingRemovalAccount: EOAccount?
     @State private var feedbackAlert: AccountSwitcherAlert?
@@ -51,7 +51,7 @@ struct AccountSwitcherSheet: View {
                         ForEach(orderedAccounts) { account in
                             AccountRow(
                                 account: account,
-                                isActive: currentAddress == account.address,
+                                isActive: activeSelection?.address == account.address,
                                 onSelect: { select(account) },
                                 onRemove: { pendingRemovalAccount = account }
                             )
@@ -120,65 +120,20 @@ struct AccountSwitcherSheet: View {
     }
 
     private func select(_ account: EOAccount) {
-        let store = accountStoreFactory(modelContext)
-
-        do {
-            let correlationID = UUID().uuidString
-            onAccountSelectionStarted(correlationID)
-            let selectedAccount = try store.selectAccount(
-                address: account.address,
-                correlationID: correlationID
-            )
-            currentAccount = selectedAccount
-            currentAddress = selectedAccount.address
-            dismiss()
-        } catch {
-            feedbackAlert = AccountSwitcherAlert(
-                title: "Selection Failed",
-                message: error.localizedDescription
-            )
-        }
+        onSelectAccount(account.address)
+        dismiss()
     }
 
     private func remove(_ account: EOAccount) {
         pendingRemovalAccount = nil
-        let store = accountStoreFactory(modelContext)
+        onRemoveAccount(account.address)
 
-        do {
-            let correlationID = UUID().uuidString
-            let result = try store.removeAccount(
-                address: account.address,
-                activeAddress: currentAddress,
-                correlationID: correlationID
-            )
-
-            if currentAddress == result.removedAddress {
-                if let fallbackAccount = result.fallbackAccount {
-                    currentAccount = fallbackAccount
-                    currentAddress = fallbackAccount.address
-                    feedbackAlert = AccountSwitcherAlert(
-                        title: "Active Account Removed",
-                        message: "Switched to \(fallbackAccount.address.displayAddress). Pick another account if needed."
-                    )
-                } else {
-                    currentAccount = nil
-                    currentAddress = ""
-                    dismiss()
-                }
-            } else {
-                if currentAccount?.address == result.removedAddress {
-                    currentAccount = nil
-                }
-
-                feedbackAlert = AccountSwitcherAlert(
-                    title: "Account Removed",
-                    message: "\(account.address.displayAddress) was removed from this device."
-                )
-            }
-        } catch {
+        if activeSelection?.address == account.address {
+            dismiss()
+        } else {
             feedbackAlert = AccountSwitcherAlert(
-                title: "Removal Failed",
-                message: error.localizedDescription
+                title: "Account Removed",
+                message: "\(account.address.displayAddress) was removed from this device."
             )
         }
     }
@@ -191,16 +146,12 @@ struct AccountSwitcherSheet: View {
         let correlationID = UUID().uuidString
         let previousPreferredChain = account.preferredChain
         let previousCurrentChain = account.currentChain
-        let previousShellChain = currentChain
 
         switch plan.kind {
         case .preferred:
             account.preferredChain = plan.to
         case .current:
             account.currentChain = plan.to
-            if currentAccount?.address == account.address {
-                currentChain = plan.to
-            }
         }
 
         do {
@@ -211,14 +162,11 @@ struct AccountSwitcherSheet: View {
             )
 
             if plan.shouldRefreshActiveScope {
-                onCurrentChainChanged(plan.to, correlationID)
+                onCurrentChainChange(plan.to)
             }
         } catch {
             account.preferredChain = previousPreferredChain
             account.currentChain = previousCurrentChain
-            if currentAccount?.address == account.address {
-                currentChain = previousShellChain
-            }
 
             logger.error(
                 "Failed to persist chain scope change address=\(account.address, privacy: .private(mask: .hash)) kind=\(String(describing: plan.kind), privacy: .public) fromPreferred=\(previousPreferredChain.rawValue, privacy: .public) fromCurrent=\(previousCurrentChain.rawValue, privacy: .public) to=\(plan.to.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
@@ -263,7 +211,13 @@ struct AccountSwitcherSheet: View {
 
     private func currentChainBinding(for account: EOAccount) -> Binding<Chain> {
         Binding(
-            get: { account.currentChain },
+            get: {
+                if activeSelection?.address == account.address {
+                    return activeSelection?.chain ?? account.currentChain
+                }
+
+                return account.currentChain
+            },
             set: { newValue in
                 applyChainScopeChange(
                     ChainScopeChangePlanner().planCurrentChange(

@@ -57,10 +57,9 @@ struct AddressInputView: View {
     @State private var activeSubmissionID = UUID()
     @State private var pendingENSMappingChange: PendingENSMappingChange?
     @Environment(\.modelContext) private var modelContext
-    @Query private var accounts: [EOAccount]
-    @Binding var currentAccount: EOAccount?
     let ensResolver: any ENSResolving
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let onAccountActivated: @MainActor (EOAccount, String?) -> Void
 
     private var validationPresentation: AddressEntryValidationPresentation {
         AddressEntryValidationPresentation.make(input: address)
@@ -81,13 +80,13 @@ struct AddressInputView: View {
     var body: some View {
         AddressEntryContentView(
             address: $address,
-            currentAccount: $currentAccount,
             validationMessage: validationMessage,
             normalizedAddress: normalizedAddress,
             isSubmitting: isSubmitting,
             handleSubmit: handleSubmit,
             selectGuestPass: selectGuestPass,
-            accountStoreFactory: accountStoreFactory
+            accountStoreFactory: accountStoreFactory,
+            onAccountActivated: onAccountActivated
         )
         .glassEffect(.clear.tint(.surface), in: .containerRelative)
         .transition(.scale.combined(with: .opacity))
@@ -214,7 +213,7 @@ struct AddressInputView: View {
                 return
             }
             address = ""
-            currentAccount = activation.account
+            onAccountActivated(activation.account, correlationID)
             isSubmitting = false
             activeSubmissionTask = nil
 
@@ -277,7 +276,7 @@ struct AddressInputView: View {
                 correlationID: change.correlationID
             )
             address = ""
-            currentAccount = activation.account
+            onAccountActivated(activation.account, change.correlationID)
             isSubmitting = false
             activeSubmissionTask = nil
             pendingENSMappingChange = nil
@@ -301,13 +300,13 @@ struct AddressInputView: View {
 
 private struct AddressEntryContentView: View {
     @Binding var address: String
-    @Binding var currentAccount: EOAccount?
     let validationMessage: String?
     let normalizedAddress: String?
     let isSubmitting: Bool
     let handleSubmit: () -> Void
     let selectGuestPass: (String) -> Void
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let onAccountActivated: @MainActor (EOAccount, String?) -> Void
 
     var body: some View {
         VStack(alignment: .center) {
@@ -316,8 +315,8 @@ private struct AddressEntryContentView: View {
 
             HStack {
                 QRScannerView(
-                    account: $currentAccount,
-                    accountStoreFactory: accountStoreFactory
+                    accountStoreFactory: accountStoreFactory,
+                    onAccountActivated: onAccountActivated
                 )
                     .transition(.opacity)
                 AddressTextField(address: $address)
