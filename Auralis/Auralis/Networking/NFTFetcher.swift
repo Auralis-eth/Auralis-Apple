@@ -10,6 +10,10 @@ import RegexBuilder
 import SwiftData
 import SwiftUI
 
+/// Main-actor contract for NFT refresh state and pagination progress.
+///
+/// Conformers own UI-facing mutable state, so callers must interact with this protocol from the
+/// main actor.
 @MainActor
 protocol NFTFetching: AnyObject {
     var total: Int? { get set }
@@ -18,6 +22,7 @@ protocol NFTFetching: AnyObject {
     var error: Error? { get set }
     var currentCursor: String? { get set }
 
+    /// Fetches all NFTs for an account, updating progress properties as pages arrive.
     func fetchAllNFTs(
         for account: String,
         chain: Chain,
@@ -25,6 +30,7 @@ protocol NFTFetching: AnyObject {
         eventRecorder: any NFTRefreshEventRecording
     ) async throws -> [NFT]
 
+    /// Resets progress and failure state for a future refresh.
     func reset()
 }
 

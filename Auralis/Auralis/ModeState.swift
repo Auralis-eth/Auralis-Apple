@@ -38,6 +38,9 @@ public final class ModeState: ObservableObject {
 // MARK: - Environment integration
 
 private struct ModeStateKey: EnvironmentKey {
+    // SwiftUI reads environment defaults on the main actor in this app. The unsafe annotation
+    // suppresses the static sendability warning for the fallback instance until the real
+    // environment value is injected by the shell.
     nonisolated(unsafe) static let defaultValue: ModeState = ModeState()
 }
 

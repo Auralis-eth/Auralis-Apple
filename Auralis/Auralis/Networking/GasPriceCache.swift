@@ -61,7 +61,7 @@ actor GasPriceCache {
         Task { await self.startBackgroundCleanup() }
     }
 
-    deinit {
+    isolated deinit {
         cleanupTask?.cancel()
     }
 
