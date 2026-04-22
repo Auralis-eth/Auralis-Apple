@@ -2,7 +2,7 @@ import Foundation
 
 struct AlchemyRPCProvider: NativeBalanceProviding {
     private enum RPCRequestError: Error {
-        case badStatus(Int)
+        case badStatus(Int, retryAfter: TimeInterval?)
         case invalidResponse
     }
 
@@ -84,10 +84,10 @@ extension AlchemyRPCProvider {
                 return try await fetchOnce(address: address, rpcURL: rpcURL)
             } catch {
                 guard attempt < maxRetryCount, shouldRetry(after: error) else {
-                    throw error
+                    throw mapTransportError(error)
                 }
 
-                try await Task.sleep(nanoseconds: delay)
+                try await Task.sleep(nanoseconds: retryDelay(after: error, fallbackDelay: delay))
                 let (nextDelay, overflowed) = delay.multipliedReportingOverflow(by: 2)
                 delay = overflowed ? maxDelayNanoseconds : min(nextDelay, maxDelayNanoseconds)
             }
@@ -124,7 +124,10 @@ extension AlchemyRPCProvider {
             throw RPCRequestError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            throw RPCRequestError.badStatus(httpResponse.statusCode)
+            throw RPCRequestError.badStatus(
+                httpResponse.statusCode,
+                retryAfter: parseRetryAfter(from: httpResponse)
+            )
         }
 
         let payload = try JSONDecoder().decode(RPCEnvelope<String>.self, from: data)
@@ -152,7 +155,7 @@ extension AlchemyRPCProvider {
 
         if let requestError = error as? RPCRequestError {
             switch requestError {
-            case .badStatus(let statusCode):
+            case .badStatus(let statusCode, _):
                 return statusCode == 429 || (500...599).contains(statusCode)
             case .invalidResponse:
                 return false
@@ -161,7 +164,7 @@ extension AlchemyRPCProvider {
 
         if let providerError = error as? ProviderAbstractionError {
             switch providerError {
-            case .rateLimited:
+            case .rateLimited, .unavailable:
                 return true
             default:
                 return false
@@ -189,6 +192,39 @@ extension AlchemyRPCProvider {
         }
 
         return .providerError(error.message)
+    }
+
+    private func mapTransportError(_ error: Error) -> Error {
+        if let requestError = error as? RPCRequestError {
+            switch requestError {
+            case .badStatus(let statusCode, _) where statusCode == 429:
+                return ProviderAbstractionError.rateLimited
+            case .badStatus(let statusCode, _) where statusCode == 401 || statusCode == 403:
+                return ProviderAbstractionError.unauthorized
+            case .badStatus(let statusCode, _) where (500...599).contains(statusCode):
+                return ProviderAbstractionError.unavailable
+            case .badStatus, .invalidResponse:
+                return ProviderAbstractionError.invalidResponse
+            }
+        }
+
+        return error
+    }
+
+    private func retryDelay(after error: Error, fallbackDelay: UInt64) -> UInt64 {
+        guard case .badStatus(_, let retryAfter?) = error as? RPCRequestError else {
+            return fallbackDelay
+        }
+
+        return UInt64(max(0, retryAfter) * Double(Self.nanosecondsPerSecond))
+    }
+
+    private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {
+        guard let header = response.value(forHTTPHeaderField: "Retry-After") else {
+            return nil
+        }
+
+        return TimeInterval(header.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     static func decimalString(fromHexQuantity hexQuantity: String) -> String? {

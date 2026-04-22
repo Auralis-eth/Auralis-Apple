@@ -47,6 +47,7 @@ final class ImageLoader: ObservableObject {
     enum LoadingError: Error {
         case invalidData
         case networkError
+        case badStatus(Int)
         case svgData
         case videoData
         case unsupportedURL
@@ -58,6 +59,10 @@ final class ImageLoader: ObservableObject {
                 return "photo.badge.exclamationmark"
             case .networkError:
                 return "network.slash"
+            case .badStatus(let statusCode) where statusCode == 404:
+                return "photo"
+            case .badStatus:
+                return "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90"
             case .videoData, .unsupportedURL:
                 return "nosign"
             case .fileTooLarge:
@@ -71,6 +76,12 @@ final class ImageLoader: ObservableObject {
                 return "Auralis could not decode this image."
             case .networkError:
                 return "Auralis could not load the image right now."
+            case .badStatus(let statusCode) where statusCode == 404:
+                return "This NFT image is no longer available."
+            case .badStatus(let statusCode) where statusCode == 429:
+                return "The image host is rate-limiting previews right now."
+            case .badStatus:
+                return "The image host returned an unexpected response."
             case .svgData:
                 return "This NFT image format is not supported here yet."
             case .videoData:
@@ -84,8 +95,10 @@ final class ImageLoader: ObservableObject {
 
         var allowsRetry: Bool {
             switch self {
-            case .networkError:
+            case .networkError, .badStatus(429):
                 return true
+            case .badStatus(let statusCode):
+                return (500...599).contains(statusCode)
             default:
                 return false
             }
@@ -206,6 +219,11 @@ final class ImageLoader: ObservableObject {
         do {
             let (data, response) = try await session.data(from: url)
             guard !Task.isCancelled else { return .failure(.networkError) }
+
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200...299).contains(httpResponse.statusCode) {
+                return .failure(.badStatus(httpResponse.statusCode))
+            }
 
             if let httpResponse = response as? HTTPURLResponse,
                let contentType = httpResponse.allHeaderFields["Content-Type"] as? String ?? httpResponse.value(forHTTPHeaderField: "Content-Type") {

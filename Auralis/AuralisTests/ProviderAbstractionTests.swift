@@ -68,6 +68,77 @@ import Testing
         }
     }
 
+    @Test("Alchemy NFT service retries a single request in degraded mode without latching future calls")
+    @MainActor
+    func alchemyNFTServiceDoesNotLatchDegradedModeAcrossRequests() async throws {
+        let session = makeMockSession()
+        let service = try AlchemyNFTService(
+            chain: .ethMainnet,
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session
+        )
+        let requestedURLs = ArrayRecorder<String>()
+
+        ProviderMockURLProtocol.handler = { request in
+            let requestURL = try #require(request.url?.absoluteString)
+            requestedURLs.append(requestURL)
+            let attempt = requestedURLs.values().count
+
+            if attempt == 1 {
+                let response = HTTPURLResponse(
+                    url: try #require(request.url),
+                    statusCode: 503,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "application/json"]
+                )!
+                return (response, Data(#"{"message":"temporarily unavailable"}"#.utf8))
+            }
+
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            let payload = Data(
+                """
+                {
+                  "ownedNfts": [],
+                  "totalCount": 0,
+                  "pageKey": null,
+                  "validAt": {
+                    "blockNumber": 1,
+                    "blockHash": "0xabc",
+                    "blockTimestamp": "2025-01-01T00:00:00Z"
+                  }
+                }
+                """.utf8
+            )
+            return (response, payload)
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        _ = try await service.nftsForOwner(
+            owner: "0x1234567890abcdef1234567890abcdef12345678",
+            pageKey: nil
+        )
+        _ = try await service.nftsForOwner(
+            owner: "0x1234567890abcdef1234567890abcdef12345678",
+            pageKey: nil
+        )
+
+        let urls = requestedURLs.values()
+        #expect(urls.count == 3)
+        #expect(urls[0].contains("withMetadata=true"))
+        #expect(urls[1].contains("withMetadata=false"))
+        #expect(urls[1].contains("pageSize=50"))
+        #expect(urls[2].contains("withMetadata=true"))
+    }
+
     @Test("token balances provider calls the exact Alchemy balances endpoint and preserves pagination state")
     @MainActor
     func tokenBalancesProviderCallsExactEndpoint() async throws {
@@ -1077,7 +1148,7 @@ import Testing
             Issue.record("Expected JSON-RPC rate limit envelope to throw.")
         } catch let error as AlchemyGasPricingProvider.GasPricingError {
             switch error {
-            case .rateLimited(let message):
+            case .rateLimited(let message, _):
                 #expect(message == "rate limit exceeded")
             default:
                 Issue.record("Unexpected gas pricing error: \(error)")
@@ -1169,9 +1240,9 @@ import Testing
         #expect(fetcher.error == nil)
     }
 
-    @Test("partial paginated success is returned when a later page fails after items were already fetched")
+    @Test("later-page failures throw instead of returning a partial collection")
     @MainActor
-    func partialPaginationReturnsFetchedItemsBeforeFailure() async throws {
+    func partialPaginationThrowsInsteadOfReturningPartialCollection() async {
         let provider = PartiallyFailingNFTInventoryProvider(successfulPageCount: 3, itemsPerPage: 2)
         let recorder = SpyNFTRefreshEventRecorder()
         let fetcher = NFTFetcher(
@@ -1181,14 +1252,15 @@ import Testing
             nftProviderFactory: { _ in provider }
         )
 
-        let response = try await fetcher.fetchAllNFTs(
-            for: "0x1234567890abcdef1234567890abcdef12345678",
-            chain: .ethMainnet,
-            correlationID: "partial-pages",
-            eventRecorder: recorder
-        )
+        await #expect(throws: Error.self) {
+            try await fetcher.fetchAllNFTs(
+                for: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .ethMainnet,
+                correlationID: "partial-pages",
+                eventRecorder: recorder
+            )
+        }
 
-        #expect(response.count == 6)
         #expect(fetcher.error != nil)
         #expect(await recorder.fetchFailedCount() == 1)
         #expect(await recorder.fetchSucceededCount() == 0)

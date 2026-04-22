@@ -6,6 +6,7 @@ enum ProviderAbstractionError: LocalizedError, Equatable {
     case invalidURL
     case invalidAddress
     case invalidResponse
+    case unavailable
     case invalidBalancePayload
     case paginationStalled
     case unauthorized
@@ -25,6 +26,8 @@ enum ProviderAbstractionError: LocalizedError, Equatable {
             return "The wallet address is invalid."
         case .invalidResponse:
             return "Provider returned an invalid response."
+        case .unavailable:
+            return "Provider is temporarily unavailable."
         case .invalidBalancePayload:
             return "Provider returned an invalid native balance payload."
         case .paginationStalled:

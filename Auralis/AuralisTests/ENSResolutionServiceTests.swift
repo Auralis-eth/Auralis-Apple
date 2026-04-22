@@ -163,6 +163,20 @@ struct ENSResolutionServiceTests {
         #expect(cached?.address == "0x1234567890abcdef1234567890abcdef12345678")
         #expect(cached?.isStale == true)
     }
+
+    @Test("forward resolution surfaces offchain-enabled network provenance explicitly")
+    func forwardResolutionMarksOffchainEnabledNetworkLookups() async throws {
+        let client = StubEthereumNameServiceClient(allowsOffchainLookup: true)
+        await client.setForwardResult(
+            .success("0x1234567890abcdef1234567890abcdef12345678"),
+            for: "vitalik.eth"
+        )
+
+        let resolver = Web3EthereumNameServiceResolver(client: client)
+        let resolution = try await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "offchain")
+
+        #expect(resolution.provenance == .networkOffchainLookupAllowed)
+    }
 }
 
 private enum StubClientError: Error {
@@ -170,10 +184,15 @@ private enum StubClientError: Error {
 }
 
 private actor StubEthereumNameServiceClient: EthereumNameServiceClient {
+    let allowsOffchainLookup: Bool
     private var forwardResults: [String: Result<String, Error>] = [:]
     private var reverseResults: [String: Result<String, Error>] = [:]
     private var forwardCallCountValue = 0
     private var reverseCallCountValue = 0
+
+    init(allowsOffchainLookup: Bool = false) {
+        self.allowsOffchainLookup = allowsOffchainLookup
+    }
 
     func resolveAddress(forENS name: String) async throws -> String {
         forwardCallCountValue += 1

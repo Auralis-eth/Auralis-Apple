@@ -3,9 +3,14 @@ import web3
 
 final class Web3EthereumNameServiceClient: EthereumNameServiceClient, Sendable {
     private let rpcURL: URL
+    let allowsOffchainLookup: Bool
 
-    init(rpcURL: URL) {
+    init(
+        rpcURL: URL,
+        allowsOffchainLookup: Bool = true
+    ) {
         self.rpcURL = rpcURL
+        self.allowsOffchainLookup = allowsOffchainLookup
     }
 
     func resolveAddress(forENS name: String) async throws -> String {

@@ -117,7 +117,7 @@ actor Web3EthereumNameServiceResolver: ENSResolving {
             return ENSForwardResolution(
                 ensName: normalizedName,
                 address: normalizedAddress,
-                provenance: .network,
+                provenance: networkProvenance,
                 fetchedAt: fetchedAt,
                 isStale: false
             )
@@ -217,7 +217,7 @@ actor Web3EthereumNameServiceResolver: ENSResolving {
             return ENSReverseResolution(
                 address: normalizedAddress,
                 ensName: normalizedName,
-                provenance: .network,
+                provenance: networkProvenance,
                 fetchedAt: fetchedAt,
                 isStale: false,
                 isForwardVerified: true
@@ -248,6 +248,10 @@ actor Web3EthereumNameServiceResolver: ENSResolving {
 }
 
 private extension Web3EthereumNameServiceResolver {
+    var networkProvenance: ENSResolutionProvenance {
+        client.allowsOffchainLookup ? .networkOffchainLookupAllowed : .network
+    }
+
     func isFresh(_ fetchedAt: Date) -> Bool {
         nowProvider().timeIntervalSince(fetchedAt) <= freshnessTTL
     }

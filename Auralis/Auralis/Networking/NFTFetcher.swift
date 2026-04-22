@@ -338,17 +338,6 @@ class NFTFetcher: NFTFetching {
                             error: wrappedError
                         )
                     }
-                    if !nftMetaData.isEmpty {
-                        logRefreshSummary(
-                            account: account,
-                            chain: chain,
-                            pageCount: pageCount,
-                            itemCount: nftMetaData.count,
-                            totalCount: total,
-                            completedFullRefresh: false
-                        )
-                        return nftMetaData
-                    }
                     throw wrappedError
                 }
             }

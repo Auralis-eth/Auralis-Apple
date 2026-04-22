@@ -8,7 +8,7 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
         case badStatus(Int)
         case invalidResponse
         case backoffOverflow
-        case rateLimited(message: String)
+        case rateLimited(message: String, retryAfter: TimeInterval?)
         case unauthorized(message: String)
         case unsupportedMethod(message: String)
         case rpcError(code: Int, message: String)
@@ -27,7 +27,10 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
                 return "Gas pricing provider returned an invalid response."
             case .backoffOverflow:
                 return "Gas pricing retry scheduling overflowed."
-            case .rateLimited(let message):
+            case .rateLimited(let message, let retryAfter):
+                if let retryAfter {
+                    return "Gas pricing provider is rate-limiting requests. Retry after \(retryAfter) seconds. \(message)"
+                }
                 return "Gas pricing provider is rate-limiting requests. \(message)"
             case .unauthorized(let message):
                 return "Gas pricing provider authentication failed. \(message)"
@@ -67,15 +70,11 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
         switch cacheResult {
         case .hit(let estimate):
             return estimate
-        case .expired(let estimate):
-            do {
-                try await requestThrottler.throttle()
-                let refreshedEstimate = try await fetchWithRetry(chain: chain, maxAttempts: 3)
-                await GasPriceCache.shared.setGasPrice(refreshedEstimate, for: chainId)
-                return refreshedEstimate
-            } catch {
-                return estimate
-            }
+        case .expired:
+            try await requestThrottler.throttle()
+            let refreshedEstimate = try await fetchWithRetry(chain: chain, maxAttempts: 3)
+            await GasPriceCache.shared.setGasPrice(refreshedEstimate, for: chainId)
+            return refreshedEstimate
         case .miss:
             try await requestThrottler.throttle()
             let estimate = try await fetchWithRetry(chain: chain, maxAttempts: 3)
@@ -95,7 +94,7 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
                     throw error
                 }
 
-                try await Task.sleep(nanoseconds: delay)
+                try await Task.sleep(nanoseconds: retryDelay(after: error, fallbackDelay: delay))
                 let (nextDelay, overflowed) = delay.multipliedReportingOverflow(by: 2)
                 delay = overflowed ? 8 * Self.nanosecondsPerSecond : min(nextDelay, 8 * Self.nanosecondsPerSecond)
             }
@@ -172,6 +171,12 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
             throw GasPricingError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            if httpResponse.statusCode == 429 {
+                throw GasPricingError.rateLimited(
+                    message: "HTTP 429",
+                    retryAfter: parseRetryAfter(from: httpResponse)
+                )
+            }
             throw GasPricingError.badStatus(httpResponse.statusCode)
         }
 
@@ -197,7 +202,7 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
         let normalizedMessage = error.message.lowercased()
 
         if error.code == 429 || normalizedMessage.contains("rate limit") {
-            return .rateLimited(message: error.message)
+            return .rateLimited(message: error.message, retryAfter: nil)
         }
 
         if error.code == -32601 || normalizedMessage.contains("method not found") {
@@ -211,6 +216,22 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
         }
 
         return .rpcError(code: error.code, message: error.message)
+    }
+
+    private func retryDelay(after error: Error, fallbackDelay: UInt64) -> UInt64 {
+        guard case .rateLimited(_, let retryAfter?) = error as? GasPricingError else {
+            return fallbackDelay
+        }
+
+        return UInt64(max(0, retryAfter) * Double(Self.nanosecondsPerSecond))
+    }
+
+    private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {
+        guard let header = response.value(forHTTPHeaderField: "Retry-After") else {
+            return nil
+        }
+
+        return TimeInterval(header.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }
 

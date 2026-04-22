@@ -74,6 +74,39 @@ struct NFTImageLoaderTests {
         }
     }
 
+    @Test("HTTP 404 image responses surface a not-found style failure instead of decode noise")
+    func notFoundStatusSurfacesSpecificFailure() async throws {
+        MockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 404,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "image/png"]
+            )!
+            return (response, Data())
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer {
+            MockURLProtocol.handler = nil
+        }
+
+        let loader = ImageLoader(
+            url: URL(string: "https://example.com/missing.png")!,
+            session: session
+        )
+        loader.loadIfNeeded()
+
+        try await waitForLoaderToFinish(loader)
+
+        #expect(loader.image == nil)
+        if case .badStatus(404) = loader.error {
+        } else {
+            Issue.record("Expected badStatus(404) for a missing image.")
+        }
+    }
+
     @Test("retry succeeds after a transient network failure")
     func retryRecoversAfterNetworkFailure() async throws {
         ImageCache.shared.clear()
@@ -338,6 +371,65 @@ struct AlchemyTokenHoldingsProviderWarningTests {
         #expect(result.holdings.count == 1)
         #expect(result.holdings[0].isPlaceholder)
         #expect(result.warning?.message.isEmpty == false)
+    }
+
+    @Test("unauthorized enrichment failures surface instead of degrading into a generic warning")
+    func unauthorizedEnrichmentFailureThrows() async throws {
+        MockURLProtocol.handler = { request in
+            let url = try #require(request.url)
+
+            if url.path.contains("assets/tokens/balances/by-address") {
+                let response = HTTPURLResponse(
+                    url: url,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "application/json"]
+                )!
+                let data = """
+                {
+                  "data": {
+                    "tokens": [
+                      {
+                        "network": "eth-mainnet",
+                        "address": "0x1234567890abcdef1234567890abcdef12345678",
+                        "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                        "tokenBalance": "1230000"
+                      }
+                    ],
+                    "pageKey": null
+                  }
+                }
+                """.data(using: .utf8)!
+                return (response, data)
+            }
+
+            let response = HTTPURLResponse(
+                url: url,
+                statusCode: 401,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (response, Data(#"{"message":"unauthorized"}"#.utf8))
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let provider = AlchemyTokenHoldingsProvider(
+            configurationResolver: MockProviderConfigurationResolver(),
+            session: session,
+            nowProvider: { Date(timeIntervalSince1970: 123) }
+        )
+        defer {
+            MockURLProtocol.handler = nil
+        }
+
+        await #expect(throws: ProviderAbstractionError.unauthorized) {
+            _ = try await provider.tokenHoldings(
+                for: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .ethMainnet
+            )
+        }
     }
 }
 

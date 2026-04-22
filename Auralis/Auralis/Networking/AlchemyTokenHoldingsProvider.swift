@@ -2,7 +2,7 @@ import Foundation
 
 struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalancesProviding {
     private enum RequestError: Error {
-        case badStatus(Int)
+        case badStatus(Int, message: String?, retryAfter: TimeInterval?)
         case invalidResponse
     }
 
@@ -248,6 +248,9 @@ private extension AlchemyTokenHoldingsProvider {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            if shouldSurfaceEnrichmentFailure(error) {
+                throw error
+            }
             return EnrichmentResult(
                 enrichments: nil,
                 warning: TokenHoldingsProviderWarning(
@@ -437,7 +440,7 @@ extension AlchemyTokenHoldingsProvider {
                     throw mapRequestError(error)
                 }
 
-                try await Task.sleep(nanoseconds: delay)
+                try await Task.sleep(nanoseconds: retryDelay(after: error, fallbackDelay: delay))
                 let (nextDelay, overflowed) = delay.multipliedReportingOverflow(by: 2)
                 delay = overflowed ? maxDelayNanoseconds : min(nextDelay, maxDelayNanoseconds)
             }
@@ -455,7 +458,11 @@ extension AlchemyTokenHoldingsProvider {
             throw RequestError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            throw RequestError.badStatus(httpResponse.statusCode)
+            throw RequestError.badStatus(
+                httpResponse.statusCode,
+                message: parseErrorMessage(from: data),
+                retryAfter: parseRetryAfter(from: httpResponse)
+            )
         }
 
         do {
@@ -477,7 +484,7 @@ extension AlchemyTokenHoldingsProvider {
 
         if let requestError = error as? RequestError {
             switch requestError {
-            case .badStatus(let statusCode):
+            case .badStatus(let statusCode, _, _):
                 return statusCode == 429 || (500...599).contains(statusCode)
             case .invalidResponse:
                 return false
@@ -490,8 +497,12 @@ extension AlchemyTokenHoldingsProvider {
     private func mapRequestError(_ error: Error) -> Error {
         if let requestError = error as? RequestError {
             switch requestError {
-            case .badStatus(let statusCode) where statusCode == 429:
+            case .badStatus(let statusCode, _, _) where statusCode == 429:
                 return ProviderAbstractionError.rateLimited
+            case .badStatus(let statusCode, _, _) where statusCode == 401 || statusCode == 403:
+                return ProviderAbstractionError.unauthorized
+            case .badStatus(let statusCode, _, _) where (500...599).contains(statusCode):
+                return ProviderAbstractionError.unavailable
             case .badStatus:
                 return ProviderAbstractionError.invalidResponse
             case .invalidResponse:
@@ -500,5 +511,54 @@ extension AlchemyTokenHoldingsProvider {
         }
 
         return error
+    }
+
+    private func retryDelay(after error: Error, fallbackDelay: UInt64) -> UInt64 {
+        guard case .badStatus(_, _, let retryAfter?) = error as? RequestError else {
+            return fallbackDelay
+        }
+
+        return UInt64(max(0, retryAfter) * Double(Self.nanosecondsPerSecond))
+    }
+
+    private func shouldSurfaceEnrichmentFailure(_ error: Error) -> Bool {
+        if let providerError = error as? ProviderAbstractionError {
+            switch providerError {
+            case .missingAPIKey,
+                    .unsupportedChain,
+                    .invalidURL,
+                    .invalidAddress,
+                    .unauthorized,
+                    .unsupportedMethod,
+                    .providerError:
+                return true
+            case .invalidResponse,
+                    .unavailable,
+                    .invalidBalancePayload,
+                    .paginationStalled,
+                    .rateLimited:
+                return false
+            }
+        }
+
+        return false
+    }
+
+    private func parseErrorMessage(from data: Data) -> String? {
+        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return object["message"] as? String
+                ?? object["detail"] as? String
+                ?? object["error"] as? String
+        }
+
+        return String(data: data, encoding: .utf8)
+    }
+
+    private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {
+        guard let header = response.value(forHTTPHeaderField: "Retry-After") else {
+            return nil
+        }
+
+        return TimeInterval(header.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }
