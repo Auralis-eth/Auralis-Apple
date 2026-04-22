@@ -12,6 +12,11 @@ struct NFTExternalDestination: Equatable {
     let url: URL
 }
 
+private enum ExternalLinkStyle {
+    static let primaryGradient = [Color.accent, Color.accent.opacity(0.78)]
+    static let secondaryGradient = [Color.deepBlue, Color.deepBlue.opacity(0.82)]
+}
+
 extension Chain {
     private static func externalDestination(label: String, host: String) -> NFTExternalDestination? {
         var components = URLComponents()
@@ -145,10 +150,7 @@ struct OpenSeaLink: View {
                 .padding(.vertical, 12)
                 .background(
                     LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color(hexString: "2081E2"),
-                            Color(hexString: "2081E2").opacity(0.8)
-                        ]),
+                        gradient: Gradient(colors: ExternalLinkStyle.primaryGradient),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -226,10 +228,7 @@ struct EtherscanLink: View {
                 .padding(.vertical, 12)
                 .background(
                     LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color(hexString: "3498DB"),
-                            Color(hexString: "2980B9").opacity(0.8)
-                        ]),
+                        gradient: Gradient(colors: ExternalLinkStyle.secondaryGradient),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )

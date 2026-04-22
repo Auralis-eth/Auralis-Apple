@@ -3,6 +3,20 @@ import SwiftData
 import SwiftUI
 
 struct ReceiptsRootView: View {
+    private struct RefreshKey: Equatable {
+        struct ReceiptSnapshot: Equatable {
+            let id: UUID
+            let sequenceID: Int
+            let createdAt: Date
+            let summary: String
+            let scope: String
+            let isSuccess: Bool
+        }
+
+        let timelineState: ReceiptTimelineState
+        let receipts: [ReceiptSnapshot]
+    }
+
     @Query(
         sort: [
             SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
@@ -14,6 +28,23 @@ struct ReceiptsRootView: View {
     let currentChain: Chain
 
     @State private var timelineState: ReceiptTimelineState
+    @State private var snapshot: ReceiptTimelineSnapshot = .empty
+
+    private var refreshKey: RefreshKey {
+        RefreshKey(
+            timelineState: timelineState,
+            receipts: storedReceipts.map {
+                RefreshKey.ReceiptSnapshot(
+                    id: $0.id,
+                    sequenceID: $0.sequenceID,
+                    createdAt: $0.createdAt,
+                    summary: $0.summary,
+                    scope: $0.scope,
+                    isSuccess: $0.isSuccess
+                )
+            }
+        )
+    }
 
     init(currentAddress: String, currentChain: Chain) {
         self.currentAddress = currentAddress
@@ -26,14 +57,6 @@ struct ReceiptsRootView: View {
                 )
             )
         )
-    }
-
-    private var records: [ReceiptTimelineRecord] {
-        storedReceipts.map(ReceiptTimelineRecord.init)
-    }
-
-    private var snapshot: ReceiptTimelineSnapshot {
-        timelineState.snapshot(records: records)
     }
 
     var body: some View {
@@ -66,6 +89,9 @@ struct ReceiptsRootView: View {
             prompt: "Search summary, scope, correlation, payload"
         )
         .accessibilityIdentifier("receipts.root")
+        .task(id: refreshKey) {
+            refreshSnapshot()
+        }
         .onChange(of: currentAddress) { _, newValue in
             timelineState.applyScope(
                 ReceiptTimelineScope(accountAddress: newValue, chain: currentChain)
@@ -88,6 +114,11 @@ struct ReceiptsRootView: View {
         .onChange(of: timelineState.selectedScope) { _, _ in
             timelineState.resetPagination()
         }
+    }
+
+    private func refreshSnapshot() {
+        let records = storedReceipts.map(ReceiptTimelineRecord.init)
+        snapshot = timelineState.snapshot(records: records)
     }
 
     @ViewBuilder

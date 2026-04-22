@@ -22,13 +22,13 @@ struct NFTNewsfeedLoadingView: View {
     private var titleText: String {
         switch phase {
         case .idle, .fetching:
-            return "Loading NFTs..."
+            return "Loading your collection..."
         case .processingMetadata:
-            return "Processing Metadata..."
+            return "Preparing your NFTs..."
         case .persisting:
-            return "Saving Collection..."
+            return "Saving your library..."
         case .cleaningUp:
-            return "Finalizing Refresh..."
+            return "Finishing up..."
         }
     }
 
@@ -91,25 +91,25 @@ struct LoadingProgressView: View {
     private var statusText: String {
         switch phase {
         case .processingMetadata(let itemCount):
-            return "Fetched \(itemCount) NFTs. Parsing metadata before save."
+            return "Found \(itemCount) NFTs. Getting them ready for your library."
         case .persisting(let itemCount):
-            return "Fetched \(itemCount) NFTs. Writing them into your local library."
+            return "Adding \(itemCount) NFTs to your local library."
         case .cleaningUp(let itemCount):
-            return "Fetched \(itemCount) NFTs. Cleaning up stale items and wrapping up."
+            return "Refreshing \(itemCount) NFTs and cleaning up older items."
         case .idle, .fetching:
             break
         }
 
         if let loaded = itemsLoaded, let total = total {
             if loaded > total {
-                return "\(total) loaded"
+                return "Loaded \(total) items"
             } else {
-                return "\(loaded) of \(total) loaded"
+                return "Loaded \(loaded) of \(total)"
             }
         } else if total != nil {
-            return "Loading..."
+            return "Loading your collection..."
         } else {
-            return "Waiting to start..."
+            return "Preparing to load your collection..."
         }
     }
 

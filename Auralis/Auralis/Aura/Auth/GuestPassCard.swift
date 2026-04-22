@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct GuestPassCard: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let account: GuestPassAccount
     var onTap: (() -> Void)?
 
@@ -26,9 +28,24 @@ struct GuestPassCard: View {
         }
         .accessibilityAddTraits(onTap == nil ? [] : .isButton)
         .onAppear {
+            guard !accessibilityReduceMotion else {
+                isAnimating = false
+                return
+            }
+
             withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
                 isAnimating = true
             }
+        }
+        .onChange(of: accessibilityReduceMotion, initial: true) { _, reduceMotion in
+            guard reduceMotion else {
+                withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
+                    isAnimating = true
+                }
+                return
+            }
+
+            isAnimating = false
         }
     }
 
