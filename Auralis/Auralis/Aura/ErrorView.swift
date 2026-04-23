@@ -29,7 +29,7 @@ struct ErrorView: View {
                     .padding(.vertical, 8)
                     .padding(.horizontal, 16)
                     .background(Color.accent)
-                    .cornerRadius(8)
+                    .clipShape(.rect(cornerRadius: 8))
             }
             .padding(.top, 8)
 

@@ -68,7 +68,7 @@ struct GalleryGrid: View {
                                     .frame(height: 110)
                                     .frame(maxWidth: .infinity)
                                     .clipped()
-                                    .cornerRadius(12)
+                                    .clipShape(.rect(cornerRadius: 12))
                             }
                             .buttonStyle(.plain)
                         }

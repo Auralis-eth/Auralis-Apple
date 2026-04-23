@@ -188,7 +188,7 @@ struct PrimaryTextButton: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(Color.deepBlue)
-                .cornerRadius(8)
+                .clipShape(.rect(cornerRadius: 8))
         })
     }
 

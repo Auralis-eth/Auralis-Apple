@@ -200,7 +200,7 @@ struct NewsFeedCardExpandedDetailsView: View {
                             }
                             .padding(8)
                             .background(Color.surface.opacity(0.1))
-                            .cornerRadius(8)
+                            .clipShape(.rect(cornerRadius: 8))
                         }
                     }
                 }
@@ -234,7 +234,7 @@ struct NewsFeedCardExpandedDetailsView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(Color.accent.opacity(0.3))
-                    .cornerRadius(16)
+                    .clipShape(.rect(cornerRadius: 16))
                 Spacer()
             }
 

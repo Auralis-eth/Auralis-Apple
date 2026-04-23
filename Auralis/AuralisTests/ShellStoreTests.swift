@@ -531,6 +531,41 @@ struct ShellStoreTests {
         #expect(routerHandler.effects.contains(.resetAllRoutes))
         #expect(routerHandler.effects.contains(.selectTab(.home)))
     }
+
+    @Test("in-flight refresh does not keep the shell store alive without external ownership")
+    func inFlightRefreshDoesNotRetainStore() async {
+        let account = EOAccount(address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+        account.currentChain = .ethMainnet
+
+        let refreshCoordinator = BlockingShellRefreshCoordinator()
+        var store: ShellStore? = ShellStore(
+            state: ShellState(
+                selection: ActiveShellSelection(address: account.address, chain: .ethMainnet),
+                activeAccountID: account.persistentModelID
+            ),
+            selectionPersistence: TestShellSelectionPersistence(
+                address: account.address,
+                chainID: Chain.ethMainnet.rawValue
+            ),
+            accountResolver: TestShellAccountResolver(accounts: [account], fallback: nil),
+            accountMutator: TestShellAccountMutator(accounts: [account]),
+            refreshCoordinator: refreshCoordinator,
+            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
+            routerEffectHandler: TestShellRouterEffectHandler(),
+            receiptLogger: TestShellReceiptLogger(),
+            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
+        )
+        let weakStore = WeakBox(store)
+
+        await store?.send(.refreshCurrentSelectionRequested(correlationID: "retain-check"))
+        await refreshCoordinator.waitUntilRefreshStarts()
+        store = nil
+        await settleStore()
+
+        #expect(weakStore.value == nil)
+
+        refreshCoordinator.resume()
+    }
 }
 
 @MainActor
@@ -640,6 +675,59 @@ private final class TestShellRefreshCoordinator: ShellRefreshing {
 
     func refresh(selection: ActiveShellSelection, correlationID: String?) async {
         refreshCalls.append(selection)
+    }
+}
+
+@MainActor
+private final class BlockingShellRefreshCoordinator: ShellRefreshing {
+    var isLoading = false
+    var refreshTTL: TimeInterval = 60
+
+    private var didStartRefresh = false
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var resumeWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func lastSuccessfulRefreshAt(for address: String, chain: Chain) -> Date? {
+        nil
+    }
+
+    func refresh(selection: ActiveShellSelection, correlationID: String?) async {
+        didStartRefresh = true
+        let waiters = startWaiters
+        startWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
+
+        await withCheckedContinuation { continuation in
+            resumeWaiters.append(continuation)
+        }
+    }
+
+    func waitUntilRefreshStarts() async {
+        guard !didStartRefresh else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            startWaiters.append(continuation)
+        }
+    }
+
+    func resume() {
+        let waiters = resumeWaiters
+        resumeWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
+    }
+}
+
+private final class WeakBox<Object: AnyObject> {
+    weak var value: Object?
+
+    init(_ value: Object?) {
+        self.value = value
     }
 }
 

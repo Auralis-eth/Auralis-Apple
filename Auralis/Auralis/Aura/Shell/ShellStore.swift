@@ -140,12 +140,13 @@ final class ShellStore {
             state.pendingCorrelationID = correlationID
             state.selection = selection
             refreshTask?.cancel()
-            refreshTask = Task {
+            let refreshCoordinator = refreshCoordinator
+            refreshTask = Task { [weak self] in
                 await refreshCoordinator.refresh(
                     selection: selection,
                     correlationID: correlationID
                 )
-                await self.send(
+                await self?.send(
                     .refreshFinished(
                         requestID: requestID,
                         selection: selection
