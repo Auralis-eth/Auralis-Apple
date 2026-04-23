@@ -19,9 +19,7 @@ struct MainTabView: View {
     @State private var showAccountSwitcher = false
     @State private var contextService: ContextService
     @State private var pinnedItemCount: Int
-#if DEBUG
     @State private var showContextInspector = false
-#endif
 
     private var currentAccount: EOAccount? {
         resolveCurrentAccount()
@@ -157,7 +155,6 @@ struct MainTabView: View {
                 onCurrentChainChange: changeCurrentChain
             )
         }
-#if DEBUG
         .sheet(isPresented: $showContextInspector) {
             ChromeContextInspectorSheet(
                 contextService: contextService,
@@ -168,7 +165,6 @@ struct MainTabView: View {
                 }
             )
         }
-#endif
         .task(id: contextRemoteRefreshKey) {
             let correlationID = nftService.isLoading ? nil : shellStore.state.pendingCorrelationID
             await contextService.refresh(
@@ -199,11 +195,7 @@ struct MainTabView: View {
     }
 
     private var contextInspectorAction: (() -> Void)? {
-#if DEBUG
         { showContextInspector = true }
-#else
-        nil
-#endif
     }
 
     private func selectAccount(_ address: String) {
