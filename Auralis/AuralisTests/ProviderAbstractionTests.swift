@@ -357,6 +357,47 @@ struct ProviderAbstractionTests {
         #expect(holdings[0].isAmountHidden == false)
     }
 
+    @Test("token holdings provider preserves HTTP status and API message for non-retryable fetch failures")
+    @MainActor
+    func tokenHoldingsProviderPreservesHTTPFailureContext() async {
+        let session = makeMockSession()
+        let provider = AlchemyTokenHoldingsProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session,
+            maxRetryCount: 1
+        )
+
+        ProviderMockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 400,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (
+                response,
+                Data(#"{"message":"invalid wallet scope"}"#.utf8)
+            )
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        do {
+            _ = try await provider.tokenHoldings(
+                for: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .baseMainnet
+            )
+            Issue.record("Expected token holdings HTTP failure to throw.")
+        } catch let error as ProviderAbstractionError {
+            #expect(error == .badStatus(400, message: "invalid wallet scope"))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
     @Test("token holdings provider hides ERC-20 amounts when decimals are unavailable instead of showing raw base units")
     @MainActor
     func tokenHoldingsProviderHidesAmountWhenEnrichmentFails() async throws {
@@ -1101,6 +1142,47 @@ struct ProviderAbstractionTests {
             Issue.record("Expected JSON-RPC error envelope to throw.")
         } catch let error as ProviderAbstractionError {
             #expect(error == .unsupportedMethod)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("native balance provider preserves HTTP status and API message for non-retryable failures")
+    @MainActor
+    func nativeBalanceProviderPreservesHTTPFailureContext() async {
+        let session = makeMockSession()
+        let provider = AlchemyRPCProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session,
+            maxRetryCount: 1
+        )
+
+        ProviderMockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 400,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (
+                response,
+                Data(#"{"message":"wallet scope mismatch"}"#.utf8)
+            )
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        do {
+            _ = try await provider.nativeBalance(
+                for: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .ethMainnet
+            )
+            Issue.record("Expected native balance HTTP failure to throw.")
+        } catch let error as ProviderAbstractionError {
+            #expect(error == .badStatus(400, message: #"{"message":"wallet scope mismatch"}"#))
         } catch {
             Issue.record("Unexpected error: \(error)")
         }

@@ -9,9 +9,9 @@ import Foundation
 
 /// Result type for cache operations providing clear differentiation between states
 enum CacheResult<T: Sendable>: Sendable {
-    case hit(T)
+    case hit(T, fetchedAt: Date)
     case miss
-    case expired(T) // Contains expired value for potential fallback use
+    case expired(T, fetchedAt: Date) // Contains expired value for potential fallback use
 }
 
 /// Streamlined actor-based cache optimized for gas price estimates
@@ -82,11 +82,17 @@ actor GasPriceCache {
 
         // Check if expired
         if currentTime - entry.timestamp >= config.ttl {
-            return .expired(entry.value)
+            return .expired(
+                entry.value,
+                fetchedAt: Date(timeIntervalSinceReferenceDate: entry.timestamp)
+            )
         }
 
         hitCount += 1
-        return .hit(entry.value)
+        return .hit(
+            entry.value,
+            fetchedAt: Date(timeIntervalSinceReferenceDate: entry.timestamp)
+        )
     }
 
     /// Sets gas price in cache with automatic size management
@@ -107,7 +113,7 @@ actor GasPriceCache {
     /// Convenience method that returns only valid (non-expired) gas prices
     func getValidGasPrice(for chainId: Int) async -> GasPriceEstimate? {
         let result = await getGasPrice(for: chainId)
-        if case .hit(let estimate) = result {
+        if case .hit(let estimate, _) = result {
             return estimate
         }
         return nil

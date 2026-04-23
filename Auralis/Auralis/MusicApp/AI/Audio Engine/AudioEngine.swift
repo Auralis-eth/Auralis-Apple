@@ -11,10 +11,23 @@ import Foundation
 @MainActor
 /// Shared playback engine for loading remote NFT audio, managing queue state, and exposing playback status to SwiftUI.
 public final class AudioEngine: ObservableObject {
+    private static let downloadSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 15
+        configuration.timeoutIntervalForResource = 60
+        configuration.waitsForConnectivity = true
+        return URLSession(configuration: configuration)
+    }()
+
+    private static let maxDownloadAttempts = 3
+    private static let initialRetryDelayNanoseconds: UInt64 = 1_000_000_000
+    private static let maxRetryDelayNanoseconds: UInt64 = 4_000_000_000
+
     private var currentNFT: NFT?
     private var audioEngine = AVAudioEngine()
     private var playerNode = AVAudioPlayerNode()
     private var interruptionObserver: NSObjectProtocol?
+    private let downloadSession: URLSession
 
     /// The currently loaded audio file, if any.
     public var audioFile: AVAudioFile?
@@ -67,15 +80,19 @@ public final class AudioEngine: ObservableObject {
         currentTrack?.id
     }
 
-    enum AudioEngineError: Error {
+    enum AudioEngineError: Error, LocalizedError {
         case sessionSetupFailed
         case engineStartFailed
         case fileLoadFailed
         case unsupportedFormat
         case seekFailed
-        case downloadFailed
+        case downloadFailed(underlying: Error)
+        case invalidDownloadResponse
+        case badStatus(Int)
+        case unauthorized
+        case rateLimited(retryAfter: TimeInterval?)
 
-        var localizedDescription: String {
+        var errorDescription: String? {
             switch self {
             case .sessionSetupFailed:
                 return "Failed to configure audio session"
@@ -87,13 +104,31 @@ public final class AudioEngine: ObservableObject {
                 return "Unsupported audio format"
             case .seekFailed:
                 return "Failed to seek to position"
-            case .downloadFailed:
-                return "Failed to download remote audio file"
+            case .downloadFailed(let underlying):
+                return "Failed to download remote audio file: \(underlying.localizedDescription)"
+            case .invalidDownloadResponse:
+                return "The audio server returned an invalid response."
+            case .badStatus(let statusCode):
+                if statusCode == 404 {
+                    return "The remote audio file could not be found."
+                }
+                if (500...599).contains(statusCode) {
+                    return "The audio server is unavailable right now. Please try again."
+                }
+                return "The audio server returned HTTP \(statusCode)."
+            case .unauthorized:
+                return "The audio source rejected the request."
+            case .rateLimited(let retryAfter):
+                if let retryAfter {
+                    return "The audio source is rate-limiting requests. Retry after \(Int(retryAfter)) seconds."
+                }
+                return "The audio source is rate-limiting requests. Please try again shortly."
             }
         }
     }
 
-    init() throws {
+    init(downloadSession: URLSession? = nil) throws {
+        self.downloadSession = downloadSession ?? Self.downloadSession
         try setupAudioSession()
         try setupAudioEngine()
         setupInterruptionHandling()
@@ -220,6 +255,100 @@ public final class AudioEngine: ObservableObject {
 
         let fileExtension = url.pathExtension.lowercased()
         return supportedFormats.contains(fileExtension)
+    }
+
+    private func shouldRetryDownload(after error: Error) -> Bool {
+        switch error {
+        case AudioEngineError.downloadFailed:
+            return true
+        case AudioEngineError.badStatus(let statusCode):
+            return statusCode == 408 || statusCode == 429 || (500...599).contains(statusCode)
+        case AudioEngineError.rateLimited:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func retryDelay(after error: Error, fallbackDelay: UInt64) -> UInt64 {
+        guard case AudioEngineError.rateLimited(let retryAfter) = error,
+              let retryAfter else {
+            return fallbackDelay
+        }
+
+        let retryDelay = UInt64(max(retryAfter, 0) * 1_000_000_000)
+        return min(retryDelay, Self.maxRetryDelayNanoseconds)
+    }
+
+    private func retryDelayAfterDoubling(_ delay: UInt64) -> UInt64 {
+        let (doubled, overflowed) = delay.multipliedReportingOverflow(by: 2)
+        if overflowed {
+            return Self.maxRetryDelayNanoseconds
+        }
+        return min(doubled, Self.maxRetryDelayNanoseconds)
+    }
+
+    private func retryAfterInterval(from response: HTTPURLResponse) -> TimeInterval? {
+        guard let header = response.value(forHTTPHeaderField: "Retry-After") else {
+            return nil
+        }
+
+        if let seconds = TimeInterval(header) {
+            return seconds
+        }
+
+        return nil
+    }
+
+    private func downloadRemoteAudio(from url: URL) async throws -> URL {
+        var delay = Self.initialRetryDelayNanoseconds
+
+        for attempt in 1...Self.maxDownloadAttempts {
+            do {
+                return try await downloadRemoteAudioOnce(from: url)
+            } catch {
+                guard attempt < Self.maxDownloadAttempts, shouldRetryDownload(after: error) else {
+                    throw error
+                }
+
+                try await Task.sleep(nanoseconds: retryDelay(after: error, fallbackDelay: delay))
+                delay = retryDelayAfterDoubling(delay)
+            }
+        }
+
+        throw AudioEngineError.downloadFailed(underlying: URLError(.unknown))
+    }
+
+    private func downloadRemoteAudioOnce(from url: URL) async throws -> URL {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+
+        do {
+            let (downloadedTemporaryURL, response) = try await downloadSession.download(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw AudioEngineError.invalidDownloadResponse
+            }
+
+            switch httpResponse.statusCode {
+            case 200...299:
+                return downloadedTemporaryURL
+            case 401, 403:
+                throw AudioEngineError.unauthorized
+            case 429:
+                throw AudioEngineError.rateLimited(
+                    retryAfter: retryAfterInterval(from: httpResponse)
+                )
+            default:
+                throw AudioEngineError.badStatus(httpResponse.statusCode)
+            }
+        } catch let error as AudioEngineError {
+            throw error
+        } catch let error as URLError {
+            throw AudioEngineError.downloadFailed(underlying: error)
+        } catch {
+            throw AudioEngineError.downloadFailed(underlying: error)
+        }
     }
 
     /// Starts playback for the current file or advances to the next queued item.
@@ -417,13 +546,8 @@ public final class AudioEngine: ObservableObject {
 
         let localURL: URL
         if url.scheme == "http" || url.scheme == "https" {
-            let (downloadedTemporaryURL, response) = try await URLSession.shared.download(from: url)
+            let downloadedTemporaryURL = try await downloadRemoteAudio(from: url)
             try Task.checkCancellation()
-
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                throw AudioEngineError.downloadFailed
-            }
 
             let temporaryDirectory = FileManager.default.temporaryDirectory
             let baseName = url.lastPathComponent.isEmpty ? "audio" : url.deletingPathExtension().lastPathComponent

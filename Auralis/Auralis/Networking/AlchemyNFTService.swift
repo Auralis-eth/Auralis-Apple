@@ -8,6 +8,13 @@
 import Foundation
 import OSLog
 
+private let defaultAlchemyNFTSession: URLSession = {
+    let configuration = URLSessionConfiguration.default
+    configuration.timeoutIntervalForRequest = 15
+    configuration.timeoutIntervalForResource = 30
+    return URLSession(configuration: configuration)
+}()
+
 final class AlchemyNFTService: NFTInventoryProviding, Sendable {
     private let logger = Logger(subsystem: "Auralis", category: "AlchemyNFTService")
     private let baseURL: URL
@@ -19,7 +26,7 @@ final class AlchemyNFTService: NFTInventoryProviding, Sendable {
     init(
         chain: Chain,
         configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver(),
-        session: URLSession = .shared
+        session: URLSession = defaultAlchemyNFTSession
     ) throws {
         let configuration = try configurationResolver.configuration(for: chain)
         guard let baseURL = configuration.alchemyNFTBaseURL else {

@@ -63,23 +63,43 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
         self.session = session
     }
 
-    func gasPriceEstimate(for chain: Chain) async throws -> GasPriceEstimate {
+    func gasPriceEstimate(for chain: Chain) async throws -> GasPriceEstimateResult {
         let chainId = chain.chainId
         let cacheResult = await GasPriceCache.shared.getGasPrice(for: chainId)
 
         switch cacheResult {
-        case .hit(let estimate):
-            return estimate
-        case .expired:
+        case .hit(let estimate, let fetchedAt):
+            return GasPriceEstimateResult(
+                estimate: estimate,
+                fetchedAt: fetchedAt,
+                source: .live
+            )
+        case .expired(let staleEstimate, let fetchedAt):
             try await requestThrottler.throttle()
-            let refreshedEstimate = try await fetchWithRetry(chain: chain, maxAttempts: 3)
-            await GasPriceCache.shared.setGasPrice(refreshedEstimate, for: chainId)
-            return refreshedEstimate
+            do {
+                let refreshedEstimate = try await fetchWithRetry(chain: chain, maxAttempts: 3)
+                await GasPriceCache.shared.setGasPrice(refreshedEstimate, for: chainId)
+                return GasPriceEstimateResult(
+                    estimate: refreshedEstimate,
+                    fetchedAt: .now,
+                    source: .live
+                )
+            } catch {
+                return GasPriceEstimateResult(
+                    estimate: staleEstimate,
+                    fetchedAt: fetchedAt,
+                    source: .staleCache
+                )
+            }
         case .miss:
             try await requestThrottler.throttle()
             let estimate = try await fetchWithRetry(chain: chain, maxAttempts: 3)
             await GasPriceCache.shared.setGasPrice(estimate, for: chainId)
-            return estimate
+            return GasPriceEstimateResult(
+                estimate: estimate,
+                fetchedAt: .now,
+                source: .live
+            )
         }
     }
 

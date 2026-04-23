@@ -483,6 +483,7 @@ struct ContextServiceTests {
         #expect(firstSnapshot.balances.nativeBalanceDisplay.provenance == .onChain)
         #expect(secondSnapshot.balances.nativeBalanceDisplay.value == "1.5 ETH")
         #expect(secondSnapshot.balances.nativeBalanceDisplay.provenance == .localCache)
+        #expect(secondSnapshot.balances.nativeBalanceStatusMessage.value == "Auralis kept the last native balance because the live provider did not respond cleanly for this wallet and chain.")
     }
 }
 
@@ -498,6 +499,7 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
         nativeBalanceDisplayProvider: @escaping () -> String?,
+        nativeBalanceStatusMessageProvider: @escaping () -> String?,
         nativeBalanceUpdatedAtProvider: @escaping () -> Date?,
         nativeBalanceProvenanceProvider: @escaping () -> ContextProvenance,
         freshnessTTLProvider: @escaping () -> TimeInterval?,
@@ -517,6 +519,7 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
             loadingProvider: loadingProvider,
             refreshedAtProvider: refreshedAtProvider,
             nativeBalanceDisplayProvider: nativeBalanceDisplayProvider,
+            nativeBalanceStatusMessageProvider: nativeBalanceStatusMessageProvider,
             nativeBalanceUpdatedAtProvider: nativeBalanceUpdatedAtProvider,
             nativeBalanceProvenanceProvider: nativeBalanceProvenanceProvider,
             freshnessTTLProvider: freshnessTTLProvider,

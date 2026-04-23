@@ -503,8 +503,8 @@ extension AlchemyTokenHoldingsProvider {
                 return ProviderAbstractionError.unauthorized
             case .badStatus(let statusCode, _, _) where (500...599).contains(statusCode):
                 return ProviderAbstractionError.unavailable
-            case .badStatus:
-                return ProviderAbstractionError.invalidResponse
+            case .badStatus(let statusCode, let message, _):
+                return ProviderAbstractionError.badStatus(statusCode, message: message)
             case .invalidResponse:
                 return ProviderAbstractionError.invalidResponse
             }
@@ -528,6 +528,7 @@ extension AlchemyTokenHoldingsProvider {
                     .unsupportedChain,
                     .invalidURL,
                     .invalidAddress,
+                    .badStatus,
                     .unauthorized,
                     .unsupportedMethod,
                     .providerError:

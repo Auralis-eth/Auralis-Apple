@@ -2,7 +2,7 @@ import Foundation
 
 struct AlchemyRPCProvider: NativeBalanceProviding {
     private enum RPCRequestError: Error {
-        case badStatus(Int, retryAfter: TimeInterval?)
+        case badStatus(Int, message: String?, retryAfter: TimeInterval?)
         case invalidResponse
     }
 
@@ -124,8 +124,11 @@ extension AlchemyRPCProvider {
             throw RPCRequestError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            let responseMessage = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             throw RPCRequestError.badStatus(
                 httpResponse.statusCode,
+                message: responseMessage?.isEmpty == false ? responseMessage : nil,
                 retryAfter: parseRetryAfter(from: httpResponse)
             )
         }
@@ -155,7 +158,7 @@ extension AlchemyRPCProvider {
 
         if let requestError = error as? RPCRequestError {
             switch requestError {
-            case .badStatus(let statusCode, _):
+            case .badStatus(let statusCode, _, _):
                 return statusCode == 429 || (500...599).contains(statusCode)
             case .invalidResponse:
                 return false
@@ -197,13 +200,15 @@ extension AlchemyRPCProvider {
     private func mapTransportError(_ error: Error) -> Error {
         if let requestError = error as? RPCRequestError {
             switch requestError {
-            case .badStatus(let statusCode, _) where statusCode == 429:
+            case .badStatus(let statusCode, _, _) where statusCode == 429:
                 return ProviderAbstractionError.rateLimited
-            case .badStatus(let statusCode, _) where statusCode == 401 || statusCode == 403:
+            case .badStatus(let statusCode, _, _) where statusCode == 401 || statusCode == 403:
                 return ProviderAbstractionError.unauthorized
-            case .badStatus(let statusCode, _) where (500...599).contains(statusCode):
+            case .badStatus(let statusCode, _, _) where (500...599).contains(statusCode):
                 return ProviderAbstractionError.unavailable
-            case .badStatus, .invalidResponse:
+            case .badStatus(let statusCode, let message, _):
+                return ProviderAbstractionError.badStatus(statusCode, message: message)
+            case .invalidResponse:
                 return ProviderAbstractionError.invalidResponse
             }
         }
@@ -212,7 +217,7 @@ extension AlchemyRPCProvider {
     }
 
     private func retryDelay(after error: Error, fallbackDelay: UInt64) -> UInt64 {
-        guard case .badStatus(_, let retryAfter?) = error as? RPCRequestError else {
+        guard case .badStatus(_, _, let retryAfter?) = error as? RPCRequestError else {
             return fallbackDelay
         }
 

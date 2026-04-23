@@ -178,6 +178,7 @@ final class GasPriceEstimateViewModel {
     private(set) var currentChain: Chain?
     private(set) var lastUpdated: Date?
     private(set) var phase: Phase = .initial
+    private(set) var isShowingCachedEstimate = false
 
     private let provider: any GasPricingProviding
     private var currentTask: Task<Void, Never>?
@@ -200,6 +201,7 @@ final class GasPriceEstimateViewModel {
             estimate = nil
             error = nil
             lastUpdated = nil
+            isShowingCachedEstimate = false
         }
 
         currentChain = chain
@@ -262,15 +264,18 @@ final class GasPriceEstimateViewModel {
 
             // Only update if we're still on the same chain and not cancelled
             if !Task.isCancelled && currentChain?.chainId == chain.chainId {
-                self.estimate = result
+                self.estimate = result.estimate
                 self.error = nil
-                self.lastUpdated = Date()
+                self.lastUpdated = result.fetchedAt
+                self.isShowingCachedEstimate = result.source == .staleCache
                 self.phase = .loaded
             }
         } catch {
             if !Task.isCancelled && currentChain?.chainId == chain.chainId {
                 self.estimate = nil
                 self.error = error
+                self.lastUpdated = nil
+                self.isShowingCachedEstimate = false
                 self.phase = .failed
             }
         }
@@ -295,7 +300,8 @@ struct GasPriceEstimateView: View {
             HeaderView(
                 chainName: chain.networkName,
                 lastUpdated: viewModel.lastUpdated,
-                isLoading: viewModel.phase == .loading
+                isLoading: viewModel.phase == .loading,
+                isShowingCachedEstimate: viewModel.isShowingCachedEstimate
             )
 
             content
@@ -344,6 +350,7 @@ extension GasPriceEstimateView {
         let chainName: String
         let lastUpdated: Date?
         let isLoading: Bool
+        let isShowingCachedEstimate: Bool
 
         var body: some View {
             VStack(spacing: 8) {
@@ -352,9 +359,9 @@ extension GasPriceEstimateView {
                     subtitle: lastUpdatedText
                 ) {
                     AuraPill(
-                        isLoading ? "Updating" : "Live",
-                        systemImage: isLoading ? "arrow.triangle.2.circlepath" : "fuelpump",
-                        emphasis: isLoading ? .neutral : .accent
+                        statusTitle,
+                        systemImage: statusSystemImage,
+                        emphasis: statusEmphasis
                     )
                 }
             }
@@ -366,15 +373,40 @@ extension GasPriceEstimateView {
 
         private var lastUpdatedText: String? {
             guard let lastUpdated else { return nil }
-            return "Last updated: \(lastUpdated.formatted(.dateTime.hour().minute()))"
+            let prefix = isShowingCachedEstimate ? "Last live update" : "Last updated"
+            return "\(prefix): \(lastUpdated.formatted(.dateTime.hour().minute()))"
         }
 
         private var accessibilityValue: String {
             if let lastUpdatedText {
-                return "\(isLoading ? "Updating" : "Live"). \(lastUpdatedText)"
+                return "\(statusTitle). \(lastUpdatedText)"
             }
 
-            return isLoading ? "Updating" : "Live"
+            return statusTitle
+        }
+
+        private var statusTitle: String {
+            if isLoading {
+                return "Updating"
+            }
+
+            return isShowingCachedEstimate ? "Cached" : "Live"
+        }
+
+        private var statusSystemImage: String {
+            if isLoading {
+                return "arrow.triangle.2.circlepath"
+            }
+
+            return isShowingCachedEstimate ? "clock.arrow.circlepath" : "fuelpump"
+        }
+
+        private var statusEmphasis: AuraPill.Emphasis {
+            if isLoading {
+                return .neutral
+            }
+
+            return isShowingCachedEstimate ? .neutral : .accent
         }
     }
 

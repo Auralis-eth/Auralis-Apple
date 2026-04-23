@@ -9,10 +9,21 @@ final class ERC20HoldingsSyncCoordinator {
 
     enum Result: Equatable {
         case applied(TokenHoldingsProviderWarning?)
-        case fetchFailed
+        case fetchFailed(Error)
         case persistFailed
         case dropped
         case cancelled
+
+        static func == (lhs: Result, rhs: Result) -> Bool {
+            switch (lhs, rhs) {
+            case (.applied(let lhsWarning), .applied(let rhsWarning)):
+                return lhsWarning == rhsWarning
+            case (.fetchFailed, .fetchFailed), (.persistFailed, .persistFailed), (.dropped, .dropped), (.cancelled, .cancelled):
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     private var activeSyncID: UUID?
@@ -60,7 +71,7 @@ final class ERC20HoldingsSyncCoordinator {
                 return .dropped
             }
             complete(syncID)
-            return .fetchFailed
+            return .fetchFailed(error)
         }
     }
 

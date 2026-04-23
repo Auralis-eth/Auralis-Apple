@@ -23,6 +23,7 @@ final class ContextService {
         let isLoading: Bool
         let refreshedAt: Date?
         let nativeBalanceDisplay: String?
+        let nativeBalanceStatusMessage: String?
         let nativeBalanceUpdatedAt: Date?
         let nativeBalanceProvenance: ContextProvenance
         let freshnessTTL: TimeInterval?
@@ -110,6 +111,7 @@ final class ContextService {
             isLoading: loadingProvider(),
             refreshedAt: refreshedAtProvider(),
             nativeBalanceDisplay: nil,
+            nativeBalanceStatusMessage: nil,
             nativeBalanceUpdatedAt: nil,
             nativeBalanceProvenance: .localCache,
             freshnessTTL: freshnessTTLProvider(),
@@ -231,6 +233,7 @@ private extension ContextService {
             isLoading: loadingProvider(),
             refreshedAt: refreshedAtProvider(),
             nativeBalanceDisplay: nativeBalanceSnapshot.displayValue,
+            nativeBalanceStatusMessage: nativeBalanceSnapshot.statusMessage,
             nativeBalanceUpdatedAt: nativeBalanceSnapshot.updatedAt,
             nativeBalanceProvenance: nativeBalanceSnapshot.provenance,
             freshnessTTL: freshnessTTLProvider(),
@@ -255,6 +258,7 @@ private extension ContextService {
             loadingProvider: { inputs.isLoading },
             refreshedAtProvider: { inputs.refreshedAt },
             nativeBalanceDisplayProvider: { inputs.nativeBalanceDisplay },
+            nativeBalanceStatusMessageProvider: { inputs.nativeBalanceStatusMessage },
             nativeBalanceUpdatedAtProvider: { inputs.nativeBalanceUpdatedAt },
             nativeBalanceProvenanceProvider: { inputs.nativeBalanceProvenance },
             freshnessTTLProvider: { inputs.freshnessTTL },
@@ -269,6 +273,7 @@ private extension ContextService {
 
     private struct NativeBalanceSnapshot {
         let displayValue: String?
+        let statusMessage: String?
         let updatedAt: Date?
         let provenance: ContextProvenance
     }
@@ -283,6 +288,7 @@ private extension ContextService {
         guard !address.isEmpty else {
             return NativeBalanceSnapshot(
                 displayValue: nil,
+                statusMessage: nil,
                 updatedAt: nil,
                 provenance: .localCache
             )
@@ -293,6 +299,7 @@ private extension ContextService {
            cachedSnapshot.scope.selectedChains.value == [chain] {
             return NativeBalanceSnapshot(
                 displayValue: cachedSnapshot.balances.nativeBalanceDisplay.value,
+                statusMessage: cachedSnapshot.balances.nativeBalanceStatusMessage.value,
                 updatedAt: cachedSnapshot.balances.nativeBalanceDisplay.updatedAt,
                 provenance: cachedSnapshot.balances.nativeBalanceDisplay.provenance
             )
@@ -302,6 +309,7 @@ private extension ContextService {
             let balance = try await provider.nativeBalance(for: address, chain: chain)
             return NativeBalanceSnapshot(
                 displayValue: balance.formattedEtherDisplay,
+                statusMessage: nil,
                 updatedAt: .now,
                 provenance: .onChain
             )
@@ -311,6 +319,7 @@ private extension ContextService {
                let cachedDisplayValue = cachedSnapshot.balances.nativeBalanceDisplay.value {
                 return NativeBalanceSnapshot(
                     displayValue: cachedDisplayValue,
+                    statusMessage: nativeBalanceStatusMessage(for: error, hadCachedBalance: true),
                     updatedAt: cachedSnapshot.balances.nativeBalanceDisplay.updatedAt,
                     provenance: .localCache
                 )
@@ -318,9 +327,69 @@ private extension ContextService {
 
             return NativeBalanceSnapshot(
                 displayValue: nil,
+                statusMessage: nativeBalanceStatusMessage(for: error, hadCachedBalance: false),
                 updatedAt: nil,
                 provenance: .localCache
             )
         }
+    }
+
+    private static func nativeBalanceStatusMessage(
+        for error: Error,
+        hadCachedBalance: Bool
+    ) -> String {
+        if let providerError = error as? ProviderAbstractionError {
+            switch providerError {
+            case .unauthorized:
+                return "Auralis could not refresh the native balance because the provider rejected this build's credentials."
+            case .rateLimited:
+                return hadCachedBalance
+                    ? "Auralis kept the last native balance because the provider is rate-limiting requests right now."
+                    : "Auralis could not load the native balance because the provider is rate-limiting requests right now."
+            case .unavailable:
+                return hadCachedBalance
+                    ? "Auralis kept the last native balance because the provider is temporarily unavailable for this wallet and chain."
+                    : "Auralis could not load the native balance because the provider is temporarily unavailable for this wallet and chain."
+            case .invalidResponse:
+                return hadCachedBalance
+                    ? "Auralis kept the last native balance because the provider returned data it could not read for this wallet and chain."
+                    : "Auralis could not load the native balance because the provider returned data it could not read for this wallet and chain."
+            case .badStatus(let statusCode, let message):
+                let suffix = if let message, !message.isEmpty {
+                    " (\(message))"
+                } else {
+                    ""
+                }
+                return hadCachedBalance
+                    ? "Auralis kept the last native balance because the provider returned HTTP \(statusCode)\(suffix)."
+                    : "Auralis could not load the native balance because the provider returned HTTP \(statusCode)\(suffix)."
+            case .providerError(let message):
+                return hadCachedBalance
+                    ? "Auralis kept the last native balance because the provider reported an error: \(message)"
+                    : "Auralis could not load the native balance because the provider reported an error: \(message)"
+            case .missingAPIKey:
+                return "Auralis could not refresh the native balance because this build is missing provider configuration."
+            case .unsupportedChain:
+                return "Auralis cannot refresh the native balance for this chain yet."
+            case .invalidURL:
+                return "Auralis could not refresh the native balance because the provider URL is invalid."
+            case .invalidAddress:
+                return "Auralis could not refresh the native balance because the wallet address is invalid."
+            case .invalidBalancePayload:
+                return hadCachedBalance
+                    ? "Auralis kept the last native balance because the provider returned an unreadable balance payload."
+                    : "Auralis could not load the native balance because the provider returned an unreadable balance payload."
+            case .paginationStalled:
+                return hadCachedBalance
+                    ? "Auralis kept the last native balance because the provider stopped paginating cleanly."
+                    : "Auralis could not load the native balance because the provider stopped paginating cleanly."
+            case .unsupportedMethod:
+                return "Auralis could not refresh the native balance because the provider does not support the required method."
+            }
+        }
+
+        return hadCachedBalance
+            ? "Auralis kept the last native balance because the live provider did not respond cleanly for this wallet and chain."
+            : "Auralis could not load the native balance for the active wallet and chain just now. Try again in a moment."
     }
 }

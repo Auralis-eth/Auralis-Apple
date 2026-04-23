@@ -14,17 +14,32 @@ final class Web3EthereumNameServiceClient: EthereumNameServiceClient, Sendable {
     }
 
     func resolveAddress(forENS name: String) async throws -> String {
-        let address = try await makeEthereumNameService().resolve(
-            ens: name,
-            mode: .allowOffchainLookup
-        )
+        let address: EthereumAddress
+        if allowsOffchainLookup {
+            address = try await makeEthereumNameService().resolve(
+                ens: name,
+                mode: .allowOffchainLookup
+            )
+        } else {
+            address = try await makeEthereumNameService().resolve(
+                ens: name,
+                mode: .onchain
+            )
+        }
         return address.asString()
     }
 
     func resolveName(forAddress address: String) async throws -> String {
-        try await makeEthereumNameService().resolve(
+        if allowsOffchainLookup {
+            return try await makeEthereumNameService().resolve(
+                address: EthereumAddress(address),
+                mode: .allowOffchainLookup
+            )
+        }
+
+        return try await makeEthereumNameService().resolve(
             address: EthereumAddress(address),
-            mode: .allowOffchainLookup
+            mode: .onchain
         )
     }
 

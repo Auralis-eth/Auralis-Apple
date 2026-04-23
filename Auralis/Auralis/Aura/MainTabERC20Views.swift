@@ -83,6 +83,10 @@ struct ERC20TokensRootView: View {
             ?? contextSnapshot.freshness.lastSuccessfulRefreshAt
     }
 
+    private var nativeBalanceStatusMessage: String? {
+        contextSnapshot.balances.nativeBalanceStatusMessage.value
+    }
+
     private var syncKey: ERC20HoldingsSyncKey {
         ERC20HoldingsSyncKey(
             accountAddress: NFT.normalizedScopeComponent(currentAccountAddress) ?? "",
@@ -243,11 +247,12 @@ struct ERC20TokensRootView: View {
             providerErrorMessage = nil
             providerWarningMessage = warning?.message
             persistenceErrorMessage = nil
-        case .fetchFailed:
+        case .fetchFailed(let error):
             providerWarningMessage = nil
-            providerErrorMessage = hadNoHoldings
-                ? "Auralis could not load token holdings for the active wallet and chain just now. Try again in a moment."
-                : "Auralis kept the last saved ERC-20 holdings because the live token provider did not respond cleanly for this scope."
+            providerErrorMessage = providerErrorMessage(
+                for: error,
+                hadNoHoldings: hadNoHoldings
+            )
         case .persistFailed:
             providerWarningMessage = nil
             providerErrorMessage = nil
@@ -277,6 +282,66 @@ struct ERC20TokensRootView: View {
         }
     }
 
+    private func providerErrorMessage(
+        for error: Error,
+        hadNoHoldings: Bool
+    ) -> String {
+        if let providerError = error as? ProviderAbstractionError {
+            switch providerError {
+            case .unauthorized:
+                return "Auralis could not refresh token holdings because the provider rejected this build's credentials for this request scope."
+            case .rateLimited:
+                return hadNoHoldings
+                    ? "The token holdings provider is rate-limiting requests right now. Try again in a moment."
+                    : "The token holdings provider is rate-limiting requests right now, so Auralis kept your last saved ERC-20 holdings."
+            case .unavailable:
+                return hadNoHoldings
+                    ? "Auralis could not load token holdings because the provider is temporarily unavailable for this wallet and chain."
+                    : "Auralis kept your last saved ERC-20 holdings because the provider is temporarily unavailable for this wallet and chain."
+            case .invalidResponse:
+                return hadNoHoldings
+                    ? "Auralis could not load token holdings because the provider returned data it could not read for this wallet and chain."
+                    : "Auralis kept your last saved ERC-20 holdings because the provider returned data it could not read for this wallet and chain."
+            case .badStatus(let statusCode, let message):
+                let suffix: String
+                if let message, !message.isEmpty {
+                    suffix = " (\(message))"
+                } else {
+                    suffix = ""
+                }
+                return hadNoHoldings
+                    ? "Auralis could not load token holdings because the provider returned HTTP \(statusCode)\(suffix)."
+                    : "Auralis kept your last saved ERC-20 holdings because the provider returned HTTP \(statusCode)\(suffix)."
+            case .providerError(let message):
+                return hadNoHoldings
+                    ? "Auralis could not load token holdings because the provider reported an error: \(message)"
+                    : "Auralis kept your last saved ERC-20 holdings because the provider reported an error: \(message)"
+            case .missingAPIKey:
+                return "Auralis could not refresh token holdings because this build is missing provider configuration."
+            case .unsupportedChain:
+                return "Auralis cannot refresh token holdings for this chain yet."
+            case .invalidURL:
+                return "Auralis could not refresh token holdings because the provider configuration is invalid."
+            case .invalidAddress:
+                return "Auralis could not refresh token holdings because the active wallet address is invalid."
+            case .invalidBalancePayload:
+                return hadNoHoldings
+                    ? "Auralis could not load token holdings because the provider returned an invalid balance payload."
+                    : "Auralis kept your last saved ERC-20 holdings because the provider returned an invalid balance payload."
+            case .paginationStalled:
+                return hadNoHoldings
+                    ? "Auralis could not load token holdings because the provider stopped paginating cleanly for this wallet and chain."
+                    : "Auralis kept your last saved ERC-20 holdings because the provider stopped paginating cleanly for this wallet and chain."
+            case .unsupportedMethod:
+                return "Auralis could not refresh token holdings because the provider does not support the required method."
+            }
+        }
+
+        return hadNoHoldings
+            ? "Auralis could not load token holdings for the active wallet and chain just now. Try again in a moment."
+            : "Auralis kept the last saved ERC-20 holdings because the live token provider did not respond cleanly for this scope."
+    }
+
     @ViewBuilder
     private var holdingsStatusBanner: some View {
         if let persistenceErrorMessage {
@@ -304,6 +369,18 @@ struct ERC20TokensRootView: View {
                 title: "Showing Last Saved Holdings",
                 message: providerErrorMessage,
                 systemImage: "externaldrive.badge.wifi",
+                tone: .warning,
+                action: ShellStatusAction(
+                    title: "Retry",
+                    systemImage: "arrow.clockwise",
+                    handler: refresh
+                )
+            )
+        } else if let nativeBalanceStatusMessage {
+            ShellStatusBanner(
+                title: nativeBalanceDisplay == nil ? "Native Balance Unavailable" : "Native Balance Limited",
+                message: nativeBalanceStatusMessage,
+                systemImage: "bitcoinsign.circle",
                 tone: .warning,
                 action: ShellStatusAction(
                     title: "Retry",

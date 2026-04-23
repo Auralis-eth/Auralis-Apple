@@ -37,19 +37,59 @@ struct GasPriceEstimateViewModelTests {
         #expect(viewModel.estimate == nil)
         #expect(viewModel.error != nil)
     }
+
+    @Test("stale cache fetches preserve the live timestamp and mark the estimate as cached")
+    func staleCacheFetchPreservesTimestampAndCachedState() async throws {
+        let staleDate = Date(timeIntervalSince1970: 1_704_067_200)
+        let viewModel = GasPriceEstimateViewModel(
+            provider: StaleCachedGasPricingProvider(staleDate: staleDate)
+        )
+
+        viewModel.setChain(.ethMainnet)
+
+        for _ in 0..<80 {
+            if viewModel.phase == .loaded {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(viewModel.phase == .loaded)
+        #expect(viewModel.isLoading == false)
+        #expect(viewModel.error == nil)
+        #expect(viewModel.estimate == .example)
+        #expect(viewModel.lastUpdated == staleDate)
+        #expect(viewModel.isShowingCachedEstimate == true)
+    }
 }
 
 private struct SlowGasPricingProvider: GasPricingProviding {
-    func gasPriceEstimate(for chain: Chain) async throws -> GasPriceEstimate {
+    func gasPriceEstimate(for chain: Chain) async throws -> GasPriceEstimateResult {
         try await Task.sleep(for: .seconds(5))
-        return .example
+        return GasPriceEstimateResult(
+            estimate: .example,
+            fetchedAt: .now,
+            source: .live
+        )
     }
 }
 
 private struct FailingGasPricingProvider: GasPricingProviding {
     struct StubError: Error {}
 
-    func gasPriceEstimate(for chain: Chain) async throws -> GasPriceEstimate {
+    func gasPriceEstimate(for chain: Chain) async throws -> GasPriceEstimateResult {
         throw StubError()
+    }
+}
+
+private struct StaleCachedGasPricingProvider: GasPricingProviding {
+    let staleDate: Date
+
+    func gasPriceEstimate(for chain: Chain) async throws -> GasPriceEstimateResult {
+        GasPriceEstimateResult(
+            estimate: .example,
+            fetchedAt: staleDate,
+            source: .staleCache
+        )
     }
 }

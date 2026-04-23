@@ -226,6 +226,11 @@ struct ChromeContextInspectorSheet: View {
                         "Balance Updated",
                         value: formattedTimestamp(snapshot.balances.nativeBalanceDisplay.updatedAt)
                     )
+                    if let statusMessage = snapshot.balances.nativeBalanceStatusMessage.value {
+                        Text(statusMessage)
+                            .font(.footnote)
+                            .foregroundStyle(Color.textSecondary)
+                    }
                 }
 
                 Section("Freshness") {

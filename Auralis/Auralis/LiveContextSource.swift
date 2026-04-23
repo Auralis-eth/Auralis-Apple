@@ -9,6 +9,7 @@ struct LiveContextSource: ContextSource {
     let loadingProvider: () -> Bool
     let refreshedAtProvider: () -> Date?
     let nativeBalanceDisplayProvider: () -> String?
+    let nativeBalanceStatusMessageProvider: () -> String?
     let nativeBalanceUpdatedAtProvider: () -> Date?
     let nativeBalanceProvenanceProvider: () -> ContextProvenance
     let freshnessTTLProvider: () -> TimeInterval?
@@ -27,6 +28,7 @@ struct LiveContextSource: ContextSource {
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
         nativeBalanceDisplayProvider: @escaping () -> String? = { nil },
+        nativeBalanceStatusMessageProvider: @escaping () -> String? = { nil },
         nativeBalanceUpdatedAtProvider: @escaping () -> Date? = { nil },
         nativeBalanceProvenanceProvider: @escaping () -> ContextProvenance = { .localCache },
         freshnessTTLProvider: @escaping () -> TimeInterval? = { nil },
@@ -44,6 +46,7 @@ struct LiveContextSource: ContextSource {
         self.loadingProvider = loadingProvider
         self.refreshedAtProvider = refreshedAtProvider
         self.nativeBalanceDisplayProvider = nativeBalanceDisplayProvider
+        self.nativeBalanceStatusMessageProvider = nativeBalanceStatusMessageProvider
         self.nativeBalanceUpdatedAtProvider = nativeBalanceUpdatedAtProvider
         self.nativeBalanceProvenanceProvider = nativeBalanceProvenanceProvider
         self.freshnessTTLProvider = freshnessTTLProvider
@@ -88,6 +91,11 @@ struct LiveContextSource: ContextSource {
                     nativeBalanceDisplayProvider(),
                     provenance: nativeBalanceProvenanceProvider(),
                     updatedAt: nativeBalanceUpdatedAtProvider() ?? refreshTimestamp
+                ),
+                nativeBalanceStatusMessage: ContextField(
+                    nativeBalanceStatusMessageProvider(),
+                    provenance: .localCache,
+                    updatedAt: refreshTimestamp
                 )
             ),
             libraryPointers: ContextLibraryPointers(

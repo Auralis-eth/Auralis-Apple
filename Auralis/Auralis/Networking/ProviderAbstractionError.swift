@@ -5,6 +5,7 @@ enum ProviderAbstractionError: LocalizedError, Equatable {
     case unsupportedChain(Chain)
     case invalidURL
     case invalidAddress
+    case badStatus(Int, message: String?)
     case invalidResponse
     case unavailable
     case invalidBalancePayload
@@ -24,6 +25,11 @@ enum ProviderAbstractionError: LocalizedError, Equatable {
             return "Provider URL configuration is invalid."
         case .invalidAddress:
             return "The wallet address is invalid."
+        case .badStatus(let statusCode, let message):
+            if let message, !message.isEmpty {
+                return "Provider returned HTTP \(statusCode): \(message)"
+            }
+            return "Provider returned HTTP \(statusCode)."
         case .invalidResponse:
             return "Provider returned an invalid response."
         case .unavailable:
