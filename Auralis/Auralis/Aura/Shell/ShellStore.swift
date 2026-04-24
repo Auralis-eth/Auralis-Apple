@@ -94,7 +94,7 @@ final class ShellStore {
     func send(_ action: ShellAction) async {
         switch action {
         case .restoreFromPersistence:
-            restoreFromPersistence()
+            await restoreFromPersistence()
             await send(.attemptPendingDeepLinkReplay)
 
         case .accountActivated(let account, let correlationID):
@@ -197,7 +197,7 @@ final class ShellStore {
         }
     }
 
-    private func restoreFromPersistence() {
+    private func restoreFromPersistence() async {
         let persistedSelection = selectionPersistence.loadSelection()
         let persistedAccount = try? accountResolver.account(for: persistedSelection.address)
         let fallbackAccount = persistedAccount == nil ? (try? accountResolver.fallbackAccount()) : nil
@@ -225,7 +225,7 @@ final class ShellStore {
 
         state.didFinishInitialRestore = true
         updateAuthenticatedPresentationState()
-        recordAppLaunchIfNeeded()
+        await recordAppLaunchIfNeeded()
     }
 
     private func removeActiveAccount(address: String, correlationID: String?) async {
@@ -489,13 +489,13 @@ final class ShellStore {
         state.hasPresentedAuthenticatedExperience = true
     }
 
-    private func recordAppLaunchIfNeeded() {
+    private func recordAppLaunchIfNeeded() async {
         guard !didRecordAppLaunchReceipt else {
             return
         }
 
         let selection = state.selection ?? ActiveShellSelection(address: "", chain: .ethMainnet)
-        receiptLogger.recordAppLaunch(
+        await receiptLogger.recordAppLaunch(
             address: selection.address,
             chain: selection.chain,
             correlationID: UUID().uuidString

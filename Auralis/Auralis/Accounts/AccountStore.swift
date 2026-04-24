@@ -306,9 +306,9 @@ struct AccountStore {
         )
 
         if overwriteExisting {
-            eventRecorder.record(.removed(address: normalizedAddress), correlationID: correlationID)
+            await eventRecorder.record(.removed(address: normalizedAddress), correlationID: correlationID)
         }
-        eventRecorder.record(.added(address: normalizedAddress), correlationID: correlationID)
+        await eventRecorder.record(.added(address: normalizedAddress), correlationID: correlationID)
 
         guard let account = try account(for: normalizedAddress) else {
             throw AccountStoreError.accountNotFound(normalizedAddress)
@@ -375,7 +375,7 @@ struct AccountStore {
             throw AccountStoreError.accountNotFound(normalizedAddress)
         }
 
-        eventRecorder.record(.selected(address: account.address), correlationID: correlationID)
+        await eventRecorder.record(.selected(address: account.address), correlationID: correlationID)
         return account
     }
 
@@ -392,7 +392,7 @@ struct AccountStore {
             normalizedAddress: normalizedAddress,
             normalizedActiveAddress: activeAddress.flatMap(AccountStore.normalizeAddress)
         )
-        eventRecorder.record(.removed(address: removalSnapshot.removedAddress), correlationID: correlationID)
+        await eventRecorder.record(.removed(address: removalSnapshot.removedAddress), correlationID: correlationID)
 
         return AccountRemovalResult(
             removedAddress: removalSnapshot.removedAddress,
@@ -422,7 +422,7 @@ struct AccountStore {
             normalizedAddress: normalizedAddress,
             chain: chain
         )
-        eventRecorder.record(
+        await eventRecorder.record(
             .currentChainChanged(address: existingAccount.address, from: previousChain, to: chain),
             correlationID: correlationID
         )
@@ -455,7 +455,7 @@ struct AccountStore {
             normalizedAddress: normalizedAddress,
             chain: chain
         )
-        eventRecorder.record(
+        await eventRecorder.record(
             .preferredChainChanged(address: existingAccount.address, from: previousChain, to: chain),
             correlationID: correlationID
         )

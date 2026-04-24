@@ -19,8 +19,8 @@ struct ReceiptEventLogger {
         accountAddress: String,
         chain: Chain,
         correlationID: String
-    ) -> Result<ReceiptRecord, Error> {
-        append(
+    ) async throws -> ReceiptRecord {
+        try await append(
             trigger: "app.launch",
             scope: "app",
             summary: "Launched Auralis",
@@ -40,8 +40,8 @@ struct ReceiptEventLogger {
     func recordContextBuilt(
         snapshot: ContextSnapshot,
         correlationID: String?
-    ) -> Result<ReceiptRecord, Error> {
-        append(
+    ) async throws -> ReceiptRecord {
+        try await append(
             trigger: "context.built",
             scope: "context",
             summary: "Built shell context snapshot",
@@ -62,8 +62,8 @@ struct ReceiptEventLogger {
         accountAddress: String? = nil,
         chain: Chain? = nil,
         correlationID: String? = nil
-    ) -> Result<ReceiptRecord, Error> {
-        append(
+    ) async throws -> ReceiptRecord {
+        try await append(
             trigger: "external_link.opened",
             scope: "navigation.external",
             summary: "Opened external link",
@@ -90,8 +90,8 @@ struct ReceiptEventLogger {
         accountAddress: String? = nil,
         chain: Chain? = nil,
         correlationID: String? = nil
-    ) -> Result<ReceiptRecord, Error> {
-        append(
+    ) async throws -> ReceiptRecord {
+        try await append(
             trigger: "copy.performed",
             scope: "clipboard",
             summary: "Copied value",
@@ -115,8 +115,8 @@ struct ReceiptEventLogger {
         accountAddress: String,
         chain: Chain,
         correlationID: String?
-    ) -> Result<ReceiptRecord, Error> {
-        append(
+    ) async throws -> ReceiptRecord {
+        try await append(
             trigger: "music.library_index.started",
             scope: "music.library",
             summary: "Started music library index rebuild",
@@ -140,8 +140,8 @@ struct ReceiptEventLogger {
         scannedCount: Int,
         writtenCount: Int,
         removedCount: Int
-    ) -> Result<ReceiptRecord, Error> {
-        append(
+    ) async throws -> ReceiptRecord {
+        try await append(
             trigger: "music.library_index.completed",
             scope: "music.library",
             summary: "Rebuilt music library index",
@@ -166,8 +166,8 @@ struct ReceiptEventLogger {
         chain: Chain,
         correlationID: String?,
         error: Error
-    ) -> Result<ReceiptRecord, Error> {
-        append(
+    ) async throws -> ReceiptRecord {
+        try await append(
             trigger: "music.library_index.failed",
             scope: "music.library",
             summary: "Music library index rebuild failed",
@@ -199,34 +199,31 @@ private extension ReceiptEventLogger {
         correlationID: String?,
         actor: ReceiptActor,
         isSuccess: Bool
-    ) -> Result<ReceiptRecord, Error> {
+    ) async throws -> ReceiptRecord {
         let payload = payloadSanitizer.sanitize(rawPayload)
 
-        Task {
-            do {
-                _ = try await receiptStore.append(
-                    ReceiptDraft(
-                        actor: actor,
-                        mode: .observe,
-                        trigger: trigger,
-                        scope: scope,
-                        summary: summary,
-                        provenance: provenance,
-                        isSuccess: isSuccess,
-                        correlationID: correlationID,
-                        timelineAccountAddress: timelineAccountAddress,
-                        timelineChainRawValue: timelineChainRawValue,
-                        details: payload
-                    )
+        do {
+            return try await receiptStore.append(
+                ReceiptDraft(
+                    actor: actor,
+                    mode: .observe,
+                    trigger: trigger,
+                    scope: scope,
+                    summary: summary,
+                    provenance: provenance,
+                    isSuccess: isSuccess,
+                    correlationID: correlationID,
+                    timelineAccountAddress: timelineAccountAddress,
+                    timelineChainRawValue: timelineChainRawValue,
+                    details: payload
                 )
-            } catch {
-                logger.error(
-                    "Failed to append receipt event trigger=\(trigger, privacy: .public) scope=\(scope, privacy: .public) correlationID=\(correlationID ?? "nil", privacy: .private(mask: .hash)) error=\(error.localizedDescription, privacy: .public)"
-                )
-            }
+            )
+        } catch {
+            logger.error(
+                "Failed to append receipt event trigger=\(trigger, privacy: .public) scope=\(scope, privacy: .public) correlationID=\(correlationID ?? "nil", privacy: .private(mask: .hash)) error=\(error.localizedDescription, privacy: .public)"
+            )
+            throw error
         }
-
-        return .failure(DeferredReceiptWriteError())
     }
 }
 
@@ -358,8 +355,3 @@ private struct MusicLibraryIndexFailedReceiptPayload: TypedReceiptPayload {
         ]
     }
 }
-    private struct DeferredReceiptWriteError: LocalizedError {
-        var errorDescription: String? {
-            "Receipt write was scheduled asynchronously."
-        }
-    }

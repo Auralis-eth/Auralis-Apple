@@ -14,7 +14,7 @@ struct ReceiptEventLoggerTests {
 
     @Test("receipt event logger records app launch, context build, link open, and copy actions")
     @MainActor
-    func loggerRecordsPhaseFourActions() throws {
+    func loggerRecordsPhaseFourActions() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
@@ -34,13 +34,13 @@ struct ReceiptEventLoggerTests {
             prefersDemoDataProvider: { false }
         ).snapshot()
 
-        logger.recordAppLaunch(
+        _ = try await logger.recordAppLaunch(
             accountAddress: snapshot.scope.accountAddress.value ?? "",
             chain: Chain.baseMainnet,
             correlationID: "launch-1"
         )
-        logger.recordContextBuilt(snapshot: snapshot, correlationID: "context-1")
-        logger.recordExternalLinkOpened(
+        _ = try await logger.recordContextBuilt(snapshot: snapshot, correlationID: "context-1")
+        _ = try await logger.recordExternalLinkOpened(
             label: "OpenSea",
             url: URL(string: "https://opensea.io/assets/ethereum/0xabc/1")!,
             surface: "newsfeed.nft_detail",
@@ -48,7 +48,7 @@ struct ReceiptEventLoggerTests {
             chain: Chain.baseMainnet,
             correlationID: "link-1"
         )
-        logger.recordCopyAction(
+        _ = try await logger.recordCopyAction(
             subject: "nft.id",
             value: "nft-123",
             surface: "newsfeed.card",
@@ -89,27 +89,22 @@ struct ReceiptEventLoggerTests {
 
     @Test("receipt event logger returns a failure result when the store append fails")
     @MainActor
-    func loggerReturnsFailureWhenStoreAppendFails() {
+    func loggerReturnsFailureWhenStoreAppendFails() async {
         let logger = ReceiptEventLogger(receiptStore: FailingReceiptStore())
 
-        let result = logger.recordCopyAction(
-            subject: "nft.id",
-            value: "nft-123",
-            surface: "newsfeed.card",
-            correlationID: "copy-failure-1"
-        )
-
-        switch result {
-        case .success:
-            Issue.record("Expected receipt logging to fail when the store append throws.")
-        case .failure(let error):
-            #expect((error as? FailingReceiptStore.StoreError) == .appendFailed)
+        await #expect(throws: FailingReceiptStore.StoreError.appendFailed) {
+            _ = try await logger.recordCopyAction(
+                subject: "nft.id",
+                value: "nft-123",
+                surface: "newsfeed.card",
+                correlationID: "copy-failure-1"
+            )
         }
     }
 
     @Test("receipt event logger preserves correlation and non-sensitive provenance while redacting mounted sensitive payloads")
     @MainActor
-    func loggerRedactsSensitivePayloadsWithoutDroppingFlowContext() throws {
+    func loggerRedactsSensitivePayloadsWithoutDroppingFlowContext() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
@@ -118,7 +113,7 @@ struct ReceiptEventLoggerTests {
         )
         let logger = ReceiptEventLogger(receiptStore: store)
 
-        logger.recordExternalLinkOpened(
+        _ = try await logger.recordExternalLinkOpened(
             label: "Explorer",
             url: URL(string: "https://basescan.org/token/0xabc?a=123")!,
             surface: "newsfeed.nft_detail",
@@ -126,7 +121,7 @@ struct ReceiptEventLoggerTests {
             chain: Chain.baseMainnet,
             correlationID: "link-flow"
         )
-        logger.recordCopyAction(
+        _ = try await logger.recordCopyAction(
             subject: "wallet.address",
             value: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
             surface: "profile.detail",

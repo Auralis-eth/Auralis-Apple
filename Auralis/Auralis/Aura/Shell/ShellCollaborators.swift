@@ -47,7 +47,7 @@ protocol ShellRouterEffectHandling {
 @MainActor
 /// Records receipt events emitted by shell-level actions.
 protocol ShellReceiptLogging {
-    func recordAppLaunch(address: String, chain: Chain, correlationID: String)
+    func recordAppLaunch(address: String, chain: Chain, correlationID: String) async
 }
 
 /// Supplies the current time for refresh staleness decisions.
@@ -224,8 +224,8 @@ struct ReceiptEventShellLogger: ShellReceiptLogging {
         self.receiptEventLogger = receiptEventLogger
     }
 
-    func recordAppLaunch(address: String, chain: Chain, correlationID: String) {
-        receiptEventLogger.recordAppLaunch(
+    func recordAppLaunch(address: String, chain: Chain, correlationID: String) async {
+        _ = try? await receiptEventLogger.recordAppLaunch(
             accountAddress: address,
             chain: chain,
             correlationID: correlationID

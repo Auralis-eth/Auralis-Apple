@@ -170,10 +170,12 @@ final class ContextService {
             inFlightScope = nil
         }
 
-        _ = receiptEventLogger?.recordContextBuilt(
-            snapshot: resolvedSnapshot,
-            correlationID: correlationID
-        )
+        if let receiptEventLogger {
+            _ = try? await receiptEventLogger.recordContextBuilt(
+                snapshot: resolvedSnapshot,
+                correlationID: correlationID
+            )
+        }
 
         return didWinGeneration ? snapshot : resolvedSnapshot
     }

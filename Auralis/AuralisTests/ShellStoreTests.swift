@@ -749,7 +749,7 @@ private final class TestShellRouterEffectHandler: ShellRouterEffectHandling {
 private final class TestShellReceiptLogger: ShellReceiptLogging {
     var recordedLaunches: [(String, Chain, String)] = []
 
-    func recordAppLaunch(address: String, chain: Chain, correlationID: String) {
+    func recordAppLaunch(address: String, chain: Chain, correlationID: String) async {
         recordedLaunches.append((address, chain, correlationID))
     }
 }

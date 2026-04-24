@@ -19,9 +19,17 @@ enum ENSResolvers {
     static func makeLiveClient(
         configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver()
     ) -> any EthereumNameServiceClient {
-        let configuration = try? configurationResolver.configuration(for: .ethMainnet)
-        guard let rpcURL = configuration?.alchemyRPCURL else {
+        let configuration: ProviderEndpointConfiguration
+        do {
+            configuration = try configurationResolver.configuration(for: .ethMainnet)
+        } catch ProviderAbstractionError.invalidURL {
+            return UnavailableEthereumNameServiceClient(error: .invalidProviderConfiguration)
+        } catch {
             return UnavailableEthereumNameServiceClient()
+        }
+
+        guard let rpcURL = configuration.alchemyRPCURL else {
+            return UnavailableEthereumNameServiceClient(error: .missingProviderConfiguration)
         }
 
         return Web3EthereumNameServiceClient(rpcURL: rpcURL)

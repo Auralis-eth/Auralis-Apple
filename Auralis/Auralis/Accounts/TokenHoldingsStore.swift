@@ -1,6 +1,17 @@
 import Foundation
 import SwiftData
 
+enum TokenHoldingsStoreError: LocalizedError, Equatable {
+    case invalidAccountAddress(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidAccountAddress(let address):
+            return "The token holdings account address is invalid: \(address)"
+        }
+    }
+}
+
 @ModelActor
 private actor TokenHoldingsPersistenceStore {
     func upsertNativeHolding(
@@ -151,7 +162,7 @@ struct TokenHoldingsStore {
         updatedAt: Date
     ) async throws {
         guard let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) else {
-            return
+            throw TokenHoldingsStoreError.invalidAccountAddress(accountAddress)
         }
 
         try await persistenceStore.upsertNativeHolding(
@@ -168,7 +179,7 @@ struct TokenHoldingsStore {
         holdings: [ProviderTokenHolding]
     ) async throws {
         guard let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) else {
-            return
+            throw TokenHoldingsStoreError.invalidAccountAddress(accountAddress)
         }
 
         try await persistenceStore.replaceERC20Holdings(

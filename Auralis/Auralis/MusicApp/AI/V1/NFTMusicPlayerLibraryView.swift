@@ -226,7 +226,7 @@ struct NFTMusicPlayerLibraryView: View {
             }
 
             if shouldRebuild {
-                _ = try musicLibraryIndexer.rebuildIndex(
+                _ = try await musicLibraryIndexer.rebuildIndex(
                     accountAddress: currentAccount?.address,
                     chain: currentChain,
                     correlationID: nil,

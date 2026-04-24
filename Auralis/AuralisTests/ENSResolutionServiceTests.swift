@@ -4,6 +4,35 @@ import Testing
 
 @Suite
 struct ENSResolutionServiceTests {
+    @Test("live ENS client preserves missing provider configuration instead of flattening it to provider unavailable")
+    @MainActor
+    func liveClientSurfacesMissingProviderConfiguration() async {
+        let resolver = StubProviderConfigurationResolver(configuration: ProviderEndpointConfiguration(
+            chain: .ethMainnet,
+            alchemyNFTBaseURL: nil,
+            alchemyDataAPIBaseURL: nil,
+            alchemyRPCURL: nil
+        ))
+
+        let client = ENSResolvers.makeLiveClient(configurationResolver: resolver)
+
+        await #expect(throws: ENSResolutionError.missingProviderConfiguration) {
+            _ = try await client.resolveAddress(forENS: "vitalik.eth")
+        }
+    }
+
+    @Test("live ENS client preserves invalid provider configuration distinctly")
+    @MainActor
+    func liveClientSurfacesInvalidProviderConfiguration() async {
+        let client = ENSResolvers.makeLiveClient(
+            configurationResolver: StubProviderConfigurationResolver(error: ProviderAbstractionError.invalidURL)
+        )
+
+        await #expect(throws: ENSResolutionError.invalidProviderConfiguration) {
+            _ = try await client.resolveAddress(forENS: "vitalik.eth")
+        }
+    }
+
     @Test("forward resolution uses fresh cache before touching the client again")
     func forwardResolutionUsesFreshCache() async throws {
         let client = StubEthereumNameServiceClient()
@@ -227,6 +256,31 @@ private actor StubEthereumNameServiceClient: EthereumNameServiceClient {
 
     func reverseCallCount() -> Int {
         reverseCallCountValue
+    }
+}
+
+private struct StubProviderConfigurationResolver: ProviderConfigurationResolving {
+    let configuration: ProviderEndpointConfiguration?
+    let error: Error?
+
+    init(
+        configuration: ProviderEndpointConfiguration? = nil,
+        error: Error? = nil
+    ) {
+        self.configuration = configuration
+        self.error = error
+    }
+
+    func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration {
+        if let error {
+            throw error
+        }
+
+        guard let configuration else {
+            throw ProviderAbstractionError.invalidURL
+        }
+
+        return configuration
     }
 }
 

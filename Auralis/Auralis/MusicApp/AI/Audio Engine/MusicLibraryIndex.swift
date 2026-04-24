@@ -133,7 +133,7 @@ protocol MusicLibraryIndexing {
         chain: Chain,
         correlationID: String?,
         receiptEventLogger: ReceiptEventLogger?
-    ) throws -> MusicLibraryIndexRebuildResult
+    ) async throws -> MusicLibraryIndexRebuildResult
 }
 
 @MainActor
@@ -177,13 +177,15 @@ final class SwiftDataMusicLibraryIndexer: MusicLibraryIndexing {
         chain: Chain,
         correlationID: String?,
         receiptEventLogger: ReceiptEventLogger?
-    ) throws -> MusicLibraryIndexRebuildResult {
+    ) async throws -> MusicLibraryIndexRebuildResult {
         let scopedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
-        receiptEventLogger?.recordMusicLibraryIndexStarted(
-            accountAddress: scopedAccountAddress,
-            chain: chain,
-            correlationID: correlationID
-        )
+        if let receiptEventLogger {
+            _ = try? await receiptEventLogger.recordMusicLibraryIndexStarted(
+                accountAddress: scopedAccountAddress,
+                chain: chain,
+                correlationID: correlationID
+            )
+        }
 
         do {
             let sourceNFTs = try fetchEligibleNFTs(accountAddress: accountAddress, chain: chain)
@@ -244,24 +246,28 @@ final class SwiftDataMusicLibraryIndexer: MusicLibraryIndexing {
                 removedCount: staleItems.count
             )
 
-            receiptEventLogger?.recordMusicLibraryIndexCompleted(
-                accountAddress: scopedAccountAddress,
-                chain: chain,
-                correlationID: correlationID,
-                scannedCount: result.scannedCount,
-                writtenCount: result.writtenCount,
-                removedCount: result.removedCount
-            )
+            if let receiptEventLogger {
+                _ = try? await receiptEventLogger.recordMusicLibraryIndexCompleted(
+                    accountAddress: scopedAccountAddress,
+                    chain: chain,
+                    correlationID: correlationID,
+                    scannedCount: result.scannedCount,
+                    writtenCount: result.writtenCount,
+                    removedCount: result.removedCount
+                )
+            }
 
             return result
         } catch {
             modelContext.rollback()
-            receiptEventLogger?.recordMusicLibraryIndexFailed(
-                accountAddress: scopedAccountAddress,
-                chain: chain,
-                correlationID: correlationID,
-                error: error
-            )
+            if let receiptEventLogger {
+                _ = try? await receiptEventLogger.recordMusicLibraryIndexFailed(
+                    accountAddress: scopedAccountAddress,
+                    chain: chain,
+                    correlationID: correlationID,
+                    error: error
+                )
+            }
             throw error
         }
     }

@@ -150,9 +150,9 @@ struct NFTImageLoaderTests {
         try await waitForLoaderToFinish(loader)
 
         #expect(loader.image == nil)
-        if case .networkError = loader.error {
+        if case .offline = loader.error {
         } else {
-            Issue.record("Expected networkError after the first failed request.")
+            Issue.record("Expected offline error after the first failed request.")
         }
 
         shouldSucceed = true
@@ -164,6 +164,62 @@ struct NFTImageLoaderTests {
         #expect(loader.error == nil)
         #expect(loader.image != nil)
         #expect(requestCount == 2)
+    }
+
+    @Test("offline transport failures surface an offline-specific image error")
+    func offlineTransportFailureUsesOfflineError() async throws {
+        ImageCache.shared.clear()
+        MockURLProtocol.handler = { _ in
+            throw URLError(.notConnectedToInternet)
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer {
+            MockURLProtocol.handler = nil
+        }
+
+        let loader = ImageLoader(
+            url: URL(string: "https://example.com/offline.png")!,
+            session: session
+        )
+        loader.loadIfNeeded()
+
+        try await waitForLoaderToFinish(loader)
+
+        if case .offline = loader.error {
+        } else {
+            Issue.record("Expected offline image error for not-connected transport failure.")
+        }
+        #expect(loader.error?.allowsRetry == true)
+    }
+
+    @Test("timed out transport failures surface a timeout-specific image error")
+    func timedOutTransportFailureUsesTimedOutError() async throws {
+        ImageCache.shared.clear()
+        MockURLProtocol.handler = { _ in
+            throw URLError(.timedOut)
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer {
+            MockURLProtocol.handler = nil
+        }
+
+        let loader = ImageLoader(
+            url: URL(string: "https://example.com/timeout.png")!,
+            session: session
+        )
+        loader.loadIfNeeded()
+
+        try await waitForLoaderToFinish(loader)
+
+        if case .timedOut = loader.error {
+        } else {
+            Issue.record("Expected timedOut image error for timed-out transport failure.")
+        }
+        #expect(loader.error?.allowsRetry == true)
     }
 
     @Test("oversized payload reports file-too-large instead of generic invalid data")

@@ -12,18 +12,18 @@ enum AccountEvent: Equatable {
 
 @MainActor
 protocol AccountEventRecorder {
-    func record(_ event: AccountEvent, correlationID: String?)
+    func record(_ event: AccountEvent, correlationID: String?) async
 }
 
 extension AccountEventRecorder {
-    func record(_ event: AccountEvent) {
-        record(event, correlationID: nil)
+    func record(_ event: AccountEvent) async {
+        await record(event, correlationID: nil)
     }
 }
 
 @MainActor
 struct NoOpAccountEventRecorder: AccountEventRecorder {
-    func record(_ event: AccountEvent, correlationID: String?) { }
+    func record(_ event: AccountEvent, correlationID: String?) async { }
 }
 
 @MainActor
@@ -40,13 +40,11 @@ struct ReceiptBackedAccountEventRecorder: AccountEventRecorder {
         self.payloadSanitizer = payloadSanitizer
     }
 
-    func record(_ event: AccountEvent, correlationID: String?) {
-        Task {
-            do {
-                _ = try await receiptStore.append(makeDraft(for: event, correlationID: correlationID))
-            } catch {
-                logger.error("Failed to append account receipt: \(error.localizedDescription, privacy: .public)")
-            }
+    func record(_ event: AccountEvent, correlationID: String?) async {
+        do {
+            _ = try await receiptStore.append(makeDraft(for: event, correlationID: correlationID))
+        } catch {
+            logger.error("Failed to append account receipt: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

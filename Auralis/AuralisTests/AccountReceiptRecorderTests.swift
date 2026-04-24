@@ -158,14 +158,14 @@ struct AccountReceiptRecorderTests {
             payloadSanitizer: DefaultReceiptPayloadSanitizer()
         )
 
-        recorder.record(
+        await recorder.record(
             AccountEvent.preferredChainChanged(
                 address: "0x1234567890abcdef1234567890abcdef12345678",
                 from: Chain.ethMainnet,
                 to: Chain.baseMainnet
             )
         )
-        recorder.record(
+        await recorder.record(
             AccountEvent.currentChainChanged(
                 address: "0x1234567890abcdef1234567890abcdef12345678",
                 from: Chain.baseMainnet,
@@ -200,7 +200,7 @@ struct AccountReceiptRecorderTests {
         )
         let correlationID = "chain-scope-correlation"
 
-        recorder.record(
+        await recorder.record(
             AccountEvent.currentChainChanged(
                 address: "0x1234567890abcdef1234567890abcdef12345678",
                 from: Chain.ethMainnet,

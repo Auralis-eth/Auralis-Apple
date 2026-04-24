@@ -52,7 +52,7 @@ struct ReceiptTimelineRecord: Identifiable, Equatable, Sendable {
     }
 
     init(storedReceipt: StoredReceipt) {
-        let payload = (try? storedReceipt.decodedPayload()) ?? ReceiptPayload(values: [:])
+        let payload = storedReceipt.decodedDetailsOrEmpty()
 
         self.id = storedReceipt.id
         self.sequenceID = storedReceipt.sequenceID

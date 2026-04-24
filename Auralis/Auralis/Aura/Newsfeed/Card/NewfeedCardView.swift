@@ -158,15 +158,17 @@ struct NewsFeedCardButtons: View {
 #endif
         haptics.notification(.success)
         presentCopyConfirmation()
-        _ = ReceiptEventLogger(
-            receiptStore: ReceiptStores.live(modelContext: modelContext)
-        ).recordCopyAction(
-            subject: "nft.id",
-            value: nft.id,
-            surface: "newsfeed.card",
-            accountAddress: nft.accountAddress,
-            chain: nft.network
-        )
+        Task {
+            _ = try? await ReceiptEventLogger(
+                receiptStore: ReceiptStores.live(modelContext: modelContext)
+            ).recordCopyAction(
+                subject: "nft.id",
+                value: nft.id,
+                surface: "newsfeed.card",
+                accountAddress: nft.accountAddress,
+                chain: nft.network
+            )
+        }
     }
 
     private func presentCopyConfirmation() {

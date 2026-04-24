@@ -121,15 +121,17 @@ struct OpenSeaLink: View {
     var body: some View {
         if let openSeaURL {
             Button {
-                ReceiptEventLogger(
-                    receiptStore: ReceiptStores.live(modelContext: modelContext)
-                ).recordExternalLinkOpened(
-                    label: "OpenSea",
-                    url: openSeaURL,
-                    surface: "newsfeed.nft_detail",
-                    accountAddress: accountAddress,
-                    chain: chain
-                )
+                Task {
+                    _ = try? await ReceiptEventLogger(
+                        receiptStore: ReceiptStores.live(modelContext: modelContext)
+                    ).recordExternalLinkOpened(
+                        label: "OpenSea",
+                        url: openSeaURL,
+                        surface: "newsfeed.nft_detail",
+                        accountAddress: accountAddress,
+                        chain: chain
+                    )
+                }
                 openURL(openSeaURL)
             } label: {
                 HStack(alignment: .center, spacing: 12) {
@@ -199,15 +201,17 @@ struct EtherscanLink: View {
     var body: some View {
         if let explorerDestination, let explorerURL {
             Button {
-                ReceiptEventLogger(
-                    receiptStore: ReceiptStores.live(modelContext: modelContext)
-                ).recordExternalLinkOpened(
-                    label: explorerDestination.label,
-                    url: explorerURL,
-                    surface: "newsfeed.nft_detail",
-                    accountAddress: accountAddress,
-                    chain: chain
-                )
+                Task {
+                    _ = try? await ReceiptEventLogger(
+                        receiptStore: ReceiptStores.live(modelContext: modelContext)
+                    ).recordExternalLinkOpened(
+                        label: explorerDestination.label,
+                        url: explorerURL,
+                        surface: "newsfeed.nft_detail",
+                        accountAddress: accountAddress,
+                        chain: chain
+                    )
+                }
                 openURL(explorerURL)
             } label: {
                 HStack(alignment: .center, spacing: 12) {

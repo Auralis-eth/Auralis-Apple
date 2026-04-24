@@ -54,6 +54,32 @@ struct PrivacyResetServiceTests {
         #expect(selectionPersistence.clearSelectionCallCount == 1)
         #expect(pinnedItemsStore.pinnedActions(for: "0x1111111111111111111111111111111111111111").isEmpty)
     }
+
+    @Test("token holdings persistence rejects empty account scope instead of silently succeeding")
+    func tokenHoldingsStoreRejectsEmptyAccountScope() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let store = TokenHoldingsStore(modelContext: context)
+
+        await #expect(throws: TokenHoldingsStoreError.invalidAccountAddress("   ")) {
+            try await store.upsertNativeHolding(
+                accountAddress: "   ",
+                chain: .ethMainnet,
+                amountDisplay: "1.25",
+                updatedAt: .now
+            )
+        }
+
+        await #expect(throws: TokenHoldingsStoreError.invalidAccountAddress("")) {
+            try await store.replaceERC20Holdings(
+                accountAddress: "",
+                chain: .ethMainnet,
+                holdings: []
+            )
+        }
+
+        #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
+    }
 }
 
 @MainActor

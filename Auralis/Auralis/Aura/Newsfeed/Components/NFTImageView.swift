@@ -46,6 +46,8 @@ final class ImageLoader: ObservableObject {
 
     enum LoadingError: Error {
         case invalidData
+        case offline
+        case timedOut
         case networkError
         case badStatus(Int)
         case svgData
@@ -57,8 +59,10 @@ final class ImageLoader: ObservableObject {
             switch self {
             case .invalidData, .svgData:
                 return "photo.badge.exclamationmark"
-            case .networkError:
+            case .offline, .networkError:
                 return "network.slash"
+            case .timedOut:
+                return "clock.badge.exclamationmark"
             case .badStatus(let statusCode) where statusCode == 404:
                 return "photo"
             case .badStatus:
@@ -74,6 +78,10 @@ final class ImageLoader: ObservableObject {
             switch self {
             case .invalidData:
                 return "Auralis could not decode this image."
+            case .offline:
+                return "You appear to be offline. Reconnect to load this NFT image."
+            case .timedOut:
+                return "The image preview timed out. Try again in a moment."
             case .networkError:
                 return "Auralis could not load the image right now."
             case .badStatus(let statusCode) where statusCode == 404:
@@ -95,7 +103,7 @@ final class ImageLoader: ObservableObject {
 
         var allowsRetry: Bool {
             switch self {
-            case .networkError, .badStatus(429):
+            case .offline, .timedOut, .networkError, .badStatus(429):
                 return true
             case .badStatus(let statusCode):
                 return (500...599).contains(statusCode)
@@ -251,8 +259,21 @@ final class ImageLoader: ObservableObject {
 
                 return .failure(.invalidData)
             }.value
+        } catch let error as URLError {
+            return .failure(mapTransportError(error))
         } catch {
             return .failure(.networkError)
+        }
+    }
+
+    nonisolated private static func mapTransportError(_ error: URLError) -> LoadingError {
+        switch error.code {
+        case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed, .internationalRoamingOff:
+            return .offline
+        case .timedOut:
+            return .timedOut
+        default:
+            return .networkError
         }
     }
 }

@@ -14,7 +14,7 @@ struct MusicLibraryIndexTests {
 
     @Test("music library index rebuild loads from scoped local NFTs and ignores non-music records")
     @MainActor
-    func rebuildLoadsScopedMusicNFTs() throws {
+    func rebuildLoadsScopedMusicNFTs() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
 
@@ -46,7 +46,7 @@ struct MusicLibraryIndexTests {
 
         let indexer = SwiftDataMusicLibraryIndexer(modelContext: context)
 
-        let result = try indexer.rebuildIndex(
+        let result = try await indexer.rebuildIndex(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet,
             correlationID: "music-rebuild-load",
@@ -67,7 +67,7 @@ struct MusicLibraryIndexTests {
 
     @Test("music library index rebuild removes stale rows when source NFTs disappear from the active scope")
     @MainActor
-    func rebuildRemovesStaleRows() throws {
+    func rebuildRemovesStaleRows() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
@@ -83,7 +83,7 @@ struct MusicLibraryIndexTests {
         try context.save()
 
         let indexer = SwiftDataMusicLibraryIndexer(modelContext: context)
-        _ = try indexer.rebuildIndex(
+        _ = try await indexer.rebuildIndex(
             accountAddress: accountAddress,
             chain: .ethMainnet,
             correlationID: "music-rebuild-prime",
@@ -95,7 +95,7 @@ struct MusicLibraryIndexTests {
         }
         try context.save()
 
-        let result = try indexer.rebuildIndex(
+        let result = try await indexer.rebuildIndex(
             accountAddress: accountAddress,
             chain: .ethMainnet,
             correlationID: "music-rebuild-cleanup",
@@ -110,7 +110,7 @@ struct MusicLibraryIndexTests {
 
     @Test("music library index rebuild emits started and completed receipts with one shared correlation ID")
     @MainActor
-    func rebuildEmitsReceipts() throws {
+    func rebuildEmitsReceipts() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
@@ -131,7 +131,7 @@ struct MusicLibraryIndexTests {
         let indexer = SwiftDataMusicLibraryIndexer(modelContext: context)
         let correlationID = "music-library-correlation"
 
-        _ = try indexer.rebuildIndex(
+        _ = try await indexer.rebuildIndex(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet,
             correlationID: correlationID,
@@ -153,7 +153,7 @@ struct MusicLibraryIndexTests {
 
     @Test("saved music library rows remain readable from a fresh model context after rebuild")
     @MainActor
-    func rebuiltRowsRemainReadableFromFreshContext() throws {
+    func rebuiltRowsRemainReadableFromFreshContext() async throws {
         let container = try makeContainer()
         let writeContext = ModelContext(container)
 
@@ -168,7 +168,7 @@ struct MusicLibraryIndexTests {
         try writeContext.save()
 
         let indexer = SwiftDataMusicLibraryIndexer(modelContext: writeContext)
-        _ = try indexer.rebuildIndex(
+        _ = try await indexer.rebuildIndex(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet,
             correlationID: "music-rebuild-persisted",

@@ -357,7 +357,7 @@ private final class RecordingAccountEventRecorder: AccountEventRecorder {
         recordedEvents.map(\.event)
     }
 
-    func record(_ event: AccountEvent, correlationID: String?) {
+    func record(_ event: AccountEvent, correlationID: String?) async {
         recordedEvents.append(
             RecordedEvent(event: event, correlationID: correlationID)
         )

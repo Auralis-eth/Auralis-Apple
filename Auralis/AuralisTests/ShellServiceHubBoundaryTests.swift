@@ -37,13 +37,13 @@ struct ShellServiceHubBoundaryTests {
 
     @Test("live shell service hub creates receipt loggers through the shared receipt-store seam")
     @MainActor
-    func receiptEventLoggerFactoryUsesSharedReceiptStore() throws {
+    func receiptEventLoggerFactoryUsesSharedReceiptStore() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptLogger = ShellServiceHub.live.receiptEventLoggerFactory(context)
         let receiptStore = ShellServiceHub.live.receiptStoreFactory(context)
 
-        _ = receiptLogger.recordCopyAction(
+        _ = try await receiptLogger.recordCopyAction(
             subject: "nft.id",
             value: "nft-123",
             surface: "tests.boundary",
