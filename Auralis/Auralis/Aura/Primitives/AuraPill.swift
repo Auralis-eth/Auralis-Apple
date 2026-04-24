@@ -1,6 +1,8 @@
 import SwiftUI
 
+/// Renders a compact Aura badge for status and metadata.
 struct AuraPill: View {
+    /// Defines the visual emphasis applied to an Aura pill.
     enum Emphasis {
         case neutral
         case accent
@@ -13,6 +15,7 @@ struct AuraPill: View {
     private let imageSize: Font
     private let accessibilityLabel: String?
 
+    /// Creates an Aura pill with optional text, symbol, and accessibility label.
     init(_ title: String? = nil, systemImage: String? = nil, emphasis: Emphasis = .neutral, imageSize: Font = .caption, accessibilityLabel: String? = nil) {
         self.title = title
         self.systemImage = systemImage

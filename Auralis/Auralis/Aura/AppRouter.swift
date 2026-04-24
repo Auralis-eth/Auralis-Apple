@@ -1,5 +1,6 @@
 import Observation
 
+/// Lists the top-level tabs managed by the shared app router.
 enum AppTab: Hashable {
     case home
     case news
@@ -12,36 +13,43 @@ enum AppTab: Hashable {
     case nftTokens
 }
 
+/// Represents a routed NFT detail destination within the news flow.
 enum NFTDetailRoute: Hashable {
     case detail(id: String)
 }
 
+/// Represents a routed destination within the music flow.
 enum MusicRoute: Hashable {
     case item(id: String)
     case collection(key: String, title: String)
 }
 
+/// Represents a routed destination within the profile flow.
 enum ProfileRoute: Hashable {
     case detail(address: String)
     case settings
 }
 
+/// Represents a routed destination within the NFT tokens flow.
 enum NFTTokensRoute: Hashable {
     case item(id: String)
     case collection(contractAddress: String?, title: String, chain: Chain)
 }
 
+/// Describes a routed ERC-20 token detail destination.
 struct ERC20TokenRoute: Hashable {
     let contractAddress: String
     let chain: Chain
     let symbol: String
 }
 
+/// Describes a routed receipt destination.
 struct ReceiptRoute: Hashable {
     let id: String
 }
 
 @Observable
+/// Owns top-level tab selection and per-tab navigation state for the app shell.
 final class AppRouter {
     var selectedTab: AppTab = .home
     var newsPath: [NFTDetailRoute] = []

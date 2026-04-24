@@ -1,11 +1,13 @@
 import SwiftUI
 
+/// Presents content on top of the shared scenic Aura gateway backdrop.
 struct AuraScenicScreen<Content: View>: View {
     private let horizontalPadding: CGFloat
     private let verticalPadding: CGFloat
     private let contentAlignment: Alignment
     private let content: () -> Content
 
+    /// Creates a scenic screen with configurable safe-area padding and content alignment.
     init(
         horizontalPadding: CGFloat = 16,
         verticalPadding: CGFloat = 16,

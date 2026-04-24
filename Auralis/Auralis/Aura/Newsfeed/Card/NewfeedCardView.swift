@@ -107,10 +107,9 @@ struct NewsFeedCardButtons: View {
                         .stroke(Color.textPrimary, lineWidth: 2)
                         .frame(width: 25, height: 25)
 
-                    // Decorative placeholder until creator-profile routing exists.
-                    Circle()
-                        .fill(Color.orange)
-                        .frame(width: 20, height: 20)
+                    SystemImage("circle.dotted")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.textSecondary.opacity(0.85))
                 }
                 .frame(minWidth: 44, minHeight: 44)
                 .accessibilityHidden(true)
@@ -159,7 +158,7 @@ struct NewsFeedCardButtons: View {
 #endif
         haptics.notification(.success)
         presentCopyConfirmation()
-        ReceiptEventLogger(
+        _ = ReceiptEventLogger(
             receiptStore: ReceiptStores.live(modelContext: modelContext)
         ).recordCopyAction(
             subject: "nft.id",

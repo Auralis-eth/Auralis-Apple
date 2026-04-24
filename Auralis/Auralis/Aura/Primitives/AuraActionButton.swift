@@ -1,6 +1,8 @@
 import SwiftUI
 
+/// Renders an Aura-styled capsule button for hero and inline actions.
 struct AuraActionButton: View {
+    /// Defines the visual treatment for an Aura action button.
     enum Style {
         case hero
         case surface
@@ -11,6 +13,7 @@ struct AuraActionButton: View {
     private let style: Style
     private let action: () -> Void
 
+    /// Creates an Aura-styled action button with optional SF Symbol adornment.
     init(
         _ title: String,
         systemImage: String? = nil,

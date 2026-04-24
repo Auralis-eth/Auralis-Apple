@@ -1,5 +1,6 @@
 import Foundation
 
+/// Enumerates the intents that can mutate shell state or trigger shell side effects.
 enum ShellAction {
     case restoreFromPersistence
     case accountActivated(account: EOAccount, correlationID: String?)

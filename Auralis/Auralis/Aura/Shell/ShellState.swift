@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 
+/// Captures the shell state needed to restore selection, drive refresh, and route deferred work.
 struct ShellState: Equatable {
     var selection: ActiveShellSelection?
     var activeAccountID: PersistentIdentifier?

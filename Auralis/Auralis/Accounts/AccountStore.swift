@@ -125,6 +125,7 @@ private actor AccountPersistenceStore {
     }
 }
 
+/// Enumerates the account-store failures surfaced to wallet entry and selection flows.
 enum AccountStoreError: LocalizedError, Equatable {
     case invalidAddress
     case duplicateAddress(String)
@@ -156,6 +157,7 @@ enum AccountStoreError: LocalizedError, Equatable {
     }
 }
 
+/// Classifies pasted or scanned wallet input before account mutations run.
 enum AccountAddressValidationResult: Equatable {
     case empty
     case valid(String)
@@ -184,22 +186,26 @@ enum AccountAddressValidationResult: Equatable {
     }
 }
 
+/// Describes the result of removing an account, including any fallback selection.
 struct AccountRemovalResult {
     let removedAddress: String
     let fallbackAccount: EOAccount?
 }
 
+/// Describes the result of activating an account, including whether it was newly created.
 struct AccountActivationResult {
     let account: EOAccount
     let wasCreated: Bool
 }
 
 @MainActor
+/// Coordinates wallet validation, persistence, selection, and account-level receipt logging.
 struct AccountStore {
     private let modelContext: ModelContext
     private let eventRecorder: any AccountEventRecorder
     private let persistenceStore: AccountPersistenceStore
 
+    /// Creates an account store that performs mutations without recording account events.
     init(modelContext: ModelContext) {
         self.init(
             modelContext: modelContext,
@@ -207,6 +213,7 @@ struct AccountStore {
         )
     }
 
+    /// Creates an account store backed by SwiftData and an explicit account event recorder.
     init(
         modelContext: ModelContext,
         eventRecorder: any AccountEventRecorder
@@ -216,10 +223,12 @@ struct AccountStore {
         self.persistenceStore = AccountPersistenceStore(modelContainer: modelContext.container)
     }
 
+    /// Normalizes supported wallet-address input into the canonical stored representation.
     static func normalizeAddress(_ rawAddress: String) -> String? {
         validateAddressInput(rawAddress).normalizedAddress
     }
 
+    /// Validates wallet entry input and reports whether it can be used for account mutations.
     static func validateAddressInput(_ rawAddress: String) -> AccountAddressValidationResult {
         let trimmed = rawAddress.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -238,6 +247,7 @@ struct AccountStore {
         return .valid(normalizedAddress)
     }
 
+    /// Returns whether the supplied input resembles an ENS name instead of a raw wallet address.
     static func looksLikeENSName(_ candidate: String) -> Bool {
         candidate.trimmingCharacters(in: .whitespacesAndNewlines).range(
             of: #"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.eth$"#,

@@ -4,6 +4,7 @@ import SwiftData
 
 @MainActor
 @Observable
+/// Coordinates shell state transitions, persistence restore, refreshes, and deep-link replay.
 final class ShellStore {
     private(set) var state: ShellState
 
@@ -19,6 +20,7 @@ final class ShellStore {
     private var refreshTask: Task<Void, Never>?
     private var didRecordAppLaunchReceipt = false
 
+    /// Creates a shell store with explicit collaborators for persistence, routing, and refresh work.
     init(
         state: ShellState = ShellState(),
         selectionPersistence: any ShellSelectionPersisting,
@@ -41,6 +43,7 @@ final class ShellStore {
         self.clock = clock
     }
 
+    /// Builds the production shell store wired to live services and the app router.
     static func live(
         services: ShellServiceHub,
         modelContext: ModelContext,
@@ -72,6 +75,7 @@ final class ShellStore {
         )
     }
 
+    /// Builds a preview shell store with inert collaborators and optional seeded selection.
     static func preview(selection: ActiveShellSelection? = nil) -> ShellStore {
         ShellStore(
             state: ShellState(selection: selection),
@@ -86,6 +90,7 @@ final class ShellStore {
         )
     }
 
+    /// Applies a shell action and updates state, routing, or refresh work as needed.
     func send(_ action: ShellAction) async {
         switch action {
         case .restoreFromPersistence:

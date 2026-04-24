@@ -1,16 +1,19 @@
 import SwiftUI
 
+/// Defines the glass treatment applied to an Aura surface card.
 enum AuraSurfaceCardStyle {
     case soft
     case regular
 }
 
+/// Wraps content in the shared Aura glass-card treatment.
 struct AuraSurfaceCard<Content: View>: View {
     private let style: AuraSurfaceCardStyle
     private let cornerRadius: CGFloat
     private let padding: CGFloat
     private let content: () -> Content
 
+    /// Creates an Aura surface card with configurable glass style, radius, and padding.
     init(
         style: AuraSurfaceCardStyle = .regular,
         cornerRadius: CGFloat = 30,

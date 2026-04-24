@@ -1,5 +1,6 @@
 import Foundation
 
+/// Describes the resolved shell state after restoring persisted account and chain data.
 struct MainAuraRestoreResult {
     let currentAddress: String
     let currentChain: Chain
@@ -8,6 +9,7 @@ struct MainAuraRestoreResult {
     let shouldProcessPendingDeepLink: Bool
 }
 
+/// Describes the shell consequences of switching the active account.
 struct MainAuraAccountChangeResult {
     let currentAddress: String
     let currentChain: Chain
@@ -16,6 +18,7 @@ struct MainAuraAccountChangeResult {
     let shouldProcessPendingDeepLink: Bool
 }
 
+/// Describes the shell consequences of applying a persisted address change.
 struct MainAuraAddressChangeResult {
     let currentAddress: String
     let currentAccount: EOAccount?
@@ -24,6 +27,7 @@ struct MainAuraAddressChangeResult {
     let shouldProcessPendingDeepLink: Bool
 }
 
+/// Bundles the inputs needed to refresh account-scoped data after an account change.
 struct MainAuraAccountRefreshRequest: Equatable {
     let requestID: UUID
     let account: EOAccount
@@ -32,6 +36,7 @@ struct MainAuraAccountRefreshRequest: Equatable {
     let correlationID: String
 }
 
+/// Encapsulates legacy shell selection logic used by the main Aura shell.
 struct MainAuraShellLogic {
     func restoreInitialState(
         currentAddress: String,

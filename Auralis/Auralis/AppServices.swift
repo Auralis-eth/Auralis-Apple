@@ -193,6 +193,7 @@ struct PolicyActionGateService: PolicyActionGating {
 }
 
 @MainActor
+/// Bundles the long-lived service factories needed to assemble the Aura shell.
 struct ShellServiceHub {
     let modeStateFactory: @MainActor () -> ModeState
     let nftServiceFactory: @MainActor () -> NFTService
@@ -212,6 +213,7 @@ struct ShellServiceHub {
     let privacyResetServiceFactory: @MainActor (ModelContext) -> any PrivacyResetting
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
 
+    /// Returns the production service hub used by the app shell.
     static let live: ShellServiceHub = {
         let readOnlyProviderFactory = ReadOnlyProviderFactory()
         return ShellServiceHub(

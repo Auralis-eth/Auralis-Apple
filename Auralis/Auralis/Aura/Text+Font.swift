@@ -203,7 +203,6 @@ struct SystemImage: View {
     var body: some View {
         Image(systemName: systemName)
             .symbolColorRenderingMode(.gradient)
-            // .resizable()
     }
     init(_ systemName: String) {
         self.systemName = systemName

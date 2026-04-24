@@ -3,12 +3,15 @@ import Observation
 
 @MainActor
 @Observable
+/// Builds and refreshes the home-context snapshot consumed by Aura shell surfaces.
 final class ContextService {
+    /// Defines whether a refresh may hit the network or must reuse cached balance data.
     enum RefreshStrategy {
         case remoteAllowed
         case reuseCachedBalance
     }
 
+    /// Identifies the account, chain, and mode scope for an in-flight context refresh.
     struct RequestScope: Equatable {
         let accountAddress: String
         let chain: Chain
@@ -66,6 +69,7 @@ final class ContextService {
     @ObservationIgnored private var inFlightScope: RequestScope?
     @ObservationIgnored private var refreshGeneration: Int = 0
 
+    /// Creates a context service from shell-owned providers and a context-source builder.
     init(
         contextSourceBuilder: any ShellContextSourceBuilding,
         accountProvider: @escaping () -> EOAccount?,
@@ -128,10 +132,12 @@ final class ContextService {
         )
     }
 
+    /// Returns the most recently resolved snapshot without triggering refresh work.
     func cachedSnapshot() -> ContextSnapshot {
         snapshot
     }
 
+    /// Refreshes the context snapshot for the current shell scope and returns the resolved value.
     @discardableResult
     func refresh(
         correlationID: String? = nil,
@@ -164,7 +170,7 @@ final class ContextService {
             inFlightScope = nil
         }
 
-        receiptEventLogger?.recordContextBuilt(
+        _ = receiptEventLogger?.recordContextBuilt(
             snapshot: resolvedSnapshot,
             correlationID: correlationID
         )
