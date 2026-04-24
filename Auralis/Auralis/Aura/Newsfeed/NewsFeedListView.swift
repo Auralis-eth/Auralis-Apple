@@ -18,6 +18,11 @@ struct NewsFeedListView: View {
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
 
+    private var scopeIdentity: String {
+        let normalizedAddress = NFT.normalizedScopeComponent(currentAccount?.address) ?? ""
+        return "\(normalizedAddress)|\(currentChain.rawValue)"
+    }
+
     var body: some View {
         VStack {
             NewsFeedListingView(
@@ -29,6 +34,7 @@ struct NewsFeedListView: View {
                 currentChain: $currentChain,
                 refreshAction: refreshAction
             )
+            .id(scopeIdentity)
         }
         .toolbar {
             ToolbarItemGroup {
