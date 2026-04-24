@@ -390,7 +390,10 @@ struct MainTabView: View {
                             SettingsView(
                                 currentAccountAddress: activeAccountAddress,
                                 currentChain: currentChain,
-                                services: services
+                                services: services,
+                                onPrivacyResetCompleted: {
+                                    await shellStore.send(.logoutRequested)
+                                }
                             )
                         }
                     }

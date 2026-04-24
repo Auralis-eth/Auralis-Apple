@@ -1,6 +1,27 @@
 import Foundation
 import SwiftData
 
+protocol DerivedSupportDataResetting: Sendable {
+    func resetDerivedSupportData() async throws
+}
+
+@ModelActor
+actor SwiftDataDerivedSupportDataResetService: DerivedSupportDataResetting {
+    func resetDerivedSupportData() throws {
+        let musicLibraryItems = try modelContext.fetch(FetchDescriptor<MusicLibraryItem>())
+        for item in musicLibraryItems {
+            modelContext.delete(item)
+        }
+
+        let nfts = try modelContext.fetch(FetchDescriptor<NFT>())
+        for nft in nfts {
+            modelContext.delete(nft)
+        }
+
+        try modelContext.save()
+    }
+}
+
 @MainActor
 protocol PrivacyResetting {
     func resetLocalPrivacyData() async throws
@@ -12,6 +33,7 @@ struct PrivacyResetService: PrivacyResetting {
     private let searchHistoryStore: SearchHistoryStore
     private let ensCacheResetService: any ENSCacheResetting
     private let tokenHoldingsStore: TokenHoldingsStore
+    private let derivedSupportDataResetService: any DerivedSupportDataResetting
     private let selectionPersistence: any ShellSelectionPersisting
     private let homePinnedItemsStore: HomePinnedItemsStore
 
@@ -20,6 +42,7 @@ struct PrivacyResetService: PrivacyResetting {
         searchHistoryStore: SearchHistoryStore,
         ensCacheResetService: any ENSCacheResetting,
         tokenHoldingsStore: TokenHoldingsStore,
+        derivedSupportDataResetService: any DerivedSupportDataResetting,
         selectionPersistence: any ShellSelectionPersisting = UserDefaultsShellSelectionPersistence(),
         homePinnedItemsStore: HomePinnedItemsStore = HomePinnedItemsStore()
     ) {
@@ -27,6 +50,7 @@ struct PrivacyResetService: PrivacyResetting {
         self.searchHistoryStore = searchHistoryStore
         self.ensCacheResetService = ensCacheResetService
         self.tokenHoldingsStore = tokenHoldingsStore
+        self.derivedSupportDataResetService = derivedSupportDataResetService
         self.selectionPersistence = selectionPersistence
         self.homePinnedItemsStore = homePinnedItemsStore
     }
@@ -37,6 +61,7 @@ struct PrivacyResetService: PrivacyResetting {
         await ensCacheResetService.resetCache()
         await GasPriceCache.shared.clearCache()
         try await tokenHoldingsStore.clearAll()
+        try await derivedSupportDataResetService.resetDerivedSupportData()
         selectionPersistence.clearSelection()
         homePinnedItemsStore.clearAll()
     }
@@ -50,6 +75,9 @@ enum PrivacyResetServices {
             searchHistoryStore: SearchHistoryStore(modelContext: modelContext),
             ensCacheResetService: ENSResolvers.cacheResetService(),
             tokenHoldingsStore: TokenHoldingsStore(modelContext: modelContext),
+            derivedSupportDataResetService: SwiftDataDerivedSupportDataResetService(
+                modelContainer: modelContext.container
+            ),
             selectionPersistence: UserDefaultsShellSelectionPersistence(),
             homePinnedItemsStore: HomePinnedItemsStore()
         )

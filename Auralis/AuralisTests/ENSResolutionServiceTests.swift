@@ -1,9 +1,17 @@
 @testable import Auralis
 import Foundation
+import SwiftData
 import Testing
 
 @Suite
 struct ENSResolutionServiceTests {
+    @MainActor
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([StoredReceipt.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [configuration])
+    }
+
     @Test("live ENS client preserves missing provider configuration instead of flattening it to provider unavailable")
     @MainActor
     func liveClientSurfacesMissingProviderConfiguration() async {
@@ -204,6 +212,43 @@ struct ENSResolutionServiceTests {
         let resolution = try await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "offchain")
 
         #expect(resolution.provenance == .networkOffchainLookupAllowed)
+    }
+
+    @Test("live ENS resolver and cache reset service share one cache store instance")
+    @MainActor
+    func liveResolverAndResetServiceShareCacheStore() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let defaults = UserDefaults(
+            suiteName: "ENSResolutionServiceTests.shared-reset.\(UUID().uuidString)"
+        )!
+        let cacheStore = ENSResolutionCacheStore(
+            userDefaults: defaults,
+            storageKey: "shared-reset"
+        )
+
+        let resolver = ENSResolvers.live(
+            modelContext: context,
+            configurationResolver: StubProviderConfigurationResolver(error: ProviderAbstractionError.invalidURL),
+            cacheStore: cacheStore
+        )
+        let resetService = ENSResolvers.cacheResetService(cacheStore: cacheStore)
+
+        await cacheStore.storeForwardResolution(
+            ENSForwardCacheEntry(
+                ensName: "vitalik.eth",
+                address: "0x1234567890abcdef1234567890abcdef12345678",
+                fetchedAt: Date(timeIntervalSince1970: 1_000)
+            )
+        )
+
+        let cachedBeforeReset = await resolver.cachedForwardResolution(forENS: "vitalik.eth")
+        #expect(cachedBeforeReset?.address == "0x1234567890abcdef1234567890abcdef12345678")
+
+        await resetService.resetCache()
+
+        let cachedAfterReset = await resolver.cachedForwardResolution(forENS: "vitalik.eth")
+        #expect(cachedAfterReset == nil)
     }
 }
 

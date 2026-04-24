@@ -7,7 +7,7 @@ import Testing
 @Suite
 struct PrivacyResetServiceTests {
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([SearchHistoryRecord.self, TokenHolding.self])
+        let schema = Schema([SearchHistoryRecord.self, TokenHolding.self, NFT.self, Tag.self, MusicLibraryItem.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
     }
@@ -20,6 +20,9 @@ struct PrivacyResetServiceTests {
         let tokenHoldingsStore = TokenHoldingsStore(modelContext: context)
         let receiptStore = RecordingReceiptStore()
         let ensCacheResetService = RecordingENSCacheResetService()
+        let derivedSupportDataResetService = SwiftDataDerivedSupportDataResetService(
+            modelContainer: context.container
+        )
         let selectionPersistence = RecordingShellSelectionPersistence()
         let pinnedItemsStore = HomePinnedItemsStore(userDefaults: UserDefaults(suiteName: #function)!)
         let service = PrivacyResetService(
@@ -27,6 +30,7 @@ struct PrivacyResetServiceTests {
             searchHistoryStore: searchHistoryStore,
             ensCacheResetService: ensCacheResetService,
             tokenHoldingsStore: tokenHoldingsStore,
+            derivedSupportDataResetService: derivedSupportDataResetService,
             selectionPersistence: selectionPersistence,
             homePinnedItemsStore: pinnedItemsStore
         )
@@ -43,6 +47,9 @@ struct PrivacyResetServiceTests {
             .openNews,
             accountAddress: "0x1111111111111111111111111111111111111111"
         )
+        context.insert(makeFixtureNFT(tokenId: "moon-1"))
+        context.insert(makeFixtureMusicLibraryItem(id: "track-1", sourceNFTID: "music-source-1"))
+        try context.save()
 
         try await service.resetLocalPrivacyData()
 
@@ -51,6 +58,8 @@ struct PrivacyResetServiceTests {
         #expect(receiptStore.resetAllCallCount == 1)
         #expect(await ensCacheResetService.resetCount() == 1)
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<NFT>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<MusicLibraryItem>()).isEmpty)
         #expect(selectionPersistence.clearSelectionCallCount == 1)
         #expect(pinnedItemsStore.pinnedActions(for: "0x1111111111111111111111111111111111111111").isEmpty)
     }
@@ -80,6 +89,63 @@ struct PrivacyResetServiceTests {
 
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
     }
+}
+
+private func makeFixtureNFT(
+    tokenId: String,
+    accountAddress: String = "0x1111111111111111111111111111111111111111",
+    contractAddress: String = "0x495f947276749ce646f68ac8c248420045cb7b5e"
+) -> NFT {
+    let network: Chain = .ethMainnet
+    let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? "unscoped"
+    let normalizedContractAddress = NFT.normalizedScopeComponent(contractAddress) ?? "unknown"
+
+    return NFT(
+        id: "\(normalizedAccountAddress):\(network.rawValue):\(normalizedContractAddress):\(tokenId)",
+        contract: NFT.Contract(address: contractAddress, chain: network),
+        tokenId: tokenId,
+        name: "Fixture \(tokenId)",
+        image: nil,
+        raw: nil,
+        collection: NFT.Collection(
+            name: "Fixture Collection",
+            chain: network,
+            contractAddress: contractAddress
+        ),
+        tokenUri: "ipfs://fixture-\(tokenId)",
+        timeLastUpdated: "2025-01-01T00:00:00Z",
+        network: network,
+        accountAddress: accountAddress,
+        contentType: "audio/mpeg",
+        collectionName: "Fixture Collection",
+        artistName: "Fixture Artist",
+        animationUrl: "https://example.com/\(tokenId).mp3",
+        audioUrl: "https://example.com/\(tokenId).mp3"
+    )
+}
+
+private func makeFixtureMusicLibraryItem(
+    id: String,
+    sourceNFTID: String
+) -> MusicLibraryItem {
+    MusicLibraryItem(
+        id: id,
+        sourceNFTID: sourceNFTID,
+        accountAddressRawValue: "0x1111111111111111111111111111111111111111",
+        networkRawValue: Chain.ethMainnet.rawValue,
+        title: "Fixture Track",
+        artistName: "Fixture Artist",
+        collectionName: "Fixture Collection",
+        normalizedTitleKey: "fixture track",
+        normalizedArtistKey: "fixture artist",
+        normalizedCollectionKey: "fixture collection",
+        artworkURLString: "https://example.com/\(id).png",
+        contentType: "audio/mpeg",
+        playbackURLString: "https://example.com/\(id).mp3",
+        availability: .ready,
+        availabilityReason: nil,
+        sourceUpdatedAtRawValue: nil
+    )
 }
 
 @MainActor

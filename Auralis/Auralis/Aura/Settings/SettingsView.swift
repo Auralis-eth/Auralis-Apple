@@ -7,6 +7,7 @@ struct SettingsView: View {
     let currentAccountAddress: String
     let currentChain: Chain
     let services: ShellServiceHub
+    let onPrivacyResetCompleted: @MainActor () async -> Void
 
     @State private var isShowingResetConfirmation = false
     @State private var isResettingPrivacyData = false
@@ -101,6 +102,7 @@ struct SettingsView: View {
                     isResettingPrivacyData = false
                     resetSuccessMessage = "Local privacy data was cleared for this device."
                 }
+                await onPrivacyResetCompleted()
             } catch {
                 await MainActor.run {
                     isResettingPrivacyData = false

@@ -3,13 +3,17 @@ import SwiftData
 
 @MainActor
 enum ENSResolvers {
+    private static let sharedCacheStore = ENSResolutionCacheStore()
+
     static func live(
         modelContext: ModelContext,
-        configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver()
+        configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver(),
+        cacheStore: ENSResolutionCacheStore = sharedCacheStore
     ) -> any ENSResolving {
         let client = makeLiveClient(configurationResolver: configurationResolver)
         return Web3EthereumNameServiceResolver(
             client: client,
+            cacheStore: cacheStore,
             eventRecorder: ReceiptBackedENSEventRecorder(
                 receiptStore: ReceiptStores.live(modelContext: modelContext)
             )
@@ -35,7 +39,9 @@ enum ENSResolvers {
         return Web3EthereumNameServiceClient(rpcURL: rpcURL)
     }
 
-    static func cacheResetService() -> ENSCacheResetService {
-        ENSCacheResetService()
+    static func cacheResetService(
+        cacheStore: ENSResolutionCacheStore = sharedCacheStore
+    ) -> ENSCacheResetService {
+        ENSCacheResetService(cacheStore: cacheStore)
     }
 }
