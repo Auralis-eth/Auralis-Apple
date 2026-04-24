@@ -198,6 +198,17 @@ extension AlchemyRPCProvider {
     }
 
     private func mapTransportError(_ error: Error) -> Error {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost:
+                return ProviderAbstractionError.offline
+            case .timedOut, .cannotConnectToHost:
+                return ProviderAbstractionError.unavailable
+            default:
+                return urlError
+            }
+        }
+
         if let requestError = error as? RPCRequestError {
             switch requestError {
             case .badStatus(let statusCode, _, _) where statusCode == 429:
@@ -225,11 +236,7 @@ extension AlchemyRPCProvider {
     }
 
     private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {
-        guard let header = response.value(forHTTPHeaderField: "Retry-After") else {
-            return nil
-        }
-
-        return TimeInterval(header.trimmingCharacters(in: .whitespacesAndNewlines))
+        RetryAfterSupport.parse(from: response)
     }
 
     static func decimalString(fromHexQuantity hexQuantity: String) -> String? {

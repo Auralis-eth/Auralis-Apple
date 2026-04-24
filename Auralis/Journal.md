@@ -566,3 +566,17 @@ The fix was small and deliberate:
 - `ProviderAbstractionTests` now sends a malformed success payload through the real provider path and asserts that `DecodingError` is surfaced explicitly
 
 The useful lesson: “bad data coverage” is not the same as “some later layer eventually noticed something was wrong.” If the provider contract says “decode this success body,” the tests should prove that malformed success bodies fail exactly there.
+
+## 2025-02-14 Provider Error Honesty And Cache Cleanup
+
+This pass was the software equivalent of replacing a building's emergency signage after discovering half the arrows pointed to “somewhere over there.”
+
+The first issue was error translation. The NFT presentation layer knew how to talk about `NFTFetcher.FetcherError`, but typed provider failures from `ProviderAbstractionError` and `AlchemyNFTService.APIError` were slipping through the cracks and getting flattened into generic “unavailable” messaging. Native-balance and ERC-20 flows had a similar problem: raw `URLError`s could bubble up far enough that the UI stopped being specific and started sounding diplomatic. The fix was to tighten the translation contract. Offline is now a first-class provider state, NFT failures understand provider abstraction and Alchemy API errors directly, and the balance/token surfaces now distinguish offline from ordinary provider unavailability.
+
+The second issue was provider resilience. The NFT envelope insisted on fields like `totalCount` and `validAt`, and the token providers decoded entire arrays in one gulp. That meant one malformed row could take the whole page down with it, which is dramatic behavior for what should have been a recoverable bad-record problem. We switched those paths to lossy array decoding and made the envelope metadata optional where the app already treats it as advisory. In plain English: keep the good crates when one tomato in the shipment arrives cursed.
+
+Then there was retry timing. Several network clients only understood numeric `Retry-After` headers and ignored the equally valid HTTP-date form. A shared parser now handles both styles across NFT, token, gas, and audio download code so server-directed backoff is not interpreted like a half-heard train announcement.
+
+ENS caching also got a long-overdue cleanup. When a name's address changed, the resolver correctly detected `mappingChanged` but left the stale forward cache entry behind like an old mailing label on a suitcase. That meant repeated lookups could keep tripping over yesterday's truth. The resolver now removes the stale entry before surfacing the change, and corrupt ENS cache blobs are discarded on load instead of quietly haunting future launches.
+
+Finally, the keychain password store stopped doing high-wire updates with no net. It used to delete the old secret before attempting `SecItemAdd`, so a failed add could turn “update password” into “erase password and act surprised.” The save path now uses the normal add-or-update flow without pre-deleting the existing item.

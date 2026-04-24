@@ -247,11 +247,7 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
     }
 
     private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {
-        guard let header = response.value(forHTTPHeaderField: "Retry-After") else {
-            return nil
-        }
-
-        return TimeInterval(header.trimmingCharacters(in: .whitespacesAndNewlines))
+        RetryAfterSupport.parse(from: response)
     }
 }
 

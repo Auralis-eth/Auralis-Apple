@@ -72,13 +72,14 @@ private struct KeychainPasswordStore {
             uniquingKeysWith: { _, new in new }
         )
 
-        SecItemDelete(keychainBaseQuery as CFDictionary)
-
         let status = SecItemAdd(keychainQuery as CFDictionary, nil)
         if status == errSecDuplicateItem {
             let updateStatus = SecItemUpdate(
                 keychainBaseQuery as CFDictionary,
-                [kSecValueData as String: passwordData] as CFDictionary
+                [
+                    kSecValueData as String: passwordData,
+                    kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+                ] as CFDictionary
             )
             guard updateStatus == errSecSuccess else {
                 passwordStoreLogger.error("Error updating password in Keychain: \(updateStatus, privacy: .public)")

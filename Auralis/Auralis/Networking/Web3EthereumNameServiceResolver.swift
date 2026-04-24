@@ -84,6 +84,7 @@ actor Web3EthereumNameServiceResolver: ENSResolving {
 
             if let previous = await cacheStore.cachedForwardResolution(forENS: normalizedName),
                previous.address != normalizedAddress {
+                await cacheStore.removeForwardResolution(forENS: normalizedName)
                 await eventRecorder.recordMappingChanged(
                     kind: "forward",
                     key: normalizedName,

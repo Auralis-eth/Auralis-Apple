@@ -7,6 +7,7 @@ enum ProviderAbstractionError: LocalizedError, Equatable {
     case invalidAddress
     case badStatus(Int, message: String?)
     case invalidResponse
+    case offline
     case unavailable
     case invalidBalancePayload
     case paginationStalled
@@ -32,6 +33,8 @@ enum ProviderAbstractionError: LocalizedError, Equatable {
             return "Provider returned HTTP \(statusCode)."
         case .invalidResponse:
             return "Provider returned an invalid response."
+        case .offline:
+            return "Provider could not be reached because this device appears to be offline."
         case .unavailable:
             return "Provider is temporarily unavailable."
         case .invalidBalancePayload:

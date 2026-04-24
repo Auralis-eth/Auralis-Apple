@@ -346,6 +346,10 @@ private extension ContextService {
                 return hadCachedBalance
                     ? "Auralis kept the last native balance because the provider is rate-limiting requests right now."
                     : "Auralis could not load the native balance because the provider is rate-limiting requests right now."
+            case .offline:
+                return hadCachedBalance
+                    ? "Auralis kept the last native balance because this device appears to be offline."
+                    : "Auralis could not load the native balance because this device appears to be offline."
             case .unavailable:
                 return hadCachedBalance
                     ? "Auralis kept the last native balance because the provider is temporarily unavailable for this wallet and chain."

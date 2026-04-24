@@ -289,15 +289,7 @@ public final class AudioEngine: ObservableObject {
     }
 
     private func retryAfterInterval(from response: HTTPURLResponse) -> TimeInterval? {
-        guard let header = response.value(forHTTPHeaderField: "Retry-After") else {
-            return nil
-        }
-
-        if let seconds = TimeInterval(header) {
-            return seconds
-        }
-
-        return nil
+        RetryAfterSupport.parse(from: response)
     }
 
     private func downloadRemoteAudio(from url: URL) async throws -> URL {

@@ -31,4 +31,26 @@ struct NFTProviderFailurePresentationTests {
         #expect(presentation.systemImage == "hourglass")
         #expect(presentation.isRetryable)
     }
+
+    @Test("provider abstraction errors preserve offline collection messaging")
+    func providerAbstractionOfflinePresentation() throws {
+        let failure = try #require(
+            NFTProviderFailure(error: ProviderAbstractionError.offline)
+        )
+
+        #expect(failure.kind == .offline)
+        #expect(failure.message.contains("offline"))
+        #expect(failure.isRetryable)
+    }
+
+    @Test("alchemy API credential failures stay misconfigured instead of collapsing to unavailable")
+    func apiCredentialFailuresStaySpecific() throws {
+        let failure = try #require(
+            NFTProviderFailure(error: AlchemyNFTService.APIError.unauthorized(message: "bad key"))
+        )
+
+        #expect(failure.kind == .misconfigured)
+        #expect(failure.message.contains("Unauthorized"))
+        #expect(failure.isRetryable == false)
+    }
 }

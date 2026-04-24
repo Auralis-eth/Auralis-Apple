@@ -362,11 +362,7 @@ final class AlchemyNFTService: NFTInventoryProviding, Sendable {
     }
 
     private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {
-        guard let header = response.value(forHTTPHeaderField: "Retry-After") else { return nil }
-        if let seconds = TimeInterval(header.trimmingCharacters(in: .whitespaces)) {
-            return seconds
-        }
-        return nil
+        RetryAfterSupport.parse(from: response)
     }
 
     private static func redactedURLString(_ url: URL) -> String {

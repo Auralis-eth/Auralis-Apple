@@ -294,6 +294,10 @@ struct ERC20TokensRootView: View {
                 return hadNoHoldings
                     ? "The token holdings provider is rate-limiting requests right now. Try again in a moment."
                     : "The token holdings provider is rate-limiting requests right now, so Auralis kept your last saved ERC-20 holdings."
+            case .offline:
+                return hadNoHoldings
+                    ? "Auralis could not load token holdings because this device appears to be offline."
+                    : "Auralis kept your last saved ERC-20 holdings because this device appears to be offline."
             case .unavailable:
                 return hadNoHoldings
                     ? "Auralis could not load token holdings because the provider is temporarily unavailable for this wallet and chain."

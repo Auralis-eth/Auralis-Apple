@@ -69,6 +69,50 @@ struct ProviderAbstractionTests {
         }
     }
 
+    @Test("Alchemy NFT service tolerates missing optional envelope fields when NFT rows still decode")
+    @MainActor
+    func alchemyNFTServiceAllowsMissingOptionalEnvelopeFields() async throws {
+        let session = makeMockSession()
+        let service = try AlchemyNFTService(
+            chain: .ethMainnet,
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session
+        )
+
+        ProviderMockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            let payload = Data(
+                """
+                {
+                  "ownedNfts": [],
+                  "pageKey": "cursor-1"
+                }
+                """.utf8
+            )
+            return (response, payload)
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        let response = try await service.nftsForOwner(
+            owner: "0x1234567890abcdef1234567890abcdef12345678",
+            pageKey: nil
+        )
+
+        #expect(response.ownedNfts.isEmpty)
+        #expect(response.totalCount == nil)
+        #expect(response.validAt == nil)
+        #expect(response.pageKey == "cursor-1")
+    }
+
     @Test("Alchemy NFT service retries a single request in degraded mode without latching future calls")
     @MainActor
     func alchemyNFTServiceDoesNotLatchDegradedModeAcrossRequests() async throws {
@@ -393,6 +437,132 @@ struct ProviderAbstractionTests {
             Issue.record("Expected token holdings HTTP failure to throw.")
         } catch let error as ProviderAbstractionError {
             #expect(error == .badStatus(400, message: "invalid wallet scope"))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("token holdings provider skips malformed rows instead of failing the whole balances page")
+    @MainActor
+    func tokenHoldingsProviderSkipsMalformedRows() async throws {
+        let session = makeMockSession()
+        let provider = AlchemyTokenHoldingsProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session
+        )
+
+        ProviderMockURLProtocol.handler = { request in
+            let requestURL = try #require(request.url?.absoluteString)
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+
+            switch requestURL {
+            case "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address":
+                return (
+                    response,
+                    Data(
+                        """
+                        {
+                          "data": {
+                            "tokens": [
+                              {
+                                "address": "0x1234567890abcdef1234567890abcdef12345678",
+                                "network": "base-mainnet",
+                                "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                                "tokenBalance": "1000000"
+                              },
+                              {
+                                "address": 42,
+                                "network": "base-mainnet",
+                                "tokenAddress": "0xbad",
+                                "tokenBalance": "oops"
+                              }
+                            ]
+                          }
+                        }
+                        """.utf8
+                    )
+                )
+            case "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/by-address":
+                return (
+                    response,
+                    Data(
+                        """
+                        {
+                          "data": {
+                            "tokens": [
+                              {
+                                "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                                "tokenBalance": "1000000",
+                                "tokenMetadata": {
+                                  "decimals": 6,
+                                  "name": "USD Coin",
+                                  "symbol": "USDC"
+                                },
+                                "error": null
+                              },
+                              {
+                                "tokenAddress": 42,
+                                "tokenBalance": "broken"
+                              }
+                            ]
+                          }
+                        }
+                        """.utf8
+                    )
+                )
+            default:
+                Issue.record("Unexpected URL: \(requestURL)")
+                return (response, Data())
+            }
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        let result = try await provider.tokenHoldings(
+            for: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet
+        )
+
+        #expect(result.holdings.count == 1)
+        #expect(result.holdings[0].symbol == "USDC")
+        #expect(result.holdings[0].amountDisplay == "1 USDC")
+    }
+
+    @Test("token holdings provider maps offline transport failures into provider abstraction errors")
+    @MainActor
+    func tokenHoldingsProviderMapsOfflineTransportFailures() async {
+        let session = makeMockSession()
+        let provider = AlchemyTokenHoldingsProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session,
+            maxRetryCount: 1
+        )
+
+        ProviderMockURLProtocol.handler = { _ in
+            throw URLError(.notConnectedToInternet)
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        do {
+            _ = try await provider.tokenHoldings(
+                for: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .baseMainnet
+            )
+            Issue.record("Expected offline token holdings refresh to throw.")
+        } catch let error as ProviderAbstractionError {
+            #expect(error == .offline)
         } catch {
             Issue.record("Unexpected error: \(error)")
         }

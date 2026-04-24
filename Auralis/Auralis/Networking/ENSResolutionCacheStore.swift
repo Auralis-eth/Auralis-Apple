@@ -1,6 +1,8 @@
 import Foundation
+import OSLog
 
 actor ENSResolutionCacheStore {
+    private let logger = Logger(subsystem: "Auralis", category: "ENSResolutionCacheStore")
     private let userDefaults: UserDefaults
     private let storageKey: String
     private let encoder = JSONEncoder()
@@ -13,9 +15,14 @@ actor ENSResolutionCacheStore {
     ) {
         self.userDefaults = userDefaults
         self.storageKey = storageKey
-        if let data = userDefaults.data(forKey: storageKey),
-           let decoded = try? decoder.decode(ENSCacheState.self, from: data) {
-            self.state = decoded
+        if let data = userDefaults.data(forKey: storageKey) {
+            do {
+                self.state = try decoder.decode(ENSCacheState.self, from: data)
+            } catch {
+                self.state = .empty
+                userDefaults.removeObject(forKey: storageKey)
+                logger.error("Discarded corrupt ENS cache blob for key \(storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         } else {
             self.state = .empty
         }
@@ -34,6 +41,11 @@ actor ENSResolutionCacheStore {
         persist()
     }
 
+    func removeForwardResolution(forENS name: String) {
+        state.forward.removeValue(forKey: name)
+        persist()
+    }
+
     func storeReverseResolution(_ entry: ENSReverseCacheEntry) {
         state.reverse[entry.address] = entry
         persist()
@@ -46,6 +58,7 @@ actor ENSResolutionCacheStore {
 
     private func persist() {
         guard let data = try? encoder.encode(state) else {
+            logger.error("Failed to encode ENS cache state for key \(self.storageKey, privacy: .public)")
             return
         }
 

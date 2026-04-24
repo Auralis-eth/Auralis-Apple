@@ -186,6 +186,22 @@ private extension AlchemyTokenHoldingsProvider {
     struct BalanceDataEnvelope: Decodable {
         let tokens: [BalanceToken]
         let pageKey: String?
+
+        enum CodingKeys: String, CodingKey {
+            case tokens
+            case pageKey
+        }
+
+        init(tokens: [BalanceToken], pageKey: String?) {
+            self.tokens = tokens
+            self.pageKey = pageKey
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            tokens = try container.decodeIfPresent(LossyDecodableArray<BalanceToken>.self, forKey: .tokens)?.elements ?? []
+            pageKey = try container.decodeIfPresent(String.self, forKey: .pageKey)
+        }
     }
 
     struct BalanceToken: Decodable {
@@ -202,6 +218,22 @@ private extension AlchemyTokenHoldingsProvider {
     struct DataEnvelope: Decodable {
         let tokens: [Token]
         let pageKey: String?
+
+        enum CodingKeys: String, CodingKey {
+            case tokens
+            case pageKey
+        }
+
+        init(tokens: [Token], pageKey: String?) {
+            self.tokens = tokens
+            self.pageKey = pageKey
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            tokens = try container.decodeIfPresent(LossyDecodableArray<Token>.self, forKey: .tokens)?.elements ?? []
+            pageKey = try container.decodeIfPresent(String.self, forKey: .pageKey)
+        }
     }
 
     struct Token: Decodable {
@@ -495,6 +527,17 @@ extension AlchemyTokenHoldingsProvider {
     }
 
     private func mapRequestError(_ error: Error) -> Error {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost:
+                return ProviderAbstractionError.offline
+            case .timedOut, .cannotConnectToHost:
+                return ProviderAbstractionError.unavailable
+            default:
+                return urlError
+            }
+        }
+
         if let requestError = error as? RequestError {
             switch requestError {
             case .badStatus(let statusCode, _, _) where statusCode == 429:
@@ -533,7 +576,8 @@ extension AlchemyTokenHoldingsProvider {
                     .unsupportedMethod,
                     .providerError:
                 return true
-            case .invalidResponse,
+            case .offline,
+                    .invalidResponse,
                     .unavailable,
                     .invalidBalancePayload,
                     .paginationStalled,
@@ -556,10 +600,6 @@ extension AlchemyTokenHoldingsProvider {
     }
 
     private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {
-        guard let header = response.value(forHTTPHeaderField: "Retry-After") else {
-            return nil
-        }
-
-        return TimeInterval(header.trimmingCharacters(in: .whitespacesAndNewlines))
+        RetryAfterSupport.parse(from: response)
     }
 }

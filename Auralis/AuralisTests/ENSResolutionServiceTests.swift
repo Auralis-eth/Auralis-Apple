@@ -160,8 +160,7 @@ struct ENSResolutionServiceTests {
         }
 
         let cached = await resolver.cachedForwardResolution(forENS: "vitalik.eth")
-        #expect(cached?.address == "0x1234567890abcdef1234567890abcdef12345678")
-        #expect(cached?.isStale == true)
+        #expect(cached == nil)
     }
 
     @Test("forward resolution surfaces offchain-enabled network provenance explicitly")
