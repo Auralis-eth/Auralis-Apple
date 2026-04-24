@@ -186,6 +186,13 @@ struct NewsFeedCardButtons: View {
 
 struct NewsFeedCardExpandedDetailsView: View {
     let nft: NFT
+
+    private var sortedTags: [Tag] {
+        (nft.tags ?? []).sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Title and description
@@ -246,6 +253,13 @@ struct NewsFeedCardExpandedDetailsView: View {
                     .padding(.top, 8)
             }
 
+            if !sortedTags.isEmpty {
+                HeadlineFontText(String(localized: "Tags"))
+                    .padding(.top, 8)
+
+                FlowTagRow(tags: sortedTags)
+            }
+
             if let chain = nft.network,
                let contractAddress = nft.contract.address {
                 OpenSeaLink(
@@ -262,20 +276,55 @@ struct NewsFeedCardExpandedDetailsView: View {
                 )
             }
 
-            // Category display (placeholder)
-            HStack {
-                Spacer()
-                PrimaryText(String(localized: "Category"))
-                PrimaryCaptionFontText(String(localized: "Category Selector"))
-                    .fontWeight(.medium)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.accent.opacity(0.3))
-                    .clipShape(.rect(cornerRadius: 16))
-                Spacer()
-            }
-
         }
+    }
+}
+
+private struct FlowTagRow: View {
+    let tags: [Tag]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(chunkedTags, id: \.self) { row in
+                HStack(alignment: .top, spacing: 8) {
+                    ForEach(row, id: \.name) { tag in
+                        TagChip(tag: tag)
+                    }
+                }
+            }
+        }
+    }
+
+    private var chunkedTags: [[Tag]] {
+        stride(from: 0, to: tags.count, by: 3).map { start in
+            Array(tags[start..<min(start + 3, tags.count)])
+        }
+    }
+}
+
+private struct TagChip: View {
+    let tag: Tag
+
+    private var tintColor: Color {
+#if canImport(UIKit)
+        if let uiColor = UIColor(hex: tag.color) {
+            return Color(uiColor: uiColor)
+        }
+#endif
+        return .accent
+    }
+
+    var body: some View {
+        PrimaryCaptionFontText(tag.name)
+            .fontWeight(.semibold)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(tintColor.opacity(0.22))
+            .overlay {
+                Capsule()
+                    .strokeBorder(tintColor.opacity(0.55), lineWidth: 1)
+            }
+            .clipShape(.capsule)
     }
 }
 
