@@ -158,8 +158,9 @@ struct HomeAuroraArtworkSupport {
         if hasValidAddress {
             let shortAddress = String(addressBody.prefix(6))
             atoms.append("personal signature encoded from \(shortAddress) (no visible text)")
-            atoms.append(patternAtom)
         }
+
+        atoms.append(patternAtom)
 
         if !normalizedChain.isEmpty {
             atoms.append("digital asset chain \(normalizedChain) (metadata only)")
