@@ -103,6 +103,19 @@ struct ERC20TokensRootView: View {
                 AuraScenicScreen(contentAlignment: .center) {
                     if isSyncingTokenHoldings {
                         ERC20HoldingsLoadingView(chain: currentChain)
+                    } else if let persistenceErrorMessage {
+                        ShellStatusCard(
+                            eyebrow: "Local Storage",
+                            title: "Token Holdings Not Saved",
+                            message: persistenceErrorMessage,
+                            systemImage: "externaldrive.badge.exclamationmark",
+                            tone: .warning,
+                            primaryAction: ShellStatusAction(
+                                title: "Retry",
+                                systemImage: "arrow.clockwise",
+                                handler: refresh
+                            )
+                        )
                     } else if let providerErrorMessage {
                         ShellStatusCard(
                             eyebrow: "Provider Error",

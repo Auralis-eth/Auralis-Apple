@@ -37,6 +37,7 @@ final class ImageCache: @unchecked Sendable {
 @MainActor
 final class ImageLoader: ObservableObject {
     nonisolated private static let maxPixelDimension = 1_024
+    nonisolated private static let maxDownloadSizeBytes = 20 * 1_024 * 1_024
     nonisolated static let defaultSession: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 15
@@ -225,7 +226,8 @@ final class ImageLoader: ObservableObject {
         }
 
         do {
-            let (data, response) = try await session.data(from: url)
+            let request = URLRequest(url: url)
+            let (bytes, response) = try await session.bytes(for: request)
             guard !Task.isCancelled else { return .failure(.networkError) }
 
             if let httpResponse = response as? HTTPURLResponse,
@@ -233,11 +235,28 @@ final class ImageLoader: ObservableObject {
                 return .failure(.badStatus(httpResponse.statusCode))
             }
 
+            if response.expectedContentLength > Int64(maxDownloadSizeBytes) {
+                return .failure(.fileTooLarge)
+            }
+
             if let httpResponse = response as? HTTPURLResponse,
                let contentType = httpResponse.allHeaderFields["Content-Type"] as? String ?? httpResponse.value(forHTTPHeaderField: "Content-Type") {
                 let content = contentType.lowercased()
                 if content.contains("video/mp4") || content.contains("video/mpeg4") {
                     return .failure(.videoData)
+                }
+            }
+
+            var data = Data()
+            if response.expectedContentLength > 0 {
+                let expectedLength = min(Int(response.expectedContentLength), maxDownloadSizeBytes)
+                data.reserveCapacity(expectedLength)
+            }
+
+            for try await byte in bytes {
+                data.append(byte)
+                if data.count > maxDownloadSizeBytes {
+                    return .failure(.fileTooLarge)
                 }
             }
 

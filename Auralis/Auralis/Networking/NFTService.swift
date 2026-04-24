@@ -123,6 +123,7 @@ private actor NFTRefreshPersistenceStore {
         for nft in nfts {
             upsert(nft: nft, snapshot: &snapshot)
         }
+        synchronizeTrackedNFTCount(for: accountAddress)
         try modelContext.save()
     }
 
@@ -137,18 +138,21 @@ private actor NFTRefreshPersistenceStore {
         )
         try deleteStaleNFTs(
             currentNFTIDs: currentNFTIDs,
-            stalePersistedNFTs: Array(snapshot.persistedNFTsByID.values)
+            stalePersistedNFTs: Array(snapshot.persistedNFTsByID.values),
+            accountAddress: accountAddress
         )
     }
 
     private func deleteStaleNFTs(
         currentNFTIDs: [String],
-        stalePersistedNFTs: [NFT]
+        stalePersistedNFTs: [NFT],
+        accountAddress: String
     ) throws {
         let currentNFTIDSet = Set(currentNFTIDs)
         for nft in stalePersistedNFTs where !currentNFTIDSet.contains(nft.id) {
             modelContext.delete(nft)
         }
+        synchronizeTrackedNFTCount(for: accountAddress)
         try modelContext.save()
     }
 
@@ -173,6 +177,32 @@ private actor NFTRefreshPersistenceStore {
             persistedContractsByID: Dictionary(uniqueKeysWithValues: persistedContracts.map { ($0.id, $0) }),
             persistedCollectionsByID: Dictionary(uniqueKeysWithValues: persistedCollections.map { ($0.id, $0) })
         )
+    }
+
+    private func synchronizeTrackedNFTCount(for accountAddress: String) {
+        guard let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) else {
+            return
+        }
+
+        let accountDescriptor = FetchDescriptor<EOAccount>(
+            predicate: #Predicate<EOAccount> { account in
+                account.address == normalizedAccountAddress
+            }
+        )
+        let nftDescriptor = FetchDescriptor<NFT>(
+            predicate: #Predicate<NFT> { nft in
+                nft.accountAddressRawValue == normalizedAccountAddress
+            }
+        )
+
+        guard let account = try? modelContext.fetch(accountDescriptor).first,
+              let trackedNFTCount = try? modelContext.fetch(nftDescriptor).count else {
+            return
+        }
+
+        if account.trackedNFTCount != trackedNFTCount {
+            account.trackedNFTCount = trackedNFTCount
+        }
     }
 
     private func canonicalizePersistenceScope(

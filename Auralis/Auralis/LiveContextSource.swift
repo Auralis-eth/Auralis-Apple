@@ -100,7 +100,7 @@ struct LiveContextSource: ContextSource {
             ),
             libraryPointers: ContextLibraryPointers(
                 trackedNFTCount: ContextField(
-                    account?.trackedNFTCount ?? trackedNFTCountProvider(),
+                    trackedNFTCountProvider() ?? account?.trackedNFTCount,
                     provenance: .localCache,
                     updatedAt: account?.mostRecentActivityAt
                 ),

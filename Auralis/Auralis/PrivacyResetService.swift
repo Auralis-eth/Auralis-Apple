@@ -18,6 +18,11 @@ actor SwiftDataDerivedSupportDataResetService: DerivedSupportDataResetting {
             modelContext.delete(nft)
         }
 
+        let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
+        for account in accounts where account.trackedNFTCount != 0 {
+            account.trackedNFTCount = 0
+        }
+
         try modelContext.save()
     }
 }

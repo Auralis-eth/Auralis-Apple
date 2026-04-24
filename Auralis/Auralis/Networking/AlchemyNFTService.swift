@@ -327,6 +327,10 @@ final class AlchemyNFTService: NFTInventoryProviding, Sendable {
             items.append(contentsOf: includeFilters.map { URLQueryItem(name: "includeFilters[]", value: $0.rawValue) })
         }
 
+        if let spamConfidenceLevel {
+            items.append(URLQueryItem(name: "spamConfidenceLevel", value: spamConfidenceLevel.rawValue))
+        }
+
         if let tokenUriTimeoutInMs {
             items.append(URLQueryItem(name: "tokenUriTimeoutInMs", value: String(tokenUriTimeoutInMs)))
         }
