@@ -312,15 +312,14 @@ protocol ReceiptPayloadSanitizing {
 /// - `exportAll` is the only bulk-read path
 /// - `resetAll` is a separate destructive operation, not a convenience delete helper
 /// - stores must not invent correlation IDs
-/// - all interaction occurs on the main actor because the live store is SwiftData-backed
 @MainActor
 protocol ReceiptStore {
-    func append(_ receipt: ReceiptDraft) throws -> ReceiptRecord
+    func append(_ receipt: ReceiptDraft) async throws -> ReceiptRecord
     func latest(limit: Int) throws -> [ReceiptRecord]
     func receipts(
         forCorrelationID correlationID: String,
         limit: Int
     ) throws -> [ReceiptRecord]
     func exportAll() throws -> Data
-    func resetAll() throws
+    func resetAll() async throws
 }

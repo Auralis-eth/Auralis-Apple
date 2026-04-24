@@ -15,7 +15,6 @@ struct ReceiptEventLogger {
         self.payloadSanitizer = payloadSanitizer
     }
 
-    @discardableResult
     func recordAppLaunch(
         accountAddress: String,
         chain: Chain,
@@ -38,7 +37,6 @@ struct ReceiptEventLogger {
         )
     }
 
-    @discardableResult
     func recordContextBuilt(
         snapshot: ContextSnapshot,
         correlationID: String?
@@ -57,7 +55,6 @@ struct ReceiptEventLogger {
         )
     }
 
-    @discardableResult
     func recordExternalLinkOpened(
         label: String,
         url: URL,
@@ -66,7 +63,7 @@ struct ReceiptEventLogger {
         chain: Chain? = nil,
         correlationID: String? = nil
     ) -> Result<ReceiptRecord, Error> {
-        return append(
+        append(
             trigger: "external_link.opened",
             scope: "navigation.external",
             summary: "Opened external link",
@@ -86,7 +83,6 @@ struct ReceiptEventLogger {
         )
     }
 
-    @discardableResult
     func recordCopyAction(
         subject: String,
         value: String,
@@ -95,7 +91,7 @@ struct ReceiptEventLogger {
         chain: Chain? = nil,
         correlationID: String? = nil
     ) -> Result<ReceiptRecord, Error> {
-        return append(
+        append(
             trigger: "copy.performed",
             scope: "clipboard",
             summary: "Copied value",
@@ -115,7 +111,6 @@ struct ReceiptEventLogger {
         )
     }
 
-    @discardableResult
     func recordMusicLibraryIndexStarted(
         accountAddress: String,
         chain: Chain,
@@ -138,7 +133,6 @@ struct ReceiptEventLogger {
         )
     }
 
-    @discardableResult
     func recordMusicLibraryIndexCompleted(
         accountAddress: String,
         chain: Chain,
@@ -167,7 +161,6 @@ struct ReceiptEventLogger {
         )
     }
 
-    @discardableResult
     func recordMusicLibraryIndexFailed(
         accountAddress: String,
         chain: Chain,
@@ -209,29 +202,31 @@ private extension ReceiptEventLogger {
     ) -> Result<ReceiptRecord, Error> {
         let payload = payloadSanitizer.sanitize(rawPayload)
 
-        do {
-            let record = try receiptStore.append(
-                ReceiptDraft(
-                    actor: actor,
-                    mode: .observe,
-                    trigger: trigger,
-                    scope: scope,
-                    summary: summary,
-                    provenance: provenance,
-                    isSuccess: isSuccess,
-                    correlationID: correlationID,
-                    timelineAccountAddress: timelineAccountAddress,
-                    timelineChainRawValue: timelineChainRawValue,
-                    details: payload
+        Task {
+            do {
+                _ = try await receiptStore.append(
+                    ReceiptDraft(
+                        actor: actor,
+                        mode: .observe,
+                        trigger: trigger,
+                        scope: scope,
+                        summary: summary,
+                        provenance: provenance,
+                        isSuccess: isSuccess,
+                        correlationID: correlationID,
+                        timelineAccountAddress: timelineAccountAddress,
+                        timelineChainRawValue: timelineChainRawValue,
+                        details: payload
+                    )
                 )
-            )
-            return .success(record)
-        } catch {
-            logger.error(
-                "Failed to append receipt event trigger=\(trigger, privacy: .public) scope=\(scope, privacy: .public) correlationID=\(correlationID ?? "nil", privacy: .private(mask: .hash)) error=\(error.localizedDescription, privacy: .public)"
-            )
-            return .failure(error)
+            } catch {
+                logger.error(
+                    "Failed to append receipt event trigger=\(trigger, privacy: .public) scope=\(scope, privacy: .public) correlationID=\(correlationID ?? "nil", privacy: .private(mask: .hash)) error=\(error.localizedDescription, privacy: .public)"
+                )
+            }
         }
+
+        return .failure(DeferredReceiptWriteError())
     }
 }
 
@@ -363,3 +358,8 @@ private struct MusicLibraryIndexFailedReceiptPayload: TypedReceiptPayload {
         ]
     }
 }
+    private struct DeferredReceiptWriteError: LocalizedError {
+        var errorDescription: String? {
+            "Receipt write was scheduled asynchronously."
+        }
+    }

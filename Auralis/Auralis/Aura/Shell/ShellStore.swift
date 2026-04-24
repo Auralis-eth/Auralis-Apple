@@ -103,7 +103,7 @@ final class ShellStore {
 
         case .accountSelectionRequested(let address, let correlationID, let chainOverride):
             do {
-                let account = try accountMutator.selectAccount(
+                let account = try await accountMutator.selectAccount(
                     address: address,
                     correlationID: correlationID
                 )
@@ -123,7 +123,7 @@ final class ShellStore {
             }
 
         case .activeAccountRemovalRequested(let address, let correlationID):
-            removeActiveAccount(address: address, correlationID: correlationID)
+            await removeActiveAccount(address: address, correlationID: correlationID)
 
         case .chainChangeRequested(let chain, let correlationID):
             await applyChainChange(chain, correlationID: correlationID)
@@ -223,10 +223,10 @@ final class ShellStore {
         recordAppLaunchIfNeeded()
     }
 
-    private func removeActiveAccount(address: String, correlationID: String?) {
+    private func removeActiveAccount(address: String, correlationID: String?) async {
         do {
             let activeAddress = state.selection?.address ?? ""
-            let result = try accountMutator.removeAccount(
+            let result = try await accountMutator.removeAccount(
                 address: address,
                 activeAddress: activeAddress,
                 correlationID: correlationID
@@ -276,7 +276,7 @@ final class ShellStore {
         }
 
         do {
-            let account = try accountMutator.persistCurrentChain(
+            let account = try await accountMutator.persistCurrentChain(
                 address: selection.address,
                 chain: chain,
                 correlationID: correlationID
@@ -528,15 +528,15 @@ private struct PreviewShellAccountResolver: ShellAccountResolving {
 
 @MainActor
 private struct PreviewShellAccountMutator: ShellAccountMutating {
-    func selectAccount(address: String, correlationID: String?) throws -> EOAccount {
+    func selectAccount(address: String, correlationID: String?) async throws -> EOAccount {
         EOAccount(address: address)
     }
 
-    func removeAccount(address: String, activeAddress: String, correlationID: String?) throws -> AccountRemovalResult {
+    func removeAccount(address: String, activeAddress: String, correlationID: String?) async throws -> AccountRemovalResult {
         AccountRemovalResult(removedAddress: address, fallbackAccount: nil)
     }
 
-    func persistCurrentChain(address: String, chain: Chain, correlationID: String?) throws -> EOAccount {
+    func persistCurrentChain(address: String, chain: Chain, correlationID: String?) async throws -> EOAccount {
         let account = EOAccount(address: address)
         account.currentChain = chain
         return account

@@ -32,18 +32,18 @@ struct HelperConsistencyTests {
 
     @Test("native holdings persist by account and chain scope")
     @MainActor
-    func nativeHoldingsPersistByScope() throws {
+    func nativeHoldingsPersistByScope() async throws {
         let container = try makeTokenHoldingContainer()
         let context = ModelContext(container)
         let store = TokenHoldingsStore(modelContext: context)
 
-        try store.upsertNativeHolding(
+        try await store.upsertNativeHolding(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet,
             amountDisplay: "1.5 ETH",
             updatedAt: Date(timeIntervalSince1970: 100)
         )
-        try store.upsertNativeHolding(
+        try await store.upsertNativeHolding(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .baseMainnet,
             amountDisplay: "2.0 ETH",
@@ -76,18 +76,18 @@ struct HelperConsistencyTests {
 
     @Test("upserting the same native scope updates one persisted row instead of duplicating it")
     @MainActor
-    func nativeHoldingUpsertReusesScopedRow() throws {
+    func nativeHoldingUpsertReusesScopedRow() async throws {
         let container = try makeTokenHoldingContainer()
         let context = ModelContext(container)
         let store = TokenHoldingsStore(modelContext: context)
 
-        try store.upsertNativeHolding(
+        try await store.upsertNativeHolding(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet,
             amountDisplay: "1.5 ETH",
             updatedAt: Date(timeIntervalSince1970: 100)
         )
-        try store.upsertNativeHolding(
+        try await store.upsertNativeHolding(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet,
             amountDisplay: "1.75 ETH",
@@ -103,24 +103,24 @@ struct HelperConsistencyTests {
 
     @Test("token holding persistence stays isolated across account and chain boundaries")
     @MainActor
-    func tokenHoldingsStayScopedAcrossAccountAndChain() throws {
+    func tokenHoldingsStayScopedAcrossAccountAndChain() async throws {
         let container = try makeTokenHoldingContainer()
         let context = ModelContext(container)
         let store = TokenHoldingsStore(modelContext: context)
 
-        try store.upsertNativeHolding(
+        try await store.upsertNativeHolding(
             accountAddress: "0x1111111111111111111111111111111111111111",
             chain: .ethMainnet,
             amountDisplay: "1.0 ETH",
             updatedAt: Date(timeIntervalSince1970: 100)
         )
-        try store.upsertNativeHolding(
+        try await store.upsertNativeHolding(
             accountAddress: "0x2222222222222222222222222222222222222222",
             chain: .ethMainnet,
             amountDisplay: "2.0 ETH",
             updatedAt: Date(timeIntervalSince1970: 200)
         )
-        try store.upsertNativeHolding(
+        try await store.upsertNativeHolding(
             accountAddress: "0x1111111111111111111111111111111111111111",
             chain: .baseMainnet,
             amountDisplay: "3.0 ETH",
@@ -218,12 +218,12 @@ struct HelperConsistencyTests {
 
     @Test("provider-backed ERC-20 replacement updates the active scope and removes stale token rows")
     @MainActor
-    func replacingScopedERC20HoldingsReconcilesRows() throws {
+    func replacingScopedERC20HoldingsReconcilesRows() async throws {
         let container = try makeTokenHoldingContainer()
         let context = ModelContext(container)
         let store = TokenHoldingsStore(modelContext: context)
 
-        try store.replaceERC20Holdings(
+        try await store.replaceERC20Holdings(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet,
             holdings: [
@@ -248,7 +248,7 @@ struct HelperConsistencyTests {
             ]
         )
 
-        try store.replaceERC20Holdings(
+        try await store.replaceERC20Holdings(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet,
             holdings: [

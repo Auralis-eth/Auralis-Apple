@@ -26,11 +26,11 @@ struct PrivacyResetService: PrivacyResetting {
     }
 
     func resetLocalPrivacyData() async throws {
-        try receiptStore.resetAll()
-        try searchHistoryStore.clearAll()
+        try await receiptStore.resetAll()
+        try await searchHistoryStore.clearAll()
         await ensCacheResetService.resetCache()
         await GasPriceCache.shared.clearCache()
-        try tokenHoldingsStore.clearAll()
+        try await tokenHoldingsStore.clearAll()
     }
 }
 

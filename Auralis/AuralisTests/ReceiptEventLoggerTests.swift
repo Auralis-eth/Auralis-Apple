@@ -153,7 +153,7 @@ private struct FailingReceiptStore: ReceiptStore {
         case appendFailed
     }
 
-    func append(_ receipt: ReceiptDraft) throws -> ReceiptRecord {
+    func append(_ receipt: ReceiptDraft) async throws -> ReceiptRecord {
         throw StoreError.appendFailed
     }
 
@@ -169,5 +169,5 @@ private struct FailingReceiptStore: ReceiptStore {
         Data()
     }
 
-    func resetAll() throws { }
+    func resetAll() async throws { }
 }

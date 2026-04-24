@@ -634,14 +634,14 @@ private final class TestShellAccountMutator: ShellAccountMutating {
         self.accountsByAddress = Dictionary(uniqueKeysWithValues: accounts.map { ($0.address, $0) })
     }
 
-    func selectAccount(address: String, correlationID: String?) throws -> EOAccount {
+    func selectAccount(address: String, correlationID: String?) async throws -> EOAccount {
         guard let account = accountsByAddress[address] else {
             throw AccountStoreError.accountNotFound(address)
         }
         return account
     }
 
-    func removeAccount(address: String, activeAddress: String, correlationID: String?) throws -> AccountRemovalResult {
+    func removeAccount(address: String, activeAddress: String, correlationID: String?) async throws -> AccountRemovalResult {
         accountsByAddress.removeValue(forKey: address)
         return AccountRemovalResult(
             removedAddress: address,
@@ -649,7 +649,7 @@ private final class TestShellAccountMutator: ShellAccountMutating {
         )
     }
 
-    func persistCurrentChain(address: String, chain: Chain, correlationID: String?) throws -> EOAccount {
+    func persistCurrentChain(address: String, chain: Chain, correlationID: String?) async throws -> EOAccount {
         if let persistChainError {
             throw persistChainError
         }

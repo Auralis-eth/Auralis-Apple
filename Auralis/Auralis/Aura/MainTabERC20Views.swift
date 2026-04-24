@@ -197,7 +197,7 @@ struct ERC20TokensRootView: View {
     }
 
     private func syncHoldings() async {
-        syncNativeHoldingIfAvailable()
+        await syncNativeHoldingIfAvailable()
 
         let viewSyncID = UUID()
         activeTokenSyncViewID = viewSyncID
@@ -230,7 +230,7 @@ struct ERC20TokensRootView: View {
                 )
             },
             persist: { request, providerHoldings in
-                try tokenHoldingsStoreFactory(modelContext).replaceERC20Holdings(
+                try await tokenHoldingsStoreFactory(modelContext).replaceERC20Holdings(
                     accountAddress: request.accountAddress,
                     chain: request.chain,
                     holdings: providerHoldings
@@ -262,7 +262,7 @@ struct ERC20TokensRootView: View {
         }
     }
 
-    private func syncNativeHoldingIfAvailable() {
+    private func syncNativeHoldingIfAvailable() async {
         guard let nativeBalanceDisplay,
               let updatedAt = nativeBalanceUpdatedAt,
               !currentAccountAddress.isEmpty else {
@@ -270,7 +270,7 @@ struct ERC20TokensRootView: View {
         }
 
         do {
-            try tokenHoldingsStoreFactory(modelContext).upsertNativeHolding(
+            try await tokenHoldingsStoreFactory(modelContext).upsertNativeHolding(
                 accountAddress: currentAccountAddress,
                 chain: currentChain,
                 amountDisplay: nativeBalanceDisplay,

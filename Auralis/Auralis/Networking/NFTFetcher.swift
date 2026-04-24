@@ -139,12 +139,14 @@ class NFTFetcher: NFTFetching {
             switch apiError {
             case .rateLimited, .requestTimeout:
                 return true
-            case .serverError,
-                    .badRequest,
+            case .serverError:
+                return true
+            case .httpError(let status, _):
+                return (500...599).contains(status) || status == 429
+            case .badRequest,
                     .unauthorized,
                     .forbidden,
                     .notFound,
-                    .httpError,
                     .badURL,
                     .badServerResponse,
                     .emptyOwner,

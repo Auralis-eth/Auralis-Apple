@@ -20,13 +20,13 @@ struct ShellServiceHubBoundaryTests {
 
     @Test("live shell service hub creates account stores through the shared recorder seam")
     @MainActor
-    func accountStoreFactoryUsesSharedRecorderSeam() throws {
+    func accountStoreFactoryUsesSharedRecorderSeam() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let accountStore = ShellServiceHub.live.accountStoreFactory(context)
         let receiptStore = ShellServiceHub.live.receiptStoreFactory(context)
 
-        _ = try accountStore.activateWatchAccount(
+        _ = try await accountStore.activateWatchAccount(
             from: "0x1234567890abcdef1234567890abcdef12345678",
             correlationID: "shell-account-store"
         )
@@ -57,12 +57,12 @@ struct ShellServiceHubBoundaryTests {
 
     @Test("live shell service hub creates token-holdings stores through the shared persistence seam")
     @MainActor
-    func tokenHoldingsStoreFactoryPersistsNativeHoldings() throws {
+    func tokenHoldingsStoreFactoryPersistsNativeHoldings() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let store = ShellServiceHub.live.tokenHoldingsStoreFactory(context)
 
-        try store.upsertNativeHolding(
+        try await store.upsertNativeHolding(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet,
             amountDisplay: "1.25 ETH",

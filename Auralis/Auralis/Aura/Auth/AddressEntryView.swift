@@ -202,7 +202,7 @@ struct AddressInputView: View {
                 guard submissionID == activeSubmissionID else {
                     return
                 }
-                activation = try store.activateWatchAccount(
+                activation = try await store.activateWatchAccount(
                     from: resolution.address,
                     name: resolution.ensName,
                     source: source,
@@ -212,7 +212,7 @@ struct AddressInputView: View {
                 guard submissionID == activeSubmissionID else {
                     return
                 }
-                activation = try store.activateWatchAccount(
+                activation = try await store.activateWatchAccount(
                     from: input,
                     source: source,
                     correlationID: correlationID
@@ -280,33 +280,35 @@ struct AddressInputView: View {
     private func confirmENSMappingChange(_ change: PendingENSMappingChange) {
         let store = accountStoreFactory(modelContext)
 
-        do {
-            let activation = try store.activateWatchAccount(
-                from: change.resolvedAddress,
-                name: change.ensName,
-                source: change.source,
-                correlationID: change.correlationID
-            )
-            address = ""
-            onAccountActivated(activation.account, change.correlationID)
-            isSubmitting = false
-            activeSubmissionTask = nil
-            pendingENSMappingChange = nil
+        Task {
+            do {
+                let activation = try await store.activateWatchAccount(
+                    from: change.resolvedAddress,
+                    name: change.ensName,
+                    source: change.source,
+                    correlationID: change.correlationID
+                )
+                address = ""
+                onAccountActivated(activation.account, change.correlationID)
+                isSubmitting = false
+                activeSubmissionTask = nil
+                pendingENSMappingChange = nil
 
-            if !activation.wasCreated {
+                if !activation.wasCreated {
+                    showAlert(
+                        title: "Account Already Added",
+                        message: "Switched to the existing saved account for that address.",
+                        feedback: .success
+                    )
+                }
+            } catch {
+                isSubmitting = false
+                pendingENSMappingChange = nil
                 showAlert(
-                    title: "Account Already Added",
-                    message: "Switched to the existing saved account for that address.",
-                    feedback: .success
+                    title: "Save Failed",
+                    message: "Failed to save account: \(error.localizedDescription)"
                 )
             }
-        } catch {
-            isSubmitting = false
-            pendingENSMappingChange = nil
-            showAlert(
-                title: "Save Failed",
-                message: "Failed to save account: \(error.localizedDescription)"
-            )
         }
     }
 }

@@ -1,16 +1,19 @@
+import OSLog
 import SwiftData
 import SwiftUI
 
 @main
 struct AuralisApp: App {
+    private let logger = Logger(subsystem: "Auralis", category: "App")
+
     init() {
-        #if !DEBUG
-        do {
-            try Secrets.validateRequiredProviders([.alchemy])
-        } catch {
-            preconditionFailure("Release configuration is invalid: \(error.localizedDescription)")
+        let missingProviders = Secrets.configurationStatuses()
+            .filter { !$0.isConfigured }
+
+        if !missingProviders.isEmpty {
+            let providerNames = missingProviders.map(\.provider.rawValue).joined(separator: ", ")
+            logger.error("Launching with missing provider configuration: \(providerNames, privacy: .public)")
         }
-        #endif
     }
 
     var body: some Scene {

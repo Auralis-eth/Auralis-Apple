@@ -26,10 +26,10 @@ struct ReceiptResetServiceTests {
 
     @Test("explicit receipt reset wipes all persisted receipts through the destructive reset seam")
     @MainActor
-    func resetServiceWipesAllReceipts() throws {
+    func resetServiceWipesAllReceipts() async throws {
         let (store, resetService) = try makeStoreAndResetService()
 
-        _ = try store.append(
+        _ = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
@@ -37,7 +37,7 @@ struct ReceiptResetServiceTests {
                 payload: ReceiptPayload(values: [:])
             )
         )
-        _ = try store.append(
+        _ = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "networking",
@@ -47,7 +47,7 @@ struct ReceiptResetServiceTests {
             )
         )
 
-        try resetService.resetReceipts()
+        try await resetService.resetReceipts()
 
         #expect(try store.latest(limit: 20).isEmpty)
         let exportedData = try store.exportAll()
@@ -57,10 +57,10 @@ struct ReceiptResetServiceTests {
 
     @Test("reset leaves the store clean enough for new appends to start a fresh sequence timeline")
     @MainActor
-    func resetServiceAllowsFreshAppends() throws {
+    func resetServiceAllowsFreshAppends() async throws {
         let (store, resetService) = try makeStoreAndResetService()
 
-        _ = try store.append(
+        _ = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
@@ -69,9 +69,9 @@ struct ReceiptResetServiceTests {
             )
         )
 
-        try resetService.resetReceipts()
+        try await resetService.resetReceipts()
 
-        let newReceipt = try store.append(
+        let newReceipt = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "accounts",

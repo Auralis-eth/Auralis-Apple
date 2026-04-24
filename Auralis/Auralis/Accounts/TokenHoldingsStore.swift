@@ -1,26 +1,16 @@
 import Foundation
 import SwiftData
 
-@MainActor
-struct TokenHoldingsStore {
-    private let modelContext: ModelContext
-
-    init(modelContext: ModelContext) {
-        self.modelContext = modelContext
-    }
-
+@ModelActor
+private actor TokenHoldingsPersistenceStore {
     func upsertNativeHolding(
         accountAddress: String,
         chain: Chain,
         amountDisplay: String,
         updatedAt: Date
     ) throws {
-        guard let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) else {
-            return
-        }
-
         let id = TokenHolding.makeScopedID(
-            accountAddress: normalizedAccountAddress,
+            accountAddress: accountAddress,
             chain: chain,
             contractAddress: nil,
             balanceKind: .native
@@ -33,7 +23,7 @@ struct TokenHoldingsStore {
 
         let holding = try modelContext.fetch(descriptor).first ?? {
             let newHolding = TokenHolding(
-                accountAddress: normalizedAccountAddress,
+                accountAddress: accountAddress,
                 chain: chain,
                 symbol: chain.nativeTokenSymbol,
                 displayName: chain.nativeTokenDisplayName,
@@ -62,12 +52,8 @@ struct TokenHoldingsStore {
         chain: Chain,
         holdings: [ProviderTokenHolding]
     ) throws {
-        guard let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) else {
-            return
-        }
-
         let existingHoldings = try fetchScopedERC20Holdings(
-            accountAddress: normalizedAccountAddress,
+            accountAddress: accountAddress,
             chain: chain
         )
         var existingByID = Dictionary(
@@ -81,7 +67,7 @@ struct TokenHoldingsStore {
             }
 
             let id = TokenHolding.makeScopedID(
-                accountAddress: normalizedAccountAddress,
+                accountAddress: accountAddress,
                 chain: chain,
                 contractAddress: normalizedContractAddress,
                 balanceKind: .erc20
@@ -90,7 +76,7 @@ struct TokenHoldingsStore {
 
             let holding = existingByID[id] ?? {
                 let newHolding = TokenHolding(
-                    accountAddress: normalizedAccountAddress,
+                    accountAddress: accountAddress,
                     chain: chain,
                     contractAddress: normalizedContractAddress,
                     symbol: providerHolding.symbol,
@@ -123,6 +109,15 @@ struct TokenHoldingsStore {
         try modelContext.save()
     }
 
+    func clearAll() throws {
+        let holdings = try modelContext.fetch(FetchDescriptor<TokenHolding>())
+        for holding in holdings {
+            modelContext.delete(holding)
+        }
+
+        try modelContext.save()
+    }
+
     private func fetchScopedERC20Holdings(
         accountAddress: String,
         chain: Chain
@@ -139,13 +134,51 @@ struct TokenHoldingsStore {
 
         return try modelContext.fetch(descriptor)
     }
+}
 
-    func clearAll() throws {
-        let holdings = try modelContext.fetch(FetchDescriptor<TokenHolding>())
-        for holding in holdings {
-            modelContext.delete(holding)
+@MainActor
+struct TokenHoldingsStore {
+    private let persistenceStore: TokenHoldingsPersistenceStore
+
+    init(modelContext: ModelContext) {
+        self.persistenceStore = TokenHoldingsPersistenceStore(modelContainer: modelContext.container)
+    }
+
+    func upsertNativeHolding(
+        accountAddress: String,
+        chain: Chain,
+        amountDisplay: String,
+        updatedAt: Date
+    ) async throws {
+        guard let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) else {
+            return
         }
 
-        try modelContext.save()
+        try await persistenceStore.upsertNativeHolding(
+            accountAddress: normalizedAccountAddress,
+            chain: chain,
+            amountDisplay: amountDisplay,
+            updatedAt: updatedAt
+        )
+    }
+
+    func replaceERC20Holdings(
+        accountAddress: String,
+        chain: Chain,
+        holdings: [ProviderTokenHolding]
+    ) async throws {
+        guard let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) else {
+            return
+        }
+
+        try await persistenceStore.replaceERC20Holdings(
+            accountAddress: normalizedAccountAddress,
+            chain: chain,
+            holdings: holdings
+        )
+    }
+
+    func clearAll() async throws {
+        try await persistenceStore.clearAll()
     }
 }

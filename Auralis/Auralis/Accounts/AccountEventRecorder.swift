@@ -41,10 +41,12 @@ struct ReceiptBackedAccountEventRecorder: AccountEventRecorder {
     }
 
     func record(_ event: AccountEvent, correlationID: String?) {
-        do {
-            _ = try receiptStore.append(makeDraft(for: event, correlationID: correlationID))
-        } catch {
-            logger.error("Failed to append account receipt: \(error.localizedDescription, privacy: .public)")
+        Task {
+            do {
+                _ = try await receiptStore.append(makeDraft(for: event, correlationID: correlationID))
+            } catch {
+                logger.error("Failed to append account receipt: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 }

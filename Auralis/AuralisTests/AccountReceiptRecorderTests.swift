@@ -14,7 +14,7 @@ struct AccountReceiptRecorderTests {
 
     @Test("receipt-backed account recorder emits real receipts for account add select and remove flows")
     @MainActor
-    func accountStoreWritesReceiptsThroughRecorderSeam() throws {
+    func accountStoreWritesReceiptsThroughRecorderSeam() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
@@ -27,15 +27,15 @@ struct AccountReceiptRecorderTests {
         )
         let accountStore = AccountStore(modelContext: context, eventRecorder: recorder)
 
-        let account = try accountStore.createWatchAccount(
+        let account = try await accountStore.createWatchAccount(
             from: "0x1234567890abcdef1234567890abcdef12345678",
             now: Date(timeIntervalSince1970: 100)
         )
-        _ = try accountStore.selectAccount(
+        _ = try await accountStore.selectAccount(
             address: account.address,
             selectedAt: Date(timeIntervalSince1970: 200)
         )
-        _ = try accountStore.removeAccount(
+        _ = try await accountStore.removeAccount(
             address: account.address,
             activeAddress: account.address
         )
@@ -60,7 +60,7 @@ struct AccountReceiptRecorderTests {
 
     @Test("account activation receipts share one correlation ID across chained account events")
     @MainActor
-    func accountActivationReceiptsShareCorrelationID() throws {
+    func accountActivationReceiptsShareCorrelationID() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
@@ -74,7 +74,7 @@ struct AccountReceiptRecorderTests {
         let accountStore = AccountStore(modelContext: context, eventRecorder: recorder)
         let correlationID = "account-activation-correlation"
 
-        _ = try accountStore.activateWatchAccount(
+        _ = try await accountStore.activateWatchAccount(
             from: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             source: EOAccountSource.manualEntry,
             selectedAt: Date(timeIntervalSince1970: 100),
@@ -92,7 +92,7 @@ struct AccountReceiptRecorderTests {
 
     @Test("policy gate denies blocked observe actions and records a denial receipt")
     @MainActor
-    func observeModePolicyGateWritesReceipt() throws {
+    func observeModePolicyGateWritesReceipt() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
@@ -122,7 +122,7 @@ struct AccountReceiptRecorderTests {
 
     @Test("policy gate allows plugin actions in observe mode without writing denial receipts")
     @MainActor
-    func observeModePolicyGateAllowsPluginActions() throws {
+    func observeModePolicyGateAllowsPluginActions() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
@@ -146,7 +146,7 @@ struct AccountReceiptRecorderTests {
 
     @Test("chain-scope account events emit one receipt per real preferred and current change")
     @MainActor
-    func chainScopeEventsWriteReceipts() throws {
+    func chainScopeEventsWriteReceipts() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
@@ -187,7 +187,7 @@ struct AccountReceiptRecorderTests {
 
     @Test("chain-scope account receipts preserve caller correlation IDs for follow-on refresh chaining")
     @MainActor
-    func chainScopeReceiptsPreserveCorrelationID() throws {
+    func chainScopeReceiptsPreserveCorrelationID() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(

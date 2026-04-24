@@ -27,9 +27,9 @@ struct PrivacyResetServiceTests {
             tokenHoldingsStore: tokenHoldingsStore
         )
 
-        try searchHistoryStore.recordCommittedQuery("Moonpunks", accountAddress: nil)
-        try searchHistoryStore.recordCommittedQuery("USDC", accountAddress: "0x1111111111111111111111111111111111111111")
-        try tokenHoldingsStore.upsertNativeHolding(
+        try await searchHistoryStore.recordCommittedQuery("Moonpunks", accountAddress: nil)
+        try await searchHistoryStore.recordCommittedQuery("USDC", accountAddress: "0x1111111111111111111111111111111111111111")
+        try await tokenHoldingsStore.upsertNativeHolding(
             accountAddress: "0x1111111111111111111111111111111111111111",
             chain: .ethMainnet,
             amountDisplay: "1.25",
@@ -50,7 +50,7 @@ struct PrivacyResetServiceTests {
 private final class RecordingReceiptStore: ReceiptStore {
     private(set) var resetAllCallCount = 0
 
-    func append(_ receipt: ReceiptDraft) throws -> ReceiptRecord {
+    func append(_ receipt: ReceiptDraft) async throws -> ReceiptRecord {
         fatalError("append is not used in PrivacyResetServiceTests")
     }
 
@@ -66,7 +66,7 @@ private final class RecordingReceiptStore: ReceiptStore {
         fatalError("exportAll is not used in PrivacyResetServiceTests")
     }
 
-    func resetAll() throws {
+    func resetAll() async throws {
         resetAllCallCount += 1
     }
 }

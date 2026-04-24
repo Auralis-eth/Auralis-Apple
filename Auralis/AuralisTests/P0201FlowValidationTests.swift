@@ -14,30 +14,30 @@ struct P0201FlowValidationTests {
 
     @Test("end-to-end flow covers add switch duplicate delete-active and relaunch persistence")
     @MainActor
-    func validatesPrimaryWatchAccountFlow() throws {
+    func validatesPrimaryWatchAccountFlow() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let store = AccountStore(modelContext: context)
         let shellLogic = MainAuraShellLogic()
 
-        let firstAccount = try store.activateWatchAccount(
+        let firstAccount = try await store.activateWatchAccount(
             from: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             source: .manualEntry,
             selectedAt: Date(timeIntervalSince1970: 100)
         )
-        let secondAccount = try store.activateWatchAccount(
+        let secondAccount = try await store.activateWatchAccount(
             from: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             source: .guestPass,
             selectedAt: Date(timeIntervalSince1970: 200)
         )
 
-        let duplicateSelection = try store.activateWatchAccount(
+        let duplicateSelection = try await store.activateWatchAccount(
             from: firstAccount.account.address.uppercased(),
             source: .qrScan,
             selectedAt: Date(timeIntervalSince1970: 300)
         )
 
-        let deletion = try store.removeAccount(
+        let deletion = try await store.removeAccount(
             address: duplicateSelection.account.address,
             activeAddress: duplicateSelection.account.address
         )
@@ -62,14 +62,14 @@ struct P0201FlowValidationTests {
 
     @Test("logout preserves the roster and restore safely returns to onboarding without an active selection")
     @MainActor
-    func validatesLogoutAndRelaunchBehavior() throws {
+    func validatesLogoutAndRelaunchBehavior() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let store = AccountStore(modelContext: context)
         let shellLogic = MainAuraShellLogic()
         let homeLogic = HomeTabLogic()
 
-        let account = try store.activateWatchAccount(
+        let account = try await store.activateWatchAccount(
             from: "0xcccccccccccccccccccccccccccccccccccccccc",
             source: .manualEntry,
             selectedAt: Date(timeIntervalSince1970: 100)

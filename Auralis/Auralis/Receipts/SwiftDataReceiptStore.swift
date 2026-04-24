@@ -1,21 +1,12 @@
 import Foundation
 import SwiftData
 
-@MainActor
-final class SwiftDataReceiptStore: ReceiptStore {
-    private let modelContext: ModelContext
-    private let sequenceAllocator: ReceiptSequenceAllocator
-
-    init(
-        modelContext: ModelContext,
-        sequenceAllocator: ReceiptSequenceAllocator
-    ) {
-        self.modelContext = modelContext
-        self.sequenceAllocator = sequenceAllocator
-    }
+@ModelActor
+actor ReceiptPersistenceStore {
+    private var nextSequenceIDCache: Int?
 
     func append(_ receipt: ReceiptDraft) throws -> ReceiptRecord {
-        let nextSequenceID = try sequenceAllocator.allocate(using: modelContext)
+        let nextSequenceID = try allocateSequenceID()
         let storedReceipt = try StoredReceipt(
             sequenceID: nextSequenceID,
             createdAt: receipt.createdAt,
@@ -34,8 +25,59 @@ final class SwiftDataReceiptStore: ReceiptStore {
 
         modelContext.insert(storedReceipt)
         try modelContext.save()
+        return storedReceipt.asReceiptRecord()
+    }
 
-        return try storedReceipt.asReceiptRecord()
+    func resetAll() throws {
+        let receipts = try modelContext.fetch(FetchDescriptor<StoredReceipt>())
+        for receipt in receipts {
+            modelContext.delete(receipt)
+        }
+        try modelContext.save()
+        nextSequenceIDCache = nil
+    }
+
+    private func allocateSequenceID() throws -> Int {
+        if let nextSequenceIDCache {
+            self.nextSequenceIDCache = nextSequenceIDCache + 1
+            return nextSequenceIDCache
+        }
+
+        let descriptor = FetchDescriptor<StoredReceipt>(
+            sortBy: [SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)]
+        )
+
+        let nextSequenceID = (try modelContext.fetch(descriptor).first?.sequenceID ?? 0) + 1
+        nextSequenceIDCache = nextSequenceID + 1
+        return nextSequenceID
+    }
+}
+
+@MainActor
+final class SwiftDataReceiptStore: ReceiptStore {
+    private let modelContext: ModelContext
+    private let persistenceStore: ReceiptPersistenceStore
+
+    init(
+        modelContext: ModelContext,
+        persistenceStore: ReceiptPersistenceStore
+    ) {
+        self.modelContext = modelContext
+        self.persistenceStore = persistenceStore
+    }
+
+    convenience init(
+        modelContext: ModelContext,
+        sequenceAllocator: ReceiptSequenceAllocator
+    ) {
+        self.init(
+            modelContext: modelContext,
+            persistenceStore: ReceiptPersistenceStore(modelContainer: modelContext.container)
+        )
+    }
+
+    func append(_ receipt: ReceiptDraft) async throws -> ReceiptRecord {
+        try await persistenceStore.append(receipt)
     }
 
     func latest(limit: Int) throws -> [ReceiptRecord] {
@@ -52,7 +94,7 @@ final class SwiftDataReceiptStore: ReceiptStore {
 
         return try modelContext.fetch(descriptor)
             .prefix(limit)
-            .map { try $0.asReceiptRecord() }
+            .map { $0.asReceiptRecord() }
     }
 
     func receipts(
@@ -76,7 +118,7 @@ final class SwiftDataReceiptStore: ReceiptStore {
 
         return try modelContext.fetch(descriptor)
             .prefix(limit)
-            .map { try $0.asReceiptRecord() }
+            .map { $0.asReceiptRecord() }
     }
 
     func exportAll() throws -> Data {
@@ -87,20 +129,19 @@ final class SwiftDataReceiptStore: ReceiptStore {
             ]
         )
 
-        let records = try modelContext.fetch(descriptor).map { try $0.asReceiptRecord() }
+        let records = try modelContext.fetch(descriptor).map { $0.asReceiptRecord() }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(records)
     }
 
-    func resetAll() throws {
-        let receipts = try modelContext.fetch(FetchDescriptor<StoredReceipt>())
-        for receipt in receipts {
-            modelContext.delete(receipt)
-        }
-        try modelContext.save()
-        sequenceAllocator.reset()
+    func resetAll() async throws {
+        try await persistenceStore.resetAll()
     }
+}
+
+final class ReceiptSequenceAllocator {
+    init() { }
 }
 
 @MainActor
@@ -110,7 +151,7 @@ enum ReceiptStores {
     // rather than evicting aggressively, because churning either object would
     // break receipt ordering guarantees within that context.
     private static var cachedStores: [ObjectIdentifier: SwiftDataReceiptStore] = [:]
-    private static var cachedAllocators: [ObjectIdentifier: ReceiptSequenceAllocator] = [:]
+    private static var cachedPersistenceStores: [ObjectIdentifier: ReceiptPersistenceStore] = [:]
 
     static func live(modelContext: ModelContext) -> any ReceiptStore {
         let key = ObjectIdentifier(modelContext)
@@ -118,50 +159,26 @@ enum ReceiptStores {
             return cachedStore
         }
 
-        let allocator: ReceiptSequenceAllocator
-        if let cachedAllocator = cachedAllocators[key] {
-            allocator = cachedAllocator
+        let persistenceStore: ReceiptPersistenceStore
+        if let cachedPersistenceStore = cachedPersistenceStores[key] {
+            persistenceStore = cachedPersistenceStore
         } else {
-            let newAllocator = ReceiptSequenceAllocator()
-            cachedAllocators[key] = newAllocator
-            allocator = newAllocator
+            let newPersistenceStore = ReceiptPersistenceStore(modelContainer: modelContext.container)
+            cachedPersistenceStores[key] = newPersistenceStore
+            persistenceStore = newPersistenceStore
         }
 
         let store = SwiftDataReceiptStore(
             modelContext: modelContext,
-            sequenceAllocator: allocator
+            persistenceStore: persistenceStore
         )
         cachedStores[key] = store
         return store
     }
 }
 
-@MainActor
-final class ReceiptSequenceAllocator {
-    private var nextSequenceIDCache: Int?
-
-    func allocate(using modelContext: ModelContext) throws -> Int {
-        if let nextSequenceIDCache {
-            self.nextSequenceIDCache = nextSequenceIDCache + 1
-            return nextSequenceIDCache
-        }
-
-        let descriptor = FetchDescriptor<StoredReceipt>(
-            sortBy: [SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)]
-        )
-
-        let nextSequenceID = (try modelContext.fetch(descriptor).first?.sequenceID ?? 0) + 1
-        nextSequenceIDCache = nextSequenceID + 1
-        return nextSequenceID
-    }
-
-    func reset() {
-        nextSequenceIDCache = nil
-    }
-}
-
 private extension StoredReceipt {
-    func asReceiptRecord() throws -> ReceiptRecord {
+    func asReceiptRecord() -> ReceiptRecord {
         ReceiptRecord(
             id: id,
             sequenceID: sequenceID,
@@ -174,7 +191,7 @@ private extension StoredReceipt {
             provenance: provenance,
             isSuccess: isSuccess,
             correlationID: correlationID,
-            details: try decodedDetails()
+            details: decodedDetailsOrEmpty()
         )
     }
 }

@@ -24,10 +24,10 @@ struct ReceiptStoreTests {
 
     @Test("append assigns monotonic sequence IDs and preserves caller-provided fields")
     @MainActor
-    func appendAssignsSequenceIDs() throws {
+    func appendAssignsSequenceIDs() async throws {
         let store = try makeStore()
 
-        let first = try store.append(
+        let first = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
@@ -36,7 +36,7 @@ struct ReceiptStoreTests {
                 payload: ReceiptPayload(values: ["address": .string("0xabc")])
             )
         )
-        let second = try store.append(
+        let second = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 101),
                 category: "accounts",
@@ -55,10 +55,10 @@ struct ReceiptStoreTests {
 
     @Test("latest returns bounded receipts ordered by newest timestamp with sequence fallback for ties")
     @MainActor
-    func latestUsesStableDescendingOrdering() throws {
+    func latestUsesStableDescendingOrdering() async throws {
         let store = try makeStore()
 
-        _ = try store.append(
+        _ = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "networking",
@@ -66,7 +66,7 @@ struct ReceiptStoreTests {
                 payload: ReceiptPayload(values: [:])
             )
         )
-        let second = try store.append(
+        let second = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "networking",
@@ -74,7 +74,7 @@ struct ReceiptStoreTests {
                 payload: ReceiptPayload(values: [:])
             )
         )
-        let third = try store.append(
+        let third = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 300),
                 category: "networking",
@@ -91,10 +91,10 @@ struct ReceiptStoreTests {
 
     @Test("correlation reads stay bounded and scoped to the caller-provided correlation ID")
     @MainActor
-    func correlationReadsAreBounded() throws {
+    func correlationReadsAreBounded() async throws {
         let store = try makeStore()
 
-        _ = try store.append(
+        _ = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "networking",
@@ -103,7 +103,7 @@ struct ReceiptStoreTests {
                 payload: ReceiptPayload(values: [:])
             )
         )
-        let matchingNewest = try store.append(
+        let matchingNewest = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "networking",
@@ -112,7 +112,7 @@ struct ReceiptStoreTests {
                 payload: ReceiptPayload(values: [:])
             )
         )
-        _ = try store.append(
+        _ = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 300),
                 category: "networking",
@@ -131,10 +131,10 @@ struct ReceiptStoreTests {
 
     @Test("exportAll returns every receipt in deterministic ascending order for JSON export")
     @MainActor
-    func exportAllUsesDeterministicOrdering() throws {
+    func exportAllUsesDeterministicOrdering() async throws {
         let store = try makeStore()
 
-        let first = try store.append(
+        let first = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
@@ -142,7 +142,7 @@ struct ReceiptStoreTests {
                 payload: ReceiptPayload(values: ["step": .number(1)])
             )
         )
-        let second = try store.append(
+        let second = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
@@ -160,7 +160,7 @@ struct ReceiptStoreTests {
 
     @Test("exportAll emits the sanitized payloads exactly as persisted")
     @MainActor
-    func exportAllUsesSanitizedPersistedPayloads() throws {
+    func exportAllUsesSanitizedPersistedPayloads() async throws {
         let store = try makeStore()
         let sanitizer = DefaultReceiptPayloadSanitizer()
         let sanitizedPayload = sanitizer.sanitize(
@@ -172,7 +172,7 @@ struct ReceiptStoreTests {
             )
         )
 
-        _ = try store.append(
+        _ = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "networking",
@@ -191,10 +191,10 @@ struct ReceiptStoreTests {
 
     @Test("resetAll wipes the receipt store without introducing any per-item delete API")
     @MainActor
-    func resetAllRemovesEverything() throws {
+    func resetAllRemovesEverything() async throws {
         let store = try makeStore()
 
-        _ = try store.append(
+        _ = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
@@ -202,7 +202,7 @@ struct ReceiptStoreTests {
                 payload: ReceiptPayload(values: [:])
             )
         )
-        _ = try store.append(
+        _ = try await store.append(
             ReceiptDraft(
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "networking",
@@ -211,7 +211,7 @@ struct ReceiptStoreTests {
             )
         )
 
-        try store.resetAll()
+        try await store.resetAll()
 
         #expect(try store.latest(limit: 10).isEmpty)
         let exportedData = try store.exportAll()

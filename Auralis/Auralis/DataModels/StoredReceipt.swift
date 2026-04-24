@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SwiftData
 
 /// SwiftData-backed Phase 0 receipt row.
@@ -12,6 +13,8 @@ import SwiftData
 /// - sanitized details payload encoded as export-safe JSON bytes
 @Model
 final class StoredReceipt {
+    private static let logger = Logger(subsystem: "Auralis", category: "StoredReceipt")
+
     @Attribute(.unique) var id: UUID
     var sequenceID: Int
     var createdAt: Date
@@ -81,6 +84,17 @@ final class StoredReceipt {
 
     func decodedPayload() throws -> ReceiptPayload {
         try decodedDetails()
+    }
+
+    func decodedDetailsOrEmpty() -> ReceiptPayload {
+        do {
+            return try decodedDetails()
+        } catch {
+            Self.logger.error(
+                "Falling back to empty receipt payload for receipt id=\(self.id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return ReceiptPayload(values: [:])
+        }
     }
 
     static func encodeDetails(_ details: ReceiptPayload) throws -> Data {

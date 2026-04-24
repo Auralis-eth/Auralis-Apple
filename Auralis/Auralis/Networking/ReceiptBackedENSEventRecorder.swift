@@ -21,7 +21,7 @@ final class ReceiptBackedENSEventRecorder: ENSEventRecording {
         fetchedAt: Date,
         correlationID: String?
     ) async {
-        append(
+        await append(
             trigger: "ens.\(kind).cache_hit",
             summary: "Used cached ENS resolution",
             correlationID: correlationID,
@@ -39,7 +39,7 @@ final class ReceiptBackedENSEventRecorder: ENSEventRecording {
         key: String,
         correlationID: String?
     ) async {
-        append(
+        await append(
             trigger: "ens.\(kind).started",
             summary: "Started ENS lookup",
             correlationID: correlationID,
@@ -58,7 +58,7 @@ final class ReceiptBackedENSEventRecorder: ENSEventRecording {
         verification: Bool?,
         correlationID: String?
     ) async {
-        append(
+        await append(
             trigger: "ens.\(kind).succeeded",
             summary: "ENS lookup succeeded",
             correlationID: correlationID,
@@ -78,7 +78,7 @@ final class ReceiptBackedENSEventRecorder: ENSEventRecording {
         correlationID: String?,
         error: Error
     ) async {
-        append(
+        await append(
             trigger: "ens.\(kind).failed",
             summary: "ENS lookup failed",
             correlationID: correlationID,
@@ -98,7 +98,7 @@ final class ReceiptBackedENSEventRecorder: ENSEventRecording {
         newValue: String,
         correlationID: String?
     ) async {
-        append(
+        await append(
             trigger: "ens.\(kind).mapping_changed",
             summary: "ENS mapping changed",
             correlationID: correlationID,
@@ -121,11 +121,11 @@ private extension ReceiptBackedENSEventRecorder {
         correlationID: String?,
         isSuccess: Bool,
         rawPayload: RawReceiptPayload
-    ) {
+    ) async {
         let payload = payloadSanitizer.sanitize(rawPayload)
 
         do {
-            _ = try receiptStore.append(
+            _ = try await receiptStore.append(
                 ReceiptDraft(
                     actor: .system,
                     mode: .observe,

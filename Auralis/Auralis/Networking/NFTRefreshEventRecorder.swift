@@ -97,7 +97,7 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         chain: Chain,
         correlationID: String
     ) async {
-        append(
+        await append(
             kind: "nft.refresh.started",
             correlationID: correlationID,
             accountAddress: accountAddress,
@@ -118,7 +118,7 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         itemCount: Int,
         totalCount: Int?
     ) async {
-        append(
+        await append(
             kind: "nft.fetch.succeeded",
             correlationID: correlationID,
             accountAddress: accountAddress,
@@ -140,7 +140,7 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         correlationID: String,
         error: Error
     ) async {
-        append(
+        await append(
             kind: "nft.fetch.failed",
             correlationID: correlationID,
             accountAddress: accountAddress,
@@ -162,7 +162,7 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         correlationID: String,
         persistedCount: Int
     ) async {
-        append(
+        await append(
             kind: "nft.persistence.completed",
             correlationID: correlationID,
             accountAddress: accountAddress,
@@ -183,7 +183,7 @@ final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
         correlationID: String,
         error: Error
     ) async {
-        append(
+        await append(
             kind: "nft.persistence.failed",
             correlationID: correlationID,
             accountAddress: accountAddress,
@@ -218,11 +218,11 @@ private extension ReceiptBackedNFTRefreshEventRecorder {
         rawPayload: RawReceiptPayload,
         summary: String,
         isSuccess: Bool
-    ) {
+    ) async {
         let payload = payloadSanitizer.sanitize(rawPayload)
 
         do {
-            _ = try receiptStore.append(
+            _ = try await receiptStore.append(
                 ReceiptDraft(
                     actor: .system,
                     mode: .observe,

@@ -2,6 +2,78 @@ import Foundation
 import OSLog
 import SwiftData
 
+@ModelActor
+private actor SearchHistoryPersistenceStore {
+    func recordCommittedQuery(
+        _ query: String,
+        accountAddress: String?,
+        maxEntriesPerAccount: Int
+    ) throws {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else {
+            return
+        }
+
+        let normalizedQuery = trimmedQuery.lowercased()
+
+        if let existingRecord = try fetchRecords().first(where: {
+            $0.accountAddressRawValue == accountAddress && $0.normalizedQuery == normalizedQuery
+        }) {
+            existingRecord.query = trimmedQuery
+            existingRecord.recordedAt = .now
+        } else {
+            modelContext.insert(
+                SearchHistoryRecord(
+                    accountAddressRawValue: accountAddress,
+                    normalizedQuery: normalizedQuery,
+                    query: trimmedQuery,
+                    recordedAt: .now
+                )
+            )
+        }
+
+        try trimExcessEntries(for: accountAddress, maxEntriesPerAccount: maxEntriesPerAccount)
+        try modelContext.save()
+    }
+
+    func removeEntry(id: String) throws {
+        guard let record = try fetchRecords().first(where: { $0.id == id }) else {
+            return
+        }
+
+        modelContext.delete(record)
+        try modelContext.save()
+    }
+
+    func clear(accountAddress: String?) throws {
+        try fetchRecords()
+            .filter { $0.accountAddressRawValue == accountAddress }
+            .forEach(modelContext.delete)
+        try modelContext.save()
+    }
+
+    func clearAll() throws {
+        try fetchRecords().forEach(modelContext.delete)
+        try modelContext.save()
+    }
+
+    private func fetchRecords() throws -> [SearchHistoryRecord] {
+        try modelContext.fetch(FetchDescriptor<SearchHistoryRecord>())
+    }
+
+    private func trimExcessEntries(
+        for accountAddress: String?,
+        maxEntriesPerAccount: Int
+    ) throws {
+        let overflowRecords = try fetchRecords()
+            .filter { $0.accountAddressRawValue == accountAddress }
+            .sorted { $0.recordedAt > $1.recordedAt }
+            .dropFirst(maxEntriesPerAccount)
+
+        overflowRecords.forEach(modelContext.delete)
+    }
+}
+
 struct SearchHistoryEntry: Equatable, Identifiable, Sendable {
     let accountAddress: String?
     let normalizedQuery: String
@@ -40,6 +112,7 @@ struct SearchHistoryStore {
     private static let logger = Logger(subsystem: "Auralis", category: "SearchHistoryStore")
     private let modelContext: ModelContext
     private let maxEntriesPerAccount: Int
+    private let persistenceStore: SearchHistoryPersistenceStore
 
     init(
         modelContext: ModelContext,
@@ -47,6 +120,7 @@ struct SearchHistoryStore {
     ) {
         self.modelContext = modelContext
         self.maxEntriesPerAccount = maxEntriesPerAccount
+        self.persistenceStore = SearchHistoryPersistenceStore(modelContainer: modelContext.container)
     }
 
     func entries(for accountAddress: String?) -> [SearchHistoryEntry] {
@@ -62,55 +136,24 @@ struct SearchHistoryStore {
         }
     }
 
-    func recordCommittedQuery(_ query: String, accountAddress: String?) throws {
-        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedQuery.isEmpty else {
-            return
-        }
-
-        let normalizedAccountAddress = normalizedAccount(accountAddress)
-        let normalizedQuery = trimmedQuery.lowercased()
-
-        if let existingRecord = try fetchRecords().first(where: {
-            $0.accountAddressRawValue == normalizedAccountAddress && $0.normalizedQuery == normalizedQuery
-        }) {
-            existingRecord.query = trimmedQuery
-            existingRecord.recordedAt = .now
-        } else {
-            modelContext.insert(
-                SearchHistoryRecord(
-                    accountAddressRawValue: normalizedAccountAddress,
-                    normalizedQuery: normalizedQuery,
-                    query: trimmedQuery,
-                    recordedAt: .now
-                )
-            )
-        }
-
-        try trimExcessEntries(for: normalizedAccountAddress)
-        try saveContext()
+    func recordCommittedQuery(_ query: String, accountAddress: String?) async throws {
+        try await persistenceStore.recordCommittedQuery(
+            query,
+            accountAddress: normalizedAccount(accountAddress),
+            maxEntriesPerAccount: maxEntriesPerAccount
+        )
     }
 
-    func removeEntry(id: String) throws {
-        guard let record = try fetchRecords().first(where: { $0.id == id }) else {
-            return
-        }
-
-        modelContext.delete(record)
-        try saveContext()
+    func removeEntry(id: String) async throws {
+        try await persistenceStore.removeEntry(id: id)
     }
 
-    func clear(accountAddress: String?) throws {
-        let normalizedAccountAddress = normalizedAccount(accountAddress)
-        try fetchRecords()
-            .filter { $0.accountAddressRawValue == normalizedAccountAddress }
-            .forEach(modelContext.delete)
-        try saveContext()
+    func clear(accountAddress: String?) async throws {
+        try await persistenceStore.clear(accountAddress: normalizedAccount(accountAddress))
     }
 
-    func clearAll() throws {
-        try fetchRecords().forEach(modelContext.delete)
-        try saveContext()
+    func clearAll() async throws {
+        try await persistenceStore.clearAll()
     }
 
     private func normalizedAccount(_ address: String?) -> String? {
@@ -119,18 +162,5 @@ struct SearchHistoryStore {
 
     private func fetchRecords() throws -> [SearchHistoryRecord] {
         try modelContext.fetch(FetchDescriptor<SearchHistoryRecord>())
-    }
-
-    private func trimExcessEntries(for accountAddress: String?) throws {
-        let overflowRecords = try fetchRecords()
-            .filter { $0.accountAddressRawValue == accountAddress }
-            .sorted { $0.recordedAt > $1.recordedAt }
-            .dropFirst(maxEntriesPerAccount)
-
-        overflowRecords.forEach(modelContext.delete)
-    }
-
-    private func saveContext() throws {
-        try modelContext.save()
     }
 }

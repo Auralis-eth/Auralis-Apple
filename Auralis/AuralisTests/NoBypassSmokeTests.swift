@@ -20,7 +20,7 @@ struct NoBypassSmokeTests {
 
     @Test("blocked observe actions fail with a denial receipt instead of silently executing")
     @MainActor
-    func blockedObserveActionsWriteDenialReceipt() throws {
+    func blockedObserveActionsWriteDenialReceipt() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
@@ -46,7 +46,7 @@ struct NoBypassSmokeTests {
 
     @Test("allowed observe actions do not masquerade as denied policy events")
     @MainActor
-    func allowedObserveActionsDoNotWriteDenialReceipts() throws {
+    func allowedObserveActionsDoNotWriteDenialReceipts() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(

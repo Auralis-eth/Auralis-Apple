@@ -16,9 +16,9 @@ protocol ShellAccountResolving {
 
 @MainActor
 protocol ShellAccountMutating {
-    func selectAccount(address: String, correlationID: String?) throws -> EOAccount
-    func removeAccount(address: String, activeAddress: String, correlationID: String?) throws -> AccountRemovalResult
-    func persistCurrentChain(address: String, chain: Chain, correlationID: String?) throws -> EOAccount
+    func selectAccount(address: String, correlationID: String?) async throws -> EOAccount
+    func removeAccount(address: String, activeAddress: String, correlationID: String?) async throws -> AccountRemovalResult
+    func persistCurrentChain(address: String, chain: Chain, correlationID: String?) async throws -> EOAccount
 }
 
 @MainActor
@@ -105,8 +105,8 @@ struct SwiftDataShellAccountMutator: ShellAccountMutating {
         self.eventRecorder = eventRecorder
     }
 
-    func selectAccount(address: String, correlationID: String?) throws -> EOAccount {
-        try AccountStore(
+    func selectAccount(address: String, correlationID: String?) async throws -> EOAccount {
+        try await AccountStore(
             modelContext: modelContext,
             eventRecorder: eventRecorder
         )
@@ -117,8 +117,8 @@ struct SwiftDataShellAccountMutator: ShellAccountMutating {
         address: String,
         activeAddress: String,
         correlationID: String?
-    ) throws -> AccountRemovalResult {
-        try AccountStore(
+    ) async throws -> AccountRemovalResult {
+        try await AccountStore(
             modelContext: modelContext,
             eventRecorder: eventRecorder
         )
@@ -133,7 +133,7 @@ struct SwiftDataShellAccountMutator: ShellAccountMutating {
         address: String,
         chain: Chain,
         correlationID: String?
-    ) throws -> EOAccount {
+    ) async throws -> EOAccount {
         let store = AccountStore(
             modelContext: modelContext,
             eventRecorder: eventRecorder
@@ -142,24 +142,11 @@ struct SwiftDataShellAccountMutator: ShellAccountMutating {
             throw AccountStoreError.accountNotFound(address)
         }
 
-        let previousChain = account.currentChain
-        guard previousChain != chain else {
-            return account
-        }
-
-        account.currentChain = chain
-
-        do {
-            try modelContext.save()
-            eventRecorder.record(
-                .currentChainChanged(address: account.address, from: previousChain, to: chain),
-                correlationID: correlationID
-            )
-            return account
-        } catch {
-            account.currentChain = previousChain
-            throw error
-        }
+        return try await store.persistCurrentChain(
+            address: account.address,
+            chain: chain,
+            correlationID: correlationID
+        )
     }
 }
 

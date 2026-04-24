@@ -88,29 +88,31 @@ struct QRScannerView: View {
                 return
             }
 
-            do {
+            Task {
                 let store = accountStoreFactory(modelContext)
                 let correlationID = UUID().uuidString
-                let activation = try store.activateWatchAccount(
-                    from: code.string,
-                    source: .qrScan,
-                    correlationID: correlationID
-                )
-                onAccountActivated(activation.account, correlationID)
-                haptics.notification(.success)
+                do {
+                    let activation = try await store.activateWatchAccount(
+                        from: code.string,
+                        source: .qrScan,
+                        correlationID: correlationID
+                    )
+                    onAccountActivated(activation.account, correlationID)
+                    haptics.notification(.success)
 
-                if !activation.wasCreated {
+                    if !activation.wasCreated {
+                        showAlert(
+                            title: "Account Already Added",
+                            message: "Switched to the existing saved account for that scanned address.",
+                            feedback: .success
+                        )
+                    }
+                } catch {
                     showAlert(
-                        title: "Account Already Added",
-                        message: "Switched to the existing saved account for that scanned address.",
-                        feedback: .success
+                        title: "Scan Failed",
+                        message: error.localizedDescription
                     )
                 }
-            } catch {
-                showAlert(
-                    title: "Scan Failed",
-                    message: error.localizedDescription
-                )
             }
         case .failure(let error):
             showAlert(

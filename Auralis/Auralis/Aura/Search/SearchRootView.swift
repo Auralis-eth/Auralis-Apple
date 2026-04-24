@@ -188,12 +188,14 @@ struct SearchRootView: View {
     }
 
     private func commitQuery() {
-        do {
-            try historyStore.recordCommittedQuery(query, accountAddress: currentAccountAddress)
-            historyErrorMessage = nil
-            reloadHistory()
-        } catch {
-            handleHistoryWriteFailure(error, operation: "save")
+        Task {
+            do {
+                try await historyStore.recordCommittedQuery(query, accountAddress: currentAccountAddress)
+                historyErrorMessage = nil
+                reloadHistory()
+            } catch {
+                handleHistoryWriteFailure(error, operation: "save")
+            }
         }
     }
 
@@ -207,22 +209,26 @@ struct SearchRootView: View {
     }
 
     private func deleteHistoryEntry(_ entry: SearchHistoryEntry) {
-        do {
-            try historyStore.removeEntry(id: entry.id)
-            historyErrorMessage = nil
-            reloadHistory()
-        } catch {
-            handleHistoryWriteFailure(error, operation: "delete")
+        Task {
+            do {
+                try await historyStore.removeEntry(id: entry.id)
+                historyErrorMessage = nil
+                reloadHistory()
+            } catch {
+                handleHistoryWriteFailure(error, operation: "delete")
+            }
         }
     }
 
     private func clearHistory() {
-        do {
-            try historyStore.clear(accountAddress: currentAccountAddress)
-            historyErrorMessage = nil
-            reloadHistory()
-        } catch {
-            handleHistoryWriteFailure(error, operation: "clear")
+        Task {
+            do {
+                try await historyStore.clear(accountAddress: currentAccountAddress)
+                historyErrorMessage = nil
+                reloadHistory()
+            } catch {
+                handleHistoryWriteFailure(error, operation: "clear")
+            }
         }
     }
 

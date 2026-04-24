@@ -31,7 +31,7 @@ final class ERC20HoldingsSyncCoordinator {
     func sync(
         request: Request,
         fetch: @escaping (Request) async throws -> TokenHoldingsFetchResult,
-        persist: @escaping @MainActor (Request, [ProviderTokenHolding]) throws -> Void
+        persist: @escaping @MainActor (Request, [ProviderTokenHolding]) async throws -> Void
     ) async -> Result {
         let syncID = UUID()
         activeSyncID = syncID
@@ -44,7 +44,7 @@ final class ERC20HoldingsSyncCoordinator {
             }
 
             do {
-                try persist(request, fetchResult.holdings)
+                try await persist(request, fetchResult.holdings)
             } catch {
                 guard activeSyncID == syncID else {
                     return .dropped

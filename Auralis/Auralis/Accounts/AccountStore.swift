@@ -1,6 +1,118 @@
 import Foundation
 import SwiftData
 
+@ModelActor
+private actor AccountPersistenceStore {
+    struct RemovalSnapshot: Sendable {
+        let removedAddress: String
+        let fallbackAddress: String?
+    }
+
+    func createWatchAccount(
+        normalizedAddress: String,
+        name: String?,
+        source: EOAccountSource,
+        overwriteExisting: Bool,
+        now: Date
+    ) throws {
+        if let existingAccount = try account(for: normalizedAddress) {
+            guard overwriteExisting else {
+                throw AccountStoreError.duplicateAddress(normalizedAddress)
+            }
+
+            modelContext.delete(existingAccount)
+        }
+
+        let account = EOAccount(
+            address: normalizedAddress,
+            access: .readonly,
+            name: name,
+            source: source,
+            addedAt: now,
+            lastSelectedAt: nil,
+            trackedNFTCount: 0
+        )
+
+        modelContext.insert(account)
+        try modelContext.save()
+    }
+
+    func selectAccount(
+        normalizedAddress: String,
+        selectedAt: Date
+    ) throws {
+        guard let account = try account(for: normalizedAddress) else {
+            throw AccountStoreError.accountNotFound(normalizedAddress)
+        }
+
+        account.lastSelectedAt = selectedAt
+        try modelContext.save()
+    }
+
+    func removeAccount(
+        normalizedAddress: String,
+        normalizedActiveAddress: String?
+    ) throws -> RemovalSnapshot {
+        guard let account = try account(for: normalizedAddress) else {
+            throw AccountStoreError.accountNotFound(normalizedAddress)
+        }
+
+        let removedAddress = account.address
+        modelContext.delete(account)
+        try modelContext.save()
+
+        let fallbackAddress: String?
+        if normalizedActiveAddress == removedAddress {
+            fallbackAddress = try listAccounts().first?.address
+        } else {
+            fallbackAddress = nil
+        }
+
+        return RemovalSnapshot(
+            removedAddress: removedAddress,
+            fallbackAddress: fallbackAddress
+        )
+    }
+
+    func persistCurrentChain(
+        normalizedAddress: String,
+        chain: Chain
+    ) throws {
+        guard let account = try account(for: normalizedAddress) else {
+            throw AccountStoreError.accountNotFound(normalizedAddress)
+        }
+
+        account.currentChain = chain
+        try modelContext.save()
+    }
+
+    private func account(for normalizedAddress: String) throws -> EOAccount? {
+        let descriptor = FetchDescriptor<EOAccount>(
+            predicate: #Predicate<EOAccount> { account in
+                account.address == normalizedAddress
+            }
+        )
+
+        return try modelContext.fetch(descriptor).first
+    }
+
+    private func listAccounts() throws -> [EOAccount] {
+        let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
+
+        return accounts.sorted { lhs, rhs in
+            if lhs.mostRecentActivityAt != rhs.mostRecentActivityAt {
+                return lhs.mostRecentActivityAt > rhs.mostRecentActivityAt
+            }
+
+            if lhs.addedAt != rhs.addedAt {
+                return lhs.addedAt > rhs.addedAt
+            }
+
+            return lhs.address.localizedCompare(rhs.address) == .orderedAscending
+        }
+    }
+}
+
 enum AccountStoreError: LocalizedError, Equatable {
     case invalidAddress
     case duplicateAddress(String)
@@ -74,6 +186,7 @@ struct AccountActivationResult {
 struct AccountStore {
     private let modelContext: ModelContext
     private let eventRecorder: any AccountEventRecorder
+    private let persistenceStore: AccountPersistenceStore
 
     init(modelContext: ModelContext) {
         self.init(
@@ -88,6 +201,7 @@ struct AccountStore {
     ) {
         self.modelContext = modelContext
         self.eventRecorder = eventRecorder
+        self.persistenceStore = AccountPersistenceStore(modelContainer: modelContext.container)
     }
 
     static func normalizeAddress(_ rawAddress: String) -> String? {
@@ -156,35 +270,27 @@ struct AccountStore {
         overwriteExisting: Bool = false,
         now: Date = .now,
         correlationID: String? = nil
-    ) throws -> EOAccount {
+    ) async throws -> EOAccount {
         guard let normalizedAddress = AccountStore.normalizeAddress(rawAddress) else {
             throw AccountStoreError.invalidAddress
         }
 
-        if let existingAccount = try account(for: normalizedAddress) {
-            guard overwriteExisting else {
-                throw AccountStoreError.duplicateAddress(normalizedAddress)
-            }
-
-            modelContext.delete(existingAccount)
-        }
-
-        let account = EOAccount(
-            address: normalizedAddress,
-            access: .readonly,
+        try await persistenceStore.createWatchAccount(
+            normalizedAddress: normalizedAddress,
             name: name,
             source: source,
-            addedAt: now,
-            lastSelectedAt: nil,
-            trackedNFTCount: 0
+            overwriteExisting: overwriteExisting,
+            now: now
         )
 
-        modelContext.insert(account)
-        try modelContext.save()
         if overwriteExisting {
             eventRecorder.record(.removed(address: normalizedAddress), correlationID: correlationID)
         }
         eventRecorder.record(.added(address: normalizedAddress), correlationID: correlationID)
+
+        guard let account = try account(for: normalizedAddress) else {
+            throw AccountStoreError.accountNotFound(normalizedAddress)
+        }
         return account
     }
 
@@ -194,16 +300,16 @@ struct AccountStore {
         source: EOAccountSource = .manualEntry,
         selectedAt: Date = .now,
         correlationID: String? = nil
-    ) throws -> AccountActivationResult {
+    ) async throws -> AccountActivationResult {
         do {
-            let createdAccount = try createWatchAccount(
+            let createdAccount = try await createWatchAccount(
                 from: rawAddress,
                 name: name,
                 source: source,
                 now: selectedAt,
                 correlationID: correlationID
             )
-            let selectedAccount = try selectAccount(
+            let selectedAccount = try await selectAccount(
                 address: createdAccount.address,
                 selectedAt: selectedAt,
                 correlationID: correlationID
@@ -219,7 +325,7 @@ struct AccountStore {
                 throw error
             }
 
-            let selectedAccount = try selectAccount(
+            let selectedAccount = try await selectAccount(
                 address: existingAccount.address,
                 selectedAt: selectedAt,
                 correlationID: correlationID
@@ -233,14 +339,20 @@ struct AccountStore {
         address rawAddress: String,
         selectedAt: Date = .now,
         correlationID: String? = nil
-    ) throws -> EOAccount {
-        guard let account = try account(for: rawAddress) else {
-            let normalizedAddress = AccountStore.normalizeAddress(rawAddress) ?? rawAddress
+    ) async throws -> EOAccount {
+        guard let normalizedAddress = AccountStore.normalizeAddress(rawAddress) else {
+            throw AccountStoreError.accountNotFound(rawAddress)
+        }
+
+        try await persistenceStore.selectAccount(
+            normalizedAddress: normalizedAddress,
+            selectedAt: selectedAt
+        )
+
+        guard let account = try account(for: normalizedAddress) else {
             throw AccountStoreError.accountNotFound(normalizedAddress)
         }
 
-        account.lastSelectedAt = selectedAt
-        try modelContext.save()
         eventRecorder.record(.selected(address: account.address), correlationID: correlationID)
         return account
     }
@@ -249,30 +361,54 @@ struct AccountStore {
         address rawAddress: String,
         activeAddress: String? = nil,
         correlationID: String? = nil
-    ) throws -> AccountRemovalResult {
-        guard let account = try account(for: rawAddress) else {
-            let normalizedAddress = AccountStore.normalizeAddress(rawAddress) ?? rawAddress
-            throw AccountStoreError.accountNotFound(normalizedAddress)
+    ) async throws -> AccountRemovalResult {
+        guard let normalizedAddress = AccountStore.normalizeAddress(rawAddress) else {
+            throw AccountStoreError.accountNotFound(rawAddress)
         }
 
-        let removedAddress = account.address
-        let normalizedActiveAddress = activeAddress.flatMap(AccountStore.normalizeAddress)
-
-        modelContext.delete(account)
-        try modelContext.save()
-        eventRecorder.record(.removed(address: removedAddress), correlationID: correlationID)
-
-        let fallbackAccount: EOAccount?
-        if normalizedActiveAddress == removedAddress {
-            fallbackAccount = try listAccounts().first
-        } else {
-            fallbackAccount = nil
-        }
+        let removalSnapshot = try await persistenceStore.removeAccount(
+            normalizedAddress: normalizedAddress,
+            normalizedActiveAddress: activeAddress.flatMap(AccountStore.normalizeAddress)
+        )
+        eventRecorder.record(.removed(address: removalSnapshot.removedAddress), correlationID: correlationID)
 
         return AccountRemovalResult(
-            removedAddress: removedAddress,
-            fallbackAccount: fallbackAccount
+            removedAddress: removalSnapshot.removedAddress,
+            fallbackAccount: try removalSnapshot.fallbackAddress.flatMap { try account(for: $0) }
         )
+    }
+
+    func persistCurrentChain(
+        address rawAddress: String,
+        chain: Chain,
+        correlationID: String? = nil
+    ) async throws -> EOAccount {
+        guard let normalizedAddress = AccountStore.normalizeAddress(rawAddress) else {
+            throw AccountStoreError.accountNotFound(rawAddress)
+        }
+
+        guard let existingAccount = try account(for: normalizedAddress) else {
+            throw AccountStoreError.accountNotFound(normalizedAddress)
+        }
+        let previousChain = existingAccount.currentChain
+
+        guard previousChain != chain else {
+            return existingAccount
+        }
+
+        try await persistenceStore.persistCurrentChain(
+            normalizedAddress: normalizedAddress,
+            chain: chain
+        )
+        eventRecorder.record(
+            .currentChainChanged(address: existingAccount.address, from: previousChain, to: chain),
+            correlationID: correlationID
+        )
+
+        guard let refreshedAccount = try account(for: normalizedAddress) else {
+            throw AccountStoreError.accountNotFound(normalizedAddress)
+        }
+        return refreshedAccount
     }
 }
 
@@ -290,5 +426,4 @@ private extension AccountStore {
 
         return nil
     }
-
 }

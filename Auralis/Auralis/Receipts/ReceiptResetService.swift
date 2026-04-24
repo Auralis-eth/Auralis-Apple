@@ -3,7 +3,7 @@ import SwiftData
 
 @MainActor
 protocol ReceiptResetting {
-    func resetReceipts() throws
+    func resetReceipts() async throws
 }
 
 @MainActor
@@ -14,8 +14,8 @@ struct ReceiptResetService: ReceiptResetting {
         self.receiptStore = receiptStore
     }
 
-    func resetReceipts() throws {
-        try receiptStore.resetAll()
+    func resetReceipts() async throws {
+        try await receiptStore.resetAll()
     }
 }
 
