@@ -138,7 +138,7 @@ struct OpenSeaLink: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         SystemFontText(
-                            text: "View on OpenSea",
+                            text: String(localized: "View on OpenSea"),
                             size: 16,
                             weight: .semibold
                         )
@@ -216,7 +216,7 @@ struct EtherscanLink: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         SystemFontText(
-                            text: "View on \(explorerDestination.label)",
+                            text: String(localized: "View on \(explorerDestination.label)"),
                             size: 16,
                             weight: .semibold
                         )

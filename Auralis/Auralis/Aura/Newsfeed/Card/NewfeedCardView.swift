@@ -88,9 +88,16 @@ struct NewsFeedCardView: View {
 }
 
 struct NewsFeedCardButtons: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.modelContext) private var modelContext
     @Namespace private var namespace
+    @State private var copyConfirmationDismissTask: Task<Void, Never>?
+    @State private var isShowingCopyConfirmation = false
     let nft: NFT
+
+    private var haptics: AuraHaptics {
+        AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
+    }
 
     var body: some View {
         GlassEffectContainer {
@@ -112,22 +119,37 @@ struct NewsFeedCardButtons: View {
                     Button(action: {
                         copyNFTIdentifier()
                     }, label: {
-                        Label("Copy ID", systemImage: "doc.on.doc")
+                        Label(String(localized: "Copy ID"), systemImage: "doc.on.doc")
                     })
                 } label: {
                     SystemImage("ellipsis")
                         .foregroundStyle(Color.textPrimary)
                 }
                 .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("More actions")
-                .accessibilityHint("Shows actions for this NFT")
+                .accessibilityLabel(String(localized: "More actions"))
+                .accessibilityHint(String(localized: "Shows actions for this NFT"))
             }
             .font(.title2)
             .padding()
             .buttonStyle(.glassProminent)
             .tint(Color.surface.opacity(0.8))
             .glassEffectUnion(id: "newsfeedcardbuttons", namespace: namespace)
-
+            .overlay(alignment: .top) {
+                if isShowingCopyConfirmation {
+                    AuraPill(
+                        String(localized: "Copied"),
+                        systemImage: "checkmark.circle.fill",
+                        emphasis: .success
+                    )
+                    .offset(y: -28)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.snappy, value: isShowingCopyConfirmation)
+        }
+        .onDisappear {
+            copyConfirmationDismissTask?.cancel()
+            copyConfirmationDismissTask = nil
         }
     }
 
@@ -135,6 +157,8 @@ struct NewsFeedCardButtons: View {
 #if canImport(UIKit)
         UIPasteboard.general.string = nft.id
 #endif
+        haptics.notification(.success)
+        presentCopyConfirmation()
         ReceiptEventLogger(
             receiptStore: ReceiptStores.live(modelContext: modelContext)
         ).recordCopyAction(
@@ -145,6 +169,20 @@ struct NewsFeedCardButtons: View {
             chain: nft.network
         )
     }
+
+    private func presentCopyConfirmation() {
+        copyConfirmationDismissTask?.cancel()
+        isShowingCopyConfirmation = true
+        copyConfirmationDismissTask = Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else {
+                return
+            }
+            await MainActor.run {
+                isShowingCopyConfirmation = false
+            }
+        }
+    }
 }
 
 struct NewsFeedCardExpandedDetailsView: View {
@@ -152,40 +190,40 @@ struct NewsFeedCardExpandedDetailsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Title and description
-            SystemFontText(text: nft.name ?? "Unnamed NFT", size: 18, weight: .semibold)
+            SystemFontText(text: nft.name ?? String(localized: "Unnamed NFT"), size: 18, weight: .semibold)
 
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                 // Headline can be outside the grid or as a header row
                 GridRow {
                     // Use .gridCellColumns(2) to make the header span both columns
-                    HeadlineFontText("Technical Details")
+                    HeadlineFontText(String(localized: "Technical Details"))
                         .gridCellColumns(2)
                 }
 
                 // Your detail rows
                 GridRow {
-                    SubheadlineFontText("Contract") // Custom view assumed
-                    SubheadlineFontText(nft.contract.address ?? "N/A")
+                    SubheadlineFontText(String(localized: "Contract"))
+                    SubheadlineFontText(nft.contract.address ?? String(localized: "N/A"))
                         .truncationMode(.middle)
                 }
                 GridRow {
-                    SubheadlineFontText("Token ID")
+                    SubheadlineFontText(String(localized: "Token ID"))
                     SubheadlineFontText(nft.tokenId)
                         .truncationMode(.middle)
                 }
                 GridRow {
-                    SubheadlineFontText("Token Standard")
-                    SubheadlineFontText(nft.tokenType ?? "Unknown")
+                    SubheadlineFontText(String(localized: "Token Standard"))
+                    SubheadlineFontText(nft.tokenType ?? String(localized: "Unknown"))
                 }
                 GridRow {
-                    SubheadlineFontText("Blockchain")
-                    SubheadlineFontText(nft.network?.networkName ?? "Unknown")
+                    SubheadlineFontText(String(localized: "Blockchain"))
+                    SubheadlineFontText(nft.network?.networkName ?? String(localized: "Unknown"))
                 }
             }
 
             // Attributes/Traits section
             if let metadata = nft.raw?.metadata, let attributes = metadata.attributes, !attributes.isEmpty {
-                HeadlineFontText("Traits")
+                HeadlineFontText(String(localized: "Traits"))
                     .padding(.top, 8)
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -205,7 +243,7 @@ struct NewsFeedCardExpandedDetailsView: View {
                     }
                 }
             } else {
-                SecondaryCaptionFontText("No traits available")
+                SecondaryCaptionFontText(String(localized: "No traits available"))
                     .padding(.top, 8)
             }
 
@@ -228,8 +266,8 @@ struct NewsFeedCardExpandedDetailsView: View {
             // Category display (placeholder)
             HStack {
                 Spacer()
-                PrimaryText("Category")
-                PrimaryCaptionFontText("Category Selector")
+                PrimaryText(String(localized: "Category"))
+                PrimaryCaptionFontText(String(localized: "Category Selector"))
                     .fontWeight(.medium)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)

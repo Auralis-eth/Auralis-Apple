@@ -7,6 +7,41 @@ import Testing
 struct HomeTabLogicTests {
     private let logic = HomeTabLogic()
 
+    @Test("avatar fallback picks one of the bundled deterministic asset names")
+    func avatarFallbackUsesBundledAssetRange() {
+        let support = ProfileAvatarArtworkSupport()
+        let assetName = support.fallbackAvatarAssetName(for: "0x1234567890abcdef1234567890abcdef12345678")
+
+        #expect(assetName != nil)
+        #expect(assetName?.hasPrefix("testProfile-") == true)
+    }
+
+    @Test("avatar prompt atoms stay deterministic for the same input")
+    func avatarPromptsAreDeterministic() {
+        let support = ProfileAvatarArtworkSupport()
+        let address = "0x1234567890abcdef1234567890abcdef12345678"
+
+        let first = support.promptAtoms(address: address, style: .character)
+        let second = support.promptAtoms(address: address, style: .character)
+
+        #expect(first == second)
+        #expect(first.isEmpty == false)
+    }
+
+    @Test("aurora prompt atoms fall back to subtle stars for invalid wallet input")
+    func auroraPromptsFallbackForInvalidAddress() {
+        let support = HomeAuroraArtworkSupport()
+        let prompts = support.promptAtoms(
+            address: "not-a-wallet",
+            chainId: Chain.ethMainnet.rawValue,
+            lane: .poster,
+            scene: .mountain
+        )
+
+        #expect(prompts.contains("subtle star patterns"))
+        #expect(prompts.contains(where: { $0.contains("digital asset chain") }))
+    }
+
     @Test("logout clears the active selection while preserving persisted accounts")
     func logoutPlanClearsSessionWithoutDeletingRoster() {
         let plan = logic.logoutPlan()

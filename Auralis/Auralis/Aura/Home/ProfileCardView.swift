@@ -24,8 +24,9 @@ struct ProfileCardView: View {
     @State private var activeAvatarRequestID = UUID()
     @State private var resolvedENSName: String?
     private let logic = HomeTabLogic()
+    private let avatarArtworkSupport = ProfileAvatarArtworkSupport()
+    private let ensDisplayResolver = ProfileENSDisplayResolver()
     private let maxAvatarPromptCacheEntries = 24
-    private let fallbackAvatarAssetNames = (1...7).map { String(format: "testProfile-%02d", $0) }
 
     private var summary: HomeAccountSummaryPresentation {
         logic.accountSummaryPresentation(
@@ -93,7 +94,7 @@ struct ProfileCardView: View {
                     SystemImage("square.and.pencil")
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Manage accounts")
+                .accessibilityLabel(String(localized: "Manage accounts"))
                 .accessibilityIdentifier("home.accounts.open")
             }
             .foregroundStyle(Color.accent)
@@ -103,8 +104,8 @@ struct ProfileCardView: View {
             await refreshAvatar()
             await refreshENSName()
         }
-        .alert("Avatar Error", isPresented: $showAvatarErrorAlert, actions: {
-            Button("Dismiss", role: .cancel) {
+        .alert(String(localized: "Avatar Error"), isPresented: $showAvatarErrorAlert, actions: {
+            Button(String(localized: "Dismiss"), role: .cancel) {
                 showAvatarErrorAlert = false
             }
         }, message: {
@@ -156,14 +157,13 @@ struct ProfileCardView: View {
             }
         }
 
-        if let resolved = await ensResolver.reverseLookup(address: requestedAddress, correlationID: nil),
-           resolved.isForwardVerified {
+        if let resolved = await ensDisplayResolver.resolveName(for: requestedAddress, using: ensResolver) {
             guard requestedAddress == currentAddress else { return }
-            resolvedENSName = resolved.ensName
+            resolvedENSName = resolved
         }
     }
 
-    func generateAvatarImage(style: AvatarStyle = .abstract, requestID: UUID? = nil) async {
+    private func generateAvatarImage(style: AvatarStyle = .abstract, requestID: UUID? = nil) async {
         guard !currentAddress.isEmpty else {
             avatarImage = nil
             return
@@ -197,16 +197,20 @@ struct ProfileCardView: View {
         } catch is CancellationError {
             return
         } catch {
-            avatarErrorMessage = "Failed to generate avatar image. Please try again.\n\(error.localizedDescription)"
+            avatarErrorMessage = String(
+                localized: "Failed to generate avatar image. Please try again.\n\(error.localizedDescription)"
+            )
             showAvatarErrorAlert = true
             return
         }
     }
 
     private func fallbackAvatarImage(for address: String) -> UIImage? {
-        let normalizedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let imageIndex = Int(normalizedAddress.seedBytes[0]) % fallbackAvatarAssetNames.count
-        return UIImage(named: fallbackAvatarAssetNames[imageIndex])
+        guard let assetName = avatarArtworkSupport.fallbackAvatarAssetName(for: address) else {
+            return nil
+        }
+
+        return UIImage(named: assetName)
     }
 
     /// Build a deterministic avatar prompt array for the given address and optional style.
@@ -214,84 +218,16 @@ struct ProfileCardView: View {
     ///   - address: Wallet address string; will be normalized.
     ///   - style: Avatar style: abstract, character, geometric (default: abstract)
     /// - Returns: Array of ImagePlaygroundConcept text atoms for avatar generation
-    @discardableResult
-    func avatarPrompt(address: String, style: AvatarStyle = .abstract) -> [ImagePlaygroundConcept] {
+    private func avatarPrompt(address: String, style: AvatarStyle = .abstract) -> [ImagePlaygroundConcept] {
         let addr = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-
-        // Cache key includes style and address
         let key = "\(addr)|\(style.rawValue)"
         if let cached = avatarPromptCache[key] {
             return cached
         }
 
-        // Style descriptor atoms
-        let styleAtoms: [String] = {
-            switch style {
-            case .abstract:
-                return [
-                "abstract",
-                "colorful",
-                "modern style"
-            ]
-            case .character:
-                let characterSubjects = [
-                    "dog",
-                    "cat",
-                    "penguin",
-                    "robot",
-                    "rabbit",
-                    "turtle",
-                    "wolf",
-                    "fox",
-                    "deer",
-                    "bighorn sheep",
-                    "buffalo",
-                    "lion",
-                    "tiger",
-                    "giant panda",
-                    "bengal tiger",
-                    "african lion",
-                    "red kangaroo",
-                    "budgerigar",
-                    "zebu",
-                    "zebra"
-                ]
-                let seededIndex = Int(addr.seedBytes[7]) % characterSubjects.count
-                return [
-                    "vibrant colors",
-                    characterSubjects[seededIndex]
-                ]
-            case .geometric: return [
-                "geometric shapes",
-                "symmetry",
-                "vivid palette"
-            ]
-            }
-        }()
-
-        // Mood variants for avatar
-        let moods = ["friendly", "mysterious", "energetic", "calm", "bold"]
-        // Deterministic pick helper
-        @inline(__always)
-        func pick<T>(_ arr: [T], _ b: Int) -> T {
-            arr[Int(addr.seedBytes[b]) % arr.count]
-        }
-
-        let moodAtom = pick(moods, 5)
-
-        // Compose atoms
-        var atoms: [String] = [
-            "digital art",
-            "high detail",
-            "vibrant colors",
-            "clean background",
-            "sharp focus",
-            "vector style"
-        ]
-        atoms.append(contentsOf: styleAtoms)
-        atoms.append("mood \(moodAtom)")
-
-        let concepts = atoms.map { ImagePlaygroundConcept.text($0) }
+        let concepts = avatarArtworkSupport
+            .promptAtoms(address: addr, style: style)
+            .map(ImagePlaygroundConcept.text)
         cacheAvatarPrompts(concepts, for: key)
         return concepts
     }

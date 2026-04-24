@@ -31,6 +31,7 @@ struct HomeTabView: View {
     @Namespace private var namespace
     private let transitionID = "HomeTabView"
     private let logic = HomeTabLogic()
+    private let auroraArtworkSupport = HomeAuroraArtworkSupport()
 
     @State private var isPresented = false
     @State private var isLoading = false
@@ -199,8 +200,8 @@ struct HomeTabView: View {
                 loadingOverlay
             }
         }
-        .alert("Error", isPresented: $showErrorAlert, actions: {
-            Button("Dismiss", role: .cancel) {
+        .alert(String(localized: "Error"), isPresented: $showErrorAlert, actions: {
+            Button(String(localized: "Dismiss"), role: .cancel) {
                 showErrorAlert = false
             }
         }, message: {
@@ -236,8 +237,8 @@ struct HomeTabView: View {
     private var identitySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             AuraSectionHeader(
-                title: "Home",
-                subtitle: "Your scoped dashboard for identity, modules, and recent local activity."
+                title: String(localized: "Home"),
+                subtitle: String(localized: "Your scoped dashboard for identity, modules, and recent local activity.")
             )
 
             AuraSurfaceCard(style: .soft, cornerRadius: 25, padding: 8) {
@@ -257,7 +258,7 @@ struct HomeTabView: View {
             AuraSurfaceCard(style: .soft, cornerRadius: 25) {
                 VStack(alignment: .leading, spacing: 10) {
                     AuraSectionHeader(
-                        title: "Active Scope",
+                        title: String(localized: "Active Scope"),
                         subtitle: accountSummaryPresentation.chainTitle
                     ) {
                         AuraPill(
@@ -283,27 +284,26 @@ struct HomeTabView: View {
                 }
             }
 
-#if DEBUG
             AuraSurfaceCard(style: .soft, cornerRadius: 25) {
-                // Keep the preview visible in debug builds until Home has live energy data.
                 EnergyCardView(
                     time: Date(),
-                    placeholderMessage: "Preview only while live energy insights are still being connected."
+                    placeholderMessage: String(
+                        localized: "Preview only while live energy insights are still being connected."
+                    )
                 )
             }
-#endif
         }
     }
 
     private var modulesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             AuraSectionHeader(
-                title: "Modules",
+                title: String(localized: "Modules"),
                 subtitle: homeSparseDataState == .normal
-                    ? "Core surfaces stay reachable while richer Home cards land in later passes."
-                    : "Use the launcher routes below while this scope is still getting established."
+                    ? String(localized: "Core surfaces stay reachable while richer Home cards land in later passes.")
+                    : String(localized: "Use the launcher routes below while this scope is still getting established.")
             ) {
-                AuraPill("Launcher", systemImage: "square.grid.2x2", emphasis: .accent)
+                AuraPill(String(localized: "Launcher"), systemImage: "square.grid.2x2", emphasis: .accent)
             }
 
             tileLayout(using: modulesPresentation.primary)
@@ -314,7 +314,7 @@ struct HomeTabView: View {
         AuraSurfaceCard(style: .soft, cornerRadius: 25) {
             VStack(alignment: .leading, spacing: 12) {
                 AuraSectionHeader(
-                    title: "Quick Links",
+                    title: String(localized: "Quick Links"),
                     subtitle: quickLinksSubtitle
                 ) {
                     AuraPill(
@@ -357,10 +357,10 @@ struct HomeTabView: View {
         AuraSurfaceCard(style: .soft, cornerRadius: 25) {
             VStack(alignment: .leading, spacing: 12) {
                 AuraSectionHeader(
-                    title: "Recent Activity",
-                    subtitle: "Latest receipts for \(contextSnapshot.scopeSummary)",
+                    title: String(localized: "Recent Activity"),
+                    subtitle: String(localized: "Latest receipts for \(contextSnapshot.scopeSummary)"),
                     trailing: {
-                        Button("All Receipts") {
+                        Button(String(localized: "All Receipts")) {
                             router.showReceipts()
                         }
                         .font(.caption.weight(.semibold))
@@ -369,7 +369,7 @@ struct HomeTabView: View {
                 )
 
                 if recentActivityPreviewItems.isEmpty {
-                    SecondaryText("No local receipt activity has been recorded for this scope yet.")
+                    SecondaryText(String(localized: "No local receipt activity has been recorded for this scope yet."))
                 } else {
                     VStack(spacing: 10) {
                         ForEach(recentActivityPreviewItems) { item in
@@ -391,11 +391,15 @@ struct HomeTabView: View {
         AuraSurfaceCard(style: .soft, cornerRadius: 25) {
             VStack(alignment: .leading, spacing: 12) {
                 AuraSectionHeader(
-                    title: "Profile Studio",
-                    subtitle: "Temporary local controls for scenic backgrounds and device session state."
+                    title: String(localized: "Profile Studio"),
+                    subtitle: String(localized: "Temporary local controls for scenic backgrounds and device session state.")
                 )
 
-                SecondaryText("The generated profile and aurora background flow stays in Home for now and can move later without changing the dashboard shell.")
+                SecondaryText(
+                    String(
+                        localized: "The generated profile and aurora background flow stays in Home for now and can move later without changing the dashboard shell."
+                    )
+                )
 
                 if shouldStackTiles {
                     VStack(spacing: 10) {
@@ -466,19 +470,23 @@ struct HomeTabView: View {
                 togglePin(for: item.action)
             } label: {
                 AuraPill(
-                    item.isPinned ? "Pinned" : "Pin",
+                    item.isPinned ? String(localized: "Pinned") : String(localized: "Pin"),
                     systemImage: item.isPinned ? "pin.fill" : "pin",
                     emphasis: item.isPinned ? .accent : .neutral
                 )
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(item.isPinned ? "Unpin \(item.title)" : "Pin \(item.title)")
+            .accessibilityLabel(
+                item.isPinned
+                    ? String(localized: "Unpin \(item.title)")
+                    : String(localized: "Pin \(item.title)")
+            )
         }
         .accessibilityIdentifier(accessibilityIdentifier(for: item.action))
     }
 
     private var imagePreviewButton: some View {
-        AuraActionButton("Show Image Preview", systemImage: "photo.on.rectangle", style: .surface) {
+        AuraActionButton(String(localized: "Show Image Preview"), systemImage: "photo.on.rectangle", style: .surface) {
             Task {
                 if generatedImages?.isEmpty != false {
                     await generateImage()
@@ -496,7 +504,7 @@ struct HomeTabView: View {
     }
 
     private var logoutButton: some View {
-        AuraActionButton("Logout", systemImage: "rectangle.portrait.and.arrow.right", style: .surface) {
+        AuraActionButton(String(localized: "Logout"), systemImage: "rectangle.portrait.and.arrow.right", style: .surface) {
             logout()
         }
         .accessibilityIdentifier("home.logout")
@@ -519,7 +527,7 @@ struct HomeTabView: View {
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.secondary)
 
-                    Text("No images to select")
+                    Text(String(localized: "No images to select"))
                         .font(.title3)
                         .foregroundStyle(.secondary)
                 }
@@ -539,7 +547,7 @@ struct HomeTabView: View {
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     .scaleEffect(2)
 
-                Text("Generating Images...")
+                Text(String(localized: "Generating Images..."))
                     .foregroundStyle(.white)
                     .font(.headline)
                     .padding(.top, 16)
@@ -552,8 +560,7 @@ struct HomeTabView: View {
         horizontalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize
     }
 
-    @discardableResult
-    func themedPrompt(
+    private func themedPrompt(
         address: String,
         chainId: String,
         lane: AuroraLane = .photoreal,
@@ -569,112 +576,22 @@ struct HomeTabView: View {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
 
-        let hasValidAddr = addr.isValidEthAddress()
         let key = "\(addr)|\(chain)|\(lane.rawValue)|\(mood ?? "-")|\(intensity?.description ?? "-")|\(scene.rawValue)|\(locationHint)"
         if let cached = promptCache[key] {
             return cached
         }
 
-        let bytes = (addr + "|" + chain).seedBytes
-
-        @inline(__always)
-        func pick<T>(_ arr: [T], _ byteIndex: Int) -> T {
-            arr[Int(bytes[byteIndex]) % arr.count]
-        }
-
-        let moodAtom = (mood?.isEmpty == false ? mood : nil) ?? pick(AuroraConfig.moods, 5)
-        let motif = AuroraConfig.chainThemes[chain] ?? "natural light physics emphasis"
-        let chainBias: Double = ["1", "mainnet", "ethereum", "10", "42161", "8453", "137"].contains(chain) ? 0.15 : 0.0
-        let seededIntensity = Double(bytes[9]) / 255.0
-        let kpi = max(0, min(1, (intensity ?? seededIntensity) + chainBias))
-
-        let comp = pick(AuroraConfig.compositions, 3)
-        let sceneAtom: String = {
-            switch scene {
-            case .prairie: return "broad prairie horizon silhouette"
-            case .mountain: return "Rocky Mountains silhouette"
-            case .lake: return "still lake reflection foreground"
-            case .coastline: return "rugged coastline, crashing waves, distant cliffs"
-            case .borealForest: return "dense boreal forest silhouette, tall spruce and pine"
-            case .tundra: return "open arctic tundra, low shrubs and permafrost hummocks"
-            case .fjord: return "steep fjord walls descending to calm water"
-            case .glacier: return "glacier tongue with fractured crevasses"
-            case .iceberg: return "drifting icebergs on a cold dark sea"
-            case .riverValley: return "meandering river valley, soft banks and oxbows"
-            case .waterfall: return "waterfall plume rising from cliffside"
-            case .canyon: return "deep canyon walls with layered rock"
-            case .badlands: return "eroded badlands hoodoos and ridges"
-            case .island: return "rocky island coastline, sparse wind-bent pines"
-            case .highlands: return "rolling highlands and moorland"
-            case .citySkyline: return "distant city skyline lights on the horizon"
-            case .ruralFarm: return "quiet rural farmstead, barns and open fields"
-            case .cabin: return "solitary cabin with warm window glow"
-            case .lighthouse: return "coastal lighthouse perched on a promontory"
-            case .observatory: return "hilltop observatory dome silhouette"
-            case .bridge: return "iconic bridge span over dark water"
-            case .iceRoad: return "frozen ice road stretching across a lake"
-            case .polarCamp: return "polar expedition camp, low tents and gear"
-            case .researchStation: return "arctic research station modules and antennae"
-            }
-        }()
-
-        let addrBody = hasValidAddr ? String(addr.dropFirst(2)) : ""
-        let addrSeg = String(addrBody.prefix(12))
-        let segBytes = addrSeg.seedBytes
-        let waveFreq = 0.5 + Double(segBytes[0] % 100) / 100.0
-        let filament = ["fine filaments", "broad curtains", "braided strands", "diffuse veil"][Int(segBytes[1]) % 4]
-        let patternAtom = hasValidAddr
-            ? "address-encoded \(filament), wave frequency \(String(format: "%.2f", waveFreq))"
-            : "subtle star patterns"
-
-        let laneAtoms: [String] = {
-            switch lane {
-            case .poster:
-                return ["minimalist poster", "bold negative space", "silkscreen texture"]
-            case .synthwave:
-                return ["neon glow", "retro-futuristic gradient", "high contrast", "soft grain"]
-            case .photoreal:
-                return ["long-exposure look", "physically plausible light scattering"]
-            }
-        }()
-
-        let intensityAtom: String = {
-            switch kpi {
-            case 0..<0.33:
-                return "gentle, calm aurora activity"
-            case 0.33..<0.66:
-                return "moderate dancing light curtains"
-            default:
-                return "dramatic high-activity aurora with vivid gradients"
-            }
-        }()
-
-        let variants = ["wide panoramic framing", "mid-altitude perspective", "grounded horizon with silhouettes"]
-        let variant = variants[Int(bytes[27]) % variants.count]
-
-        var atoms: [String] = [
-            "northern lights (\(comp))",
-            motif,
-            sceneAtom,
-            intensityAtom,
-            "mood \(moodAtom)",
-            locationHint,
-            variant,
-            "high dynamic range glow"
-        ]
-        atoms.append(contentsOf: laneAtoms)
-
-        if hasValidAddr {
-            let short = String(addrBody.prefix(6))
-            atoms.append("personal signature encoded from \(short) (no visible text)")
-            atoms.append(patternAtom)
-        }
-
-        if !chain.isEmpty {
-            atoms.append("digital asset chain \(chain) (metadata only)")
-        }
-
-        let concepts = atoms.map { ImagePlaygroundConcept.text($0) }
+        let concepts = auroraArtworkSupport
+            .promptAtoms(
+                address: addr,
+                chainId: chain,
+                lane: lane,
+                mood: mood,
+                intensity: intensity,
+                scene: scene,
+                locationHint: locationHint
+            )
+            .map(ImagePlaygroundConcept.text)
         cachePrompts(concepts, for: key)
         return concepts
     }
@@ -691,7 +608,7 @@ struct HomeTabView: View {
     }
 
     @MainActor
-    func generateImage() async {
+    private func generateImage() async {
         let generationID = UUID()
         activeImageGenerationID = generationID
         isLoading = true
@@ -732,7 +649,7 @@ struct HomeTabView: View {
             guard activeImageGenerationID == generationID else {
                 return
             }
-            errorMessage = "Failed to generate images. Please try again.\n\(error.localizedDescription)"
+            errorMessage = String(localized: "Failed to generate images. Please try again.\n\(error.localizedDescription)")
             showErrorAlert = true
         }
     }
@@ -756,7 +673,7 @@ struct HomeTabView: View {
             }
         } catch {
             logger.error("Logout cleanup failed error=\(error.localizedDescription, privacy: .public)")
-            errorMessage = "Auralis could not clear local data for logout. Nothing was changed."
+            errorMessage = String(localized: "Auralis could not clear local data for logout. Nothing was changed.")
             showErrorAlert = true
             return
         }
@@ -771,20 +688,20 @@ struct HomeTabView: View {
     private var sparseStateEyebrow: String {
         switch homeSparseDataState {
         case .firstRun:
-            return "First Run"
+            return String(localized: "First Run")
         case .sparse:
-            return "Sparse Data"
+            return String(localized: "Sparse Data")
         case .normal:
-            return "Home"
+            return String(localized: "Home")
         }
     }
 
     private var sparseStateTitle: String {
         switch homeSparseDataState {
         case .firstRun:
-            return "This Home Scope Is Ready For Its First Signal"
+            return String(localized: "This Home Scope Is Ready For Its First Signal")
         case .sparse:
-            return "Home Has A Scope, But Not Much Local History Yet"
+            return String(localized: "Home Has A Scope, But Not Much Local History Yet")
         case .normal:
             return ""
         }
@@ -793,9 +710,13 @@ struct HomeTabView: View {
     private var sparseStateMessage: String {
         switch homeSparseDataState {
         case .firstRun:
-            return "Auralis knows who you are and which chain you are exploring, but this scope has no local NFTs or receipt activity yet. Use the next-step routes below to search, browse, or switch accounts without pretending the dashboard already has history."
+            return String(
+                localized: "Auralis knows who you are and which chain you are exploring, but this scope has no local NFTs or receipt activity yet. Use the next-step routes below to search, browse, or switch accounts without pretending the dashboard already has history."
+            )
         case .sparse:
-            return "Some Home sections are still quiet for \(contextSnapshot.scopeSummary). That is an honest low-data state, not a broken dashboard. Use Search, News, or another account to keep moving while local history catches up."
+            return String(
+                localized: "Some Home sections are still quiet for \(contextSnapshot.scopeSummary). That is an honest low-data state, not a broken dashboard. Use Search, News, or another account to keep moving while local history catches up."
+            )
         case .normal:
             return ""
         }
@@ -803,18 +724,20 @@ struct HomeTabView: View {
 
     private var quickLinksSubtitle: String {
         if pinnedItemCount > 0 {
-            return "\(quickLinksPillTitle) for this scope. Pinned routes: \(contextSnapshot.pinnedModuleSummary)."
+            return String(
+                localized: "\(quickLinksPillTitle) for this scope. Pinned routes: \(contextSnapshot.pinnedModuleSummary)."
+            )
         }
 
-        return "Fast jumps into the mounted product surfaces: \(contextSnapshot.shortcutModuleSummary)."
+        return String(localized: "Fast jumps into the mounted product surfaces: \(contextSnapshot.shortcutModuleSummary).")
     }
 
     private var quickLinksPillTitle: String {
         if pinnedItemCount > 0 {
-            return "\(pinnedItemCount) pinned"
+            return String(localized: "\(pinnedItemCount) pinned")
         }
 
-        return "\(contextSnapshot.modulePointers.items.filter { $0.priority == .shortcut }.count) routes"
+        return String(localized: "\(contextSnapshot.modulePointers.items.filter { $0.priority == .shortcut }.count) routes")
     }
 
     private var sparseStateSystemImage: String {
@@ -831,11 +754,11 @@ struct HomeTabView: View {
     private func title(for action: HomeSparseAction) -> String {
         switch action {
         case .openSearch:
-            return "Open Search"
+            return String(localized: "Open Search")
         case .switchAccount:
-            return "Switch Account"
+            return String(localized: "Switch Account")
         case .openNews:
-            return "Open News Feed"
+            return String(localized: "Open News Feed")
         }
     }
 
@@ -887,7 +810,7 @@ struct HomeTabView: View {
             _ = try pinnedItemsStore.togglePin(action, accountAddress: currentAccount?.address ?? currentAddress)
             reloadPinnedActions()
         } catch {
-            errorMessage = "Failed to update pinned action: \(error.localizedDescription)"
+            errorMessage = String(localized: "Failed to update pinned action: \(error.localizedDescription)")
             showErrorAlert = true
         }
     }

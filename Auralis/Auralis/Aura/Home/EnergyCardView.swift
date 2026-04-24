@@ -15,7 +15,7 @@ struct EnergyCardView: View {
     }()
 
     // MARK: - Config
-    let title: String = "Energy"
+    let title: String = String(localized: "Energy")
     var time: Date = {
         var comps = DateComponents()
         comps.hour = 9
@@ -23,8 +23,8 @@ struct EnergyCardView: View {
         // Fallback to now if Calendar fails to build the date
         return Calendar.current.date(from: comps) ?? Date()
     }()
-    var statusTitle: String = "Warming up"
-    var statusSubtitle: String = "Morning energy"
+    var statusTitle: String = String(localized: "Warming up")
+    var statusSubtitle: String = String(localized: "Morning energy")
     var symbolName: String = "sun.max.fill"
     var placeholderMessage: String?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -38,7 +38,7 @@ struct EnergyCardView: View {
         VStack(alignment: .leading, spacing: 12) {
             AuraSectionHeader(title: title) {
                 if placeholderMessage != nil {
-                    AuraPill("Preview", systemImage: "clock.badge.exclamationmark", emphasis: .neutral)
+                    AuraPill(String(localized: "Preview"), systemImage: "clock.badge.exclamationmark", emphasis: .neutral)
                 }
             }
 
@@ -88,8 +88,8 @@ struct EnergyCardView: View {
         EnergyCardView()
         EnergyCardView(
             time: Calendar.current.date(bySettingHour: 6, minute: 45, second: 0, of: Date()) ?? Date(),
-            statusTitle: "Peak Focus",
-            statusSubtitle: "Daytime energy",
+            statusTitle: String(localized: "Peak Focus"),
+            statusSubtitle: String(localized: "Daytime energy"),
             symbolName: "sunrise.fill"
         )
     }
