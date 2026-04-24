@@ -15,18 +15,18 @@ struct AccountStoreTests {
 
     @Test("create normalizes addresses and lists accounts by activity then recency added")
     @MainActor
-    func createAndListAccounts() throws {
+    func createAndListAccounts() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
 
-        let older = try store.createWatchAccount(
+        let older = try await store.createWatchAccount(
             from: "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
             source: .manualEntry,
             now: Date(timeIntervalSince1970: 100)
         )
-        let newer = try store.createWatchAccount(
+        let newer = try await store.createWatchAccount(
             from: "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
             source: .guestPass,
             now: Date(timeIntervalSince1970: 200)
@@ -45,12 +45,12 @@ struct AccountStoreTests {
 
     @Test("account lookup uses canonical normalization for raw addresses")
     @MainActor
-    func accountLookupNormalizesInput() throws {
+    func accountLookupNormalizesInput() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let store = AccountStore(modelContext: context)
 
-        let account = try store.createWatchAccount(
+        let account = try await store.createWatchAccount(
             from: "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
             now: Date(timeIntervalSince1970: 100)
         )
@@ -89,22 +89,22 @@ struct AccountStoreTests {
 
     @Test("select updates lastSelectedAt and moves the account to the front")
     @MainActor
-    func selectAccount() throws {
+    func selectAccount() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
 
-        let first = try store.createWatchAccount(
+        let first = try await store.createWatchAccount(
             from: "0x1111111111111111111111111111111111111111",
             now: Date(timeIntervalSince1970: 100)
         )
-        let second = try store.createWatchAccount(
+        let second = try await store.createWatchAccount(
             from: "0x2222222222222222222222222222222222222222",
             now: Date(timeIntervalSince1970: 200)
         )
 
-        let selected = try store.selectAccount(
+        let selected = try await store.selectAccount(
             address: first.address.uppercased(),
             selectedAt: Date(timeIntervalSince1970: 300)
         )
@@ -118,18 +118,18 @@ struct AccountStoreTests {
 
     @Test("activate creates a new account once and selects an existing duplicate deterministically")
     @MainActor
-    func activateWatchAccountCreatesOrSelects() throws {
+    func activateWatchAccountCreatesOrSelects() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
 
-        let created = try store.activateWatchAccount(
+        let created = try await store.activateWatchAccount(
             from: "0x1212121212121212121212121212121212121212",
             source: .manualEntry,
             selectedAt: Date(timeIntervalSince1970: 100)
         )
-        let reused = try store.activateWatchAccount(
+        let reused = try await store.activateWatchAccount(
             from: "0X1212121212121212121212121212121212121212",
             source: .qrScan,
             selectedAt: Date(timeIntervalSince1970: 200)
@@ -151,13 +151,13 @@ struct AccountStoreTests {
 
     @Test("duplicate create is case-insensitive and requires explicit overwrite")
     @MainActor
-    func duplicateCreateAndOverwrite() throws {
+    func duplicateCreateAndOverwrite() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
 
-        let original = try store.createWatchAccount(
+        let original = try await store.createWatchAccount(
             from: "0x3333333333333333333333333333333333333333",
             name: "Original",
             source: .manualEntry,
@@ -165,7 +165,7 @@ struct AccountStoreTests {
         )
 
         do {
-            _ = try store.createWatchAccount(
+            _ = try await store.createWatchAccount(
                 from: "0x3333333333333333333333333333333333333333".uppercased(),
                 name: "Replacement",
                 source: .qrScan,
@@ -176,7 +176,7 @@ struct AccountStoreTests {
             #expect(error == .duplicateAddress(original.address))
         }
 
-        let replaced = try store.createWatchAccount(
+        let replaced = try await store.createWatchAccount(
             from: original.address.uppercased(),
             name: "Replacement",
             source: .qrScan,
@@ -201,46 +201,46 @@ struct AccountStoreTests {
 
     @Test("invalid create and missing account operations fail with deterministic errors")
     @MainActor
-    func invalidAndMissingAccountErrors() throws {
+    func invalidAndMissingAccountErrors() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let store = AccountStore(modelContext: context)
 
-        #expect(throws: AccountStoreError.invalidAddress) {
-            try store.createWatchAccount(from: "definitely not an address")
+        await #expect(throws: AccountStoreError.invalidAddress) {
+            _ = try await store.createWatchAccount(from: "definitely not an address")
         }
 
-        #expect(throws: AccountStoreError.accountNotFound("0x9999999999999999999999999999999999999999")) {
-            try store.selectAccount(address: "0x9999999999999999999999999999999999999999")
+        await #expect(throws: AccountStoreError.accountNotFound("0x9999999999999999999999999999999999999999")) {
+            _ = try await store.selectAccount(address: "0x9999999999999999999999999999999999999999")
         }
 
-        #expect(throws: AccountStoreError.accountNotFound("0x9999999999999999999999999999999999999999")) {
-            try store.removeAccount(address: "0x9999999999999999999999999999999999999999")
+        await #expect(throws: AccountStoreError.accountNotFound("0x9999999999999999999999999999999999999999")) {
+            _ = try await store.removeAccount(address: "0x9999999999999999999999999999999999999999")
         }
     }
 
     @Test("remove returns the sorted fallback only when removing the active account")
     @MainActor
-    func removeAccountAndFallback() throws {
+    func removeAccountAndFallback() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
 
-        let first = try store.createWatchAccount(
+        let first = try await store.createWatchAccount(
             from: "0x4444444444444444444444444444444444444444",
             now: Date(timeIntervalSince1970: 100)
         )
-        let second = try store.createWatchAccount(
+        let second = try await store.createWatchAccount(
             from: "0x5555555555555555555555555555555555555555",
             now: Date(timeIntervalSince1970: 200)
         )
-        _ = try store.selectAccount(
+        _ = try await store.selectAccount(
             address: first.address,
             selectedAt: Date(timeIntervalSince1970: 300)
         )
 
-        let result = try store.removeAccount(
+        let result = try await store.removeAccount(
             address: first.address.uppercased(),
             activeAddress: first.address
         )
@@ -255,26 +255,26 @@ struct AccountStoreTests {
 
     @Test("remove does not compute a fallback when deleting an inactive account")
     @MainActor
-    func removeInactiveAccountDoesNotFallback() throws {
+    func removeInactiveAccountDoesNotFallback() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
 
-        let active = try store.createWatchAccount(
+        let active = try await store.createWatchAccount(
             from: "0x6666666666666666666666666666666666666666",
             now: Date(timeIntervalSince1970: 100)
         )
-        let inactive = try store.createWatchAccount(
+        let inactive = try await store.createWatchAccount(
             from: "0x7777777777777777777777777777777777777777",
             now: Date(timeIntervalSince1970: 200)
         )
-        _ = try store.selectAccount(
+        _ = try await store.selectAccount(
             address: active.address,
             selectedAt: Date(timeIntervalSince1970: 300)
         )
 
-        let result = try store.removeAccount(
+        let result = try await store.removeAccount(
             address: inactive.address,
             activeAddress: active.address
         )
@@ -289,14 +289,14 @@ struct AccountStoreTests {
 
     @Test("activate reuses one caller-provided correlation ID across chained add and select events")
     @MainActor
-    func activateWatchAccountPreservesCorrelationID() throws {
+    func activateWatchAccountPreservesCorrelationID() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
         let correlationID = "account-activation-123"
 
-        _ = try store.activateWatchAccount(
+        _ = try await store.activateWatchAccount(
             from: "0xabababababababababababababababababababab",
             source: .manualEntry,
             selectedAt: Date(timeIntervalSince1970: 100),
@@ -312,25 +312,25 @@ struct AccountStoreTests {
 
     @Test("list orders by lastSelectedAt first and then newest added for ties")
     @MainActor
-    func listAccountsUsesSelectionThenAddedAtOrdering() throws {
+    func listAccountsUsesSelectionThenAddedAtOrdering() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let store = AccountStore(modelContext: context)
 
-        let oldestSelected = try store.createWatchAccount(
+        let oldestSelected = try await store.createWatchAccount(
             from: "0x8888888888888888888888888888888888888888",
             now: Date(timeIntervalSince1970: 100)
         )
-        let newestUnselected = try store.createWatchAccount(
+        let newestUnselected = try await store.createWatchAccount(
             from: "0x9999999999999999999999999999999999999999",
             now: Date(timeIntervalSince1970: 300)
         )
-        let olderUnselected = try store.createWatchAccount(
+        let olderUnselected = try await store.createWatchAccount(
             from: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             now: Date(timeIntervalSince1970: 200)
         )
 
-        _ = try store.selectAccount(
+        _ = try await store.selectAccount(
             address: oldestSelected.address,
             selectedAt: Date(timeIntervalSince1970: 400)
         )
