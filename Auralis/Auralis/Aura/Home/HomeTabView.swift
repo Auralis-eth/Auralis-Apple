@@ -162,7 +162,6 @@ struct HomeTabView: View {
                 currentAccount: currentAccount,
                 activeSelection: shellStore.state.selection,
                 accountStoreFactory: services.accountStoreFactory,
-                accountEventRecorderFactory: services.accountEventRecorderFactory,
                 onSelectAccount: { address in
                     Task {
                         await shellStore.send(

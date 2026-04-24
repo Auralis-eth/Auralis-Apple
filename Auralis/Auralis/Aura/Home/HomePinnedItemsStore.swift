@@ -110,7 +110,9 @@ struct HomePinnedItemsStore {
             return try JSONDecoder().decode([HomePinnedItemRecord].self, from: data)
         } catch {
             Self.logger.error("Failed to decode pinned items for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            throw HomePinnedItemsStoreError.corruptedStorage
+            userDefaults.removeObject(forKey: storageKey)
+            Self.logger.notice("Cleared corrupt pinned items for key \(self.storageKey, privacy: .public) before rewriting state")
+            return []
         }
     }
 
@@ -122,5 +124,9 @@ struct HomePinnedItemsStore {
             Self.logger.error("Failed to encode pinned items for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
             throw error
         }
+    }
+
+    func clearAll() {
+        userDefaults.removeObject(forKey: storageKey)
     }
 }

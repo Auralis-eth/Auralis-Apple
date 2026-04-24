@@ -13,13 +13,14 @@ struct AccountSwitcherSheet: View {
     let currentAccount: EOAccount?
     let activeSelection: ActiveShellSelection?
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
-    let accountEventRecorderFactory: @MainActor (ModelContext) -> any AccountEventRecorder
     let onSelectAccount: @MainActor (String) -> Void
     let onRemoveAccount: @MainActor (String) -> Void
     let onCurrentChainChange: @MainActor (Chain) -> Void
 
     @State private var pendingRemovalAccount: EOAccount?
     @State private var feedbackAlert: AccountSwitcherAlert?
+    @State private var pendingPreferredChainSelections: [String: Chain] = [:]
+    @State private var pendingCurrentChainSelections: [String: Chain] = [:]
 
     private var haptics: AuraHaptics {
         AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
@@ -152,37 +153,42 @@ struct AccountSwitcherSheet: View {
         }
 
         let correlationID = UUID().uuidString
-        let previousPreferredChain = account.preferredChain
-        let previousCurrentChain = account.currentChain
+        setPendingSelection(plan.to, kind: plan.kind, address: account.address)
 
-        switch plan.kind {
-        case .preferred:
-            account.preferredChain = plan.to
-        case .current:
-            account.currentChain = plan.to
-        }
+        Task {
+            do {
+                let store = accountStoreFactory(modelContext)
+                switch plan.kind {
+                case .preferred:
+                    _ = try await store.persistPreferredChain(
+                        address: account.address,
+                        chain: plan.to,
+                        correlationID: correlationID
+                    )
+                case .current:
+                    _ = try await store.persistCurrentChain(
+                        address: account.address,
+                        chain: plan.to,
+                        correlationID: correlationID
+                    )
+                }
 
-        do {
-            try modelContext.save()
-            accountEventRecorderFactory(modelContext).record(
-                event,
-                correlationID: correlationID
-            )
+                clearPendingSelection(kind: plan.kind, address: account.address)
 
-            if plan.shouldRefreshActiveScope {
-                onCurrentChainChange(plan.to)
+                if plan.shouldRefreshActiveScope {
+                    onCurrentChainChange(plan.to)
+                }
+            } catch {
+                clearPendingSelection(kind: plan.kind, address: account.address)
+
+                logger.error(
+                    "Failed to persist chain scope change address=\(account.address, privacy: .private(mask: .hash)) kind=\(String(describing: plan.kind), privacy: .public) event=\(String(describing: event), privacy: .public) to=\(plan.to.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+                )
+                feedbackAlert = AccountSwitcherAlert(
+                    title: "Chain Change Failed",
+                    message: "Auralis could not save that chain change. Your previous chain settings are still active."
+                )
             }
-        } catch {
-            account.preferredChain = previousPreferredChain
-            account.currentChain = previousCurrentChain
-
-            logger.error(
-                "Failed to persist chain scope change address=\(account.address, privacy: .private(mask: .hash)) kind=\(String(describing: plan.kind), privacy: .public) fromPreferred=\(previousPreferredChain.rawValue, privacy: .public) fromCurrent=\(previousCurrentChain.rawValue, privacy: .public) to=\(plan.to.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
-            )
-            feedbackAlert = AccountSwitcherAlert(
-                title: "Chain Change Failed",
-                message: "Auralis could not save that chain change. Your previous chain settings are still active."
-            )
         }
     }
 
@@ -203,12 +209,12 @@ struct AccountSwitcherSheet: View {
 
     private func preferredChainBinding(for account: EOAccount) -> Binding<Chain> {
         Binding(
-            get: { account.preferredChain },
+            get: { pendingPreferredChainSelections[account.address] ?? account.preferredChain },
             set: { newValue in
                 applyChainScopeChange(
                     ChainScopeChangePlanner().planPreferredChange(
                         address: account.address,
-                        from: account.preferredChain,
+                        from: pendingPreferredChainSelections[account.address] ?? account.preferredChain,
                         to: newValue
                     ),
                     to: account
@@ -220,6 +226,10 @@ struct AccountSwitcherSheet: View {
     private func currentChainBinding(for account: EOAccount) -> Binding<Chain> {
         Binding(
             get: {
+                if let pendingSelection = pendingCurrentChainSelections[account.address] {
+                    return pendingSelection
+                }
+
                 if activeSelection?.address == account.address {
                     return activeSelection?.chain ?? account.currentChain
                 }
@@ -230,13 +240,31 @@ struct AccountSwitcherSheet: View {
                 applyChainScopeChange(
                     ChainScopeChangePlanner().planCurrentChange(
                         address: account.address,
-                        from: account.currentChain,
+                        from: pendingCurrentChainSelections[account.address] ?? account.currentChain,
                         to: newValue
                     ),
                     to: account
                 )
             }
         )
+    }
+
+    private func setPendingSelection(_ chain: Chain, kind: ChainScopeChangeKind, address: String) {
+        switch kind {
+        case .preferred:
+            pendingPreferredChainSelections[address] = chain
+        case .current:
+            pendingCurrentChainSelections[address] = chain
+        }
+    }
+
+    private func clearPendingSelection(kind: ChainScopeChangeKind, address: String) {
+        switch kind {
+        case .preferred:
+            pendingPreferredChainSelections.removeValue(forKey: address)
+        case .current:
+            pendingCurrentChainSelections.removeValue(forKey: address)
+        }
     }
 }
 

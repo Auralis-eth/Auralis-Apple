@@ -1411,6 +1411,48 @@ struct ProviderAbstractionTests {
         }
     }
 
+    @Test("gas pricing provider maps HTTP unauthorized responses to an auth-specific error")
+    @MainActor
+    func gasPricingProviderMapsUnauthorizedHTTPFailures() async {
+        let session = makeMockSession()
+        let provider = AlchemyGasPricingProvider(
+            configurationResolver: LiveProviderConfigurationResolver { provider in
+                provider == .alchemy ? "alchemy-key" : nil
+            },
+            session: session
+        )
+
+        ProviderMockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 401,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (
+                response,
+                Data(#"{"message":"invalid api key"}"#.utf8)
+            )
+        }
+        defer {
+            ProviderMockURLProtocol.handler = nil
+        }
+
+        do {
+            _ = try await provider.gasPriceEstimate(for: .ethMainnet)
+            Issue.record("Expected unauthorized gas pricing response to throw.")
+        } catch let error as AlchemyGasPricingProvider.GasPricingError {
+            switch error {
+            case .unauthorized(let message):
+                #expect(message == "invalid api key")
+            default:
+                Issue.record("Unexpected gas pricing error: \(error)")
+            }
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
     @Test("NFT fetcher uses the injected inventory provider factory instead of constructing Alchemy inline")
     @MainActor
     func nftFetcherUsesInjectedInventoryProvider() async throws {
@@ -1518,6 +1560,43 @@ struct ProviderAbstractionTests {
         #expect(await recorder.fetchFailedCount() == 1)
         #expect(await recorder.fetchSucceededCount() == 0)
     }
+
+    @Test("NFT fetcher honors provider Retry-After delays when rate limited")
+    @MainActor
+    func nftFetcherHonorsProviderRetryAfterDelay() async {
+        let provider = RetryAfterRateLimitedNFTInventoryProvider()
+        let fetcher = NFTFetcher(
+            maxRetryCount: 2,
+            baseDelayNanoseconds: 0,
+            maxDelayNanoseconds: 2_000_000_000,
+            nftProviderFactory: { _ in provider }
+        )
+
+        let start = ContinuousClock.now
+
+        do {
+            _ = try await fetcher.fetchAllNFTs(
+                for: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .ethMainnet,
+                correlationID: "retry-after",
+                eventRecorder: NoOpNFTRefreshEventRecorder()
+            )
+            Issue.record("Expected rate-limited refresh to throw.")
+        } catch let error as AlchemyNFTService.APIError {
+            switch error {
+            case .rateLimited(let retryAfter, _):
+                #expect(retryAfter == 0.2)
+            default:
+                Issue.record("Expected rateLimited error, got \(error)")
+            }
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        let elapsed = start.duration(to: .now)
+        #expect(elapsed >= .milliseconds(180))
+        #expect(await provider.requestCount() == 2)
+    }
 }
 
 private final class StubNFTInventoryProvider: NFTInventoryProviding, @unchecked Sendable {
@@ -1555,6 +1634,27 @@ private final class StubNFTInventoryProvider: NFTInventoryProviding, @unchecked 
 
     func receivedOwners() async -> [String] {
         await state.snapshot()
+    }
+}
+
+private final class RetryAfterRateLimitedNFTInventoryProvider: NFTInventoryProviding, @unchecked Sendable {
+    private let state = State()
+
+    func nftsForOwner(owner: String, pageKey: String?) async throws -> AlchemyNFTResponse {
+        await state.recordRequest()
+        throw AlchemyNFTService.APIError.rateLimited(retryAfter: 0.2, message: "slow down")
+    }
+
+    func requestCount() async -> Int {
+        await state.requestCount
+    }
+
+    actor State {
+        private(set) var requestCount = 0
+
+        func recordRequest() {
+            requestCount += 1
+        }
     }
 }
 

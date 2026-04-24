@@ -49,7 +49,7 @@ struct SettingsView: View {
             }
 
             Section("Privacy") {
-                Text("Clear local privacy and derived support data without deleting saved accounts. This reset clears receipts, search history, ENS cache, gas cache, and persisted token holdings.")
+                Text("Clear local privacy and derived support data without deleting saved accounts. This reset clears receipts, search history, ENS cache, gas cache, persisted token holdings, pinned home actions, and saved active wallet selection.")
                     .font(.footnote)
                     .foregroundStyle(Color.textSecondary)
 
@@ -85,7 +85,7 @@ struct SettingsView: View {
                 resetPrivacyData()
             }
         } message: {
-            Text("This removes receipts, search history, ENS cache, gas cache, and persisted token holdings on this device.")
+            Text("This removes receipts, search history, ENS cache, gas cache, persisted token holdings, pinned home actions, and the saved active wallet selection on this device.")
         }
     }
 

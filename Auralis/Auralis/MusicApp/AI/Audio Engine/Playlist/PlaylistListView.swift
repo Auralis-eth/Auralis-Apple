@@ -9,6 +9,7 @@ struct PlaylistListView: View {
 
     @State private var showingNewPlaylist: Bool = false
     @State private var successMessage: String?
+    @State private var errorMessage: String?
 
     private var filteredPlaylists: [Playlist] {
         let t = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -26,6 +27,13 @@ struct PlaylistListView: View {
             NewPlaylistView { createdTitle in
                 successMessage = String(format: NSLocalizedString("Created \"%@\"", comment: "Success message after creating playlist"), createdTitle)
             }
+        }
+        .alert("Playlist Error", isPresented: .init(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button("OK", role: .cancel) {
+                errorMessage = nil
+            }
+        } message: {
+            Text(errorMessage ?? "")
         }
         .alert(isPresented: .init(get: { successMessage != nil }, set: { if !$0 { successMessage = nil } })) {
             Alert(title: Text(successMessage ?? ""))
@@ -98,10 +106,16 @@ struct PlaylistListView: View {
     }
 
     @MainActor private func delete(_ pl: Playlist) {
-        do {
-            try modelContext.deletePlaylist(pl)
-        } catch {
-            Logger(subsystem: "Auralis", category: "PlaylistUI").error("Delete failed: \(String(describing: error))")
+        let playlistID = pl.id
+        let persistenceStore = PlaylistPersistenceStore(modelContainer: modelContext.container)
+
+        Task {
+            do {
+                try await persistenceStore.deletePlaylist(id: playlistID)
+            } catch {
+                Logger(subsystem: "Auralis", category: "PlaylistUI").error("Delete failed: \(String(describing: error))")
+                errorMessage = error.localizedDescription
+            }
         }
     }
 }

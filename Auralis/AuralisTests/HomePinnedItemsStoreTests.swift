@@ -46,8 +46,8 @@ struct HomePinnedItemsStoreTests {
         #expect(store.isPinned(.openNews, accountAddress: account))
     }
 
-    @Test("mutating pinned items fails closed when stored data is corrupted")
-    func corruptedPinnedItemsDoNotGetOverwrittenOnToggle() throws {
+    @Test("mutating pinned items self-heals when stored data is corrupted")
+    func corruptedPinnedItemsAreClearedBeforeToggleWritesFreshState() throws {
         let suiteName = "HomePinnedItemsStoreTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -60,12 +60,13 @@ struct HomePinnedItemsStoreTests {
             maximumPinnedItemsPerAccount: 3
         )
 
-        #expect(throws: HomePinnedItemsStoreError.corruptedStorage) {
-            try store.togglePin(
-                .openSearch,
-                accountAddress: "0x1234567890abcdef1234567890abcdef12345678"
-            )
-        }
-        #expect(defaults.data(forKey: storageKey) == Data("not-json".utf8))
+        let didPin = try store.togglePin(
+            .openSearch,
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678"
+        )
+
+        #expect(didPin == true)
+        #expect(store.isPinned(.openSearch, accountAddress: "0x1234567890abcdef1234567890abcdef12345678"))
+        #expect(defaults.data(forKey: storageKey) != Data("not-json".utf8))
     }
 }

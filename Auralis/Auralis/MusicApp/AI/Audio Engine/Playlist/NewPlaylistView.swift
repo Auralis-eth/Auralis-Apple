@@ -257,22 +257,25 @@ struct NewPlaylistView: View {
         }
 
         isSaving = true
+        let persistenceStore = PlaylistPersistenceStore(modelContainer: modelContext.container)
 
-        do {
-            try modelContext.createPlaylist(
-                title: trimmed,
-                description: descriptionText,
-                imageRef: nil,
-                imageData: selectedImageData,
-                tracks: []
-            )
-            onSuccess(trimmed)
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
+        Task {
+            do {
+                try await persistenceStore.createPlaylist(
+                    title: trimmed,
+                    description: descriptionText,
+                    imageRef: nil,
+                    imageData: selectedImageData,
+                    tracks: []
+                )
+                onSuccess(trimmed)
+                dismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+
+            isSaving = false
         }
-
-        isSaving = false
     }
 
     @MainActor

@@ -86,6 +86,18 @@ private actor AccountPersistenceStore {
         try modelContext.save()
     }
 
+    func persistPreferredChain(
+        normalizedAddress: String,
+        chain: Chain
+    ) throws {
+        guard let account = try account(for: normalizedAddress) else {
+            throw AccountStoreError.accountNotFound(normalizedAddress)
+        }
+
+        account.preferredChain = chain
+        try modelContext.save()
+    }
+
     private func account(for normalizedAddress: String) throws -> EOAccount? {
         let descriptor = FetchDescriptor<EOAccount>(
             predicate: #Predicate<EOAccount> { account in
@@ -402,6 +414,39 @@ struct AccountStore {
         )
         eventRecorder.record(
             .currentChainChanged(address: existingAccount.address, from: previousChain, to: chain),
+            correlationID: correlationID
+        )
+
+        guard let refreshedAccount = try account(for: normalizedAddress) else {
+            throw AccountStoreError.accountNotFound(normalizedAddress)
+        }
+        return refreshedAccount
+    }
+
+    func persistPreferredChain(
+        address rawAddress: String,
+        chain: Chain,
+        correlationID: String? = nil
+    ) async throws -> EOAccount {
+        guard let normalizedAddress = AccountStore.normalizeAddress(rawAddress) else {
+            throw AccountStoreError.accountNotFound(rawAddress)
+        }
+
+        guard let existingAccount = try account(for: normalizedAddress) else {
+            throw AccountStoreError.accountNotFound(normalizedAddress)
+        }
+        let previousChain = existingAccount.preferredChain
+
+        guard previousChain != chain else {
+            return existingAccount
+        }
+
+        try await persistenceStore.persistPreferredChain(
+            normalizedAddress: normalizedAddress,
+            chain: chain
+        )
+        eventRecorder.record(
+            .preferredChainChanged(address: existingAccount.address, from: previousChain, to: chain),
             correlationID: correlationID
         )
 

@@ -66,6 +66,38 @@ struct GasPriceEstimateViewModelTests {
         #expect(viewModel.lastUpdated == staleDate)
         #expect(viewModel.isShowingCachedEstimate == true)
     }
+
+    @Test("fresh cache hits are still labeled as cached instead of live")
+    func freshCacheHitMarksEstimateAsCached() async throws {
+        let cachedDate = Date(timeIntervalSince1970: 1_704_067_200)
+        let viewModel = GasPriceEstimateViewModel(
+            provider: FreshCachedGasPricingProvider(cachedDate: cachedDate)
+        )
+
+        viewModel.setChain(.ethMainnet)
+
+        for _ in 0..<80 {
+            if viewModel.phase == .loaded {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(viewModel.phase == .loaded)
+        #expect(viewModel.isLoading == false)
+        #expect(viewModel.error == nil)
+        #expect(viewModel.lastUpdated == cachedDate)
+        #expect(viewModel.isShowingCachedEstimate == true)
+    }
+
+    @Test("gas pricing auth failures are translated into actionable user-facing copy")
+    func gasPricingUnauthorizedMessageIsActionable() {
+        let error = AlchemyGasPricingProvider.GasPricingError.unauthorized(message: "invalid api key")
+        #expect(
+            error.userFacingMessage ==
+                "Auralis could not refresh gas prices because the provider rejected this build's credentials."
+        )
+    }
 }
 
 private struct SlowGasPricingProvider: GasPricingProviding {
@@ -95,6 +127,18 @@ private struct StaleCachedGasPricingProvider: GasPricingProviding {
             estimate: .example,
             fetchedAt: staleDate,
             source: .staleCache
+        )
+    }
+}
+
+private struct FreshCachedGasPricingProvider: GasPricingProviding {
+    let cachedDate: Date
+
+    func gasPriceEstimate(for chain: Chain) async throws -> GasPriceEstimateResult {
+        GasPriceEstimateResult(
+            estimate: .example,
+            fetchedAt: cachedDate,
+            source: .cache
         )
     }
 }

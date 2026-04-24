@@ -20,11 +20,15 @@ struct PrivacyResetServiceTests {
         let tokenHoldingsStore = TokenHoldingsStore(modelContext: context)
         let receiptStore = RecordingReceiptStore()
         let ensCacheResetService = RecordingENSCacheResetService()
+        let selectionPersistence = RecordingShellSelectionPersistence()
+        let pinnedItemsStore = HomePinnedItemsStore(userDefaults: UserDefaults(suiteName: #function)!)
         let service = PrivacyResetService(
             receiptStore: receiptStore,
             searchHistoryStore: searchHistoryStore,
             ensCacheResetService: ensCacheResetService,
-            tokenHoldingsStore: tokenHoldingsStore
+            tokenHoldingsStore: tokenHoldingsStore,
+            selectionPersistence: selectionPersistence,
+            homePinnedItemsStore: pinnedItemsStore
         )
 
         try await searchHistoryStore.recordCommittedQuery("Moonpunks", accountAddress: nil)
@@ -35,6 +39,10 @@ struct PrivacyResetServiceTests {
             amountDisplay: "1.25",
             updatedAt: .now
         )
+        try pinnedItemsStore.togglePin(
+            .openNews,
+            accountAddress: "0x1111111111111111111111111111111111111111"
+        )
 
         try await service.resetLocalPrivacyData()
 
@@ -43,6 +51,8 @@ struct PrivacyResetServiceTests {
         #expect(receiptStore.resetAllCallCount == 1)
         #expect(await ensCacheResetService.resetCount() == 1)
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
+        #expect(selectionPersistence.clearSelectionCallCount == 1)
+        #expect(pinnedItemsStore.pinnedActions(for: "0x1111111111111111111111111111111111111111").isEmpty)
     }
 }
 
@@ -80,5 +90,20 @@ private actor RecordingENSCacheResetService: ENSCacheResetting {
 
     func resetCount() -> Int {
         resetCallCount
+    }
+}
+
+@MainActor
+private final class RecordingShellSelectionPersistence: ShellSelectionPersisting {
+    private(set) var clearSelectionCallCount = 0
+
+    func loadSelection() -> (address: String, chainID: String) {
+        ("", Chain.ethMainnet.rawValue)
+    }
+
+    func saveSelection(address: String, chainID: String) { }
+
+    func clearSelection() {
+        clearSelectionCallCount += 1
     }
 }

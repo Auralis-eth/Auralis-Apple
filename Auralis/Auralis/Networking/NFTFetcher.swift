@@ -183,6 +183,17 @@ class NFTFetcher: NFTFetching {
         return false
     }
 
+    private func retryDelay(for error: Error, attempt: Int) -> UInt64 {
+        if let apiError = error as? AlchemyNFTService.APIError,
+           case .rateLimited(let retryAfter, _) = apiError,
+           let retryAfter {
+            let retryDelayNanoseconds = UInt64(max(0, retryAfter) * 1_000_000_000)
+            return min(retryDelayNanoseconds, maxDelayNanoseconds)
+        }
+
+        return backoffDelay(for: attempt)
+    }
+
     func fetchAllNFTs(
         for account: String,
         chain: Chain,
@@ -242,7 +253,7 @@ class NFTFetcher: NFTFetching {
         let maxStalledPaginationPages = maxRetryCount * 3
         var pageCount = 0
 
-        repeat {
+        while true {
             try Task.checkCancellation()
             try await throttler.throttle()
 
@@ -327,9 +338,10 @@ class NFTFetcher: NFTFetching {
                 }
 
                 if shouldRetry(error: wrappedError, attempt: attempt) {
-                    let delay = backoffDelay(for: attempt)
+                    let delay = retryDelay(for: wrappedError, attempt: attempt)
                     logger.notice("Retrying NFT fetch in \(Double(delay) / 1_000_000_000, privacy: .public) seconds")
                     try await Task.sleep(nanoseconds: delay)
+                    continue
                 } else {
                     logger.notice("Stopping NFT fetch retries after error=\(wrappedError.localizedDescription, privacy: .public)")
                     if let correlationID {
@@ -344,7 +356,10 @@ class NFTFetcher: NFTFetching {
                 }
             }
 
-        } while cursor != nil
+            if cursor == nil {
+                break
+            }
+        }
 
         if let correlationID {
             await eventRecorder.recordFetchSucceeded(

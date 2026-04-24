@@ -48,6 +48,66 @@ public struct PlaylistRepository: Sendable {
 
 private let logger = Logger(subsystem: "Auralis", category: "PlaylistCRUD")
 
+@ModelActor
+public actor PlaylistPersistenceStore {
+    public func createPlaylist(
+        title: String,
+        description: String? = nil,
+        imageRef: String? = nil,
+        imageData: Data? = nil,
+        tracks: [NFT] = []
+    ) throws {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else {
+            throw PlaylistError.invalidData("Title must not be empty.")
+        }
+
+        let playlist = Playlist(
+            title: trimmedTitle,
+            description: description,
+            imageRef: imageRef,
+            imageData: imageData,
+            tracks: tracks
+        )
+        modelContext.insert(playlist)
+
+        do {
+            try modelContext.save()
+            logger.log("Created playlist '\(trimmedTitle, privacy: .public)'.")
+        } catch {
+            logger.error("Failed to create playlist '\(trimmedTitle, privacy: .public)': \(error.localizedDescription, privacy: .public)")
+            throw PlaylistError.saveFailed(underlying: error)
+        }
+    }
+
+    public func deletePlaylist(id: UUID) throws {
+        let predicate = #Predicate<Playlist> { $0.id == id }
+        let descriptor = FetchDescriptor<Playlist>(predicate: predicate)
+
+        do {
+            let results = try modelContext.fetch(descriptor)
+            guard let playlist = results.first else {
+                logger.error("Failed to delete playlist by id \(id.uuidString, privacy: .public): not found.")
+                throw PlaylistError.notFound
+            }
+
+            modelContext.delete(playlist)
+            do {
+                try modelContext.save()
+                logger.log("Deleted playlist by id \(id.uuidString, privacy: .public).")
+            } catch {
+                logger.error("Failed to delete playlist by id \(id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                throw PlaylistError.saveFailed(underlying: error)
+            }
+        } catch let error as PlaylistError {
+            throw error
+        } catch {
+            logger.error("Failed to fetch playlist for deletion by id \(id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            throw PlaylistError.fetchFailed(underlying: error)
+        }
+    }
+}
+
 @MainActor
 /// Convenience playlist persistence helpers layered onto `ModelContext`.
 public extension ModelContext {

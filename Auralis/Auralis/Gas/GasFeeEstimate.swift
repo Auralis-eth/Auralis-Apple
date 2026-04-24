@@ -267,7 +267,7 @@ final class GasPriceEstimateViewModel {
                 self.estimate = result.estimate
                 self.error = nil
                 self.lastUpdated = result.fetchedAt
-                self.isShowingCachedEstimate = result.source == .staleCache
+                self.isShowingCachedEstimate = result.source != .live
                 self.phase = .loaded
             }
         } catch {
@@ -452,10 +452,26 @@ extension GasPriceEstimateView {
         }
 
         private var errorMessage: String {
-            guard let error = error else {
+            guard let error else {
                 return "Failed to fetch gas price estimate. Please try again later."
             }
-            return error.localizedDescription
+
+            if let gasError = error as? AlchemyGasPricingProvider.GasPricingError {
+                return gasError.userFacingMessage
+            }
+
+            if let urlError = error as? URLError {
+                switch urlError.code {
+                case .notConnectedToInternet, .networkConnectionLost:
+                    return "Auralis could not load gas prices because this device appears to be offline."
+                case .timedOut, .cannotConnectToHost:
+                    return "Auralis could not load gas prices because the provider is temporarily unavailable."
+                default:
+                    break
+                }
+            }
+
+            return "Auralis could not load gas prices for the selected chain just now. Try again in a moment."
         }
     }
 
@@ -665,6 +681,46 @@ extension GasPriceEstimateView {
                     }
                 }
             }
+        }
+    }
+}
+
+extension AlchemyGasPricingProvider.GasPricingError {
+    var userFacingMessage: String {
+        switch self {
+        case .unsupportedChain:
+            return "Auralis cannot refresh gas prices for this chain yet."
+        case .invalidConfiguration:
+            return "Auralis could not refresh gas prices because this build is missing provider configuration."
+        case .networkFailure(let underlying):
+            if let urlError = underlying as? URLError {
+                switch urlError.code {
+                case .notConnectedToInternet, .networkConnectionLost:
+                    return "Auralis could not load gas prices because this device appears to be offline."
+                case .timedOut, .cannotConnectToHost:
+                    return "Auralis could not load gas prices because the provider is temporarily unavailable."
+                default:
+                    break
+                }
+            }
+            return "Auralis could not load gas prices because the provider did not respond cleanly."
+        case .badStatus(let statusCode, let message):
+            if let message, !message.isEmpty {
+                return "Auralis could not load gas prices because the provider returned HTTP \(statusCode) (\(message))."
+            }
+            return "Auralis could not load gas prices because the provider returned HTTP \(statusCode)."
+        case .invalidResponse:
+            return "Auralis could not load gas prices because the provider returned data it could not read."
+        case .backoffOverflow:
+            return "Auralis could not load gas prices because retry scheduling failed."
+        case .rateLimited:
+            return "The gas pricing provider is rate-limiting requests right now. Try again in a moment."
+        case .unauthorized:
+            return "Auralis could not refresh gas prices because the provider rejected this build's credentials."
+        case .unsupportedMethod:
+            return "Auralis could not refresh gas prices because the provider does not support the required method."
+        case .rpcError(_, let message):
+            return "Auralis could not load gas prices because the provider reported an error: \(message)"
         }
     }
 }

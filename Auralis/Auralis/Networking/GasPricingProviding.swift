@@ -3,6 +3,7 @@ import Foundation
 struct GasPriceEstimateResult: Sendable {
     enum Source: Sendable {
         case live
+        case cache
         case staleCache
     }
 

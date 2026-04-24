@@ -5,7 +5,7 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
         case unsupportedChain(Chain)
         case invalidConfiguration
         case networkFailure(underlying: Error)
-        case badStatus(Int)
+        case badStatus(Int, message: String?)
         case invalidResponse
         case backoffOverflow
         case rateLimited(message: String, retryAfter: TimeInterval?)
@@ -21,7 +21,10 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
                 return "Gas pricing provider configuration is invalid."
             case .networkFailure(let underlying):
                 return "Gas pricing request failed: \(underlying.localizedDescription)"
-            case .badStatus(let status):
+            case .badStatus(let status, let message):
+                if let message, !message.isEmpty {
+                    return "Gas pricing request failed with HTTP \(status). \(message)"
+                }
                 return "Gas pricing request failed with HTTP \(status)."
             case .invalidResponse:
                 return "Gas pricing provider returned an invalid response."
@@ -72,7 +75,7 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
             return GasPriceEstimateResult(
                 estimate: estimate,
                 fetchedAt: fetchedAt,
-                source: .live
+                source: .cache
             )
         case .expired(let staleEstimate, let fetchedAt):
             try await requestThrottler.throttle()
@@ -85,6 +88,9 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
                     source: .live
                 )
             } catch {
+                guard shouldUseStaleCacheFallback(after: error) else {
+                    throw error
+                }
                 return GasPriceEstimateResult(
                     estimate: staleEstimate,
                     fetchedAt: fetchedAt,
@@ -127,8 +133,23 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
         switch error {
         case GasPricingError.networkFailure, GasPricingError.rateLimited:
             return true
-        case GasPricingError.badStatus(let code):
+        case GasPricingError.badStatus(let code, _):
             return (500...599).contains(code) || code == 429
+        case GasPricingError.invalidResponse:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func shouldUseStaleCacheFallback(after error: Error) -> Bool {
+        switch error {
+        case GasPricingError.networkFailure,
+                GasPricingError.rateLimited,
+                GasPricingError.invalidResponse:
+            return true
+        case GasPricingError.badStatus(let statusCode, _):
+            return statusCode == 429 || (500...599).contains(statusCode)
         default:
             return false
         }
@@ -191,13 +212,17 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
             throw GasPricingError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            let message = parseErrorMessage(from: data)
             if httpResponse.statusCode == 429 {
                 throw GasPricingError.rateLimited(
-                    message: "HTTP 429",
+                    message: message ?? "HTTP 429",
                     retryAfter: parseRetryAfter(from: httpResponse)
                 )
             }
-            throw GasPricingError.badStatus(httpResponse.statusCode)
+            if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+                throw GasPricingError.unauthorized(message: message ?? "HTTP \(httpResponse.statusCode)")
+            }
+            throw GasPricingError.badStatus(httpResponse.statusCode, message: message)
         }
 
         do {
@@ -248,6 +273,18 @@ struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
 
     private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {
         RetryAfterSupport.parse(from: response)
+    }
+
+    private func parseErrorMessage(from data: Data) -> String? {
+        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return object["message"] as? String
+                ?? object["detail"] as? String
+                ?? object["error"] as? String
+        }
+
+        let rawMessage = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return rawMessage?.isEmpty == false ? rawMessage : nil
     }
 }
 

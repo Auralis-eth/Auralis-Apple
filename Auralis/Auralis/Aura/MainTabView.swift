@@ -149,7 +149,6 @@ struct MainTabView: View {
                 currentAccount: currentAccount,
                 activeSelection: shellStore.state.selection,
                 accountStoreFactory: services.accountStoreFactory,
-                accountEventRecorderFactory: services.accountEventRecorderFactory,
                 onSelectAccount: selectAccount,
                 onRemoveAccount: removeAccount,
                 onCurrentChainChange: changeCurrentChain
