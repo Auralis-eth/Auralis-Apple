@@ -167,7 +167,7 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
 
 @MainActor
 protocol PolicyActionGating {
-    func attempt(_ action: PolicyControlledAction) -> PolicyGateResult
+    func attempt(_ action: PolicyControlledAction) async -> PolicyGateResult
 }
 
 @MainActor
@@ -183,8 +183,8 @@ struct PolicyActionGateService: PolicyActionGating {
         self.receiptStore = receiptStore
     }
 
-    func attempt(_ action: PolicyControlledAction) -> PolicyGateResult {
-        ActionPolicyGate.attempt(
+    func attempt(_ action: PolicyControlledAction) async -> PolicyGateResult {
+        await ActionPolicyGate.attempt(
             action,
             modeState: modeState,
             receiptStore: receiptStore

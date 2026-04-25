@@ -9,107 +9,126 @@ import Foundation
 import OSLog
 import SwiftData
 
+private struct NFTRefreshContractSnapshot: Sendable {
+    let address: String?
+    let chain: Chain
+}
+
+private struct NFTRefreshCollectionSnapshot: Sendable {
+    let name: String?
+    let chain: Chain
+    let contractAddress: String?
+}
+
+private struct NFTRefreshImageSnapshot: Sendable {
+    let originalURL: String?
+    let thumbnailURL: String?
+    let secureURL: String?
+}
+
+private struct NFTRefreshRawSnapshot: Sendable {
+    let tokenURI: String?
+    let metadata: [String: JSONValue]?
+    let error: String?
+}
+
+private struct NFTRefreshAcquiredAtSnapshot: Sendable {
+    let blockTimestamp: String?
+}
+
+private struct NFTRefreshAttributeSnapshot: Sendable {
+    let value: String
+    let traitType: String?
+}
+
+private struct NFTRefreshPersistenceSnapshot: Sendable {
+    let id: String
+    let contract: NFTRefreshContractSnapshot
+    let tokenId: String
+    let tokenType: String?
+    let name: String?
+    let nftDescription: String?
+    let image: NFTRefreshImageSnapshot?
+    let raw: NFTRefreshRawSnapshot?
+    let collection: NFTRefreshCollectionSnapshot?
+    let tokenURI: String?
+    let timeLastUpdated: String?
+    let acquiredAt: NFTRefreshAcquiredAtSnapshot?
+    let network: Chain
+    let accountAddress: String?
+    let contentType: String?
+    let collectionName: String?
+    let artistName: String?
+    let animationURL: String?
+    let secureAnimationURL: String?
+    let audioURL: String?
+    let externalURL: String?
+    let modelURL: String?
+    let backgroundColor: String?
+    let collectionID: String?
+    let projectID: String?
+    let series: String?
+    let seriesID: String?
+    let primaryAssetURL: String?
+    let securePrimaryAssetURL: String?
+    let previewAssetURL: String?
+    let securePreviewAssetURL: String?
+    let artistWebsite: String?
+    let uniqueID: String?
+    let timestamp: String?
+    let tokenHash: String?
+    let medium: String?
+    let metadataVersion: String?
+    let imageDataURL: String?
+    let secureImageDataURL: String?
+    let imageHrURL: String?
+    let secureImageHrURL: String?
+    let imageHash: String?
+    let symbols: String?
+    let seed: String?
+    let original: String?
+    let agreement: String?
+    let website: String?
+    let payoutAddress: String?
+    let scriptType: String?
+    let engineType: String?
+    let accessArtworkFiles: String?
+    let sellerFeeBasisPoints: Int?
+    let minted: Int?
+    let isStatic: Int?
+    let aspectRatio: Double?
+    let attributes: [NFTRefreshAttributeSnapshot]
+}
+
+private struct NFTRefreshPersistenceScopeSnapshot {
+    var persistedNFTsByID: [String: NFT]
+    var persistedContractsByID: [String: NFT.Contract]
+    var persistedCollectionsByID: [String: NFT.Collection]
+}
+
+enum NFTServiceRefreshPhase: Equatable {
+    case idle
+    case fetching
+    case processingMetadata(itemCount: Int)
+    case persisting(itemCount: Int)
+    case cleaningUp(itemCount: Int)
+}
+
+private struct NFTServiceRefreshScope: Hashable {
+    let accountAddress: String
+    let chain: Chain
+}
+
+private struct NFTMetadataPreparationInput: Sendable {
+    let tokenURI: String?
+    let rawTokenURI: String?
+    let rawMetadata: [String: JSONValue]?
+}
+
 @ModelActor
 private actor NFTRefreshPersistenceStore {
-    struct NFTSnapshot: Sendable {
-        struct ContractSnapshot: Sendable {
-            let address: String?
-            let chain: Chain
-        }
-
-        struct CollectionSnapshot: Sendable {
-            let name: String?
-            let chain: Chain
-            let contractAddress: String?
-        }
-
-        struct ImageSnapshot: Sendable {
-            let originalURL: String?
-            let thumbnailURL: String?
-            let secureURL: String?
-        }
-
-        struct RawSnapshot: Sendable {
-            let tokenURI: String?
-            let metadata: [String: JSONValue]?
-            let error: String?
-        }
-
-        struct AcquiredAtSnapshot: Sendable {
-            let blockTimestamp: String?
-        }
-
-        struct AttributeSnapshot: Sendable {
-            let value: String
-            let traitType: String?
-        }
-
-        let id: String
-        let contract: ContractSnapshot
-        let tokenId: String
-        let tokenType: String?
-        let name: String?
-        let nftDescription: String?
-        let image: ImageSnapshot?
-        let raw: RawSnapshot?
-        let collection: CollectionSnapshot?
-        let tokenURI: String?
-        let timeLastUpdated: String?
-        let acquiredAt: AcquiredAtSnapshot?
-        let network: Chain
-        let accountAddress: String?
-        let contentType: String?
-        let collectionName: String?
-        let artistName: String?
-        let animationURL: String?
-        let secureAnimationURL: String?
-        let audioURL: String?
-        let externalURL: String?
-        let modelURL: String?
-        let backgroundColor: String?
-        let collectionID: String?
-        let projectID: String?
-        let series: String?
-        let seriesID: String?
-        let primaryAssetURL: String?
-        let securePrimaryAssetURL: String?
-        let previewAssetURL: String?
-        let securePreviewAssetURL: String?
-        let artistWebsite: String?
-        let uniqueID: String?
-        let timestamp: String?
-        let tokenHash: String?
-        let medium: String?
-        let metadataVersion: String?
-        let imageDataURL: String?
-        let secureImageDataURL: String?
-        let imageHrURL: String?
-        let secureImageHrURL: String?
-        let imageHash: String?
-        let symbols: String?
-        let seed: String?
-        let original: String?
-        let agreement: String?
-        let website: String?
-        let payoutAddress: String?
-        let scriptType: String?
-        let engineType: String?
-        let accessArtworkFiles: String?
-        let sellerFeeBasisPoints: Int?
-        let minted: Int?
-        let isStatic: Int?
-        let aspectRatio: Double?
-        let attributes: [AttributeSnapshot]
-    }
-
-    private struct PersistenceScopeSnapshot {
-        var persistedNFTsByID: [String: NFT]
-        var persistedContractsByID: [String: NFT.Contract]
-        var persistedCollectionsByID: [String: NFT.Collection]
-    }
-
     func persist(
-        _ snapshots: [NFTSnapshot],
+        _ snapshots: [NFTRefreshPersistenceSnapshot],
         accountAddress: String,
         chain: Chain
     ) throws {
@@ -159,7 +178,7 @@ private actor NFTRefreshPersistenceStore {
     private func makePersistenceScopeSnapshot(
         accountAddress: String,
         chain: Chain
-    ) throws -> PersistenceScopeSnapshot {
+    ) throws -> NFTRefreshPersistenceScopeSnapshot {
         let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
         let scopedNFTDescriptor = FetchDescriptor<NFT>(
             predicate: #Predicate<NFT> {
@@ -172,7 +191,7 @@ private actor NFTRefreshPersistenceStore {
         let persistedContracts = try modelContext.fetch(FetchDescriptor<NFT.Contract>())
         let persistedCollections = try modelContext.fetch(FetchDescriptor<NFT.Collection>())
 
-        return PersistenceScopeSnapshot(
+        return NFTRefreshPersistenceScopeSnapshot(
             persistedNFTsByID: Dictionary(uniqueKeysWithValues: persistedNFTs.map { ($0.id, $0) }),
             persistedContractsByID: Dictionary(uniqueKeysWithValues: persistedContracts.map { ($0.id, $0) }),
             persistedCollectionsByID: Dictionary(uniqueKeysWithValues: persistedCollections.map { ($0.id, $0) })
@@ -207,7 +226,7 @@ private actor NFTRefreshPersistenceStore {
 
     private func canonicalizePersistenceScope(
         for nfts: [NFT],
-        snapshot: inout PersistenceScopeSnapshot
+        snapshot: inout NFTRefreshPersistenceScopeSnapshot
     ) {
         for nft in nfts {
             let resolvedContract = resolveContract(
@@ -228,7 +247,7 @@ private actor NFTRefreshPersistenceStore {
 
     private func upsert(
         nft incomingNFT: NFT,
-        snapshot: inout PersistenceScopeSnapshot
+        snapshot: inout NFTRefreshPersistenceScopeSnapshot
     ) {
         if let persistedNFT = snapshot.persistedNFTsByID[incomingNFT.id] {
             merge(into: persistedNFT, from: incomingNFT)
@@ -304,7 +323,7 @@ private actor NFTRefreshPersistenceStore {
 
     private func resolveContract(
         for contract: NFT.Contract,
-        snapshot: inout PersistenceScopeSnapshot
+        snapshot: inout NFTRefreshPersistenceScopeSnapshot
     ) -> NFT.Contract {
         if let cachedContract = snapshot.persistedContractsByID[contract.id] {
             cachedContract.address = contract.address
@@ -318,7 +337,7 @@ private actor NFTRefreshPersistenceStore {
 
     private func resolveCollection(
         for collection: NFT.Collection,
-        snapshot: inout PersistenceScopeSnapshot
+        snapshot: inout NFTRefreshPersistenceScopeSnapshot
     ) -> NFT.Collection {
         if let cachedCollection = snapshot.persistedCollectionsByID[collection.id] {
             cachedCollection.name = collection.name
@@ -331,7 +350,7 @@ private actor NFTRefreshPersistenceStore {
         return collection
     }
 
-    private func makeNFT(from snapshot: NFTSnapshot) -> NFT {
+    private func makeNFT(from snapshot: NFTRefreshPersistenceSnapshot) -> NFT {
         let nft = NFT(
             id: snapshot.id,
             contract: NFT.Contract(address: snapshot.contract.address, chain: snapshot.contract.chain),
@@ -414,25 +433,7 @@ private actor NFTRefreshPersistenceStore {
 @Observable
 class NFTService {
     private let logger = Logger(subsystem: "Auralis", category: "NFTService")
-    enum RefreshPhase: Equatable {
-        case idle
-        case fetching
-        case processingMetadata(itemCount: Int)
-        case persisting(itemCount: Int)
-        case cleaningUp(itemCount: Int)
-    }
-
-    private struct RefreshScope: Hashable {
-        let accountAddress: String
-        let chain: Chain
-    }
-
-    private struct MetadataPreparationInput: Sendable {
-        let tokenURI: String?
-        let rawTokenURI: String?
-        let rawMetadata: [String: JSONValue]?
-    }
-
+    typealias RefreshPhase = NFTServiceRefreshPhase
     private let nftFetcher: any NFTFetching
     private let eventRecorderFactory: @MainActor (ModelContext) -> any NFTRefreshEventRecording
     let refreshTTL: TimeInterval
@@ -441,9 +442,9 @@ class NFTService {
     var total: Int? { nftFetcher.total }
     var error: Error? { nftFetcher.error }
     var providerFailure: NFTProviderFailure? { NFTProviderFailure(error: error) }
-    private(set) var refreshPhase: RefreshPhase = .idle
-    private var successfulRefreshTimestamps: [RefreshScope: Date] = [:]
-    private var inFlightRefreshScope: RefreshScope?
+    private(set) var refreshPhase: NFTServiceRefreshPhase = .idle
+    private var successfulRefreshTimestamps: [NFTServiceRefreshScope: Date] = [:]
+    private var inFlightRefreshScope: NFTServiceRefreshScope?
     private var inFlightRefreshTask: Task<Void, Never>?
     private var inFlightRefreshToken: UUID?
 
@@ -529,7 +530,7 @@ class NFTService {
                 }
 
                 successfulRefreshTimestamps[
-                    RefreshScope(accountAddress: accountAddress, chain: chain)
+                    NFTServiceRefreshScope(accountAddress: accountAddress, chain: chain)
                 ] = .now
                 await eventRecorder.recordPersistenceCompleted(
                     accountAddress: accountAddress,
@@ -649,19 +650,19 @@ class NFTService {
     private func refreshScope(
         accountAddress: String?,
         chain: Chain
-    ) -> RefreshScope? {
+    ) -> NFTServiceRefreshScope? {
         guard let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) else {
             return nil
         }
 
-        return RefreshScope(accountAddress: normalizedAccountAddress, chain: chain)
+        return NFTServiceRefreshScope(accountAddress: normalizedAccountAddress, chain: chain)
     }
 
     private func prepareMetadataPatches(
         for fetchedNFTs: [NFT]
     ) async -> [NFTMetadataUpdater.MetadataPatch?] {
         let inputs = fetchedNFTs.map {
-            MetadataPreparationInput(
+            NFTMetadataPreparationInput(
                 tokenURI: $0.tokenUri,
                 rawTokenURI: $0.raw?.tokenUri,
                 rawMetadata: $0.raw?.metadata
@@ -686,8 +687,8 @@ class NFTService {
         }.value
     }
 
-    private func makePersistenceSnapshot(from nft: NFT) -> NFTRefreshPersistenceStore.NFTSnapshot {
-        NFTRefreshPersistenceStore.NFTSnapshot(
+    private func makePersistenceSnapshot(from nft: NFT) -> NFTRefreshPersistenceSnapshot {
+        NFTRefreshPersistenceSnapshot(
             id: nft.id,
             contract: .init(
                 address: nft.contract.address,

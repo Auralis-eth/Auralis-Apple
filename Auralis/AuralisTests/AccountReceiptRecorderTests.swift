@@ -101,7 +101,7 @@ struct AccountReceiptRecorderTests {
         )
         let modeState = ModeState()
 
-        let result = ActionPolicyGate.attempt(
+        let result = await ActionPolicyGate.attempt(
             .draftTransaction,
             modeState: modeState,
             receiptStore: receiptStore
@@ -131,7 +131,7 @@ struct AccountReceiptRecorderTests {
         )
         let modeState = ModeState()
 
-        let result = ActionPolicyGate.attempt(
+        let result = await ActionPolicyGate.attempt(
             .runPlugin,
             modeState: modeState,
             receiptStore: receiptStore

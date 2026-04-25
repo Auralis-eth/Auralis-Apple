@@ -1,5 +1,121 @@
 import Foundation
 
+private enum BalanceDataEnvelopeCodingKeys: String, CodingKey {
+    case tokens
+    case pageKey
+}
+
+private enum TokensByAddressDataEnvelopeCodingKeys: String, CodingKey {
+    case tokens
+    case pageKey
+}
+
+private struct AlchemyTokenEnrichmentResult {
+    let enrichments: [String: AlchemyTokenEnrichment]?
+    let warning: TokenHoldingsProviderWarning?
+}
+
+private struct AlchemyBalanceSnapshot: Equatable {
+    let contractAddress: String
+    let rawBalance: String
+}
+
+private struct AlchemyTokenEnrichment: Equatable {
+    let decimals: Int?
+    let symbol: String?
+    let name: String?
+    let updatedAt: Date
+}
+
+private struct AlchemyTokensByAddressRequest: Encodable {
+    let addresses: [AlchemyAddressRequest]
+    let withMetadata: Bool
+    let withPrices: Bool
+    let includeNativeTokens: Bool
+    let includeErc20Tokens: Bool
+    let pageKey: String?
+}
+
+private struct AlchemyTokenBalancesByAddressRequest: Encodable {
+    let addresses: [AlchemyAddressRequest]
+    let includeNativeTokens: Bool
+    let includeErc20Tokens: Bool
+    let pageKey: String?
+}
+
+private struct AlchemyAddressRequest: Encodable {
+    let address: String
+    let networks: [String]
+}
+
+private struct AlchemyTokenBalancesByAddressResponse: Decodable {
+    let data: AlchemyBalanceDataEnvelope
+}
+
+private struct AlchemyBalanceDataEnvelope: Decodable {
+    let tokens: [AlchemyBalanceToken]
+    let pageKey: String?
+
+    init(tokens: [AlchemyBalanceToken], pageKey: String?) {
+        self.tokens = tokens
+        self.pageKey = pageKey
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: BalanceDataEnvelopeCodingKeys.self)
+        tokens = try container.decodeIfPresent(LossyDecodableArray<AlchemyBalanceToken>.self, forKey: .tokens)?.elements ?? []
+        pageKey = try container.decodeIfPresent(String.self, forKey: .pageKey)
+    }
+}
+
+private struct AlchemyBalanceToken: Decodable {
+    let network: String
+    let address: String
+    let tokenAddress: String?
+    let tokenBalance: String
+}
+
+private struct AlchemyTokensByAddressResponse: Decodable {
+    let data: AlchemyTokensDataEnvelope
+}
+
+private struct AlchemyTokensDataEnvelope: Decodable {
+    let tokens: [AlchemyTokenPayload]
+    let pageKey: String?
+
+    init(tokens: [AlchemyTokenPayload], pageKey: String?) {
+        self.tokens = tokens
+        self.pageKey = pageKey
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: TokensByAddressDataEnvelopeCodingKeys.self)
+        tokens = try container.decodeIfPresent(LossyDecodableArray<AlchemyTokenPayload>.self, forKey: .tokens)?.elements ?? []
+        pageKey = try container.decodeIfPresent(String.self, forKey: .pageKey)
+    }
+}
+
+private struct AlchemyTokenPayload: Decodable {
+    let tokenAddress: String?
+    let tokenBalance: String
+    let tokenMetadata: AlchemyTokenMetadata?
+    let tokenPrices: [AlchemyTokenPrice]?
+    let error: String?
+}
+
+private struct AlchemyTokenMetadata: Decodable {
+    let decimals: Int?
+    let logo: String?
+    let name: String?
+    let symbol: String?
+}
+
+private struct AlchemyTokenPrice: Decodable {
+    let currency: String
+    let value: String
+    let lastUpdatedAt: Date
+}
+
 struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalancesProviding {
     private enum RequestError: Error {
         case badStatus(Int, message: String?, retryAfter: TimeInterval?)
@@ -40,9 +156,9 @@ struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalancesProvid
 
     func tokenBalances(for request: TokenBalancesRequest) async throws -> TokenBalancesPage {
         let dataAPIBaseURL = try resolveGlobalDataAPIBaseURL()
-        let requestBody = TokenBalancesByAddressRequest(
+        let requestBody = AlchemyTokenBalancesByAddressRequest(
             addresses: request.addresses.map {
-                AddressRequest(address: $0.address, networks: $0.networks)
+                AlchemyAddressRequest(address: $0.address, networks: $0.networks)
             },
             includeNativeTokens: request.includeNativeTokens,
             includeErc20Tokens: request.includeErc20Tokens,
@@ -53,7 +169,7 @@ struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalancesProvid
             url: dataAPIBaseURL.appending(path: "assets/tokens/balances/by-address"),
             body: requestBody
         )
-        let payload: TokenBalancesByAddressResponse = try await performRequest(
+        let payload: AlchemyTokenBalancesByAddressResponse = try await performRequest(
             urlRequest,
             decoder: JSONDecoder()
         )
@@ -141,132 +257,16 @@ struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalancesProvid
 }
 
 private extension AlchemyTokenHoldingsProvider {
-    struct EnrichmentResult {
-        let enrichments: [String: TokenEnrichment]?
-        let warning: TokenHoldingsProviderWarning?
-    }
-
-    struct BalanceSnapshot: Equatable {
-        let contractAddress: String
-        let rawBalance: String
-    }
-
-    struct TokenEnrichment: Equatable {
-        let decimals: Int?
-        let symbol: String?
-        let name: String?
-        let updatedAt: Date
-    }
-
-    struct TokensByAddressRequest: Encodable {
-        let addresses: [AddressRequest]
-        let withMetadata: Bool
-        let withPrices: Bool
-        let includeNativeTokens: Bool
-        let includeErc20Tokens: Bool
-        let pageKey: String?
-    }
-
-    struct TokenBalancesByAddressRequest: Encodable {
-        let addresses: [AddressRequest]
-        let includeNativeTokens: Bool
-        let includeErc20Tokens: Bool
-        let pageKey: String?
-    }
-
-    struct AddressRequest: Encodable {
-        let address: String
-        let networks: [String]
-    }
-
-    struct TokenBalancesByAddressResponse: Decodable {
-        let data: BalanceDataEnvelope
-    }
-
-    struct BalanceDataEnvelope: Decodable {
-        let tokens: [BalanceToken]
-        let pageKey: String?
-
-        enum CodingKeys: String, CodingKey {
-            case tokens
-            case pageKey
-        }
-
-        init(tokens: [BalanceToken], pageKey: String?) {
-            self.tokens = tokens
-            self.pageKey = pageKey
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            tokens = try container.decodeIfPresent(LossyDecodableArray<BalanceToken>.self, forKey: .tokens)?.elements ?? []
-            pageKey = try container.decodeIfPresent(String.self, forKey: .pageKey)
-        }
-    }
-
-    struct BalanceToken: Decodable {
-        let network: String
-        let address: String
-        let tokenAddress: String?
-        let tokenBalance: String
-    }
-
-    struct TokensByAddressResponse: Decodable {
-        let data: DataEnvelope
-    }
-
-    struct DataEnvelope: Decodable {
-        let tokens: [Token]
-        let pageKey: String?
-
-        enum CodingKeys: String, CodingKey {
-            case tokens
-            case pageKey
-        }
-
-        init(tokens: [Token], pageKey: String?) {
-            self.tokens = tokens
-            self.pageKey = pageKey
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            tokens = try container.decodeIfPresent(LossyDecodableArray<Token>.self, forKey: .tokens)?.elements ?? []
-            pageKey = try container.decodeIfPresent(String.self, forKey: .pageKey)
-        }
-    }
-
-    struct Token: Decodable {
-        let tokenAddress: String?
-        let tokenBalance: String
-        let tokenMetadata: TokenMetadata?
-        let tokenPrices: [TokenPrice]?
-        let error: String?
-    }
-
-    struct TokenMetadata: Decodable {
-        let decimals: Int?
-        let logo: String?
-        let name: String?
-        let symbol: String?
-    }
-
-    struct TokenPrice: Decodable {
-        let currency: String
-        let value: String
-        let lastUpdatedAt: Date
-    }
-
     static func isZeroBalance(_ balance: String) -> Bool {
         balance.allSatisfy { $0 == "0" }
     }
 
     func fetchEnrichmentResult(
-        for balances: [BalanceSnapshot],
+        for balances: [AlchemyBalanceSnapshot],
         address: String,
         chain: Chain,
         dataAPIBaseURL: URL
-    ) async throws -> EnrichmentResult {
+    ) async throws -> AlchemyTokenEnrichmentResult {
         let contractAddresses = Set(balances.map(\.contractAddress))
 
         do {
@@ -276,14 +276,14 @@ private extension AlchemyTokenHoldingsProvider {
                 dataAPIBaseURL: dataAPIBaseURL,
                 allowedContractAddresses: contractAddresses
             )
-            return EnrichmentResult(enrichments: enrichments, warning: nil)
+            return AlchemyTokenEnrichmentResult(enrichments: enrichments, warning: nil)
         } catch is CancellationError {
             throw CancellationError()
         } catch {
             if shouldSurfaceEnrichmentFailure(error) {
                 throw error
             }
-            return EnrichmentResult(
+            return AlchemyTokenEnrichmentResult(
                 enrichments: nil,
                 warning: TokenHoldingsProviderWarning(
                     message: "Auralis refreshed token balances, but token metadata is temporarily unavailable. Names, symbols, and formatted amounts may stay limited until the provider recovers."
@@ -296,16 +296,16 @@ private extension AlchemyTokenHoldingsProvider {
         address: String,
         chain: Chain,
         dataAPIBaseURL: URL
-    ) async throws -> [BalanceSnapshot] {
+    ) async throws -> [AlchemyBalanceSnapshot] {
         var pageKey: String?
-        var balancesByContract: [String: BalanceSnapshot] = [:]
+        var balancesByContract: [String: AlchemyBalanceSnapshot] = [:]
         var consecutiveEmptyPages = 0
 
         repeat {
             let requestedPageKey = pageKey
-            let requestBody = TokenBalancesByAddressRequest(
+            let requestBody = AlchemyTokenBalancesByAddressRequest(
                 addresses: [
-                    AddressRequest(
+                    AlchemyAddressRequest(
                         address: address,
                         networks: [chain.rawValue]
                     )
@@ -319,7 +319,7 @@ private extension AlchemyTokenHoldingsProvider {
                 url: dataAPIBaseURL.appending(path: "assets/tokens/balances/by-address"),
                 body: requestBody
             )
-            let payload: TokenBalancesByAddressResponse = try await performRequest(
+            let payload: AlchemyTokenBalancesByAddressResponse = try await performRequest(
                 request,
                 decoder: JSONDecoder()
             )
@@ -330,7 +330,7 @@ private extension AlchemyTokenHoldingsProvider {
                     continue
                 }
 
-                balancesByContract[contractAddress] = BalanceSnapshot(
+                balancesByContract[contractAddress] = AlchemyBalanceSnapshot(
                     contractAddress: contractAddress,
                     rawBalance: token.tokenBalance
                 )
@@ -356,17 +356,17 @@ private extension AlchemyTokenHoldingsProvider {
         chain: Chain,
         dataAPIBaseURL: URL,
         allowedContractAddresses: Set<String>
-    ) async throws -> [String: TokenEnrichment] {
+    ) async throws -> [String: AlchemyTokenEnrichment] {
         var pageKey: String?
-        var enrichmentsByContract: [String: TokenEnrichment] = [:]
+        var enrichmentsByContract: [String: AlchemyTokenEnrichment] = [:]
         let fetchedAt = nowProvider()
         var consecutiveEmptyPages = 0
 
         repeat {
             let requestedPageKey = pageKey
-            let requestBody = TokensByAddressRequest(
+            let requestBody = AlchemyTokensByAddressRequest(
                 addresses: [
-                    AddressRequest(
+                    AlchemyAddressRequest(
                         address: address,
                         networks: [chain.rawValue]
                     )
@@ -384,7 +384,7 @@ private extension AlchemyTokenHoldingsProvider {
                 url: dataAPIBaseURL.appending(path: "assets/tokens/by-address"),
                 body: requestBody
             )
-            let payload: TokensByAddressResponse = try await performRequest(
+            let payload: AlchemyTokensByAddressResponse = try await performRequest(
                 request,
                 decoder: decoder
             )
@@ -396,7 +396,7 @@ private extension AlchemyTokenHoldingsProvider {
                     continue
                 }
 
-                enrichmentsByContract[contractAddress] = TokenEnrichment(
+                enrichmentsByContract[contractAddress] = AlchemyTokenEnrichment(
                     decimals: token.tokenMetadata?.decimals,
                     symbol: token.tokenMetadata?.symbol?.nilIfEmpty,
                     name: token.tokenMetadata?.name?.nilIfEmpty,

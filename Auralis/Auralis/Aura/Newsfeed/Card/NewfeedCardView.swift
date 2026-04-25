@@ -378,7 +378,7 @@ struct NewsFeedCardDetailsView: View {
 
             Button {
                 withAnimation {
-                    isExpanded = !isExpanded
+                    isExpanded.toggle()
                 }
             } label: {
                 HStack(spacing: 6) {

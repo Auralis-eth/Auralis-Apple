@@ -227,14 +227,17 @@ struct NFTImageLoaderTests {
         ImageCache.shared.clear()
         let oversizedData = Data(
             repeating: 0x61,
-            count: SVGConstants.maxFileSize + 1
+            count: ImageLoader.maxDownloadSizeBytes + 1
         )
         MockURLProtocol.handler = { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 200,
                 httpVersion: nil,
-                headerFields: ["Content-Type": "image/svg+xml"]
+                headerFields: [
+                    "Content-Type": "image/svg+xml",
+                    "Content-Length": String(oversizedData.count)
+                ]
             )!
             return (response, oversizedData)
         }
@@ -279,11 +282,11 @@ private final class MockURLProtocol: URLProtocol {
     // Safety invariant: tests install and clear the handler around a single request flow.
     nonisolated(unsafe) static var handler: Handler?
 
-    override class func canInit(with request: URLRequest) -> Bool {
+    override static func canInit(with request: URLRequest) -> Bool {
         request.url?.host == "example.com"
     }
 
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
         request
     }
 
@@ -307,7 +310,7 @@ private final class MockURLProtocol: URLProtocol {
 }
 
 @Suite(.serialized)
-struct AlchemyTokenHoldingsProviderPaginationTests {
+struct TokenHoldingsPaginationTests {
     @Test("pagination guard rejects repeated cursors")
     func paginationGuardRejectsRepeatedCursors() {
         #expect(throws: ProviderAbstractionError.paginationStalled) {
@@ -380,7 +383,7 @@ struct AlchemyTokenHoldingsProviderWarningTests {
                     httpVersion: nil,
                     headerFields: ["Content-Type": "application/json"]
                 )!
-                let data = """
+                let data = Data("""
                 {
                   "data": {
                     "tokens": [
@@ -394,7 +397,7 @@ struct AlchemyTokenHoldingsProviderWarningTests {
                     "pageKey": null
                   }
                 }
-                """.data(using: .utf8)!
+                """.utf8)
                 return (response, data)
             }
 
@@ -441,7 +444,7 @@ struct AlchemyTokenHoldingsProviderWarningTests {
                     httpVersion: nil,
                     headerFields: ["Content-Type": "application/json"]
                 )!
-                let data = """
+                let data = Data("""
                 {
                   "data": {
                     "tokens": [
@@ -455,7 +458,7 @@ struct AlchemyTokenHoldingsProviderWarningTests {
                     "pageKey": null
                   }
                 }
-                """.data(using: .utf8)!
+                """.utf8)
                 return (response, data)
             }
 

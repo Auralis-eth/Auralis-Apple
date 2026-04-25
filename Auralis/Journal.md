@@ -53,6 +53,14 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+### The Nested-Type Cleanup That Fought Back
+
+This one looked like a boring lint chore at first: move a few helper types out of `SearchRootView`, `NFTService`, and `AlchemyTokenHoldingsProvider`, let SwiftLint stop complaining, go home. Naturally, it was not that simple.
+
+- **The first trap was fake simplicity**: nested helper types are easy to move and surprisingly easy to break. `NFTService.RefreshPhase` was not just an implementation detail; other views were referring to that nested type name directly. Pulling the enum out without leaving a breadcrumb broke the loading UI immediately. The fix was to keep the extracted type at file scope for cleaner organization, but restore the old API shape with a compatibility `typealias` inside `NFTService`.
+- **The second trap was naming collisions wearing business casual**: a freshly extracted search presentation enum compiled fine in isolation, then helped trigger ugly type-inference fallout elsewhere. Renaming it to a more specific file-scope type avoided the generic-looking `Content` collision and kept the public surface boring again, which is exactly what you want from support types.
+- **The useful pattern**: if you are refactoring for structure rather than behavior, preserve outward-facing names until you can prove nobody relies on them. Think of it like moving plumbing behind a wall: yes, the pipes can change shape, but the faucet should still be where the kitchen expects it.
+
 ### Four Bugs, Four Different Failure Modes
 
 This round of fixes was a good reminder that "the app works most of the time" is not the same thing as "the app is safe under stress."

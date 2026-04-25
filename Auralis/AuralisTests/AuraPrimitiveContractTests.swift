@@ -2,6 +2,7 @@
 import Testing
 
 @Suite
+@MainActor
 struct AuraPrimitiveContractTests {
     @Test("empty-state primitive preserves the configured shell feedback contract")
     func emptyStatePrimitiveStoresConfiguredContract() {

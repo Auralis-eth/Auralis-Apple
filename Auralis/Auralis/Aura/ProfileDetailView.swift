@@ -224,9 +224,11 @@ struct ProfileDetailView: View {
             return
         }
 
-        let result = services.policyActionHandlerFactory(modelContext, modeState).attempt(action)
-        if !result.isAllowed {
-            denialMessage = result.userMessage
+        Task {
+            let result = await services.policyActionHandlerFactory(modelContext, modeState).attempt(action)
+            if !result.isAllowed {
+                denialMessage = result.userMessage
+            }
         }
     }
 

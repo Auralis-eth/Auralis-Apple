@@ -37,7 +37,7 @@ final class ImageCache: @unchecked Sendable {
 @MainActor
 final class ImageLoader: ObservableObject {
     nonisolated private static let maxPixelDimension = 1_024
-    nonisolated private static let maxDownloadSizeBytes = 20 * 1_024 * 1_024
+    nonisolated static let maxDownloadSizeBytes = 20 * 1_024 * 1_024
     nonisolated static let defaultSession: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 15

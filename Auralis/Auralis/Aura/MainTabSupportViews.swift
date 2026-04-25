@@ -71,10 +71,12 @@ private struct ObserveModePolicyView: View {
     }
 
     private func attempt(_ action: PolicyControlledAction) {
-        let result = services.policyActionHandlerFactory(modelContext, modeState).attempt(action)
+        Task {
+            let result = await services.policyActionHandlerFactory(modelContext, modeState).attempt(action)
 
-        if !result.isAllowed {
-            denialMessage = result.userMessage
+            if !result.isAllowed {
+                denialMessage = result.userMessage
+            }
         }
     }
 }

@@ -131,7 +131,7 @@ enum ActionPolicyGate {
         receiptStore: any ReceiptStore,
         payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer(),
         log: @escaping (String) -> Void = { modeStateLogger.notice("\($0, privacy: .public)") }
-    ) -> PolicyGateResult {
+    ) async -> PolicyGateResult {
         guard modeState.mode == .observe, action.isBlockedInObserveMode else {
             return PolicyGateResult(isAllowed: true, userMessage: "")
         }
@@ -146,23 +146,21 @@ enum ActionPolicyGate {
             ).rawPayload
         )
 
-        Task {
-            do {
-                _ = try await receiptStore.append(
-                    ReceiptDraft(
-                        actor: .user,
-                        mode: .observe,
-                        trigger: "policy.denied",
-                        scope: "policy",
-                        summary: action.summary,
-                        provenance: "policy",
-                        isSuccess: false,
-                        details: payload
-                    )
+        do {
+            _ = try await receiptStore.append(
+                ReceiptDraft(
+                    actor: .user,
+                    mode: .observe,
+                    trigger: "policy.denied",
+                    scope: "policy",
+                    summary: action.summary,
+                    provenance: "policy",
+                    isSuccess: false,
+                    details: payload
                 )
-            } catch {
-                log("Policy denial receipt append failed: \(error.localizedDescription)")
-            }
+            )
+        } catch {
+            log("Policy denial receipt append failed: \(error.localizedDescription)")
         }
 
         return PolicyGateResult(isAllowed: false, userMessage: userMessage)

@@ -2,53 +2,53 @@ import OSLog
 import SwiftData
 import SwiftUI
 
-struct SearchRootPresentation: Equatable {
-    enum Content: Equatable {
-        case history
-        case safety
-        case noResults
-        case results
-    }
+private struct SearchAccountSnapshot: Equatable {
+    let address: String
+    let name: String?
+}
 
+private struct SearchNFTSnapshot: Equatable {
+    let id: String
+    let name: String?
+    let collectionName: String?
+    let collectionDisplayName: String?
+    let contractAddress: String?
+    let accountAddress: String?
+    let networkRawValue: String?
+}
+
+private struct SearchHoldingSnapshot: Equatable {
+    let id: PersistentIdentifier
+    let accountAddressRawValue: String
+    let chainRawValue: String
+    let balanceKindRawValue: String
+    let contractAddress: String?
+    let symbol: String?
+    let displayName: String
+}
+
+private struct SearchLocalIndexRefreshKey: Equatable {
+    let currentAccountAddress: String?
+    let currentChain: Chain
+    let accounts: [SearchAccountSnapshot]
+    let nfts: [SearchNFTSnapshot]
+    let holdings: [SearchHoldingSnapshot]
+}
+
+enum SearchRootPresentationContent: Equatable {
+    case history
+    case safety
+    case noResults
+    case results
+}
+
+struct SearchRootPresentation: Equatable {
     let showsDetection: Bool
-    let content: Content
+    let content: SearchRootPresentationContent
 }
 
 struct SearchRootView: View {
     private let logger = Logger(subsystem: "Auralis", category: "SearchRootView")
-
-    private struct LocalIndexRefreshKey: Equatable {
-        struct AccountSnapshot: Equatable {
-            let address: String
-            let name: String?
-        }
-
-        struct NFTSnapshot: Equatable {
-            let id: String
-            let name: String?
-            let collectionName: String?
-            let collectionDisplayName: String?
-            let contractAddress: String?
-            let accountAddress: String?
-            let networkRawValue: String?
-        }
-
-        struct HoldingSnapshot: Equatable {
-            let id: PersistentIdentifier
-            let accountAddressRawValue: String
-            let chainRawValue: String
-            let balanceKindRawValue: String
-            let contractAddress: String?
-            let symbol: String?
-            let displayName: String
-        }
-
-        let currentAccountAddress: String?
-        let currentChain: Chain
-        let accounts: [AccountSnapshot]
-        let nfts: [NFTSnapshot]
-        let holdings: [HoldingSnapshot]
-    }
 
     @Query private var accounts: [EOAccount]
     @Query private var nfts: [NFT]
@@ -67,18 +67,18 @@ struct SearchRootView: View {
 
     private let parser = SearchQueryParser()
 
-    private var localIndexRefreshKey: LocalIndexRefreshKey {
-        LocalIndexRefreshKey(
+    private var localIndexRefreshKey: SearchLocalIndexRefreshKey {
+        SearchLocalIndexRefreshKey(
             currentAccountAddress: currentAccountAddress,
             currentChain: currentChain,
             accounts: accounts.map {
-                LocalIndexRefreshKey.AccountSnapshot(
+                SearchAccountSnapshot(
                     address: $0.address,
                     name: $0.name
                 )
             },
             nfts: nfts.map {
-                LocalIndexRefreshKey.NFTSnapshot(
+                SearchNFTSnapshot(
                     id: $0.id,
                     name: $0.name,
                     collectionName: $0.collectionName,
@@ -89,7 +89,7 @@ struct SearchRootView: View {
                 )
             },
             holdings: holdings.map {
-                LocalIndexRefreshKey.HoldingSnapshot(
+                SearchHoldingSnapshot(
                     id: $0.persistentModelID,
                     accountAddressRawValue: $0.accountAddressRawValue,
                     chainRawValue: $0.chainRawValue,

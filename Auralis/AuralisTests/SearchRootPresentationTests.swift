@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @Suite
+@MainActor
 struct SearchRootPresentationTests {
     @Test("empty query shows history without detection chrome")
     func presentationShowsHistoryOnlyForEmptyQuery() {

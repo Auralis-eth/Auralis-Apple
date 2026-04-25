@@ -2,21 +2,21 @@ import Foundation
 import SwiftData
 import SwiftUI
 
+private struct ReceiptTimelineReceiptSnapshot: Equatable {
+    let id: UUID
+    let sequenceID: Int
+    let createdAt: Date
+    let summary: String
+    let scope: String
+    let isSuccess: Bool
+}
+
+private struct ReceiptTimelineRefreshKey: Equatable {
+    let timelineState: ReceiptTimelineState
+    let receipts: [ReceiptTimelineReceiptSnapshot]
+}
+
 struct ReceiptsRootView: View {
-    private struct RefreshKey: Equatable {
-        struct ReceiptSnapshot: Equatable {
-            let id: UUID
-            let sequenceID: Int
-            let createdAt: Date
-            let summary: String
-            let scope: String
-            let isSuccess: Bool
-        }
-
-        let timelineState: ReceiptTimelineState
-        let receipts: [ReceiptSnapshot]
-    }
-
     @Query(
         sort: [
             SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
@@ -30,11 +30,11 @@ struct ReceiptsRootView: View {
     @State private var timelineState: ReceiptTimelineState
     @State private var snapshot: ReceiptTimelineSnapshot = .empty
 
-    private var refreshKey: RefreshKey {
-        RefreshKey(
+    private var refreshKey: ReceiptTimelineRefreshKey {
+        ReceiptTimelineRefreshKey(
             timelineState: timelineState,
             receipts: storedReceipts.map {
-                RefreshKey.ReceiptSnapshot(
+                ReceiptTimelineReceiptSnapshot(
                     id: $0.id,
                     sequenceID: $0.sequenceID,
                     createdAt: $0.createdAt,

@@ -189,14 +189,7 @@ struct ProviderAbstractionTests {
     func tokenBalancesProviderCallsExactEndpoint() async throws {
         let session = makeMockSession()
         let provider = AlchemyTokenHoldingsProvider(
-            configurationResolver: LiveProviderConfigurationResolver { provider in
-                switch provider {
-                case .alchemy:
-                    return "alchemy-key"
-                default:
-                    return nil
-                }
-            },
+            configurationResolver: LiveProviderConfigurationResolver { _ in "alchemy-key" },
             session: session
         )
 
@@ -291,14 +284,7 @@ struct ProviderAbstractionTests {
         let session = makeMockSession()
         let fixedNow = Date(timeIntervalSince1970: 1_756_240_247)
         let provider = AlchemyTokenHoldingsProvider(
-            configurationResolver: LiveProviderConfigurationResolver { provider in
-                switch provider {
-                case .alchemy:
-                    return "alchemy-key"
-                default:
-                    return nil
-                }
-            },
+            configurationResolver: LiveProviderConfigurationResolver { _ in "alchemy-key" },
             session: session,
             nowProvider: { fixedNow }
         )
@@ -573,14 +559,7 @@ struct ProviderAbstractionTests {
     func tokenHoldingsProviderHidesAmountWhenEnrichmentFails() async throws {
         let session = makeMockSession()
         let provider = AlchemyTokenHoldingsProvider(
-            configurationResolver: LiveProviderConfigurationResolver { provider in
-                switch provider {
-                case .alchemy:
-                    return "alchemy-key"
-                default:
-                    return nil
-                }
-            },
+            configurationResolver: LiveProviderConfigurationResolver { _ in "alchemy-key" },
             session: session
         )
 
@@ -1508,8 +1487,10 @@ struct ProviderAbstractionTests {
             Issue.record("Expected NFTFetcher.FetcherError, got \(error)")
         }
 
-        #expect(await recorder.fetchFailedCount() == 1)
-        #expect(await recorder.fetchSucceededCount() == 0)
+        let failedCount = recorder.fetchFailedCount()
+        let succeededCount = recorder.fetchSucceededCount()
+        #expect(failedCount == 1)
+        #expect(succeededCount == 0)
     }
 
     @Test("large successful paginated collections do not exhaust retry budget just because they span many pages")
@@ -1531,7 +1512,8 @@ struct ProviderAbstractionTests {
         )
 
         #expect(response.count == 40)
-        #expect(await provider.requestedPageKeys().count == 40)
+        let requestedPageKeys = await provider.requestedPageKeys()
+        #expect(requestedPageKeys.count == 40)
         #expect(fetcher.error == nil)
     }
 
@@ -1547,24 +1529,27 @@ struct ProviderAbstractionTests {
             nftProviderFactory: { _ in provider }
         )
 
-        await #expect(throws: Error.self) {
+        do {
             _ = try await fetcher.fetchAllNFTs(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .ethMainnet,
                 correlationID: "partial-pages",
                 eventRecorder: recorder
             )
-        }
+            Issue.record("Expected later-page failure to throw.")
+        } catch {}
 
         #expect(fetcher.error != nil)
-        #expect(await recorder.fetchFailedCount() == 1)
-        #expect(await recorder.fetchSucceededCount() == 0)
+        let partialFailureCount = recorder.fetchFailedCount()
+        let partialSuccessCount = recorder.fetchSucceededCount()
+        #expect(partialFailureCount == 1)
+        #expect(partialSuccessCount == 0)
     }
 
     @Test("NFT fetcher honors provider Retry-After delays when rate limited")
     @MainActor
     func nftFetcherHonorsProviderRetryAfterDelay() async {
-        let provider = RetryAfterRateLimitedNFTInventoryProvider()
+        let provider = RetryLimitedNFTInventoryProvider()
         let fetcher = NFTFetcher(
             maxRetryCount: 2,
             baseDelayNanoseconds: 0,
@@ -1637,7 +1622,7 @@ private final class StubNFTInventoryProvider: NFTInventoryProviding, @unchecked 
     }
 }
 
-private final class RetryAfterRateLimitedNFTInventoryProvider: NFTInventoryProviding, @unchecked Sendable {
+private final class RetryLimitedNFTInventoryProvider: NFTInventoryProviding, @unchecked Sendable {
     private let state = State()
 
     func nftsForOwner(owner: String, pageKey: String?) async throws -> AlchemyNFTResponse {
@@ -1843,11 +1828,11 @@ private final class ProviderMockURLProtocol: URLProtocol {
     // Safety invariant: tests install and clear the handler around a single request flow.
     nonisolated(unsafe) static var handler: Handler?
 
-    override class func canInit(with request: URLRequest) -> Bool {
+    override static func canInit(with request: URLRequest) -> Bool {
         true
     }
 
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
         request
     }
 

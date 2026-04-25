@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @Suite
+@MainActor
 struct ProfileDetailPresentationTests {
     @Test("presentation uses account identity and scoped counts")
     func presentationUsesAccountIdentityAndCounts() {
