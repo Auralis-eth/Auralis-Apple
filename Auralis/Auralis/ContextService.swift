@@ -70,6 +70,24 @@ final class ContextService {
     @ObservationIgnored private var refreshGeneration: Int = 0
 
     /// Creates a context service from shell-owned providers and a context-source builder.
+    ///
+    /// - Parameters:
+    ///   - contextSourceBuilder: Builder used to assemble a `ContextSource` from live shell providers.
+    ///   - accountProvider: Returns the current account, if one is active.
+    ///   - addressProvider: Returns the current address string mirrored into shell state.
+    ///   - chainProvider: Returns the currently selected chain.
+    ///   - modeProvider: Returns the active app mode.
+    ///   - loadingProvider: Returns whether the shell is currently refreshing data.
+    ///   - refreshedAtProvider: Returns the last successful shell refresh timestamp.
+    ///   - nativeBalanceProvider: Provider used to resolve native token balances.
+    ///   - freshnessTTLProvider: Returns the current freshness TTL for context staleness messaging.
+    ///   - trackedNFTCountProvider: Returns the persisted NFT count for the current scope.
+    ///   - musicCollectionCountProvider: Returns the current music library collection count.
+    ///   - receiptCountProvider: Returns the current receipt count for the active scope.
+    ///   - pinnedActionsProvider: Returns the current home launcher pin set.
+    ///   - prefersDemoDataProvider: Returns whether the shell is currently favoring guest/demo data.
+    ///   - pinnedItemCountProvider: Returns the count of pinned home items.
+    ///   - beforeResolve: Async hook that runs immediately before snapshot resolution.
     init(
         contextSourceBuilder: any ShellContextSourceBuilding,
         accountProvider: @escaping () -> EOAccount?,

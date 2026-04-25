@@ -12,24 +12,37 @@ import SwiftData
 private let eoAccountLogger = Logger(subsystem: "Auralis", category: "EOAccount")
 
 @Model
+/// Persisted watch-only or wallet-backed account tracked by the shell.
 class EOAccount: Codable, Identifiable {
     #Index<EOAccount>([\.address])
+    /// Canonical wallet address for the account.
     @Attribute(.unique) var address: String
+    /// Stable identifier that matches the canonical address.
     var id: String {
         address
     }
+    /// Optional ENS or user-facing label shown in account switchers and summaries.
     var name: String?
+    /// Capability level describing whether the address can sign.
     var access: EthereumAddressAccess?
+    /// The onboarding path that created the account record.
     var source: EOAccountSource
+    /// Timestamp when the account was first saved on-device.
     var addedAt: Date
+    /// Timestamp of the most recent shell selection for this account.
     var lastSelectedAt: Date?
+    /// Count of NFTs currently persisted for this account.
     var trackedNFTCount: Int
 
+    /// Persisted preferred chain raw value for restoring account scope.
     var preferredChainRawValue: String = Chain.ethMainnet.rawValue
+    /// Persisted currently active chain raw value for restoring the live shell scope.
     var currentChainRawValue: String = Chain.ethMainnet.rawValue
 
+    /// NFTs currently associated with this account in SwiftData.
     @Relationship(deleteRule: .cascade) var nfts: [NFT] = []
 
+    /// Creates a persisted account record with normalized defaults for naming and chain scope.
     init(
         address: String,
         access: EthereumAddressAccess? = nil,
@@ -106,16 +119,20 @@ class EOAccount: Codable, Identifiable {
         try container.encode(currentChainRawValue, forKey: .currentChainRawValue)
     }
 
+    /// Most recent activity timestamp used to order accounts in switchers.
     var mostRecentActivityAt: Date {
         lastSelectedAt ?? addedAt
     }
 
+    /// Fallback display name when no ENS or explicit label exists.
     static func defaultName(for address: String) -> String {
         "Account \(String(address.prefix(4)))"
     }
 
+    /// Preferred chain restored when the account becomes active again.
     var preferredChain: Chain { get { Chain(rawValue: preferredChainRawValue) ?? .ethMainnet } set { preferredChainRawValue = newValue.rawValue } }
 
+    /// Current chain last used for this account in the shell.
     var currentChain: Chain { get { Chain(rawValue: currentChainRawValue) ?? .ethMainnet } set { currentChainRawValue = newValue.rawValue } }
 }
 
@@ -135,8 +152,11 @@ enum EthereumAddressAccess: Codable {
 }
 
 enum EOAccountSource: String, Codable {
+    /// Account added by pasting or typing an address.
     case manualEntry
+    /// Account added from a scanned QR code.
     case qrScan
+    /// Account added from a curated guest-pass shortcut.
     case guestPass
 
     init(from decoder: any Decoder) throws {

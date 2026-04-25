@@ -432,6 +432,7 @@ private actor NFTRefreshPersistenceStore {
 
 @MainActor
 @Observable
+/// Coordinates NFT refresh work across fetching, metadata preparation, and SwiftData persistence.
 class NFTService {
     private let logger = Logger(subsystem: "Auralis", category: "NFTService")
     typealias RefreshPhase = NFTServiceRefreshPhase
@@ -449,6 +450,7 @@ class NFTService {
     private var inFlightRefreshTask: Task<Void, Never>?
     private var inFlightRefreshToken: UUID?
 
+    /// Creates the shared NFT orchestration service used by the shell.
     init(
         nftFetcher: (any NFTFetching)? = nil,
         refreshTTL: TimeInterval = 300,

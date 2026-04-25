@@ -174,12 +174,14 @@ struct AccountSwitcherSheet: View {
                 }
 
                 clearPendingSelection(kind: plan.kind, address: account.address)
+                haptics.selection()
 
                 if plan.shouldRefreshActiveScope {
                     onCurrentChainChange(plan.to)
                 }
             } catch {
                 clearPendingSelection(kind: plan.kind, address: account.address)
+                haptics.notification(.error)
 
                 logger.error(
                     "Failed to persist chain scope change address=\(account.address, privacy: .private(mask: .hash)) kind=\(String(describing: plan.kind), privacy: .public) event=\(String(describing: event), privacy: .public) to=\(plan.to.rawValue, privacy: .public) error=\(error.localizedDescription, privacy: .public)"

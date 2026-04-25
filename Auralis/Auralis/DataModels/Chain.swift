@@ -8,67 +8,84 @@
 import SwiftData
 import web3
 
+/// Enumerates the chains Auralis can route through for NFT, token, and receipt experiences.
 enum Chain: String, Codable, Equatable, CaseIterable, Identifiable {
-    // Ethereum
+    /// Ethereum mainnet.
     case ethMainnet = "eth-mainnet"
+    /// Ethereum Sepolia testnet.
     case ethSepoliaTestnet = "eth-sepolia"
 
-    // Base
+    /// Base mainnet.
     case baseMainnet = "base-mainnet"
+    /// Base Sepolia testnet.
     case baseSepoliaTestnet = "base-sepolia"
 
-    // Arbitrum
+    /// Arbitrum One mainnet.
     case arbMainnet = "arb-mainnet"
+    /// Arbitrum Sepolia testnet.
     case arbSepoliaTestnet = "arb-sepolia"
+    /// Arbitrum Nova mainnet.
     case arbNovaMainnet = "arbnova-mainnet"
 
-    // Optimism
+    /// Optimism mainnet.
     case optMainnet = "opt-mainnet"
+    /// Optimism Sepolia testnet.
     case optSepoliaTestnet = "opt-sepolia"
 
-    // Polygon
+    /// Polygon mainnet.
     case polygonMainnet = "polygon-mainnet"
+    /// Polygon Amoy testnet.
     case polygonAmoyTestnet = "polygon-amoy"
 
-    // WorldChain
+    /// WorldChain mainnet.
     case worldchainMainnet = "worldchain-mainnet"
+    /// WorldChain Sepolia testnet.
     case worldchainSepoliaTestnet = "worldchain-sepolia"
 
-    // Shape
+    /// Shape mainnet.
     case shapeMainnet = "shape-mainnet"
+    /// Shape Sepolia testnet.
     case shapeSepoliaTestnet = "shape-sepolia"
 
-    // Ink
+    /// Ink mainnet.
     case inkMainnet = "ink-mainnet"
+    /// Ink Sepolia testnet.
     case inkSepoliaTestnet = "ink-sepolia"
 
-    // UniChain
+    /// UniChain mainnet.
     case unichainMainnet = "unichain-mainnet"
+    /// UniChain Sepolia testnet.
     case unichainSepoliaTestnet = "unichain-sepolia"
 
-    // Soneium
+    /// Soneium mainnet.
     case soneiumMainnet = "soneium-mainnet"
+    /// Soneium Minato testnet.
     case soneiumMinatoTestnet = "soneium-minato"
 
-    // Solana
+    /// Solana mainnet.
     case solanaMainnet = "solana-mainnet"
+    /// Solana devnet.
     case solanaDevnetTestnet = "solana-devnet"
 
-    // BeraChain
+    /// BeraChain mainnet.
     case berachainMainnet = "berachain-mainnet"
 
-    // Zora
+    /// Zora mainnet.
     case zoraMainnet = "zora-mainnet"
+    /// Zora Sepolia testnet.
     case zoraSepoliaTestnet = "zora-sepolia"
 
-    // Polynomial
+    /// Polynomial mainnet.
     case polynomialMainnet = "polynomial-mainnet"
+    /// Polynomial Sepolia testnet.
     case polynomialSepoliaTestnet = "polynomial-sepolia"
 
+    /// Stable identifier used by SwiftUI collections and pickers.
     var id: Int {
         chainId
     }
 
+    /// Human-readable network name for UI copy.
     var networkName: String {
         switch self {
         case .ethMainnet:
@@ -130,6 +147,7 @@ enum Chain: String, Codable, Equatable, CaseIterable, Identifiable {
         }
     }
 
+    /// Numeric chain identifier used for RPC routing and caching scopes.
     var chainId: Int {
         switch self {
         case .ethMainnet:
@@ -191,10 +209,12 @@ enum Chain: String, Codable, Equatable, CaseIterable, Identifiable {
         }
     }
 
+    /// web3.swift network value derived from the chain identifier.
     var web3EthereumNetwork: EthereumNetwork {
         EthereumNetwork.fromString("\(chainId)")
     }
 
+    /// User-facing chain ID string, with special handling for Solana-style networks.
     var formattedChainId: String {
         if case .solanaMainnet = self {
             return "Solana Network"
@@ -205,6 +225,7 @@ enum Chain: String, Codable, Equatable, CaseIterable, Identifiable {
         return "Chain ID: \(chainId)"
     }
 
+    /// Indicates whether the chain is a production network.
     var isMainnet: Bool {
         switch self {
         case .ethMainnet, .baseMainnet, .arbMainnet, .arbNovaMainnet, .optMainnet,
@@ -217,6 +238,7 @@ enum Chain: String, Codable, Equatable, CaseIterable, Identifiable {
         }
     }
 
+    /// Short display name used in compact routing UI.
     var routingDisplayName: String {
         switch self {
         case .ethMainnet:

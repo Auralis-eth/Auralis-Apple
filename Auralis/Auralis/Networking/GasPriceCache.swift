@@ -110,15 +110,6 @@ actor GasPriceCache {
         }
     }
 
-    /// Convenience method that returns only valid (non-expired) gas prices
-    func getValidGasPrice(for chainId: Int) async -> GasPriceEstimate? {
-        let result = await getGasPrice(for: chainId)
-        if case .hit(let estimate, _) = result {
-            return estimate
-        }
-        return nil
-    }
-
     /// Removes specific chain from cache
     func removeGasPrice(for chainId: Int) {
         store.removeValue(forKey: chainId)
@@ -163,19 +154,6 @@ actor GasPriceCache {
 
         if let keyToRemove = lruKey {
             store.removeValue(forKey: keyToRemove)
-        }
-    }
-
-    /// Efficient removal of multiple oldest entries for batch operations
-    private func removeOldestEntries(count: Int) async {
-        guard count > 0, count < store.count else { return }
-
-        // Sort all entries by access time and remove the oldest ones
-        let sortedEntries = store.sorted { $0.value.lastAccessTime < $1.value.lastAccessTime }
-        let keysToRemove = sortedEntries.prefix(count).map { $0.key }
-
-        for key in keysToRemove {
-            store.removeValue(forKey: key)
         }
     }
 
@@ -238,49 +216,5 @@ struct CacheStats {
     var memoryEfficiency: Double {
         guard maxSize > 0 else { return 0 }
         return Double(totalEntries) / Double(maxSize)
-    }
-}
-
-// MARK: - Batch Operations
-
-extension GasPriceCache {
-    /// Batch operation for setting multiple gas prices efficiently
-    func setGasPrices(_ estimates: [(chainId: Int, estimate: GasPriceEstimate)]) async {
-        let currentTime = CFAbsoluteTimeGetCurrent()
-
-        // Add all entries first
-        for (chainId, estimate) in estimates {
-            store[chainId] = CacheEntry(value: estimate, timestamp: currentTime)
-        }
-
-        // Single efficient cleanup to target size
-        let excessCount = store.count - config.maxSize
-        if excessCount > 0 {
-            await removeOldestEntries(count: excessCount)
-        }
-    }
-
-    /// Get multiple gas prices in a single operation
-    func getGasPrices(for chainIds: [Int]) async -> [Int: CacheResult<GasPriceEstimate>] {
-        var results: [Int: CacheResult<GasPriceEstimate>] = [:]
-
-        for chainId in chainIds {
-            results[chainId] = await getGasPrice(for: chainId)
-        }
-
-        return results
-    }
-
-    /// Get only valid gas prices for multiple chains
-    func getValidGasPrices(for chainIds: [Int]) async -> [Int: GasPriceEstimate] {
-        var results: [Int: GasPriceEstimate] = [:]
-
-        for chainId in chainIds {
-            if let estimate = await getValidGasPrice(for: chainId) {
-                results[chainId] = estimate
-            }
-        }
-
-        return results
     }
 }

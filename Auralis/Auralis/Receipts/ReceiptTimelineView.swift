@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import UIKit
 
 // SwiftLint currently misclassifies these file-scope receipt snapshot helpers as overly nested.
 private struct ReceiptTimelineReceiptSnapshot: Equatable {
@@ -18,6 +19,7 @@ private struct ReceiptTimelineRefreshKey: Equatable {
 }
 
 struct ReceiptsRootView: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Query(
         sort: [
             SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
@@ -30,6 +32,10 @@ struct ReceiptsRootView: View {
 
     @State private var timelineState: ReceiptTimelineState
     @State private var snapshot: ReceiptTimelineSnapshot = .empty
+
+    private var haptics: AuraHaptics {
+        AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
+    }
 
     private var refreshKey: ReceiptTimelineRefreshKey {
         ReceiptTimelineRefreshKey(
@@ -84,6 +90,10 @@ struct ReceiptsRootView: View {
         }
         .navigationTitle("Receipts")
         .navigationBarTitleDisplayMode(.large)
+        .refreshable {
+            haptics.impact(.light)
+            refreshSnapshot()
+        }
         .searchable(
             text: $timelineState.searchQuery,
             placement: .navigationBarDrawer(displayMode: .always),

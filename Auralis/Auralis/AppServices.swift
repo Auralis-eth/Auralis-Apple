@@ -195,22 +195,39 @@ struct PolicyActionGateService: PolicyActionGating {
 @MainActor
 /// Bundles the long-lived service factories needed to assemble the Aura shell.
 struct ShellServiceHub {
+    /// Builds the shared mode state store used by the shell.
     let modeStateFactory: @MainActor () -> ModeState
+    /// Builds the long-lived NFT refresh service.
     let nftServiceFactory: @MainActor () -> NFTService
+    /// Builds the ENS resolver for the current model context.
     let ensResolverFactory: @MainActor (ModelContext) -> any ENSResolving
+    /// Factory for read-only provider dependencies used across shell features.
     let readOnlyProviderFactory: ReadOnlyProviderFactory
+    /// Builds the account store for the current model context.
     let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    /// Builds the account event recorder for the current model context.
     let accountEventRecorderFactory: @MainActor (ModelContext) -> any AccountEventRecorder
+    /// Builds the shell context service.
     let contextServiceBuilder: any ShellContextServiceBuilding
+    /// Builds lightweight library-count providers for the shell.
     let libraryContextProviderFactory: @MainActor (ModelContext) -> any ShellLibraryContextProviding
+    /// Builds the music library indexer.
     let musicLibraryIndexerFactory: @MainActor (ModelContext) -> any MusicLibraryIndexing
+    /// Builds the receipt store for the current model context.
     let receiptStoreFactory: @MainActor (ModelContext) -> any ReceiptStore
+    /// Builds the receipt event logger for the current model context.
     let receiptEventLoggerFactory: @MainActor (ModelContext) -> ReceiptEventLogger
+    /// Builds the search history store.
     let searchHistoryStoreFactory: @MainActor (ModelContext) -> SearchHistoryStore
+    /// Builds the home pinned-items store.
     let homePinnedItemsStoreFactory: () -> HomePinnedItemsStore
+    /// Builds the persisted token holdings store.
     let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
+    /// Builds the token holdings network provider.
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
+    /// Builds the privacy reset service for the current model context.
     let privacyResetServiceFactory: @MainActor (ModelContext) -> any PrivacyResetting
+    /// Builds the policy gate service for the current mode and model context.
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
 
     /// Returns the production service hub used by the app shell.

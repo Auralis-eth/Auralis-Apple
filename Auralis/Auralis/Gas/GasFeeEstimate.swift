@@ -7,6 +7,7 @@
 
 import Observation
 import SwiftUI
+import UIKit
 
 // MARK: - Enums for Type Safety
 enum UrgencyLevel: String, CaseIterable {
@@ -284,8 +285,13 @@ final class GasPriceEstimateViewModel {
 
 // MARK: - Main View
 struct GasPriceEstimateView: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Binding var chain: Chain
     @State private var viewModel: GasPriceEstimateViewModel
+
+    private var haptics: AuraHaptics {
+        AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
+    }
 
     init(
         chain: Binding<Chain>,
@@ -329,6 +335,7 @@ struct GasPriceEstimateView: View {
                 .padding(.horizontal)
             }
             .refreshable {
+                haptics.impact(.light)
                 await viewModel.fetchGasPrice()
             }
         } else if viewModel.phase == .failed {

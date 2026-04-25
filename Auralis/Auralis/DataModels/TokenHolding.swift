@@ -1,27 +1,43 @@
 import Foundation
 import SwiftData
 
+/// Distinguishes native balances from ERC-20 balances in the holdings library.
 enum TokenHoldingKind: String, Codable, Equatable, Sendable {
+    /// Native asset for the selected chain.
     case native
+    /// ERC-20 token balance.
     case erc20
 }
 
 @Model
+/// Persisted token balance snapshot scoped to an account and chain.
 final class TokenHolding {
     #Index<TokenHolding>([\TokenHolding.accountAddressRawValue, \TokenHolding.chainRawValue])
 
+    /// Stable scoped identifier combining account, chain, and token identity.
     @Attribute(.unique) var id: String
+    /// Normalized account address used for scoping.
     var accountAddressRawValue: String
+    /// Raw chain identifier used for persistence and fetch predicates.
     var chainRawValue: String
+    /// Optional normalized ERC-20 contract address.
     var contractAddressRawValue: String?
+    /// Token ticker when metadata is available.
     var symbol: String?
+    /// User-facing token name for rows and detail views.
     var displayName: String
+    /// Preformatted amount string shown in the UI.
     var amountDisplay: String
+    /// Raw persisted value for the holding kind.
     var balanceKindRawValue: String
+    /// Timestamp of the most recent holdings sync or metadata update.
     var updatedAt: Date
+    /// Marks rows created from degraded or partial provider data.
     var isPlaceholder: Bool
+    /// Sort precedence used to keep native balances ahead of ERC-20 rows.
     var sortPriority: Int
 
+    /// Creates a persisted token holding scoped to an account, chain, and optional contract.
     init(
         accountAddress: String,
         chain: Chain,
@@ -55,21 +71,25 @@ final class TokenHolding {
         self.sortPriority = sortPriority ?? Self.defaultSortPriority(for: balanceKind)
     }
 
+    /// Decoded chain value backed by the persisted raw value.
     var chain: Chain {
         get { Chain(rawValue: chainRawValue) ?? .ethMainnet }
         set { chainRawValue = newValue.rawValue }
     }
 
+    /// Decoded holding kind backed by the persisted raw value.
     var balanceKind: TokenHoldingKind {
         get { TokenHoldingKind(rawValue: balanceKindRawValue) ?? .erc20 }
         set { balanceKindRawValue = newValue.rawValue }
     }
 
+    /// Normalized contract address helper for detail routing and display.
     var contractAddress: String? {
         get { contractAddressRawValue }
         set { contractAddressRawValue = NFT.normalizedScopeComponent(newValue) }
     }
 
+    /// Builds the unique persistence key for a token holding scope.
     static func makeScopedID(
         accountAddress: String,
         chain: Chain,
@@ -80,6 +100,7 @@ final class TokenHolding {
         return "\(accountAddress):\(chain.rawValue):\(resolvedContractAddress)"
     }
 
+    /// Default row ordering for each holding kind.
     static func defaultSortPriority(for balanceKind: TokenHoldingKind) -> Int {
         switch balanceKind {
         case .native:
@@ -90,6 +111,7 @@ final class TokenHolding {
     }
 }
 
+/// Presentation model for token rows rendered in the ERC-20 and holdings surfaces.
 struct TokenHoldingRowModel: Identifiable, Equatable {
     let id: String
     let kind: TokenHoldingKind
@@ -131,18 +153,22 @@ struct TokenHoldingRowModel: Identifiable, Equatable {
         }
     }
 
+    /// Whether the row has enough information to open a detail route.
     var canOpenDetail: Bool {
         kind == .erc20 && (contractAddress?.isEmpty == false)
     }
 }
 
 extension TokenHolding {
+    /// Placeholder amount string used until metadata finishes loading.
     static let hiddenAmountDisplay = "Amount hidden"
 
+    /// Whether the amount should stay hidden until token metadata resolves.
     var hidesAmountUntilMetadataLoads: Bool {
         amountDisplay == Self.hiddenAmountDisplay
     }
 
+    /// Whether the stored metadata should be considered stale for UI messaging.
     var hasStaleMetadata: Bool {
         balanceKind == .erc20 && TokenHoldingsMetadataFreshnessPolicy.isStale(updatedAt: updatedAt)
     }

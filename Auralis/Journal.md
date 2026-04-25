@@ -53,6 +53,16 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+### Audit Triage: Fix the Real Gaps, Not the Ghost Stories
+
+This pass was a nice reminder that an audit list is a map, not the territory. One item said haptics were completely unimplemented. The repo disagreed: `AuraHaptics` already existed, account activation already fired success feedback, account removal already had warning feedback, and even the music surface had a stray direct `UIImpactFeedbackGenerator` call. The real bug was narrower and more interesting: the app had some haptics, but not on the interaction seams the checklist actually cared about.
+
+So the fix stayed surgical. We taught `AuraHaptics` one more trick with a selection pulse, then wired feedback into successful chain changes and pull-to-refresh on News, Gas, and Receipts. Receipts also gained an actual refresh gesture instead of just standing there looking refresh-adjacent. This is the kind of polish work that matters because it respects the user’s action at the right semantic moment, not just whenever a button happens to be tapped.
+
+The naming audit had a similar “ghost versus bug” shape. The provider type was already correctly Alchemy-backed; the embarrassing part was the filename. Shipping `infura.swift` full of `AlchemyGasPricingProvider` code is like labeling a kitchen drawer “spices” and keeping batteries in it. Nothing explodes, but everyone wastes time. Renaming the file to `AlchemyGasPricingProvider.swift` fixed the smell without inventing a larger refactor.
+
+The documentation gap was the last real hole. Publicly meaningful types like `Chain`, `EOAccount`, `TokenHolding`, `NFTService`, `ContextService`, and `ShellServiceHub` had enough implicit knowledge baked into them that a new engineer was expected to read minds. We added API comments where the names carry product meaning or persistence meaning, especially around chain identity, account scope, token scope, and shell wiring. Boring? Slightly. Useful? Extremely. Good docs are like labels in a restaurant kitchen: nobody praises them during a calm shift, but chaos gets much worse when they are missing.
+
 ### The Nine-Tab Problem
 
 This ship-gate fix was not about a crash. It was about product honesty.

@@ -28,4 +28,15 @@ struct AuraHaptics {
         generator.prepare()
         generator.notificationOccurred(type)
     }
+
+    @MainActor
+    func selection() {
+        guard isEnabled else {
+            return
+        }
+
+        let generator = UISelectionFeedbackGenerator()
+        generator.prepare()
+        generator.selectionChanged()
+    }
 }
