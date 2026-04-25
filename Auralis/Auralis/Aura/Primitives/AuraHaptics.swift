@@ -7,6 +7,7 @@ struct AuraHaptics {
         self.isEnabled = !accessibilityReduceMotion
     }
 
+    @MainActor
     func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
         guard isEnabled else {
             return
@@ -17,6 +18,7 @@ struct AuraHaptics {
         generator.impactOccurred()
     }
 
+    @MainActor
     func notification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
         guard isEnabled else {
             return

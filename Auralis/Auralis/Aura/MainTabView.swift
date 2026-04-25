@@ -173,6 +173,9 @@ struct MainTabView: View {
                 }
             )
         }
+        .sheet(item: auxiliarySurfaceBinding) { auxiliarySurface in
+            auxiliarySurfaceView(for: auxiliarySurface)
+        }
         .task(id: contextRemoteRefreshKey) {
             let correlationID = nftService.isLoading ? nil : shellStore.state.pendingCorrelationID
             await contextService.refresh(
@@ -356,21 +359,9 @@ struct MainTabView: View {
                 .accessibilityIdentifier("tab.music")
             }
 
-            Tab("Receipts", systemImage: "doc.text", value: AppTab.receipts) {
-                NavigationStack(path: $router.receiptsPath) {
-                    ReceiptsRootView(
-                        currentAddress: activeAccountAddress,
-                        currentChain: currentChain
-                    )
-                    .navigationDestination(for: ReceiptRoute.self) { route in
-                        ReceiptDetailView(
-                            route: route,
-                            scope: ReceiptTimelineScope(
-                                accountAddress: activeAccountAddress,
-                                chain: currentChain
-                            )
-                        )
-                    }
+            if router.tabBarVisibility.showsInTabBar(.receipts) {
+                Tab("Receipts", systemImage: "doc.text", value: AppTab.receipts) {
+                    receiptsNavigationStack
                 }
                 .accessibilityIdentifier("tab.receipts")
             }
@@ -409,67 +400,22 @@ struct MainTabView: View {
                 }
             }
 
-            Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
-                SearchRootView(
-                    router: router,
-                    currentAccountAddress: activeAccountAddress,
-                    currentChain: currentChain,
-                    historyStore: services.searchHistoryStoreFactory(modelContext)
-                )
+            if router.tabBarVisibility.showsInTabBar(.search) {
+                Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
+                    searchRootView
+                }
             }
 
-            Tab("ERC-20", systemImage: "dollarsign.circle", value: AppTab.erc20Tokens) {
-                NavigationStack(path: $router.erc20TokensPath) {
-                    ERC20TokensRootView(
-                        currentAccountAddress: activeAccountAddress,
-                        currentChain: currentChain,
-                        contextSnapshot: contextService.snapshot,
-                        nftService: nftService,
-                        refreshAction: refreshActiveScopeFromUserAction,
-                        router: router,
-                        tokenHoldingsStoreFactory: services.tokenHoldingsStoreFactory,
-                        tokenHoldingsProviderFactory: services.tokenHoldingsProviderFactory
-                    )
-                    .navigationDestination(for: ERC20TokenRoute.self) { route in
-                        ERC20TokenDetailView(
-                            route: route,
-                            currentAccountAddress: activeAccountAddress
-                        )
-                    }
+            if router.tabBarVisibility.showsInTabBar(.erc20Tokens) {
+                Tab("ERC-20", systemImage: "dollarsign.circle", value: AppTab.erc20Tokens) {
+                    erc20NavigationStack
                 }
                 .accessibilityIdentifier("tab.erc20")
             }
 
-            Tab("NFTs", systemImage: "square.stack", value: AppTab.nftTokens) {
-                NavigationStack(path: $router.nftTokensPath) {
-                    NFTTokensRootView(
-                        currentAccount: currentAccount,
-                        currentChain: currentChain,
-                        contextSnapshot: contextService.snapshot,
-                        nftService: nftService,
-                        refreshAction: refreshActiveScopeFromUserAction,
-                        router: router
-                    )
-                    .navigationDestination(for: NFTTokensRoute.self) { route in
-                        switch route {
-                        case .item(let id):
-                            SharedNFTDetailView(
-                                route: .detail(id: id),
-                                currentAccountAddress: currentAccount?.address,
-                                currentChain: currentChain
-                            )
-
-                        case .collection:
-                            NFTCollectionDetailView(
-                                route: route,
-                                currentAccountAddress: currentAccount?.address,
-                                currentChain: currentChain,
-                                onOpenItem: { itemID in
-                                    router.showNFTTokensDetail(id: itemID)
-                                }
-                            )
-                        }
-                    }
+            if router.tabBarVisibility.showsInTabBar(.nftTokens) {
+                Tab("NFTs", systemImage: "square.stack", value: AppTab.nftTokens) {
+                    nftTokensNavigationStack
                 }
                 .accessibilityIdentifier("tab.nftTokens")
             }
@@ -504,6 +450,154 @@ struct MainTabView: View {
             get: { currentChain },
             set: { _ in }
         )
+    }
+
+    private var auxiliarySurfaceBinding: Binding<AuxiliarySurface?> {
+        Binding(
+            get: { router.auxiliarySurface },
+            set: { newValue in
+                if let newValue {
+                    router.auxiliarySurface = newValue
+                } else {
+                    router.dismissAuxiliarySurface(resetPaths: true)
+                }
+            }
+        )
+    }
+
+    private var searchRootView: some View {
+        SearchRootView(
+            router: router,
+            currentAccountAddress: activeAccountAddress,
+            currentChain: currentChain,
+            historyStore: services.searchHistoryStoreFactory(modelContext)
+        )
+    }
+
+    private var receiptsNavigationStack: some View {
+        NavigationStack(path: $router.receiptsPath) {
+            ReceiptsRootView(
+                currentAddress: activeAccountAddress,
+                currentChain: currentChain
+            )
+            .navigationDestination(for: ReceiptRoute.self) { route in
+                ReceiptDetailView(
+                    route: route,
+                    scope: ReceiptTimelineScope(
+                        accountAddress: activeAccountAddress,
+                        chain: currentChain
+                    )
+                )
+            }
+        }
+    }
+
+    private var erc20NavigationStack: some View {
+        NavigationStack(path: $router.erc20TokensPath) {
+            ERC20TokensRootView(
+                currentAccountAddress: activeAccountAddress,
+                currentChain: currentChain,
+                contextSnapshot: contextService.snapshot,
+                nftService: nftService,
+                refreshAction: refreshActiveScopeFromUserAction,
+                router: router,
+                tokenHoldingsStoreFactory: services.tokenHoldingsStoreFactory,
+                tokenHoldingsProviderFactory: services.tokenHoldingsProviderFactory
+            )
+            .navigationDestination(for: ERC20TokenRoute.self) { route in
+                ERC20TokenDetailView(
+                    route: route,
+                    currentAccountAddress: activeAccountAddress
+                )
+            }
+        }
+    }
+
+    private var nftTokensNavigationStack: some View {
+        NavigationStack(path: $router.nftTokensPath) {
+            NFTTokensRootView(
+                currentAccount: currentAccount,
+                currentChain: currentChain,
+                contextSnapshot: contextService.snapshot,
+                nftService: nftService,
+                refreshAction: refreshActiveScopeFromUserAction,
+                router: router
+            )
+            .navigationDestination(for: NFTTokensRoute.self) { route in
+                switch route {
+                case .item(let id):
+                    SharedNFTDetailView(
+                        route: .detail(id: id),
+                        currentAccountAddress: currentAccount?.address,
+                        currentChain: currentChain
+                    )
+
+                case .collection:
+                    NFTCollectionDetailView(
+                        route: route,
+                        currentAccountAddress: currentAccount?.address,
+                        currentChain: currentChain,
+                        onOpenItem: { itemID in
+                            router.showNFTTokensDetail(id: itemID)
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func auxiliarySurfaceView(for auxiliarySurface: AuxiliarySurface) -> some View {
+        switch auxiliarySurface {
+        case .search:
+            NavigationStack {
+                searchRootView
+                    .toolbar {
+                        auxiliaryDismissToolbar
+                    }
+            }
+        case .receipts:
+            receiptsNavigationStack
+                .toolbar {
+                    auxiliaryDismissToolbar
+                }
+        case .nftTokens:
+            nftTokensNavigationStack
+                .toolbar {
+                    auxiliaryDismissToolbar
+                }
+        case .erc20Token:
+            auxiliaryERC20NavigationStack
+                .toolbar {
+                    auxiliaryDismissToolbar
+                }
+        }
+    }
+
+    private var auxiliaryERC20NavigationStack: some View {
+        NavigationStack(path: $router.erc20TokensPath) {
+            Color.clear
+                .navigationDestination(for: ERC20TokenRoute.self) { route in
+                    ERC20TokenDetailView(
+                        route: route,
+                        currentAccountAddress: activeAccountAddress
+                    )
+                }
+                .task {
+                    if router.erc20TokensPath.isEmpty {
+                        router.dismissAuxiliarySurface(resetPaths: true)
+                    }
+                }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var auxiliaryDismissToolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Close") {
+                router.dismissAuxiliarySurface(resetPaths: true)
+            }
+        }
     }
 
     private static func trackedNFTCount(

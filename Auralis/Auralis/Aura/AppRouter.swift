@@ -1,7 +1,7 @@
 import Observation
 
 /// Lists the top-level tabs managed by the shared app router.
-enum AppTab: Hashable {
+enum AppTab: Hashable, CaseIterable {
     case home
     case news
     case gas
@@ -11,6 +11,49 @@ enum AppTab: Hashable {
     case search
     case erc20Tokens
     case nftTokens
+}
+
+struct AppTabBarVisibility: Equatable {
+    let tabBarTabs: Set<AppTab>
+
+    func showsInTabBar(_ tab: AppTab) -> Bool {
+        tabBarTabs.contains(tab)
+    }
+
+    static let all = AppTabBarVisibility(tabBarTabs: Set(AppTab.allCases))
+    static let release = AppTabBarVisibility(tabBarTabs: [.home, .news, .gas, .music, .profile])
+
+    static var live: AppTabBarVisibility {
+        #if DEBUG
+        .all
+        #else
+        .release
+        #endif
+    }
+}
+
+enum AuxiliarySurface: String, Hashable, Identifiable {
+    case search
+    case receipts
+    case nftTokens
+    case erc20Token
+
+    var id: String {
+        rawValue
+    }
+
+    var tab: AppTab {
+        switch self {
+        case .search:
+            return .search
+        case .receipts:
+            return .receipts
+        case .nftTokens:
+            return .nftTokens
+        case .erc20Token:
+            return .erc20Tokens
+        }
+    }
 }
 
 /// Represents a routed NFT detail destination within the news flow.
@@ -59,6 +102,13 @@ final class AppRouter {
     var nftTokensPath: [NFTTokensRoute] = []
     var erc20TokensPath: [ERC20TokenRoute] = []
     var presentedRouteError: AppRouteError?
+    var auxiliarySurface: AuxiliarySurface?
+
+    let tabBarVisibility: AppTabBarVisibility
+
+    init(tabBarVisibility: AppTabBarVisibility = .live) {
+        self.tabBarVisibility = tabBarVisibility
+    }
 
     func resetAllPaths() {
         newsPath.removeAll()
@@ -85,12 +135,11 @@ final class AppRouter {
     }
 
     func showNFTTokensDetail(id: String) {
-        selectedTab = .nftTokens
         nftTokensPath = nftTokensPath + [.item(id: id)]
+        showTabOrPresentAuxiliary(tab: .nftTokens, auxiliarySurface: .nftTokens)
     }
 
     func showNFTCollectionDetail(contractAddress: String?, title: String, chain: Chain) {
-        selectedTab = .nftTokens
         nftTokensPath = nftTokensPath + [
             .collection(
                 contractAddress: contractAddress,
@@ -98,6 +147,7 @@ final class AppRouter {
                 chain: chain
             )
         ]
+        showTabOrPresentAuxiliary(tab: .nftTokens, auxiliarySurface: .nftTokens)
     }
 
     func showNFTFromHome(_ nft: NFT) {
@@ -109,15 +159,15 @@ final class AppRouter {
     }
 
     func showMusicLibrary() {
+        auxiliarySurface = nil
         selectedTab = .music
     }
 
     func showNFTTokens() {
-        selectedTab = .nftTokens
+        showTabOrPresentAuxiliary(tab: .nftTokens, auxiliarySurface: .nftTokens)
     }
 
     func showERC20Token(contractAddress: String, chain: Chain, symbol: String) {
-        selectedTab = .erc20Tokens
         erc20TokensPath = erc20TokensPath + [
             ERC20TokenRoute(
                 contractAddress: contractAddress,
@@ -125,29 +175,32 @@ final class AppRouter {
                 symbol: symbol
             )
         ]
+        showTabOrPresentAuxiliary(tab: .erc20Tokens, auxiliarySurface: .erc20Token)
     }
 
     func showReceipts() {
-        selectedTab = .receipts
+        showTabOrPresentAuxiliary(tab: .receipts, auxiliarySurface: .receipts)
     }
 
     func showSearch() {
-        selectedTab = .search
+        showTabOrPresentAuxiliary(tab: .search, auxiliarySurface: .search)
     }
 
     func showProfileDetail(address: String) {
+        auxiliarySurface = nil
         selectedTab = .profile
         profilePath = profilePath + [.detail(address: address)]
     }
 
     func showSettings() {
+        auxiliarySurface = nil
         selectedTab = .profile
         profilePath = profilePath + [.settings]
     }
 
     func showReceipt(id: String) {
-        selectedTab = .receipts
         receiptsPath = [.init(id: id)]
+        showTabOrPresentAuxiliary(tab: .receipts, auxiliarySurface: .receipts)
     }
 
     func showRouteError(title: String, message: String, urlString: String? = nil) {
@@ -162,8 +215,20 @@ final class AppRouter {
         presentedRouteError = nil
     }
 
+    func dismissAuxiliarySurface(resetPaths: Bool = false) {
+        guard let auxiliarySurface else {
+            return
+        }
+
+        if resetPaths {
+            clearPaths(for: auxiliarySurface)
+        }
+
+        self.auxiliarySurface = nil
+    }
+
     var selectedTabName: String {
-        switch selectedTab {
+        switch activeTab {
         case .home:
             return "home"
         case .news:
@@ -186,7 +251,7 @@ final class AppRouter {
     }
 
     var currentRouteDepth: Int {
-        switch selectedTab {
+        switch activeTab {
         case .news:
             return newsPath.count
         case .music:
@@ -205,6 +270,35 @@ final class AppRouter {
     }
 
     func popCurrentRoute() {
+        if let auxiliarySurface {
+            switch auxiliarySurface {
+            case .search:
+                dismissAuxiliarySurface(resetPaths: true)
+            case .receipts:
+                if !receiptsPath.isEmpty {
+                    receiptsPath.removeLast()
+                }
+                if receiptsPath.isEmpty {
+                    dismissAuxiliarySurface()
+                }
+            case .nftTokens:
+                if !nftTokensPath.isEmpty {
+                    nftTokensPath.removeLast()
+                }
+                if nftTokensPath.isEmpty {
+                    dismissAuxiliarySurface()
+                }
+            case .erc20Token:
+                if !erc20TokensPath.isEmpty {
+                    erc20TokensPath.removeLast()
+                }
+                if erc20TokensPath.isEmpty {
+                    dismissAuxiliarySurface()
+                }
+            }
+            return
+        }
+
         switch selectedTab {
         case .news:
             if !newsPath.isEmpty {
@@ -232,6 +326,32 @@ final class AppRouter {
             }
         case .home, .gas, .search:
             break
+        }
+    }
+
+    private var activeTab: AppTab {
+        auxiliarySurface?.tab ?? selectedTab
+    }
+
+    private func showTabOrPresentAuxiliary(tab: AppTab, auxiliarySurface: AuxiliarySurface) {
+        if tabBarVisibility.showsInTabBar(tab) {
+            self.auxiliarySurface = nil
+            selectedTab = tab
+        } else {
+            self.auxiliarySurface = auxiliarySurface
+        }
+    }
+
+    private func clearPaths(for auxiliarySurface: AuxiliarySurface) {
+        switch auxiliarySurface {
+        case .search:
+            break
+        case .receipts:
+            receiptsPath.removeAll()
+        case .nftTokens:
+            nftTokensPath.removeAll()
+        case .erc20Token:
+            erc20TokensPath.removeAll()
         }
     }
 }

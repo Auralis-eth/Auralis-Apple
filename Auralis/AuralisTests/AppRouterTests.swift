@@ -155,6 +155,63 @@ import Testing
         #expect(router.musicPath == [.item(id: "music-1")])
     }
 
+    @Test("release tab policy presents search as an auxiliary surface instead of a tab")
+    func releaseSearchRouteFlow() {
+        let router = AppRouter(tabBarVisibility: .release)
+
+        router.showSearch()
+
+        #expect(router.selectedTab == .home)
+        #expect(router.auxiliarySurface == .search)
+        #expect(router.selectedTabName == "search")
+        #expect(router.currentRouteDepth == 0)
+    }
+
+    @Test("release tab policy presents receipts as an auxiliary surface")
+    func releaseReceiptsRouteFlow() {
+        let router = AppRouter(tabBarVisibility: .release)
+
+        router.showReceipt(id: "receipt-1")
+
+        #expect(router.selectedTab == .home)
+        #expect(router.auxiliarySurface == .receipts)
+        #expect(router.receiptsPath == [.init(id: "receipt-1")])
+        #expect(router.selectedTabName == "receipts")
+        #expect(router.currentRouteDepth == 1)
+    }
+
+    @Test("release tab policy presents NFT routes as an auxiliary surface")
+    func releaseNFTTokensRouteFlow() {
+        let router = AppRouter(tabBarVisibility: .release)
+
+        router.showNFTCollectionDetail(
+            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            title: "Moonpunks",
+            chain: .ethMainnet
+        )
+
+        #expect(router.selectedTab == .home)
+        #expect(router.auxiliarySurface == .nftTokens)
+        #expect(router.currentRouteDepth == 1)
+        #expect(router.selectedTabName == "nftTokens")
+    }
+
+    @Test("release tab policy presents ERC-20 details as an auxiliary surface")
+    func releaseERC20RouteFlow() {
+        let router = AppRouter(tabBarVisibility: .release)
+
+        router.showERC20Token(
+            contractAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+            chain: .baseMainnet,
+            symbol: "USDC"
+        )
+
+        #expect(router.selectedTab == .home)
+        #expect(router.auxiliarySurface == .erc20Token)
+        #expect(router.currentRouteDepth == 1)
+        #expect(router.selectedTabName == "erc20Tokens")
+    }
+
     private func makeNFT(id: String, contentType: String, audioURL: String?) -> NFT {
         NFT(
             id: id,

@@ -53,6 +53,26 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+### The Nine-Tab Problem
+
+This ship-gate fix was not about a crash. It was about product honesty.
+
+`MainTabView` had grown into a nine-tab control panel: Home, News, Gas, Music, Receipts, Profile, Search, ERC-20, and NFTs. The trouble was not that those secondary surfaces were broken. The trouble was that the tab bar was advertising every internal route as if it were equally core to the Phase 0 product. That is how release chrome turns into a junk drawer.
+
+The fix was to separate "real top-level navigation" from "still-valid auxiliary surfaces." We introduced an explicit tab-bar visibility policy in `AppRouter`, kept the release tab bar focused on the core five tabs, and moved Search, Receipts, NFT Tokens, and ERC-20 detail flows behind auxiliary presentation in release builds. Debug builds still expose everything directly, which keeps development and QA convenient without shipping the whole backstage area in the main chrome.
+
+The useful lesson: maturity is not binary. A surface can be implemented, tested, and still not deserve a permanent seat in the public tab bar. Good release polish is often less about deleting features and more about putting each feature in the right doorway.
+
+### The Face ID Ghost
+
+This one was pure configuration archaeology. The ship checklist warned that Face ID might be declared without a real implementation, which is exactly the kind of App Review mismatch that can waste a day for no product value at all.
+
+The actual codebase told a simpler story: there is no `LAContext`, no `LocalAuthentication`, no biometric policy evaluation, and no `NSFaceIDUsageDescription` anywhere in the repo-visible plist or config files. What *did* exist was an empty `Auralis.entitlements` file, which is the configuration equivalent of leaving an unlabeled key on the ring and hoping nobody asks what door it opens.
+
+So we resolved the discrepancy in the honest direction: no biometric feature, no biometric declaration, no empty entitlement stub lingering around to imply otherwise.
+
+The lesson is straightforward: App Review cares about the contract your binary advertises, not the excuses you planned to give later. If a capability is not real, remove every trace that suggests it might be.
+
 ### The Nested-Type Cleanup That Fought Back
 
 This one looked like a boring lint chore at first: move a few helper types out of `SearchRootView`, `NFTService`, and `AlchemyTokenHoldingsProvider`, let SwiftLint stop complaining, go home. Naturally, it was not that simple.
@@ -656,3 +676,11 @@ Then there was retry timing. Several network clients only understood numeric `Re
 ENS caching also got a long-overdue cleanup. When a name's address changed, the resolver correctly detected `mappingChanged` but left the stale forward cache entry behind like an old mailing label on a suitcase. That meant repeated lookups could keep tripping over yesterday's truth. The resolver now removes the stale entry before surfacing the change, and corrupt ENS cache blobs are discarded on load instead of quietly haunting future launches.
 
 Finally, the keychain password store stopped doing high-wire updates with no net. It used to delete the old secret before attempting `SecItemAdd`, so a failed add could turn “update password” into “erase password and act surprised.” The save path now uses the normal add-or-update flow without pre-deleting the existing item.
+
+## 2025-02-14 Haptics Main-Actor Boundary Fix
+
+This was a classic UIKit-meets-Swift-6 paper cut. `AuraHaptics` looked like a tiny harmless wrapper around `UIImpactFeedbackGenerator` and `UINotificationFeedbackGenerator`, but UIKit now treats those generators as main-actor isolated. So the code was effectively trying to ring the front-desk bell from outside the lobby and the compiler quite reasonably objected.
+
+The fix was intentionally narrow: mark only `impact(_:)` and `notification(_:)` as `@MainActor` instead of slapping main-actor isolation across the whole wrapper. That keeps the stored `isEnabled` flag lightweight while making the actual UIKit touchpoints obey the real threading contract.
+
+The lesson is simple and worth remembering: when a wrapper exists mostly to hide framework details, it still inherits the framework's isolation rules. A tiny facade does not magically make UIKit non-UI.
