@@ -9,6 +9,7 @@ import Foundation
 import OSLog
 import SwiftData
 
+// SwiftLint currently misclassifies these file-scope snapshot helpers as overly nested.
 private struct NFTRefreshContractSnapshot: Sendable {
     let address: String?
     let chain: Chain

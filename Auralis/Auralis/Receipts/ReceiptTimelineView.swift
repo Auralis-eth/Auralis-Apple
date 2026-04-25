@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 import SwiftUI
 
+// SwiftLint currently misclassifies these file-scope receipt snapshot helpers as overly nested.
 private struct ReceiptTimelineReceiptSnapshot: Equatable {
     let id: UUID
     let sequenceID: Int

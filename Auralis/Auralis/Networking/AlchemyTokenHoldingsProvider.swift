@@ -10,6 +10,7 @@ private enum TokensByAddressDataEnvelopeCodingKeys: String, CodingKey {
     case pageKey
 }
 
+// SwiftLint currently misclassifies these file-scope transport/payload helpers as overly nested.
 private struct AlchemyTokenEnrichmentResult {
     let enrichments: [String: AlchemyTokenEnrichment]?
     let warning: TokenHoldingsProviderWarning?

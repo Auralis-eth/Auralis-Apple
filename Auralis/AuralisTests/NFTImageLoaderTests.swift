@@ -276,6 +276,7 @@ private func waitForLoaderToFinish(_ loader: ImageLoader) async throws {
     Issue.record("Timed out waiting for image loader to finish.")
 }
 
+// URLProtocol requires these overridden type methods even on a final class.
 private final class MockURLProtocol: URLProtocol {
     typealias Handler = (URLRequest) throws -> (URLResponse, Data)
 

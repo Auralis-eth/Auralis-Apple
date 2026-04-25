@@ -1622,6 +1622,7 @@ private final class StubNFTInventoryProvider: NFTInventoryProviding, @unchecked 
     }
 }
 
+// Helper names in this section prioritize test intent over SwiftLint's length heuristic.
 private final class RetryLimitedNFTInventoryProvider: NFTInventoryProviding, @unchecked Sendable {
     private let state = State()
 
@@ -1822,6 +1823,7 @@ private extension URLRequest {
     }
 }
 
+// URLProtocol requires these overridden type methods even on a final class.
 private final class ProviderMockURLProtocol: URLProtocol {
     typealias Handler = (URLRequest) throws -> (URLResponse, Data)
 

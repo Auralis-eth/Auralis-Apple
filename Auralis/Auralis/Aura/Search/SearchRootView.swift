@@ -2,6 +2,7 @@ import OSLog
 import SwiftData
 import SwiftUI
 
+// SwiftLint currently misclassifies these file-scope snapshot helpers as overly nested.
 private struct SearchAccountSnapshot: Equatable {
     let address: String
     let name: String?
