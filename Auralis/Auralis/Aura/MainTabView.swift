@@ -58,7 +58,7 @@ struct MainTabView: View {
     }
 
     private var trackedNFTCount: Int? {
-        Self.trackedNFTCount(modelContext: modelContext, accountAddress: activeAccountAddress)
+        currentAccount?.trackedNFTCount
     }
 
     init(
@@ -109,10 +109,7 @@ struct MainTabView: View {
                 nativeBalanceProvider: services.readOnlyProviderFactory.makeNativeBalanceProvider(),
                 freshnessTTLProvider: { nftService.wrappedValue.refreshTTL },
                 trackedNFTCountProvider: {
-                    Self.trackedNFTCount(
-                        modelContext: modelContext,
-                        accountAddress: resolveCurrentAccount()?.address ?? shellStore.state.selection?.address ?? ""
-                    )
+                    resolveCurrentAccount()?.trackedNFTCount
                 },
                 musicCollectionCountProvider: {
                     libraryContextProvider.playlistCount()
@@ -600,27 +597,6 @@ struct MainTabView: View {
         }
     }
 
-    private static func trackedNFTCount(
-        modelContext: ModelContext,
-        accountAddress: String
-    ) -> Int? {
-        let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
-        guard !normalizedAccountAddress.isEmpty else {
-            return nil
-        }
-
-        let descriptor = FetchDescriptor<NFT>(
-            predicate: #Predicate<NFT> { nft in
-                nft.accountAddressRawValue == normalizedAccountAddress
-            }
-        )
-
-        do {
-            return try modelContext.fetch(descriptor).count
-        } catch {
-            return nil
-        }
-    }
 }
 
 private struct ContextRemoteRefreshKey: Hashable {

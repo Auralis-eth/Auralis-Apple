@@ -109,12 +109,20 @@ struct SwiftDataShellLibraryContextProvider: ShellLibraryContextProviding {
 
     func receiptCount(scope: ReceiptTimelineScope) -> Int? {
         do {
-            let receipts = try modelContext.fetch(FetchDescriptor<StoredReceipt>())
-            return receipts
-                .lazy
-                .map(ReceiptTimelineRecord.init(storedReceipt:))
-                .filter { $0.matches(scope) }
-                .count
+            let normalizedAccountAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
+            let descriptor: FetchDescriptor<StoredReceipt>
+
+            if let normalizedAccountAddress, !normalizedAccountAddress.isEmpty {
+                descriptor = FetchDescriptor<StoredReceipt>(
+                    predicate: #Predicate<StoredReceipt> { receipt in
+                        receipt.accountAddress == normalizedAccountAddress
+                    }
+                )
+            } else {
+                descriptor = FetchDescriptor<StoredReceipt>()
+            }
+
+            return try modelContext.fetch(descriptor).count
         } catch {
             return nil
         }

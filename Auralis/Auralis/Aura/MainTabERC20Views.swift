@@ -319,20 +319,14 @@ struct ERC20TokensRootView: View {
                 return hadNoHoldings
                     ? "Auralis could not load token holdings because the provider returned data it could not read for this wallet and chain."
                     : "Auralis kept your last saved ERC-20 holdings because the provider returned data it could not read for this wallet and chain."
-            case .badStatus(let statusCode, let message):
-                let suffix: String
-                if let message, !message.isEmpty {
-                    suffix = " (\(message))"
-                } else {
-                    suffix = ""
-                }
+            case .badStatus(let statusCode, _):
                 return hadNoHoldings
-                    ? "Auralis could not load token holdings because the provider returned HTTP \(statusCode)\(suffix)."
-                    : "Auralis kept your last saved ERC-20 holdings because the provider returned HTTP \(statusCode)\(suffix)."
-            case .providerError(let message):
+                    ? "Auralis could not load token holdings because the provider returned HTTP \(statusCode)."
+                    : "Auralis kept your last saved ERC-20 holdings because the provider returned HTTP \(statusCode)."
+            case .providerError:
                 return hadNoHoldings
-                    ? "Auralis could not load token holdings because the provider reported an error: \(message)"
-                    : "Auralis kept your last saved ERC-20 holdings because the provider reported an error: \(message)"
+                    ? "Auralis could not load token holdings because the provider reported an error for this wallet and chain."
+                    : "Auralis kept your last saved ERC-20 holdings because the provider reported an error for this wallet and chain."
             case .missingAPIKey:
                 return "Auralis could not refresh token holdings because this build is missing provider configuration."
             case .unsupportedChain:

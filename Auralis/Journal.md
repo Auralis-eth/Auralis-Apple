@@ -53,6 +53,18 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+### Storage and Networking Hardening: Fix the Leaks, Not Just the Symptoms
+
+This pass was a tour of the kind of bugs that do not throw fireworks during a demo and still absolutely matter before shipping.
+
+- The first bug was a SwiftData attic problem. `NFTService` was cleaning up stale `NFT` rows, but shared `NFT.Contract` and `NFT.Collection` models could still be left behind when refreshes deleted NFTs or repointed an existing NFT at a new contract/collection. Think of it like throwing away old mail while keeping every obsolete folder the mail used to live in. The fix was to prune orphaned shared models inside the persistence actor after both persistence and stale-record cleanup, so the storage graph stops accumulating little abandoned islands.
+- ENS needed a reality check too. Most of the networking stack already had explicit timeout, retry, and typed-failure behavior. The web3-based ENS client was the odd cousin showing up without that discipline. We added a bounded retry loop and per-request timeout at the client boundary itself, which keeps resolver semantics, cache behavior, and receipt logging intact while making ENS transport behavior intentional instead of hopeful.
+- User-facing provider errors got a cleanup pass in the places where backend prose was still sneaking through. Native balance status, ERC-20 holdings errors, and NFT provider failures now speak in app-owned language like “provider returned HTTP 500” or “provider reported an error for this wallet and chain” instead of parroting raw backend message text into the UI. Same facts, better contract.
+- The ENS cache also stopped behaving like a haunted pantry. Previously, stale entries could sit in the persisted blob forever and merely wear a “stale” sticker when read. Now the cache store has an explicit retention window and prunes expired entries as part of normal cache access and writes. The nice part is that this keeps short-term stale fallback behavior, but it no longer lets old names pile up indefinitely.
+- The last fix was less glamorous and very worth doing: a handful of main-thread persistence reads were answering tiny UI questions by loading entire tables first. That is fine when the app has ten records and less charming when it has ten thousand. Receipt counts now use scoped predicates, search history uses scoped sorted fetches instead of whole-table filtering, the music indexer filters for audio-bearing NFTs at the query boundary, and `MainTabView` stopped recounting NFTs from disk when the current account already carries the synchronized count it needs.
+
+The broad lesson: ship-readiness is usually not about one giant crash. It is about removing slow drift, ambiguous contracts, and “probably fine” networking behavior before they turn into product folklore.
+
 ### Audit Triage: Fix the Real Gaps, Not the Ghost Stories
 
 This pass was a nice reminder that an audit list is a map, not the territory. One item said haptics were completely unimplemented. The repo disagreed: `AuraHaptics` already existed, account activation already fired success feedback, account removal already had warning feedback, and even the music surface had a stray direct `UIImpactFeedbackGenerator` call. The real bug was narrower and more interesting: the app had some haptics, but not on the interaction seams the checklist actually cared about.

@@ -282,11 +282,13 @@ private extension SwiftDataMusicLibraryIndexer {
         let descriptor = FetchDescriptor<NFT>(
             predicate: #Predicate<NFT> {
                 $0.accountAddressRawValue == normalizedAccountAddress &&
-                $0.networkRawValue == chainRawValue
+                $0.networkRawValue == chainRawValue &&
+                $0.audioUrl != nil &&
+                $0.audioUrl != ""
             }
         )
 
-        let eligibleNFTs = try modelContext.fetch(descriptor).filter { $0.isMusic() }
+        let eligibleNFTs = try modelContext.fetch(descriptor)
         let dedupedByID = Dictionary(uniqueKeysWithValues: eligibleNFTs.map { ($0.id, $0) })
         return dedupedByID.values.sorted { $0.id < $1.id }
     }

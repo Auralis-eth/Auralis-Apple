@@ -384,19 +384,14 @@ private extension ContextService {
                 return hadCachedBalance
                     ? "Auralis kept the last native balance because the provider returned data it could not read for this wallet and chain."
                     : "Auralis could not load the native balance because the provider returned data it could not read for this wallet and chain."
-            case .badStatus(let statusCode, let message):
-                let suffix = if let message, !message.isEmpty {
-                    " (\(message))"
-                } else {
-                    ""
-                }
+            case .badStatus(let statusCode, _):
                 return hadCachedBalance
-                    ? "Auralis kept the last native balance because the provider returned HTTP \(statusCode)\(suffix)."
-                    : "Auralis could not load the native balance because the provider returned HTTP \(statusCode)\(suffix)."
-            case .providerError(let message):
+                    ? "Auralis kept the last native balance because the provider returned HTTP \(statusCode)."
+                    : "Auralis could not load the native balance because the provider returned HTTP \(statusCode)."
+            case .providerError:
                 return hadCachedBalance
-                    ? "Auralis kept the last native balance because the provider reported an error: \(message)"
-                    : "Auralis could not load the native balance because the provider reported an error: \(message)"
+                    ? "Auralis kept the last native balance because the provider reported an error for this wallet and chain."
+                    : "Auralis could not load the native balance because the provider reported an error for this wallet and chain."
             case .missingAPIKey:
                 return "Auralis could not refresh the native balance because this build is missing provider configuration."
             case .unsupportedChain:

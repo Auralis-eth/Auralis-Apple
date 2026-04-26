@@ -145,6 +145,7 @@ private actor NFTRefreshPersistenceStore {
         }
         synchronizeTrackedNFTCount(for: accountAddress)
         try modelContext.save()
+        try pruneOrphanedSharedModels()
     }
 
     func cleanupOldNFTs(
@@ -174,6 +175,7 @@ private actor NFTRefreshPersistenceStore {
         }
         synchronizeTrackedNFTCount(for: accountAddress)
         try modelContext.save()
+        try pruneOrphanedSharedModels()
     }
 
     private func makePersistenceScopeSnapshot(
@@ -349,6 +351,24 @@ private actor NFTRefreshPersistenceStore {
 
         snapshot.persistedCollectionsByID[collection.id] = collection
         return collection
+    }
+
+    private func pruneOrphanedSharedModels() throws {
+        let allNFTs = try modelContext.fetch(FetchDescriptor<NFT>())
+        let referencedContractIDs = Set(allNFTs.map(\.contract.id))
+        let referencedCollectionIDs = Set(allNFTs.compactMap(\.collection?.id))
+
+        let persistedContracts = try modelContext.fetch(FetchDescriptor<NFT.Contract>())
+        for contract in persistedContracts where !referencedContractIDs.contains(contract.id) {
+            modelContext.delete(contract)
+        }
+
+        let persistedCollections = try modelContext.fetch(FetchDescriptor<NFT.Collection>())
+        for collection in persistedCollections where !referencedCollectionIDs.contains(collection.id) {
+            modelContext.delete(collection)
+        }
+
+        try modelContext.save()
     }
 
     private func makeNFT(from snapshot: NFTRefreshPersistenceSnapshot) -> NFT {

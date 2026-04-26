@@ -16,9 +16,10 @@ private actor SearchHistoryPersistenceStore {
 
         let normalizedQuery = trimmedQuery.lowercased()
 
-        if let existingRecord = try fetchRecords().first(where: {
-            $0.accountAddressRawValue == accountAddress && $0.normalizedQuery == normalizedQuery
-        }) {
+        if let existingRecord = try fetchRecord(
+            accountAddress: accountAddress,
+            normalizedQuery: normalizedQuery
+        ) {
             existingRecord.query = trimmedQuery
             existingRecord.recordedAt = .now
         } else {
@@ -37,7 +38,12 @@ private actor SearchHistoryPersistenceStore {
     }
 
     func removeEntry(id: String) throws {
-        guard let record = try fetchRecords().first(where: { $0.id == id }) else {
+        let descriptor = FetchDescriptor<SearchHistoryRecord>(
+            predicate: #Predicate<SearchHistoryRecord> { record in
+                record.id == id
+            }
+        )
+        guard let record = try modelContext.fetch(descriptor).first else {
             return
         }
 
@@ -46,28 +52,48 @@ private actor SearchHistoryPersistenceStore {
     }
 
     func clear(accountAddress: String?) throws {
-        try fetchRecords()
-            .filter { $0.accountAddressRawValue == accountAddress }
-            .forEach(modelContext.delete)
+        let descriptor = scopedRecordsDescriptor(accountAddress: accountAddress)
+        try modelContext.fetch(descriptor).forEach(modelContext.delete)
         try modelContext.save()
     }
 
     func clearAll() throws {
-        try fetchRecords().forEach(modelContext.delete)
+        try modelContext.fetch(FetchDescriptor<SearchHistoryRecord>()).forEach(modelContext.delete)
         try modelContext.save()
     }
 
-    private func fetchRecords() throws -> [SearchHistoryRecord] {
-        try modelContext.fetch(FetchDescriptor<SearchHistoryRecord>())
+    private func fetchRecord(
+        accountAddress: String?,
+        normalizedQuery: String
+    ) throws -> SearchHistoryRecord? {
+        let descriptor = FetchDescriptor<SearchHistoryRecord>(
+            predicate: #Predicate<SearchHistoryRecord> { record in
+                record.accountAddressRawValue == accountAddress &&
+                record.normalizedQuery == normalizedQuery
+            }
+        )
+
+        return try modelContext.fetch(descriptor).first
+    }
+
+    private func fetchScopedRecords(accountAddress: String?) throws -> [SearchHistoryRecord] {
+        try modelContext.fetch(scopedRecordsDescriptor(accountAddress: accountAddress))
+    }
+
+    private func scopedRecordsDescriptor(accountAddress: String?) -> FetchDescriptor<SearchHistoryRecord> {
+        FetchDescriptor<SearchHistoryRecord>(
+            predicate: #Predicate<SearchHistoryRecord> { record in
+                record.accountAddressRawValue == accountAddress
+            },
+            sortBy: [SortDescriptor(\SearchHistoryRecord.recordedAt, order: .reverse)]
+        )
     }
 
     private func trimExcessEntries(
         for accountAddress: String?,
         maxEntriesPerAccount: Int
     ) throws {
-        let overflowRecords = try fetchRecords()
-            .filter { $0.accountAddressRawValue == accountAddress }
-            .sorted { $0.recordedAt > $1.recordedAt }
+        let overflowRecords = try fetchScopedRecords(accountAddress: accountAddress)
             .dropFirst(maxEntriesPerAccount)
 
         overflowRecords.forEach(modelContext.delete)
@@ -126,9 +152,7 @@ struct SearchHistoryStore {
     func entries(for accountAddress: String?) -> [SearchHistoryEntry] {
         let normalizedAccountAddress = normalizedAccount(accountAddress)
         do {
-            return try fetchRecords()
-                .filter { $0.accountAddressRawValue == normalizedAccountAddress }
-                .sorted { $0.recordedAt > $1.recordedAt }
+            return try fetchRecords(accountAddress: normalizedAccountAddress)
                 .map(SearchHistoryEntry.init(record:))
         } catch {
             Self.logger.error("Failed to load search history entries: \(error.localizedDescription, privacy: .public)")
@@ -160,7 +184,13 @@ struct SearchHistoryStore {
         NFT.normalizedScopeComponent(address)
     }
 
-    private func fetchRecords() throws -> [SearchHistoryRecord] {
-        try modelContext.fetch(FetchDescriptor<SearchHistoryRecord>())
+    private func fetchRecords(accountAddress: String?) throws -> [SearchHistoryRecord] {
+        let descriptor = FetchDescriptor<SearchHistoryRecord>(
+            predicate: #Predicate<SearchHistoryRecord> { record in
+                record.accountAddressRawValue == accountAddress
+            },
+            sortBy: [SortDescriptor(\SearchHistoryRecord.recordedAt, order: .reverse)]
+        )
+        return try modelContext.fetch(descriptor)
     }
 }

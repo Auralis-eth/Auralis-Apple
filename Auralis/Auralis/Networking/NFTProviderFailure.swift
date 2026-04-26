@@ -117,10 +117,28 @@ struct NFTProviderFailure: Equatable {
                     message: "Auralis could not reach the collection provider just now.",
                     isRetryable: true
                 )
-            case .unsupportedChain, .unsupportedMethod, .providerError, .badStatus:
+            case .unsupportedChain:
                 return NFTProviderFailure(
                     kind: .unavailable,
-                    message: error.localizedDescription,
+                    message: "The collection provider does not support this chain yet.",
+                    isRetryable: true
+                )
+            case .unsupportedMethod:
+                return NFTProviderFailure(
+                    kind: .unavailable,
+                    message: "The collection provider does not support the required method.",
+                    isRetryable: true
+                )
+            case .providerError:
+                return NFTProviderFailure(
+                    kind: .unavailable,
+                    message: "The collection provider reported an error for this wallet and chain.",
+                    isRetryable: true
+                )
+            case .badStatus(let statusCode, _):
+                return NFTProviderFailure(
+                    kind: .unavailable,
+                    message: "The collection provider returned HTTP \(statusCode).",
                     isRetryable: true
                 )
             }
@@ -140,19 +158,19 @@ struct NFTProviderFailure: Equatable {
                     .invalidRequestTimeout:
                 return NFTProviderFailure(
                     kind: .invalidScope,
-                    message: apiError.localizedDescription,
+                    message: "The current collection refresh request is invalid for this wallet or scope.",
                     isRetryable: false
                 )
             case .unauthorized, .forbidden, .badURL:
                 return NFTProviderFailure(
                     kind: .misconfigured,
-                    message: apiError.localizedDescription,
+                    message: "Auralis could not authenticate with the collection provider for this build.",
                     isRetryable: false
                 )
             case .rateLimited:
                 return NFTProviderFailure(
                     kind: .rateLimited,
-                    message: apiError.localizedDescription,
+                    message: "The collection provider is rate-limiting refreshes right now.",
                     isRetryable: true
                 )
             case .badServerResponse:
@@ -161,10 +179,22 @@ struct NFTProviderFailure: Equatable {
                     message: "The collection provider returned data Auralis could not read.",
                     isRetryable: true
                 )
-            case .requestTimeout, .serverError, .httpError, .notFound:
+            case .requestTimeout:
                 return NFTProviderFailure(
                     kind: .unavailable,
-                    message: apiError.localizedDescription,
+                    message: "The collection provider did not respond in time.",
+                    isRetryable: true
+                )
+            case .serverError(let status, _), .httpError(let status, _):
+                return NFTProviderFailure(
+                    kind: .unavailable,
+                    message: "The collection provider returned HTTP \(status).",
+                    isRetryable: true
+                )
+            case .notFound:
+                return NFTProviderFailure(
+                    kind: .unavailable,
+                    message: "The collection provider could not find data for this wallet and chain.",
                     isRetryable: true
                 )
             }
