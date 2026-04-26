@@ -34,6 +34,8 @@ enum PasswordStores {
         )
     }
 
+    #if DEBUG
+    /// Test-only fallback that stores plaintext in UserDefaults. Never use in production flows.
     static func test(userDefaults: UserDefaults = .standard) -> PasswordStore {
         let store = UserDefaultsPasswordStore(userDefaults: userDefaults)
         return PasswordStore(
@@ -48,6 +50,7 @@ enum PasswordStores {
             }
         )
     }
+    #endif
 }
 
 private struct KeychainPasswordStore {

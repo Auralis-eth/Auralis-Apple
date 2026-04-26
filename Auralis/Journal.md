@@ -717,3 +717,14 @@ This was a classic UIKit-meets-Swift-6 paper cut. `AuraHaptics` looked like a ti
 The fix was intentionally narrow: mark only `impact(_:)` and `notification(_:)` as `@MainActor` instead of slapping main-actor isolation across the whole wrapper. That keeps the stored `isEnabled` flag lightweight while making the actual UIKit touchpoints obey the real threading contract.
 
 The lesson is simple and worth remembering: when a wrapper exists mostly to hide framework details, it still inherits the framework's isolation rules. A tiny facade does not magically make UIKit non-UI.
+
+## 2025-02-14 Release Secrets And Mode-State Concurrency Hardening
+
+This pass was about two different kinds of honesty: not leaking internal config trivia into release builds, and not pretending Swift 6's actor rules are optional just because an old workaround compiles.
+
+- `SettingsView` had a debug-friendly provider status panel that reported whether the Alchemy key was configured. Useful during development, terrible release behavior. Shipping that is like leaving the restaurant's pantry checklist taped to the front door. The whole section now lives behind `#if DEBUG`, including the trust label, explanatory copy, and status rows.
+- `ModeState` also got aligned with the rest of the shell's actor model. It owns `@AppStorage` and `@Published` state that the UI reads on the main actor, so leaving the class nonisolated was effectively asking Swift 6 to stop noticing a race because the code “usually” behaves. The class is now `@MainActor`, and the receipt helper that reads `mode` is explicitly main-actor isolated too.
+- The sneakiest bug was the environment fallback. `ModeStateKey.defaultValue` had been using `nonisolated(unsafe)`, which is concurrency for “trust me, I brought a blindfold.” The replacement keeps the protocol requirement nonisolated, but backs it with a main-actor-owned singleton accessed through `MainActor.assumeIsolated`. Same minimal blast radius, much more truthful safety story.
+- We also checked the password-store escape hatch. `PasswordStores.test(...)` had no production call sites, so the fix there was prevention: make the plaintext `UserDefaults` store debug-only and say plainly in code that it is test-only.
+
+The useful lesson: pre-ship hardening is often less about adding features and more about removing quiet lies. A release build should not narrate its secret wiring, and concurrency annotations should describe the real ownership model instead of suppressing the compiler until launch day.

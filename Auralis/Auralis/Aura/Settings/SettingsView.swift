@@ -28,6 +28,7 @@ struct SettingsView: View {
                 LabeledContent("Chain Scope", value: currentChain.routingDisplayName)
             }
 
+            #if DEBUG
             Section("Provider Configuration") {
                 AuraTrustLabel(kind: .provider)
 
@@ -48,6 +49,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            #endif
 
             Section("Privacy") {
                 Text("Clear local privacy and derived support data without deleting saved accounts. This reset clears receipts, search history, ENS cache, gas cache, persisted token holdings, pinned home actions, and saved active wallet selection.")

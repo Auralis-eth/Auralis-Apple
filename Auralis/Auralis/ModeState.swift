@@ -12,6 +12,7 @@ public enum AppMode: String, Codable, CaseIterable, Equatable {
 
 /// Observable owner for the current app mode.
 /// Phase 0 persists via AppStorage and is locked to `.observe`.
+@MainActor
 public final class ModeState: ObservableObject {
     @AppStorage private var storedModeRaw: String
 
@@ -37,11 +38,16 @@ public final class ModeState: ObservableObject {
 
 // MARK: - Environment integration
 
+@MainActor
 private struct ModeStateKey: EnvironmentKey {
-    // SwiftUI reads environment defaults on the main actor in this app. The unsafe annotation
-    // suppresses the static sendability warning for the fallback instance until the real
-    // environment value is injected by the shell.
-    nonisolated(unsafe) static let defaultValue: ModeState = ModeState()
+    @MainActor
+    private static let mainActorDefaultValue = ModeState()
+
+    nonisolated static var defaultValue: ModeState {
+        MainActor.assumeIsolated {
+            mainActorDefaultValue
+        }
+    }
 }
 
 /// Environment accessors for reading and overriding the shared mode state.
@@ -66,6 +72,7 @@ public extension View {
 /// Lightweight helper for attaching the current mode to receipt-like payloads.
 public struct ModeReceiptAugmentor {
     /// Returns a copy of the payload dictionary with the current app mode attached.
+    @MainActor
     public static func attachMode(to dict: [String: Any], modeState: ModeState) -> [String: Any] {
         var out = dict
         out["mode"] = modeState.mode.rawValue
