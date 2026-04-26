@@ -53,6 +53,17 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+### ENS Trust Boundaries and Corrupt Chain Data
+
+This was a "the app is being polite while doing the wrong thing" class of bug, which is often nastier than an obvious crash.
+
+- ENS wallet entry had a trust leak. If the live ENS provider failed, the resolver could fall back to a stale cached mapping, and the address entry flow would happily save and activate that cached address as if it had just been verified. That is like asking a receptionist to confirm your hotel room number and getting "the Wi‑Fi is down, so I guessed from last week." The fix was to require a fresh ENS verification before saving an ENS-based account and to tell the user plainly when only cached data is available.
+- Persisted chain raw values also needed a reality check. A few model accessors were quietly translating unknown local chain strings into `.ethMainnet`, which made bad data look valid and could route the app into the wrong scope. We moved that behavior from "silent fallback during reads" to "detect, log, and repair when accounts are loaded," and we stopped NFT refresh persistence from re-parsing stored chain raw values when the refresh scope already knows the correct chain.
+- Shell restore got a matching cleanup. The selection persistence layer stored both wallet address and chain, but restore was only really trusting the account row. That made the saved scope feel more authoritative than it actually was. Restore now validates the persisted chain and reconciles it with the account’s repaired chain state instead of carrying dead or inconsistent selection data forward.
+- ENS retry behavior also got less stubborn. Being offline is not a transient mystery that needs several dramatic retries before we admit reality. The ENS client now fails fast for deterministic offline conditions so cached fallback or user messaging can happen promptly instead of after a pointless backoff ritual.
+
+The pattern worth remembering: graceful degradation is only graceful if the app also stays honest about what it knows, what it guessed, and what it could not verify.
+
 ### Storage and Networking Hardening: Fix the Leaks, Not Just the Symptoms
 
 This pass was a tour of the kind of bugs that do not throw fireworks during a demo and still absolutely matter before shipping.

@@ -204,9 +204,13 @@ final class ShellStore {
         let activeAccount = persistedAccount ?? fallbackAccount
 
         if let activeAccount {
+            let restoredChain = restoredChain(
+                persistedChainRawValue: persistedSelection.chainID,
+                account: activeAccount
+            )
             let selection = ActiveShellSelection(
                 address: activeAccount.address,
-                chain: activeAccount.currentChain
+                chain: restoredChain
             )
             applyCommittedSelection(selection, account: activeAccount)
             selectionPersistence.saveSelection(
@@ -506,6 +510,26 @@ final class ShellStore {
     @discardableResult
     private func applyRoutingEffect(_ effect: ShellRoutingEffect) -> AppRouteError? {
         routerEffectHandler.handle(effect)
+    }
+
+    private func restoredChain(
+        persistedChainRawValue: String,
+        account: EOAccount
+    ) -> Chain {
+        if let persistedChain = Chain.resolved(rawValue: persistedChainRawValue),
+           persistedChain == account.currentChainOrNil || account.currentChainOrNil == nil {
+            return persistedChain
+        }
+
+        if let currentChain = account.currentChainOrNil {
+            return currentChain
+        }
+
+        if let preferredChain = account.preferredChainOrNil {
+            return preferredChain
+        }
+
+        return .ethMainnet
     }
 }
 

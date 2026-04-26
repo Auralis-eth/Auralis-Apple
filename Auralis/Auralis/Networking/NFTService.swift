@@ -534,7 +534,9 @@ class NFTService {
                 let didCompleteFullRefresh = nftFetcher.currentCursor == nil &&
                     (nftFetcher.total == nil || (nftFetcher.itemsLoaded ?? 0) >= (nftFetcher.total ?? 0))
                 let persistenceStore = NFTRefreshPersistenceStore(modelContainer: modelContext.container)
-                let persistenceSnapshots = nfts.map(makePersistenceSnapshot(from:))
+                let persistenceSnapshots = nfts.map {
+                    makePersistenceSnapshot(from: $0, scopeChain: chain)
+                }
 
                 try await persistenceStore.persist(
                     persistenceSnapshots,
@@ -710,12 +712,15 @@ class NFTService {
         }.value
     }
 
-    private func makePersistenceSnapshot(from nft: NFT) -> NFTRefreshPersistenceSnapshot {
+    private func makePersistenceSnapshot(
+        from nft: NFT,
+        scopeChain: Chain
+    ) -> NFTRefreshPersistenceSnapshot {
         NFTRefreshPersistenceSnapshot(
             id: nft.id,
             contract: .init(
                 address: nft.contract.address,
-                chain: Chain(rawValue: nft.contract.chainRawValue) ?? .ethMainnet
+                chain: scopeChain
             ),
             tokenId: nft.tokenId,
             tokenType: nft.tokenType,
@@ -738,14 +743,14 @@ class NFTService {
             collection: nft.collection.map {
                 .init(
                     name: $0.name,
-                    chain: Chain(rawValue: $0.chainRawValue) ?? .ethMainnet,
+                    chain: scopeChain,
                     contractAddress: $0.contractAddress
                 )
             },
             tokenURI: nft.tokenUri,
             timeLastUpdated: nft.timeLastUpdated,
             acquiredAt: nft.acquiredAt.map { .init(blockTimestamp: $0.blockTimestamp) },
-            network: Chain(rawValue: nft.networkRawValue) ?? .ethMainnet,
+            network: scopeChain,
             accountAddress: nft.accountAddress,
             contentType: nft.contentType,
             collectionName: nft.collectionName,

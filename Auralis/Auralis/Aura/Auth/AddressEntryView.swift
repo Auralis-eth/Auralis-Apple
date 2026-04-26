@@ -202,6 +202,15 @@ struct AddressInputView: View {
                 guard submissionID == activeSubmissionID else {
                     return
                 }
+                guard !resolution.isStale else {
+                    isSubmitting = false
+                    activeSubmissionTask = nil
+                    showAlert(
+                        title: "ENS Verification Unavailable",
+                        message: "Auralis found only a cached ENS mapping for this name and will not save it until the provider can verify the address live. Try again when connectivity recovers."
+                    )
+                    return
+                }
                 activation = try await store.activateWatchAccount(
                     from: resolution.address,
                     name: resolution.ensName,

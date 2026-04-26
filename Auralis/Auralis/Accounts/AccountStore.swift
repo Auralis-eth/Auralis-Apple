@@ -257,6 +257,9 @@ struct AccountStore {
 
     func listAccounts() throws -> [EOAccount] {
         let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
+        if accounts.contains(where: { $0.normalizeStoredChainsIfNeeded() }) {
+            try modelContext.save()
+        }
 
         return accounts.sorted { lhs, rhs in
             if lhs.mostRecentActivityAt != rhs.mostRecentActivityAt {
@@ -282,7 +285,12 @@ struct AccountStore {
             }
         )
 
-        return try modelContext.fetch(descriptor).first
+        let account = try modelContext.fetch(descriptor).first
+        if let account, account.normalizeStoredChainsIfNeeded() {
+            try modelContext.save()
+        }
+
+        return account
     }
 
     func createWatchAccount(

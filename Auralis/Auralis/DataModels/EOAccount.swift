@@ -129,11 +129,49 @@ class EOAccount: Codable, Identifiable {
         "Account \(String(address.prefix(4)))"
     }
 
+    var preferredChainOrNil: Chain? {
+        Chain.resolved(rawValue: preferredChainRawValue)
+    }
+
+    var currentChainOrNil: Chain? {
+        Chain.resolved(rawValue: currentChainRawValue)
+    }
+
     /// Preferred chain restored when the account becomes active again.
-    var preferredChain: Chain { get { Chain(rawValue: preferredChainRawValue) ?? .ethMainnet } set { preferredChainRawValue = newValue.rawValue } }
+    var preferredChain: Chain {
+        get { preferredChainOrNil ?? .ethMainnet }
+        set { preferredChainRawValue = newValue.rawValue }
+    }
 
     /// Current chain last used for this account in the shell.
-    var currentChain: Chain { get { Chain(rawValue: currentChainRawValue) ?? .ethMainnet } set { currentChainRawValue = newValue.rawValue } }
+    var currentChain: Chain {
+        get { currentChainOrNil ?? preferredChainOrNil ?? .ethMainnet }
+        set { currentChainRawValue = newValue.rawValue }
+    }
+
+    @discardableResult
+    func normalizeStoredChainsIfNeeded(defaultChain: Chain = .ethMainnet) -> Bool {
+        let resolvedPreferred = preferredChainOrNil ?? defaultChain
+        let resolvedCurrent = currentChainOrNil ?? preferredChainOrNil ?? defaultChain
+        let preferredWasInvalid = preferredChainOrNil == nil
+        let currentWasInvalid = currentChainOrNil == nil
+
+        if preferredWasInvalid {
+            eoAccountLogger.error(
+                "Repairing invalid preferredChainRawValue for account \(self.address, privacy: .public): \(self.preferredChainRawValue, privacy: .public)"
+            )
+            preferredChainRawValue = resolvedPreferred.rawValue
+        }
+
+        if currentWasInvalid {
+            eoAccountLogger.error(
+                "Repairing invalid currentChainRawValue for account \(self.address, privacy: .public): \(self.currentChainRawValue, privacy: .public)"
+            )
+            currentChainRawValue = resolvedCurrent.rawValue
+        }
+
+        return preferredWasInvalid || currentWasInvalid
+    }
 }
 
 enum EthereumAddressAccess: Codable {

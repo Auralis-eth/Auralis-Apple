@@ -118,8 +118,10 @@ final class Web3EthereumNameServiceClient: EthereumNameServiceClient, Sendable {
 
         if let urlError = error as? URLError {
             switch urlError.code {
-            case .timedOut, .cannotConnectToHost, .networkConnectionLost, .notConnectedToInternet:
+            case .timedOut, .cannotConnectToHost, .networkConnectionLost:
                 return true
+            case .notConnectedToInternet:
+                return false
             default:
                 return false
             }
@@ -130,9 +132,10 @@ final class Web3EthereumNameServiceClient: EthereumNameServiceClient, Sendable {
             switch nsError.code {
             case NSURLErrorTimedOut,
                     NSURLErrorCannotConnectToHost,
-                    NSURLErrorNetworkConnectionLost,
-                    NSURLErrorNotConnectedToInternet:
+                    NSURLErrorNetworkConnectionLost:
                 return true
+            case NSURLErrorNotConnectedToInternet:
+                return false
             default:
                 return false
             }
@@ -141,7 +144,7 @@ final class Web3EthereumNameServiceClient: EthereumNameServiceClient, Sendable {
         if let ensError = error as? EthereumNameServiceError {
             switch ensError {
             case .noNetwork:
-                return true
+                return false
             case .invalidInput, .ensUnknown, .decodeIssue, .tooManyRedirections:
                 return false
             }

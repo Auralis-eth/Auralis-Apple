@@ -77,6 +77,10 @@ final class TokenHolding {
         set { chainRawValue = newValue.rawValue }
     }
 
+    var resolvedChain: Chain? {
+        Chain.resolved(rawValue: chainRawValue)
+    }
+
     /// Decoded holding kind backed by the persisted raw value.
     var balanceKind: TokenHoldingKind {
         get { TokenHoldingKind(rawValue: balanceKindRawValue) ?? .erc20 }
@@ -139,7 +143,11 @@ struct TokenHoldingRowModel: Identifiable, Equatable {
 
         switch holding.balanceKind {
         case .native:
-            self.subtitle = "\(holding.chain.routingDisplayName) native asset"
+            if let resolvedChain = holding.resolvedChain {
+                self.subtitle = "\(resolvedChain.routingDisplayName) native asset"
+            } else {
+                self.subtitle = "Unknown chain native asset"
+            }
         case .erc20:
             if holding.hidesAmountUntilMetadataLoads {
                 self.subtitle = "Amount hidden until token decimals load"
@@ -147,8 +155,10 @@ struct TokenHoldingRowModel: Identifiable, Equatable {
                 self.subtitle = contractAddress.displayAddress
             } else if holding.isPlaceholder {
                 self.subtitle = "Placeholder token metadata"
+            } else if let resolvedChain = holding.resolvedChain {
+                self.subtitle = resolvedChain.routingDisplayName
             } else {
-                self.subtitle = holding.chain.routingDisplayName
+                self.subtitle = "Unknown chain"
             }
         }
     }

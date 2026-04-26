@@ -85,6 +85,14 @@ enum Chain: String, Codable, Equatable, CaseIterable, Identifiable {
         chainId
     }
 
+    static func resolved(rawValue: String?) -> Chain? {
+        guard let rawValue else {
+            return nil
+        }
+
+        return Chain(rawValue: rawValue)
+    }
+
     /// Human-readable network name for UI copy.
     var networkName: String {
         switch self {
