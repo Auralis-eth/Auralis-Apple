@@ -1,0 +1,153 @@
+import Foundation
+
+/// Describes the resolved shell state after restoring persisted account and chain data.
+struct MainAuraRestoreResult {
+    let currentAddress: String
+    let currentChain: Chain
+    let currentAccount: EOAccount?
+    let didFinishInitialStateRestore: Bool
+    let shouldProcessPendingDeepLink: Bool
+}
+
+/// Describes the shell consequences of switching the active account.
+struct MainAuraAccountChangeResult {
+    let currentAddress: String
+    let currentChain: Chain
+    let shouldResetRoutes: Bool
+    let shouldRefreshNFTs: Bool
+    let shouldProcessPendingDeepLink: Bool
+}
+
+/// Describes the shell consequences of applying a persisted address change.
+struct MainAuraAddressChangeResult {
+    let currentAddress: String
+    let currentAccount: EOAccount?
+    let currentChain: Chain
+    let shouldResetRoutes: Bool
+    let shouldProcessPendingDeepLink: Bool
+}
+
+/// Bundles the inputs needed to refresh account-scoped data after an account change.
+struct MainAuraAccountRefreshRequest: Equatable {
+    let requestID: UUID
+    let account: EOAccount
+    let chain: Chain
+    let currentAddress: String
+    let correlationID: String
+}
+
+/// Encapsulates legacy shell selection logic used by the main Aura shell.
+struct MainAuraShellLogic {
+    func restoreInitialState(
+        currentAddress: String,
+        currentChainId: String,
+        accounts: [EOAccount]
+    ) -> MainAuraRestoreResult {
+        let resolvedSelection = resolveInitialSelection(for: currentAddress, accounts: accounts)
+        let resolvedChain = resolvedSelection.currentAccount?.currentChain
+            ?? Chain(rawValue: currentChainId)
+            ?? .ethMainnet
+
+        return MainAuraRestoreResult(
+            currentAddress: resolvedSelection.currentAddress,
+            currentChain: resolvedChain,
+            currentAccount: resolvedSelection.currentAccount,
+            didFinishInitialStateRestore: true,
+            shouldProcessPendingDeepLink: true
+        )
+    }
+
+    func accountDidChange(newAccount: EOAccount?, persistedAddress: String) -> MainAuraAccountChangeResult {
+        let nextAddress = newAccount?.address ?? ""
+        let shouldRefreshNFTs = newAccount != nil && nextAddress != persistedAddress
+        let currentChain = newAccount?.currentChain ?? .ethMainnet
+
+        return MainAuraAccountChangeResult(
+            currentAddress: nextAddress,
+            currentChain: currentChain,
+            shouldResetRoutes: shouldRefreshNFTs,
+            shouldRefreshNFTs: shouldRefreshNFTs,
+            shouldProcessPendingDeepLink: true
+        )
+    }
+
+    func makeAccountRefreshRequest(
+        newAccount: EOAccount?,
+        result: MainAuraAccountChangeResult,
+        correlationID: String?
+    ) -> MainAuraAccountRefreshRequest? {
+        guard result.shouldRefreshNFTs, let account = newAccount else {
+            return nil
+        }
+
+        return MainAuraAccountRefreshRequest(
+            requestID: UUID(),
+            account: account,
+            chain: result.currentChain,
+            currentAddress: result.currentAddress,
+            correlationID: correlationID ?? UUID().uuidString
+        )
+    }
+
+    func shouldApplyRefreshCompletion(
+        for request: MainAuraAccountRefreshRequest,
+        latestRequestID: UUID?
+    ) -> Bool {
+        latestRequestID == request.requestID
+    }
+
+    func addressDidChange(
+        newAddress: String,
+        currentChain: Chain,
+        accounts: [EOAccount]
+    ) -> MainAuraAddressChangeResult {
+        let resolvedAccount = resolvePersistedAccount(for: newAddress, accounts: accounts)
+        let resolvedChain = resolvedAccount?.currentChain ?? currentChain
+
+        return MainAuraAddressChangeResult(
+            currentAddress: newAddress,
+            currentAccount: resolvedAccount,
+            currentChain: resolvedChain,
+            shouldResetRoutes: true,
+            shouldProcessPendingDeepLink: true
+        )
+    }
+
+    private func resolveInitialSelection(for address: String, accounts: [EOAccount]) -> (currentAddress: String, currentAccount: EOAccount?) {
+        guard !address.isEmpty else {
+            return ("", nil)
+        }
+
+        if let existingAccount = resolvePersistedAccount(for: address, accounts: accounts) {
+            return (existingAccount.address, existingAccount)
+        }
+
+        guard let fallbackAccount = fallbackAccount(in: accounts) else {
+            return ("", nil)
+        }
+
+        return (fallbackAccount.address, fallbackAccount)
+    }
+
+    private func resolvePersistedAccount(for address: String, accounts: [EOAccount]) -> EOAccount? {
+        guard !address.isEmpty else {
+            return nil
+        }
+
+        return accounts.first(where: { $0.address == address })
+    }
+
+    private func fallbackAccount(in accounts: [EOAccount]) -> EOAccount? {
+        accounts.sorted { lhs, rhs in
+            if lhs.mostRecentActivityAt != rhs.mostRecentActivityAt {
+                return lhs.mostRecentActivityAt > rhs.mostRecentActivityAt
+            }
+
+            if lhs.addedAt != rhs.addedAt {
+                return lhs.addedAt > rhs.addedAt
+            }
+
+            return lhs.address.localizedCompare(rhs.address) == .orderedAscending
+        }.first
+    }
+}

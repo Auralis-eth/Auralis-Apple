@@ -1,0 +1,136 @@
+//
+//  String.swift
+//  KickingHorse
+//
+//  Created by Daniel Bell on 8/24/24.
+//
+
+import Foundation
+import OSLog
+
+private let stringLogger = Logger(subsystem: "Auralis", category: "StringHelpers")
+
+extension String {
+    var isHexIgnorePrefix: Bool {
+        guard !isEmpty else {
+            return false
+        }
+        let updatedValue = hasPrefix("0x") ? self : "0x" + self
+        return updatedValue.isHex
+    }
+
+    var isHex: Bool {
+        range(of: #"^0x[0-9A-Fa-f]*$"#, options: .regularExpression) != nil
+    }
+}
+
+extension String {
+    var extractedEthereumAddress: String? {
+        let address = trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !address.isEmpty else { return nil }
+        let addressPattern = #"^0x[a-fA-F0-9]{40}$"#
+        if let match = address.range(of: addressPattern, options: .regularExpression) {
+            return String(address[match])
+        }
+        // If the input is a 40-character hex string without the 0x prefix, prepend it and accept.
+        let noPrefixPattern = #"^[a-fA-F0-9]{40}$"#
+        if let match = address.range(of: noPrefixPattern, options: .regularExpression) {
+            return "0x" + String(address[match])
+        }
+        return nil
+    }
+}
+
+extension String {
+    var displayAddress: String {
+        if count > 10 {
+            let start = prefix(6)
+            let end = suffix(4)
+            return "\(start)...\(end)"
+        }
+        return self
+    }
+}
+
+extension String {
+    /// Initializes a URL with a string and converts it to an IPFS gateway URL
+    /// - Parameter string: The URL string to convert
+    /// - Returns: An IPFS gateway URL or nil if conversion fails
+    func ipfsGatewayURL() -> URL? {
+        guard contains("ipfs") else {
+            return nil
+        }
+        guard !isEmpty, let url = URL(string: self) else {
+            return nil
+        }
+
+        return url.toPinataGatewayURL()
+    }
+}
+
+extension String {
+    func extractSVGData() -> String? {
+        do {
+            // Regex for UTF-8, charset, and direct SVG
+            let directRegex = try NSRegularExpression(pattern: "data:image/svg\\+xml(;charset=utf-8|;utf8)?,(<svg.*)", options: .caseInsensitive)
+            let directMatches = directRegex.matches(in: self, range: NSRange(self.startIndex..., in: self))
+            if let match = directMatches.first {
+                let svgRange = match.range(at: match.numberOfRanges - 1)
+                if svgRange.location != NSNotFound, let range = Range(svgRange, in: self) {
+                    let svg = String(self[range])
+                    // URL-decode if needed
+                    return svg.removingPercentEncoding ?? svg
+                }
+            }
+
+            // Regex for Base64
+            let base64Regex = try NSRegularExpression(pattern: "data:image/svg\\+xml;base64,(.+)", options: .caseInsensitive)
+            let base64Matches = base64Regex.matches(in: self, range: NSRange(self.startIndex..., in: self))
+            if let match = base64Matches.first, match.numberOfRanges == 2 {
+                let dataRange = match.range(at: 1)
+                if dataRange.location != NSNotFound, let range = Range(dataRange, in: self) {
+                    let base64 = String(self[range])
+                    if let data = Data(base64Encoded: base64), let svg = String(data: data, encoding: .utf8) {
+                        return svg
+                    }
+                }
+            }
+        } catch {
+            stringLogger.error("Regex error while extracting SVG data: \(error.localizedDescription, privacy: .public)")
+        }
+        return nil
+    }
+}
+
+extension String {
+    //// Function to decode a raw token URI string to a dictionary
+    var base64JSON: [String: JSONValue]? {
+        let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedValue = trimmedValue.lowercased()
+
+        guard normalizedValue.hasPrefix("data:application/json") else {
+            return nil
+        }
+
+        // Extract the base64 part from the URI
+        // Format is: data:application/json;base64,<BASE64_ENCODED_JSON>
+        guard let base64StartRange = trimmedValue.range(of: "base64,", options: .caseInsensitive) else {
+            return nil
+        }
+
+        let base64StartIndex = base64StartRange.upperBound
+        let base64String = String(trimmedValue[base64StartIndex...])
+
+        // Decode the base64 string to data
+        guard let jsonData = Data(base64Encoded: base64String.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            return nil
+        }
+
+        // Parse the JSON as dictionary
+        do {
+            return try JSONDecoder().decode([String: JSONValue].self, from: jsonData)
+        } catch {
+            return nil
+        }
+    }
+}

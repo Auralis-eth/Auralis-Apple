@@ -1,0 +1,188 @@
+import OSLog
+import SwiftUI
+
+private let modeStateLogger = Logger(subsystem: "Auralis", category: "ModeState")
+
+// MARK: - P0-601 Mode System (Observe v0)
+
+/// The global application mode. Phase 0 is locked to `.observe`.
+public enum AppMode: String, Codable, CaseIterable, Equatable {
+    case observe = "Observe"
+}
+
+/// Observable owner for the current app mode.
+/// Phase 0 persists via AppStorage and is locked to `.observe`.
+@MainActor
+public final class ModeState: ObservableObject {
+    @AppStorage private var storedModeRaw: String
+
+    /// The currently active application mode.
+    @Published public private(set) var mode: AppMode = .observe
+
+    /// Creates a mode state store and normalizes persisted values to the Phase 0 observe-only mode.
+    public init(
+        userDefaults: UserDefaults? = nil,
+        storageKey: String = "app.mode"
+    ) {
+        _storedModeRaw = AppStorage(
+            wrappedValue: AppMode.observe.rawValue,
+            storageKey,
+            store: userDefaults
+        )
+
+        // Phase 0 is hard-locked to Observe even if storage somehow contains another value.
+        storedModeRaw = AppMode.observe.rawValue
+        mode = .observe
+    }
+}
+
+// MARK: - Environment integration
+
+@MainActor
+private struct ModeStateKey: EnvironmentKey {
+    @MainActor
+    private static let mainActorDefaultValue = ModeState()
+
+    nonisolated static var defaultValue: ModeState {
+        MainActor.assumeIsolated {
+            mainActorDefaultValue
+        }
+    }
+}
+
+/// Environment accessors for reading and overriding the shared mode state.
+public extension EnvironmentValues {
+    /// The shared mode state injected into the SwiftUI environment.
+    var modeState: ModeState {
+        get { self[ModeStateKey.self] }
+        set { self[ModeStateKey.self] = newValue }
+    }
+}
+
+/// Convenience helpers for installing mode state into SwiftUI view hierarchies.
+public extension View {
+    /// Injects a shared ModeState into the environment.
+    func modeState(_ state: ModeState) -> some View {
+        environment(\.modeState, state)
+    }
+}
+
+// MARK: - Receipt augmentation helper (Phase 0)
+
+/// Lightweight helper for attaching the current mode to receipt-like payloads.
+public struct ModeReceiptAugmentor {
+    /// Returns a copy of the payload dictionary with the current app mode attached.
+    @MainActor
+    public static func attachMode(to dict: [String: Any], modeState: ModeState) -> [String: Any] {
+        var out = dict
+        out["mode"] = modeState.mode.rawValue
+        return out
+    }
+}
+
+// MARK: - Policy gate (Phase 0)
+
+enum PolicyControlledAction: String, CaseIterable, Sendable {
+    case signMessage = "sign_message"
+    case approveSpending = "approve_spending"
+    case draftTransaction = "draft_transaction"
+    case runPlugin = "run_plugin"
+
+    var title: String {
+        switch self {
+        case .signMessage:
+            return "Sign Message"
+        case .approveSpending:
+            return "Approve Spending"
+        case .draftTransaction:
+            return "Draft Transaction"
+        case .runPlugin:
+            return "Run Plugin"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .signMessage:
+            return "Signing messages is not available in Observe mode."
+        case .approveSpending:
+            return "Token approvals are not available in Observe mode."
+        case .draftTransaction:
+            return "Transaction drafting is not available in Observe mode."
+        case .runPlugin:
+            return "Tool and plugin execution remains available in Observe mode."
+        }
+    }
+
+    var isBlockedInObserveMode: Bool {
+        switch self {
+        case .signMessage, .approveSpending, .draftTransaction:
+            return true
+        case .runPlugin:
+            return false
+        }
+    }
+}
+
+struct PolicyGateResult: Equatable, Sendable {
+    let isAllowed: Bool
+    let userMessage: String
+}
+
+/// Applies the current action policy and records denied execution-style behavior.
+@MainActor
+enum ActionPolicyGate {
+    static func attempt(
+        _ action: PolicyControlledAction,
+        modeState: ModeState,
+        receiptStore: any ReceiptStore,
+        payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer(),
+        log: @escaping (String) -> Void = { modeStateLogger.notice("\($0, privacy: .public)") }
+    ) async -> PolicyGateResult {
+        guard modeState.mode == .observe, action.isBlockedInObserveMode else {
+            return PolicyGateResult(isAllowed: true, userMessage: "")
+        }
+
+        let userMessage = "Not available in Observe mode"
+        log("Policy denied: \(action.rawValue)")
+
+        let payload = payloadSanitizer.sanitize(
+            PolicyDeniedReceiptPayload(
+                action: action.rawValue,
+                userMessage: userMessage
+            ).rawPayload
+        )
+
+        do {
+            _ = try await receiptStore.append(
+                ReceiptDraft(
+                    actor: .user,
+                    mode: .observe,
+                    trigger: "policy.denied",
+                    scope: "policy",
+                    summary: action.summary,
+                    provenance: "policy",
+                    isSuccess: false,
+                    details: payload
+                )
+            )
+        } catch {
+            log("Policy denial receipt append failed: \(error.localizedDescription)")
+        }
+
+        return PolicyGateResult(isAllowed: false, userMessage: userMessage)
+    }
+}
+
+private struct PolicyDeniedReceiptPayload: TypedReceiptPayload {
+    let action: String
+    let userMessage: String
+
+    var fields: [ReceiptPayloadField] {
+        [
+            .public("action", string: action, kind: .label),
+            .bool("policy_denied", true),
+            .redacted("message", string: userMessage, kind: .freeformText)
+        ]
+    }
+}
