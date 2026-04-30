@@ -21,3 +21,25 @@ opt_in_rules:
   - first_where
   - sorted_imports
   - toggle_bool
+
+custom_rules:
+  auraplay_no_print:
+    name: "AuraPlay No Print"
+    included: "Auralis/MusicApp/AuraPlay"
+    regex: "\\bprint\\s*\\("
+    message: "Use AuraPlayLogging instead of print() inside AuraPlay."
+    severity: error
+
+  auraplay_no_audioengine_shared:
+    name: "AuraPlay No Global AudioEngine"
+    included: "Auralis/MusicApp/AuraPlay"
+    regex: "AudioEngine\\.shared"
+    message: "Inject playback dependencies instead of reaching for a global AudioEngine."
+    severity: error
+
+  auraplay_ticketed_todo:
+    name: "AuraPlay Ticketed TODO"
+    included: "Auralis/MusicApp/AuraPlay"
+    regex: "TODO(?!\\[[A-Z0-9-]+\\])"
+    message: "AuraPlay TODOs must include a ticket reference like TODO[P1-012]."
+    severity: warning

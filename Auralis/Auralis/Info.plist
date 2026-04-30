@@ -4,6 +4,25 @@
 <dict>
 	<key>AURALIS_ALCHEMY_API_KEY</key>
 	<string>$(AURALIS_ALCHEMY_API_KEY)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.auralis.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>auralis</string>
+				<string>auraplay</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>metamask</string>
+		<string>cbwallet</string>
+		<string>rainbow</string>
+		<string>ledgerlive</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Auralis uses the camera to scan Ethereum wallet QR codes and capture playlist cover art.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

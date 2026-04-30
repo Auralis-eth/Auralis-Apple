@@ -1,0 +1,35 @@
+name: Auralis CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  lint-build-test:
+    runs-on: macos-15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Resolve package dependencies
+        run: xcodebuild -resolvePackageDependencies -project Auralis.xcodeproj -scheme Auralis
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint lint --config .swiftlint.yml
+
+      - name: Build Auralis
+        run: xcodebuild build -project Auralis.xcodeproj -scheme Auralis -destination "generic/platform=iOS"
+
+      - name: Run unit tests
+        run: xcodebuild test -project Auralis.xcodeproj -scheme Auralis -destination "platform=iOS Simulator,name=iPhone 16"

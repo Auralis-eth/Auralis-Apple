@@ -53,6 +53,35 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+### AuraPlay Phase 1: The Blueprint Matters Before the Bricks
+
+This planning pass looked simple on paper: take the AuraPlay Phase 1 ticket list and turn it into work. The catch was that the ticket set describes a brand-new app with a brand-new identity, while the actual workspace is an established Auralis repository with its own history, architecture, and shipping concerns. In other words, the blueprint arrived for a clean lot, and the lot already has a house on it.
+
+- The first important decision was to stop pretending that "single initial commit" or "empty intentional project" acceptance criteria could be literally true inside this repo. That is not pessimism; that is engineering honesty. A plan that ignores repository reality is just a future bug report wearing business clothes.
+- The resulting strategy treats the repo boundary as the first architectural question, not an administrative afterthought. Should AuraPlay be a separate repo, a new target in this repo, or merely a conceptual retrofit of Auralis? That answer changes the meaning of nearly every P0 ticket.
+- We also locked the sequence around the real choke point: architecture selection. DI, logging, test ergonomics, and service wiring all want to know whether the app is going TCA or native `@Observable` first. Trying to "just start the project" without that decision is how foundation work turns into a partial rewrite by ticket four.
+
+The useful lesson is very senior-engineer flavored: before you write the first line of "implementation," make sure the physical reality of the repository matches the story the phase plan is telling. Otherwise you are not building a foundation. You are pouring concrete in somebody else's driveway.
+
+That said, the product direction got sharper after the first draft: AuraPlay is not a separate app after all. It is the full rebuild of the existing Music tab inside Auralis, and it is allowed to share code with the rest of the app. That changes the plan substantially:
+
+- the right move is not "bootstrap a new app," it is "create a clean module boundary for a music rebuild inside the current app"
+- the architecture question is settled up front: native SwiftUI plus `@Observable`, no TCA detour, no framework beauty pageant
+- the migration risk shifts from repo bootstrapping to ownership discipline, especially around the existing audio engine and the `MusicApp/AI/` surfaces that are already live
+
+The better analogy is no longer "build a house on an empty lot." It is "renovate the nightclub without turning the music off mid-set." You keep the shared plumbing, electricity, and exits that already work, but you still need a disciplined plan for which room gets rebuilt first and which wires nobody is allowed to cut casually.
+
+### The App Contract Still Counts When the Feature Has Barely Started
+
+This pass was configuration work, which means it was exactly the kind of work people postpone until App Review turns into a hostage situation.
+
+- `Info.plist` already had background audio enabled, which is the glamorous part everybody remembers because it sounds like a feature. The missing pieces were the quieter contract items: a motion-usage string for the eventual run-detection story, wallet callback URL schemes, and the list of wallet apps we intend to probe with `canOpenURL`. That list matters because iOS treats undeclared probes like a bouncer treats fake IDs.
+- The deep-link setup had an extra wrinkle: the codebase already speaks `auralis://` internally for app routing tests, while the wallet-pairing requirement wanted `auraplay://`. Instead of forcing those two worlds to duel at dawn, the bundle now declares both schemes. Product routing keeps its current language, and wallet callbacks get the scheme they asked for.
+- The CarPlay entitlement was the other silent footgun. An empty entitlements file looks harmless right up until device builds or future capabilities expect a real key and find a blank stare instead. We added the audio entitlement now so later CarPlay work starts from an honest target contract instead of a paper shell.
+- There was also no seam for testing `canOpenURL` behavior without dragging `UIApplication.shared` directly into unit tests. The fix was a tiny protocol-backed probe type. Nothing fancy, just enough abstraction to let a mock app answer “yes, MetaMask is installed” or “no, Ledger Live is not” without turning a simple availability check into global-state theater.
+
+The lesson is boring and very real: product capabilities live partly in code and partly in the bundle contract around the code. If those drift apart, the app can look fine in the simulator right up until the OS, device, or App Review reads the paperwork more carefully than we did.
+
 ### ENS Trust Boundaries and Corrupt Chain Data
 
 This was a "the app is being polite while doing the wrong thing" class of bug, which is often nastier than an obvious crash.
@@ -530,6 +559,27 @@ The repair was deliberately small. The tests now ask the same question the app a
 
 The lesson is worth keeping: freshness and cache timestamps almost always start life as one innocent value and later become scope-dependent. When that happens, tests should be updated to mirror the real lookup contract immediately, or they become fossilized documentation for an API the app no longer has.
 
+## 2025-04-29 AuraPlay Phase 1: Building The Stage Before Moving The Band
+
+AuraPlay finally stopped being a hopeful folder name and started behaving like a real module boundary.
+
+- The first win was structural honesty. The Music tab now routes through an AuraPlay swap seam with a dedicated `Core`, `Domain`, `Services`, and `Presentation` layout under `Auralis/MusicApp/AuraPlay/`. That matters because rebuilds go sideways when “temporary” files all squat in `App/` and quietly become architecture.
+- The second win was dependency discipline. The AuraPlay root no longer knows just about a library repository and playback controller. It now receives queue, artwork, logging, and bundle-configuration seams too. Think of it like replacing a garage full of extension cords with a real breaker panel: each circuit now has a labeled place to plug in, and tests can swap components without touching the live audio engine.
+- The third win was paperwork honesty. We removed a motion privacy string that described a feature the repo does not actually implement, then wrote source-backed tests for the Info.plist and privacy manifest. This is exactly the kind of thing that saves you from an App Review conversation that starts with “why does your app claim to do this?”
+- We also added the repo-level contracts that keep future AuraPlay work from backsliding quietly: SwiftLint guardrails for `print()` and global audio-engine access inside the module, plus a GitHub Actions workflow that resolves packages, runs SwiftLint, builds the app, and runs tests.
+
+The useful engineering lesson here is that a feature rebuild needs two kinds of scaffolding. The visible kind is folders, models, and views. The invisible kind is contracts: privacy declarations, lint rules, CI checks, and a short architecture note that tells future engineers which walls are load-bearing. Skip the second kind and the first kind eventually turns into a haunted house.
+
+## 2025-04-29 AuraPlay Docs Stop Pretending To Be A Ticket Graveyard
+
+One last cleanup pass turned the AuraPlay Phase 1 plan from a historical ticket ledger into something future humans can actually use.
+
+- The old plan file had done its job. It explained how to translate a greenfield-style ticket stack into this repo, but once the foundation work landed, the remaining value was no longer “which ticket was P1-006?” It was “what is still incomplete, how do I QA this on a phone, what does good look like, and how does Phase 2 start without stepping on a rake?”
+- So the doc set got split into the same kind of retained-artifact pattern already used for Phase 0. Instead of one big markdown sandwich with stale acceptance criteria, AuraPlay now has dedicated docs for future work, physical-device QA, UI/design audit, Phase 2 handoff, and a compact LLM context file.
+- This is one of those boring-sounding senior-engineer moves that pays off disproportionally. Good documentation is not just “more writing.” It is reducing the amount of archaeology the next person has to perform before they can make one safe change.
+
+The useful lesson: planning docs and memory docs are not the same species. A planning doc is scaffolding while a feature is being built. A memory doc is the map you keep after the scaffolding comes down.
+
 Another pair of failures turned out to be a nice split-screen of “real product bug” versus “test harness bug.”
 
 On the product side, `ContextService` was correctly returning a resolved snapshot for a losing refresh generation during a race, but it only emitted `context.built` receipts for the winner. That meant one caller got a real result and zero audit breadcrumb, which is exactly the kind of observability gap that makes concurrency bugs feel paranormal. The fix was to log the receipt for every resolved refresh result while still keeping only the winning generation as the persisted live snapshot.
@@ -728,3 +778,18 @@ This pass was about two different kinds of honesty: not leaking internal config 
 - We also checked the password-store escape hatch. `PasswordStores.test(...)` had no production call sites, so the fix there was prevention: make the plaintext `UserDefaults` store debug-only and say plainly in code that it is test-only.
 
 The useful lesson: pre-ship hardening is often less about adding features and more about removing quiet lies. A release build should not narrate its secret wiring, and concurrency annotations should describe the real ownership model instead of suppressing the compiler until launch day.
+
+## 2025-02-14 Signing Failure From A Ghost Capability
+
+This one was not a Swift bug at all. The project was failing before compilation really mattered because the target still advertised `com.apple.developer.carplay-audio` in `Auralis.entitlements`, and the current signing setup could not provision that capability.
+
+That kind of issue is sneaky because it looks like “the app does not build,” but the real problem is more like showing up at airport security with paperwork for a trip you are not actually taking. Xcode tries to provision the entitlement, cannot find a valid profile path for it, and the whole build stops at the gate.
+
+The fix was deliberately small:
+
+- remove the unsupported CarPlay audio entitlement from `Auralis.entitlements`
+- rebuild immediately to confirm the failure was contractual, not source-level
+
+After that, the project built cleanly again.
+
+The lesson: entitlements are part of the product contract, not harmless metadata. If the app is not actively using a capability, leaving the key around is just inviting signing trouble later.

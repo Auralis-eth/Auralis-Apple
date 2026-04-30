@@ -21,6 +21,8 @@ struct MainTabView: View {
     @State private var pinnedItemCount: Int
     @State private var showContextInspector = false
 
+    private let auraPlayMigrationStage: AuraPlayMigrationStage = .phase1Foundation
+
     private var currentAccount: EOAccount? {
         resolveCurrentAccount()
     }
@@ -296,7 +298,8 @@ struct MainTabView: View {
                     Group {
                         if let audioEngine {
                             VStack {
-                                NFTMusicPlayerApp(
+                                AuraPlayTabRootView(
+                                    stage: auraPlayMigrationStage,
                                     audioEngine: audioEngine,
                                     currentAccount: currentAccount,
                                     currentChain: currentChain,
