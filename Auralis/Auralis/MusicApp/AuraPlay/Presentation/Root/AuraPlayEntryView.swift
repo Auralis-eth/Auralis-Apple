@@ -87,7 +87,7 @@ final class AuraPlayRootModel {
             AuraPlayLogEvent(
                 category: .library,
                 level: .info,
-                message: "Refreshing AuraPlay library summary for \(scope.accountAddress ?? "no-account") on \(scope.chain.rawValue)"
+                message: "Refreshing AuraPlay library summary for \(scope.accountAddress == nil ? "no active account" : "active account") on \(scope.chain.rawValue)"
             )
         )
 

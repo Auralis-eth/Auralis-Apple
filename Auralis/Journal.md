@@ -803,3 +803,17 @@ The fix was deliberately small:
 After that, the project built cleanly again.
 
 The lesson: entitlements are part of the product contract, not harmless metadata. If the app is not actively using a capability, leaving the key around is just inviting signing trouble later.
+
+## 2025-02-14 AuraPlay Logging Privacy Fix
+
+This one was a small diff with a very real blast radius. `AuraPlayEntryView` was logging library refreshes with the active wallet address interpolated directly into the message. That is the sort of thing that feels harmless during development and then becomes embarrassing the moment a production log export exists.
+
+The fix stayed narrow on purpose:
+
+- keep the refresh log, because “did the library refresh path run?” is still useful operationally
+- remove the raw account address from the message
+- replace it with coarse state only: either there is an active account or there is not
+
+In plain English, we kept the breadcrumb and stopped leaving the user's house key next to it.
+
+The lesson: privacy bugs are often not giant crypto failures. Sometimes they are just a well-meaning debug sentence that knows too much.

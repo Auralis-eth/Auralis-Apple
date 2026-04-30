@@ -31,14 +31,14 @@ Why:
 2. Move collection and item-detail presentation into AuraPlay.
 3. Promote queue state from simple snapshots to a richer contract.
 4. Migrate mini player and Now Playing only after the previous steps are stable.
-5. Remove dead `AI/V1` code only after parity is proven on device.
+5. Remove dead `AI/V1` code only after Phase 2 is complete and parity is proven on device.
 
 ## Guardrails
 
 - do not add a second router
 - do not let leaf views access `AudioEngine` directly
 - do not over-abstract before the next real screen exists
-- do not remove the legacy path until the new path has physical-device confidence
+- do not remove the legacy path until Phase 2 is complete and the new path has physical-device confidence
 - do not confuse “builds cleanly” with “lifecycle-safe”
 
 ## Validation Rules For Phase 2

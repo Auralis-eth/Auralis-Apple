@@ -1,27 +1,19 @@
 # Changelog
 
+All notable product-facing and ship-relevant changes should be recorded here.
+
 ## Unreleased
 
-### Shipped
-- Aura shell flow with gateway, loading, and main tab routing.
-- Wallet-scoped NFT refresh and SwiftData persistence.
-- Home, News Feed, Gas, Music, Search, Receipts, and Settings surfaces.
-- Guest pass onboarding, account switching, and chain-scoped browsing.
-- Deep-link parsing and routed error presentation.
-- Shared audio engine with mini-player and music detail flows.
+### Added
+- Introduced the `AuraPlay` module foundation as the rebuild seam for the Music tab, with explicit composition, dependency, logging, library, playback, queue, artwork, and bundle-configuration boundaries.
+- Added CI and lint guardrails for AuraPlay module work.
+- Added source-backed contract tests for privacy-manifest and bundle metadata expectations around AuraPlay.
+- Added documentation artifacts for AuraPlay architecture, Phase 2 handoff, future work, device QA, and UI audit.
 
-### Notable Fixes
-- Added provider-failure presentation paths so cached NFT content can remain visible during degraded refresh states.
-- Hardened shell routing around pending deep links, account switches, and route reset behavior.
-- Added broader unit coverage across router, search, receipts, shell logic, provider boundaries, and URL helpers.
+### Changed
+- Routed the Music tab through `AuraPlayTabRootView`, which now acts as the migration seam between the legacy implementation and the new AuraPlay path.
+- Updated app configuration and metadata to support the new AuraPlay migration work and wallet-app integration requirements.
 
-### Known Limitations
-- Some tabs and feature areas are still scaffold-level and not equally mature.
-- Receipt routing is intentionally safe-fail; full receipt support is still incomplete.
-- Some oversized files, especially `Auralis/Auralis/DataModels/NFT.swift`, still carry too many responsibilities.
-
-### Deferred Nice-to-Haves
-- Break up oversized model and shell files into narrower responsibilities.
-- Expand placeholder surfaces into fully productized flows.
-- Add broader manual QA and release hardening coverage for physical-device edge cases.
-- Continue follow-on architecture cleanup for persistence, routing, and library presentation boundaries.
+### Planned
+- The legacy music implementation under `Auralis/MusicApp/AI/V1/` remains in place during Phase 2 migration work.
+- Legacy music code is intended to be removed only after Phase 2 is complete and feature parity is proven.

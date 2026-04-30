@@ -7,7 +7,7 @@ AuraPlay Phase 1 built the stage, not the full show. This file tracks the work t
 1. Migrate one user-facing music surface at a time into AuraPlay.
 2. Prove playback and queue lifecycle behavior on physical devices before broadening scope.
 3. Deepen test execution confidence so the module is not relying on build-only validation.
-4. Remove the legacy `AI/V1` path only after parity is real, not aspirational.
+4. Remove the legacy `AI/V1` path only after Phase 2 is complete and parity is real, not aspirational.
 
 ## Highest-Value Incomplete Work
 
@@ -93,6 +93,7 @@ Likely follow-on:
 - do not let leaf views talk straight to `AudioEngine` because it is convenient
 - do not create a second navigation store inside AuraPlay
 - do not remove `AI/V1` code just because the new root compiles
+- do not delete the legacy music path before Phase 2 migration is complete
 
 ## Suggested Next Sprint
 
