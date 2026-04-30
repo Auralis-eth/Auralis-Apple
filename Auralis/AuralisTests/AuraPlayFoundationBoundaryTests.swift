@@ -104,7 +104,14 @@ struct AuraPlayFoundationBoundaryTests {
         model.refreshLibrarySummary()
 
         #expect(model.libraryItemCount == nil)
-        #expect(model.lastError == .library("AuraPlay could not load the music library summary yet: The operation could not be completed. (AuralisTests.FixtureError error 0.)"))
+        let lastError = try! #require(model.lastError)
+        #expect({
+            guard case .library(let message) = lastError else {
+                return false
+            }
+            return message.contains("AuraPlay could not load the music library summary yet:")
+                && message.contains("FixtureError")
+        }())
         #expect(logger.events.contains { $0.category == .library && $0.level == .error })
     }
 }

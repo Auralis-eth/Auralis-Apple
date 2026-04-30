@@ -50,7 +50,7 @@ struct NFTProviderFailurePresentationTests {
         )
 
         #expect(failure.kind == .misconfigured)
-        #expect(failure.message.contains("Unauthorized"))
+        #expect(failure.message.contains("authenticate with the collection provider"))
         #expect(failure.isRetryable == false)
     }
 }

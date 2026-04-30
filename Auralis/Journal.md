@@ -53,6 +53,16 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+### Swift Testing Meets MainActor and Throws a Chair
+
+This was a classic Swift 6 test-target failure where the app code was innocent and the tests were the ones walking into traffic.
+
+- `ModeState` is correctly `@MainActor` because it owns UI-facing observable state and `@AppStorage` plumbing. `ModeReceiptAugmentor.attachMode(...)` is also `@MainActor` because it reads that same shared state.
+- `ModeStateTests` was still written as a plain nonisolated suite, which used to feel harmless and now gets you a compiler lecture. The result was a test build that never reached execution because the suite was calling a main-actor initializer and reading a main-actor property from the wrong context.
+- The fix was intentionally small: move the suite onto `@MainActor` instead of watering down the production annotations. That keeps the app contract honest and makes the tests state their threading expectations explicitly.
+
+The memorable lesson: when Swift Testing starts vomiting macro noise and “nothing ran,” do not immediately blame the framework. Sometimes the test suite just forgot which actor owns the room.
+
 ### AuraPlay Phase 1: The Blueprint Matters Before the Bricks
 
 This planning pass looked simple on paper: take the AuraPlay Phase 1 ticket list and turn it into work. The catch was that the ticket set describes a brand-new app with a brand-new identity, while the actual workspace is an established Auralis repository with its own history, architecture, and shipping concerns. In other words, the blueprint arrived for a clean lot, and the lot already has a house on it.

@@ -5,6 +5,12 @@ import Testing
 
 @Suite
 struct ENSResolutionServiceTests {
+    private func makeTestDate(
+        offsetFromNow: TimeInterval = 0
+    ) -> Date {
+        Date().addingTimeInterval(offsetFromNow)
+    }
+
     @MainActor
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([StoredReceipt.self])
@@ -52,9 +58,10 @@ struct ENSResolutionServiceTests {
         let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.cache.\(UUID().uuidString)")!
         let cacheStore = ENSResolutionCacheStore(
             userDefaults: defaults,
-            storageKey: "forwardResolutionUsesFreshCache"
+            storageKey: "forwardResolutionUsesFreshCache",
+            retentionTTL: 60 * 60 * 24
         )
-        let clock = MutableDateBox(Date(timeIntervalSince1970: 1_000))
+        let clock = MutableDateBox(makeTestDate())
 
         let resolver = Web3EthereumNameServiceResolver(
             client: client,
@@ -65,7 +72,7 @@ struct ENSResolutionServiceTests {
 
         let first = try await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "first")
         await client.setForwardResult(.failure(StubClientError.lookupFailed), for: "vitalik.eth")
-        clock.value = Date(timeIntervalSince1970: 1_100)
+        clock.value = makeTestDate(offsetFromNow: 100)
         let second = try await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "second")
 
         #expect(first.provenance == .network)
@@ -85,9 +92,10 @@ struct ENSResolutionServiceTests {
         let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.stale.\(UUID().uuidString)")!
         let cacheStore = ENSResolutionCacheStore(
             userDefaults: defaults,
-            storageKey: "forwardResolutionFallsBackToStaleCache"
+            storageKey: "forwardResolutionFallsBackToStaleCache",
+            retentionTTL: 60 * 60 * 24
         )
-        let clock = MutableDateBox(Date(timeIntervalSince1970: 1_000))
+        let clock = MutableDateBox(makeTestDate())
 
         let resolver = Web3EthereumNameServiceResolver(
             client: client,
@@ -98,7 +106,7 @@ struct ENSResolutionServiceTests {
 
         _ = try await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "first")
         await client.setForwardResult(.failure(StubClientError.lookupFailed), for: "vitalik.eth")
-        clock.value = Date(timeIntervalSince1970: 1_200)
+        clock.value = makeTestDate(offsetFromNow: 200)
         let stale = try await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "second")
 
         #expect(stale.provenance == .staleCache)
@@ -170,9 +178,10 @@ struct ENSResolutionServiceTests {
         let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.mapping.\(UUID().uuidString)")!
         let cacheStore = ENSResolutionCacheStore(
             userDefaults: defaults,
-            storageKey: "forwardResolutionSurfacesMappingChanges"
+            storageKey: "forwardResolutionSurfacesMappingChanges",
+            retentionTTL: 60 * 60 * 24
         )
-        let clock = MutableDateBox(Date(timeIntervalSince1970: 1_000))
+        let clock = MutableDateBox(makeTestDate())
         let resolver = Web3EthereumNameServiceResolver(
             client: client,
             cacheStore: cacheStore,
@@ -186,7 +195,7 @@ struct ENSResolutionServiceTests {
             .success("0x9999999999999999999999999999999999999999"),
             for: "vitalik.eth"
         )
-        clock.value = Date(timeIntervalSince1970: 1_200)
+        clock.value = makeTestDate(offsetFromNow: 200)
 
         await #expect(throws: ENSResolutionError.mappingChanged(
             ensName: "vitalik.eth",
@@ -208,7 +217,16 @@ struct ENSResolutionServiceTests {
             for: "vitalik.eth"
         )
 
-        let resolver = Web3EthereumNameServiceResolver(client: client)
+        let resolver = Web3EthereumNameServiceResolver(
+            client: client,
+            cacheStore: ENSResolutionCacheStore(
+                userDefaults: UserDefaults(
+                    suiteName: "ENSResolutionServiceTests.offchain.\(UUID().uuidString)"
+                )!,
+                storageKey: "offchain",
+                retentionTTL: 60 * 60 * 24
+            )
+        )
         let resolution = try await resolver.resolveAddress(forENS: "vitalik.eth", correlationID: "offchain")
 
         #expect(resolution.provenance == .networkOffchainLookupAllowed)
@@ -238,7 +256,7 @@ struct ENSResolutionServiceTests {
             ENSForwardCacheEntry(
                 ensName: "vitalik.eth",
                 address: "0x1234567890abcdef1234567890abcdef12345678",
-                fetchedAt: Date(timeIntervalSince1970: 1_000)
+                fetchedAt: makeTestDate()
             )
         )
 

@@ -2,6 +2,7 @@
 import Foundation
 import Testing
 
+@MainActor
 @Suite
 struct ModeStateTests {
     @Test("mode state always restores observe mode and overwrites stale storage")
