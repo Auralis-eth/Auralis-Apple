@@ -19,6 +19,7 @@ struct AuraPlayCompositionRoot: View {
         _model = State(
             initialValue: AuraPlayRootModel(
                 libraryRepository: dependencies.libraryRepository,
+                librarySyncService: dependencies.librarySyncService,
                 playbackController: dependencies.playbackController,
                 queueCoordinator: dependencies.queueCoordinator,
                 artworkLoader: dependencies.artworkLoader,

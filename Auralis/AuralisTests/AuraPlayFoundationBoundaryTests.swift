@@ -6,8 +6,9 @@ import Testing
 @MainActor
 struct AuraPlayFoundationBoundaryTests {
     @Test("root model refreshes the library summary for the active wallet scope")
-    func rootModelRefreshesSummaryForActiveScope() {
+    func rootModelRefreshesSummaryForActiveScope() async {
         let repository = MockAuraPlayLibraryRepository(itemCount: 12)
+        let librarySyncService = NoOpAuraPlayLibrarySyncService()
         let playbackController = MockAuraPlayPlaybackController()
         let queueCoordinator = MockAuraPlayQueueCoordinator()
         let artworkLoader = MockAuraPlayArtworkLoader()
@@ -18,6 +19,7 @@ struct AuraPlayFoundationBoundaryTests {
         )
         let model = AuraPlayRootModel(
             libraryRepository: repository,
+            librarySyncService: librarySyncService,
             playbackController: playbackController,
             queueCoordinator: queueCoordinator,
             artworkLoader: artworkLoader,
@@ -27,7 +29,7 @@ struct AuraPlayFoundationBoundaryTests {
             currentChain: .ethMainnet
         )
 
-        model.refreshLibrarySummary()
+        await model.refreshLibrarySummary()
 
         #expect(model.libraryItemCount == 12)
         #expect(
@@ -45,8 +47,9 @@ struct AuraPlayFoundationBoundaryTests {
     }
 
     @Test("root model updates wallet scope when the shell selection changes")
-    func rootModelUpdatesWalletScope() {
+    func rootModelUpdatesWalletScope() async {
         let repository = MockAuraPlayLibraryRepository(itemCount: 3)
+        let librarySyncService = NoOpAuraPlayLibrarySyncService()
         let playbackController = MockAuraPlayPlaybackController()
         let queueCoordinator = MockAuraPlayQueueCoordinator()
         let artworkLoader = MockAuraPlayArtworkLoader()
@@ -61,6 +64,7 @@ struct AuraPlayFoundationBoundaryTests {
         )
         let model = AuraPlayRootModel(
             libraryRepository: repository,
+            librarySyncService: librarySyncService,
             playbackController: playbackController,
             queueCoordinator: queueCoordinator,
             artworkLoader: artworkLoader,
@@ -71,7 +75,7 @@ struct AuraPlayFoundationBoundaryTests {
         )
 
         model.updateContext(currentAccount: nextAccount, currentChain: .baseMainnet)
-        model.refreshLibrarySummary()
+        await model.refreshLibrarySummary()
 
         #expect(model.currentAccount?.address == nextAccount.address)
         #expect(model.currentChain == .baseMainnet)
@@ -84,14 +88,16 @@ struct AuraPlayFoundationBoundaryTests {
     }
 
     @Test("root model maps repository failures into AuraPlay domain errors and logs them")
-    func rootModelMapsRepositoryFailures() {
+    func rootModelMapsRepositoryFailures() async throws {
         let repository = MockAuraPlayLibraryRepository(error: FixtureError.libraryFailure)
+        let librarySyncService = NoOpAuraPlayLibrarySyncService()
         let playbackController = MockAuraPlayPlaybackController()
         let queueCoordinator = MockAuraPlayQueueCoordinator()
         let artworkLoader = MockAuraPlayArtworkLoader()
         let logger = MockAuraPlayLogger()
         let model = AuraPlayRootModel(
             libraryRepository: repository,
+            librarySyncService: librarySyncService,
             playbackController: playbackController,
             queueCoordinator: queueCoordinator,
             artworkLoader: artworkLoader,
@@ -101,10 +107,10 @@ struct AuraPlayFoundationBoundaryTests {
             currentChain: .ethMainnet
         )
 
-        model.refreshLibrarySummary()
+        await model.refreshLibrarySummary()
 
         #expect(model.libraryItemCount == nil)
-        let lastError = try! #require(model.lastError)
+        let lastError = try #require(model.lastError)
         #expect({
             guard case .library(let message) = lastError else {
                 return false
@@ -182,7 +188,7 @@ private final class MockAuraPlayQueueCoordinator: AuraPlayQueueCoordinating {
 @MainActor
 private final class MockAuraPlayArtworkLoader: AuraPlayArtworkLoading {
     func artworkURL(for track: AudioEngine.Track?) throws -> URL? {
-        try #require(track?.imageUrl)
+        _ = try #require(track?.imageUrl)
         return URL(string: track?.imageUrl ?? "")
     }
 }

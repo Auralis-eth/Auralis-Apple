@@ -1,7 +1,7 @@
 import Foundation
 
-/// Development-stage switch between the legacy music experience and the new AuraPlay foundation root.
+/// Development-stage switch between the legacy music experience and the current AuraPlay migration surface.
 enum AuraPlayMigrationStage {
     case legacy
-    case phase1Foundation
+    case phase2Persistence
 }

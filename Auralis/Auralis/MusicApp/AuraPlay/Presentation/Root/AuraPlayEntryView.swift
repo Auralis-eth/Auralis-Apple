@@ -1,12 +1,15 @@
 import Observation
 import SwiftUI
 
-/// Root presentation model for the AuraPlay Phase 1 foundation.
+/// Root presentation model for the active AuraPlay Phase 2 persistence seam.
 @Observable
 @MainActor
 final class AuraPlayRootModel {
     @ObservationIgnored
     let libraryRepository: any AuraPlayLibraryRepository
+
+    @ObservationIgnored
+    let librarySyncService: any AuraPlayLibrarySyncing
 
     @ObservationIgnored
     let playbackController: any AuraPlayPlaybackControlling
@@ -36,6 +39,7 @@ final class AuraPlayRootModel {
 
     init(
         libraryRepository: any AuraPlayLibraryRepository,
+        librarySyncService: any AuraPlayLibrarySyncing,
         playbackController: any AuraPlayPlaybackControlling,
         queueCoordinator: any AuraPlayQueueCoordinating,
         artworkLoader: any AuraPlayArtworkLoading,
@@ -45,6 +49,7 @@ final class AuraPlayRootModel {
         currentChain: Chain
     ) {
         self.libraryRepository = libraryRepository
+        self.librarySyncService = librarySyncService
         self.playbackController = playbackController
         self.queueCoordinator = queueCoordinator
         self.artworkLoader = artworkLoader
@@ -56,7 +61,7 @@ final class AuraPlayRootModel {
         self.playbackHistoryCount = 0
         self.currentArtworkURL = nil
         self.configurationStatus = Self.makeConfigurationStatus(configuration)
-        self.statusMessage = "AuraPlay Phase 1 foundation is wired. Library and playback dependencies now enter through explicit seams."
+        self.statusMessage = "AuraPlay Phase 2 persistence is wired. Wallet-scoped media now syncs into the AuraPlay store through explicit seams."
     }
 
     var scope: AuraPlayLibraryScope {
@@ -82,7 +87,7 @@ final class AuraPlayRootModel {
         configurationStatus = Self.makeConfigurationStatus(configuration)
     }
 
-    func refreshLibrarySummary() {
+    func refreshLibrarySummary() async {
         logger.log(
             AuraPlayLogEvent(
                 category: .library,
@@ -92,12 +97,16 @@ final class AuraPlayRootModel {
         )
 
         do {
+            try await librarySyncService.syncLibrary(
+                in: scope,
+                accountName: currentAccount?.name
+            )
             libraryItemCount = try libraryRepository.itemCount(in: scope)
             lastError = nil
         } catch {
             libraryItemCount = nil
             lastError = AuraPlayError.library(error)
-            statusMessage = "AuraPlay foundation is active, but the library summary could not be loaded yet."
+            statusMessage = "AuraPlay persistence is active, but the library summary could not be loaded yet."
             logger.log(
                 AuraPlayLogEvent(
                     category: .library,
@@ -139,9 +148,9 @@ final class AuraPlayRootModel {
         if let lastError {
             statusMessage = lastError.localizedDescription
         } else if configuration.missingRequirements.isEmpty {
-            statusMessage = "AuraPlay Phase 1 foundation is wired. Library, playback, queue, artwork, and config seams now enter through explicit dependencies."
+            statusMessage = "AuraPlay Phase 2 persistence is wired. Library, playback, queue, artwork, config, and SwiftData seams now enter through explicit dependencies."
         } else {
-            statusMessage = "AuraPlay foundation is active, but the bundle contract still needs attention."
+            statusMessage = "AuraPlay persistence is active, but the bundle contract still needs attention."
         }
     }
 
@@ -162,8 +171,8 @@ struct AuraPlayEntryView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     AuraPill("AuraPlay", systemImage: "waveform.circle", emphasis: .accent)
                     AuraSectionHeader(
-                        title: "Music Rebuild In Progress",
-                        subtitle: "This root is the migration seam for the rebuilt music experience."
+                        title: "AuraPlay Persistence Live",
+                        subtitle: "This root is the migration seam for the wallet-scoped persisted library."
                     )
                 }
 
@@ -198,7 +207,7 @@ struct AuraPlayEntryView: View {
                 }
 
                 AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 18) {
-                    Text("Next migration step: move the Library surface onto these seams before touching Now Playing or queue orchestration.")
+                    Text("Known later-phase work stays deferred here: search, playlists, durable playback history, and deterministic integration fixtures.")
                         .font(.footnote)
                         .foregroundStyle(Color.textSecondary)
                 }
@@ -210,7 +219,7 @@ struct AuraPlayEntryView: View {
         .task(
             id: "\(model.currentAccount?.address ?? "none")|\(model.currentChain.rawValue)"
         ) {
-            model.refreshLibrarySummary()
+            await model.refreshLibrarySummary()
         }
     }
 

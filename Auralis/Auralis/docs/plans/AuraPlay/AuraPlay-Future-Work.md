@@ -1,13 +1,20 @@
 # AuraPlay Future Work
 
-AuraPlay Phase 1 built the stage, not the full show. This file tracks the work that is still intentionally incomplete after the module-foundation pass.
+AuraPlay now has a real Phase 2 persistence baseline:
+
+- SwiftData container and migration plan
+- wallet, token, and media persistence models
+- wallet-scoped sync from the app store into the AuraPlay store
+- repository preference for persisted AuraPlay media once a scoped wallet exists
+
+This file tracks the work that is still intentionally incomplete after that shipped persistence slice.
 
 ## Priority Order
 
 1. Migrate one user-facing music surface at a time into AuraPlay.
-2. Prove playback and queue lifecycle behavior on physical devices before broadening scope.
-3. Deepen test execution confidence so the module is not relying on build-only validation.
-4. Remove the legacy `AI/V1` path only after Phase 2 is complete and parity is real, not aspirational.
+2. Add later-phase data features only after the first real AuraPlay browse surface is credible.
+3. Prove playback and queue lifecycle behavior on physical devices before broadening scope.
+4. Remove the legacy `AI/V1` path only after migrated UI parity is real, not aspirational.
 
 ## Highest-Value Incomplete Work
 
@@ -15,20 +22,62 @@ AuraPlay Phase 1 built the stage, not the full show. This file tracks the work t
 
 Why it matters:
 
-- the current AuraPlay root is still a foundation shell, not the real music library experience
-- Library is the lowest-risk migration slice because it is mostly read-heavy
+- the current AuraPlay root is still a migration surface, not the real music library experience
+- the persisted wallet/token/media graph now exists, so Library is the natural first screen to consume it directly
+- Library is still the lowest-risk migration slice because it is mostly read-heavy
 
 Success looks like:
 
 - the Music tab’s primary browse surface renders through AuraPlay presentation code
 - library items use injected repository, artwork, logging, and error seams
+- library state is clearly sourced from the persisted AuraPlay media graph when a scoped wallet has been mirrored
 - legacy `NFTMusicPlayerLibraryView` stops being the main browse dependency
 
-### 2. Migrate collection and detail flows
+### 2. Add three-tier AuraPlay search
 
 Why it matters:
 
-- the module boundary is only proven once more than the root summary screen can use it
+- search is the first major Phase 2 feature still missing from the shipped persistence spine
+- the persisted `MediaItem` graph already carries normalized fields that search wants to index and query
+- search should stay an AuraPlay-owned domain instead of leaking into the global app search stack
+
+Success looks like:
+
+- one AuraPlay `SearchService` owns trie, CoreSpotlight, and semantic-query coordination
+- indexing hooks hang off media mutation paths instead of view code
+- AuraPlay search UI can query the persisted graph without depending on the legacy music path
+
+### 3. Add playlists and ordered playlist-item persistence
+
+Why it matters:
+
+- playlists are the first clearly user-owned music artifact not derived from wallet sync
+- ordered items prove that the persistence layer can handle durable user curation, not just mirrored NFT media
+
+Success looks like:
+
+- playlist models live in the AuraPlay schema rather than the legacy music folder
+- ordered playlist items normalize positions in the service layer
+- playlist flows survive relaunch and account-scope changes predictably
+
+### 4. Add durable playback history and playback state
+
+Why it matters:
+
+- the current queue and playback seams expose runtime state, but not durable listening continuity
+- playback persistence should stay additive around the shared audio engine, not become a shadow playback controller
+
+Success looks like:
+
+- playback history and resume state persist through relaunch
+- the write path is cheap enough to tolerate frequent progress saves
+- UI-facing surfaces still read domain-friendly AuraPlay state instead of raw persistence models
+
+### 5. Migrate collection and detail flows
+
+Why it matters:
+
+- the module boundary is only proven once more than the root migration screen can use it
 - collection/detail work exercises scope propagation, routing, artwork, and availability presentation
 
 Success looks like:
@@ -36,7 +85,7 @@ Success looks like:
 - collection and item detail screens live under `Auralis/MusicApp/AuraPlay/Presentation/`
 - routing remains shell-owned and does not fork into a second router
 
-### 3. Migrate Now Playing and queue orchestration last
+### 6. Migrate Now Playing and queue orchestration last
 
 Why it matters:
 
@@ -49,17 +98,30 @@ Success looks like:
 - mini player and full player share one coherent playback model
 - the queue contract is explicit enough to test without the live engine
 
-### 4. Strengthen the queue seam beyond count snapshots
+### 7. Strengthen the queue seam beyond count snapshots
 
 Current posture:
 
-- Phase 1 only proves queue visibility through a lightweight snapshot
+- the current shipped slice only proves queue visibility through a lightweight snapshot
 
 Next move:
 
 - promote the queue seam into a richer contract that can expose ordered upcoming/history items, active context, and mutation intents
 
-### 5. Decide whether `AudioEngine` itself needs deeper decomposition
+### 8. Add deterministic seeding and integration scenarios
+
+Why it matters:
+
+- this is the real confidence layer for the new persistence graph
+- cascade, uniqueness, scope, and migration bugs are exactly the sort of issue that can pass a clean build and still bite later
+
+Success looks like:
+
+- in-memory seeded AuraPlay graphs exist for previews and tests
+- integration scenarios prove wallet sync, replacement, deletion, and persisted-library preference behavior
+- later schema additions can land with confidence instead of folklore
+
+### 9. Decide whether `AudioEngine` itself needs deeper decomposition
 
 Why it matters:
 
@@ -68,19 +130,19 @@ Why it matters:
 
 Likely follow-on:
 
-- split transport, file lifecycle, queue coordination, and playback-session responsibilities into clearer units if Phase 2 work starts straining the adapter layer
+- split transport, file lifecycle, queue coordination, and playback-session responsibilities into clearer units if later AuraPlay work starts straining the adapter layer
 
 ## Validation Gaps Still Open
 
 ### Physical-device execution
 
-- Phase 1 builds are green, but real-device playback validation still needs a deliberate pass
+- the persistence seam now builds and targeted tests execute, but real-device playback validation still needs a deliberate pass
 - interruption handling, route changes, background behavior, and rapid track swaps are not the kind of thing to trust to simulator folklore
 
-### Test execution environment
+### Search, playlist, and playback durability validation
 
-- the new AuraPlay test seams compile, but focused test execution in the current session environment reported `No result`
-- before calling the rebuild deeply hardened, confirm those tests execute successfully in a working simulator or CI environment
+- the persistence spine is built, but the higher-level user-owned data features are still absent
+- once those land, validation needs to cover indexing correctness, ordered playlist mutations, and durable playback saves under stress
 
 ### Performance and polish
 
@@ -92,12 +154,13 @@ Likely follow-on:
 - do not migrate Now Playing before Library and detail flows have proven the architecture
 - do not let leaf views talk straight to `AudioEngine` because it is convenient
 - do not create a second navigation store inside AuraPlay
+- do not treat deferred Phase 3 and Phase 4 work as “basically done” just because the persistence spine shipped
 - do not remove `AI/V1` code just because the new root compiles
-- do not delete the legacy music path before Phase 2 migration is complete
+- do not delete the legacy music path before migrated UI parity is real
 
 ## Suggested Next Sprint
 
 1. Build the AuraPlay Library screen on top of the repository and artwork seams.
-2. Run the AuraPlay physical-device suite on a real iPhone.
-3. Confirm the new AuraPlay tests execute in CI or a healthy local simulator environment.
-4. Start the collection/detail migration only after Library is credible.
+2. Run the AuraPlay physical-device suite on a real iPhone against the persisted-library path.
+3. Start the three-tier search service only after the Library surface is reading the persisted graph cleanly.
+4. Keep playlists and durable playback state behind that, not ahead of it.

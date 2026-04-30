@@ -81,6 +81,36 @@ That said, the product direction got sharper after the first draft: AuraPlay is 
 
 The better analogy is no longer "build a house on an empty lot." It is "renovate the nightclub without turning the music off mid-set." You keep the shared plumbing, electricity, and exits that already work, but you still need a disciplined plan for which room gets rebuilt first and which wires nobody is allowed to cut casually.
 
+### AuraPlay Phase 2: Build the Storage Basement, Not a Second House
+
+The next AuraPlay planning pass had a similar trap wearing a different outfit. Phase 2 is all about persistence, search, playlists, and playback state. That kind of ticket list tempts engineers into drawing a brand-new subsystem in a vacuum, as if the existing AuraPlay seams were just polite suggestions. They are not.
+
+- Phase 1 already gave AuraPlay a front door: `AuraPlayTabRootView`, `AuraPlayCompositionRoot`, `AuraPlayDependencies`, and the first service seams for library, playback, queue, artwork, and logging. If Phase 2 ignores those and builds a parallel dependency story, the module ends up like a restaurant with two host stands and nobody sure which one seats the guests.
+- The correct shape is deeper, not wider. SwiftData belongs underneath the current module boundary, not beside it. The shell still owns `EOAccount` and `Chain`, the tab seam still constructs live dependencies, and the new `@ModelActor` services become the backstage crew moving scenery while the actors stay on their marks.
+- Search had its own shiny-object danger. A persistence phase plus search tickets is exactly how “maybe we should just drop in SQL/FTS” sneaks into a plan. This repo does not need another database religion. The Phase 2 strategy stays fully Apple-native: SwiftData for storage, a trie for instant prefix work, CoreSpotlight for system-grade text retrieval, and NaturalLanguage embeddings for the “show me dark ambient driving music” flavor of query.
+
+The memorable lesson is architectural: when you add a basement to a house that people are already living in, the smart move is to support the existing structure while you dig. You do not build a second house three feet away and hope the kitchen figures it out later.
+
+### AuraPlay Phase 2, Wave 1: Pour the Footings Before You Decorate the Room
+
+The first implementation wave for AuraPlay Phase 2 was intentionally unglamorous, which is usually how you know it matters.
+
+- We added the persistence spine before adding the real music entities. That meant `AppModelContainer`, `AuraPlaySchemaV1`, `AuraPlayMigrationPlan`, and `ADR-002` landed first. It is the software equivalent of agreeing where the pipes and breaker panel go before arguing about the backsplash.
+- The key discipline was dependency shape. The only new shared persistence object is `ModelContainer`, threaded through `AuraPlayDependencies`. Not `ModelContext`, not a singleton, not a “temporary shortcut” that would still be here six months later wearing a fake name tag.
+- We also updated the privacy manifest for app-container file metadata access. This is exactly the sort of compliance detail that gets ignored during architecture work because it feels less exciting than models and actors, and then later turns into an App Store paperwork ambush.
+
+The useful lesson is simple: Wave 1 should make later waves easier to do correctly, not merely possible to start. A good foundation diff feels almost boring when you read it, and much less boring when it prevents the next four diffs from becoming archeological digs.
+
+### AuraPlay Phase 2, Wave 2: Teach the New Basement to Hold Actual Records
+
+Wave 2 is where the storage story stops being architectural fan fiction and starts holding real shapes.
+
+- We added the first real AuraPlay persistence graph: `AuraPlayWallet`, `AuraPlayNFTToken`, and `AuraPlayMediaItem`. The important design move was making `MediaItem` the query-friendly front desk while `NFTToken` stays closer to the raw collectible identity behind the curtain.
+- The import path also became real. `LiveAuraPlayLibrarySyncService` now reads wallet-scoped music NFTs from the existing app store and mirrors them into the separate AuraPlay SwiftData container. That is the “renovate the nightclub without shutting off the speakers” move in code form: the old system still knows where the records are, and the new system now gets its own organized crates instead of borrowing stacks forever.
+- The library repository learned a practical migration trick instead of a philosophical one. If AuraPlay has already mirrored a wallet into its own store, reads come from the new persisted media graph. If not, the repository falls back to the legacy indexer. That is a clean handoff ramp, not a cliff.
+
+The memorable lesson here is that migration work gets safer the moment you stop treating “old path” and “new path” like enemies. A good transition seam is more like a bilingual host than a coup.
+
 ### The App Contract Still Counts When the Feature Has Barely Started
 
 This pass was configuration work, which means it was exactly the kind of work people postpone until App Review turns into a hostage situation.
@@ -817,3 +847,13 @@ The fix stayed narrow on purpose:
 In plain English, we kept the breadcrumb and stopped leaving the user's house key next to it.
 
 The lesson: privacy bugs are often not giant crypto failures. Sometimes they are just a well-meaning debug sentence that knows too much.
+
+## AuraPlay Phase 2 Ship-Baseline Reality Check
+
+This pass was less about adding a flashy new subsystem and more about forcing the repo to stop underselling and overselling itself at the same time.
+
+- The undersell was in the live AuraPlay root. The code already had a real Phase 2 persistence spine: SwiftData container, schema, wallet/token/media models, sync service, and a repository that can prefer persisted AuraPlay media over the legacy indexer. But the UI and migration enum were still calling the active path “Phase 1 foundation,” which is like installing a new basement and then leaving a sign on the door that says “temporary plywood only.” We renamed the active stage and updated the copy so the app describes the architecture it actually has.
+- The oversell risk was more subtle. The plan talked about search, playlists, playback history, and deterministic integration scenarios in the same breath as the persistence spine, which makes it easy for a future reader to mentally mark all of Phase 2 as “basically there.” That is how later-phase work becomes accidental scope debt. We made the plan say the quiet part out loud: Waves 1 and 2 are the current ship baseline, and Waves 3 and 4 are explicitly deferred.
+- We also added a regression test for the migration seam that really matters right now: once a scoped wallet has been mirrored into AuraPlay storage, the library repository must prefer the persisted media graph instead of pretending the legacy indexer is still the source of truth. That is the difference between a migration ramp and a decorative diagram.
+
+The lesson: ship readiness is not just “does the code compile?” Sometimes it is “does the product, the plan, and the tests all tell the same story, or are they each living in a different timeline?”

@@ -2,6 +2,8 @@
 
 This is the real-device QA suite for the AuraPlay rebuild path. The simulator is useful for speed. It is not where audio session behavior, background playback, interruptions, route changes, and “why does this feel wrong in the hand?” issues tell the truth.
 
+The current shipping scope for this suite is the Phase 2 persistence seam: wallet-scoped sync into the AuraPlay store, persisted-library preference, shell-scope changes, and the still-shared playback engine. Search, playlists, and durable playback history are later-phase items and should be marked `Not In Scope Yet` when absent rather than filed as false regressions.
+
 ## Test Environment Template
 
 Record this before starting:
@@ -14,6 +16,7 @@ Record this before starting:
 - account used for testing
 - chain scope(s) tested
 - whether the Music tab is running through the legacy root or AuraPlay root
+- whether the active wallet has already been mirrored into the AuraPlay persisted store
 
 ## Exit Rule
 
@@ -65,17 +68,21 @@ Pass criteria:
 
 Goal:
 
-- validate the first migrated AuraPlay browse surface once it exists
+- validate the current persisted-library migration seam and the first migrated browse surface once it exists
 
 Steps:
 
 1. Open Music on an account with multiple playable items.
-2. Scroll the library.
-3. Inspect artwork loading, availability labels, and empty/degraded states.
-4. Pull to refresh or trigger the equivalent rebuild path if exposed.
+2. Confirm the first open can tolerate an unsynced wallet scope.
+3. Leave and re-enter Music after the wallet has been mirrored.
+4. Scroll the library.
+5. Inspect artwork loading, availability labels, and empty/degraded states.
+6. Pull to refresh or trigger the equivalent rebuild path if exposed.
 
 Pass criteria:
 
+- the first visit can populate the AuraPlay persisted store without user-visible corruption
+- a later visit prefers the persisted AuraPlay media graph instead of behaving like a perpetual cold start
 - playable and non-playable items are distinguishable
 - no artwork flicker, stale scope leakage, or obviously wrong availability state appears
 
@@ -172,6 +179,7 @@ Steps:
 Pass criteria:
 
 - visible music data always matches the active account and chain
+- switching back to a previously mirrored scope does not show another wallet's persisted media
 - detail stacks do not show stale content from the prior scope
 
 ## AP-Device-009: Offline and degraded mode
@@ -190,14 +198,34 @@ Steps:
 Pass criteria:
 
 - failure and retry behavior are understandable
+- a previously mirrored wallet can still surface sane persisted-library state when live refresh is impaired
 - the user can navigate away instead of getting trapped in a dead surface
 - degraded states do not impersonate healthy live state
 
-## AP-Device-010: Playlist and artwork flows
+## AP-Device-010: Persisted-store continuity across relaunch
 
 Goal:
 
-- validate the music-adjacent camera/photo-library paths that still touch the bundle contract
+- validate that the current Phase 2 persistence slice survives normal app lifecycle churn
+
+Steps:
+
+1. Open Music on a wallet with playable music NFTs and allow sync to complete.
+2. Leave Music, terminate the app, and relaunch.
+3. Return to Music on the same account and chain.
+4. Switch away to another account or chain, then return.
+
+Pass criteria:
+
+- the relaunch path does not lose the mirrored wallet/media graph unexpectedly
+- the same wallet scope can re-open into a sane persisted-library state
+- account and chain changes still gate what persisted media is shown
+
+## AP-Device-011: Playlist and artwork flows
+
+Goal:
+
+- validate later-phase music-adjacent camera/photo-library paths when they are active
 
 Steps:
 
@@ -210,6 +238,10 @@ Pass criteria:
 
 - permission prompts match the feature being used
 - artwork selection persists and does not corrupt the flow
+
+If inactive:
+
+- mark `Not In Scope Yet` instead of filing a product bug against the current Phase 2 slice
 
 ## Severity Rubric
 

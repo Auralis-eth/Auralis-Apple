@@ -2,7 +2,7 @@
 
 Phase 1 is no longer best represented as a ticket-by-ticket execution checklist.
 
-The module foundation work has been translated into the retained follow-on docs below so the next engineer does not need to read stale ticket scaffolding to understand what remains, how to validate it, and how to start Phase 2 safely.
+The module foundation work has been translated into the retained follow-on docs below so the next engineer does not need to read stale ticket scaffolding to understand what remains, how to validate it, and how to start the next AuraPlay phase safely.
 
 ## Retained AuraPlay Docs
 
@@ -12,8 +12,8 @@ The module foundation work has been translated into the retained follow-on docs 
    The real-device manual QA pass for the rebuilt music stack and the legacy-to-AuraPlay seam.
 3. `AuraPlay-UI-Design-Audit-Checklist.md`
    The product and interaction audit checklist for the music rebuild.
-4. `AuraPlay-Phase2-Handoff.md`
-   The practical handoff notes for starting Phase 2 feature migration work.
+4. `AuraPlay-Phase3-Handoff.md`
+   The practical handoff notes for starting the next post-Phase-2 migration work safely.
 5. `AuraPlay-LLM-Context.md`
    The compact memory layer for future LLM sessions that need the AuraPlay mental model fast.
 

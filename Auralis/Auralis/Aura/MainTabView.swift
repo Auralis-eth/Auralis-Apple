@@ -21,7 +21,7 @@ struct MainTabView: View {
     @State private var pinnedItemCount: Int
     @State private var showContextInspector = false
 
-    private let auraPlayMigrationStage: AuraPlayMigrationStage = .phase1Foundation
+    private let auraPlayMigrationStage: AuraPlayMigrationStage = .phase2Persistence
 
     private var currentAccount: EOAccount? {
         resolveCurrentAccount()
@@ -304,6 +304,7 @@ struct MainTabView: View {
                                     currentAccount: currentAccount,
                                     currentChain: currentChain,
                                     nftService: nftService,
+                                    appModelContext: modelContext,
                                     refreshAction: refreshActiveScopeFromUserAction,
                                     onOpenNFT: { nft in
                                         router.showMusicNFTDetail(id: nft.id)

@@ -10,6 +10,14 @@ struct AuraPlayPrivacyManifestTests {
         )
 
         let accessedAPIs = try #require(manifest["NSPrivacyAccessedAPITypes"] as? [[String: Any]])
+        let fileTimestampEntry = try #require(
+            accessedAPIs.first {
+                ($0["NSPrivacyAccessedAPIType"] as? String) == "NSPrivacyAccessedAPICategoryFileTimestamp"
+            }
+        )
+        let fileTimestampReasons = try #require(
+            fileTimestampEntry["NSPrivacyAccessedAPITypeReasons"] as? [String]
+        )
         let userDefaultsEntry = try #require(
             accessedAPIs.first {
                 ($0["NSPrivacyAccessedAPIType"] as? String) == "NSPrivacyAccessedAPICategoryUserDefaults"
@@ -17,8 +25,9 @@ struct AuraPlayPrivacyManifestTests {
         )
         let reasons = try #require(userDefaultsEntry["NSPrivacyAccessedAPITypeReasons"] as? [String])
 
+        #expect(fileTimestampReasons == ["C617.1"])
         #expect(reasons == ["CA92.1"])
-        #expect(accessedAPIs.count == 1)
+        #expect(accessedAPIs.count == 2)
     }
 
     private func loadDictionary(
