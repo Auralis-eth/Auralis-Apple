@@ -10,6 +10,7 @@ struct MainAuraView: View {
     @State private var nftService: NFTService
     @StateObject private var modeState: ModeState
     @State private var audioEngine: AudioEngine?
+    @State private var auraPlayModelContainer: ModelContainer?
     @State private var shellStore: ShellStore?
     @State private var pendingStartupDeepLink: AppDeepLink?
     @State private var pendingStartupRouteError: AppRouteError?
@@ -17,6 +18,7 @@ struct MainAuraView: View {
     private let services: ShellServiceHub
     private let deepLinkParser = AppDeepLinkParser()
     private let audioEngineInitializationErrorMessage: String?
+    private let auraPlayInitializationErrorMessage: String?
 
     @MainActor
     init() {
@@ -28,6 +30,9 @@ struct MainAuraView: View {
         self.services = services
         _nftService = State(initialValue: services.nftServiceFactory())
         _modeState = StateObject(wrappedValue: services.modeStateFactory())
+        let auraPlayBootstrap = Self.makeAuraPlayModelContainer()
+        _auraPlayModelContainer = State(initialValue: auraPlayBootstrap.container)
+        auraPlayInitializationErrorMessage = auraPlayBootstrap.errorMessage
         do {
             let engine = try AudioEngine()
             _audioEngine = State(initialValue: engine)
@@ -79,10 +84,11 @@ struct MainAuraView: View {
                     nftService: $nftService,
                     router: router,
                     audioEngine: audioEngine,
-                    audioUnavailableMessage: audioEngineInitializationErrorMessage,
+                    audioUnavailableMessage: musicUnavailableMessage,
                     modeState: modeState,
                     services: services,
-                    modelContext: modelContext
+                    modelContext: modelContext,
+                    auraPlayModelContainer: auraPlayModelContainer
                 )
                 .tabBarMinimizeBehavior(.onScrollDown)
                 .tabViewBottomAccessory {
@@ -220,5 +226,26 @@ struct MainAuraView: View {
                 }
             }
         )
+    }
+
+    private var musicUnavailableMessage: String? {
+        [audioEngineInitializationErrorMessage, auraPlayInitializationErrorMessage]
+            .compactMap { $0 }
+            .joined(separator: " ")
+            .nilIfEmpty
+    }
+
+    private static func makeAuraPlayModelContainer() -> (
+        container: ModelContainer?,
+        errorMessage: String?
+    ) {
+        do {
+            return (try AppModelContainer.make(inMemory: false), nil)
+        } catch {
+            return (
+                nil,
+                "AuraPlay storage could not be opened on this launch, so Music is using the legacy library path."
+            )
+        }
     }
 }

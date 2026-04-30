@@ -857,3 +857,44 @@ This pass was less about adding a flashy new subsystem and more about forcing th
 - We also added a regression test for the migration seam that really matters right now: once a scoped wallet has been mirrored into AuraPlay storage, the library repository must prefer the persisted media graph instead of pretending the legacy indexer is still the source of truth. That is the difference between a migration ramp and a decorative diagram.
 
 The lesson: ship readiness is not just “does the code compile?” Sometimes it is “does the product, the plan, and the tests all tell the same story, or are they each living in a different timeline?”
+
+## AuraPlay Privacy Reset: The Basement Counts Too
+
+This one was a straight-up truth-in-advertising bug. The Settings screen promised that “Clear Local Privacy Data” would wipe local support data, but AuraPlay Phase 2 had quietly moved part of the music inventory into its own SwiftData store under Application Support. So the reset flow was cleaning the kitchen and leaving the basement shelves untouched.
+
+- The root cause was architectural, not visual. `PrivacyResetService` already knew how to clear the main app container, caches, receipts, search history, and token holdings. But AuraPlay persistence had become a second storage boundary, and deletion responsibility never followed it there.
+- The fix was to stop pretending that one reset seam still owned all the data. We added an explicit `AuraPlayPersistenceResetting` contract, wired the live reset path through a store-file cleanup service, and taught the privacy reset flow to clear the AuraPlay store alongside the original app data.
+- The regression test does the important boring work: create the AuraPlay store artifacts, run the reset, and prove the store file plus SQLite sidecars are actually gone. That is much better than a test that only checks whether somebody remembered to call a method with a reassuring name.
+
+The lesson: whenever you split persistence, you also split the cleanup contract. If you add a new basement and forget to hand the janitor a key, the basement becomes privacy debt.
+
+## AuraPlay Container Lifetime: Stop Reopening The Record Vault
+
+This one was a quieter bug than a failed reset, but it had the same architectural smell: the ownership boundary was in the wrong room. `AuraPlayTabRootView` was creating its own `ModelContainer` inside the view initializer, which sounds harmless until you remember SwiftUI treats view values like stage props, not heirlooms.
+
+- The problem was lifecycle mismatch. `MainTabView.body` can rebuild normally as state changes, and the Music tab subtree can be recreated without meaning “please reopen the AuraPlay store from scratch.” But the container creation lived inside that subtree, so the app was repeatedly reopening the same persistence store and recreating fresh `@ModelActor` services around it.
+- The fix was to move AuraPlay container ownership up to `MainAuraView`, where the shell already owns other long-lived services like the shared audio engine and NFT orchestration. The Music path now receives one stable `ModelContainer` instance through `MainTabView` and into `AuraPlayTabRootView` instead of manufacturing a new vault key every time SwiftUI redraws the hallway.
+- This is one of those bugs that rarely screams during happy-path demos and still matters before ship. Multiple live containers pointed at the same store are the persistence equivalent of having three bartenders separately convinced they are the only one tracking the tab.
+
+The lesson: in SwiftUI, expensive stateful resources belong to the owner with the longest honest lifetime, not the nearest convenient initializer.
+
+## AuraPlay Store Boot Failure: Degrade The Feature, Not The Process
+
+This was the kind of crash that makes engineers wince because it was technically tidy and operationally reckless. AuraPlay’s store boot used `fatalError` on container creation failure. That is fine for a prototype, less fine for a shipped Music tab behind a normal user tap.
+
+- The failure mode got worse once Phase 2 persistence became the default Music path. A corrupted store file or file-system hiccup no longer meant “AuraPlay is unavailable”; it meant “the app dies when the user opens Music.” That is a bad trade unless the tab is running a nuclear reactor.
+- The fix was to make boot failure an availability state instead of an execution state. `MainAuraView` now captures AuraPlay store boot as optional container plus a user-facing fallback message, and `AuraPlayMigrationStage` explicitly resolves back to `.legacy` whenever the Phase 2 store is unavailable.
+- The important design choice was containment. We did not create a second recovery architecture or scatter error handling across every AuraPlay dependency. We kept the fallback at the seam where the module gets selected in the first place, which is the right room to decide whether the new record vault is open or whether the app should send users through the old entrance.
+
+The lesson: when a feature-specific store fails to boot, the product should lose the feature slice, not the whole app session.
+
+## AuraPlay Sync Hitch: Let The Front Desk Fetch, Let The Back Room Sort
+
+This one was not a correctness bug so much as a choreography bug. The Phase 2 library sync path was doing more work on `@MainActor` than the UI could politely hide: fetch the wallet-scoped music NFTs, deduplicate them, normalize strings and URLs, sort them, and build the upsert payloads, all while the Music tab was waiting at the door.
+
+- The subtlety here is SwiftData ownership. The source `ModelContext` still belongs to the main actor in this slice, so pretending the whole sync could just “move to background” would be the kind of concurrency fix that writes its own future incident report.
+- The real fix was to split the job at the correct seam. The main actor now does the actor-owned fetch and immediately snapshots the relevant NFT fields into `Sendable` value types. Then a detached phase does the heavier in-memory work: deduplication, sorting, string cleanup, artwork URL selection, and request construction.
+- We also pulled that detached shaping work into a dedicated request builder instead of leaving a pile of type-level helpers hanging off the sync service. That keeps the service in conductor mode and moves the pure transformation logic into its own instrument case.
+- In restaurant terms, the host still checks the reservation book at the front desk because that book lives there. But the host no longer chops vegetables, plates the entrée, and polishes glasses while the line forms at the door.
+
+The lesson: with Swift concurrency, “move it off the main actor” is only a good fix when you first separate actor-owned state access from pure value transformation.

@@ -23,6 +23,7 @@ struct PrivacyResetServiceTests {
         let derivedSupportDataResetService = SwiftDataDerivedSupportDataResetService(
             modelContainer: context.container
         )
+        let auraPlayPersistenceResetService = RecordingAuraPlayPersistenceResetService()
         let selectionPersistence = RecordingShellSelectionPersistence()
         let pinnedItemsStore = HomePinnedItemsStore(userDefaults: UserDefaults(suiteName: #function)!)
         let service = PrivacyResetService(
@@ -31,6 +32,7 @@ struct PrivacyResetServiceTests {
             ensCacheResetService: ensCacheResetService,
             tokenHoldingsStore: tokenHoldingsStore,
             derivedSupportDataResetService: derivedSupportDataResetService,
+            auraPlayPersistenceResetService: auraPlayPersistenceResetService,
             selectionPersistence: selectionPersistence,
             homePinnedItemsStore: pinnedItemsStore
         )
@@ -57,11 +59,43 @@ struct PrivacyResetServiceTests {
         #expect(searchHistoryStore.entries(for: "0x1111111111111111111111111111111111111111").isEmpty)
         #expect(receiptStore.resetAllCallCount == 1)
         #expect(await ensCacheResetService.resetCount() == 1)
+        #expect(await auraPlayPersistenceResetService.resetCount() == 1)
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<NFT>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<MusicLibraryItem>()).isEmpty)
         #expect(selectionPersistence.clearSelectionCallCount == 1)
         #expect(pinnedItemsStore.pinnedActions(for: "0x1111111111111111111111111111111111111111").isEmpty)
+    }
+
+    @Test("AuraPlay store reset removes the separate persisted store files")
+    func auraPlayStoreResetRemovesPersistedFiles() async throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(
+            at: temporaryDirectory,
+            withIntermediateDirectories: true
+        )
+        defer {
+            try? FileManager.default.removeItem(at: temporaryDirectory)
+        }
+
+        let storeURL = try AppModelContainer.storeURL(baseDirectory: temporaryDirectory)
+        let shmURL = storeURL.appendingPathExtension("shm")
+        let walURL = storeURL.appendingPathExtension("wal")
+        FileManager.default.createFile(atPath: storeURL.path(), contents: Data("store".utf8))
+        FileManager.default.createFile(atPath: shmURL.path(), contents: Data("shm".utf8))
+        FileManager.default.createFile(atPath: walURL.path(), contents: Data("wal".utf8))
+
+        let service = AuraPlayStoreResetService(
+            fileManager: .default,
+            baseDirectory: temporaryDirectory
+        )
+
+        try await service.resetAuraPlayPersistence()
+
+        #expect(FileManager.default.fileExists(atPath: storeURL.path()) == false)
+        #expect(FileManager.default.fileExists(atPath: shmURL.path()) == false)
+        #expect(FileManager.default.fileExists(atPath: walURL.path()) == false)
     }
 
     @Test("token holdings persistence rejects empty account scope instead of silently succeeding")
@@ -177,6 +211,18 @@ private actor RecordingENSCacheResetService: ENSCacheResetting {
     private var resetCallCount = 0
 
     func resetCache() async {
+        resetCallCount += 1
+    }
+
+    func resetCount() -> Int {
+        resetCallCount
+    }
+}
+
+private actor RecordingAuraPlayPersistenceResetService: AuraPlayPersistenceResetting {
+    private var resetCallCount = 0
+
+    func resetAuraPlayPersistence() async throws {
         resetCallCount += 1
     }
 

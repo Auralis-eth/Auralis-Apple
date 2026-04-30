@@ -1,10 +1,38 @@
 @testable import Auralis
 import Foundation
+import SwiftData
 import Testing
 
 @Suite
 @MainActor
 struct AuraPlayFoundationBoundaryTests {
+    @Test("phase 2 falls back to legacy when AuraPlay persistence is unavailable")
+    func migrationStageFallsBackWithoutPersistence() {
+        #expect(
+            AuraPlayMigrationStage.phase2Persistence.resolved(hasAuraPlayPersistence: false) == .legacy
+        )
+        #expect(
+            AuraPlayMigrationStage.phase2Persistence.resolved(hasAuraPlayPersistence: true) == .phase2Persistence
+        )
+    }
+
+    @Test("dependencies preserve the injected AuraPlay model container identity")
+    func dependenciesPreserveInjectedModelContainer() throws {
+        let container = try AppModelContainer.make(inMemory: true)
+        let dependencies = AuraPlayDependencies(
+            libraryRepository: MockAuraPlayLibraryRepository(),
+            librarySyncService: NoOpAuraPlayLibrarySyncService(),
+            playbackController: MockAuraPlayPlaybackController(),
+            queueCoordinator: MockAuraPlayQueueCoordinator(),
+            artworkLoader: MockAuraPlayArtworkLoader(),
+            logger: MockAuraPlayLogger(),
+            configuration: .validFixture,
+            modelContainer: container
+        )
+
+        #expect(ObjectIdentifier(dependencies.modelContainer) == ObjectIdentifier(container))
+    }
+
     @Test("root model refreshes the library summary for the active wallet scope")
     func rootModelRefreshesSummaryForActiveScope() async {
         let repository = MockAuraPlayLibraryRepository(itemCount: 12)

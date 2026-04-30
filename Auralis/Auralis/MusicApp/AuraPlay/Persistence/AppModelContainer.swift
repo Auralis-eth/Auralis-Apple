@@ -26,7 +26,11 @@ enum AppModelContainer {
     }
 
     private static func storeURL() throws -> URL {
-        let applicationSupportDirectory = try FileManager.default.url(
+        try storeURL(baseDirectory: nil)
+    }
+
+    static func storeURL(baseDirectory: URL?) throws -> URL {
+        let applicationSupportDirectory = try baseDirectory ?? FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
@@ -42,5 +46,21 @@ enum AppModelContainer {
         }
 
         return storeDirectory.appending(path: storeFileName)
+    }
+
+    static func resetStoreFiles(
+        fileManager: FileManager = .default,
+        baseDirectory: URL? = nil
+    ) throws {
+        let primaryStoreURL = try storeURL(baseDirectory: baseDirectory)
+        let candidateURLs = [
+            primaryStoreURL,
+            primaryStoreURL.appendingPathExtension("shm"),
+            primaryStoreURL.appendingPathExtension("wal"),
+        ]
+
+        for candidateURL in candidateURLs where fileManager.fileExists(atPath: candidateURL.path()) {
+            try fileManager.removeItem(at: candidateURL)
+        }
     }
 }

@@ -119,6 +119,74 @@ struct AuraPlayPersistenceWave2Tests {
         #expect(try repository.itemCount(in: scope) == 1)
         #expect(try repository.needsRebuild(in: scope) == false)
     }
+
+    @Test("request bundle shaping deduplicates and sorts snapshots off the main actor seam")
+    func requestBundleDeduplicatesAndSortsSnapshots() async {
+        let requestBuilder = AuraPlayLibrarySyncRequestBuilder()
+        let snapshots = [
+            AuraPlayLibrarySyncRequestBuilder.SourceNFTSnapshot(
+                id: "track-2",
+                tokenID: "2",
+                tokenType: "ERC721",
+                accountAddressRawValue: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .ethMainnet,
+                contractAddressRawValue: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                name: "Second",
+                artistName: "Aura",
+                collectionName: "Origin",
+                collectionDisplayName: nil,
+                thumbnailURLString: "https://example.com/2-thumb.png",
+                originalImageURLString: "https://example.com/2-full.png",
+                playbackURLString: "https://example.com/2.mp3",
+                contentType: "audio/mpeg",
+                sourceUpdatedAtRawValue: "2025-01-02T00:00:00Z"
+            ),
+            AuraPlayLibrarySyncRequestBuilder.SourceNFTSnapshot(
+                id: "track-1",
+                tokenID: "1",
+                tokenType: "ERC721",
+                accountAddressRawValue: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .ethMainnet,
+                contractAddressRawValue: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                name: "First",
+                artistName: "Aura",
+                collectionName: "Origin",
+                collectionDisplayName: nil,
+                thumbnailURLString: "https://example.com/1-thumb.png",
+                originalImageURLString: "https://example.com/1-full.png",
+                playbackURLString: "https://example.com/1.mp3",
+                contentType: "audio/mpeg",
+                sourceUpdatedAtRawValue: "2025-01-01T00:00:00Z"
+            ),
+            AuraPlayLibrarySyncRequestBuilder.SourceNFTSnapshot(
+                id: "track-2",
+                tokenID: "2",
+                tokenType: "ERC721",
+                accountAddressRawValue: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .ethMainnet,
+                contractAddressRawValue: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                name: "Second duplicate",
+                artistName: "Aura",
+                collectionName: "Origin",
+                collectionDisplayName: nil,
+                thumbnailURLString: "https://example.com/2b-thumb.png",
+                originalImageURLString: "https://example.com/2b-full.png",
+                playbackURLString: "https://example.com/2b.mp3",
+                contentType: "audio/mpeg",
+                sourceUpdatedAtRawValue: "2025-01-03T00:00:00Z"
+            ),
+        ]
+
+        let bundle = await requestBuilder.makeRequestBundle(
+            from: snapshots,
+            walletID: "0x1234567890abcdef1234567890abcdef12345678:eth-mainnet"
+        )
+
+        #expect(bundle.tokenRequests.count == 2)
+        #expect(bundle.mediaItemRequests.count == 2)
+        #expect(bundle.tokenRequests.map(\.sourceNFTID) == ["track-1", "track-2"])
+        #expect(bundle.mediaItemRequests.map(\.sourceNFTID) == ["track-1", "track-2"])
+    }
 }
 
 @MainActor

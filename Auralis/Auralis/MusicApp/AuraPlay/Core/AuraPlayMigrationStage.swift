@@ -4,4 +4,13 @@ import Foundation
 enum AuraPlayMigrationStage {
     case legacy
     case phase2Persistence
+
+    func resolved(hasAuraPlayPersistence: Bool) -> AuraPlayMigrationStage {
+        switch self {
+        case .legacy:
+            return .legacy
+        case .phase2Persistence:
+            return hasAuraPlayPersistence ? .phase2Persistence : .legacy
+        }
+    }
 }

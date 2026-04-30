@@ -13,6 +13,7 @@ struct MainTabView: View {
     let audioUnavailableMessage: String?
     let modeState: ModeState
     let services: ShellServiceHub
+    let auraPlayModelContainer: ModelContainer?
 
     private let homePinnedItemsStore: HomePinnedItemsStore
 
@@ -72,7 +73,8 @@ struct MainTabView: View {
         audioUnavailableMessage: String?,
         modeState: ModeState,
         services: ShellServiceHub,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        auraPlayModelContainer: ModelContainer?
     ) {
         self.shellStore = shellStore
         self.resolveCurrentAccount = resolveCurrentAccount
@@ -82,6 +84,7 @@ struct MainTabView: View {
         self.audioUnavailableMessage = audioUnavailableMessage
         self.modeState = modeState
         self.services = services
+        self.auraPlayModelContainer = auraPlayModelContainer
 
         let homePinnedItemsStore = services.homePinnedItemsStoreFactory()
         self.homePinnedItemsStore = homePinnedItemsStore
@@ -305,6 +308,7 @@ struct MainTabView: View {
                                     currentChain: currentChain,
                                     nftService: nftService,
                                     appModelContext: modelContext,
+                                    auraPlayModelContainer: auraPlayModelContainer,
                                     refreshAction: refreshActiveScopeFromUserAction,
                                     onOpenNFT: { nft in
                                         router.showMusicNFTDetail(id: nft.id)
@@ -623,6 +627,7 @@ private struct ContextLocalRefreshKey: Hashable {
         @State private var router = AppRouter()
         let audioEngine: AudioEngine? = try? AudioEngine()
         @StateObject private var modeState = ModeState()
+        private let auraPlayModelContainer = try? AppModelContainer.make(inMemory: true)
         private let services = ShellServiceHub.live
         private let shellStore = ShellStore.preview(
             selection: ActiveShellSelection(
@@ -641,7 +646,8 @@ private struct ContextLocalRefreshKey: Hashable {
                 audioUnavailableMessage: nil,
                 modeState: modeState,
                 services: services,
-                modelContext: modelContext
+                modelContext: modelContext,
+                auraPlayModelContainer: auraPlayModelContainer
             )
         }
     }

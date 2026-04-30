@@ -8,22 +8,14 @@ struct AuraPlayTabRootView: View {
     let currentChain: Chain
     let nftService: NFTService
     let appModelContext: ModelContext
+    let auraPlayModelContainer: ModelContainer?
     let refreshAction: @MainActor () async -> Void
     let onOpenNFT: (NFT) -> Void
     let onOpenCollection: (MusicCollectionSummary) -> Void
     let musicLibraryIndexer: any MusicLibraryIndexing
     let musicLibraryReceiptLogger: ReceiptEventLogger
     private let legacyAudioEngine: AudioEngine
-    private let dependencies: AuraPlayDependencies
-    private let modelContainer: ModelContainer
-
-    private static func makeModelContainer() -> ModelContainer {
-        do {
-            return try AppModelContainer.make(inMemory: false)
-        } catch {
-            fatalError("Failed to create AuraPlay model container: \(error.localizedDescription)")
-        }
-    }
+    private let dependencies: AuraPlayDependencies?
 
     init(
         stage: AuraPlayMigrationStage,
@@ -32,6 +24,7 @@ struct AuraPlayTabRootView: View {
         currentChain: Chain,
         nftService: NFTService,
         appModelContext: ModelContext,
+        auraPlayModelContainer: ModelContainer?,
         refreshAction: @escaping @MainActor () async -> Void,
         onOpenNFT: @escaping (NFT) -> Void,
         onOpenCollection: @escaping (MusicCollectionSummary) -> Void,
@@ -44,37 +37,41 @@ struct AuraPlayTabRootView: View {
         self.currentChain = currentChain
         self.nftService = nftService
         self.appModelContext = appModelContext
+        self.auraPlayModelContainer = auraPlayModelContainer
         self.refreshAction = refreshAction
         self.onOpenNFT = onOpenNFT
         self.onOpenCollection = onOpenCollection
         self.musicLibraryIndexer = musicLibraryIndexer
         self.musicLibraryReceiptLogger = musicLibraryReceiptLogger
-        self.modelContainer = Self.makeModelContainer()
-        let logger = LiveAuraPlayLogger()
-        self.dependencies = AuraPlayDependencies(
-            libraryRepository: LiveAuraPlayLibraryRepository(
-                indexer: musicLibraryIndexer,
-                receiptEventLogger: musicLibraryReceiptLogger,
-                modelContainer: modelContainer
-            ),
-            librarySyncService: LiveAuraPlayLibrarySyncService(
-                sourceModelContext: appModelContext,
-                modelContainer: modelContainer,
-                logger: logger
-            ),
-            playbackController: AuraPlayAudioEnginePlaybackController(audioEngine: audioEngine),
-            queueCoordinator: AuraPlayAudioEngineQueueCoordinator(audioEngine: audioEngine),
-            artworkLoader: AuraPlayTrackArtworkLoader(),
-            logger: logger,
-            configuration: AuraPlayModuleConfiguration.live(
-                infoDictionary: Bundle.main.infoDictionary ?? [:]
-            ),
-            modelContainer: modelContainer
-        )
+        if let auraPlayModelContainer {
+            let logger = LiveAuraPlayLogger()
+            self.dependencies = AuraPlayDependencies(
+                libraryRepository: LiveAuraPlayLibraryRepository(
+                    indexer: musicLibraryIndexer,
+                    receiptEventLogger: musicLibraryReceiptLogger,
+                    modelContainer: auraPlayModelContainer
+                ),
+                librarySyncService: LiveAuraPlayLibrarySyncService(
+                    sourceModelContext: appModelContext,
+                    modelContainer: auraPlayModelContainer,
+                    logger: logger
+                ),
+                playbackController: AuraPlayAudioEnginePlaybackController(audioEngine: audioEngine),
+                queueCoordinator: AuraPlayAudioEngineQueueCoordinator(audioEngine: audioEngine),
+                artworkLoader: AuraPlayTrackArtworkLoader(),
+                logger: logger,
+                configuration: AuraPlayModuleConfiguration.live(
+                    infoDictionary: Bundle.main.infoDictionary ?? [:]
+                ),
+                modelContainer: auraPlayModelContainer
+            )
+        } else {
+            self.dependencies = nil
+        }
     }
 
     var body: some View {
-        switch stage {
+        switch stage.resolved(hasAuraPlayPersistence: dependencies != nil) {
         case .legacy:
             NFTMusicPlayerApp(
                 audioEngine: legacyAudioEngine,
@@ -89,11 +86,13 @@ struct AuraPlayTabRootView: View {
             )
 
         case .phase2Persistence:
-            AuraPlayCompositionRoot(
-                currentAccount: currentAccount,
-                currentChain: currentChain,
-                dependencies: dependencies
-            )
+            if let dependencies {
+                AuraPlayCompositionRoot(
+                    currentAccount: currentAccount,
+                    currentChain: currentChain,
+                    dependencies: dependencies
+                )
+            }
         }
     }
 }

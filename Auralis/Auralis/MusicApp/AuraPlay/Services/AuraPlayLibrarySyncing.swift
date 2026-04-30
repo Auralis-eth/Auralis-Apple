@@ -17,17 +17,20 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
     private let walletService: AuraPlayWalletService
     private let tokenService: AuraPlayNFTTokenService
     private let mediaItemService: AuraPlayMediaItemService
+    private let requestBuilder: AuraPlayLibrarySyncRequestBuilder
     private let logger: any AuraPlayLogging
 
     init(
         sourceModelContext: ModelContext,
         modelContainer: ModelContainer,
-        logger: any AuraPlayLogging
+        logger: any AuraPlayLogging,
+        requestBuilder: AuraPlayLibrarySyncRequestBuilder = .init()
     ) {
         self.sourceModelContext = sourceModelContext
         self.walletService = AuraPlayWalletService(modelContainer: modelContainer)
         self.tokenService = AuraPlayNFTTokenService(modelContainer: modelContainer)
         self.mediaItemService = AuraPlayMediaItemService(modelContainer: modelContainer)
+        self.requestBuilder = requestBuilder
         self.logger = logger
     }
 
@@ -37,6 +40,10 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
         }
 
         let syncedAt = Date()
+        let sourceSnapshots = try fetchEligibleNFTSnapshots(
+            accountAddress: normalizedAccountAddress,
+            chain: scope.chain
+        )
         let walletID = try await walletService.upsert(
             AuraPlayWalletUpsertRequest(
                 address: normalizedAccountAddress,
@@ -45,23 +52,19 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
                 syncedAt: syncedAt
             )
         )
-        let nfts = try fetchEligibleNFTs(accountAddress: normalizedAccountAddress, chain: scope.chain)
-        let tokenRequests = nfts.map { makeTokenRequest(from: $0, walletID: walletID) }
-        let mediaItemRequests = nfts.map {
-            makeMediaItemRequest(
-                from: $0,
-                walletID: walletID
-            )
-        }
+        let requestBundle = await requestBuilder.makeRequestBundle(
+            from: sourceSnapshots,
+            walletID: walletID
+        )
 
         try await tokenService.replaceAll(
             walletID: walletID,
-            requests: tokenRequests,
+            requests: requestBundle.tokenRequests,
             syncedAt: syncedAt
         )
         try await mediaItemService.replaceAll(
             walletID: walletID,
-            requests: mediaItemRequests,
+            requests: requestBundle.mediaItemRequests,
             syncedAt: syncedAt
         )
 
@@ -69,15 +72,15 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
             AuraPlayLogEvent(
                 category: .library,
                 level: .info,
-                message: "AuraPlay synced \(mediaItemRequests.count) persisted media items for \(walletID)"
+                message: "AuraPlay synced \(requestBundle.mediaItemRequests.count) persisted media items for \(walletID)"
             )
         )
     }
 }
 
 @MainActor
-private extension LiveAuraPlayLibrarySyncService {
-    func fetchEligibleNFTs(accountAddress: String, chain: Chain) throws -> [NFT] {
+extension LiveAuraPlayLibrarySyncService {
+    func fetchEligibleNFTSnapshots(accountAddress: String, chain: Chain) throws -> [SourceNFTSnapshot] {
         let chainRawValue = chain.rawValue
         let descriptor = FetchDescriptor<NFT>(
             predicate: #Predicate<NFT> { nft in
@@ -88,49 +91,153 @@ private extension LiveAuraPlayLibrarySyncService {
             }
         )
 
-        let nfts = try sourceModelContext.fetch(descriptor)
-        let dedupedByID = Dictionary(uniqueKeysWithValues: nfts.map { ($0.id, $0) })
-        return dedupedByID.values.sorted { $0.id < $1.id }
+        return try sourceModelContext.fetch(descriptor).map(SourceNFTSnapshot.init)
+    }
+}
+
+extension LiveAuraPlayLibrarySyncService {
+    typealias SourceNFTSnapshot = AuraPlayLibrarySyncRequestBuilder.SourceNFTSnapshot
+}
+
+struct AuraPlayLibrarySyncRequestBuilder: Sendable {
+    struct RequestBundle: Sendable {
+        let tokenRequests: [AuraPlayNFTTokenUpsertRequest]
+        let mediaItemRequests: [AuraPlayMediaItemUpsertRequest]
     }
 
-    func makeTokenRequest(from nft: NFT, walletID: String) -> AuraPlayNFTTokenUpsertRequest {
-        let contractAddress = NFT.normalizedScopeComponent(nft.contract.address) ?? "__missing_contract__"
+    struct SourceNFTSnapshot: Sendable {
+        let id: String
+        let tokenID: String
+        let tokenType: String?
+        let accountAddressRawValue: String
+        let chain: Chain
+        let contractAddressRawValue: String?
+        let name: String?
+        let artistName: String?
+        let collectionName: String?
+        let collectionDisplayName: String?
+        let thumbnailURLString: String?
+        let originalImageURLString: String?
+        let playbackURLString: String?
+        let contentType: String?
+        let sourceUpdatedAtRawValue: String?
+
+        init(
+            id: String,
+            tokenID: String,
+            tokenType: String?,
+            accountAddressRawValue: String,
+            chain: Chain,
+            contractAddressRawValue: String?,
+            name: String?,
+            artistName: String?,
+            collectionName: String?,
+            collectionDisplayName: String?,
+            thumbnailURLString: String?,
+            originalImageURLString: String?,
+            playbackURLString: String?,
+            contentType: String?,
+            sourceUpdatedAtRawValue: String?
+        ) {
+            self.id = id
+            self.tokenID = tokenID
+            self.tokenType = tokenType
+            self.accountAddressRawValue = accountAddressRawValue
+            self.chain = chain
+            self.contractAddressRawValue = contractAddressRawValue
+            self.name = name
+            self.artistName = artistName
+            self.collectionName = collectionName
+            self.collectionDisplayName = collectionDisplayName
+            self.thumbnailURLString = thumbnailURLString
+            self.originalImageURLString = originalImageURLString
+            self.playbackURLString = playbackURLString
+            self.contentType = contentType
+            self.sourceUpdatedAtRawValue = sourceUpdatedAtRawValue
+        }
+
+        init(nft: NFT) {
+            self.id = nft.id
+            self.tokenID = nft.tokenId
+            self.tokenType = nft.tokenType
+            self.accountAddressRawValue = nft.accountAddressRawValue
+            self.chain = nft.network ?? .ethMainnet
+            self.contractAddressRawValue = nft.contract.address
+            self.name = nft.name
+            self.artistName = nft.artistName
+            self.collectionName = nft.collectionName
+            self.collectionDisplayName = nft.collection?.name
+            self.thumbnailURLString = nft.image?.thumbnailUrl
+            self.originalImageURLString = nft.image?.originalUrl
+            self.playbackURLString = nft.musicURL?.absoluteString
+            self.contentType = nft.contentType
+            self.sourceUpdatedAtRawValue = nft.timeLastUpdated
+        }
+    }
+
+    func makeRequestBundle(
+        from snapshots: [SourceNFTSnapshot],
+        walletID: String
+    ) async -> RequestBundle {
+        await Task.detached(priority: .userInitiated) {
+            let dedupedSnapshots = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.id, $0) })
+                .values
+                .sorted { $0.id < $1.id }
+
+            let tokenRequests = dedupedSnapshots.map { makeTokenRequest(from: $0, walletID: walletID) }
+            let mediaItemRequests = dedupedSnapshots.map { makeMediaItemRequest(from: $0, walletID: walletID) }
+
+            return RequestBundle(
+                tokenRequests: tokenRequests,
+                mediaItemRequests: mediaItemRequests
+            )
+        }.value
+    }
+
+    private func makeTokenRequest(
+        from snapshot: SourceNFTSnapshot,
+        walletID: String
+    ) -> AuraPlayNFTTokenUpsertRequest {
+        let contractAddress = NFT.normalizedScopeComponent(snapshot.contractAddressRawValue) ?? "__missing_contract__"
 
         return AuraPlayNFTTokenUpsertRequest(
             walletID: walletID,
-            sourceNFTID: nft.id,
+            sourceNFTID: snapshot.id,
             contractAddressRawValue: contractAddress,
-            tokenID: nft.tokenId,
-            tokenType: nft.tokenType,
-            title: cleanedText(nft.name) ?? "Unknown Track",
-            artistName: cleanedText(nft.artistName),
-            collectionName: cleanedText(nft.collectionName ?? nft.collection?.name),
-            artworkURLString: artworkURLString(from: nft),
-            playbackURLString: nft.musicURL?.absoluteString,
-            contentType: cleanedText(nft.contentType),
-            sourceUpdatedAtRawValue: cleanedText(nft.timeLastUpdated)
+            tokenID: snapshot.tokenID,
+            tokenType: snapshot.tokenType,
+            title: cleanedText(snapshot.name) ?? "Unknown Track",
+            artistName: cleanedText(snapshot.artistName),
+            collectionName: cleanedText(snapshot.collectionName ?? snapshot.collectionDisplayName),
+            artworkURLString: artworkURLString(from: snapshot),
+            playbackURLString: cleanedText(snapshot.playbackURLString),
+            contentType: cleanedText(snapshot.contentType),
+            sourceUpdatedAtRawValue: cleanedText(snapshot.sourceUpdatedAtRawValue)
         )
     }
 
-    func makeMediaItemRequest(from nft: NFT, walletID: String) -> AuraPlayMediaItemUpsertRequest {
-        let title = cleanedText(nft.name) ?? "Unknown Track"
-        let artistName = cleanedText(nft.artistName)
-        let collectionName = cleanedText(nft.collectionName ?? nft.collection?.name)
-        let playbackURLString = nft.musicURL?.absoluteString
-        let artworkURLString = artworkURLString(from: nft)
-        let contractAddress = NFT.normalizedScopeComponent(nft.contract.address) ?? "__missing_contract__"
+    private func makeMediaItemRequest(
+        from snapshot: SourceNFTSnapshot,
+        walletID: String
+    ) -> AuraPlayMediaItemUpsertRequest {
+        let title = cleanedText(snapshot.name) ?? "Unknown Track"
+        let artistName = cleanedText(snapshot.artistName)
+        let collectionName = cleanedText(snapshot.collectionName ?? snapshot.collectionDisplayName)
+        let playbackURLString = cleanedText(snapshot.playbackURLString)
+        let artworkURLString = artworkURLString(from: snapshot)
+        let contractAddress = NFT.normalizedScopeComponent(snapshot.contractAddressRawValue) ?? "__missing_contract__"
         let tokenCompositeID = AuraPlayNFTToken.makeCompositeID(
             walletID: walletID,
             contractAddressRawValue: contractAddress,
-            tokenID: nft.tokenId
+            tokenID: snapshot.tokenID
         )
 
         return AuraPlayMediaItemUpsertRequest(
             walletID: walletID,
             tokenCompositeID: tokenCompositeID,
-            sourceNFTID: nft.id,
-            accountAddressRawValue: nft.accountAddressRawValue,
-            chain: nft.network ?? .ethMainnet,
+            sourceNFTID: snapshot.id,
+            accountAddressRawValue: snapshot.accountAddressRawValue,
+            chain: snapshot.chain,
             title: title,
             artistName: artistName,
             collectionName: collectionName,
@@ -139,8 +246,8 @@ private extension LiveAuraPlayLibrarySyncService {
             normalizedCollectionKey: normalizedKey(collectionName),
             artworkURLString: artworkURLString,
             playbackURLString: playbackURLString,
-            contentType: cleanedText(nft.contentType),
-            sourceUpdatedAtRawValue: cleanedText(nft.timeLastUpdated),
+            contentType: cleanedText(snapshot.contentType),
+            sourceUpdatedAtRawValue: cleanedText(snapshot.sourceUpdatedAtRawValue),
             hasArtwork: artworkURLString != nil,
             hasAudio: playbackURLString != nil,
             isPlayable: playbackURLString != nil,
@@ -148,8 +255,8 @@ private extension LiveAuraPlayLibrarySyncService {
         )
     }
 
-    func artworkURLString(from nft: NFT) -> String? {
-        [nft.image?.thumbnailUrl, nft.image?.originalUrl]
+    private func artworkURLString(from snapshot: SourceNFTSnapshot) -> String? {
+        [snapshot.thumbnailURLString, snapshot.originalImageURLString]
             .compactMap { (rawValue: String?) -> String? in
                 guard let rawValue else {
                     return nil
@@ -159,12 +266,12 @@ private extension LiveAuraPlayLibrarySyncService {
             .first
     }
 
-    func cleanedText(_ value: String?) -> String? {
+    private func cleanedText(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    func normalizedKey(_ value: String?) -> String {
+    private func normalizedKey(_ value: String?) -> String {
         cleanedText(value)?
             .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
             .lowercased() ?? ""

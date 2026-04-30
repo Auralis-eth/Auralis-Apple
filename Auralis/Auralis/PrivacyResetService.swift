@@ -5,6 +5,10 @@ protocol DerivedSupportDataResetting: Sendable {
     func resetDerivedSupportData() async throws
 }
 
+protocol AuraPlayPersistenceResetting: Sendable {
+    func resetAuraPlayPersistence() async throws
+}
+
 @ModelActor
 actor SwiftDataDerivedSupportDataResetService: DerivedSupportDataResetting {
     func resetDerivedSupportData() throws {
@@ -27,6 +31,26 @@ actor SwiftDataDerivedSupportDataResetService: DerivedSupportDataResetting {
     }
 }
 
+actor AuraPlayStoreResetService: AuraPlayPersistenceResetting {
+    private let fileManager: FileManager
+    private let baseDirectory: URL?
+
+    init(
+        fileManager: FileManager = .default,
+        baseDirectory: URL? = nil
+    ) {
+        self.fileManager = fileManager
+        self.baseDirectory = baseDirectory
+    }
+
+    func resetAuraPlayPersistence() throws {
+        try AppModelContainer.resetStoreFiles(
+            fileManager: fileManager,
+            baseDirectory: baseDirectory
+        )
+    }
+}
+
 @MainActor
 protocol PrivacyResetting {
     func resetLocalPrivacyData() async throws
@@ -39,6 +63,7 @@ struct PrivacyResetService: PrivacyResetting {
     private let ensCacheResetService: any ENSCacheResetting
     private let tokenHoldingsStore: TokenHoldingsStore
     private let derivedSupportDataResetService: any DerivedSupportDataResetting
+    private let auraPlayPersistenceResetService: any AuraPlayPersistenceResetting
     private let selectionPersistence: any ShellSelectionPersisting
     private let homePinnedItemsStore: HomePinnedItemsStore
 
@@ -48,6 +73,7 @@ struct PrivacyResetService: PrivacyResetting {
         ensCacheResetService: any ENSCacheResetting,
         tokenHoldingsStore: TokenHoldingsStore,
         derivedSupportDataResetService: any DerivedSupportDataResetting,
+        auraPlayPersistenceResetService: any AuraPlayPersistenceResetting,
         selectionPersistence: any ShellSelectionPersisting = UserDefaultsShellSelectionPersistence(),
         homePinnedItemsStore: HomePinnedItemsStore = HomePinnedItemsStore()
     ) {
@@ -56,6 +82,7 @@ struct PrivacyResetService: PrivacyResetting {
         self.ensCacheResetService = ensCacheResetService
         self.tokenHoldingsStore = tokenHoldingsStore
         self.derivedSupportDataResetService = derivedSupportDataResetService
+        self.auraPlayPersistenceResetService = auraPlayPersistenceResetService
         self.selectionPersistence = selectionPersistence
         self.homePinnedItemsStore = homePinnedItemsStore
     }
@@ -67,6 +94,7 @@ struct PrivacyResetService: PrivacyResetting {
         await GasPriceCache.shared.clearCache()
         try await tokenHoldingsStore.clearAll()
         try await derivedSupportDataResetService.resetDerivedSupportData()
+        try await auraPlayPersistenceResetService.resetAuraPlayPersistence()
         selectionPersistence.clearSelection()
         homePinnedItemsStore.clearAll()
     }
@@ -83,6 +111,7 @@ enum PrivacyResetServices {
             derivedSupportDataResetService: SwiftDataDerivedSupportDataResetService(
                 modelContainer: modelContext.container
             ),
+            auraPlayPersistenceResetService: AuraPlayStoreResetService(),
             selectionPersistence: UserDefaultsShellSelectionPersistence(),
             homePinnedItemsStore: HomePinnedItemsStore()
         )
