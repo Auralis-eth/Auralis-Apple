@@ -235,6 +235,8 @@ struct ShellServiceHub {
     let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
     /// Builds the token holdings network provider.
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
+    /// Builds the logout cleanup service for the current model context.
+    let logoutCleanupServiceFactory: @MainActor (ModelContext) -> any LogoutCleaning
     /// Builds the privacy reset service for the current model context.
     let privacyResetServiceFactory: @MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting
     /// Builds the policy gate service for the current mode and model context.
@@ -293,6 +295,9 @@ struct ShellServiceHub {
             },
             tokenHoldingsProviderFactory: {
                 readOnlyProviderFactory.makeTokenHoldingsProvider()
+            },
+            logoutCleanupServiceFactory: { modelContext in
+                LogoutCleanupService(modelContext: modelContext)
             },
             privacyResetServiceFactory: { modelContext, auraPlayModelContainer in
                 PrivacyResetServices.live(

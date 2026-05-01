@@ -121,11 +121,12 @@ private actor TokenHoldingsPersistenceStore {
     }
 
     func clearAll() throws {
-        try modelContext.delete(
-            model: TokenHolding.self,
-            where: #Predicate<TokenHolding> { _ in true }
-        )
-        try modelContext.save()
+        try modelContext.performRollbackSafeMutation {
+            try modelContext.delete(
+                model: TokenHolding.self,
+                where: #Predicate<TokenHolding> { _ in true }
+            )
+        }
     }
 
     private func fetchScopedERC20Holdings(

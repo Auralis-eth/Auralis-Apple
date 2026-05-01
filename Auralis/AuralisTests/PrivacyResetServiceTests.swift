@@ -6,44 +6,27 @@ import Testing
 @MainActor
 @Suite
 struct PrivacyResetServiceTests {
-    private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([
-            SearchHistoryRecord.self,
-            TokenHolding.self,
-            EOAccount.self,
-            NFT.self,
-            Tag.self,
-            StoredReceipt.self,
-            MusicLibraryItem.self,
-        ])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
-    }
-
     @Test("resetLocalPrivacyData clears persisted search history rows")
     func resetLocalPrivacyDataClearsSearchHistory() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let searchHistoryStore = SearchHistoryStore(modelContext: context)
-        let tokenHoldingsStore = TokenHoldingsStore(modelContext: context)
-        let receiptStore = RecordingReceiptStore()
         let ensCacheResetService = RecordingENSCacheResetService()
-        let derivedSupportDataResetService = SwiftDataDerivedSupportDataResetService(
+        let transactionalResetService = SwiftDataTransactionalPrivacyResetService(
             modelContainer: context.container
         )
         let auraPlayPersistenceResetService = RecordingAuraPlayPersistenceResetService()
         let selectionPersistence = RecordingShellSelectionPersistence()
         let pinnedItemsStore = HomePinnedItemsStore(userDefaults: UserDefaults(suiteName: #function)!)
         let service = PrivacyResetService(
-            receiptStore: receiptStore,
-            searchHistoryStore: searchHistoryStore,
+            transactionalResetService: transactionalResetService,
             ensCacheResetService: ensCacheResetService,
-            tokenHoldingsStore: tokenHoldingsStore,
-            derivedSupportDataResetService: derivedSupportDataResetService,
             auraPlayPersistenceResetService: auraPlayPersistenceResetService,
             selectionPersistence: selectionPersistence,
             homePinnedItemsStore: pinnedItemsStore
         )
+        let searchHistoryStore = SearchHistoryStore(modelContext: context)
+        let tokenHoldingsStore = TokenHoldingsStore(modelContext: context)
+        let receiptStore = ReceiptStores.live(modelContext: context)
 
         try await searchHistoryStore.recordCommittedQuery("Moonpunks", accountAddress: nil)
         try await searchHistoryStore.recordCommittedQuery("USDC", accountAddress: "0x1111111111111111111111111111111111111111")
@@ -60,14 +43,24 @@ struct PrivacyResetServiceTests {
         context.insert(makeFixtureNFT(tokenId: "moon-1"))
         context.insert(makeFixtureMusicLibraryItem(id: "track-1", sourceNFTID: "music-source-1"))
         try context.save()
+        _ = try await receiptStore.append(
+            ReceiptDraft(
+                trigger: "fixture-reset",
+                scope: "tests",
+                summary: "fixture",
+                provenance: "local",
+                isSuccess: true,
+                details: ReceiptPayload(values: [:])
+            )
+        )
 
         try await service.resetLocalPrivacyData()
 
         #expect(searchHistoryStore.entries(for: nil).isEmpty)
         #expect(searchHistoryStore.entries(for: "0x1111111111111111111111111111111111111111").isEmpty)
-        #expect(receiptStore.resetAllCallCount == 1)
         #expect(await ensCacheResetService.resetCount() == 1)
         #expect(await auraPlayPersistenceResetService.resetCount() == 1)
+        #expect(try context.fetch(FetchDescriptor<StoredReceipt>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<NFT>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<MusicLibraryItem>()).isEmpty)
@@ -79,7 +72,7 @@ struct PrivacyResetServiceTests {
 
     @Test("removing an account purges only NFTs scoped to that account")
     func accountRemovalPurgesScopedNFTs() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let store = AccountStore(modelContext: context)
 
@@ -124,7 +117,7 @@ struct PrivacyResetServiceTests {
 
     @Test("overwriting an account purges previously persisted NFTs for that account")
     func accountOverwritePurgesScopedNFTs() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let store = AccountStore(modelContext: context)
 
@@ -202,7 +195,7 @@ struct PrivacyResetServiceTests {
 
     @Test("token holdings persistence rejects empty account scope instead of silently succeeding")
     func tokenHoldingsStoreRejectsEmptyAccountScope() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let store = TokenHoldingsStore(modelContext: context)
 
@@ -224,6 +217,88 @@ struct PrivacyResetServiceTests {
         }
 
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
+    }
+
+    @Test("privacy reset reports partial completion after transactional data is already committed")
+    func resetLocalPrivacyDataSurfacesPartialCompletion() async throws {
+        let container = try TestModelContainers.primary()
+        let context = ModelContext(container)
+        let service = PrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+                modelContainer: context.container
+            ),
+            ensCacheResetService: RecordingENSCacheResetService(),
+            auraPlayPersistenceResetService: FailingAuraPlayPersistenceResetService(),
+            selectionPersistence: RecordingShellSelectionPersistence(),
+            homePinnedItemsStore: HomePinnedItemsStore(userDefaults: UserDefaults(suiteName: "\(#function).pins")!)
+        )
+        let searchHistoryStore = SearchHistoryStore(modelContext: context)
+
+        try await searchHistoryStore.recordCommittedQuery("Partial", accountAddress: nil)
+
+        await #expect {
+            try await service.resetLocalPrivacyData()
+        } throws: { error in
+            guard case LocalDataResetError.phaseFailed(let phase, let completedPhases, _) = error else {
+                return false
+            }
+            return phase == .auraPlayPersistence
+                && completedPhases == [.transactionalStore, .supportCaches]
+        }
+
+        #expect(searchHistoryStore.entries(for: nil).isEmpty)
+    }
+
+    @Test("privacy reset can be retried safely after a later phase fails")
+    func resetLocalPrivacyDataCanRetryAfterLaterPhaseFailure() async throws {
+        let container = try TestModelContainers.primary()
+        let context = ModelContext(container)
+        let ensCacheResetService = RecordingENSCacheResetService()
+        let auraPlayPersistenceResetService = FailingOnceAuraPlayPersistenceResetService()
+        let selectionPersistence = RecordingShellSelectionPersistence()
+        let pinnedItemsStore = HomePinnedItemsStore(userDefaults: UserDefaults(suiteName: "\(#function).pins")!)
+        let service = PrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+                modelContainer: context.container
+            ),
+            ensCacheResetService: ensCacheResetService,
+            auraPlayPersistenceResetService: auraPlayPersistenceResetService,
+            selectionPersistence: selectionPersistence,
+            homePinnedItemsStore: pinnedItemsStore
+        )
+        let searchHistoryStore = SearchHistoryStore(modelContext: context)
+        let tokenHoldingsStore = TokenHoldingsStore(modelContext: context)
+
+        try await searchHistoryStore.recordCommittedQuery("Retry", accountAddress: nil)
+        try await tokenHoldingsStore.upsertNativeHolding(
+            accountAddress: "0x1111111111111111111111111111111111111111",
+            chain: .ethMainnet,
+            amountDisplay: "2.5",
+            updatedAt: .now
+        )
+        try pinnedItemsStore.togglePin(
+            .openNews,
+            accountAddress: "0x1111111111111111111111111111111111111111"
+        )
+
+        await #expect {
+            try await service.resetLocalPrivacyData()
+        } throws: { error in
+            guard case LocalDataResetError.phaseFailed(let phase, let completedPhases, _) = error else {
+                return false
+            }
+            return phase == .auraPlayPersistence
+                && completedPhases == [.transactionalStore, .supportCaches]
+        }
+
+        try await service.resetLocalPrivacyData()
+
+        #expect(searchHistoryStore.entries(for: nil).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
+        #expect(await auraPlayPersistenceResetService.attemptCount() == 2)
+        #expect(await ensCacheResetService.resetCount() == 2)
+        #expect(selectionPersistence.clearSelectionCallCount == 1)
+        #expect(pinnedItemsStore.pinnedActions(for: "0x1111111111111111111111111111111111111111").isEmpty)
     }
 }
 
@@ -284,31 +359,6 @@ private func makeFixtureMusicLibraryItem(
     )
 }
 
-@MainActor
-private final class RecordingReceiptStore: ReceiptStore {
-    private(set) var resetAllCallCount = 0
-
-    func append(_ receipt: ReceiptDraft) async throws -> ReceiptRecord {
-        fatalError("append is not used in PrivacyResetServiceTests")
-    }
-
-    func latest(limit: Int) throws -> [ReceiptRecord] {
-        fatalError("latest is not used in PrivacyResetServiceTests")
-    }
-
-    func receipts(forCorrelationID correlationID: String, limit: Int) throws -> [ReceiptRecord] {
-        fatalError("receipts(forCorrelationID:limit:) is not used in PrivacyResetServiceTests")
-    }
-
-    func exportAll() throws -> Data {
-        fatalError("exportAll is not used in PrivacyResetServiceTests")
-    }
-
-    func resetAll() async throws {
-        resetAllCallCount += 1
-    }
-}
-
 private actor RecordingENSCacheResetService: ENSCacheResetting {
     private var resetCallCount = 0
 
@@ -329,6 +379,33 @@ private actor RecordingAuraPlayPersistenceResetService: AuraPlayPersistenceReset
     }
 
     func resetCount() -> Int {
+        resetCallCount
+    }
+}
+
+private actor FailingAuraPlayPersistenceResetService: AuraPlayPersistenceResetting {
+    struct Failure: Error { }
+
+    func resetAuraPlayPersistence() async throws {
+        throw Failure()
+    }
+}
+
+private actor FailingOnceAuraPlayPersistenceResetService: AuraPlayPersistenceResetting {
+    struct Failure: Error { }
+
+    private var didFail = false
+    private var resetCallCount = 0
+
+    func resetAuraPlayPersistence() async throws {
+        resetCallCount += 1
+        guard didFail else {
+            didFail = true
+            throw Failure()
+        }
+    }
+
+    func attemptCount() -> Int {
         resetCallCount
     }
 }

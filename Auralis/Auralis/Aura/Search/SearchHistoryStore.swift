@@ -47,26 +47,29 @@ private actor SearchHistoryPersistenceStore {
             return
         }
 
-        modelContext.delete(record)
-        try modelContext.save()
+        try modelContext.performRollbackSafeMutation {
+            modelContext.delete(record)
+        }
     }
 
     func clear(accountAddress: String?) throws {
-        try modelContext.delete(
-            model: SearchHistoryRecord.self,
-            where: #Predicate<SearchHistoryRecord> { record in
-                record.accountAddressRawValue == accountAddress
-            }
-        )
-        try modelContext.save()
+        try modelContext.performRollbackSafeMutation {
+            try modelContext.delete(
+                model: SearchHistoryRecord.self,
+                where: #Predicate<SearchHistoryRecord> { record in
+                    record.accountAddressRawValue == accountAddress
+                }
+            )
+        }
     }
 
     func clearAll() throws {
-        try modelContext.delete(
-            model: SearchHistoryRecord.self,
-            where: #Predicate<SearchHistoryRecord> { _ in true }
-        )
-        try modelContext.save()
+        try modelContext.performRollbackSafeMutation {
+            try modelContext.delete(
+                model: SearchHistoryRecord.self,
+                where: #Predicate<SearchHistoryRecord> { _ in true }
+            )
+        }
     }
 
     private func fetchRecord(
@@ -176,36 +179,15 @@ struct SearchHistoryStore {
     }
 
     func removeEntry(id: String) async throws {
-        let descriptor = FetchDescriptor<SearchHistoryRecord>(
-            predicate: #Predicate<SearchHistoryRecord> { record in
-                record.id == id
-            }
-        )
-        guard let record = try modelContext.fetch(descriptor).first else {
-            return
-        }
-
-        modelContext.delete(record)
-        try modelContext.save()
+        try await persistenceStore.removeEntry(id: id)
     }
 
     func clear(accountAddress: String?) async throws {
-        let normalizedAccountAddress = normalizedAccount(accountAddress)
-        try modelContext.delete(
-            model: SearchHistoryRecord.self,
-            where: #Predicate<SearchHistoryRecord> { record in
-                record.accountAddressRawValue == normalizedAccountAddress
-            }
-        )
-        try modelContext.save()
+        try await persistenceStore.clear(accountAddress: normalizedAccount(accountAddress))
     }
 
     func clearAll() async throws {
-        try modelContext.delete(
-            model: SearchHistoryRecord.self,
-            where: #Predicate<SearchHistoryRecord> { _ in true }
-        )
-        try modelContext.save()
+        try await persistenceStore.clearAll()
     }
 
     private func normalizedAccount(_ address: String?) -> String? {

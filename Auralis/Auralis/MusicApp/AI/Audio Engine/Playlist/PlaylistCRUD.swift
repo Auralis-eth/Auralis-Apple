@@ -93,9 +93,10 @@ public actor PlaylistPersistenceStore {
                 throw PlaylistError.notFound
             }
 
-            modelContext.delete(playlist)
             do {
-                try modelContext.save()
+                try modelContext.performRollbackSafeMutation {
+                    modelContext.delete(playlist)
+                }
                 logger.log("Deleted playlist by id \(id.uuidString, privacy: .public).")
             } catch {
                 logger.error("Failed to delete playlist by id \(id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
@@ -181,10 +182,12 @@ public extension ModelContext {
 
     /// Deletes a playlist and persists the removal.
     func deletePlaylist(_ playlist: Playlist) throws {
-        delete(playlist)
         do {
-            try save()
+            try PlaylistDeletionService(modelContext: self).deletePlaylist(playlist)
             logger.log("Deleted playlist '\(playlist.title, privacy: .public)'.")
+        } catch let error as PlaylistError {
+            logger.error("Failed to delete playlist '\(playlist.title, privacy: .public)': \(error.localizedDescription, privacy: .public)")
+            throw error
         } catch {
             logger.error("Failed to delete playlist '\(playlist.title, privacy: .public)': \(error.localizedDescription, privacy: .public)")
             throw PlaylistError.saveFailed(underlying: error)
@@ -262,8 +265,8 @@ public func deletePlaylist(
             throw PlaylistError.notFound
         }
 
-        context.delete(playlist)
         do {
+            context.delete(playlist)
             try context.save()
             logger.log("Deleted playlist by id \(id.uuidString, privacy: .public).")
         } catch {

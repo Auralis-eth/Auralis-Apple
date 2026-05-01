@@ -107,7 +107,7 @@ struct PlaylistListView: View {
 
     @MainActor private func delete(_ pl: Playlist) {
         do {
-            try modelContext.deletePlaylist(pl)
+            try PlaylistDeletionService(modelContext: modelContext).deletePlaylist(pl)
         } catch {
             Logger(subsystem: "Auralis", category: "PlaylistUI").error("Delete failed: \(String(describing: error))")
             errorMessage = error.localizedDescription

@@ -1,8 +1,8 @@
 import Foundation
 import SwiftData
 
-protocol DerivedSupportDataResetting: Sendable {
-    func resetDerivedSupportData() async throws
+protocol TransactionalPrivacyResetting: Sendable {
+    func resetTransactionalPrivacyData() async throws
 }
 
 protocol AuraPlayPersistenceResetting: Sendable {
@@ -10,24 +10,36 @@ protocol AuraPlayPersistenceResetting: Sendable {
 }
 
 @ModelActor
-actor SwiftDataDerivedSupportDataResetService: DerivedSupportDataResetting {
-    func resetDerivedSupportData() throws {
-        try modelContext.delete(
-            model: MusicLibraryItem.self,
-            where: #Predicate<MusicLibraryItem> { _ in true }
-        )
-        try modelContext.delete(
-            model: Playlist.self,
-            where: #Predicate<Playlist> { _ in true }
-        )
-        try modelContext.deleteAllNFTData()
+actor SwiftDataTransactionalPrivacyResetService: TransactionalPrivacyResetting {
+    func resetTransactionalPrivacyData() throws {
+        try modelContext.performRollbackSafeMutation {
+            try modelContext.delete(
+                model: StoredReceipt.self,
+                where: #Predicate<StoredReceipt> { _ in true }
+            )
+            try modelContext.delete(
+                model: SearchHistoryRecord.self,
+                where: #Predicate<SearchHistoryRecord> { _ in true }
+            )
+            try modelContext.delete(
+                model: TokenHolding.self,
+                where: #Predicate<TokenHolding> { _ in true }
+            )
+            try modelContext.delete(
+                model: MusicLibraryItem.self,
+                where: #Predicate<MusicLibraryItem> { _ in true }
+            )
+            try modelContext.delete(
+                model: Playlist.self,
+                where: #Predicate<Playlist> { _ in true }
+            )
+            try modelContext.deleteAllNFTData()
 
-        let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
-        for account in accounts where account.trackedNFTCount != 0 {
-            account.trackedNFTCount = 0
+            let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
+            for account in accounts where account.trackedNFTCount != 0 {
+                account.trackedNFTCount = 0
+            }
         }
-
-        try modelContext.save()
     }
 }
 
@@ -54,20 +66,20 @@ actor AuraPlayStoreResetService: AuraPlayPersistenceResetting {
 @ModelActor
 actor SwiftDataAuraPlayPersistenceResetService: AuraPlayPersistenceResetting {
     func resetAuraPlayPersistence() throws {
-        try modelContext.delete(
-            model: AuraPlayMediaItem.self,
-            where: #Predicate<AuraPlayMediaItem> { _ in true }
-        )
-        try modelContext.delete(
-            model: AuraPlayNFTToken.self,
-            where: #Predicate<AuraPlayNFTToken> { _ in true }
-        )
-        try modelContext.delete(
-            model: AuraPlayWallet.self,
-            where: #Predicate<AuraPlayWallet> { _ in true }
-        )
-
-        try modelContext.save()
+        try modelContext.performRollbackSafeMutation {
+            try modelContext.delete(
+                model: AuraPlayMediaItem.self,
+                where: #Predicate<AuraPlayMediaItem> { _ in true }
+            )
+            try modelContext.delete(
+                model: AuraPlayNFTToken.self,
+                where: #Predicate<AuraPlayNFTToken> { _ in true }
+            )
+            try modelContext.delete(
+                model: AuraPlayWallet.self,
+                where: #Predicate<AuraPlayWallet> { _ in true }
+            )
+        }
     }
 }
 
@@ -76,45 +88,86 @@ protocol PrivacyResetting {
     func resetLocalPrivacyData() async throws
 }
 
+enum PrivacyResetPhase: String, Sendable, CaseIterable {
+    case transactionalStore = "transactional wallet data"
+    case supportCaches = "support caches"
+    case auraPlayPersistence = "AuraPlay persistence"
+    case localPreferences = "local preferences"
+}
+
+enum LocalDataResetError: LocalizedError {
+    case rollbackCompleted(phase: PrivacyResetPhase, underlying: Error)
+    case phaseFailed(
+        phase: PrivacyResetPhase,
+        completedPhases: [PrivacyResetPhase],
+        underlying: Error
+    )
+
+    var errorDescription: String? {
+        switch self {
+        case .rollbackCompleted(let phase, _):
+            return """
+            Auralis could not clear \(phase.rawValue). Changes in that phase were rolled back, so you can retry the privacy reset safely.
+            """
+        case .phaseFailed(let phase, let completedPhases, _):
+            let completedDescription = completedPhases.map(\.rawValue).joined(separator: ", ")
+            return """
+            Auralis already cleared \(completedDescription) before failing while clearing \(phase.rawValue). The reset is safe to retry and will continue from the remaining phases.
+            """
+        }
+    }
+}
+
 @MainActor
 struct PrivacyResetService: PrivacyResetting {
-    private let receiptStore: any ReceiptStore
-    private let searchHistoryStore: SearchHistoryStore
+    private let transactionalResetService: any TransactionalPrivacyResetting
     private let ensCacheResetService: any ENSCacheResetting
-    private let tokenHoldingsStore: TokenHoldingsStore
-    private let derivedSupportDataResetService: any DerivedSupportDataResetting
     private let auraPlayPersistenceResetService: any AuraPlayPersistenceResetting
     private let selectionPersistence: any ShellSelectionPersisting
     private let homePinnedItemsStore: HomePinnedItemsStore
 
     init(
-        receiptStore: any ReceiptStore,
-        searchHistoryStore: SearchHistoryStore,
+        transactionalResetService: any TransactionalPrivacyResetting,
         ensCacheResetService: any ENSCacheResetting,
-        tokenHoldingsStore: TokenHoldingsStore,
-        derivedSupportDataResetService: any DerivedSupportDataResetting,
         auraPlayPersistenceResetService: any AuraPlayPersistenceResetting,
         selectionPersistence: any ShellSelectionPersisting = UserDefaultsShellSelectionPersistence(),
         homePinnedItemsStore: HomePinnedItemsStore = HomePinnedItemsStore()
     ) {
-        self.receiptStore = receiptStore
-        self.searchHistoryStore = searchHistoryStore
+        self.transactionalResetService = transactionalResetService
         self.ensCacheResetService = ensCacheResetService
-        self.tokenHoldingsStore = tokenHoldingsStore
-        self.derivedSupportDataResetService = derivedSupportDataResetService
         self.auraPlayPersistenceResetService = auraPlayPersistenceResetService
         self.selectionPersistence = selectionPersistence
         self.homePinnedItemsStore = homePinnedItemsStore
     }
 
     func resetLocalPrivacyData() async throws {
-        try await receiptStore.resetAll()
-        try await searchHistoryStore.clearAll()
+        var completedPhases: [PrivacyResetPhase] = []
+
+        do {
+            try await transactionalResetService.resetTransactionalPrivacyData()
+        } catch {
+            throw LocalDataResetError.rollbackCompleted(
+                phase: .transactionalStore,
+                underlying: error
+            )
+        }
+        completedPhases.append(.transactionalStore)
+
         await ensCacheResetService.resetCache()
         await GasPriceCache.shared.clearCache()
-        try await tokenHoldingsStore.clearAll()
-        try await derivedSupportDataResetService.resetDerivedSupportData()
-        try await auraPlayPersistenceResetService.resetAuraPlayPersistence()
+        completedPhases.append(.supportCaches)
+
+        do {
+            try await auraPlayPersistenceResetService.resetAuraPlayPersistence()
+        } catch {
+            throw LocalDataResetError.phaseFailed(
+                phase: .auraPlayPersistence,
+                completedPhases: completedPhases,
+                underlying: error
+            )
+        }
+        completedPhases.append(.auraPlayPersistence)
+
         selectionPersistence.clearSelection()
         homePinnedItemsStore.clearAll()
     }
@@ -127,13 +180,10 @@ enum PrivacyResetServices {
         auraPlayModelContainer: ModelContainer?
     ) -> PrivacyResetService {
         PrivacyResetService(
-            receiptStore: ReceiptStores.live(modelContext: modelContext),
-            searchHistoryStore: SearchHistoryStore(modelContext: modelContext),
-            ensCacheResetService: ENSResolvers.cacheResetService(),
-            tokenHoldingsStore: TokenHoldingsStore(modelContext: modelContext),
-            derivedSupportDataResetService: SwiftDataDerivedSupportDataResetService(
+            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
                 modelContainer: modelContext.container
             ),
+            ensCacheResetService: ENSResolvers.cacheResetService(),
             auraPlayPersistenceResetService: auraPlayModelContainer.map {
                 SwiftDataAuraPlayPersistenceResetService(modelContainer: $0)
             } ?? AuraPlayStoreResetService(),

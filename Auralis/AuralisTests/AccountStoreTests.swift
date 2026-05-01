@@ -6,17 +6,10 @@ import Testing
 @MainActor
 @Suite
 struct AccountStoreTests {
-    @MainActor
-    private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([EOAccount.self, NFT.self, Tag.self, StoredReceipt.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
-    }
-
     @Test("create normalizes addresses and lists accounts by activity then recency added")
     @MainActor
     func createAndListAccounts() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
@@ -46,7 +39,7 @@ struct AccountStoreTests {
     @Test("account lookup uses canonical normalization for raw addresses")
     @MainActor
     func accountLookupNormalizesInput() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let store = AccountStore(modelContext: context)
 
@@ -90,7 +83,7 @@ struct AccountStoreTests {
     @Test("select updates lastSelectedAt and moves the account to the front")
     @MainActor
     func selectAccount() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
@@ -119,7 +112,7 @@ struct AccountStoreTests {
     @Test("activate creates a new account once and selects an existing duplicate deterministically")
     @MainActor
     func activateWatchAccountCreatesOrSelects() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
@@ -152,7 +145,7 @@ struct AccountStoreTests {
     @Test("duplicate create is case-insensitive and requires explicit overwrite")
     @MainActor
     func duplicateCreateAndOverwrite() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
@@ -202,7 +195,7 @@ struct AccountStoreTests {
     @Test("invalid create and missing account operations fail with deterministic errors")
     @MainActor
     func invalidAndMissingAccountErrors() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let store = AccountStore(modelContext: context)
 
@@ -222,7 +215,7 @@ struct AccountStoreTests {
     @Test("remove returns the sorted fallback only when removing the active account")
     @MainActor
     func removeAccountAndFallback() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
@@ -256,7 +249,7 @@ struct AccountStoreTests {
     @Test("remove does not compute a fallback when deleting an inactive account")
     @MainActor
     func removeInactiveAccountDoesNotFallback() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
@@ -290,7 +283,7 @@ struct AccountStoreTests {
     @Test("activate reuses one caller-provided correlation ID across chained add and select events")
     @MainActor
     func activateWatchAccountPreservesCorrelationID() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
         let store = AccountStore(modelContext: context, eventRecorder: recorder)
@@ -313,7 +306,7 @@ struct AccountStoreTests {
     @Test("list orders by lastSelectedAt first and then newest added for ties")
     @MainActor
     func listAccountsUsesSelectionThenAddedAtOrdering() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let store = AccountStore(modelContext: context)
 

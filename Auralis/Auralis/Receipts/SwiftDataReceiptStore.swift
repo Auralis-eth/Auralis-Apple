@@ -29,11 +29,12 @@ actor ReceiptPersistenceStore {
     }
 
     func resetAll() throws {
-        try modelContext.delete(
-            model: StoredReceipt.self,
-            where: #Predicate<StoredReceipt> { _ in true }
-        )
-        try modelContext.save()
+        try modelContext.performRollbackSafeMutation {
+            try modelContext.delete(
+                model: StoredReceipt.self,
+                where: #Predicate<StoredReceipt> { _ in true }
+            )
+        }
         nextSequenceIDCache = nil
     }
 

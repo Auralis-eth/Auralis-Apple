@@ -367,7 +367,7 @@ struct SearchRootView: View {
     private func fetchENSMatches(name: String) throws -> [SearchLocalMatch] {
         let descriptor = FetchDescriptor<EOAccount>(
             predicate: #Predicate<EOAccount> { account in
-                account.name != nil
+                account.normalizedName == name
             },
             sortBy: [
                 SortDescriptor(\EOAccount.lastSelectedAt, order: .reverse),
@@ -377,9 +377,9 @@ struct SearchRootView: View {
         )
 
         return try modelContext.fetch(descriptor)
-            .compactMap { account -> SearchLocalMatch? in
+            .compactMap { account in
                 guard let accountName = account.name?.trimmingCharacters(in: .whitespacesAndNewlines),
-                      accountName.lowercased() == name else {
+                      !accountName.isEmpty else {
                     return nil
                 }
 

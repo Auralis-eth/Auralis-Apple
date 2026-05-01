@@ -16,6 +16,7 @@ import Testing
         #expect(account.trackedNFTCount == 0)
         #expect(account.addedAt >= beforeCreation)
         #expect(account.mostRecentActivityAt == account.addedAt)
+        #expect(account.normalizedName == "account 0xab")
     }
 
     @Test("most recent activity is driven by lastSelectedAt when present")
@@ -55,5 +56,22 @@ import Testing
         #expect(account.addedAt == .distantPast)
         #expect(account.lastSelectedAt == nil)
         #expect(account.trackedNFTCount == 0)
+        #expect(account.normalizedName == "legacy")
+    }
+
+    @Test("normalized name stays trimmed and lowercase when account names change")
+    func normalizedNameTracksNameMutations() {
+        let account = EOAccount(
+            address: "0x1234567890abcdef1234567890abcdef12345678",
+            name: "  VITALIK.eth  "
+        )
+
+        #expect(account.normalizedName == "vitalik.eth")
+
+        account.name = "  ENS Alias  "
+        #expect(account.normalizedName == "ens alias")
+
+        account.name = "   "
+        #expect(account.normalizedName == nil)
     }
 }

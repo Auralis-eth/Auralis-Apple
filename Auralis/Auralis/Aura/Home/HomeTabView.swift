@@ -11,12 +11,7 @@ struct HomeTabView: View {
     let currentChain: Chain
     let contextSnapshot: ContextSnapshot
     @Query private var scopedNFTs: [NFT]
-    @Query(
-        sort: [
-            SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
-            SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
-        ]
-    ) private var storedReceipts: [StoredReceipt]
+    @Query private var recentStoredReceipts: [StoredReceipt]
 
     let router: AppRouter
     let ensResolver: any ENSResolving
@@ -79,15 +74,11 @@ struct HomeTabView: View {
                 $0.networkRawValue == chainRawValue
             }
         )
-        _storedReceipts = Query(
-            filter: #Predicate<StoredReceipt> {
-                $0.accountAddress == normalizedAccountAddress &&
-                $0.chainRawValue == chainRawValue
-            },
-            sort: [
-                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
-                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
-            ]
+        _recentStoredReceipts = Query(
+            Self.makeRecentReceiptsDescriptor(
+                accountAddress: normalizedAccountAddress,
+                chainRawValue: chainRawValue
+            )
         )
     }
 
@@ -99,10 +90,7 @@ struct HomeTabView: View {
     }
 
     private var recentActivity: [ReceiptTimelineRecord] {
-        storedReceipts
-            .map(ReceiptTimelineRecord.init)
-            .prefix(5)
-            .map { $0 }
+        recentStoredReceipts.map(ReceiptTimelineRecord.init)
     }
 
     private var recentActivityPreviewItems: [HomeRecentActivityPreviewItem] {
@@ -111,6 +99,24 @@ struct HomeTabView: View {
 
     private var musicNFTCount: Int {
         scopedNFTs.filter { $0.isMusic() }.count
+    }
+
+    private static func makeRecentReceiptsDescriptor(
+        accountAddress: String,
+        chainRawValue: String
+    ) -> FetchDescriptor<StoredReceipt> {
+        var descriptor = FetchDescriptor<StoredReceipt>(
+            predicate: #Predicate<StoredReceipt> { receipt in
+                receipt.accountAddress == accountAddress &&
+                receipt.chainRawValue == chainRawValue
+            },
+            sortBy: [
+                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
+                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
+            ]
+        )
+        descriptor.fetchLimit = 5
+        return descriptor
     }
 
     private var homeSparseDataState: HomeSparseDataState {
@@ -666,24 +672,12 @@ struct HomeTabView: View {
         let plan = logic.logoutPlan()
 
         do {
-            if plan.shouldDeleteNFTs {
-                try modelContext.deleteAllNFTData()
-            }
-
-            // Watch-only logout clears local app state but intentionally preserves
-            // saved accounts so people can hop back into previously scoped wallets.
-            if plan.shouldDeleteAccounts {
-                try modelContext.delete(model: EOAccount.self)
-            }
-
-            if plan.shouldDeleteTags {
-                try modelContext.delete(model: Tag.self)
-            }
-
-            try modelContext.save()
+            try services
+                .logoutCleanupServiceFactory(modelContext)
+                .clearLocalDataForLogout(plan: plan)
         } catch {
             logger.error("Logout cleanup failed error=\(error.localizedDescription, privacy: .public)")
-            errorMessage = String(localized: "Auralis could not clear local data for logout. Nothing was changed.")
+            errorMessage = error.localizedDescription
             showErrorAlert = true
             return
         }

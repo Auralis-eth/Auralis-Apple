@@ -16,6 +16,7 @@ private let eoAccountLogger = Logger(subsystem: "Auralis", category: "EOAccount"
 class EOAccount: Codable, Identifiable {
     #Index<EOAccount>(
         [\.address],
+        [\.normalizedName],
         [\.lastSelectedAt, \.addedAt, \.address]
     )
     /// Canonical wallet address for the account.
@@ -25,7 +26,13 @@ class EOAccount: Codable, Identifiable {
         address
     }
     /// Optional ENS or user-facing label shown in account switchers and summaries.
-    var name: String?
+    var name: String? {
+        didSet {
+            normalizedName = Self.normalizedName(from: name)
+        }
+    }
+    /// Lowercased trimmed account name used for exact-match search fetches.
+    var normalizedName: String?
     /// Capability level describing whether the address can sign.
     var access: EthereumAddressAccess?
     /// The onboarding path that created the account record.
@@ -59,6 +66,7 @@ class EOAccount: Codable, Identifiable {
         self.address = address
         self.access = access
         self.name = resolvedName
+        self.normalizedName = Self.normalizedName(from: resolvedName)
         self.source = source
         self.addedAt = addedAt
         self.lastSelectedAt = lastSelectedAt
@@ -71,6 +79,7 @@ class EOAccount: Codable, Identifiable {
         case address
         case access
         case name
+        case normalizedName
         case source
         case addedAt
         case lastSelectedAt
@@ -97,10 +106,12 @@ class EOAccount: Codable, Identifiable {
 
         let decodedPreferred = try container.decodeIfPresent(String.self, forKey: .preferredChainRawValue) ?? Chain.ethMainnet.rawValue
         let decodedCurrent = try container.decodeIfPresent(String.self, forKey: .currentChainRawValue) ?? Chain.ethMainnet.rawValue
+        let decodedNormalizedName = try container.decodeIfPresent(String.self, forKey: .normalizedName)
 
         address = decodedAddress
         access = decodedAccess
         name = decodedName
+        normalizedName = decodedNormalizedName ?? Self.normalizedName(from: decodedName)
         source = decodedSource
         addedAt = decodedAddedAt
         lastSelectedAt = decodedLastSelectedAt
@@ -114,6 +125,7 @@ class EOAccount: Codable, Identifiable {
         try container.encode(address, forKey: .address)
         try container.encodeIfPresent(access, forKey: .access)
         try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(normalizedName, forKey: .normalizedName)
         try container.encode(source, forKey: .source)
         try container.encode(addedAt, forKey: .addedAt)
         try container.encodeIfPresent(lastSelectedAt, forKey: .lastSelectedAt)
@@ -130,6 +142,15 @@ class EOAccount: Codable, Identifiable {
     /// Fallback display name when no ENS or explicit label exists.
     static func defaultName(for address: String) -> String {
         "Account \(String(address.prefix(4)))"
+    }
+
+    static func normalizedName(from rawName: String?) -> String? {
+        let trimmedName = rawName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmedName, !trimmedName.isEmpty else {
+            return nil
+        }
+
+        return trimmedName.lowercased()
     }
 
     var preferredChainOrNil: Chain? {
@@ -174,6 +195,20 @@ class EOAccount: Codable, Identifiable {
         }
 
         return preferredWasInvalid || currentWasInvalid
+    }
+
+    @discardableResult
+    func normalizeStoredNameIfNeeded() -> Bool {
+        let resolvedNormalizedName = Self.normalizedName(from: name)
+        guard normalizedName != resolvedNormalizedName else {
+            return false
+        }
+
+        eoAccountLogger.log(
+            "Repairing normalizedName for account \(self.address, privacy: .public)"
+        )
+        normalizedName = resolvedNormalizedName
+        return true
     }
 }
 

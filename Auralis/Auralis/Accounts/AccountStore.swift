@@ -21,28 +21,29 @@ private actor AccountPersistenceStore {
         overwriteExisting: Bool,
         now: Date
     ) throws {
-        if let existingAccount = try account(for: normalizedAddress) {
-            guard overwriteExisting else {
-                throw AccountStoreError.duplicateAddress(normalizedAddress)
+        try modelContext.performRollbackSafeMutation {
+            if let existingAccount = try account(for: normalizedAddress) {
+                guard overwriteExisting else {
+                    throw AccountStoreError.duplicateAddress(normalizedAddress)
+                }
+
+                try modelContext.deleteAccountScopedSupportData(accountAddress: normalizedAddress)
+                try modelContext.deleteNFTsScopedToAccount(normalizedAddress)
+                modelContext.delete(existingAccount)
             }
 
-            try modelContext.deleteAccountScopedSupportData(accountAddress: normalizedAddress)
-            try modelContext.deleteNFTsScopedToAccount(normalizedAddress)
-            modelContext.delete(existingAccount)
+            let account = EOAccount(
+                address: normalizedAddress,
+                access: .readonly,
+                name: name,
+                source: source,
+                addedAt: now,
+                lastSelectedAt: nil,
+                trackedNFTCount: 0
+            )
+
+            modelContext.insert(account)
         }
-
-        let account = EOAccount(
-            address: normalizedAddress,
-            access: .readonly,
-            name: name,
-            source: source,
-            addedAt: now,
-            lastSelectedAt: nil,
-            trackedNFTCount: 0
-        )
-
-        modelContext.insert(account)
-        try modelContext.save()
     }
 
     func selectAccount(
@@ -66,10 +67,11 @@ private actor AccountPersistenceStore {
         }
 
         let removedAddress = account.address
-        try modelContext.deleteAccountScopedSupportData(accountAddress: removedAddress)
-        try modelContext.deleteNFTsScopedToAccount(removedAddress)
-        modelContext.delete(account)
-        try modelContext.save()
+        try modelContext.performRollbackSafeMutation {
+            try modelContext.deleteAccountScopedSupportData(accountAddress: removedAddress)
+            try modelContext.deleteNFTsScopedToAccount(removedAddress)
+            modelContext.delete(account)
+        }
 
         let fallbackAddress: String?
         if normalizedActiveAddress == removedAddress {
@@ -257,7 +259,7 @@ struct AccountStore {
         let accounts = try modelContext.fetch(
             FetchDescriptor(sortBy: accountSortDescriptors)
         )
-        if accounts.contains(where: { $0.normalizeStoredChainsIfNeeded() }) {
+        if accounts.contains(where: { $0.normalizeStoredMetadataIfNeeded() }) {
             try modelContext.save()
         }
 
@@ -276,7 +278,7 @@ struct AccountStore {
         )
 
         let account = try modelContext.fetch(descriptor).first
-        if let account, account.normalizeStoredChainsIfNeeded() {
+        if let account, account.normalizeStoredMetadataIfNeeded() {
             try modelContext.save()
         }
 
@@ -386,7 +388,7 @@ struct AccountStore {
             throw AccountStoreError.accountNotFound(rawAddress)
         }
 
-        let removalSnapshot = try await persistenceStore.removeAccount(
+        let removalSnapshot = try removeAccountFromMainContext(
             normalizedAddress: normalizedAddress,
             normalizedActiveAddress: activeAddress.flatMap(AccountStore.normalizeAddress)
         )
@@ -466,6 +468,36 @@ struct AccountStore {
 }
 
 private extension AccountStore {
+    func removeAccountFromMainContext(
+        normalizedAddress: String,
+        normalizedActiveAddress: String?
+    ) throws -> AccountPersistenceStore.RemovalSnapshot {
+        guard let account = try account(for: normalizedAddress) else {
+            throw AccountStoreError.accountNotFound(normalizedAddress)
+        }
+
+        let removedAddress = account.address
+        let fallbackAddress: String?
+        if normalizedActiveAddress == removedAddress {
+            fallbackAddress = try listAccounts()
+                .first(where: { $0.address != removedAddress })?
+                .address
+        } else {
+            fallbackAddress = nil
+        }
+
+        try modelContext.performUndoableMutation(named: "Remove Account") {
+            try modelContext.deleteAccountScopedSupportData(accountAddress: removedAddress)
+            try modelContext.deleteNFTsScopedToAccount(removedAddress)
+            modelContext.delete(account)
+        }
+
+        return AccountPersistenceStore.RemovalSnapshot(
+            removedAddress: removedAddress,
+            fallbackAddress: fallbackAddress
+        )
+    }
+
     static func strictEthereumAddress(from candidate: String) -> String? {
         let lowered = candidate.lowercased()
 
@@ -478,5 +510,13 @@ private extension AccountStore {
         }
 
         return nil
+    }
+}
+
+private extension EOAccount {
+    func normalizeStoredMetadataIfNeeded() -> Bool {
+        let repairedChains = normalizeStoredChainsIfNeeded()
+        let repairedName = normalizeStoredNameIfNeeded()
+        return repairedChains || repairedName
     }
 }
