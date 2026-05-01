@@ -404,13 +404,13 @@ struct HelperConsistencyTests {
             ),
             tokenUri: "ipfs://fixture-\(tokenId)",
             timeLastUpdated: "2025-01-01T00:00:00Z",
+            acquiredAt: includeOwnedChildren ? NFT.AcquiredAt(blockTimestamp: "2025-01-01T00:00:00Z") : nil,
             network: network,
             accountAddress: accountAddress,
             contentType: "audio/mpeg",
             collectionName: "Fixture Collection",
             artistName: "Fixture Artist",
             animationUrl: "https://example.com/\(tokenId).mp3",
-            acquiredAt: includeOwnedChildren ? NFT.AcquiredAt(blockTimestamp: "2025-01-01T00:00:00Z") : nil,
             audioUrl: "https://example.com/\(tokenId).mp3"
         )
     }
