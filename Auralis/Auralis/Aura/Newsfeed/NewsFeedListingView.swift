@@ -9,7 +9,6 @@ import SwiftData
 import SwiftUI
 
 struct NewsFeedListingView: View {
-    @Environment(\.modelContext) private var modelContext
     @Query private var scopedNFTs: [NFT]
 
     @Binding var currentAccount: EOAccount?
@@ -146,79 +145,13 @@ struct NewsFeedListingView: View {
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address) ?? ""
         let chainRawValue = currentChain.rawValue
 
-        do {
-            let matchedIDs = try fetchMatchedNFTIDs(
-                normalizedAccountAddress: normalizedAccountAddress,
-                chainRawValue: chainRawValue,
-                searchText: trimmedSearchString
-            )
-            searchResults = scopedNFTs.filter { matchedIDs.contains($0.id) }
-        } catch {
-            searchResults = []
-        }
-    }
-
-    private func fetchMatchedNFTIDs(
-        normalizedAccountAddress: String,
-        chainRawValue: String,
-        searchText: String
-    ) throws -> Set<String> {
-        let matches = try modelContext.fetch(
-            makeSearchDescriptor(
-                normalizedAccountAddress: normalizedAccountAddress,
-                chainRawValue: chainRawValue,
-                searchText: searchText,
-                field: \NFT.name
-            )
-        ) + modelContext.fetch(
-            makeSearchDescriptor(
-                normalizedAccountAddress: normalizedAccountAddress,
-                chainRawValue: chainRawValue,
-                searchText: searchText,
-                field: \NFT.collectionName
-            )
-        ) + modelContext.fetch(
-            makeSearchDescriptor(
-                normalizedAccountAddress: normalizedAccountAddress,
-                chainRawValue: chainRawValue,
-                searchText: searchText,
-                field: \NFT.nftDescription
-            )
-        )
-
-        return Set(matches.map(\.id))
-    }
-
-    private func makeSearchDescriptor(
-        normalizedAccountAddress: String,
-        chainRawValue: String,
-        searchText: String,
-        field: KeyPath<NFT, String?>
-    ) -> FetchDescriptor<NFT> {
-        switch field {
-        case \NFT.name:
-            return FetchDescriptor(
-                predicate: #Predicate<NFT> { nft in
-                    nft.accountAddressRawValue == normalizedAccountAddress &&
-                    nft.networkRawValue == chainRawValue &&
-                    (nft.name ?? "").localizedStandardContains(searchText)
-                }
-            )
-        case \NFT.collectionName:
-            return FetchDescriptor(
-                predicate: #Predicate<NFT> { nft in
-                    nft.accountAddressRawValue == normalizedAccountAddress &&
-                    nft.networkRawValue == chainRawValue &&
-                    (nft.collectionName ?? "").localizedStandardContains(searchText)
-                }
-            )
-        default:
-            return FetchDescriptor(
-                predicate: #Predicate<NFT> { nft in
-                    nft.accountAddressRawValue == normalizedAccountAddress &&
-                    nft.networkRawValue == chainRawValue &&
-                    (nft.nftDescription ?? "").localizedStandardContains(searchText)
-                }
+        searchResults = scopedNFTs.filter { nft in
+            nft.accountAddressRawValue == normalizedAccountAddress &&
+            nft.networkRawValue == chainRawValue &&
+            (
+                (nft.name ?? "").localizedStandardContains(trimmedSearchString) ||
+                (nft.collectionName ?? "").localizedStandardContains(trimmedSearchString) ||
+                (nft.nftDescription ?? "").localizedStandardContains(trimmedSearchString)
             )
         }
     }

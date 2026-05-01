@@ -10,7 +10,6 @@ struct HomeTabView: View {
     let currentAddress: String
     let currentChain: Chain
     let contextSnapshot: ContextSnapshot
-    @Query private var scopedNFTs: [NFT]
     @Query private var recentStoredReceipts: [StoredReceipt]
 
     let router: AppRouter
@@ -41,6 +40,8 @@ struct HomeTabView: View {
     @State private var promptCacheOrder: [String] = []
     @State private var avatarImage: UIImage?
     @State private var pinnedActions: Set<HomeLauncherAction> = []
+    @State private var scopedNFTCount = 0
+    @State private var musicNFTCount = 0
     private let maxPromptCacheEntries = 32
 
     init(
@@ -68,12 +69,6 @@ struct HomeTabView: View {
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address ?? currentAddress) ?? ""
         let chainRawValue = currentChain.rawValue
-        _scopedNFTs = Query(
-            filter: #Predicate<NFT> {
-                $0.accountAddressRawValue == normalizedAccountAddress &&
-                $0.networkRawValue == chainRawValue
-            }
-        )
         _recentStoredReceipts = Query(
             Self.makeRecentReceiptsDescriptor(
                 accountAddress: normalizedAccountAddress,
@@ -97,8 +92,11 @@ struct HomeTabView: View {
         logic.recentActivityPreviewItems(records: recentActivity)
     }
 
-    private var musicNFTCount: Int {
-        scopedNFTs.filter { $0.isMusic() }.count
+    private var nftCountRefreshKey: ScopedNFTRefreshKey {
+        ScopedNFTRefreshKey(
+            accountAddress: currentAccount?.address ?? currentAddress,
+            chain: currentChain
+        )
     }
 
     private static func makeRecentReceiptsDescriptor(
@@ -121,14 +119,14 @@ struct HomeTabView: View {
 
     private var homeSparseDataState: HomeSparseDataState {
         logic.sparseDataState(
-            scopedNFTCount: scopedNFTs.count,
+            scopedNFTCount: scopedNFTCount,
             recentActivityCount: recentActivity.count
         )
     }
 
     private var sparseStatePresentation: HomeSparseStatePresentation? {
         logic.sparseStatePresentation(
-            scopedNFTCount: scopedNFTs.count,
+            scopedNFTCount: scopedNFTCount,
             recentActivityCount: recentActivity.count,
             isHomeLoading: isLoading,
             isShowingFailure: false
@@ -147,7 +145,7 @@ struct HomeTabView: View {
             currentAccount: currentAccount,
             currentAddress: currentAddress,
             currentChain: currentChain,
-            scopedNFTCount: scopedNFTs.count
+            scopedNFTCount: scopedNFTCount
         )
     }
 
@@ -226,6 +224,12 @@ struct HomeTabView: View {
         .onAppear {
             reloadPinnedActions()
         }
+        .task(id: nftCountRefreshKey) {
+            await refreshScopedNFTCounts()
+        }
+        .task(id: nftCountRefreshKey) {
+            await observeScopedNFTPersistenceChanges()
+        }
         .onChange(of: currentAddress) { _, _ in
             reloadPinnedActions()
         }
@@ -260,7 +264,7 @@ struct HomeTabView: View {
                     currentAccount: readOnlyCurrentAccountBinding,
                     currentAddress: readOnlyCurrentAddressBinding,
                     currentChain: currentChain,
-                    scopedNFTCount: scopedNFTs.count,
+                    scopedNFTCount: scopedNFTCount,
                     avatarImage: $avatarImage,
                     ensResolver: ensResolver,
                     onOpenAccountSwitcher: {
@@ -846,5 +850,55 @@ struct HomeTabView: View {
             get: { currentAddress },
             set: { _ in }
         )
+    }
+}
+
+private extension HomeTabView {
+    struct ScopedNFTRefreshKey: Equatable {
+        let accountAddress: String
+        let chain: Chain
+    }
+
+    func refreshScopedNFTCounts() async {
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address ?? currentAddress) ?? ""
+        let chainRawValue = currentChain.rawValue
+
+        let scopedDescriptor = FetchDescriptor<NFT>(
+            predicate: #Predicate<NFT> { nft in
+                nft.accountAddressRawValue == normalizedAccountAddress &&
+                nft.networkRawValue == chainRawValue
+            }
+        )
+        let musicDescriptor = FetchDescriptor<NFT>(
+            predicate: #Predicate<NFT> { nft in
+                nft.accountAddressRawValue == normalizedAccountAddress &&
+                nft.networkRawValue == chainRawValue &&
+                nft.audioUrl != nil &&
+                nft.audioUrl != ""
+            }
+        )
+
+        do {
+            let nextScopedNFTCount = try modelContext.fetchCount(scopedDescriptor)
+            let nextMusicNFTCount = try modelContext.fetchCount(musicDescriptor)
+
+            if scopedNFTCount != nextScopedNFTCount {
+                scopedNFTCount = nextScopedNFTCount
+            }
+            if musicNFTCount != nextMusicNFTCount {
+                musicNFTCount = nextMusicNFTCount
+            }
+        } catch {
+            logger.error("Failed to refresh scoped NFT counts: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func observeScopedNFTPersistenceChanges() async {
+        for await _ in NotificationCenter.default.notifications(named: ModelContext.didSave) {
+            guard !Task.isCancelled else {
+                return
+            }
+            await refreshScopedNFTCounts()
+        }
     }
 }

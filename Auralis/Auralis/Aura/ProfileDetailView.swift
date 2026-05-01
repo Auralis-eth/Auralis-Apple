@@ -14,9 +14,6 @@ struct ProfileDetailPresentation: Equatable {
 
 struct ProfileDetailView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var accounts: [EOAccount]
-    @Query private var nfts: [NFT]
-    @Query private var holdings: [TokenHolding]
 
     let accountAddress: String
     let currentChain: Chain
@@ -27,6 +24,9 @@ struct ProfileDetailView: View {
     let onOpenSettings: (() -> Void)?
 
     @State private var denialMessage: String?
+    @State private var account: EOAccount?
+    @State private var scopedNFTCount = 0
+    @State private var scopedTokenCount = 0
 
     init(
         accountAddress: String,
@@ -44,26 +44,6 @@ struct ProfileDetailView: View {
         self.modeState = modeState
         self.services = services
         self.onOpenSettings = onOpenSettings
-
-        let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
-        let chainRawValue = currentChain.rawValue
-        _accounts = Query(
-            filter: #Predicate<EOAccount> {
-                $0.address == normalizedAccountAddress
-            }
-        )
-        _nfts = Query(
-            filter: #Predicate<NFT> {
-                $0.accountAddressRawValue == normalizedAccountAddress &&
-                $0.networkRawValue == chainRawValue
-            }
-        )
-        _holdings = Query(
-            filter: #Predicate<TokenHolding> {
-                $0.accountAddressRawValue == normalizedAccountAddress &&
-                $0.chainRawValue == chainRawValue
-            }
-        )
     }
 
     private let blockedActions: [PolicyControlledAction] = [
@@ -71,18 +51,6 @@ struct ProfileDetailView: View {
         .approveSpending,
         .draftTransaction
     ]
-
-    private var account: EOAccount? {
-        accounts.first
-    }
-
-    private var scopedNFTCount: Int {
-        nfts.count
-    }
-
-    private var scopedTokenCount: Int {
-        holdings.count
-    }
 
     private var presentation: ProfileDetailPresentation {
         Self.makePresentation(
@@ -176,6 +144,12 @@ struct ProfileDetailView: View {
         } message: {
             Text(denialMessage ?? "This action is not available right now.")
         }
+        .task(id: refreshKey) {
+            await refreshPresentationData()
+        }
+        .task(id: refreshKey) {
+            await observePersistenceChanges()
+        }
     }
 
     @ViewBuilder
@@ -257,6 +231,72 @@ struct ProfileDetailView: View {
             activityLabel: "Last active \(activityDate.formatted(date: .abbreviated, time: .omitted))",
             isCurrentAccount: isCurrentAccount
         )
+    }
+}
+
+private extension ProfileDetailView {
+    struct RefreshKey: Equatable {
+        let accountAddress: String
+        let chain: Chain
+    }
+
+    var refreshKey: RefreshKey {
+        RefreshKey(accountAddress: accountAddress, chain: currentChain)
+    }
+
+    func refreshPresentationData() async {
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
+        let chainRawValue = currentChain.rawValue
+
+        let accountDescriptor = FetchDescriptor<EOAccount>(
+            predicate: #Predicate<EOAccount> { account in
+                account.address == normalizedAccountAddress
+            }
+        )
+        let nftDescriptor = FetchDescriptor<NFT>(
+            predicate: #Predicate<NFT> { nft in
+                nft.accountAddressRawValue == normalizedAccountAddress &&
+                nft.networkRawValue == chainRawValue
+            }
+        )
+        let holdingDescriptor = FetchDescriptor<TokenHolding>(
+            predicate: #Predicate<TokenHolding> { holding in
+                holding.accountAddressRawValue == normalizedAccountAddress &&
+                holding.chainRawValue == chainRawValue
+            }
+        )
+
+        do {
+            let nextAccount = try modelContext.fetch(accountDescriptor).first
+            let nextScopedNFTCount = try modelContext.fetchCount(nftDescriptor)
+            let nextScopedTokenCount = try modelContext.fetchCount(holdingDescriptor)
+
+            if account?.persistentModelID != nextAccount?.persistentModelID {
+                account = nextAccount
+            } else {
+                account?.name = nextAccount?.name
+            }
+
+            if scopedNFTCount != nextScopedNFTCount {
+                scopedNFTCount = nextScopedNFTCount
+            }
+            if scopedTokenCount != nextScopedTokenCount {
+                scopedTokenCount = nextScopedTokenCount
+            }
+        } catch {
+            account = nil
+            scopedNFTCount = 0
+            scopedTokenCount = 0
+        }
+    }
+
+    func observePersistenceChanges() async {
+        for await _ in NotificationCenter.default.notifications(named: ModelContext.didSave) {
+            guard !Task.isCancelled else {
+                return
+            }
+            await refreshPresentationData()
+        }
     }
 }
 

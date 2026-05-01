@@ -135,10 +135,13 @@ extension ModelContext {
             return
         }
 
-        let walletIDSet = Set(walletIDs)
-        let tokenDescriptor = FetchDescriptor<AuraPlayNFTToken>()
-        for token in try fetch(tokenDescriptor) where walletIDSet.contains(token.walletID) {
-            delete(token)
+        for walletID in walletIDs {
+            try delete(
+                model: AuraPlayNFTToken.self,
+                where: #Predicate<AuraPlayNFTToken> { token in
+                    token.walletID == walletID
+                }
+            )
         }
 
         let walletDescriptor = FetchDescriptor<AuraPlayWallet>(

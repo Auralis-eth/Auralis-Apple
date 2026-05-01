@@ -14,19 +14,25 @@ struct SharedNFTDetailView: View {
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
         let chainRawValue = currentChain.rawValue
-        _nfts = Query(
-            filter: #Predicate<NFT> {
-                $0.accountAddressRawValue == normalizedAccountAddress &&
-                $0.networkRawValue == chainRawValue
+        let requestedID: String
+        switch route {
+        case .detail(let id):
+            requestedID = id
+        }
+
+        var descriptor = FetchDescriptor<NFT>(
+            predicate: #Predicate<NFT> { nft in
+                nft.id == requestedID &&
+                nft.accountAddressRawValue == normalizedAccountAddress &&
+                nft.networkRawValue == chainRawValue
             }
         )
+        descriptor.fetchLimit = 1
+        _nfts = Query(descriptor)
     }
 
     private var nft: NFT? {
-        switch route {
-        case .detail(let id):
-            return nfts.first { $0.id == id }
-        }
+        nfts.first
     }
 
     private var imageURL: URL? {

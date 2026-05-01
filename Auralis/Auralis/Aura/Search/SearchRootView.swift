@@ -228,10 +228,18 @@ struct SearchRootView: View {
     }
 
     private func observeModelContextSaves() async {
-        for await _ in NotificationCenter.default.notifications(named: ModelContext.didSave) {
+        let observedContextID = ObjectIdentifier(modelContext)
+
+        for await notification in NotificationCenter.default.notifications(named: ModelContext.didSave) {
             guard !Task.isCancelled else {
                 return
             }
+
+            guard let savedContext = notification.object as? ModelContext,
+                  ObjectIdentifier(savedContext) == observedContextID else {
+                continue
+            }
+
             await refreshLocalIndex()
         }
     }

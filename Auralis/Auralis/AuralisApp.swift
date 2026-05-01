@@ -7,6 +7,7 @@ struct AuralisApp: App {
     private let logger = Logger(subsystem: "Auralis", category: "App")
     private let primaryStoreInitializationErrorMessage: String?
     private let usesInMemoryPrimaryStore: Bool
+    @State private var primaryStoreRecoveryAlertPresented = false
 
     init() {
         let missingProviders = Secrets.configurationStatuses()
@@ -35,6 +36,17 @@ private extension AuralisApp {
                 services: .live,
                 primaryStoreInitializationErrorMessage: primaryStoreInitializationErrorMessage
             )
+            .task {
+                primaryStoreRecoveryAlertPresented = primaryStoreInitializationErrorMessage != nil
+            }
+            .alert("Local Storage Unavailable", isPresented: $primaryStoreRecoveryAlertPresented) {
+                Button("Continue") { }
+            } message: {
+                Text(
+                    primaryStoreInitializationErrorMessage ??
+                        "Auralis could not open local storage on this launch. Changes will not persist after you quit the app."
+                )
+            }
         }
         .modelContainer(
             for: PrimaryStoreSchema.models,

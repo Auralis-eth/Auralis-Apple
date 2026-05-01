@@ -11,14 +11,15 @@ struct NFTMusicPlayerLibraryView: View {
     let onOpenCollection: (MusicCollectionSummary) -> Void
     let musicLibraryIndexer: any MusicLibraryIndexing
     let musicLibraryReceiptLogger: ReceiptEventLogger
+    @Environment(\.modelContext) private var modelContext
     @Query private var libraryItems: [MusicLibraryItem]
-    @Query private var nfts: [NFT]
 
     @AppStorage("feature_recentlyPlayedLibrary") private var featureRecentlyPlayedLibrary: Bool = true
 
     @State private var errorMessage: String?
     @State private var showingError: Bool = false
     @State private var lastRebuildSignature: Int?
+    @State private var musicNFTByID: [String: NFT] = [:]
 
     init(
         audioEngine: AudioEngine,
@@ -54,31 +55,12 @@ struct NFTMusicPlayerLibraryView: View {
                 SortDescriptor(\MusicLibraryItem.id)
             ]
         )
-        _nfts = Query(
-            filter: #Predicate<NFT> {
-                $0.accountAddressRawValue == normalizedAccountAddress &&
-                $0.networkRawValue == chainRawValue
-            }
-        )
-    }
-
-    private var musicNFTByID: [String: NFT] {
-        Dictionary(uniqueKeysWithValues: nfts.map { ($0.id, $0) })
     }
 
     private var rebuildSignature: Int {
         var hasher = Hasher()
         hasher.combine(currentAccount?.address ?? "")
         hasher.combine(currentChain.rawValue)
-
-        for nft in nfts.sorted(by: { $0.id < $1.id }) {
-            hasher.combine(nft.id)
-            hasher.combine(nft.audioUrl ?? "")
-            hasher.combine(nft.name ?? "")
-            hasher.combine(nft.artistName ?? "")
-            hasher.combine(nft.collectionName ?? "")
-            hasher.combine(nft.contentType ?? "")
-        }
 
         for item in libraryItems.sorted(by: { $0.id < $1.id }) {
             hasher.combine(item.id)
@@ -199,6 +181,9 @@ struct NFTMusicPlayerLibraryView: View {
         .task(id: rebuildSignature) {
             await reconcileLibraryIndexIfNeeded()
         }
+        .task(id: nftResolutionKey) {
+            await refreshResolvedNFTs()
+        }
     }
 
     private func refresh() {
@@ -238,6 +223,50 @@ struct NFTMusicPlayerLibraryView: View {
         } catch {
             errorMessage = "Failed to reconcile the music library: \(error.localizedDescription)"
             showingError = true
+        }
+    }
+}
+
+private extension NFTMusicPlayerLibraryView {
+    struct NFTResolutionKey: Equatable {
+        let accountAddress: String?
+        let chain: Chain
+        let sourceNFTIDs: [String]
+    }
+
+    var nftResolutionKey: NFTResolutionKey {
+        NFTResolutionKey(
+            accountAddress: currentAccount?.address,
+            chain: currentChain,
+            sourceNFTIDs: libraryItems.map(\.sourceNFTID).sorted()
+        )
+    }
+
+    func refreshResolvedNFTs() async {
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address) ?? ""
+        let chainRawValue = currentChain.rawValue
+
+        let descriptor = FetchDescriptor<NFT>(
+            predicate: #Predicate<NFT> { nft in
+                nft.accountAddressRawValue == normalizedAccountAddress &&
+                nft.networkRawValue == chainRawValue &&
+                nft.audioUrl != nil &&
+                nft.audioUrl != ""
+            },
+            sortBy: [SortDescriptor(\NFT.id)]
+        )
+
+        do {
+            let nfts = try modelContext.fetch(descriptor)
+            let nextMusicNFTByID = Dictionary(uniqueKeysWithValues: nfts.map { ($0.id, $0) })
+            if musicNFTByID.keys.sorted() != nextMusicNFTByID.keys.sorted() {
+                musicNFTByID = nextMusicNFTByID
+                return
+            }
+
+            musicNFTByID = nextMusicNFTByID
+        } catch {
+            musicNFTByID = [:]
         }
     }
 }
