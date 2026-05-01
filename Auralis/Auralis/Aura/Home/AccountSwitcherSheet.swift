@@ -8,7 +8,13 @@ struct AccountSwitcherSheet: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query private var persistedAccounts: [EOAccount]
+    @Query(
+        sort: [
+            SortDescriptor(\EOAccount.lastSelectedAt, order: .reverse),
+            SortDescriptor(\EOAccount.addedAt, order: .reverse),
+            SortDescriptor(\EOAccount.address)
+        ]
+    ) private var persistedAccounts: [EOAccount]
 
     let currentAccount: EOAccount?
     let activeSelection: ActiveShellSelection?
@@ -26,24 +32,10 @@ struct AccountSwitcherSheet: View {
         AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
     }
 
-    private var orderedAccounts: [EOAccount] {
-        persistedAccounts.sorted { lhs, rhs in
-            if lhs.mostRecentActivityAt != rhs.mostRecentActivityAt {
-                return lhs.mostRecentActivityAt > rhs.mostRecentActivityAt
-            }
-
-            if lhs.addedAt != rhs.addedAt {
-                return lhs.addedAt > rhs.addedAt
-            }
-
-            return lhs.address.localizedCompare(rhs.address) == .orderedAscending
-        }
-    }
-
     var body: some View {
         NavigationStack {
             List {
-                if orderedAccounts.isEmpty {
+                if persistedAccounts.isEmpty {
                     ShellStatusCard(
                         eyebrow: "First Run",
                         title: "No Saved Accounts",
@@ -55,7 +47,7 @@ struct AccountSwitcherSheet: View {
                     .listRowSeparator(.hidden)
                 } else {
                     Section("Saved Accounts") {
-                        ForEach(orderedAccounts) { account in
+                        ForEach(persistedAccounts) { account in
                             AccountRow(
                                 account: account,
                                 isActive: activeSelection?.address == account.address,

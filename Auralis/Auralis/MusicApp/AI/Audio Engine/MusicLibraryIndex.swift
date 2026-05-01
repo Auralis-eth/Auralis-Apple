@@ -8,6 +8,11 @@ enum MusicLibraryAvailability: String, Codable, Equatable, Sendable {
 
 @Model
 final class MusicLibraryItem {
+    #Index<MusicLibraryItem>(
+        [\.accountAddressRawValue, \.networkRawValue, \.normalizedArtistKey, \.normalizedTitleKey, \.id],
+        [\.accountAddressRawValue, \.networkRawValue, \.sourceNFTID]
+    )
+
     @Attribute(.unique) var id: String
 
     var sourceNFTID: String
@@ -127,7 +132,7 @@ struct MusicLibraryIndexRebuildResult: Equatable, Sendable {
 @MainActor
 protocol MusicLibraryIndexing {
     func itemCount(accountAddress: String?, chain: Chain) throws -> Int
-    func needsRebuild(accountAddress: String?, chain: Chain) throws -> Bool
+    func needsRebuild(accountAddress: String?, chain: Chain) async throws -> Bool
     func rebuildIndex(
         accountAddress: String?,
         chain: Chain,
@@ -136,18 +141,8 @@ protocol MusicLibraryIndexing {
     ) async throws -> MusicLibraryIndexRebuildResult
 }
 
-@MainActor
-final class SwiftDataMusicLibraryIndexer: MusicLibraryIndexing {
-    private let modelContext: ModelContext
-
-    init(modelContext: ModelContext) {
-        self.modelContext = modelContext
-    }
-
-    func itemCount(accountAddress: String?, chain: Chain) throws -> Int {
-        try fetchScopedItems(accountAddress: accountAddress, chain: chain).count
-    }
-
+@ModelActor
+private actor MusicLibraryIndexPersistenceStore {
     func needsRebuild(accountAddress: String?, chain: Chain) throws -> Bool {
         let sourceNFTs = try fetchEligibleNFTs(accountAddress: accountAddress, chain: chain)
         let existingItems = try fetchScopedItems(accountAddress: accountAddress, chain: chain)
@@ -274,7 +269,50 @@ final class SwiftDataMusicLibraryIndexer: MusicLibraryIndexing {
 }
 
 @MainActor
-private extension SwiftDataMusicLibraryIndexer {
+final class SwiftDataMusicLibraryIndexer: MusicLibraryIndexing {
+    private let modelContext: ModelContext
+    private let persistenceStore: MusicLibraryIndexPersistenceStore
+
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+        self.persistenceStore = MusicLibraryIndexPersistenceStore(modelContainer: modelContext.container)
+    }
+
+    func itemCount(accountAddress: String?, chain: Chain) throws -> Int {
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
+        let chainRawValue = chain.rawValue
+        let descriptor = FetchDescriptor<MusicLibraryItem>(
+            predicate: #Predicate<MusicLibraryItem> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.networkRawValue == chainRawValue
+            }
+        )
+        return try modelContext.fetchCount(descriptor)
+    }
+
+    func needsRebuild(accountAddress: String?, chain: Chain) async throws -> Bool {
+        try await persistenceStore.needsRebuild(
+            accountAddress: accountAddress,
+            chain: chain
+        )
+    }
+
+    func rebuildIndex(
+        accountAddress: String?,
+        chain: Chain,
+        correlationID: String?,
+        receiptEventLogger: ReceiptEventLogger?
+    ) async throws -> MusicLibraryIndexRebuildResult {
+        try await persistenceStore.rebuildIndex(
+            accountAddress: accountAddress,
+            chain: chain,
+            correlationID: correlationID,
+            receiptEventLogger: receiptEventLogger
+        )
+    }
+}
+
+private extension MusicLibraryIndexPersistenceStore {
     func fetchEligibleNFTs(accountAddress: String?, chain: Chain) throws -> [NFT] {
         let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
         let chainRawValue = chain.rawValue
@@ -294,17 +332,19 @@ private extension SwiftDataMusicLibraryIndexer {
     }
 
     func fetchScopedItems(accountAddress: String?, chain: Chain) throws -> [MusicLibraryItem] {
+        try modelContext.fetch(scopedItemsDescriptor(accountAddress: accountAddress, chain: chain))
+    }
+
+    func scopedItemsDescriptor(accountAddress: String?, chain: Chain) -> FetchDescriptor<MusicLibraryItem> {
         let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
         let chainRawValue = chain.rawValue
 
-        let descriptor = FetchDescriptor<MusicLibraryItem>(
+        return FetchDescriptor<MusicLibraryItem>(
             predicate: #Predicate<MusicLibraryItem> {
                 $0.accountAddressRawValue == normalizedAccountAddress &&
                 $0.networkRawValue == chainRawValue
             }
         )
-
-        return try modelContext.fetch(descriptor)
     }
 
     func makeDescriptor(from nft: NFT) -> MusicLibraryItemDescriptor {

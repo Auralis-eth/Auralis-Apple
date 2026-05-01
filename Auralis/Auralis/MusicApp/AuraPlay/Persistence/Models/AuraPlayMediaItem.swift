@@ -3,6 +3,12 @@ import SwiftData
 
 @Model
 final class AuraPlayMediaItem {
+    #Index<AuraPlayMediaItem>(
+        [\.walletID, \.sourceNFTID],
+        [\.walletID, \.normalizedArtistKey, \.normalizedTitleKey, \.id],
+        [\.accountAddressRawValue, \.chainRawValue]
+    )
+
     @Attribute(.unique) var id: String
 
     var walletID: String

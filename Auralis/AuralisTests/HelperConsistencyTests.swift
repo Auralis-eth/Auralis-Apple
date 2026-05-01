@@ -30,6 +30,92 @@ struct HelperConsistencyTests {
         #expect(playlist.title == "Chill Mix")
     }
 
+    @Test("playlist persistence coalesces duplicate identifiers into one stored row")
+    @MainActor
+    func playlistPersistenceCoalescesDuplicateIdentifiers() throws {
+        let container = try makePlaylistContainer()
+        let context = ModelContext(container)
+        let sharedID = UUID()
+
+        context.insert(Playlist(title: "First", id: sharedID))
+        try context.save()
+        context.insert(Playlist(title: "Second", id: sharedID))
+        try context.save()
+
+        let playlists = try context.fetch(FetchDescriptor<Playlist>())
+
+        #expect(playlists.count == 1)
+        #expect(playlists.first?.id == sharedID)
+        #expect(playlists.first?.title == "Second")
+    }
+
+    @Test("playlist tracks relationship survives a save and refetch")
+    @MainActor
+    func playlistTracksRelationshipPersistsAcrossFetch() throws {
+        let container = try makePlaylistContainer()
+        let context = ModelContext(container)
+        let nft = makeFixtureNFT(tokenId: "playlist-track")
+        let playlist = Playlist(title: "Scoped Tracks", tracks: [nft])
+
+        context.insert(playlist)
+        try context.save()
+
+        let persistedPlaylists = try context.fetch(FetchDescriptor<Playlist>())
+        let persistedPlaylist = try #require(persistedPlaylists.first)
+
+        #expect(persistedPlaylist.tracks.count == 1)
+        #expect(persistedPlaylist.tracks.first?.id == nft.id)
+    }
+
+    @Test("deleting an NFT cascades its owned child models")
+    @MainActor
+    func deletingNFTCascadesOwnedChildModels() throws {
+        let container = try makePlaylistContainer()
+        let context = ModelContext(container)
+        let nft = makeFixtureNFT(
+            tokenId: "cascade-child-models",
+            includeOwnedChildren: true
+        )
+
+        context.insert(nft)
+        try context.save()
+
+        #expect(try context.fetch(FetchDescriptor<NFT.Image>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<NFT.Raw>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<NFT.AcquiredAt>()).count == 1)
+
+        context.delete(nft)
+        try context.save()
+
+        #expect(try context.fetch(FetchDescriptor<NFT>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<NFT.Image>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<NFT.Raw>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<NFT.AcquiredAt>()).isEmpty)
+    }
+
+    @Test("duplicate EOAccount addresses coalesce into one stored row")
+    @MainActor
+    func duplicateAccountsCoalesceToSingleRow() throws {
+        let schema = Schema([EOAccount.self])
+        let container = try ModelContainer(
+            for: schema,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = ModelContext(container)
+        let sharedAddress = "0x1234567890abcdef1234567890abcdef12345678"
+
+        context.insert(EOAccount(address: sharedAddress, name: "First"))
+        try context.save()
+        context.insert(EOAccount(address: sharedAddress, name: "Second"))
+        try context.save()
+
+        let accounts = try context.fetch(FetchDescriptor<EOAccount>())
+
+        #expect(accounts.count == 1)
+        #expect(accounts.first?.address == sharedAddress)
+        #expect(accounts.first?.name == "Second")
+    }
+
     @Test("native holdings persist by account and chain scope")
     @MainActor
     func nativeHoldingsPersistByScope() async throws {
@@ -286,6 +372,47 @@ struct HelperConsistencyTests {
         let schema = Schema([TokenHolding.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
+    }
+
+    private func makeFixtureNFT(
+        tokenId: String,
+        accountAddress: String = "0x1111111111111111111111111111111111111111",
+        contractAddress: String = "0x495f947276749ce646f68ac8c248420045cb7b5e",
+        includeOwnedChildren: Bool = false
+    ) -> NFT {
+        let network: Chain = .ethMainnet
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? "unscoped"
+        let normalizedContractAddress = NFT.normalizedScopeComponent(contractAddress) ?? "unknown"
+
+        return NFT(
+            id: "\(normalizedAccountAddress):\(network.rawValue):\(normalizedContractAddress):\(tokenId)",
+            contract: NFT.Contract(address: contractAddress, chain: network),
+            tokenId: tokenId,
+            name: "Fixture \(tokenId)",
+            image: includeOwnedChildren ? NFT.Image(
+                originalUrl: "https://example.com/\(tokenId).png",
+                thumbnailUrl: "https://example.com/\(tokenId)-thumb.png"
+            ) : nil,
+            raw: includeOwnedChildren ? NFT.Raw(
+                tokenUri: "ipfs://fixture-\(tokenId)",
+                metadata: ["title": .string("Fixture \(tokenId)")]
+            ) : nil,
+            collection: NFT.Collection(
+                name: "Fixture Collection",
+                chain: network,
+                contractAddress: contractAddress
+            ),
+            tokenUri: "ipfs://fixture-\(tokenId)",
+            timeLastUpdated: "2025-01-01T00:00:00Z",
+            network: network,
+            accountAddress: accountAddress,
+            contentType: "audio/mpeg",
+            collectionName: "Fixture Collection",
+            artistName: "Fixture Artist",
+            animationUrl: "https://example.com/\(tokenId).mp3",
+            acquiredAt: includeOwnedChildren ? NFT.AcquiredAt(blockTimestamp: "2025-01-01T00:00:00Z") : nil,
+            audioUrl: "https://example.com/\(tokenId).mp3"
+        )
     }
 
     private func rgbaComponents(_ color: Color) -> [CGFloat] {

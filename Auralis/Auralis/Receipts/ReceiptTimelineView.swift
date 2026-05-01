@@ -20,18 +20,14 @@ private struct ReceiptTimelineRefreshKey: Equatable {
 
 struct ReceiptsRootView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
-    @Query(
-        sort: [
-            SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
-            SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
-        ]
-    ) private var storedReceipts: [StoredReceipt]
+    @Environment(\.modelContext) private var modelContext
 
     let currentAddress: String
     let currentChain: Chain
 
     @State private var timelineState: ReceiptTimelineState
     @State private var snapshot: ReceiptTimelineSnapshot = .empty
+    @State private var storedReceipts: [StoredReceipt] = []
 
     private var haptics: AuraHaptics {
         AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
@@ -128,8 +124,42 @@ struct ReceiptsRootView: View {
     }
 
     private func refreshSnapshot() {
+        reloadStoredReceipts()
         let records = storedReceipts.map(ReceiptTimelineRecord.init)
         snapshot = timelineState.snapshot(records: records)
+    }
+
+    private func reloadStoredReceipts() {
+        do {
+            storedReceipts = try modelContext.fetch(Self.makeStoredReceiptsDescriptor(for: timelineState.scope))
+        } catch {
+            storedReceipts = []
+        }
+    }
+
+    private static func makeStoredReceiptsDescriptor(
+        for scope: ReceiptTimelineScope
+    ) -> FetchDescriptor<StoredReceipt> {
+        let normalizedAccountAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
+
+        if let normalizedAccountAddress, !normalizedAccountAddress.isEmpty {
+            return FetchDescriptor(
+                predicate: #Predicate<StoredReceipt> { receipt in
+                    receipt.accountAddress == normalizedAccountAddress
+                },
+                sortBy: [
+                    SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
+                    SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
+                ]
+            )
+        }
+
+        return FetchDescriptor(
+            sortBy: [
+                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
+                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
+            ]
+        )
     }
 
     @ViewBuilder

@@ -396,6 +396,7 @@ struct MainTabView: View {
                                 currentAccountAddress: activeAccountAddress,
                                 currentChain: currentChain,
                                 services: services,
+                                auraPlayModelContainer: auraPlayModelContainer,
                                 onPrivacyResetCompleted: {
                                     await shellStore.send(.logoutRequested)
                                 }
@@ -627,7 +628,7 @@ private struct ContextLocalRefreshKey: Hashable {
         @State private var router = AppRouter()
         let audioEngine: AudioEngine? = try? AudioEngine()
         @StateObject private var modeState = ModeState()
-        private let auraPlayModelContainer = try? AppModelContainer.make(inMemory: true)
+        private let auraPlayModelContainer = PreviewModelContainers.auraPlay()
         private let services = ShellServiceHub.live
         private let shellStore = ShellStore.preview(
             selection: ActiveShellSelection(
@@ -653,4 +654,5 @@ private struct ContextLocalRefreshKey: Hashable {
     }
 
     return Wrapper()
+        .modelContainer(PreviewModelContainers.primary())
 }

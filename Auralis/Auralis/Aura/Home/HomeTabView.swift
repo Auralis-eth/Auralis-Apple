@@ -79,6 +79,16 @@ struct HomeTabView: View {
                 $0.networkRawValue == chainRawValue
             }
         )
+        _storedReceipts = Query(
+            filter: #Predicate<StoredReceipt> {
+                $0.accountAddress == normalizedAccountAddress &&
+                $0.chainRawValue == chainRawValue
+            },
+            sort: [
+                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
+                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
+            ]
+        )
     }
 
     private var receiptScope: ReceiptTimelineScope {
@@ -91,7 +101,6 @@ struct HomeTabView: View {
     private var recentActivity: [ReceiptTimelineRecord] {
         storedReceipts
             .map(ReceiptTimelineRecord.init)
-            .filter { $0.matches(receiptScope) }
             .prefix(5)
             .map { $0 }
     }
@@ -658,7 +667,7 @@ struct HomeTabView: View {
 
         do {
             if plan.shouldDeleteNFTs {
-                try modelContext.delete(model: NFT.self)
+                try modelContext.deleteAllNFTData()
             }
 
             // Watch-only logout clears local app state but intentionally preserves
@@ -670,6 +679,8 @@ struct HomeTabView: View {
             if plan.shouldDeleteTags {
                 try modelContext.delete(model: Tag.self)
             }
+
+            try modelContext.save()
         } catch {
             logger.error("Logout cleanup failed error=\(error.localizedDescription, privacy: .public)")
             errorMessage = String(localized: "Auralis could not clear local data for logout. Nothing was changed.")

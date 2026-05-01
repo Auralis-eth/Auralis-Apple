@@ -3,6 +3,12 @@ import SwiftData
 
 @Model
 final class AuraPlayNFTToken {
+    #Index<AuraPlayNFTToken>(
+        [\.walletID, \.sourceNFTID],
+        [\.walletID, \.contractAddressRawValue, \.tokenID],
+        [\.walletID, \.updatedAt]
+    )
+
     @Attribute(.unique) var compositeID: String
 
     var walletID: String

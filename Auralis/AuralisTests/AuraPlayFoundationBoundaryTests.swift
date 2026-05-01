@@ -190,7 +190,7 @@ private final class MockAuraPlayLibraryRepository: AuraPlayLibraryRepository {
         return itemCountValue
     }
 
-    func needsRebuild(in scope: AuraPlayLibraryScope) throws -> Bool {
+    func needsRebuild(in scope: AuraPlayLibraryScope) async throws -> Bool {
         false
     }
 

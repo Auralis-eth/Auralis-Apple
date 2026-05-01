@@ -46,6 +46,7 @@ struct ProfileDetailView: View {
         self.onOpenSettings = onOpenSettings
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
+        let chainRawValue = currentChain.rawValue
         _accounts = Query(
             filter: #Predicate<EOAccount> {
                 $0.address == normalizedAccountAddress
@@ -53,12 +54,14 @@ struct ProfileDetailView: View {
         )
         _nfts = Query(
             filter: #Predicate<NFT> {
-                $0.accountAddressRawValue == normalizedAccountAddress
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.networkRawValue == chainRawValue
             }
         )
         _holdings = Query(
             filter: #Predicate<TokenHolding> {
-                $0.accountAddressRawValue == normalizedAccountAddress
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.chainRawValue == chainRawValue
             }
         )
     }
@@ -74,11 +77,11 @@ struct ProfileDetailView: View {
     }
 
     private var scopedNFTCount: Int {
-        nfts.filter { $0.networkRawValue == currentChain.rawValue }.count
+        nfts.count
     }
 
     private var scopedTokenCount: Int {
-        holdings.filter { $0.chainRawValue == currentChain.rawValue }.count
+        holdings.count
     }
 
     private var presentation: ProfileDetailPresentation {

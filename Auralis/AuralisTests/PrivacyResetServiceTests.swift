@@ -7,7 +7,15 @@ import Testing
 @Suite
 struct PrivacyResetServiceTests {
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([SearchHistoryRecord.self, TokenHolding.self, NFT.self, Tag.self, MusicLibraryItem.self])
+        let schema = Schema([
+            SearchHistoryRecord.self,
+            TokenHolding.self,
+            EOAccount.self,
+            NFT.self,
+            Tag.self,
+            StoredReceipt.self,
+            MusicLibraryItem.self,
+        ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
     }
@@ -63,11 +71,105 @@ struct PrivacyResetServiceTests {
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<NFT>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<MusicLibraryItem>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<NFT.Contract>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).isEmpty)
         #expect(selectionPersistence.clearSelectionCallCount == 1)
         #expect(pinnedItemsStore.pinnedActions(for: "0x1111111111111111111111111111111111111111").isEmpty)
     }
 
-    @Test("AuraPlay store reset removes the separate persisted store files")
+    @Test("removing an account purges only NFTs scoped to that account")
+    func accountRemovalPurgesScopedNFTs() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let store = AccountStore(modelContext: context)
+
+        let removed = try await store.createWatchAccount(
+            from: "0x1010101010101010101010101010101010101010",
+            now: Date(timeIntervalSince1970: 100)
+        )
+        let preserved = try await store.createWatchAccount(
+            from: "0x2020202020202020202020202020202020202020",
+            now: Date(timeIntervalSince1970: 200)
+        )
+
+        context.insert(makeFixtureNFT(tokenId: "removed-1", accountAddress: removed.address))
+        try await SearchHistoryStore(modelContext: context).recordCommittedQuery("Removed Scope", accountAddress: removed.address)
+        try await TokenHoldingsStore(modelContext: context).upsertNativeHolding(
+            accountAddress: removed.address,
+            chain: .ethMainnet,
+            amountDisplay: "4.2",
+            updatedAt: .now
+        )
+        context.insert(makeFixtureNFT(
+            tokenId: "preserved-1",
+            accountAddress: preserved.address,
+            contractAddress: "0x9999999999999999999999999999999999999999"
+        ))
+        try context.save()
+
+        _ = try await store.removeAccount(
+            address: removed.address,
+            activeAddress: removed.address
+        )
+
+        let remainingNFTs = try context.fetch(FetchDescriptor<NFT>())
+        let remainingHoldings = try context.fetch(FetchDescriptor<TokenHolding>())
+        #expect(!remainingNFTs.contains(where: { $0.accountAddressRawValue == removed.address }))
+        #expect(remainingNFTs.contains(where: { $0.accountAddressRawValue == preserved.address }))
+        #expect(!remainingHoldings.contains(where: { $0.accountAddressRawValue == removed.address }))
+        #expect(SearchHistoryStore(modelContext: context).entries(for: removed.address).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<NFT.Contract>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).count == 1)
+    }
+
+    @Test("overwriting an account purges previously persisted NFTs for that account")
+    func accountOverwritePurgesScopedNFTs() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let store = AccountStore(modelContext: context)
+
+        let overwritten = try await store.createWatchAccount(
+            from: "0x3030303030303030303030303030303030303030",
+            now: Date(timeIntervalSince1970: 100)
+        )
+        let other = try await store.createWatchAccount(
+            from: "0x4040404040404040404040404040404040404040",
+            now: Date(timeIntervalSince1970: 200)
+        )
+
+        context.insert(makeFixtureNFT(tokenId: "stale-overwrite", accountAddress: overwritten.address))
+        try await SearchHistoryStore(modelContext: context).recordCommittedQuery("Overwrite Scope", accountAddress: overwritten.address)
+        try await TokenHoldingsStore(modelContext: context).upsertNativeHolding(
+            accountAddress: overwritten.address,
+            chain: .ethMainnet,
+            amountDisplay: "9.9",
+            updatedAt: .now
+        )
+        context.insert(makeFixtureNFT(
+            tokenId: "keep-other",
+            accountAddress: other.address,
+            contractAddress: "0x8888888888888888888888888888888888888888"
+        ))
+        try context.save()
+
+        _ = try await store.createWatchAccount(
+            from: overwritten.address,
+            source: .qrScan,
+            overwriteExisting: true,
+            now: Date(timeIntervalSince1970: 300)
+        )
+
+        let persistedNFTs = try context.fetch(FetchDescriptor<NFT>())
+        let persistedHoldings = try context.fetch(FetchDescriptor<TokenHolding>())
+        #expect(!persistedNFTs.contains(where: { $0.accountAddressRawValue == overwritten.address }))
+        #expect(persistedNFTs.contains(where: { $0.accountAddressRawValue == other.address }))
+        #expect(!persistedHoldings.contains(where: { $0.accountAddressRawValue == overwritten.address }))
+        #expect(SearchHistoryStore(modelContext: context).entries(for: overwritten.address).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<NFT.Contract>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).count == 1)
+    }
+
+    @Test("AuraPlay store reset removes separate persisted store files when no live container is available")
     func auraPlayStoreResetRemovesPersistedFiles() async throws {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)

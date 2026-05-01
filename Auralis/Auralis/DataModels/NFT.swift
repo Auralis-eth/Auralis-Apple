@@ -19,16 +19,21 @@ public class NFT: Codable {
     /// Stable scoped identifier for the NFT.
     @Attribute(.unique) public var id: String
 
+    @Relationship(deleteRule: .nullify)
     var contract: Contract
     var tokenId: String
     var tokenType: String?
     var name: String?
     var nftDescription: String?
+    @Relationship(deleteRule: .cascade)
     var image: Image?
+    @Relationship(deleteRule: .cascade)
     var raw: Raw?
+    @Relationship(deleteRule: .nullify)
     var collection: Collection?
     var tokenUri: String?
     var timeLastUpdated: String?
+    @Relationship(deleteRule: .cascade)
     var acquiredAt: AcquiredAt?
     var networkRawValue: String
     var accountAddressRawValue: String
@@ -82,6 +87,8 @@ public class NFT: Codable {
     var attributes: [NFT.Attribute]?
     @Relationship(deleteRule: .nullify, inverse: \Tag.nfts)
     var tags: [Tag]?
+    var account: EOAccount?
+    var playlists: [Playlist] = []
 
     @Transient var network: Chain? {
         get {
@@ -115,6 +122,17 @@ public class NFT: Codable {
             name: name,
             tokenUri: tokenUri
         )
+    }
+
+    func assignOwnership(to account: EOAccount?) {
+        self.account = account
+        accountAddressRawValue = Self.normalizedScopeComponent(account?.address) ?? accountAddressRawValue
+    }
+
+    func archiveForPlaylistRetention() {
+        let archivedScope = Self.archivedPlaylistScopeComponent(for: accountAddressRawValue)
+        account = nil
+        applyRefreshScope(accountAddress: archivedScope, chain: network ?? .ethMainnet)
     }
 
     func matchesScope(accountAddress: String?, chain: Chain) -> Bool {
@@ -266,6 +284,10 @@ public class NFT: Codable {
         }
 
         return trimmedValue.lowercased()
+    }
+
+    static func archivedPlaylistScopeComponent(for normalizedAccountAddress: String) -> String {
+        "playlist:\(normalizedAccountAddress)"
     }
 
     @Model

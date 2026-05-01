@@ -3,37 +3,11 @@ import SwiftData
 import SwiftUI
 
 // SwiftLint currently misclassifies these file-scope snapshot helpers as overly nested.
-private struct SearchAccountSnapshot: Equatable {
-    let address: String
-    let name: String?
-}
-
-private struct SearchNFTSnapshot: Equatable {
-    let id: String
-    let name: String?
-    let collectionName: String?
-    let collectionDisplayName: String?
-    let contractAddress: String?
-    let accountAddress: String?
-    let networkRawValue: String?
-}
-
-private struct SearchHoldingSnapshot: Equatable {
-    let id: PersistentIdentifier
-    let accountAddressRawValue: String
-    let chainRawValue: String
-    let balanceKindRawValue: String
-    let contractAddress: String?
-    let symbol: String?
-    let displayName: String
-}
-
 private struct SearchLocalIndexRefreshKey: Equatable {
     let currentAccountAddress: String?
     let currentChain: Chain
-    let accounts: [SearchAccountSnapshot]
-    let nfts: [SearchNFTSnapshot]
-    let holdings: [SearchHoldingSnapshot]
+    let nftIDs: [PersistentIdentifier]
+    let holdingIDs: [PersistentIdentifier]
 }
 
 enum SearchRootPresentationContent: Equatable {
@@ -51,6 +25,7 @@ struct SearchRootPresentation: Equatable {
 struct SearchRootView: View {
     private let logger = Logger(subsystem: "Auralis", category: "SearchRootView")
 
+    @Environment(\.modelContext) private var modelContext
     @Query private var accounts: [EOAccount]
     @Query private var nfts: [NFT]
     @Query private var holdings: [TokenHolding]
@@ -64,47 +39,92 @@ struct SearchRootView: View {
     @State private var historyEntries: [SearchHistoryEntry] = []
     @State private var historyErrorMessage: String?
     @State private var localIndex: SearchLocalIndex = .empty
+    @State private var accountMatches: [SearchLocalMatch] = []
+    @State private var ensMatches: [SearchLocalMatch] = []
     @FocusState private var isQueryFieldFocused: Bool
 
     private let parser = SearchQueryParser()
+
+    init(
+        router: AppRouter,
+        currentAccountAddress: String?,
+        currentChain: Chain,
+        historyStore: SearchHistoryStore
+    ) {
+        self.router = router
+        self.currentAccountAddress = currentAccountAddress
+        self.currentChain = currentChain
+        self.historyStore = historyStore
+
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
+        let chainRawValue = currentChain.rawValue
+        _accounts = Query(
+            sort: [
+                SortDescriptor(\EOAccount.lastSelectedAt, order: .reverse),
+                SortDescriptor(\EOAccount.addedAt, order: .reverse),
+                SortDescriptor(\EOAccount.address)
+            ]
+        )
+        _nfts = Query(
+            filter: #Predicate<NFT> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.networkRawValue == chainRawValue
+            }
+        )
+        _holdings = Query(
+            filter: #Predicate<TokenHolding> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.chainRawValue == chainRawValue
+            }
+        )
+    }
 
     private var localIndexRefreshKey: SearchLocalIndexRefreshKey {
         SearchLocalIndexRefreshKey(
             currentAccountAddress: currentAccountAddress,
             currentChain: currentChain,
-            accounts: accounts.map {
-                SearchAccountSnapshot(
-                    address: $0.address,
-                    name: $0.name
-                )
-            },
-            nfts: nfts.map {
-                SearchNFTSnapshot(
-                    id: $0.id,
-                    name: $0.name,
-                    collectionName: $0.collectionName,
-                    collectionDisplayName: $0.collection?.name,
-                    contractAddress: $0.contract.address,
-                    accountAddress: $0.accountAddressRawValue,
-                    networkRawValue: $0.networkRawValue
-                )
-            },
-            holdings: holdings.map {
-                SearchHoldingSnapshot(
-                    id: $0.persistentModelID,
-                    accountAddressRawValue: $0.accountAddressRawValue,
-                    chainRawValue: $0.chainRawValue,
-                    balanceKindRawValue: $0.balanceKind.rawValue,
-                    contractAddress: $0.contractAddress,
-                    symbol: $0.symbol,
-                    displayName: $0.displayName
-                )
-            }
+            nftIDs: nfts.map(\.persistentModelID),
+            holdingIDs: holdings.map(\.persistentModelID)
         )
     }
 
-    private var classification: SearchQueryClassification {
+    private var baseClassification: SearchQueryClassification {
         parser.classify(query: query, index: localIndex)
+    }
+
+    private var classification: SearchQueryClassification {
+        switch baseClassification.kind {
+        case .walletAddress, .contractAddress, .ambiguousAddress:
+            let contractMatches = baseClassification.localMatches.filter { $0.kind == .contract }
+            let combinedMatches = Array((accountMatches + contractMatches).prefix(6))
+            let kind: SearchQueryKind
+
+            if !accountMatches.isEmpty, contractMatches.isEmpty {
+                kind = .walletAddress
+            } else if accountMatches.isEmpty, !contractMatches.isEmpty {
+                kind = .contractAddress
+            } else {
+                kind = .ambiguousAddress
+            }
+
+            return SearchQueryClassification(
+                rawQuery: baseClassification.rawQuery,
+                normalizedQuery: baseClassification.normalizedQuery,
+                kind: kind,
+                localMatches: combinedMatches
+            )
+
+        case .ensName:
+            return SearchQueryClassification(
+                rawQuery: baseClassification.rawQuery,
+                normalizedQuery: baseClassification.normalizedQuery,
+                kind: .ensName,
+                localMatches: ensMatches
+            )
+
+        default:
+            return baseClassification
+        }
     }
 
     private var presentation: SearchRootPresentation {
@@ -181,6 +201,9 @@ struct SearchRootView: View {
         .task(id: localIndexRefreshKey) {
             await refreshLocalIndex()
         }
+        .task(id: accountLookupRefreshKey) {
+            await refreshAccountMatches()
+        }
     }
 
     private func openMatch(_ match: SearchLocalMatch) {
@@ -255,19 +278,12 @@ struct SearchRootView: View {
                 displayName: $0.displayName
             )
         }
-        let accountSnapshots = accounts.map {
-            SearchLocalIndex.AccountSnapshot(
-                address: $0.address,
-                name: $0.name
-            )
-        }
-
         do {
             let refreshedIndex = await Task.detached(priority: .userInitiated) {
                 SearchLocalIndex.make(
                     nftSnapshots: nftSnapshots,
                     holdingSnapshots: holdingSnapshots,
-                    accountSnapshots: accountSnapshots,
+                    accountSnapshots: [],
                     currentAccountAddress: currentAccountAddress,
                     currentChain: currentChain
                 )
@@ -279,6 +295,101 @@ struct SearchRootView: View {
         } catch {
             logger.error("Failed to rebuild local search index: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    private func refreshAccountMatches() async {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedQuery = trimmedQuery.lowercased()
+
+        guard !trimmedQuery.isEmpty else {
+            accountMatches = []
+            ensMatches = []
+            return
+        }
+
+        do {
+            if let normalizedAddress = trimmedQuery.extractedEthereumAddress?.lowercased() {
+                accountMatches = try fetchAccountMatches(address: normalizedAddress)
+                ensMatches = []
+                return
+            }
+
+            if SearchQueryParser.looksLikeENSName(trimmedQuery) {
+                ensMatches = try fetchENSMatches(name: normalizedQuery)
+                accountMatches = []
+                return
+            }
+
+            accountMatches = []
+            ensMatches = []
+        } catch {
+            logger.error("Failed to refresh account search matches: \(error.localizedDescription, privacy: .public)")
+            accountMatches = []
+            ensMatches = []
+        }
+    }
+
+    private var accountLookupRefreshKey: SearchAccountLookupRefreshKey {
+        SearchAccountLookupRefreshKey(
+            normalizedQuery: query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            accountSignals: accounts.map {
+                SearchAccountSignal(
+                    id: $0.persistentModelID,
+                    address: $0.address,
+                    name: $0.name
+                )
+            }
+        )
+    }
+
+    private func fetchAccountMatches(address: String) throws -> [SearchLocalMatch] {
+        let descriptor = FetchDescriptor<EOAccount>(
+            predicate: #Predicate<EOAccount> { account in
+                account.address == address
+            },
+            sortBy: [
+                SortDescriptor(\EOAccount.lastSelectedAt, order: .reverse),
+                SortDescriptor(\EOAccount.addedAt, order: .reverse),
+                SortDescriptor(\EOAccount.address)
+            ]
+        )
+
+        return try modelContext.fetch(descriptor).map {
+            SearchLocalMatch(
+                kind: .account,
+                title: $0.name ?? $0.address.displayAddress,
+                subtitle: $0.address.displayAddress,
+                destination: .profile(address: $0.address)
+            )
+        }
+    }
+
+    private func fetchENSMatches(name: String) throws -> [SearchLocalMatch] {
+        let descriptor = FetchDescriptor<EOAccount>(
+            predicate: #Predicate<EOAccount> { account in
+                account.name != nil
+            },
+            sortBy: [
+                SortDescriptor(\EOAccount.lastSelectedAt, order: .reverse),
+                SortDescriptor(\EOAccount.addedAt, order: .reverse),
+                SortDescriptor(\EOAccount.address)
+            ]
+        )
+
+        return try modelContext.fetch(descriptor)
+            .compactMap { account -> SearchLocalMatch? in
+                guard let accountName = account.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      accountName.lowercased() == name else {
+                    return nil
+                }
+
+                return SearchLocalMatch(
+                    kind: .ens,
+                    title: accountName,
+                    subtitle: account.address.displayAddress,
+                    destination: .profile(address: account.address)
+                )
+            }
     }
 
     private func handleHistoryWriteFailure(_ error: Error, operation: String) {
@@ -338,6 +449,17 @@ struct SearchRootView: View {
             )
         }
     }
+}
+
+private struct SearchAccountLookupRefreshKey: Equatable {
+    let normalizedQuery: String
+    let accountSignals: [SearchAccountSignal]
+}
+
+private struct SearchAccountSignal: Equatable {
+    let id: PersistentIdentifier
+    let address: String
+    let name: String?
 }
 
 private struct SearchInputCard: View {

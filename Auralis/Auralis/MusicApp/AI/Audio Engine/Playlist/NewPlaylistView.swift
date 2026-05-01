@@ -266,7 +266,7 @@ struct NewPlaylistView: View {
                     description: descriptionText,
                     imageRef: nil,
                     imageData: selectedImageData,
-                    tracks: []
+                    trackIDs: []
                 )
                 onSuccess(trimmed)
                 dismiss()
@@ -297,7 +297,7 @@ struct NewPlaylistView: View {
 
 #Preview {
     NewPlaylistView { _ in }
-        .modelContainer(for: Playlist.self, inMemory: true)
+        .modelContainer(PreviewModelContainers.primary())
 }
 
 struct ImagePicker: UIViewControllerRepresentable {

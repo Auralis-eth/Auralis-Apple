@@ -13,7 +13,7 @@ struct NoOpAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
 
 @MainActor
 struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
-    private let sourceModelContext: ModelContext
+    private let sourceSnapshotStore: AuraPlaySourceNFTSnapshotStore
     private let walletService: AuraPlayWalletService
     private let tokenService: AuraPlayNFTTokenService
     private let mediaItemService: AuraPlayMediaItemService
@@ -26,7 +26,7 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
         logger: any AuraPlayLogging,
         requestBuilder: AuraPlayLibrarySyncRequestBuilder = .init()
     ) {
-        self.sourceModelContext = sourceModelContext
+        self.sourceSnapshotStore = AuraPlaySourceNFTSnapshotStore(modelContainer: sourceModelContext.container)
         self.walletService = AuraPlayWalletService(modelContainer: modelContainer)
         self.tokenService = AuraPlayNFTTokenService(modelContainer: modelContainer)
         self.mediaItemService = AuraPlayMediaItemService(modelContainer: modelContainer)
@@ -40,7 +40,7 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
         }
 
         let syncedAt = Date()
-        let sourceSnapshots = try fetchEligibleNFTSnapshots(
+        let sourceSnapshots = try await sourceSnapshotStore.fetchEligibleNFTSnapshots(
             accountAddress: normalizedAccountAddress,
             chain: scope.chain
         )
@@ -78,9 +78,9 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
     }
 }
 
-@MainActor
-extension LiveAuraPlayLibrarySyncService {
-    func fetchEligibleNFTSnapshots(accountAddress: String, chain: Chain) throws -> [SourceNFTSnapshot] {
+@ModelActor
+private actor AuraPlaySourceNFTSnapshotStore {
+    func fetchEligibleNFTSnapshots(accountAddress: String, chain: Chain) throws -> [LiveAuraPlayLibrarySyncService.SourceNFTSnapshot] {
         let chainRawValue = chain.rawValue
         let descriptor = FetchDescriptor<NFT>(
             predicate: #Predicate<NFT> { nft in
@@ -91,7 +91,7 @@ extension LiveAuraPlayLibrarySyncService {
             }
         )
 
-        return try sourceModelContext.fetch(descriptor).map(SourceNFTSnapshot.init)
+        return try modelContext.fetch(descriptor).map(LiveAuraPlayLibrarySyncService.SourceNFTSnapshot.init)
     }
 }
 

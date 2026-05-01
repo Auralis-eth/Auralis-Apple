@@ -13,6 +13,12 @@ import SwiftData
 /// - sanitized details payload encoded as export-safe JSON bytes
 @Model
 final class StoredReceipt {
+    #Index<StoredReceipt>(
+        [\.correlationID],
+        [\.createdAt, \.sequenceID],
+        [\.accountAddress, \.chainRawValue, \.createdAt, \.sequenceID]
+    )
+
     private static let logger = Logger(subsystem: "Auralis", category: "StoredReceipt")
 
     @Attribute(.unique) var id: UUID

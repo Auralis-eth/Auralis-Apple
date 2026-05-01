@@ -1,6 +1,12 @@
 import Foundation
 import SwiftData
 
+private let accountSortDescriptors: [SortDescriptor<EOAccount>] = [
+    SortDescriptor(\EOAccount.lastSelectedAt, order: .reverse),
+    SortDescriptor(\EOAccount.addedAt, order: .reverse),
+    SortDescriptor(\EOAccount.address),
+]
+
 @ModelActor
 private actor AccountPersistenceStore {
     struct RemovalSnapshot: Sendable {
@@ -20,6 +26,8 @@ private actor AccountPersistenceStore {
                 throw AccountStoreError.duplicateAddress(normalizedAddress)
             }
 
+            try modelContext.deleteAccountScopedSupportData(accountAddress: normalizedAddress)
+            try modelContext.deleteNFTsScopedToAccount(normalizedAddress)
             modelContext.delete(existingAccount)
         }
 
@@ -58,6 +66,8 @@ private actor AccountPersistenceStore {
         }
 
         let removedAddress = account.address
+        try modelContext.deleteAccountScopedSupportData(accountAddress: removedAddress)
+        try modelContext.deleteNFTsScopedToAccount(removedAddress)
         modelContext.delete(account)
         try modelContext.save()
 
@@ -109,19 +119,7 @@ private actor AccountPersistenceStore {
     }
 
     private func listAccounts() throws -> [EOAccount] {
-        let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
-
-        return accounts.sorted { lhs, rhs in
-            if lhs.mostRecentActivityAt != rhs.mostRecentActivityAt {
-                return lhs.mostRecentActivityAt > rhs.mostRecentActivityAt
-            }
-
-            if lhs.addedAt != rhs.addedAt {
-                return lhs.addedAt > rhs.addedAt
-            }
-
-            return lhs.address.localizedCompare(rhs.address) == .orderedAscending
-        }
+        try modelContext.fetch(FetchDescriptor(sortBy: accountSortDescriptors))
     }
 }
 
@@ -256,22 +254,14 @@ struct AccountStore {
     }
 
     func listAccounts() throws -> [EOAccount] {
-        let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
+        let accounts = try modelContext.fetch(
+            FetchDescriptor(sortBy: accountSortDescriptors)
+        )
         if accounts.contains(where: { $0.normalizeStoredChainsIfNeeded() }) {
             try modelContext.save()
         }
 
-        return accounts.sorted { lhs, rhs in
-            if lhs.mostRecentActivityAt != rhs.mostRecentActivityAt {
-                return lhs.mostRecentActivityAt > rhs.mostRecentActivityAt
-            }
-
-            if lhs.addedAt != rhs.addedAt {
-                return lhs.addedAt > rhs.addedAt
-            }
-
-            return lhs.address.localizedCompare(rhs.address) == .orderedAscending
-        }
+        return accounts
     }
 
     func account(for rawAddress: String) throws -> EOAccount? {

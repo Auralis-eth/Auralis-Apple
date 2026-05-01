@@ -121,11 +121,10 @@ private actor TokenHoldingsPersistenceStore {
     }
 
     func clearAll() throws {
-        let holdings = try modelContext.fetch(FetchDescriptor<TokenHolding>())
-        for holding in holdings {
-            modelContext.delete(holding)
-        }
-
+        try modelContext.delete(
+            model: TokenHolding.self,
+            where: #Predicate<TokenHolding> { _ in true }
+        )
         try modelContext.save()
     }
 

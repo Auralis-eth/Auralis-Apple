@@ -12,15 +12,15 @@ protocol AuraPlayPersistenceResetting: Sendable {
 @ModelActor
 actor SwiftDataDerivedSupportDataResetService: DerivedSupportDataResetting {
     func resetDerivedSupportData() throws {
-        let musicLibraryItems = try modelContext.fetch(FetchDescriptor<MusicLibraryItem>())
-        for item in musicLibraryItems {
-            modelContext.delete(item)
-        }
-
-        let nfts = try modelContext.fetch(FetchDescriptor<NFT>())
-        for nft in nfts {
-            modelContext.delete(nft)
-        }
+        try modelContext.delete(
+            model: MusicLibraryItem.self,
+            where: #Predicate<MusicLibraryItem> { _ in true }
+        )
+        try modelContext.delete(
+            model: Playlist.self,
+            where: #Predicate<Playlist> { _ in true }
+        )
+        try modelContext.deleteAllNFTData()
 
         let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
         for account in accounts where account.trackedNFTCount != 0 {
@@ -48,6 +48,26 @@ actor AuraPlayStoreResetService: AuraPlayPersistenceResetting {
             fileManager: fileManager,
             baseDirectory: baseDirectory
         )
+    }
+}
+
+@ModelActor
+actor SwiftDataAuraPlayPersistenceResetService: AuraPlayPersistenceResetting {
+    func resetAuraPlayPersistence() throws {
+        try modelContext.delete(
+            model: AuraPlayMediaItem.self,
+            where: #Predicate<AuraPlayMediaItem> { _ in true }
+        )
+        try modelContext.delete(
+            model: AuraPlayNFTToken.self,
+            where: #Predicate<AuraPlayNFTToken> { _ in true }
+        )
+        try modelContext.delete(
+            model: AuraPlayWallet.self,
+            where: #Predicate<AuraPlayWallet> { _ in true }
+        )
+
+        try modelContext.save()
     }
 }
 
@@ -102,7 +122,10 @@ struct PrivacyResetService: PrivacyResetting {
 
 @MainActor
 enum PrivacyResetServices {
-    static func live(modelContext: ModelContext) -> PrivacyResetService {
+    static func live(
+        modelContext: ModelContext,
+        auraPlayModelContainer: ModelContainer?
+    ) -> PrivacyResetService {
         PrivacyResetService(
             receiptStore: ReceiptStores.live(modelContext: modelContext),
             searchHistoryStore: SearchHistoryStore(modelContext: modelContext),
@@ -111,7 +134,9 @@ enum PrivacyResetServices {
             derivedSupportDataResetService: SwiftDataDerivedSupportDataResetService(
                 modelContainer: modelContext.container
             ),
-            auraPlayPersistenceResetService: AuraPlayStoreResetService(),
+            auraPlayPersistenceResetService: auraPlayModelContainer.map {
+                SwiftDataAuraPlayPersistenceResetService(modelContainer: $0)
+            } ?? AuraPlayStoreResetService(),
             selectionPersistence: UserDefaultsShellSelectionPersistence(),
             homePinnedItemsStore: HomePinnedItemsStore()
         )

@@ -3,6 +3,11 @@ import SwiftData
 
 @Model
 final class AuraPlayWallet {
+    #Index<AuraPlayWallet>(
+        [\.addressRawValue, \.chainRawValue],
+        [\.lastSyncedAt]
+    )
+
     @Attribute(.unique) var id: String
 
     var addressRawValue: String

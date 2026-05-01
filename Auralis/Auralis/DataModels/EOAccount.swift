@@ -14,7 +14,10 @@ private let eoAccountLogger = Logger(subsystem: "Auralis", category: "EOAccount"
 @Model
 /// Persisted watch-only or wallet-backed account tracked by the shell.
 class EOAccount: Codable, Identifiable {
-    #Index<EOAccount>([\.address])
+    #Index<EOAccount>(
+        [\.address],
+        [\.lastSelectedAt, \.addedAt, \.address]
+    )
     /// Canonical wallet address for the account.
     @Attribute(.unique) var address: String
     /// Stable identifier that matches the canonical address.
@@ -40,7 +43,7 @@ class EOAccount: Codable, Identifiable {
     var currentChainRawValue: String = Chain.ethMainnet.rawValue
 
     /// NFTs currently associated with this account in SwiftData.
-    @Relationship(deleteRule: .cascade) var nfts: [NFT] = []
+    @Relationship(deleteRule: .cascade, inverse: \NFT.account) var nfts: [NFT] = []
 
     /// Creates a persisted account record with normalized defaults for naming and chain scope.
     init(

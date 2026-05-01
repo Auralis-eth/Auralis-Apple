@@ -106,21 +106,16 @@ struct PlaylistListView: View {
     }
 
     @MainActor private func delete(_ pl: Playlist) {
-        let playlistID = pl.id
-        let persistenceStore = PlaylistPersistenceStore(modelContainer: modelContext.container)
-
-        Task {
-            do {
-                try await persistenceStore.deletePlaylist(id: playlistID)
-            } catch {
-                Logger(subsystem: "Auralis", category: "PlaylistUI").error("Delete failed: \(String(describing: error))")
-                errorMessage = error.localizedDescription
-            }
+        do {
+            try modelContext.deletePlaylist(pl)
+        } catch {
+            Logger(subsystem: "Auralis", category: "PlaylistUI").error("Delete failed: \(String(describing: error))")
+            errorMessage = error.localizedDescription
         }
     }
 }
 
 #Preview {
     PlaylistListView()
-        .modelContainer(for: Playlist.self, inMemory: true)
+        .modelContainer(PreviewModelContainers.primary())
 }

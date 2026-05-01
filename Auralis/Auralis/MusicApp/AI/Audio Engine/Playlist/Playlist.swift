@@ -21,8 +21,9 @@ import SwiftData
 @Model
 /// A persisted playlist model that stores library metadata and compatible queue items.
 public final class Playlist: Equatable {
+    #Index<Playlist>([\.createdAt], [\.title])
     /// Stable identifier for the playlist.
-    public var id: UUID = UUID()
+    @Attribute(.unique) public var id: UUID = UUID()
 
     /// User-visible playlist title.
     public var title: String
@@ -41,7 +42,7 @@ public final class Playlist: Equatable {
     // Note: This array was previously used by QueueManager as an in-memory queue container.
     // It remains available for compatibility, but app logic should prefer `QueueManager` state for playback sequencing.
     /// Persisted NFT items associated with the playlist.
-    public var tracks: [NFT] = []
+    @Relationship(deleteRule: .nullify, inverse: \NFT.playlists) public var tracks: [NFT] = []
 
     // MARK: - Computed properties (Library)
     /// Number of items currently in the playlist.

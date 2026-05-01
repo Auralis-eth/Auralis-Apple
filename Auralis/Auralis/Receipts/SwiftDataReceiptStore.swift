@@ -29,10 +29,10 @@ actor ReceiptPersistenceStore {
     }
 
     func resetAll() throws {
-        let receipts = try modelContext.fetch(FetchDescriptor<StoredReceipt>())
-        for receipt in receipts {
-            modelContext.delete(receipt)
-        }
+        try modelContext.delete(
+            model: StoredReceipt.self,
+            where: #Predicate<StoredReceipt> { _ in true }
+        )
         try modelContext.save()
         nextSequenceIDCache = nil
     }
@@ -43,9 +43,10 @@ actor ReceiptPersistenceStore {
             return nextSequenceIDCache
         }
 
-        let descriptor = FetchDescriptor<StoredReceipt>(
+        var descriptor = FetchDescriptor<StoredReceipt>(
             sortBy: [SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)]
         )
+        descriptor.fetchLimit = 1
 
         let nextSequenceID = (try modelContext.fetch(descriptor).first?.sequenceID ?? 0) + 1
         nextSequenceIDCache = nextSequenceID + 1
@@ -85,16 +86,15 @@ final class SwiftDataReceiptStore: ReceiptStore {
             return []
         }
 
-        let descriptor = FetchDescriptor<StoredReceipt>(
+        var descriptor = FetchDescriptor<StoredReceipt>(
             sortBy: [
                 SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
                 SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
             ]
         )
+        descriptor.fetchLimit = limit
 
-        return try modelContext.fetch(descriptor)
-            .prefix(limit)
-            .map { $0.asReceiptRecord() }
+        return try modelContext.fetch(descriptor).map { $0.asReceiptRecord() }
     }
 
     func receipts(
@@ -106,7 +106,7 @@ final class SwiftDataReceiptStore: ReceiptStore {
         }
 
         let correlationValue = correlationID
-        let descriptor = FetchDescriptor<StoredReceipt>(
+        var descriptor = FetchDescriptor<StoredReceipt>(
             predicate: #Predicate<StoredReceipt> { receipt in
                 receipt.correlationID == correlationValue
             },
@@ -115,10 +115,9 @@ final class SwiftDataReceiptStore: ReceiptStore {
                 SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
             ]
         )
+        descriptor.fetchLimit = limit
 
-        return try modelContext.fetch(descriptor)
-            .prefix(limit)
-            .map { $0.asReceiptRecord() }
+        return try modelContext.fetch(descriptor).map { $0.asReceiptRecord() }
     }
 
     func exportAll() throws -> Data {

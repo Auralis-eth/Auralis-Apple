@@ -99,18 +99,15 @@ struct GlobalChromeView: View {
 
 struct ChromeContextInspectorSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Query(
-        sort: [
-            SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
-            SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
-        ]
-    ) private var storedReceipts: [StoredReceipt]
+    @Environment(\.modelContext) private var modelContext
 
     let contextService: ContextService
     let onRefreshContext: @MainActor () async -> Void
     let onOpenReceipt: (String) -> Void
 
     @State private var isRefreshingContext = false
+    @State private var latestContextReceipt: ReceiptTimelineRecord?
+    @State private var relatedContextReceipts: [ReceiptTimelineRecord] = []
 
     private var snapshot: ContextSnapshot {
         contextService.snapshot
@@ -125,34 +122,6 @@ struct ChromeContextInspectorSheet: View {
             accountAddress: snapshot.scope.accountAddress.value ?? "",
             chain: chain
         )
-    }
-
-    private var contextReceipts: [ReceiptTimelineRecord] {
-        guard let receiptScope else {
-            return []
-        }
-
-        return storedReceipts
-            .map(ReceiptTimelineRecord.init)
-            .filter {
-                $0.trigger == "context.built" && $0.matches(receiptScope)
-            }
-    }
-
-    private var latestContextReceipt: ReceiptTimelineRecord? {
-        contextReceipts.first
-    }
-
-    private var relatedContextReceipts: [ReceiptTimelineRecord] {
-        guard let correlationID = latestContextReceipt?.correlationID, !correlationID.isEmpty else {
-            return []
-        }
-
-        return storedReceipts
-            .map(ReceiptTimelineRecord.init)
-            .filter {
-                $0.correlationID == correlationID && $0.id != latestContextReceipt?.id
-            }
     }
 
     private var shouldOfferRefresh: Bool {
@@ -343,6 +312,9 @@ struct ChromeContextInspectorSheet: View {
                 }
             }
         }
+        .task(id: receiptScope) {
+            reloadContextReceipts()
+        }
     }
 
     private func formattedTimestamp(_ date: Date?) -> String {
@@ -390,6 +362,56 @@ struct ChromeContextInspectorSheet: View {
         onOpenReceipt(receipt.id.uuidString)
     }
 
+    private func reloadContextReceipts() {
+        guard let receiptScope else {
+            latestContextReceipt = nil
+            relatedContextReceipts = []
+            return
+        }
+
+        do {
+            let latestStoredReceipt = try modelContext.fetch(
+                Self.makeLatestContextReceiptDescriptor(for: receiptScope)
+            ).first
+
+            guard let latestStoredReceipt else {
+                latestContextReceipt = nil
+                relatedContextReceipts = []
+                return
+            }
+
+            let latestReceipt = ReceiptTimelineRecord(storedReceipt: latestStoredReceipt)
+            latestContextReceipt = latestReceipt
+            relatedContextReceipts = try loadRelatedContextReceipts(
+                correlationID: latestReceipt.correlationID,
+                excludingReceiptID: latestReceipt.id,
+                scope: receiptScope
+            )
+        } catch {
+            latestContextReceipt = nil
+            relatedContextReceipts = []
+        }
+    }
+
+    private func loadRelatedContextReceipts(
+        correlationID: String?,
+        excludingReceiptID: UUID,
+        scope: ReceiptTimelineScope
+    ) throws -> [ReceiptTimelineRecord] {
+        guard let correlationID, !correlationID.isEmpty else {
+            return []
+        }
+
+        return try modelContext.fetch(
+            Self.makeRelatedContextReceiptsDescriptor(
+                correlationID: correlationID,
+                excludingReceiptID: excludingReceiptID,
+                scope: scope
+            )
+        )
+        .map(ReceiptTimelineRecord.init)
+    }
+
     private func receiptDetailSummary(for receipt: ReceiptTimelineRecord) -> String {
         let timestamp = receipt.createdAt.formatted(date: .abbreviated, time: .shortened)
         guard let correlationID = receipt.correlationID else {
@@ -401,6 +423,47 @@ struct ChromeContextInspectorSheet: View {
         }
 
         return String(localized: "\(timestamp) • Activity reference available")
+    }
+
+    private static func makeLatestContextReceiptDescriptor(
+        for scope: ReceiptTimelineScope
+    ) -> FetchDescriptor<StoredReceipt> {
+        let normalizedAccountAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
+        let chainRawValue = scope.chain.rawValue
+
+        return FetchDescriptor(
+            predicate: #Predicate<StoredReceipt> { storedReceipt in
+                storedReceipt.trigger == "context.built"
+                    && storedReceipt.accountAddress == normalizedAccountAddress
+                    && storedReceipt.chainRawValue == chainRawValue
+            },
+            sortBy: [
+                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
+                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
+            ]
+        )
+    }
+
+    private static func makeRelatedContextReceiptsDescriptor(
+        correlationID: String,
+        excludingReceiptID: UUID,
+        scope: ReceiptTimelineScope
+    ) -> FetchDescriptor<StoredReceipt> {
+        let normalizedAccountAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
+        let chainRawValue = scope.chain.rawValue
+
+        return FetchDescriptor(
+            predicate: #Predicate<StoredReceipt> { storedReceipt in
+                storedReceipt.correlationID == correlationID
+                    && storedReceipt.id != excludingReceiptID
+                    && storedReceipt.accountAddress == normalizedAccountAddress
+                    && storedReceipt.chainRawValue == chainRawValue
+            },
+            sortBy: [
+                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
+                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
+            ]
+        )
     }
 }
 

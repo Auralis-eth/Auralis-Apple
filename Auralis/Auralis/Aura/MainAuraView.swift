@@ -14,20 +14,29 @@ struct MainAuraView: View {
     @State private var shellStore: ShellStore?
     @State private var pendingStartupDeepLink: AppDeepLink?
     @State private var pendingStartupRouteError: AppRouteError?
+    @State private var primaryStoreWarningDismissed = false
 
     private let services: ShellServiceHub
     private let deepLinkParser = AppDeepLinkParser()
     private let audioEngineInitializationErrorMessage: String?
     private let auraPlayInitializationErrorMessage: String?
+    private let primaryStoreInitializationErrorMessage: String?
 
     @MainActor
     init() {
-        self.init(services: .live)
+        self.init(
+            services: .live,
+            primaryStoreInitializationErrorMessage: nil
+        )
     }
 
     @MainActor
-    init(services: ShellServiceHub) {
+    init(
+        services: ShellServiceHub,
+        primaryStoreInitializationErrorMessage: String? = nil
+    ) {
         self.services = services
+        self.primaryStoreInitializationErrorMessage = primaryStoreInitializationErrorMessage
         _nftService = State(initialValue: services.nftServiceFactory())
         _modeState = StateObject(wrappedValue: services.modeStateFactory())
         let auraPlayBootstrap = Self.makeAuraPlayModelContainer()
@@ -49,6 +58,24 @@ struct MainAuraView: View {
                 shellContent(shellStore: shellStore)
             } else {
                 bootstrapView
+            }
+        }
+        .overlay(alignment: .top) {
+            if let primaryStoreInitializationErrorMessage, !primaryStoreWarningDismissed {
+                Button {
+                    primaryStoreWarningDismissed = true
+                } label: {
+                    AuraErrorBanner(
+                        title: "Limited Local Storage",
+                        message: primaryStoreInitializationErrorMessage,
+                        systemImage: "externaldrive.badge.exclamationmark"
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.top, 12)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Limited local storage warning")
+                .accessibilityHint("Dismisses the local storage warning")
             }
         }
         .task {

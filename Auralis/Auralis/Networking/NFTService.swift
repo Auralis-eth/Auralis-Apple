@@ -105,6 +105,7 @@ private struct NFTRefreshPersistenceScopeSnapshot {
     var persistedNFTsByID: [String: NFT]
     var persistedContractsByID: [String: NFT.Contract]
     var persistedCollectionsByID: [String: NFT.Collection]
+    let owningAccount: EOAccount?
 }
 
 enum NFTServiceRefreshPhase: Equatable {
@@ -171,7 +172,11 @@ private actor NFTRefreshPersistenceStore {
     ) throws {
         let currentNFTIDSet = Set(currentNFTIDs)
         for nft in stalePersistedNFTs where !currentNFTIDSet.contains(nft.id) {
-            modelContext.delete(nft)
+            if nft.playlists.isEmpty {
+                modelContext.delete(nft)
+            } else {
+                nft.archiveForPlaylistRetention()
+            }
         }
         synchronizeTrackedNFTCount(for: accountAddress)
         try modelContext.save()
@@ -189,15 +194,32 @@ private actor NFTRefreshPersistenceStore {
                 $0.networkRawValue == chain.rawValue
             }
         )
+        let scopedContractDescriptor = FetchDescriptor<NFT.Contract>(
+            predicate: #Predicate<NFT.Contract> { contract in
+                contract.chainRawValue == chain.rawValue
+            }
+        )
+        let scopedCollectionDescriptor = FetchDescriptor<NFT.Collection>(
+            predicate: #Predicate<NFT.Collection> { collection in
+                collection.chainRawValue == chain.rawValue
+            }
+        )
 
         let persistedNFTs = try modelContext.fetch(scopedNFTDescriptor)
-        let persistedContracts = try modelContext.fetch(FetchDescriptor<NFT.Contract>())
-        let persistedCollections = try modelContext.fetch(FetchDescriptor<NFT.Collection>())
+        let persistedContracts = try modelContext.fetch(scopedContractDescriptor)
+        let persistedCollections = try modelContext.fetch(scopedCollectionDescriptor)
 
         return NFTRefreshPersistenceScopeSnapshot(
             persistedNFTsByID: Dictionary(uniqueKeysWithValues: persistedNFTs.map { ($0.id, $0) }),
             persistedContractsByID: Dictionary(uniqueKeysWithValues: persistedContracts.map { ($0.id, $0) }),
-            persistedCollectionsByID: Dictionary(uniqueKeysWithValues: persistedCollections.map { ($0.id, $0) })
+            persistedCollectionsByID: Dictionary(uniqueKeysWithValues: persistedCollections.map { ($0.id, $0) }),
+            owningAccount: try modelContext.fetch(
+                FetchDescriptor<EOAccount>(
+                    predicate: #Predicate<EOAccount> { account in
+                        account.address == normalizedAccountAddress
+                    }
+                )
+            ).first
         )
     }
 
@@ -218,7 +240,7 @@ private actor NFTRefreshPersistenceStore {
         )
 
         guard let account = try? modelContext.fetch(accountDescriptor).first,
-              let trackedNFTCount = try? modelContext.fetch(nftDescriptor).count else {
+              let trackedNFTCount = try? modelContext.fetchCount(nftDescriptor) else {
             return
         }
 
@@ -232,6 +254,7 @@ private actor NFTRefreshPersistenceStore {
         snapshot: inout NFTRefreshPersistenceScopeSnapshot
     ) {
         for nft in nfts {
+            nft.assignOwnership(to: snapshot.owningAccount)
             let resolvedContract = resolveContract(
                 for: nft.contract,
                 snapshot: &snapshot
@@ -279,6 +302,7 @@ private actor NFTRefreshPersistenceStore {
         persistedNFT.acquiredAt = incomingNFT.acquiredAt
         persistedNFT.networkRawValue = incomingNFT.networkRawValue
         persistedNFT.accountAddressRawValue = incomingNFT.accountAddressRawValue
+        persistedNFT.account = incomingNFT.account
         persistedNFT.contentType = incomingNFT.contentType
         persistedNFT.collectionName = incomingNFT.collectionName
         persistedNFT.artistName = incomingNFT.artistName
@@ -358,6 +382,8 @@ private actor NFTRefreshPersistenceStore {
         let referencedContractIDs = Set(allNFTs.map(\.contract.id))
         let referencedCollectionIDs = Set(allNFTs.compactMap(\.collection?.id))
 
+        // Contracts and collections remain shared models. NFT-owned children
+        // such as image/raw/acquiredAt now clean themselves up through cascade.
         let persistedContracts = try modelContext.fetch(FetchDescriptor<NFT.Contract>())
         for contract in persistedContracts where !referencedContractIDs.contains(contract.id) {
             modelContext.delete(contract)

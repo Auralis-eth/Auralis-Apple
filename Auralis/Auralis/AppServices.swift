@@ -101,7 +101,7 @@ struct SwiftDataShellLibraryContextProvider: ShellLibraryContextProviding {
 
     func playlistCount() -> Int? {
         do {
-            return try modelContext.fetch(FetchDescriptor<Playlist>()).count
+            return try modelContext.fetchCount(FetchDescriptor<Playlist>())
         } catch {
             return nil
         }
@@ -110,19 +110,21 @@ struct SwiftDataShellLibraryContextProvider: ShellLibraryContextProviding {
     func receiptCount(scope: ReceiptTimelineScope) -> Int? {
         do {
             let normalizedAccountAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
+            let chainRawValue = scope.chain.rawValue
             let descriptor: FetchDescriptor<StoredReceipt>
 
             if let normalizedAccountAddress, !normalizedAccountAddress.isEmpty {
                 descriptor = FetchDescriptor<StoredReceipt>(
                     predicate: #Predicate<StoredReceipt> { receipt in
-                        receipt.accountAddress == normalizedAccountAddress
+                        receipt.accountAddress == normalizedAccountAddress &&
+                        receipt.chainRawValue == chainRawValue
                     }
                 )
             } else {
                 descriptor = FetchDescriptor<StoredReceipt>()
             }
 
-            return try modelContext.fetch(descriptor).count
+            return try modelContext.fetchCount(descriptor)
         } catch {
             return nil
         }
@@ -234,7 +236,7 @@ struct ShellServiceHub {
     /// Builds the token holdings network provider.
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
     /// Builds the privacy reset service for the current model context.
-    let privacyResetServiceFactory: @MainActor (ModelContext) -> any PrivacyResetting
+    let privacyResetServiceFactory: @MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting
     /// Builds the policy gate service for the current mode and model context.
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
 
@@ -292,8 +294,11 @@ struct ShellServiceHub {
             tokenHoldingsProviderFactory: {
                 readOnlyProviderFactory.makeTokenHoldingsProvider()
             },
-            privacyResetServiceFactory: { modelContext in
-                PrivacyResetServices.live(modelContext: modelContext)
+            privacyResetServiceFactory: { modelContext, auraPlayModelContainer in
+                PrivacyResetServices.live(
+                    modelContext: modelContext,
+                    auraPlayModelContainer: auraPlayModelContainer
+                )
             },
             policyActionHandlerFactory: { modelContext, modeState in
                 PolicyActionGateService(

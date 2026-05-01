@@ -7,6 +7,7 @@ struct SettingsView: View {
     let currentAccountAddress: String
     let currentChain: Chain
     let services: ShellServiceHub
+    let auraPlayModelContainer: ModelContainer?
     let onPrivacyResetCompleted: @MainActor () async -> Void
 
     @State private var isShowingResetConfirmation = false
@@ -99,7 +100,9 @@ struct SettingsView: View {
 
         Task {
             do {
-                try await services.privacyResetServiceFactory(modelContext).resetLocalPrivacyData()
+                try await services
+                    .privacyResetServiceFactory(modelContext, auraPlayModelContainer)
+                    .resetLocalPrivacyData()
                 await MainActor.run {
                     isResettingPrivacyData = false
                     resetSuccessMessage = "Local privacy data was cleared for this device."

@@ -9,7 +9,8 @@ import SwiftData
 import SwiftUI
 
 struct NewsFeedListingView: View {
-    @Query private var nfts: [NFT]
+    @Environment(\.modelContext) private var modelContext
+    @Query private var scopedNFTs: [NFT]
 
     @Binding var currentAccount: EOAccount?
     @Binding var selectedNFT: NFT?
@@ -19,23 +20,11 @@ struct NewsFeedListingView: View {
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
 
-    private var displayNFTs: [NFT] {
-        let trimmedSearchString = searchString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedSearchString.isEmpty else {
-            return nfts
-        }
-
-        return nfts.filter { nft in
-            [nft.name, nft.collection?.name, nft.nftDescription]
-                .contains { field in
-                    field?.localizedStandardContains(trimmedSearchString) ?? false
-                }
-        }
-    }
+    @State private var searchResults: [NFT] = []
 
     var body: some View {
         Group {
-            if nfts.isEmpty {
+            if scopedNFTs.isEmpty {
                 ZStack {
                     Image("aurora-1")
                         .resizable()
@@ -88,6 +77,18 @@ struct NewsFeedListingView: View {
                 .ignoresSafeArea(.all)
             }
         }
+        .task(id: searchKey) {
+            await refreshSearchResults()
+        }
+    }
+
+    private var displayNFTs: [NFT] {
+        let trimmedSearchString = searchString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSearchString.isEmpty else {
+            return scopedNFTs
+        }
+
+        return searchResults
     }
 
     init(
@@ -101,7 +102,8 @@ struct NewsFeedListingView: View {
     ) {
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount.wrappedValue?.address) ?? ""
         let chainRawValue = currentChain.wrappedValue.rawValue
-        _nfts = Query(
+
+        _scopedNFTs = Query(
             filter: #Predicate<NFT> {
                 $0.accountAddressRawValue == normalizedAccountAddress &&
                 $0.networkRawValue == chainRawValue
@@ -122,6 +124,105 @@ struct NewsFeedListingView: View {
         }
     }
 
+    private var searchKey: NewsFeedSearchKey {
+        NewsFeedSearchKey(
+            accountID: currentAccount?.persistentModelID,
+            chainRawValue: currentChain.rawValue,
+            normalizedQuery: searchString
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased(),
+            scopedNFTIDs: scopedNFTs.map(\.persistentModelID)
+        )
+    }
+
+    @MainActor
+    private func refreshSearchResults() async {
+        let trimmedSearchString = searchString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSearchString.isEmpty else {
+            searchResults = []
+            return
+        }
+
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address) ?? ""
+        let chainRawValue = currentChain.rawValue
+
+        do {
+            let matchedIDs = try fetchMatchedNFTIDs(
+                normalizedAccountAddress: normalizedAccountAddress,
+                chainRawValue: chainRawValue,
+                searchText: trimmedSearchString
+            )
+            searchResults = scopedNFTs.filter { matchedIDs.contains($0.id) }
+        } catch {
+            searchResults = []
+        }
+    }
+
+    private func fetchMatchedNFTIDs(
+        normalizedAccountAddress: String,
+        chainRawValue: String,
+        searchText: String
+    ) throws -> Set<String> {
+        let matches = try modelContext.fetch(
+            makeSearchDescriptor(
+                normalizedAccountAddress: normalizedAccountAddress,
+                chainRawValue: chainRawValue,
+                searchText: searchText,
+                field: \NFT.name
+            )
+        ) + modelContext.fetch(
+            makeSearchDescriptor(
+                normalizedAccountAddress: normalizedAccountAddress,
+                chainRawValue: chainRawValue,
+                searchText: searchText,
+                field: \NFT.collectionName
+            )
+        ) + modelContext.fetch(
+            makeSearchDescriptor(
+                normalizedAccountAddress: normalizedAccountAddress,
+                chainRawValue: chainRawValue,
+                searchText: searchText,
+                field: \NFT.nftDescription
+            )
+        )
+
+        return Set(matches.map(\.id))
+    }
+
+    private func makeSearchDescriptor(
+        normalizedAccountAddress: String,
+        chainRawValue: String,
+        searchText: String,
+        field: KeyPath<NFT, String?>
+    ) -> FetchDescriptor<NFT> {
+        switch field {
+        case \NFT.name:
+            return FetchDescriptor(
+                predicate: #Predicate<NFT> { nft in
+                    nft.accountAddressRawValue == normalizedAccountAddress &&
+                    nft.networkRawValue == chainRawValue &&
+                    (nft.name ?? "").localizedStandardContains(searchText)
+                }
+            )
+        case \NFT.collectionName:
+            return FetchDescriptor(
+                predicate: #Predicate<NFT> { nft in
+                    nft.accountAddressRawValue == normalizedAccountAddress &&
+                    nft.networkRawValue == chainRawValue &&
+                    (nft.collectionName ?? "").localizedStandardContains(searchText)
+                }
+            )
+        default:
+            return FetchDescriptor(
+                predicate: #Predicate<NFT> { nft in
+                    nft.accountAddressRawValue == normalizedAccountAddress &&
+                    nft.networkRawValue == chainRawValue &&
+                    (nft.nftDescription ?? "").localizedStandardContains(searchText)
+                }
+            )
+        }
+    }
+
     private func newsFeedCardButton(for nft: NFT, width: CGFloat, height: CGFloat) -> some View {
         Button {
             selectedNFT = nft
@@ -137,4 +238,11 @@ struct NewsFeedListingView: View {
         .accessibilityAddTraits(.isButton)
     }
 
+}
+
+private struct NewsFeedSearchKey: Equatable {
+    let accountID: PersistentIdentifier?
+    let chainRawValue: String
+    let normalizedQuery: String
+    let scopedNFTIDs: [PersistentIdentifier]
 }

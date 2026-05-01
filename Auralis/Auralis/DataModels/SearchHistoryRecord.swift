@@ -3,6 +3,11 @@ import SwiftData
 
 @Model
 final class SearchHistoryRecord {
+    #Index<SearchHistoryRecord>(
+        [\.accountAddressRawValue, \.normalizedQuery],
+        [\.accountAddressRawValue, \.recordedAt]
+    )
+
     @Attribute(.unique) var id: String
     var accountAddressRawValue: String?
     var normalizedQuery: String

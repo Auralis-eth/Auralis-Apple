@@ -55,12 +55,14 @@ public actor PlaylistPersistenceStore {
         description: String? = nil,
         imageRef: String? = nil,
         imageData: Data? = nil,
-        tracks: [NFT] = []
+        trackIDs: [PersistentIdentifier] = []
     ) throws {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else {
             throw PlaylistError.invalidData("Title must not be empty.")
         }
+
+        let tracks = trackIDs.compactMap { modelContext.model(for: $0) as? NFT }
 
         let playlist = Playlist(
             title: trimmedTitle,

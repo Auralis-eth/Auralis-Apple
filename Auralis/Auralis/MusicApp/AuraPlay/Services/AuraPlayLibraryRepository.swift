@@ -5,7 +5,7 @@ import SwiftData
 /// Library-facing seam for AuraPlay surfaces that need music inventory without depending on the raw indexer.
 protocol AuraPlayLibraryRepository {
     func itemCount(in scope: AuraPlayLibraryScope) throws -> Int
-    func needsRebuild(in scope: AuraPlayLibraryScope) throws -> Bool
+    func needsRebuild(in scope: AuraPlayLibraryScope) async throws -> Bool
     func rebuildLibrary(
         in scope: AuraPlayLibraryScope,
         correlationID: String?
@@ -40,12 +40,12 @@ struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
         )
     }
 
-    func needsRebuild(in scope: AuraPlayLibraryScope) throws -> Bool {
+    func needsRebuild(in scope: AuraPlayLibraryScope) async throws -> Bool {
         if try hasPersistedWallet(in: scope) {
             return false
         }
 
-        return try indexer.needsRebuild(
+        return try await indexer.needsRebuild(
             accountAddress: scope.accountAddress,
             chain: scope.chain
         )
@@ -77,7 +77,7 @@ struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
                 item.chainRawValue == chainRawValue
             }
         )
-        return try context.fetch(descriptor).count
+        return try context.fetchCount(descriptor)
     }
 
     private func hasPersistedWallet(in scope: AuraPlayLibraryScope) throws -> Bool {
@@ -92,6 +92,6 @@ struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
                 wallet.id == walletID
             }
         )
-        return try context.fetch(descriptor).isEmpty == false
+        return try context.fetchCount(descriptor) > 0
     }
 }

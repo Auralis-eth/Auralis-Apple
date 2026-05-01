@@ -343,6 +343,7 @@ struct AccountStoreTests {
             olderUnselected.address
         ])
     }
+
 }
 
 private final class RecordingAccountEventRecorder: AccountEventRecorder {
