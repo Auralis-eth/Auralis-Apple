@@ -317,14 +317,20 @@ private extension MusicLibraryIndexPersistenceStore {
         let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
         let chainRawValue = chain.rawValue
 
-        let descriptor = FetchDescriptor<NFT>(
+        var descriptor = FetchDescriptor<NFT>(
             predicate: #Predicate<NFT> {
                 $0.accountAddressRawValue == normalizedAccountAddress &&
                 $0.networkRawValue == chainRawValue &&
                 $0.audioUrl != nil &&
                 $0.audioUrl != ""
-            }
+            },
+            sortBy: [SortDescriptor(\NFT.id)]
         )
+        descriptor.relationshipKeyPathsForPrefetching = [
+            \NFT.contract,
+            \NFT.image,
+            \NFT.collection,
+        ]
 
         let eligibleNFTs = try modelContext.fetch(descriptor)
         let dedupedByID = Dictionary(uniqueKeysWithValues: eligibleNFTs.map { ($0.id, $0) })

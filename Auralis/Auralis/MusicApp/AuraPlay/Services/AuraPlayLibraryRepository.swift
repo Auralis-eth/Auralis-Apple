@@ -17,7 +17,7 @@ protocol AuraPlayLibraryRepository {
 struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
     private let indexer: any MusicLibraryIndexing
     private let receiptEventLogger: ReceiptEventLogger
-    private let modelContainer: ModelContainer
+    private let readModelContext: ModelContext
 
     init(
         indexer: any MusicLibraryIndexing,
@@ -26,7 +26,7 @@ struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
     ) {
         self.indexer = indexer
         self.receiptEventLogger = receiptEventLogger
-        self.modelContainer = modelContainer
+        self.readModelContext = ModelContext(modelContainer)
     }
 
     func itemCount(in scope: AuraPlayLibraryScope) throws -> Int {
@@ -70,14 +70,13 @@ struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(scope.accountAddress) ?? ""
         let chainRawValue = scope.chain.rawValue
-        let context = ModelContext(modelContainer)
         let descriptor = FetchDescriptor<AuraPlayMediaItem>(
             predicate: #Predicate<AuraPlayMediaItem> { item in
                 item.accountAddressRawValue == normalizedAccountAddress &&
                 item.chainRawValue == chainRawValue
             }
         )
-        return try context.fetchCount(descriptor)
+        return try readModelContext.fetchCount(descriptor)
     }
 
     private func hasPersistedWallet(in scope: AuraPlayLibraryScope) throws -> Bool {
@@ -86,12 +85,11 @@ struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
         }
 
         let walletID = AuraPlayWallet.scopedID(address: normalizedAccountAddress, chain: scope.chain)
-        let context = ModelContext(modelContainer)
         let descriptor = FetchDescriptor<AuraPlayWallet>(
             predicate: #Predicate<AuraPlayWallet> { wallet in
                 wallet.id == walletID
             }
         )
-        return try context.fetchCount(descriptor) > 0
+        return try readModelContext.fetchCount(descriptor) > 0
     }
 }

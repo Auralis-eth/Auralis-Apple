@@ -16,6 +16,8 @@ struct LogoutCleanupService: LogoutCleaning {
     func clearLocalDataForLogout(plan: HomeLogoutPlan) throws {
         do {
             try modelContext.performRollbackSafeMutation {
+                try modelContext.deleteAllShellSupportData()
+
                 if plan.shouldDeleteNFTs {
                     try modelContext.deleteAllNFTData()
                 }

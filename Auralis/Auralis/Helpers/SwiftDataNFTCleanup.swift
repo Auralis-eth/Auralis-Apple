@@ -3,6 +3,14 @@ import SwiftData
 
 extension ModelContext {
     func deleteAccountScopedSupportData(accountAddress: String) throws {
+        let scopedAuraPlayWalletIDs = try fetchScopedAuraPlayWalletIDs(accountAddress: accountAddress)
+
+        try delete(
+            model: StoredReceipt.self,
+            where: #Predicate<StoredReceipt> { receipt in
+                receipt.accountAddress == accountAddress
+            }
+        )
         try delete(
             model: TokenHolding.self,
             where: #Predicate<TokenHolding> { holding in
@@ -10,10 +18,55 @@ extension ModelContext {
             }
         )
         try delete(
+            model: MusicLibraryItem.self,
+            where: #Predicate<MusicLibraryItem> { item in
+                item.accountAddressRawValue == accountAddress
+            }
+        )
+        try deleteAuraPlayGraph(
+            accountAddress: accountAddress,
+            walletIDs: scopedAuraPlayWalletIDs
+        )
+        try delete(
             model: SearchHistoryRecord.self,
             where: #Predicate<SearchHistoryRecord> { record in
                 record.accountAddressRawValue == accountAddress
             }
+        )
+    }
+
+    func deleteAllShellSupportData() throws {
+        try delete(
+            model: StoredReceipt.self,
+            where: #Predicate<StoredReceipt> { _ in true }
+        )
+        try delete(
+            model: TokenHolding.self,
+            where: #Predicate<TokenHolding> { _ in true }
+        )
+        try delete(
+            model: MusicLibraryItem.self,
+            where: #Predicate<MusicLibraryItem> { _ in true }
+        )
+        try delete(
+            model: AuraPlayMediaItem.self,
+            where: #Predicate<AuraPlayMediaItem> { _ in true }
+        )
+        try delete(
+            model: AuraPlayNFTToken.self,
+            where: #Predicate<AuraPlayNFTToken> { _ in true }
+        )
+        try delete(
+            model: AuraPlayWallet.self,
+            where: #Predicate<AuraPlayWallet> { _ in true }
+        )
+        try delete(
+            model: SearchHistoryRecord.self,
+            where: #Predicate<SearchHistoryRecord> { _ in true }
+        )
+        try delete(
+            model: Playlist.self,
+            where: #Predicate<Playlist> { _ in true }
         )
     }
 
@@ -54,6 +107,47 @@ extension ModelContext {
         let persistedCollections = try fetch(FetchDescriptor<NFT.Collection>())
         for collection in persistedCollections where !referencedCollectionIDs.contains(collection.id) {
             delete(collection)
+        }
+    }
+
+    private func fetchScopedAuraPlayWalletIDs(accountAddress: String) throws -> [String] {
+        let descriptor = FetchDescriptor<AuraPlayWallet>(
+            predicate: #Predicate<AuraPlayWallet> { wallet in
+                wallet.addressRawValue == accountAddress
+            }
+        )
+
+        return try fetch(descriptor).map(\.id)
+    }
+
+    private func deleteAuraPlayGraph(
+        accountAddress: String,
+        walletIDs: [String]
+    ) throws {
+        try delete(
+            model: AuraPlayMediaItem.self,
+            where: #Predicate<AuraPlayMediaItem> { item in
+                item.accountAddressRawValue == accountAddress
+            }
+        )
+
+        guard !walletIDs.isEmpty else {
+            return
+        }
+
+        let walletIDSet = Set(walletIDs)
+        let tokenDescriptor = FetchDescriptor<AuraPlayNFTToken>()
+        for token in try fetch(tokenDescriptor) where walletIDSet.contains(token.walletID) {
+            delete(token)
+        }
+
+        let walletDescriptor = FetchDescriptor<AuraPlayWallet>(
+            predicate: #Predicate<AuraPlayWallet> { wallet in
+                wallet.addressRawValue == accountAddress
+            }
+        )
+        for wallet in try fetch(walletDescriptor) {
+            delete(wallet)
         }
     }
 }

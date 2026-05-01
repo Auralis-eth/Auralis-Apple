@@ -82,14 +82,20 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
 private actor AuraPlaySourceNFTSnapshotStore {
     func fetchEligibleNFTSnapshots(accountAddress: String, chain: Chain) throws -> [LiveAuraPlayLibrarySyncService.SourceNFTSnapshot] {
         let chainRawValue = chain.rawValue
-        let descriptor = FetchDescriptor<NFT>(
+        var descriptor = FetchDescriptor<NFT>(
             predicate: #Predicate<NFT> { nft in
                 nft.accountAddressRawValue == accountAddress &&
                 nft.networkRawValue == chainRawValue &&
                 nft.audioUrl != nil &&
                 nft.audioUrl != ""
-            }
+            },
+            sortBy: [SortDescriptor(\NFT.id)]
         )
+        descriptor.relationshipKeyPathsForPrefetching = [
+            \NFT.contract,
+            \NFT.image,
+            \NFT.collection,
+        ]
 
         return try modelContext.fetch(descriptor).map(LiveAuraPlayLibrarySyncService.SourceNFTSnapshot.init)
     }
