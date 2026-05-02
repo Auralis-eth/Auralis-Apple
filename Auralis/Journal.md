@@ -63,6 +63,25 @@ This architecture ticket is the repo finally admitting that `NFTService` had bec
 
 The lesson is one senior engineers keep relearning in different costumes: when one type owns fetch logic, transformation, persistence, cleanup, and UI freshness state, every bug starts as a group project. The best fix is not “write more comments.” The best fix is giving each concern its own room and making the coordinator earn its title by coordinating.
 
+The implementation pass for `ARCH-002` finally made that architectural speech real instead of aspirational:
+
+- `NFTService` is now the thin coordinator it claimed to be in meetings. It still owns phase publishing, in-flight cancellation, refresh-event wiring, and the shell-facing API, but the heavy lifting moved out into `LiveFetchNFTInventoryUseCase`, `LivePrepareNFTMetadataUseCase`, `LivePersistNFTInventoryUseCase`, and `NFTRefreshStateComputer`.
+- The fetch seam now owns the awkward “did we finish the whole inventory or just a page-shaped slice of it?” decision. That matters because stale cleanup is only safe after a real full refresh. Before this split, that knowledge leaked straight into the coordinator.
+- The metadata pass stopped being a pile of private helper functions hiding in a service trench coat. Base64 token-URI decode, raw metadata fallback, refresh-scope application, and deduplication now live together in one place, which is where future bugs will be much easier to pin down.
+- The SwiftData write path is now its own room with the same furniture as before: the `@ModelActor` boundary survived, merge behavior still preserves local-only state like tags, stale cleanup still stays conditional, and orphaned shared models still get pruned instead of haunting the store forever.
+- We also wrote the missing seam-level tests the old structure made awkward. There are now focused suites for fetch completion semantics, metadata preparation, persistence behavior, refresh-state bookkeeping, and coordinator sequencing/cancellation behavior. In other words, the tests no longer need to treat one giant service like a black-box vending machine and hope the right snack falls out.
+
+The memorable lesson from the implementation itself: good refactors are a lot like moving a busy restaurant kitchen from one room to four connected stations. If the tickets still get out on time and nobody drops a pan, the diners just see dinner. The staff, meanwhile, finally stops bumping elbows every time one person reaches for the salt.
+
+The first post-split bug was a perfect little architecture trap. The extracted persistence actor was rebuilding multiple fresh `NFT` graphs, each with its own brand-new `Contract` and `Collection`, and only afterward trying to canonicalize those relationships back into shared instances. SwiftData was not amused. The result was a ghost-story grade failure where save validation complained about blank `Contract` and `Collection` records with missing required fields, even though the source data looked fine.
+
+- The fix was not “convince SwiftData harder.” The fix was to stop constructing the wrong graph in the first place.
+- `PersistNFTInventoryUseCase` now resolves shared `Contract` and `Collection` models before building each `NFT`, so every new record starts life pointing at the final canonical relationship objects instead of temporary lookalikes.
+- We also replaced a lazy temporary-model trick for computing scoped IDs with plain helper functions. Same result, less weirdness inside the persistence actor.
+- There was a second, sneakier extraction bug hiding one layer up: bundling persistence and stale cleanup into one use-case call made the coordinator lie about its phase. On full refreshes it could publish `.cleaningUp` before persistence had actually finished. The fix was to keep both behaviors owned by the persistence use case, but expose them as separate operations so `NFTService` can still sequence `persist -> cleanup -> success timestamp` honestly.
+
+The lesson: if shared models are part of the storage contract, resolve them before you assemble the objects that depend on them. Retrofitting identity after graph construction is how you end up hunting phantom rows at midnight.
+
 ### ShellServiceHub: Stop Letting the Front Desk Crawl Into the Boiler Room
 
 This architecture decision was the repo finally admitting that `ShellServiceHub` had become too convenient for its own good.
@@ -1067,3 +1086,14 @@ Once the first DI migration cut landed, the obvious next question was whether th
 - There was also a nice little concurrency reminder hiding in the refresh path. `ShellStore` starts refresh work in tasks, so the test suite had to assert the reducer effects after yielding just enough for queued work to settle. Not because we enjoy making async tests harder than they need to be, but because state machines that spawn work need tests that understand when the dominoes are synchronous and when they are politely scheduled for one beat later.
 
 The lesson: when a refactor claims to improve dependency boundaries, the best tests are not the ones that admire the new initializer signatures. The best tests are the ones that force the state machine to drive through every sharp turn and prove the new seams still hold the car together.
+
+## ARCH-002 Boundary Call: Keep Persistence Translation In The Persistence Room
+
+This was one of those architecture questions that sounds small until you realize it decides which type quietly starts collecting everyone else’s chores.
+
+- The question was whether `PrepareNFTMetadataUseCase` should go one step further and manufacture persistence snapshots, or whether `PersistNFTInventoryUseCase` should own that translation. We chose the second option on purpose.
+- The clean seam is now explicit: fetch provider inventory, prepare canonical domain inventory, then persist with persistence-owned translation. That means metadata prep gets to stay a domain-shaping step instead of gradually turning into a secret SwiftData adapter wearing a friendlier name.
+- This matters because snapshots are not neutral packaging. They usually encode merge keys, local-state carry-forward rules, stale-cleanup inputs, write ordering, and other storage-specific invariants. Once that logic leaks upstream, the “prepare” layer stops being reusable and starts dragging persistence policy around like glitter on a sweater.
+- We also locked the pragmatic naming decision for the first PR: keep the shell-facing type named `NFTService`. First earn the architectural separation, then decide later whether the honest final public name should become `NFTRefreshCoordinator`.
+
+The lesson is classic boundary hygiene: if a value mostly exists to help storage make promises, let the storage-side use case own it. Otherwise the domain layer becomes a polite-smelling basement full of persistence boxes.
