@@ -53,6 +53,29 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+### NFTService: Stop Making One Type Run the Entire Warehouse
+
+This architecture ticket is the repo finally admitting that `NFTService` had become the project’s overachieving warehouse manager, forklift driver, inventory clerk, janitor, and night supervisor all at once.
+
+- The file already contained a strong clue about the right future shape: it had a real persistence actor boundary and a real metadata-preparation pipeline, but both were still living inside the same giant service. That is like discovering your “single room” apartment already has kitchen walls drawn in pencil. The plan for `ARCH-002` is basically tracing those walls in ink.
+- The important decision was to split by responsibility, not by vibe. Fetching becomes `FetchNFTInventoryUseCase`. Metadata enrichment becomes `PrepareNFTMetadataUseCase`. SwiftData writes and stale cleanup become `PersistNFTInventoryUseCase`. Freshness math gets its own `NFTRefreshStateComputer`. The remaining `NFTService` is then just the conductor waving the baton instead of also trying to play drums, violin, and bass simultaneously.
+- We also chose a pragmatic migration path instead of a naming revolution on day one. Keep the shell-facing public type as `NFTService` initially, extract the real seams, prove the orchestration shape, and only then decide whether the final honest name should be `NFTRefreshCoordinator`. Good refactors separate structural change from rename turbulence whenever possible.
+
+The lesson is one senior engineers keep relearning in different costumes: when one type owns fetch logic, transformation, persistence, cleanup, and UI freshness state, every bug starts as a group project. The best fix is not “write more comments.” The best fix is giving each concern its own room and making the coordinator earn its title by coordinating.
+
+### ShellServiceHub: Stop Letting the Front Desk Crawl Into the Boiler Room
+
+This architecture decision was the repo finally admitting that `ShellServiceHub` had become too convenient for its own good.
+
+- On paper, the hub looked like a polite composition helper. In practice, it let presentation code reach into account factories, provider construction, receipt logging, search history, policy gates, and privacy reset wiring. That is less “dependency injection” and more “every room in the hotel has a skeleton key.”
+- The fix is not to replace one giant bag with three medium-size bags wearing fake mustaches. The decision in `ARCH-001` is to keep use-case protocols at the feature boundary when a view is triggering work, while still allowing direct injection for narrow, stable stores that are mainly being rendered. That is the sweet spot between architecture rigor and protocol cosplay.
+- We also chose not to bless `AppServices.swift` as the forever-home of composition. It can be the moving truck during the refactor, but not the new house. Once the migration lands, composition code should split into shell bootstrap dependencies, feature adapters, and live builders so the next engineer does not discover a second service locator growing in the walls.
+- For previews and tests, the rule is similarly pragmatic: keep `preview` and `testValue` factories as extensions in preview/test support areas instead of baking them into the main production file. Same ergonomics, less production clutter.
+
+The lesson is senior-engineering-simple: if a SwiftUI view can casually reach into infrastructure plumbing, that plumbing is eventually going to leak into product logic. The right boundary is not “views know nothing.” The right boundary is “views know only the contracts that make sense from where they stand.”
+
+The follow-on lesson came when the planning doc itself needed cleanup. Architecture notes that still contain conversational “I agree with both” language are fine during discovery and bad for handoff. We turned the remaining lifetime question into an explicit ownership policy with a review test and a small dependency table. Much better. A handoff doc should read like a map, not like chat logs taped to the dashboard.
+
 ### Swift Testing Meets MainActor and Throws a Chair
 
 This was a classic Swift 6 test-target failure where the app code was innocent and the tests were the ones walking into traffic.
@@ -579,6 +602,16 @@ One follow-up bug showed up immediately in review, and it was exactly the kind t
 
 We also filled in the reducer test gaps the review called out. `ShellStoreTests` now covers same-account no-ops, inactive and last-account removal, chain persistence failure, deep-link routing and deep-link error surfacing, explicit route-error dismissal, fresh/loading foreground no-op refresh cases, and logout state reset. That is not just more green dots. It means the shell store is now tested on the awkward branches, not just the friendly ones.
 
+### The Service Locator Haircut
+
+The next architecture problem was subtler than the old four-way shell argument, but it had the same bad energy: too much of the UI could still reach into `ShellServiceHub` and quietly ask infrastructure for whatever it wanted. `MainAuraView` was booting real services, `MainTabView` was playing factory bingo for receipts, search, token sync, ENS, and music indexing, and child views were inheriting the same pattern like a family recipe nobody actually likes.
+
+- The important realization was that `ShellServiceHub` is only virtuous as long as it stays in the composition room. Once views receive it directly, it stops being dependency injection and starts being a backstage master key.
+- The migration plan for `ARCH-001` deliberately avoids replacing one giant bag with five medium-sized bags wearing fake mustaches. The target is small feature-scoped dependency bundles plus explicit use-case protocols where view code actually needs behavior, not infrastructure trivia.
+- The first cut is intentionally narrow: move `MainAuraView` and `ShellStore.live(...)` off the hub first, then tighten `MainTabView` and child surfaces. That sequence matters because it breaks the biggest architectural back-edge without forcing the whole shell through a one-PR demolition derby.
+
+The memorable lesson: a service locator can look tidy in code the same way a junk drawer looks tidy when it still closes. The problem shows up later, when every screen knows where the spare batteries, passport, and mortgage paperwork are supposed to be.
+
 ## Engineer's Wisdom
 
 - Dead code removal is only “safe” after verifying inbound references and then building the project. Grep without validation is guesswork.
@@ -1009,3 +1042,28 @@ The first hardening pass fixed the obvious shell-level demolition jobs, but it l
 - The practical test story improved as well. The undo coverage now exercises the playlist deletion service and the account-removal undo path against a full primary-store schema container, while the existing privacy/reset tests continue checking rollback-versus-partial-completion behavior.
 
 The lesson: consistency matters more than hero fixes. A codebase is not “safe” because the biggest wrecking ball got guard rails if the smaller wrecking balls are still parked on a slope.
+
+## ARCH-001, First Cut: Take The Master Key Away From The Lobby
+
+This was the first real implementation slice of the `ShellServiceHub` cleanup, and the most important decision was restraint. The goal was not “delete the hub everywhere in one dramatic swing.” The goal was “break the worst dependency direction first without turning the shell into a rubble pile.”
+
+- `MainAuraView` stopped carrying the raw service locator and now takes `ShellBootstrapDependencies` instead. That means the shell entry point still knows how to bootstrap the app, but it no longer casually exposes the whole boiler room to the rest of the UI.
+- `ShellStore.live(...)` also lost its `ShellServiceHub` dependency. It now takes a `ShellStoreDependencies` bundle with the exact collaborators it uses: selection persistence, account mutation, refresh coordination, deep-link replay, router effects, receipt logging, and the clock. That is a much more honest reducer boundary.
+- `GatewayView`, `MainTabView`, `HomeTabView`, `ProfileDetailView`, and `SettingsView` were trimmed down to the narrower closures or feature bundles they actually consume. In practice, this meant passing things like `accountStoreFactory`, `privacyResetServiceFactory`, or `policyActionHandlerFactory` directly instead of letting views rummage through a global bag of unrelated parts.
+
+The fun bug in this pass was predictable in hindsight: `HomeTabView` still had one secret tunnel back to the old world through logout cleanup. This is exactly how service locator migrations try to cheat. You remove the obvious bag from the initializer, and one last side-effect path is still quietly asking the bag for a wrench in the basement. The fix was to thread `logoutCleanupServiceFactory` through the home feature explicitly and close that side door too.
+
+The last cleanup step was the one that actually makes the ADR feel finished instead of merely “less embarrassing.” `ShellServiceHub` is now private to `AppServices.swift`, and the old boundary tests were replaced with builder-focused tests for shell bootstrap, gateway wiring, main-tab feature wiring, policy gates, and privacy reset. That matters because an architecture migration is not complete when the UI stops touching the old type. It is complete when the old type also stops being a public idea the rest of the codebase can casually re-adopt next Tuesday.
+
+The lesson is delightfully unromantic: architecture migrations get safer the moment you stop trying to be impressive. One well-placed cut at the composition boundary beats a heroic “we replaced DI across the whole app in one diff” story every time.
+
+## ARCH-001 Test Hardening: Audit The Plumbing, Not The Paint
+
+Once the first DI migration cut landed, the obvious next question was whether the test story had actually caught up or whether we had just traded one architectural smell for a very confident shrug. The existing builder tests proved that some live seams still connected to the right stores, but they did not really interrogate the shell state machine itself. That is like checking that the restaurant has a pantry, a stove, and a fridge, while never confirming whether the kitchen staff can still get dinner onto the table in the right order.
+
+- The fix was to add a dedicated `ShellStoreTests` suite that stays completely out of SwiftUI. No view snapshots, no navigation rendering, no “the tab looked roughly fine in Preview.” Just the shell reducer, its collaborators, and the behaviors this migration was supposed to protect.
+- The new tests cover the moments where DI architecture either earns its keep or gets exposed as decorative paperwork: restoring persisted selection, repairing bad persisted chain scope from the account record, switching accounts with route resets, persisting chain changes, replaying deep links only when the shell is ready, refreshing stale selections on foreground, and clearing everything cleanly on logout.
+- The important engineering choice was fake design. Each collaborator got its own tiny test double with one job: remember what it was asked to do. That keeps the tests readable and avoids the usual service-locator trap where the test setup quietly recreates the same giant bag of mystery wires that production just got rid of.
+- There was also a nice little concurrency reminder hiding in the refresh path. `ShellStore` starts refresh work in tasks, so the test suite had to assert the reducer effects after yielding just enough for queued work to settle. Not because we enjoy making async tests harder than they need to be, but because state machines that spawn work need tests that understand when the dominoes are synchronous and when they are politely scheduled for one beat later.
+
+The lesson: when a refactor claims to improve dependency boundaries, the best tests are not the ones that admire the new initializer signatures. The best tests are the ones that force the state machine to drive through every sharp turn and prove the new seams still hold the car together.

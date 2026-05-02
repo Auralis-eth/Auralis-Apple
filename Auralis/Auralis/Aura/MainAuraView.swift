@@ -12,11 +12,13 @@ struct MainAuraView: View {
     @State private var audioEngine: AudioEngine?
     @State private var auraPlayModelContainer: ModelContainer?
     @State private var shellStore: ShellStore?
+    @State private var gatewayDependencies: GatewayDependencies?
+    @State private var mainTabDependencies: MainTabDependencies?
     @State private var pendingStartupDeepLink: AppDeepLink?
     @State private var pendingStartupRouteError: AppRouteError?
     @State private var primaryStoreWarningDismissed = false
 
-    private let services: ShellServiceHub
+    private let dependencies: ShellBootstrapDependencies
     private let deepLinkParser = AppDeepLinkParser()
     private let audioEngineInitializationErrorMessage: String?
     private let auraPlayInitializationErrorMessage: String?
@@ -25,20 +27,20 @@ struct MainAuraView: View {
     @MainActor
     init() {
         self.init(
-            services: .live,
+            dependencies: .live,
             primaryStoreInitializationErrorMessage: nil
         )
     }
 
     @MainActor
     init(
-        services: ShellServiceHub,
+        dependencies: ShellBootstrapDependencies,
         primaryStoreInitializationErrorMessage: String? = nil
     ) {
-        self.services = services
+        self.dependencies = dependencies
         self.primaryStoreInitializationErrorMessage = primaryStoreInitializationErrorMessage
-        _nftService = State(initialValue: services.nftServiceFactory())
-        _modeState = StateObject(wrappedValue: services.modeStateFactory())
+        _nftService = State(initialValue: dependencies.nftServiceFactory())
+        _modeState = StateObject(wrappedValue: dependencies.modeStateFactory())
         let auraPlayBootstrap = Self.makeAuraPlayModelContainer()
         _auraPlayModelContainer = State(initialValue: auraPlayBootstrap.container)
         auraPlayInitializationErrorMessage = auraPlayBootstrap.errorMessage
@@ -103,24 +105,25 @@ struct MainAuraView: View {
 
         Group {
             if currentAccount != nil, !shouldShowFullscreenLoading {
-                MainTabView(
-                    shellStore: shellStore,
-                    resolveCurrentAccount: {
-                        resolvedCurrentAccount(for: shellStore.state)
-                    },
-                    nftService: $nftService,
-                    router: router,
-                    audioEngine: audioEngine,
-                    audioUnavailableMessage: musicUnavailableMessage,
-                    modeState: modeState,
-                    services: services,
-                    modelContext: modelContext,
-                    auraPlayModelContainer: auraPlayModelContainer
-                )
-                .tabBarMinimizeBehavior(.onScrollDown)
-                .tabViewBottomAccessory {
-                    if let audioEngine {
-                        MiniPlayerView(audioEngine: audioEngine)
+                if let mainTabDependencies {
+                    MainTabView(
+                        shellStore: shellStore,
+                        resolveCurrentAccount: {
+                            resolvedCurrentAccount(for: shellStore.state)
+                        },
+                        nftService: $nftService,
+                        router: router,
+                        audioEngine: audioEngine,
+                        audioUnavailableMessage: musicUnavailableMessage,
+                        modeState: modeState,
+                        dependencies: mainTabDependencies,
+                        auraPlayModelContainer: auraPlayModelContainer
+                    )
+                    .tabBarMinimizeBehavior(.onScrollDown)
+                    .tabViewBottomAccessory {
+                        if let audioEngine {
+                            MiniPlayerView(audioEngine: audioEngine)
+                        }
                     }
                 }
             } else if nftsAreLoading, shellStore.state.selection != nil {
@@ -139,20 +142,21 @@ struct MainAuraView: View {
                         .ignoresSafeArea()
                 }
             } else {
-                GatewayView(
-                    ensResolver: services.ensResolverFactory(modelContext),
-                    services: services,
-                    onAccountActivated: { account, correlationID in
-                        Task {
-                            await shellStore.send(
-                                .accountActivated(
-                                    account: account,
-                                    correlationID: correlationID
+                if let gatewayDependencies {
+                    GatewayView(
+                        dependencies: gatewayDependencies,
+                        onAccountActivated: { account, correlationID in
+                            Task {
+                                await shellStore.send(
+                                    .accountActivated(
+                                        account: account,
+                                        correlationID: correlationID
+                                    )
                                 )
-                            )
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
         .sheet(item: routeErrorBinding(for: shellStore)) { routeError in
@@ -182,12 +186,11 @@ struct MainAuraView: View {
             return
         }
 
-        let store = ShellStore.live(
-            services: services,
-            modelContext: modelContext,
-            nftService: nftService,
-            router: router
-        )
+        let gatewayDependencies = dependencies.makeGatewayDependencies(modelContext)
+        let mainTabDependencies = dependencies.makeMainTabDependencies(modelContext)
+        let store = dependencies.makeShellStore(modelContext, nftService, router)
+        self.gatewayDependencies = gatewayDependencies
+        self.mainTabDependencies = mainTabDependencies
         shellStore = store
 
         Task {

@@ -14,7 +14,8 @@ struct HomeTabView: View {
 
     let router: AppRouter
     let ensResolver: any ENSResolving
-    let services: ShellServiceHub
+    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let logoutCleanupServiceFactory: @MainActor (ModelContext) -> any LogoutCleaning
     let pinnedItemsStore: HomePinnedItemsStore
     @Binding var pinnedItemCount: Int
 
@@ -52,7 +53,8 @@ struct HomeTabView: View {
         contextSnapshot: ContextSnapshot,
         router: AppRouter,
         ensResolver: any ENSResolving,
-        services: ShellServiceHub,
+        accountStoreFactory: @escaping @MainActor (ModelContext) -> AccountStore,
+        logoutCleanupServiceFactory: @escaping @MainActor (ModelContext) -> any LogoutCleaning,
         pinnedItemsStore: HomePinnedItemsStore,
         pinnedItemCountBinding: Binding<Int>
     ) {
@@ -63,7 +65,8 @@ struct HomeTabView: View {
         self.contextSnapshot = contextSnapshot
         self.router = router
         self.ensResolver = ensResolver
-        self.services = services
+        self.accountStoreFactory = accountStoreFactory
+        self.logoutCleanupServiceFactory = logoutCleanupServiceFactory
         self.pinnedItemsStore = pinnedItemsStore
         self._pinnedItemCount = pinnedItemCountBinding
 
@@ -174,7 +177,7 @@ struct HomeTabView: View {
             AccountSwitcherSheet(
                 currentAccount: currentAccount,
                 activeSelection: shellStore.state.selection,
-                accountStoreFactory: services.accountStoreFactory,
+                accountStoreFactory: accountStoreFactory,
                 onSelectAccount: { address in
                     Task {
                         await shellStore.send(
@@ -676,8 +679,7 @@ struct HomeTabView: View {
         let plan = logic.logoutPlan()
 
         do {
-            try services
-                .logoutCleanupServiceFactory(modelContext)
+            try logoutCleanupServiceFactory(modelContext)
                 .clearLocalDataForLogout(plan: plan)
         } catch {
             logger.error("Logout cleanup failed error=\(error.localizedDescription, privacy: .public)")

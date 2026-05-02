@@ -33,7 +33,7 @@ private extension AuralisApp {
     func primaryStoreScene(inMemory: Bool) -> some Scene {
         WindowGroup {
             MainAuraView(
-                services: .live,
+                dependencies: .live,
                 primaryStoreInitializationErrorMessage: primaryStoreInitializationErrorMessage
             )
             .task {

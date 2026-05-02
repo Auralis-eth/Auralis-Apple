@@ -12,9 +12,8 @@ struct MainTabView: View {
     let audioEngine: AudioEngine?
     let audioUnavailableMessage: String?
     let modeState: ModeState
-    let services: ShellServiceHub
+    let dependencies: MainTabDependencies
     let auraPlayModelContainer: ModelContainer?
-
     private let homePinnedItemsStore: HomePinnedItemsStore
 
     @State private var showAccountSwitcher = false
@@ -72,8 +71,7 @@ struct MainTabView: View {
         audioEngine: AudioEngine?,
         audioUnavailableMessage: String?,
         modeState: ModeState,
-        services: ShellServiceHub,
-        modelContext: ModelContext,
+        dependencies: MainTabDependencies,
         auraPlayModelContainer: ModelContainer?
     ) {
         self.shellStore = shellStore
@@ -83,20 +81,19 @@ struct MainTabView: View {
         self.audioEngine = audioEngine
         self.audioUnavailableMessage = audioUnavailableMessage
         self.modeState = modeState
-        self.services = services
+        self.dependencies = dependencies
         self.auraPlayModelContainer = auraPlayModelContainer
 
-        let homePinnedItemsStore = services.homePinnedItemsStoreFactory()
+        let homePinnedItemsStore = dependencies.homePinnedItemsStore
         self.homePinnedItemsStore = homePinnedItemsStore
 
-        let libraryContextProvider = services.libraryContextProviderFactory(modelContext)
         _pinnedItemCount = State(
             initialValue: homePinnedItemsStore.pinnedCount(
                 for: shellStore.state.selection?.address ?? ""
             )
         )
         _contextService = State(
-            initialValue: services.contextServiceBuilder.makeContextService(
+            initialValue: dependencies.contextServiceBuilder.makeContextService(
                 accountProvider: { resolveCurrentAccount() },
                 addressProvider: { shellStore.state.selection?.address ?? "" },
                 chainProvider: { shellStore.state.selection?.chain ?? .ethMainnet },
@@ -111,16 +108,16 @@ struct MainTabView: View {
                         chain: shellStore.state.selection?.chain ?? .ethMainnet
                     )
                 },
-                nativeBalanceProvider: services.readOnlyProviderFactory.makeNativeBalanceProvider(),
+                nativeBalanceProvider: dependencies.nativeBalanceProvider,
                 freshnessTTLProvider: { nftService.wrappedValue.refreshTTL },
                 trackedNFTCountProvider: {
                     resolveCurrentAccount()?.trackedNFTCount
                 },
                 musicCollectionCountProvider: {
-                    libraryContextProvider.playlistCount()
+                    dependencies.libraryContextProvider.playlistCount()
                 },
                 receiptCountProvider: {
-                    libraryContextProvider.receiptCount(
+                    dependencies.libraryContextProvider.receiptCount(
                         scope: ReceiptTimelineScope(
                             accountAddress: shellStore.state.selection?.address ?? "",
                             chain: shellStore.state.selection?.chain ?? .ethMainnet
@@ -159,7 +156,7 @@ struct MainTabView: View {
             AccountSwitcherSheet(
                 currentAccount: currentAccount,
                 activeSelection: shellStore.state.selection,
-                accountStoreFactory: services.accountStoreFactory,
+                accountStoreFactory: dependencies.accountStoreFactory,
                 onSelectAccount: selectAccount,
                 onRemoveAccount: removeAccount,
                 onCurrentChainChange: changeCurrentChain
@@ -182,7 +179,7 @@ struct MainTabView: View {
             let correlationID = nftService.isLoading ? nil : shellStore.state.pendingCorrelationID
             await contextService.refresh(
                 correlationID: correlationID,
-                receiptEventLogger: services.receiptEventLoggerFactory(modelContext),
+                receiptEventLogger: dependencies.receiptEventLoggerFactory(modelContext),
                 strategy: .remoteAllowed
             )
             if !nftService.isLoading {
@@ -263,9 +260,10 @@ struct MainTabView: View {
                     currentChain: currentChain,
                     contextSnapshot: contextService.snapshot,
                     router: router,
-                    ensResolver: services.ensResolverFactory(modelContext),
-                    services: services,
-                    pinnedItemsStore: homePinnedItemsStore,
+                    ensResolver: dependencies.ensResolver,
+                    accountStoreFactory: dependencies.accountStoreFactory,
+                    logoutCleanupServiceFactory: dependencies.logoutCleanupServiceFactory,
+                    pinnedItemsStore: dependencies.homePinnedItemsStore,
                     pinnedItemCountBinding: $pinnedItemCount
                 )
             }
@@ -319,8 +317,8 @@ struct MainTabView: View {
                                             title: summary.title
                                         )
                                     },
-                                    musicLibraryIndexer: services.musicLibraryIndexerFactory(modelContext),
-                                    musicLibraryReceiptLogger: services.receiptEventLoggerFactory(modelContext)
+                                    musicLibraryIndexer: dependencies.musicLibraryIndexer,
+                                    musicLibraryReceiptLogger: dependencies.receiptEventLoggerFactory(modelContext)
                                 )
                             }
                             .navigationDestination(for: MusicRoute.self) { route in
@@ -379,7 +377,7 @@ struct MainTabView: View {
                         isCurrentAccount: true,
                         showsPolicySection: true,
                         modeState: modeState,
-                        services: services,
+                        policyActionHandlerFactory: dependencies.policyActionHandlerFactory,
                         onOpenSettings: router.showSettings
                     )
                     .navigationDestination(for: ProfileRoute.self) { route in
@@ -395,7 +393,7 @@ struct MainTabView: View {
                             SettingsView(
                                 currentAccountAddress: activeAccountAddress,
                                 currentChain: currentChain,
-                                services: services,
+                                privacyResetServiceFactory: dependencies.privacyResetServiceFactory,
                                 auraPlayModelContainer: auraPlayModelContainer,
                                 onPrivacyResetCompleted: {
                                     await shellStore.send(.logoutRequested)
@@ -476,7 +474,7 @@ struct MainTabView: View {
             router: router,
             currentAccountAddress: activeAccountAddress,
             currentChain: currentChain,
-            historyStore: services.searchHistoryStoreFactory(modelContext)
+            historyStore: dependencies.searchHistoryStore
         )
     }
 
@@ -507,8 +505,8 @@ struct MainTabView: View {
                 nftService: nftService,
                 refreshAction: refreshActiveScopeFromUserAction,
                 router: router,
-                tokenHoldingsStoreFactory: services.tokenHoldingsStoreFactory,
-                tokenHoldingsProviderFactory: services.tokenHoldingsProviderFactory
+                tokenHoldingsStoreFactory: dependencies.tokenHoldingsStoreFactory,
+                tokenHoldingsProviderFactory: dependencies.tokenHoldingsProviderFactory
             )
             .navigationDestination(for: ERC20TokenRoute.self) { route in
                 ERC20TokenDetailView(
@@ -629,7 +627,6 @@ private struct ContextLocalRefreshKey: Hashable {
         let audioEngine: AudioEngine? = try? AudioEngine()
         @StateObject private var modeState = ModeState()
         private let auraPlayModelContainer = PreviewModelContainers.auraPlay()
-        private let services = ShellServiceHub.live
         private let shellStore = ShellStore.preview(
             selection: ActiveShellSelection(
                 address: "0xpreview0000000000000000000000000000000000",
@@ -646,8 +643,7 @@ private struct ContextLocalRefreshKey: Hashable {
                 audioEngine: audioEngine,
                 audioUnavailableMessage: nil,
                 modeState: modeState,
-                services: services,
-                modelContext: modelContext,
+                dependencies: ShellBootstrapDependencies.live.makeMainTabDependencies(modelContext),
                 auraPlayModelContainer: auraPlayModelContainer
             )
         }

@@ -203,8 +203,134 @@ struct PolicyActionGateService: PolicyActionGating {
 }
 
 @MainActor
+struct ShellStoreDependencies {
+    let selectionPersistence: any ShellSelectionPersisting
+    let accountResolver: any ShellAccountResolving
+    let accountMutator: any ShellAccountMutating
+    let refreshCoordinator: any ShellRefreshing
+    let deepLinkReplayer: any ShellDeepLinkReplaying
+    let routerEffectHandler: any ShellRouterEffectHandling
+    let receiptLogger: any ShellReceiptLogging
+    let clock: any ShellClock
+
+    static func live(
+        modelContext: ModelContext,
+        nftService: NFTService,
+        router: AppRouter
+    ) -> ShellStoreDependencies {
+        let services = ShellServiceHub.live
+        let accountResolver = SwiftDataShellAccountResolver(modelContext: modelContext)
+        return ShellStoreDependencies(
+            selectionPersistence: UserDefaultsShellSelectionPersistence(),
+            accountResolver: accountResolver,
+            accountMutator: SwiftDataShellAccountMutator(
+                modelContext: modelContext,
+                eventRecorder: services.accountEventRecorderFactory(modelContext)
+            ),
+            refreshCoordinator: NFTServiceShellRefreshCoordinator(
+                modelContext: modelContext,
+                nftService: nftService,
+                accountResolver: accountResolver
+            ),
+            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
+            routerEffectHandler: AppRouterShellEffectHandler(
+                router: router,
+                modelContext: modelContext
+            ),
+            receiptLogger: ReceiptEventShellLogger(
+                receiptEventLogger: services.receiptEventLoggerFactory(modelContext)
+            ),
+            clock: SystemShellClock()
+        )
+    }
+}
+
+@MainActor
+struct GatewayDependencies {
+    let ensResolver: any ENSResolving
+    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+
+    static func live(modelContext: ModelContext) -> GatewayDependencies {
+        let services = ShellServiceHub.live
+        return GatewayDependencies(
+            ensResolver: services.ensResolverFactory(modelContext),
+            accountStoreFactory: services.accountStoreFactory
+        )
+    }
+}
+
+@MainActor
+struct MainTabDependencies {
+    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let contextServiceBuilder: any ShellContextServiceBuilding
+    let nativeBalanceProvider: any NativeBalanceProviding
+    let ensResolver: any ENSResolving
+    let homePinnedItemsStore: HomePinnedItemsStore
+    let libraryContextProvider: any ShellLibraryContextProviding
+    let musicLibraryIndexer: any MusicLibraryIndexing
+    let receiptEventLoggerFactory: @MainActor (ModelContext) -> ReceiptEventLogger
+    let searchHistoryStore: SearchHistoryStore
+    let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
+    let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
+    let logoutCleanupServiceFactory: @MainActor (ModelContext) -> any LogoutCleaning
+    let privacyResetServiceFactory: @MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting
+    let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
+
+    static func live(modelContext: ModelContext) -> MainTabDependencies {
+        let services = ShellServiceHub.live
+        return MainTabDependencies(
+            accountStoreFactory: services.accountStoreFactory,
+            contextServiceBuilder: services.contextServiceBuilder,
+            nativeBalanceProvider: services.readOnlyProviderFactory.makeNativeBalanceProvider(),
+            ensResolver: services.ensResolverFactory(modelContext),
+            homePinnedItemsStore: services.homePinnedItemsStoreFactory(),
+            libraryContextProvider: services.libraryContextProviderFactory(modelContext),
+            musicLibraryIndexer: services.musicLibraryIndexerFactory(modelContext),
+            receiptEventLoggerFactory: services.receiptEventLoggerFactory,
+            searchHistoryStore: services.searchHistoryStoreFactory(modelContext),
+            tokenHoldingsStoreFactory: services.tokenHoldingsStoreFactory,
+            tokenHoldingsProviderFactory: services.tokenHoldingsProviderFactory,
+            logoutCleanupServiceFactory: services.logoutCleanupServiceFactory,
+            privacyResetServiceFactory: services.privacyResetServiceFactory,
+            policyActionHandlerFactory: services.policyActionHandlerFactory
+        )
+    }
+}
+
+@MainActor
+struct ShellBootstrapDependencies {
+    let modeStateFactory: @MainActor () -> ModeState
+    let nftServiceFactory: @MainActor () -> NFTService
+    let makeShellStore: @MainActor (ModelContext, NFTService, AppRouter) -> ShellStore
+    let makeGatewayDependencies: @MainActor (ModelContext) -> GatewayDependencies
+    let makeMainTabDependencies: @MainActor (ModelContext) -> MainTabDependencies
+
+    static let live: ShellBootstrapDependencies = {
+        return ShellBootstrapDependencies(
+            modeStateFactory: ShellServiceHub.live.modeStateFactory,
+            nftServiceFactory: ShellServiceHub.live.nftServiceFactory,
+            makeShellStore: { modelContext, nftService, router in
+                ShellStore.live(
+                    dependencies: ShellStoreDependencies.live(
+                        modelContext: modelContext,
+                        nftService: nftService,
+                        router: router
+                    )
+                )
+            },
+            makeGatewayDependencies: { modelContext in
+                GatewayDependencies.live(modelContext: modelContext)
+            },
+            makeMainTabDependencies: { modelContext in
+                MainTabDependencies.live(modelContext: modelContext)
+            }
+        )
+    }()
+}
+
+@MainActor
 /// Bundles the long-lived service factories needed to assemble the Aura shell.
-struct ShellServiceHub {
+private struct ShellServiceHub {
     /// Builds the shared mode state store used by the shell.
     let modeStateFactory: @MainActor () -> ModeState
     /// Builds the long-lived NFT refresh service.

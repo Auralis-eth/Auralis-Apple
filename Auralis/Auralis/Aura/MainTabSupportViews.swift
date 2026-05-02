@@ -7,7 +7,7 @@ private struct ObserveModePolicyView: View {
     @State private var denialMessage: String?
 
     let modeState: ModeState
-    let services: ShellServiceHub
+    let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
 
     private let blockedActions: [PolicyControlledAction] = [
         .signMessage,
@@ -72,7 +72,7 @@ private struct ObserveModePolicyView: View {
 
     private func attempt(_ action: PolicyControlledAction) {
         Task {
-            let result = await services.policyActionHandlerFactory(modelContext, modeState).attempt(action)
+            let result = await policyActionHandlerFactory(modelContext, modeState).attempt(action)
 
             if !result.isAllowed {
                 denialMessage = result.userMessage

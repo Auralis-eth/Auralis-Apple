@@ -8,15 +8,14 @@
 import SwiftUI
 
 struct GatewayView: View {
-    let ensResolver: any ENSResolving
-    let services: ShellServiceHub
+    let dependencies: GatewayDependencies
     let onAccountActivated: @MainActor (EOAccount, String?) -> Void
 
     var body: some View {
         AuraScenicScreen(contentAlignment: .center) {
             AddressInputView(
-                ensResolver: ensResolver,
-                accountStoreFactory: services.accountStoreFactory,
+                ensResolver: dependencies.ensResolver,
+                accountStoreFactory: dependencies.accountStoreFactory,
                 onAccountActivated: onAccountActivated
             )
         }

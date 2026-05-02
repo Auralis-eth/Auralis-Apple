@@ -45,33 +45,17 @@ final class ShellStore {
 
     /// Builds the production shell store wired to live services and the app router.
     static func live(
-        services: ShellServiceHub,
-        modelContext: ModelContext,
-        nftService: NFTService,
-        router: AppRouter
+        dependencies: ShellStoreDependencies
     ) -> ShellStore {
-        let accountResolver = SwiftDataShellAccountResolver(modelContext: modelContext)
         return ShellStore(
-            selectionPersistence: UserDefaultsShellSelectionPersistence(),
-            accountResolver: accountResolver,
-            accountMutator: SwiftDataShellAccountMutator(
-                modelContext: modelContext,
-                eventRecorder: services.accountEventRecorderFactory(modelContext)
-            ),
-            refreshCoordinator: NFTServiceShellRefreshCoordinator(
-                modelContext: modelContext,
-                nftService: nftService,
-                accountResolver: accountResolver
-            ),
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: AppRouterShellEffectHandler(
-                router: router,
-                modelContext: modelContext
-            ),
-            receiptLogger: ReceiptEventShellLogger(
-                receiptEventLogger: services.receiptEventLoggerFactory(modelContext)
-            ),
-            clock: SystemShellClock()
+            selectionPersistence: dependencies.selectionPersistence,
+            accountResolver: dependencies.accountResolver,
+            accountMutator: dependencies.accountMutator,
+            refreshCoordinator: dependencies.refreshCoordinator,
+            deepLinkReplayer: dependencies.deepLinkReplayer,
+            routerEffectHandler: dependencies.routerEffectHandler,
+            receiptLogger: dependencies.receiptLogger,
+            clock: dependencies.clock
         )
     }
 

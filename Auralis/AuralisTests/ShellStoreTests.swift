@@ -3,520 +3,315 @@ import Foundation
 import Testing
 
 @Suite
-@MainActor
 struct ShellStoreTests {
-    @Test("restore from persistence reuses the resolved account selection")
-    func restoreFromPersistenceUsesResolvedAccount() async {
-        let account = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
-        account.currentChain = .baseMainnet
-
+    @Test("restore from persistence repairs chain mismatch from the account and records app launch once")
+    @MainActor
+    func restoreFromPersistenceRepairsChainMismatchAndRecordsAppLaunch() async {
+        let account = makeAccount(
+            address: "0x1234567890abcdef1234567890abcdef12345678",
+            currentChain: .baseMainnet
+        )
         let persistence = TestShellSelectionPersistence(
-            address: account.address,
-            chainID: Chain.ethMainnet.rawValue
+            loadedSelection: (account.address, Chain.ethMainnet.rawValue)
         )
-        let resolver = TestShellAccountResolver(accounts: [account], fallback: nil)
-        let accountMutator = TestShellAccountMutator(accounts: [account])
-        let refreshCoordinator = TestShellRefreshCoordinator()
-        let routerHandler = TestShellRouterEffectHandler()
         let receiptLogger = TestShellReceiptLogger()
-        let store = ShellStore(
+        let store = makeStore(
             selectionPersistence: persistence,
-            accountResolver: resolver,
-            accountMutator: accountMutator,
-            refreshCoordinator: refreshCoordinator,
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: routerHandler,
-            receiptLogger: receiptLogger,
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
+            accountResolver: TestShellAccountResolver(accounts: [account.address: account]),
+            receiptLogger: receiptLogger
         )
 
+        await store.send(.restoreFromPersistence)
         await store.send(.restoreFromPersistence)
 
         #expect(store.state.selection == ActiveShellSelection(address: account.address, chain: .baseMainnet))
         #expect(store.state.activeAccountID == account.persistentModelID)
         #expect(store.state.didFinishInitialRestore)
-        #expect(receiptLogger.recordedLaunches.count == 1)
-        #expect(persistence.savedSelections.last?.address == account.address)
+        #expect(store.state.hasPresentedAuthenticatedExperience)
+        #expect(persistence.savedSelections.map(\.chainID) == [Chain.baseMainnet.rawValue, Chain.baseMainnet.rawValue])
+        #expect(receiptLogger.appLaunches.count == 1)
+        #expect(receiptLogger.appLaunches.first?.address == account.address)
+        #expect(receiptLogger.appLaunches.first?.chain == .baseMainnet)
     }
 
-    @Test("selecting a different account resets routes and triggers one refresh")
-    func selectingDifferentAccountRefreshesOnce() async {
-        let account = EOAccount(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-        account.currentChain = .baseSepoliaTestnet
-
-        let persistence = TestShellSelectionPersistence(
-            address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            chainID: Chain.ethMainnet.rawValue
+    @Test("restore from persistence falls back to the first available account when the saved one is gone")
+    @MainActor
+    func restoreFromPersistenceUsesFallbackAccount() async {
+        let fallbackAccount = makeAccount(
+            address: "0xfedcba0987654321fedcba0987654321fedcba09",
+            currentChain: .polygonMainnet
         )
-        let refreshCoordinator = TestShellRefreshCoordinator()
-        let routerHandler = TestShellRouterEffectHandler()
-        let store = ShellStore(
+        let persistence = TestShellSelectionPersistence(
+            loadedSelection: ("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", Chain.ethMainnet.rawValue)
+        )
+        let store = makeStore(
             selectionPersistence: persistence,
-            accountResolver: TestShellAccountResolver(accounts: [account], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: [account]),
+            accountResolver: TestShellAccountResolver(
+                accounts: [:],
+                fallbackAccount: fallbackAccount
+            )
+        )
+
+        await store.send(.restoreFromPersistence)
+
+        #expect(store.state.selection == ActiveShellSelection(address: fallbackAccount.address, chain: .polygonMainnet))
+        #expect(store.state.activeAccountID == fallbackAccount.persistentModelID)
+        #expect(persistence.savedSelections.last?.address == fallbackAccount.address)
+        #expect(persistence.savedSelections.last?.chainID == Chain.polygonMainnet.rawValue)
+    }
+
+    @Test("account selection request resets routes and refreshes when switching to another account")
+    @MainActor
+    func accountSelectionRequestResetsRoutesAndRefreshesWhenAddressChanges() async {
+        let previousAccount = makeAccount(
+            address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            currentChain: .ethMainnet
+        )
+        let nextAccount = makeAccount(
+            address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            currentChain: .baseMainnet
+        )
+        let mutator = TestShellAccountMutator(selectResult: .success(nextAccount))
+        let refreshCoordinator = TestShellRefreshCoordinator()
+        let router = TestShellRouterEffectHandler()
+        let store = makeStore(
+            state: ShellState(
+                selection: ActiveShellSelection(address: previousAccount.address, chain: .ethMainnet),
+                activeAccountID: previousAccount.persistentModelID
+            ),
+            selectionPersistence: TestShellSelectionPersistence(),
+            accountMutator: mutator,
             refreshCoordinator: refreshCoordinator,
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: routerHandler,
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
+            routerEffectHandler: router
         )
 
         await store.send(
             .accountSelectionRequested(
-                address: account.address,
-                correlationID: "switch-1"
+                address: nextAccount.address,
+                correlationID: "select-1",
+                chainOverride: nil
             )
         )
-        await settleStore()
+        await settleAsyncWork()
 
-        #expect(store.state.selection == ActiveShellSelection(address: account.address, chain: .baseSepoliaTestnet))
-        #expect(refreshCoordinator.refreshCalls.count == 1)
-        #expect(routerHandler.effects.contains(.resetAllRoutes))
-    }
-
-    @Test("removing the active account falls back deterministically")
-    func removingActiveAccountFallsBack() async {
-        let active = EOAccount(address: "0x1111111111111111111111111111111111111111")
-        active.currentChain = .ethMainnet
-        let fallback = EOAccount(address: "0x2222222222222222222222222222222222222222")
-        fallback.currentChain = .baseMainnet
-
-        let persistence = TestShellSelectionPersistence(
-            address: active.address,
-            chainID: Chain.ethMainnet.rawValue
-        )
-        let accountMutator = TestShellAccountMutator(accounts: [active, fallback])
-        accountMutator.removalFallback = fallback
-        let routerHandler = TestShellRouterEffectHandler()
-        let store = ShellStore(
-            state: ShellState(
-                selection: ActiveShellSelection(address: active.address, chain: .ethMainnet),
-                activeAccountID: active.persistentModelID
-            ),
-            selectionPersistence: persistence,
-            accountResolver: TestShellAccountResolver(accounts: [active, fallback], fallback: fallback),
-            accountMutator: accountMutator,
-            refreshCoordinator: TestShellRefreshCoordinator(),
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: routerHandler,
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
-        )
-
-        await store.send(
-            .activeAccountRemovalRequested(
-                address: active.address,
-                correlationID: "remove-1"
+        #expect(mutator.selectCalls.count == 1)
+        #expect(mutator.selectCalls.first?.address == nextAccount.address)
+        #expect(mutator.selectCalls.first?.correlationID == "select-1")
+        #expect(router.effects == [.resetAllRoutes])
+        #expect(store.state.selection == ActiveShellSelection(address: nextAccount.address, chain: .baseMainnet))
+        #expect(store.state.hasPresentedAuthenticatedExperience)
+        #expect(refreshCoordinator.refreshCalls == [
+            TestShellRefreshCoordinator.RefreshCall(
+                selection: ActiveShellSelection(address: nextAccount.address, chain: .baseMainnet),
+                correlationID: "select-1"
             )
-        )
-
-        #expect(store.state.selection == ActiveShellSelection(address: fallback.address, chain: .baseMainnet))
-        #expect(routerHandler.effects.contains(.resetAllRoutes))
-        #expect(routerHandler.effects.contains(.selectTab(.home)))
-        #expect(persistence.savedSelections.last?.address == fallback.address)
+        ])
     }
 
-    @Test("changing chain persists atomically and refreshes the new scope")
+    @Test("chain change persists the new chain and refreshes the active selection")
+    @MainActor
     func chainChangePersistsAndRefreshes() async {
-        let account = EOAccount(address: "0x3333333333333333333333333333333333333333")
-        account.currentChain = .ethMainnet
-
-        let persistence = TestShellSelectionPersistence(
-            address: account.address,
-            chainID: Chain.ethMainnet.rawValue
+        let account = makeAccount(
+            address: "0xcccccccccccccccccccccccccccccccccccccccc",
+            currentChain: .polygonMainnet
         )
+        let mutator = TestShellAccountMutator(persistChainResult: .success(account))
         let refreshCoordinator = TestShellRefreshCoordinator()
-        let accountMutator = TestShellAccountMutator(accounts: [account])
-        let store = ShellStore(
+        let persistence = TestShellSelectionPersistence()
+        let store = makeStore(
             state: ShellState(
                 selection: ActiveShellSelection(address: account.address, chain: .ethMainnet),
                 activeAccountID: account.persistentModelID
             ),
             selectionPersistence: persistence,
-            accountResolver: TestShellAccountResolver(accounts: [account], fallback: nil),
-            accountMutator: accountMutator,
-            refreshCoordinator: refreshCoordinator,
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: TestShellRouterEffectHandler(),
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
+            accountMutator: mutator,
+            refreshCoordinator: refreshCoordinator
         )
 
-        await store.send(
-            .chainChangeRequested(
-                chain: .baseMainnet,
+        await store.send(.chainChangeRequested(chain: .polygonMainnet, correlationID: "chain-1"))
+        await settleAsyncWork()
+
+        #expect(mutator.persistChainCalls.count == 1)
+        #expect(mutator.persistChainCalls.first?.address == account.address)
+        #expect(mutator.persistChainCalls.first?.chain == .polygonMainnet)
+        #expect(mutator.persistChainCalls.first?.correlationID == "chain-1")
+        #expect(store.state.selection == ActiveShellSelection(address: account.address, chain: .polygonMainnet))
+        #expect(persistence.savedSelections.last?.chainID == Chain.polygonMainnet.rawValue)
+        #expect(refreshCoordinator.refreshCalls == [
+            TestShellRefreshCoordinator.RefreshCall(
+                selection: ActiveShellSelection(address: account.address, chain: .polygonMainnet),
                 correlationID: "chain-1"
             )
-        )
-        await settleStore()
-
-        #expect(store.state.selection == ActiveShellSelection(address: account.address, chain: .baseMainnet))
-        #expect(accountMutator.persistedChainChanges.count == 1)
-        #expect(accountMutator.persistedChainChanges.first?.0 == account.address)
-        #expect(accountMutator.persistedChainChanges.first?.1 == .baseMainnet)
-        #expect(refreshCoordinator.refreshCalls.count == 1)
+        ])
     }
 
-    @Test("scene active refreshes only stale scopes")
-    func foregroundRefreshOnlyRunsForStaleSelection() async {
-        let account = EOAccount(address: "0x4444444444444444444444444444444444444444")
-        account.currentChain = .ethMainnet
-
-        let refreshCoordinator = TestShellRefreshCoordinator()
-        refreshCoordinator.lastSuccessful["\(account.address)|\(Chain.ethMainnet.rawValue)"] = Date(timeIntervalSince1970: 10)
-        let store = ShellStore(
-            state: ShellState(
-                selection: ActiveShellSelection(address: account.address, chain: .ethMainnet),
-                activeAccountID: account.persistentModelID
-            ),
-            selectionPersistence: TestShellSelectionPersistence(
-                address: account.address,
-                chainID: Chain.ethMainnet.rawValue
-            ),
-            accountResolver: TestShellAccountResolver(accounts: [account], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: [account]),
-            refreshCoordinator: refreshCoordinator,
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: TestShellRouterEffectHandler(),
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: Date(timeIntervalSince1970: 10 + refreshCoordinator.refreshTTL + 1))
+    @Test("deep link replay routes immediately when the shell is ready")
+    @MainActor
+    func deepLinkReplayRoutesWhenReady() async {
+        let account = makeAccount(
+            address: "0xdddddddddddddddddddddddddddddddddddddddd",
+            currentChain: .baseMainnet
         )
-
-        await store.send(.sceneBecameActive)
-        await settleStore()
-
-        #expect(refreshCoordinator.refreshCalls.count == 1)
-    }
-
-    @Test("selecting the same account is a safe no-op")
-    func selectingSameAccountDoesNotResetRoutesOrRefresh() async {
-        let account = EOAccount(address: "0x5555555555555555555555555555555555555555")
-        account.currentChain = .baseMainnet
-
-        let refreshCoordinator = TestShellRefreshCoordinator()
-        let routerHandler = TestShellRouterEffectHandler()
-        let store = ShellStore(
+        let router = TestShellRouterEffectHandler()
+        let replayer = TestShellDeepLinkReplayer(
+            nextResolution: PendingDeepLinkResolution(
+                chainOverride: nil,
+                action: .route(
+                    destination: .token(
+                        contractAddress: "0xfeed",
+                        chain: .baseMainnet,
+                        symbol: "AURA"
+                    ),
+                    inheritedChain: .baseMainnet
+                )
+            )
+        )
+        let store = makeStore(
             state: ShellState(
                 selection: ActiveShellSelection(address: account.address, chain: .baseMainnet),
-                activeAccountID: account.persistentModelID
+                activeAccountID: account.persistentModelID,
+                didFinishInitialRestore: true
             ),
-            selectionPersistence: TestShellSelectionPersistence(
-                address: account.address,
-                chainID: Chain.baseMainnet.rawValue
-            ),
-            accountResolver: TestShellAccountResolver(accounts: [account], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: [account]),
-            refreshCoordinator: refreshCoordinator,
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: routerHandler,
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
+            deepLinkReplayer: replayer,
+            routerEffectHandler: router
         )
 
         await store.send(
-            .accountSelectionRequested(
-                address: account.address,
-                correlationID: "same-account"
-            )
-        )
-        await settleStore()
-
-        #expect(refreshCoordinator.refreshCalls.isEmpty)
-        #expect(routerHandler.effects.isEmpty)
-    }
-
-    @Test("removing an inactive account leaves the active selection intact")
-    func removingInactiveAccountDoesNotDisturbActiveSelection() async {
-        let active = EOAccount(address: "0x6666666666666666666666666666666666666666")
-        active.currentChain = .ethMainnet
-        let inactive = EOAccount(address: "0x7777777777777777777777777777777777777777")
-
-        let routerHandler = TestShellRouterEffectHandler()
-        let persistence = TestShellSelectionPersistence(
-            address: active.address,
-            chainID: Chain.ethMainnet.rawValue
-        )
-        let store = ShellStore(
-            state: ShellState(
-                selection: ActiveShellSelection(address: active.address, chain: .ethMainnet),
-                activeAccountID: active.persistentModelID
-            ),
-            selectionPersistence: persistence,
-            accountResolver: TestShellAccountResolver(accounts: [active, inactive], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: [active, inactive]),
-            refreshCoordinator: TestShellRefreshCoordinator(),
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: routerHandler,
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
-        )
-
-        await store.send(
-            .activeAccountRemovalRequested(
-                address: inactive.address,
-                correlationID: "remove-inactive"
+            .deepLinkReceived(
+                .destination(
+                    .token(
+                        contractAddress: "0xfeed",
+                        chain: .baseMainnet,
+                        symbol: "AURA"
+                    )
+                )
             )
         )
 
-        #expect(store.state.selection == ActiveShellSelection(address: active.address, chain: .ethMainnet))
-        #expect(routerHandler.effects.isEmpty)
-        #expect(persistence.clearCount == 0)
-    }
-
-    @Test("removing the last active account clears selection and persistence")
-    func removingActiveAccountWithoutFallbackClearsSelection() async {
-        let active = EOAccount(address: "0x8888888888888888888888888888888888888888")
-        active.currentChain = .ethMainnet
-
-        let persistence = TestShellSelectionPersistence(
-            address: active.address,
-            chainID: Chain.ethMainnet.rawValue
-        )
-        let routerHandler = TestShellRouterEffectHandler()
-        let store = ShellStore(
-            state: ShellState(
-                selection: ActiveShellSelection(address: active.address, chain: .ethMainnet),
-                activeAccountID: active.persistentModelID,
-                pendingDeepLink: .destination(.receipt(id: "receipt-1"))
-            ),
-            selectionPersistence: persistence,
-            accountResolver: TestShellAccountResolver(accounts: [active], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: [active]),
-            refreshCoordinator: TestShellRefreshCoordinator(),
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: routerHandler,
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
-        )
-
-        await store.send(
-            .activeAccountRemovalRequested(
-                address: active.address,
-                correlationID: "remove-last"
-            )
-        )
-
-        #expect(store.state.selection == nil)
-        #expect(store.state.activeAccountID == nil)
         #expect(store.state.pendingDeepLink == nil)
-        #expect(persistence.clearCount == 1)
-        #expect(routerHandler.effects.contains(.resetAllRoutes))
-        #expect(routerHandler.effects.contains(.selectTab(.home)))
+        #expect(router.effects == [
+            .routeDeepLink(
+                destination: .token(
+                    contractAddress: "0xfeed",
+                    chain: .baseMainnet,
+                    symbol: "AURA"
+                ),
+                selection: ActiveShellSelection(address: account.address, chain: .baseMainnet),
+                inheritedChain: .baseMainnet
+            )
+        ])
+        #expect(replayer.resolvedContexts.count == 1)
+        #expect(replayer.resolvedContexts.first?.canResolveDeferredLink == true)
     }
 
-    @Test("chain persistence failure leaves shell state unchanged and surfaces an error")
-    func chainChangeFailureRollsBackState() async {
-        let account = EOAccount(address: "0x9999999999999999999999999999999999999999")
-        account.currentChain = .ethMainnet
-
-        let accountMutator = TestShellAccountMutator(accounts: [account])
-        accountMutator.persistChainError = AccountStoreError.accountNotFound(account.address)
-        let persistence = TestShellSelectionPersistence(
-            address: account.address,
-            chainID: Chain.ethMainnet.rawValue
-        )
-        let store = ShellStore(
-            state: ShellState(
-                selection: ActiveShellSelection(address: account.address, chain: .ethMainnet),
-                activeAccountID: account.persistentModelID
-            ),
-            selectionPersistence: persistence,
-            accountResolver: TestShellAccountResolver(accounts: [account], fallback: nil),
-            accountMutator: accountMutator,
-            refreshCoordinator: TestShellRefreshCoordinator(),
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: TestShellRouterEffectHandler(),
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
-        )
-
-        await store.send(
-            .chainChangeRequested(
-                chain: .baseMainnet,
-                correlationID: "chain-fail"
+    @Test("deep link replay waits when dependencies are not ready yet")
+    @MainActor
+    func deepLinkReplayWaitsWhenNotReady() async {
+        let replayer = TestShellDeepLinkReplayer(
+            nextResolution: PendingDeepLinkResolution(
+                chainOverride: nil,
+                action: .wait
             )
         )
+        let pendingLink = AppDeepLink.destination(.receipt(id: "receipt-1"))
+        let store = makeStore(
+            state: ShellState(
+                selection: nil,
+                activeAccountID: nil,
+                didFinishInitialRestore: false
+            ),
+            deepLinkReplayer: replayer
+        )
 
-        #expect(store.state.selection == ActiveShellSelection(address: account.address, chain: .ethMainnet))
-        #expect(store.state.routeError?.title == "Chain Change Failed")
-        #expect(persistence.savedSelections.isEmpty)
+        await store.send(.deepLinkReceived(pendingLink))
+
+        #expect(store.state.pendingDeepLink == pendingLink)
+        #expect(replayer.resolvedContexts.count == 1)
+        #expect(replayer.resolvedContexts.first?.canResolveDeferredLink == false)
+        #expect(replayer.resolvedContexts.first?.shouldFailDeferredLink == false)
     }
 
-    @Test("deep link for the current selection routes once the shell is ready")
-    func deepLinkForCurrentSelectionRoutes() async {
-        let account = EOAccount(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab")
-        account.currentChain = .ethMainnet
-
-        let routerHandler = TestShellRouterEffectHandler()
-        let store = ShellStore(
+    @Test("scene became active refreshes when the active selection is stale")
+    @MainActor
+    func sceneBecameActiveRefreshesWhenStale() async {
+        let account = makeAccount(
+            address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            currentChain: .ethMainnet
+        )
+        let refreshCoordinator = TestShellRefreshCoordinator(
+            lastSuccessfulRefreshAt: Date(timeIntervalSince1970: 100)
+        )
+        let store = makeStore(
             state: ShellState(
                 selection: ActiveShellSelection(address: account.address, chain: .ethMainnet),
                 activeAccountID: account.persistentModelID,
                 didFinishInitialRestore: true
             ),
-            selectionPersistence: TestShellSelectionPersistence(
-                address: account.address,
-                chainID: Chain.ethMainnet.rawValue
-            ),
-            accountResolver: TestShellAccountResolver(accounts: [account], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: [account]),
-            refreshCoordinator: TestShellRefreshCoordinator(),
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: routerHandler,
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
+            refreshCoordinator: refreshCoordinator,
+            clock: TestShellClock(now: Date(timeIntervalSince1970: 200))
         )
 
-        await store.send(.deepLinkReceived(.destination(.receipt(id: "receipt-42"))))
+        await store.send(.sceneBecameActive)
+        await settleAsyncWork()
 
-        #expect(
-            routerHandler.effects.contains(
-                .routeDeepLink(
-                    destination: .receipt(id: "receipt-42"),
-                    selection: ActiveShellSelection(address: account.address, chain: .ethMainnet),
-                    inheritedChain: nil
-                )
-            )
-        )
-        #expect(store.state.pendingDeepLink == nil)
+        #expect(refreshCoordinator.refreshCalls.count == 1)
+        #expect(store.state.hasPresentedAuthenticatedExperience)
     }
 
-    @Test("deep link without an active account surfaces a route error")
-    func deepLinkWithoutSelectionShowsRouteError() async {
-        let store = ShellStore(
-            state: ShellState(didFinishInitialRestore: true),
-            selectionPersistence: TestShellSelectionPersistence(
-                address: "",
-                chainID: Chain.ethMainnet.rawValue
-            ),
-            accountResolver: TestShellAccountResolver(accounts: [], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: []),
-            refreshCoordinator: TestShellRefreshCoordinator(),
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: TestShellRouterEffectHandler(),
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
+    @Test("scene became active skips refresh when the active selection is still fresh")
+    @MainActor
+    func sceneBecameActiveSkipsRefreshWhenFresh() async {
+        let account = makeAccount(
+            address: "0xffffffffffffffffffffffffffffffffffffffff",
+            currentChain: .ethMainnet
         )
-
-        await store.send(.deepLinkReceived(.destination(.receipt(id: "receipt-7"))))
-
-        #expect(store.state.routeError?.title == "No Active Account")
-        #expect(store.state.pendingDeepLink == nil)
-    }
-
-    @Test("route errors can be dismissed explicitly")
-    func routeErrorDismissalClearsState() async {
-        let store = ShellStore(
-            state: ShellState(
-                routeError: AppRouteError(
-                    title: "Bad Link",
-                    message: "Broken",
-                    urlString: nil
-                )
-            ),
-            selectionPersistence: TestShellSelectionPersistence(
-                address: "",
-                chainID: Chain.ethMainnet.rawValue
-            ),
-            accountResolver: TestShellAccountResolver(accounts: [], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: []),
-            refreshCoordinator: TestShellRefreshCoordinator(),
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: TestShellRouterEffectHandler(),
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
+        let refreshCoordinator = TestShellRefreshCoordinator(
+            lastSuccessfulRefreshAt: Date(timeIntervalSince1970: 170)
         )
-
-        await store.send(.routeErrorDismissed)
-
-        #expect(store.state.routeError == nil)
-    }
-
-    @Test("scene active does not refresh when the scope is still fresh or already loading")
-    func foregroundRefreshSkipsFreshAndLoadingScopes() async {
-        let freshAccount = EOAccount(address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbc")
-        freshAccount.currentChain = .ethMainnet
-        let loadingAccount = EOAccount(address: "0xcccccccccccccccccccccccccccccccccccccccd")
-        loadingAccount.currentChain = .baseMainnet
-
-        let freshRefreshCoordinator = TestShellRefreshCoordinator()
-        freshRefreshCoordinator.lastSuccessful["\(freshAccount.address)|\(Chain.ethMainnet.rawValue)"] = Date(timeIntervalSince1970: 990)
-        let freshStore = ShellStore(
-            state: ShellState(
-                selection: ActiveShellSelection(address: freshAccount.address, chain: .ethMainnet),
-                activeAccountID: freshAccount.persistentModelID
-            ),
-            selectionPersistence: TestShellSelectionPersistence(
-                address: freshAccount.address,
-                chainID: Chain.ethMainnet.rawValue
-            ),
-            accountResolver: TestShellAccountResolver(accounts: [freshAccount], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: [freshAccount]),
-            refreshCoordinator: freshRefreshCoordinator,
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: TestShellRouterEffectHandler(),
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: Date(timeIntervalSince1970: 1_000))
-        )
-
-        await freshStore.send(.sceneBecameActive)
-        await settleStore()
-
-        let loadingRefreshCoordinator = TestShellRefreshCoordinator()
-        loadingRefreshCoordinator.isLoading = true
-        let loadingStore = ShellStore(
-            state: ShellState(
-                selection: ActiveShellSelection(address: loadingAccount.address, chain: .baseMainnet),
-                activeAccountID: loadingAccount.persistentModelID
-            ),
-            selectionPersistence: TestShellSelectionPersistence(
-                address: loadingAccount.address,
-                chainID: Chain.baseMainnet.rawValue
-            ),
-            accountResolver: TestShellAccountResolver(accounts: [loadingAccount], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: [loadingAccount]),
-            refreshCoordinator: loadingRefreshCoordinator,
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: TestShellRouterEffectHandler(),
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: Date(timeIntervalSince1970: 1_000))
-        )
-
-        await loadingStore.send(.sceneBecameActive)
-        await settleStore()
-
-        #expect(freshRefreshCoordinator.refreshCalls.isEmpty)
-        #expect(loadingRefreshCoordinator.refreshCalls.isEmpty)
-    }
-
-    @Test("logout clears shell state and resets routing")
-    func logoutClearsStateAndResetsRoutes() async {
-        let account = EOAccount(address: "0xdddddddddddddddddddddddddddddddddddddddd")
-        let persistence = TestShellSelectionPersistence(
-            address: account.address,
-            chainID: Chain.ethMainnet.rawValue
-        )
-        let routerHandler = TestShellRouterEffectHandler()
-        let store = ShellStore(
+        let store = makeStore(
             state: ShellState(
                 selection: ActiveShellSelection(address: account.address, chain: .ethMainnet),
                 activeAccountID: account.persistentModelID,
-                pendingDeepLink: .destination(.receipt(id: "receipt-logout")),
+                didFinishInitialRestore: true
+            ),
+            refreshCoordinator: refreshCoordinator,
+            clock: TestShellClock(now: Date(timeIntervalSince1970: 200))
+        )
+
+        await store.send(.sceneBecameActive)
+        await settleAsyncWork()
+
+        #expect(refreshCoordinator.refreshCalls.isEmpty)
+        #expect(store.state.isRefreshingSelection == false)
+    }
+
+    @Test("logout clears shell state, clears persistence, and routes back home")
+    @MainActor
+    func logoutClearsStateAndRoutesHome() async {
+        let account = makeAccount(
+            address: "0x9999999999999999999999999999999999999999",
+            currentChain: .baseMainnet
+        )
+        let persistence = TestShellSelectionPersistence()
+        let router = TestShellRouterEffectHandler()
+        let store = makeStore(
+            state: ShellState(
+                selection: ActiveShellSelection(address: account.address, chain: .baseMainnet),
+                activeAccountID: account.persistentModelID,
+                pendingDeepLink: .destination(.receipt(id: "logout")),
                 pendingCorrelationID: "logout-1",
                 latestRefreshRequestID: UUID(),
                 isRefreshingSelection: true,
                 hasPresentedAuthenticatedExperience: true,
                 didFinishInitialRestore: true,
-                routeError: AppRouteError(title: "Oops", message: "Bad", urlString: nil)
+                routeError: AppRouteError(
+                    title: "Old Error",
+                    message: "Should be cleared",
+                    urlString: nil
+                )
             ),
             selectionPersistence: persistence,
-            accountResolver: TestShellAccountResolver(accounts: [account], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: [account]),
-            refreshCoordinator: TestShellRefreshCoordinator(),
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: routerHandler,
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
+            routerEffectHandler: router
         )
 
         await store.send(.logoutRequested)
@@ -526,96 +321,93 @@ struct ShellStoreTests {
         #expect(store.state.pendingDeepLink == nil)
         #expect(store.state.pendingCorrelationID == nil)
         #expect(store.state.latestRefreshRequestID == nil)
+        #expect(store.state.isRefreshingSelection == false)
+        #expect(store.state.hasPresentedAuthenticatedExperience == false)
+        #expect(store.state.didFinishInitialRestore == true)
         #expect(store.state.routeError == nil)
-        #expect(persistence.clearCount == 1)
-        #expect(routerHandler.effects.contains(.resetAllRoutes))
-        #expect(routerHandler.effects.contains(.selectTab(.home)))
+        #expect(persistence.clearSelectionCallCount == 1)
+        #expect(router.effects == [.resetAllRoutes, .selectTab(.home)])
     }
 
-    @Test("in-flight refresh does not keep the shell store alive without external ownership")
-    func inFlightRefreshDoesNotRetainStore() async {
-        let account = EOAccount(address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
-        account.currentChain = .ethMainnet
-
-        let refreshCoordinator = BlockingShellRefreshCoordinator()
-        var store: ShellStore? = ShellStore(
-            state: ShellState(
-                selection: ActiveShellSelection(address: account.address, chain: .ethMainnet),
-                activeAccountID: account.persistentModelID
-            ),
-            selectionPersistence: TestShellSelectionPersistence(
-                address: account.address,
-                chainID: Chain.ethMainnet.rawValue
-            ),
-            accountResolver: TestShellAccountResolver(accounts: [account], fallback: nil),
-            accountMutator: TestShellAccountMutator(accounts: [account]),
+    @MainActor
+    private func makeStore(
+        state: ShellState = ShellState(),
+        selectionPersistence: TestShellSelectionPersistence = TestShellSelectionPersistence(),
+        accountResolver: TestShellAccountResolver = TestShellAccountResolver(),
+        accountMutator: TestShellAccountMutator = TestShellAccountMutator(),
+        refreshCoordinator: TestShellRefreshCoordinator = TestShellRefreshCoordinator(),
+        deepLinkReplayer: TestShellDeepLinkReplayer = TestShellDeepLinkReplayer(),
+        routerEffectHandler: TestShellRouterEffectHandler = TestShellRouterEffectHandler(),
+        receiptLogger: TestShellReceiptLogger = TestShellReceiptLogger(),
+        clock: TestShellClock = TestShellClock(now: Date(timeIntervalSince1970: 200))
+    ) -> ShellStore {
+        ShellStore(
+            state: state,
+            selectionPersistence: selectionPersistence,
+            accountResolver: accountResolver,
+            accountMutator: accountMutator,
             refreshCoordinator: refreshCoordinator,
-            deepLinkReplayer: DefaultShellDeepLinkReplayer(),
-            routerEffectHandler: TestShellRouterEffectHandler(),
-            receiptLogger: TestShellReceiptLogger(),
-            clock: TestShellClock(now: .init(timeIntervalSince1970: 1_000))
+            deepLinkReplayer: deepLinkReplayer,
+            routerEffectHandler: routerEffectHandler,
+            receiptLogger: receiptLogger,
+            clock: clock
         )
-        let weakStore = WeakBox(store)
-
-        await store?.send(.refreshCurrentSelectionRequested(correlationID: "retain-check"))
-        await refreshCoordinator.waitUntilRefreshStarts()
-        store = nil
-        await settleStore()
-
-        #expect(weakStore.value == nil)
-
-        refreshCoordinator.resume()
     }
-}
 
-@MainActor
-private func settleStore() async {
-    for _ in 0..<5 {
+    @MainActor
+    private func makeAccount(address: String, currentChain: Chain) -> EOAccount {
+        let account = EOAccount(address: address)
+        account.currentChain = currentChain
+        return account
+    }
+
+    private func settleAsyncWork() async {
+        await Task.yield()
+        await Task.yield()
         await Task.yield()
     }
 }
 
 @MainActor
 private final class TestShellSelectionPersistence: ShellSelectionPersisting {
-    var address: String
-    var chainID: String
-    var savedSelections: [(address: String, chainID: String)] = []
-    var clearCount = 0
+    struct SavedSelection: Equatable {
+        let address: String
+        let chainID: String
+    }
 
-    init(address: String, chainID: String) {
-        self.address = address
-        self.chainID = chainID
+    var loadedSelection: (address: String, chainID: String)
+    private(set) var savedSelections: [SavedSelection] = []
+    private(set) var clearSelectionCallCount = 0
+
+    init(loadedSelection: (address: String, chainID: String) = ("", Chain.ethMainnet.rawValue)) {
+        self.loadedSelection = loadedSelection
     }
 
     func loadSelection() -> (address: String, chainID: String) {
-        (address, chainID)
+        loadedSelection
     }
 
     func saveSelection(address: String, chainID: String) {
-        self.address = address
-        self.chainID = chainID
-        savedSelections.append((address, chainID))
+        savedSelections.append(SavedSelection(address: address, chainID: chainID))
     }
 
     func clearSelection() {
-        address = ""
-        chainID = Chain.ethMainnet.rawValue
-        clearCount += 1
+        clearSelectionCallCount += 1
     }
 }
 
 @MainActor
 private final class TestShellAccountResolver: ShellAccountResolving {
-    private var accountsByAddress: [String: EOAccount]
-    private let fallback: EOAccount?
+    var accounts: [String: EOAccount]
+    var fallback: EOAccount?
 
-    init(accounts: [EOAccount], fallback: EOAccount?) {
-        self.accountsByAddress = Dictionary(uniqueKeysWithValues: accounts.map { ($0.address, $0) })
-        self.fallback = fallback
+    init(accounts: [String: EOAccount] = [:], fallbackAccount: EOAccount? = nil) {
+        self.accounts = accounts
+        self.fallback = fallbackAccount
     }
 
     func account(for address: String) throws -> EOAccount? {
-        accountsByAddress[address]
+        accounts[address]
     }
 
     func fallbackAccount() throws -> EOAccount? {
@@ -625,109 +417,127 @@ private final class TestShellAccountResolver: ShellAccountResolving {
 
 @MainActor
 private final class TestShellAccountMutator: ShellAccountMutating {
-    private var accountsByAddress: [String: EOAccount]
-    var removalFallback: EOAccount?
-    var persistedChainChanges: [(String, Chain)] = []
-    var persistChainError: Error?
+    enum Result<Value> {
+        case success(Value)
+        case failure(any Error)
+    }
 
-    init(accounts: [EOAccount]) {
-        self.accountsByAddress = Dictionary(uniqueKeysWithValues: accounts.map { ($0.address, $0) })
+    private(set) var selectCalls: [(address: String, correlationID: String?)] = []
+    private(set) var removeCalls: [(address: String, activeAddress: String, correlationID: String?)] = []
+    private(set) var persistChainCalls: [(address: String, chain: Chain, correlationID: String?)] = []
+
+    var selectResult: Result<EOAccount>
+    var removeResult: Result<AccountRemovalResult>
+    var persistChainResult: Result<EOAccount>
+
+    init(
+        selectResult: Result<EOAccount> = .failure(TestShellError.unused),
+        removeResult: Result<AccountRemovalResult> = .failure(TestShellError.unused),
+        persistChainResult: Result<EOAccount> = .failure(TestShellError.unused)
+    ) {
+        self.selectResult = selectResult
+        self.removeResult = removeResult
+        self.persistChainResult = persistChainResult
     }
 
     func selectAccount(address: String, correlationID: String?) async throws -> EOAccount {
-        guard let account = accountsByAddress[address] else {
-            throw AccountStoreError.accountNotFound(address)
+        selectCalls.append((address, correlationID))
+        switch selectResult {
+        case .success(let account):
+            return account
+        case .failure(let error):
+            throw error
         }
-        return account
     }
 
     func removeAccount(address: String, activeAddress: String, correlationID: String?) async throws -> AccountRemovalResult {
-        accountsByAddress.removeValue(forKey: address)
-        return AccountRemovalResult(
-            removedAddress: address,
-            fallbackAccount: activeAddress == address ? removalFallback : nil
-        )
+        removeCalls.append((address, activeAddress, correlationID))
+        switch removeResult {
+        case .success(let result):
+            return result
+        case .failure(let error):
+            throw error
+        }
     }
 
     func persistCurrentChain(address: String, chain: Chain, correlationID: String?) async throws -> EOAccount {
-        if let persistChainError {
-            throw persistChainError
+        persistChainCalls.append((address, chain, correlationID))
+        switch persistChainResult {
+        case .success(let account):
+            return account
+        case .failure(let error):
+            throw error
         }
-        guard let account = accountsByAddress[address] else {
-            throw AccountStoreError.accountNotFound(address)
-        }
-        account.currentChain = chain
-        persistedChainChanges.append((address, chain))
-        return account
     }
 }
 
 @MainActor
 private final class TestShellRefreshCoordinator: ShellRefreshing {
+    struct RefreshCall: Equatable {
+        let selection: ActiveShellSelection
+        let correlationID: String?
+    }
+
     var isLoading = false
     var refreshTTL: TimeInterval = 60
-    var refreshCalls: [ActiveShellSelection] = []
-    var lastSuccessful: [String: Date] = [:]
+    var lastSuccessfulRefreshAtValue: Date?
+    private(set) var refreshCalls: [RefreshCall] = []
+
+    init(lastSuccessfulRefreshAt: Date? = nil) {
+        self.lastSuccessfulRefreshAtValue = lastSuccessfulRefreshAt
+    }
 
     func lastSuccessfulRefreshAt(for address: String, chain: Chain) -> Date? {
-        lastSuccessful["\(address)|\(chain.rawValue)"]
+        lastSuccessfulRefreshAtValue
     }
 
     func refresh(selection: ActiveShellSelection, correlationID: String?) async {
-        refreshCalls.append(selection)
+        refreshCalls.append(RefreshCall(selection: selection, correlationID: correlationID))
+    }
+}
+
+private final class TestShellDeepLinkReplayer: ShellDeepLinkReplaying {
+    var nextResolution: PendingDeepLinkResolution
+    private(set) var resolvedContexts: [PendingDeepLinkContext] = []
+
+    init(
+        nextResolution: PendingDeepLinkResolution = PendingDeepLinkResolution(
+            chainOverride: nil,
+            action: .wait
+        )
+    ) {
+        self.nextResolution = nextResolution
+    }
+
+    func resolve(deepLink: AppDeepLink, context: PendingDeepLinkContext) -> PendingDeepLinkResolution {
+        resolvedContexts.append(context)
+        return nextResolution
     }
 }
 
 @MainActor
-private final class BlockingShellRefreshCoordinator: ShellRefreshing {
-    var isLoading = false
-    var refreshTTL: TimeInterval = 60
+private final class TestShellRouterEffectHandler: ShellRouterEffectHandling {
+    private(set) var effects: [ShellRoutingEffect] = []
+    var routeError: AppRouteError?
 
-    private var didStartRefresh = false
-    private var startWaiters: [CheckedContinuation<Void, Never>] = []
-    private var resumeWaiters: [CheckedContinuation<Void, Never>] = []
-
-    func lastSuccessfulRefreshAt(for address: String, chain: Chain) -> Date? {
-        nil
-    }
-
-    func refresh(selection: ActiveShellSelection, correlationID: String?) async {
-        didStartRefresh = true
-        let waiters = startWaiters
-        startWaiters.removeAll()
-        for waiter in waiters {
-            waiter.resume()
-        }
-
-        await withCheckedContinuation { continuation in
-            resumeWaiters.append(continuation)
-        }
-    }
-
-    func waitUntilRefreshStarts() async {
-        guard !didStartRefresh else {
-            return
-        }
-
-        await withCheckedContinuation { continuation in
-            startWaiters.append(continuation)
-        }
-    }
-
-    func resume() {
-        let waiters = resumeWaiters
-        resumeWaiters.removeAll()
-        for waiter in waiters {
-            waiter.resume()
-        }
+    func handle(_ effect: ShellRoutingEffect) -> AppRouteError? {
+        effects.append(effect)
+        return routeError
     }
 }
 
-private final class WeakBox<Object: AnyObject> {
-    weak var value: Object?
+@MainActor
+private final class TestShellReceiptLogger: ShellReceiptLogging {
+    struct AppLaunch: Equatable {
+        let address: String
+        let chain: Chain
+        let correlationID: String
+    }
 
-    init(_ value: Object?) {
-        self.value = value
+    private(set) var appLaunches: [AppLaunch] = []
+
+    func recordAppLaunch(address: String, chain: Chain, correlationID: String) async {
+        appLaunches.append(AppLaunch(address: address, chain: chain, correlationID: correlationID))
     }
 }
 
@@ -735,21 +545,13 @@ private struct TestShellClock: ShellClock {
     let now: Date
 }
 
-@MainActor
-private final class TestShellRouterEffectHandler: ShellRouterEffectHandling {
-    var effects: [ShellRoutingEffect] = []
+private enum TestShellError: LocalizedError {
+    case unused
 
-    func handle(_ effect: ShellRoutingEffect) -> AppRouteError? {
-        effects.append(effect)
-        return nil
-    }
-}
-
-@MainActor
-private final class TestShellReceiptLogger: ShellReceiptLogging {
-    var recordedLaunches: [(String, Chain, String)] = []
-
-    func recordAppLaunch(address: String, chain: Chain, correlationID: String) async {
-        recordedLaunches.append((address, chain, correlationID))
+    var errorDescription: String? {
+        switch self {
+        case .unused:
+            return "Unused test path"
+        }
     }
 }

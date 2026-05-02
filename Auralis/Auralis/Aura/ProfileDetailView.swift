@@ -20,7 +20,7 @@ struct ProfileDetailView: View {
     let isCurrentAccount: Bool
     let showsPolicySection: Bool
     let modeState: ModeState?
-    let services: ShellServiceHub?
+    let policyActionHandlerFactory: (@MainActor (ModelContext, ModeState) -> any PolicyActionGating)?
     let onOpenSettings: (() -> Void)?
 
     @State private var denialMessage: String?
@@ -34,7 +34,7 @@ struct ProfileDetailView: View {
         isCurrentAccount: Bool = false,
         showsPolicySection: Bool = false,
         modeState: ModeState? = nil,
-        services: ShellServiceHub? = nil,
+        policyActionHandlerFactory: (@MainActor (ModelContext, ModeState) -> any PolicyActionGating)? = nil,
         onOpenSettings: (() -> Void)? = nil
     ) {
         self.accountAddress = accountAddress
@@ -42,7 +42,7 @@ struct ProfileDetailView: View {
         self.isCurrentAccount = isCurrentAccount
         self.showsPolicySection = showsPolicySection
         self.modeState = modeState
-        self.services = services
+        self.policyActionHandlerFactory = policyActionHandlerFactory
         self.onOpenSettings = onOpenSettings
     }
 
@@ -197,12 +197,12 @@ struct ProfileDetailView: View {
     }
 
     private func attempt(_ action: PolicyControlledAction) {
-        guard let services, let modeState else {
+        guard let policyActionHandlerFactory, let modeState else {
             return
         }
 
         Task {
-            let result = await services.policyActionHandlerFactory(modelContext, modeState).attempt(action)
+            let result = await policyActionHandlerFactory(modelContext, modeState).attempt(action)
             if !result.isAllowed {
                 denialMessage = result.userMessage
             }
