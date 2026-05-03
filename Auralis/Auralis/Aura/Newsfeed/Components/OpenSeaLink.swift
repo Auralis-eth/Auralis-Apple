@@ -7,18 +7,13 @@
 
 import SwiftUI
 
-struct NFTExternalDestination: Equatable {
-    let label: String
-    let url: URL
-}
-
 private enum ExternalLinkStyle {
     static let primaryGradient = [Color.accent, Color.accent.opacity(0.78)]
     static let secondaryGradient = [Color.deepBlue, Color.deepBlue.opacity(0.82)]
 }
 
 extension Chain {
-    private static func externalDestination(label: String, host: String) -> NFTExternalDestination? {
+    private static func externalDestination(label: String, host: String) -> ExternalLinkCandidateDestination? {
         var components = URLComponents()
         components.scheme = "https"
         components.host = host
@@ -27,7 +22,7 @@ extension Chain {
             return nil
         }
 
-        return NFTExternalDestination(label: label, url: url)
+        return ExternalLinkCandidateDestination(label: label, url: url)
     }
 
     var openSeaChainSlug: String? {
@@ -49,7 +44,7 @@ extension Chain {
         }
     }
 
-    var nftExplorerDestination: NFTExternalDestination? {
+    var nftExplorerDestination: ExternalLinkCandidateDestination? {
         switch self {
         case .ethMainnet:
             return Self.externalDestination(label: "Etherscan", host: "etherscan.io")
@@ -104,6 +99,11 @@ struct OpenSeaLink: View {
     let tokenId: String
     let accountAddress: String?
 
+    @State private var pendingDestination: ExternalLinkConfirmationDestination?
+    @State private var validationFailure: ExternalLinkValidationFailure?
+
+    private let policy = ExternalLinkPolicy()
+
     init(chain: Chain,
          contractAddress: String,
          tokenId: String,
@@ -119,52 +119,100 @@ struct OpenSeaLink: View {
     }
 
     var body: some View {
-        if let openSeaURL {
-            Button {
-                Task {
-                    _ = try? await ReceiptEventLogger(
-                        receiptStore: ReceiptStores.live(modelContext: modelContext)
-                    ).recordExternalLinkOpened(
-                        label: "OpenSea",
-                        url: openSeaURL,
-                        surface: "newsfeed.nft_detail",
-                        accountAddress: accountAddress,
-                        chain: chain
+        VStack(alignment: .leading, spacing: 12) {
+            if let validationFailure {
+                AuraErrorBanner(
+                    title: validationFailure.title,
+                    message: validationFailure.message,
+                    systemImage: "exclamationmark.triangle",
+                    tone: .critical,
+                    action: AuraFeedbackAction(
+                        title: "Dismiss",
+                        systemImage: "xmark",
+                        handler: { self.validationFailure = nil }
                     )
-                }
-                openURL(openSeaURL)
-            } label: {
-                HStack(alignment: .center, spacing: 12) {
-                    SystemImage("water.waves")
-                        .font(.system(size: 18, weight: .bold))
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        SystemFontText(
-                            text: String(localized: "View on OpenSea"),
-                            size: 16,
-                            weight: .semibold
-                        )
-
-                        AuraTrustLabel(kind: .link)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: ExternalLinkStyle.primaryGradient),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .clipShape(.rect(cornerRadius: 12))
-                .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
                 )
             }
-            .buttonStyle(.plain)
+
+            if let openSeaURL {
+                Button {
+                    presentConfirmation(
+                        for: ExternalLinkCandidateDestination(label: "OpenSea", url: openSeaURL)
+                    )
+                } label: {
+                    HStack(alignment: .center, spacing: 12) {
+                        SystemImage("water.waves")
+                            .font(.system(size: 18, weight: .bold))
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            SystemFontText(
+                                text: String(localized: "View on OpenSea"),
+                                size: 16,
+                                weight: .semibold
+                            )
+
+                            AuraTrustLabel(kind: .link)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: ExternalLinkStyle.primaryGradient),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .clipShape(.rect(cornerRadius: 12))
+                    .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("externalLink.openSea")
+            }
+        }
+        .sheet(item: $pendingDestination) { destination in
+            ExternalLinkConfirmationSheet(destination: destination) {
+                confirmOpen(destination)
+            }
+        }
+    }
+
+    private func presentConfirmation(for candidate: ExternalLinkCandidateDestination) {
+        validationFailure = nil
+
+        switch policy.validate(candidate) {
+        case .success(let destination):
+            pendingDestination = destination
+        case .failure(let failure):
+            pendingDestination = nil
+            validationFailure = failure
+        }
+    }
+
+    private func confirmOpen(_ destination: ExternalLinkConfirmationDestination) {
+        pendingDestination = nil
+
+        Task {
+            await ExternalLinkOpenFlow(
+                eventLogger: ReceiptEventLogger(
+                    receiptStore: ReceiptStores.live(modelContext: modelContext)
+                ),
+                openURL: { url in
+                    openURL(url)
+                }
+            ).confirm(
+                ExternalLinkOpenRequest(
+                    label: destination.label,
+                    url: destination.url,
+                    surface: "newsfeed.nft_detail",
+                    accountAddress: accountAddress,
+                    chain: chain
+                )
+            )
         }
     }
 }
@@ -178,6 +226,11 @@ struct EtherscanLink: View {
     let tokenId: String
     let accountAddress: String?
 
+    @State private var pendingDestination: ExternalLinkConfirmationDestination?
+    @State private var validationFailure: ExternalLinkValidationFailure?
+
+    private let policy = ExternalLinkPolicy()
+
     init(
         chain: Chain,
         contractAddress: String,
@@ -190,7 +243,7 @@ struct EtherscanLink: View {
         self.accountAddress = accountAddress
     }
 
-    private var explorerDestination: NFTExternalDestination? {
+    private var explorerDestination: ExternalLinkCandidateDestination? {
         chain.nftExplorerDestination
     }
 
@@ -199,52 +252,100 @@ struct EtherscanLink: View {
     }
 
     var body: some View {
-        if let explorerDestination, let explorerURL {
-            Button {
-                Task {
-                    _ = try? await ReceiptEventLogger(
-                        receiptStore: ReceiptStores.live(modelContext: modelContext)
-                    ).recordExternalLinkOpened(
-                        label: explorerDestination.label,
-                        url: explorerURL,
-                        surface: "newsfeed.nft_detail",
-                        accountAddress: accountAddress,
-                        chain: chain
+        VStack(alignment: .leading, spacing: 12) {
+            if let validationFailure {
+                AuraErrorBanner(
+                    title: validationFailure.title,
+                    message: validationFailure.message,
+                    systemImage: "exclamationmark.triangle",
+                    tone: .critical,
+                    action: AuraFeedbackAction(
+                        title: "Dismiss",
+                        systemImage: "xmark",
+                        handler: { self.validationFailure = nil }
                     )
-                }
-                openURL(explorerURL)
-            } label: {
-                HStack(alignment: .center, spacing: 12) {
-                    SystemImage("link.circle.fill")
-                        .font(.system(size: 18, weight: .bold))
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        SystemFontText(
-                            text: String(localized: "View on \(explorerDestination.label)"),
-                            size: 16,
-                            weight: .semibold
-                        )
-
-                        AuraTrustLabel(kind: .link)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: ExternalLinkStyle.secondaryGradient),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .clipShape(.rect(cornerRadius: 12))
-                .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
                 )
             }
-            .buttonStyle(.plain)
+
+            if let explorerDestination, let explorerURL {
+                Button {
+                    presentConfirmation(
+                        for: ExternalLinkCandidateDestination(label: explorerDestination.label, url: explorerURL)
+                    )
+                } label: {
+                    HStack(alignment: .center, spacing: 12) {
+                        SystemImage("link.circle.fill")
+                            .font(.system(size: 18, weight: .bold))
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            SystemFontText(
+                                text: String(localized: "View on \(explorerDestination.label)"),
+                                size: 16,
+                                weight: .semibold
+                            )
+
+                            AuraTrustLabel(kind: .link)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: ExternalLinkStyle.secondaryGradient),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .clipShape(.rect(cornerRadius: 12))
+                    .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("externalLink.explorer")
+            }
+        }
+        .sheet(item: $pendingDestination) { destination in
+            ExternalLinkConfirmationSheet(destination: destination) {
+                confirmOpen(destination)
+            }
+        }
+    }
+
+    private func presentConfirmation(for candidate: ExternalLinkCandidateDestination) {
+        validationFailure = nil
+
+        switch policy.validate(candidate) {
+        case .success(let destination):
+            pendingDestination = destination
+        case .failure(let failure):
+            pendingDestination = nil
+            validationFailure = failure
+        }
+    }
+
+    private func confirmOpen(_ destination: ExternalLinkConfirmationDestination) {
+        pendingDestination = nil
+
+        Task {
+            await ExternalLinkOpenFlow(
+                eventLogger: ReceiptEventLogger(
+                    receiptStore: ReceiptStores.live(modelContext: modelContext)
+                ),
+                openURL: { url in
+                    openURL(url)
+                }
+            ).confirm(
+                ExternalLinkOpenRequest(
+                    label: destination.label,
+                    url: destination.url,
+                    surface: "newsfeed.nft_detail",
+                    accountAddress: accountAddress,
+                    chain: chain
+                )
+            )
         }
     }
 }

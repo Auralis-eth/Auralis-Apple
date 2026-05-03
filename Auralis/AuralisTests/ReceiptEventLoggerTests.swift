@@ -70,6 +70,7 @@ struct ReceiptEventLoggerTests {
         #expect(contextReceipt.details.values["isStale"] == ReceiptJSONValue.bool(false))
         let linkReceipt = try #require(receipts.first(where: { $0.kind == "external_link.opened" }))
         #expect(linkReceipt.scope == "navigation.external")
+        #expect(linkReceipt.provenance == ExternalLinkOpenProvenance.userConfirmedTap.rawValue)
         #expect(linkReceipt.details.values["chain"] == ReceiptJSONValue.string(Chain.baseMainnet.rawValue))
         guard case .string(let maskedLinkAddress)? = linkReceipt.details.values["accountAddress"] else {
             Issue.record("Expected sanitized accountAddress")
@@ -135,10 +136,47 @@ struct ReceiptEventLoggerTests {
 
         #expect(linkReceipt.details.values["label"] == ReceiptJSONValue.string("Explorer"))
         #expect(linkReceipt.details.values["surface"] == ReceiptJSONValue.string("newsfeed.nft_detail"))
+        #expect(linkReceipt.details.values["provenance"] == ReceiptJSONValue.string(ExternalLinkOpenProvenance.userConfirmedTap.rawValue))
         #expect(linkReceipt.details.values["url"] == ReceiptJSONValue.string("<redacted-url>"))
         #expect(copyReceipt.details.values["subject"] == ReceiptJSONValue.string("wallet.address"))
         #expect(copyReceipt.details.values["surface"] == ReceiptJSONValue.string("profile.detail"))
         #expect(copyReceipt.details.values["value"] == ReceiptJSONValue.string("<redacted-opaque-token>"))
+    }
+
+    @Test("receipt event logger preserves explicit provenance for confirmed operator and plugin opens")
+    @MainActor
+    func loggerPreservesExternalLinkProvenance() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let store = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
+        let logger = ReceiptEventLogger(receiptStore: store)
+
+        _ = try await logger.recordExternalLinkOpened(
+            label: "Operator",
+            url: URL(string: "https://etherscan.io/token/0xabc?a=1")!,
+            surface: "operator.console",
+            provenance: .operatorConfirmed
+        )
+        _ = try await logger.recordExternalLinkOpened(
+            label: "Plugin",
+            url: URL(string: "https://ipfs.io/ipfs/QmHash")!,
+            surface: "plugin.runtime",
+            provenance: .pluginConfirmed
+        )
+
+        let receipts = try store.latest(limit: 10)
+        let operatorReceipt = try #require(receipts.first(where: { $0.details.values["surface"] == .string("operator.console") }))
+        let pluginReceipt = try #require(receipts.first(where: { $0.details.values["surface"] == .string("plugin.runtime") }))
+
+        #expect(operatorReceipt.actor == .system)
+        #expect(operatorReceipt.provenance == ExternalLinkOpenProvenance.operatorConfirmed.rawValue)
+        #expect(operatorReceipt.details.values["provenance"] == ReceiptJSONValue.string(ExternalLinkOpenProvenance.operatorConfirmed.rawValue))
+        #expect(pluginReceipt.actor == .system)
+        #expect(pluginReceipt.provenance == ExternalLinkOpenProvenance.pluginConfirmed.rawValue)
+        #expect(pluginReceipt.details.values["provenance"] == ReceiptJSONValue.string(ExternalLinkOpenProvenance.pluginConfirmed.rawValue))
     }
 }
 

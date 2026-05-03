@@ -61,13 +61,14 @@ struct ReceiptEventLogger {
         surface: String,
         accountAddress: String? = nil,
         chain: Chain? = nil,
-        correlationID: String? = nil
+        correlationID: String? = nil,
+        provenance: ExternalLinkOpenProvenance = .userConfirmedTap
     ) async throws -> ReceiptRecord {
         try await append(
             trigger: "external_link.opened",
             scope: "navigation.external",
             summary: "Opened external link",
-            provenance: "user_provided",
+            provenance: provenance.rawValue,
             timelineAccountAddress: accountAddress,
             timelineChainRawValue: chain?.rawValue,
             rawPayload: ExternalLinkOpenedReceiptPayload(
@@ -75,10 +76,11 @@ struct ReceiptEventLogger {
                 url: url,
                 surface: surface,
                 accountAddress: accountAddress,
-                chain: chain
+                chain: chain,
+                provenance: provenance
             ).rawPayload,
             correlationID: correlationID,
-            actor: .user,
+            actor: provenance.receiptActor,
             isSuccess: true
         )
     }
@@ -264,12 +266,14 @@ private struct ExternalLinkOpenedReceiptPayload: TypedReceiptPayload {
     let surface: String
     let accountAddress: String?
     let chain: Chain?
+    let provenance: ExternalLinkOpenProvenance
 
     var fields: [ReceiptPayloadField] {
         var fields: [ReceiptPayloadField] = [
             .public("label", string: label, kind: .label),
             .public("surface", string: surface, kind: .label),
-            .public("url", string: url.absoluteString, kind: .url)
+            .public("url", string: url.absoluteString, kind: .url),
+            .public("provenance", string: provenance.rawValue, kind: .label)
         ]
 
         if let accountAddress {

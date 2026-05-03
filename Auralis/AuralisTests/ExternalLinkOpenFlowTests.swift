@@ -1,0 +1,119 @@
+@testable import Auralis
+import Foundation
+import Testing
+
+@Suite
+struct ExternalLinkOpenFlowTests {
+    @Test("confirmed open logs first and then opens the destination")
+    @MainActor
+    func confirmedOpenLogsBeforeOpen() async {
+        let logger = RecordingExternalLinkEventLogger()
+        var openedURLs: [URL] = []
+        var sequence: [String] = []
+
+        let flow = ExternalLinkOpenFlow(
+            eventLogger: logger,
+            openURL: { url in
+                sequence.append("open")
+                openedURLs.append(url)
+            }
+        )
+
+        let request = ExternalLinkOpenRequest(
+            label: "OpenSea",
+            url: URL(string: "https://opensea.io/assets/base/0xabc/1")!,
+            surface: "newsfeed.nft_detail"
+        )
+
+        logger.onRecord = {
+            sequence.append("log")
+        }
+
+        await flow.confirm(request)
+
+        #expect(sequence == ["log", "open"])
+        #expect(logger.requests == [request])
+        #expect(openedURLs == [request.url])
+    }
+
+    @Test("confirmed open preserves explicit provenance for non-user initiators")
+    @MainActor
+    func confirmedOpenPreservesProvenance() async {
+        let logger = RecordingExternalLinkEventLogger()
+        let flow = ExternalLinkOpenFlow(eventLogger: logger, openURL: { _ in })
+
+        let request = ExternalLinkOpenRequest(
+            label: "Plugin",
+            url: URL(string: "https://ipfs.io/ipfs/QmHash")!,
+            surface: "plugin.runtime",
+            provenance: .pluginConfirmed
+        )
+
+        await flow.confirm(request)
+
+        #expect(logger.requests.first?.provenance == .pluginConfirmed)
+    }
+
+    @Test("confirmed open still opens when receipt logging fails")
+    @MainActor
+    func confirmedOpenDoesNotBlockOnLoggingFailure() async {
+        let logger = FailingExternalLinkEventLogger()
+        var openedURLs: [URL] = []
+        let flow = ExternalLinkOpenFlow(
+            eventLogger: logger,
+            openURL: { url in
+                openedURLs.append(url)
+            }
+        )
+
+        let request = ExternalLinkOpenRequest(
+            label: "Explorer",
+            url: URL(string: "https://etherscan.io/token/0xabc?a=1")!,
+            surface: "newsfeed.nft_detail"
+        )
+
+        await flow.confirm(request)
+
+        #expect(logger.requests == [request])
+        #expect(openedURLs == [request.url])
+    }
+}
+
+@MainActor
+private final class RecordingExternalLinkEventLogger: ExternalLinkEventLogging {
+    var requests: [ExternalLinkOpenRequest] = []
+    var onRecord: (() -> Void)?
+
+    func recordConfirmedOpen(_ request: ExternalLinkOpenRequest) async throws -> ReceiptRecord {
+        requests.append(request)
+        onRecord?()
+        return ReceiptRecord(
+            id: UUID(),
+            sequenceID: requests.count,
+            createdAt: .now,
+            actor: request.provenance.receiptActor,
+            mode: .observe,
+            trigger: "external_link.opened",
+            scope: "navigation.external",
+            summary: "Opened external link",
+            provenance: request.provenance.rawValue,
+            isSuccess: true,
+            correlationID: nil,
+            details: ReceiptPayload(values: [:])
+        )
+    }
+}
+
+@MainActor
+private final class FailingExternalLinkEventLogger: ExternalLinkEventLogging {
+    enum LoggerError: Error {
+        case writeFailed
+    }
+
+    var requests: [ExternalLinkOpenRequest] = []
+
+    func recordConfirmedOpen(_ request: ExternalLinkOpenRequest) async throws -> ReceiptRecord {
+        requests.append(request)
+        throw LoggerError.writeFailed
+    }
+}
