@@ -190,7 +190,7 @@ struct AuraPlayEntryView: View {
                             .overlay(Color.white.opacity(0.08))
 
                         infoRow(title: "Account", value: model.currentAccount?.name ?? model.currentAccount?.address ?? "No active account")
-                        infoRow(title: "Chain", value: model.currentChain.displayName)
+                        infoRow(title: "Chain", value: model.currentChain.routingDisplayName)
                         infoRow(
                             title: "Indexed Library Items",
                             value: model.libraryItemCount.map(String.init) ?? "Unavailable"

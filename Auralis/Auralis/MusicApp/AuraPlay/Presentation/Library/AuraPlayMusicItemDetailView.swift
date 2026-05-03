@@ -1,11 +1,11 @@
 import SwiftData
 import SwiftUI
 
-struct MusicItemDetailView: View {
+struct AuraPlayMusicItemDetailView: View {
     let itemID: String
     let currentAccountAddress: String?
     let currentChain: Chain
-    let onOpenCollection: (MusicCollectionSummary) -> Void
+    let onOpenCollection: (String, String) -> Void
 
     @Query private var nfts: [NFT]
     @Query private var libraryItems: [MusicLibraryItem]
@@ -14,7 +14,7 @@ struct MusicItemDetailView: View {
         itemID: String,
         currentAccountAddress: String?,
         currentChain: Chain,
-        onOpenCollection: @escaping (MusicCollectionSummary) -> Void
+        onOpenCollection: @escaping (String, String) -> Void
     ) {
         self.itemID = itemID
         self.currentAccountAddress = currentAccountAddress
@@ -45,8 +45,8 @@ struct MusicItemDetailView: View {
         libraryItems.first { $0.sourceNFTID == itemID }
     }
 
-    private var presentation: MusicItemDetailPresentation? {
-        MusicItemDetailPresentation(nft: nft, libraryItem: libraryItem)
+    private var presentation: AuraPlayMusicItemDetailPresentation? {
+        AuraPlayMusicItemDetailPresentation(nft: nft, libraryItem: libraryItem)
     }
 
     var body: some View {
@@ -58,7 +58,7 @@ struct MusicItemDetailView: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             Title2FontText(presentation.title)
-                                .accessibilityIdentifier("music.detail.title")
+                                .accessibilityIdentifier("auraplay.detail.title")
 
                             if let artist = presentation.artist {
                                 Text(artist)
@@ -66,18 +66,19 @@ struct MusicItemDetailView: View {
                                     .foregroundStyle(Color.textSecondary)
                             }
 
-                            if let collection = presentation.collection {
+                            if let collectionKey = presentation.collectionKey,
+                               let collection = presentation.collection {
                                 Button {
-                                    if let summary = presentation.collectionSummary {
-                                        onOpenCollection(summary)
-                                    }
+                                    onOpenCollection(collectionKey, collection)
                                 } label: {
-                                    MusicDetailChip(
+                                    musicDetailChip(
                                         title: collection,
                                         systemImage: "square.stack.3d.up"
                                     )
                                 }
                                 .buttonStyle(.plain)
+                                .frame(minHeight: 44)
+                                .accessibilityHint("Opens the collection for this track")
                             }
 
                             if let metadataStatus = presentation.metadataStatus {
@@ -94,18 +95,18 @@ struct MusicItemDetailView: View {
                                     SecondaryText(playback.message)
                                 }
                             }
-                            .accessibilityIdentifier("music.detail.playback")
+                            .accessibilityIdentifier("auraplay.detail.playback")
                         }
 
                         AuraSurfaceCard(style: .soft, cornerRadius: 24, padding: 16) {
                             VStack(alignment: .leading, spacing: 12) {
                                 HeadlineFontText("Track Info")
 
-                                MusicDetailRow(title: "Track", value: presentation.title)
-                                MusicDetailRow(title: "Artist", value: presentation.artist)
-                                MusicDetailRow(title: "Collection", value: presentation.collection)
-                                MusicDetailRow(title: "Network", value: presentation.chainTitle)
-                                MusicDetailRow(title: "Format", value: presentation.contentType)
+                                musicDetailRow(title: "Track", value: presentation.title)
+                                musicDetailRow(title: "Artist", value: presentation.artist)
+                                musicDetailRow(title: "Collection", value: presentation.collection)
+                                musicDetailRow(title: "Network", value: presentation.chainTitle)
+                                musicDetailRow(title: "Format", value: presentation.contentType)
                             }
                         }
 
@@ -123,7 +124,7 @@ struct MusicItemDetailView: View {
                 .background(Color.background)
                 .navigationTitle(presentation.navigationTitle)
                 .navigationBarTitleDisplayMode(.inline)
-                .accessibilityIdentifier("music.detail.screen")
+                .accessibilityIdentifier("auraplay.detail.screen")
             } else {
                 ContentUnavailableView(
                     "Track Unavailable",
@@ -131,13 +132,13 @@ struct MusicItemDetailView: View {
                     description: Text("The requested music item could not be resolved for the current account and chain scope.")
                 )
                 .navigationTitle("Track Detail")
-                .accessibilityIdentifier("music.detail.unavailable")
+                .accessibilityIdentifier("auraplay.detail.unavailable")
             }
         }
     }
 
     @ViewBuilder
-    private func artworkCard(for presentation: MusicItemDetailPresentation) -> some View {
+    private func artworkCard(for presentation: AuraPlayMusicItemDetailPresentation) -> some View {
         ZStack(alignment: .bottomLeading) {
             AsyncImage(url: presentation.artworkURL) { image in
                 image
@@ -165,10 +166,10 @@ struct MusicItemDetailView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    MusicDetailChip(title: presentation.chainTitle, systemImage: "link")
+                    musicDetailChip(title: presentation.chainTitle, systemImage: "link")
 
                     if let format = presentation.contentType {
-                        MusicDetailChip(title: format, systemImage: "waveform")
+                        musicDetailChip(title: format, systemImage: "waveform")
                     }
                 }
 
@@ -182,9 +183,35 @@ struct MusicItemDetailView: View {
             .padding(18)
         }
     }
+
+    private func musicDetailRow(title: String, value: String?) -> some View {
+        Group {
+            if let value, !value.isEmpty {
+                HStack(alignment: .top, spacing: 12) {
+                    Text(title)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Color.textSecondary)
+                    Spacer(minLength: 12)
+                    Text(value)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.textPrimary)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+        }
+    }
+
+    private func musicDetailChip(title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.16), in: Capsule())
+    }
 }
 
-struct MusicItemDetailPresentation: Equatable {
+private struct AuraPlayMusicItemDetailPresentation: Equatable {
     struct PlaybackSummary: Equatable {
         let title: String
         let message: String
@@ -194,13 +221,13 @@ struct MusicItemDetailPresentation: Equatable {
     let navigationTitle: String
     let artist: String?
     let collection: String?
+    let collectionKey: String?
     let description: String?
     let artworkURL: URL?
     let chainTitle: String
     let contentType: String?
     let metadataStatus: String?
     let playbackSummary: PlaybackSummary?
-    let collectionSummary: MusicCollectionSummary?
 
     init?(nft: NFT?, libraryItem: MusicLibraryItem?) {
         guard nft != nil || libraryItem != nil else {
@@ -231,23 +258,11 @@ struct MusicItemDetailPresentation: Equatable {
         self.navigationTitle = resolvedTitle
         self.artist = resolvedArtist
         self.collection = resolvedCollection
+        self.collectionKey = Self.cleanedText(libraryItem?.normalizedCollectionKey)
         self.description = resolvedDescription
         self.artworkURL = resolvedArtworkURL
         self.chainTitle = resolvedChainTitle
         self.contentType = resolvedContentType
-        if let collectionKey = Self.cleanedText(libraryItem?.normalizedCollectionKey),
-           let collectionTitle = resolvedCollection {
-            self.collectionSummary = MusicCollectionSummary(
-                key: collectionKey,
-                title: collectionTitle,
-                subtitle: resolvedArtist,
-                artworkURL: resolvedArtworkURL,
-                trackCount: 1,
-                hasUnavailableTracks: libraryItem?.availability == .unavailable
-            )
-        } else {
-            self.collectionSummary = nil
-        }
 
         if nft == nil, libraryItem != nil {
             self.metadataStatus = "Showing indexed music metadata because the source NFT is not currently available in this scope."
@@ -290,7 +305,8 @@ struct MusicItemDetailPresentation: Equatable {
     }
 
     private static func cleanedText(_ value: String?) -> String? {
-        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
             return nil
         }
         return trimmed
@@ -301,39 +317,5 @@ struct MusicItemDetailPresentation: Equatable {
             return nil
         }
         return URL.sanitizedRemoteMediaURL(from: cleaned)
-    }
-}
-
-private struct MusicDetailRow: View {
-    let title: String
-    let value: String?
-
-    var body: some View {
-        if let value, !value.isEmpty {
-            HStack(alignment: .top, spacing: 12) {
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Color.textSecondary)
-                Spacer(minLength: 12)
-                Text(value)
-                    .font(.subheadline)
-                    .foregroundStyle(Color.textPrimary)
-                    .multilineTextAlignment(.trailing)
-            }
-        }
-    }
-}
-
-private struct MusicDetailChip: View {
-    let title: String
-    let systemImage: String
-
-    var body: some View {
-        Label(title, systemImage: systemImage)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.white.opacity(0.16), in: Capsule())
     }
 }

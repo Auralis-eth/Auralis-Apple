@@ -1,20 +1,10 @@
-//
-//  MiniPlayerView.swift
-//  Auralis
-//
-//  Created by Daniel Bell on 9/15/25.
-//
-
 import SwiftUI
 
-// MARK: - Mini Player (bottom accessory)
-struct MiniPlayerView: View {
+struct AuraPlayMiniPlayerView: View {
     @ObservedObject var audioEngine: AudioEngine
 
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
-    @State private var showNowPlaying: Bool = false
-    @State private var miniSeekValue: Double = 0
-    @State private var miniIsDragging: Bool = false
+    @State private var showNowPlaying = false
 
     fileprivate enum AccessoryMode {
         case inline
@@ -35,80 +25,79 @@ struct MiniPlayerView: View {
 
     var body: some View {
         Group {
-            if audioEngine.currentTrack == nil {
-                EmptyView()
-            } else {
-                MiniPlayerContentView(audioEngine: audioEngine, accessoryMode: accessoryMode)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if accessoryMode != .unknown {
-                            showNowPlaying = true
-                        }
+            if audioEngine.currentTrack != nil {
+                AuraPlayMiniPlayerContentView(
+                    audioEngine: audioEngine,
+                    accessoryMode: accessoryMode
+                )
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if accessoryMode != .unknown {
+                        showNowPlaying = true
                     }
-                    .sheet(isPresented: $showNowPlaying) {
-                        NowPlayingView(audioEngine: audioEngine)
+                }
+                .accessibilityAction(named: "Open Now Playing") {
+                    if accessoryMode != .unknown {
+                        showNowPlaying = true
                     }
+                }
+                .sheet(isPresented: $showNowPlaying) {
+                    AuraPlayNowPlayingView(audioEngine: audioEngine)
+                }
             }
         }
         .accessibilityElement(children: .contain)
     }
-
-    private func timeString(from seconds: TimeInterval) -> String {
-        guard seconds.isFinite else { return "0:00" }
-        let s = Int(seconds)
-        let mins = s / 60
-        let secs = s % 60
-        return String(format: "%d:%02d", mins, secs)
-    }
 }
 
-struct MiniPlayerContentView: View {
+private struct AuraPlayMiniPlayerContentView: View {
     @ObservedObject var audioEngine: AudioEngine
-    fileprivate let accessoryMode: MiniPlayerView.AccessoryMode
+    fileprivate let accessoryMode: AuraPlayMiniPlayerView.AccessoryMode
 
     @State private var miniSeekValue: Double = 0
-    @State private var miniIsDragging: Bool = false
+    @State private var miniIsDragging = false
 
     var body: some View {
         VStack {
             HStack {
                 if let currentTrack = audioEngine.currentTrack {
-                    MiniPlayerPlayingView(currentTrack: currentTrack, accessoryMode: accessoryMode)
-                        .id(currentTrack.id) // forces a full rebuild when the track identity changes
+                    AuraPlayMiniPlayerTrackView(
+                        currentTrack: currentTrack,
+                        accessoryMode: accessoryMode
+                    )
+                    .id(currentTrack.id)
                     Spacer()
                 }
 
-                // playback controls
                 HStack(spacing: 8) {
-                    // Previous track
                     Button {
                         Task { await audioEngine.playPrevious() }
                     } label: {
                         Image(systemName: "backward.fill")
                             .font(.title3)
                     }
+                    .frame(minWidth: 44, minHeight: 44)
                     .accessibilityLabel("Previous track")
 
-                    PlaybackStateButton(
+                    AuraPlayPlaybackStateButton(
                         sourceState: audioEngine.playbackState,
                         play: { try? audioEngine.play() },
                         pause: audioEngine.pause,
                         resume: { try? audioEngine.resume() }
                     )
 
-                    // Next track
                     Button {
                         Task { await audioEngine.playNext() }
                     } label: {
                         Image(systemName: "forward.fill")
                             .font(.title3)
                     }
+                    .frame(minWidth: 44, minHeight: 44)
                     .accessibilityLabel("Next track")
                 }
                 .buttonStyle(.glass)
             }
 
-            // Adaptive progress/seek
             switch (accessoryMode, audioEngine.currentTrack) {
             case (.expanded, let track?):
                 Slider(
@@ -121,8 +110,8 @@ struct MiniPlayerContentView: View {
                         }
                     }
                 )
+                .accessibilityLabel("Playback position")
                 .onChange(of: audioEngine.currentTrack) { _, _ in
-                    // Reset local slider when track changes
                     miniSeekValue = 0
                 }
                 .onChange(of: audioEngine.progress) { _, newValue in
@@ -134,40 +123,42 @@ struct MiniPlayerContentView: View {
                     miniSeekValue = audioEngine.progress
                 }
             default:
-                // Compact indicator when inline or unknown placement (safe fallback)
                 ProgressView()
             }
-
         }
         .padding(.top)
         .padding(.trailing)
     }
 }
 
-struct MiniPlayerPlayingView: View {
+private struct AuraPlayMiniPlayerTrackView: View {
     let currentTrack: AudioEngine.Track
-    fileprivate let accessoryMode: MiniPlayerView.AccessoryMode
+    fileprivate let accessoryMode: AuraPlayMiniPlayerView.AccessoryMode
 
     var body: some View {
-        if let imageUrlString = currentTrack.imageUrl,
-           !imageUrlString.isEmpty,
-           let imageUrl = URL(string: imageUrlString) {
-            CachedAsyncImage(url: imageUrl)
-                .scaledToFill()
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .padding(.trailing)
-        } else {
-            RoundedRectangle(cornerRadius: 6)
-                .frame(width: accessoryMode == .expanded ? 44 : 36, height: accessoryMode == .expanded ? 44 : 36)
-                .overlay(
-                    Image(systemName: "music.note")
-                        .font(.system(size: accessoryMode == .expanded ? 20 : 16))
-                        .padding(6)
-                )
-                .padding(.trailing)
+        Group {
+            if let imageURLString = currentTrack.imageUrl,
+               !imageURLString.isEmpty,
+               let imageURL = URL(string: imageURLString) {
+                CachedAsyncImage(url: imageURL)
+                    .scaledToFill()
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .padding(.trailing)
+            } else {
+                RoundedRectangle(cornerRadius: 6)
+                    .frame(
+                        width: accessoryMode == .expanded ? 44 : 36,
+                        height: accessoryMode == .expanded ? 44 : 36
+                    )
+                    .overlay {
+                        Image(systemName: "music.note")
+                            .font(.system(size: accessoryMode == .expanded ? 20 : 16))
+                            .padding(6)
+                    }
+                    .padding(.trailing)
+            }
         }
 
-        // title / artist
         VStack(alignment: .leading) {
             Text(currentTrack.title ?? "Unknown Title")
                 .font(accessoryMode == .expanded ? .subheadline.bold() : .subheadline)
@@ -179,14 +170,12 @@ struct MiniPlayerPlayingView: View {
                     .lineLimit(1)
             }
         }
+        .accessibilityElement(children: .combine)
     }
 }
 
-struct PlaybackStateButton: View {
-    // Source value provided by the parent
+private struct AuraPlayPlaybackStateButton: View {
     let sourceState: AudioEngine.PlaybackState
-
-    // Actions
     let play: () -> Void
     let pause: () -> Void
     let resume: () -> Void
@@ -195,7 +184,6 @@ struct PlaybackStateButton: View {
         Button {
             switch sourceState {
             case .loading:
-                // No-op or pause safeguard
                 pause()
             case .playing:
                 pause()
@@ -208,10 +196,7 @@ struct PlaybackStateButton: View {
             }
         } label: {
             switch sourceState {
-            case .loading:
-                Image(systemName: "pause.fill")
-                    .font(.title3)
-            case .playing:
+            case .loading, .playing:
                 Image(systemName: "pause.fill")
                     .font(.title3)
             case .paused, .stopped:
@@ -222,11 +207,12 @@ struct PlaybackStateButton: View {
                     .font(.title3)
             }
         }
+        .frame(minWidth: 44, minHeight: 44)
         .disabled(sourceState == .loading || sourceState == .error)
         .overlay {
             if sourceState == .loading {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle())
+                    .progressViewStyle(.circular)
             }
         }
         .animation(nil, value: sourceState)

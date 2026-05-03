@@ -10,7 +10,9 @@ struct MainTabView: View {
     @Binding var nftService: NFTService
     @Bindable var router: AppRouter
     let audioEngine: AudioEngine?
-    let audioUnavailableMessage: String?
+    let musicUnavailableMessage: String?
+    let showsMusicReinstallGuidance: Bool
+    let retryMusicSetup: @MainActor () async -> Void
     let modeState: ModeState
     let dependencies: MainTabDependencies
     let auraPlayModelContainer: ModelContainer?
@@ -20,8 +22,6 @@ struct MainTabView: View {
     @State private var contextService: ContextService
     @State private var pinnedItemCount: Int
     @State private var showContextInspector = false
-
-    private let auraPlayMigrationStage: AuraPlayMigrationStage = .phase2Persistence
 
     private var currentAccount: EOAccount? {
         resolveCurrentAccount()
@@ -69,7 +69,9 @@ struct MainTabView: View {
         nftService: Binding<NFTService>,
         router: AppRouter,
         audioEngine: AudioEngine?,
-        audioUnavailableMessage: String?,
+        musicUnavailableMessage: String?,
+        showsMusicReinstallGuidance: Bool,
+        retryMusicSetup: @escaping @MainActor () async -> Void,
         modeState: ModeState,
         dependencies: MainTabDependencies,
         auraPlayModelContainer: ModelContainer?
@@ -79,7 +81,9 @@ struct MainTabView: View {
         self._nftService = nftService
         self.router = router
         self.audioEngine = audioEngine
-        self.audioUnavailableMessage = audioUnavailableMessage
+        self.musicUnavailableMessage = musicUnavailableMessage
+        self.showsMusicReinstallGuidance = showsMusicReinstallGuidance
+        self.retryMusicSetup = retryMusicSetup
         self.modeState = modeState
         self.dependencies = dependencies
         self.auraPlayModelContainer = auraPlayModelContainer
@@ -297,26 +301,15 @@ struct MainTabView: View {
             Tab("Music", systemImage: "play.circle", value: AppTab.music) {
                 NavigationStack(path: $router.musicPath) {
                     Group {
-                        if let audioEngine {
+                        if let audioEngine, let auraPlayModelContainer {
                             VStack {
                                 AuraPlayTabRootView(
-                                    stage: auraPlayMigrationStage,
                                     audioEngine: audioEngine,
                                     currentAccount: currentAccount,
                                     currentChain: currentChain,
                                     nftService: nftService,
                                     appModelContext: modelContext,
                                     auraPlayModelContainer: auraPlayModelContainer,
-                                    refreshAction: refreshActiveScopeFromUserAction,
-                                    onOpenNFT: { nft in
-                                        router.showMusicNFTDetail(id: nft.id)
-                                    },
-                                    onOpenCollection: { summary in
-                                        router.showMusicCollectionDetail(
-                                            key: summary.key,
-                                            title: summary.title
-                                        )
-                                    },
                                     musicLibraryIndexer: dependencies.musicLibraryIndexer,
                                     musicLibraryReceiptLogger: dependencies.receiptEventLoggerFactory(modelContext)
                                 )
@@ -324,20 +317,20 @@ struct MainTabView: View {
                             .navigationDestination(for: MusicRoute.self) { route in
                                 switch route {
                                 case .item(let id):
-                                    MusicItemDetailView(
+                                    AuraPlayMusicItemDetailView(
                                         itemID: id,
                                         currentAccountAddress: currentAccount?.address,
                                         currentChain: currentChain,
-                                        onOpenCollection: { summary in
+                                        onOpenCollection: { key, title in
                                             router.showMusicCollectionDetail(
-                                                key: summary.key,
-                                                title: summary.title
+                                                key: key,
+                                                title: title
                                             )
                                         }
                                     )
 
                                 case .collection(let key, let title):
-                                    MusicCollectionDetailView(
+                                    AuraPlayMusicCollectionDetailView(
                                         collectionKey: key,
                                         collectionTitle: title,
                                         currentAccountAddress: currentAccount?.address,
@@ -349,13 +342,11 @@ struct MainTabView: View {
                                 }
                             }
                         } else {
-                            AuraScenicScreen(contentAlignment: .center) {
-                                ContentUnavailableView(
-                                    "Music Unavailable",
-                                    systemImage: "speaker.slash",
-                                    description: Text(audioUnavailableMessage ?? "Auralis could not start audio playback on this launch. The rest of the app remains available.")
-                                )
-                            }
+                            AuraPlayUnavailableView(
+                                message: musicUnavailableMessage,
+                                showsReinstallGuidance: showsMusicReinstallGuidance,
+                                retryAction: retryMusicSetup
+                            )
                         }
                     }
                 }
@@ -641,7 +632,9 @@ private struct ContextLocalRefreshKey: Hashable {
                 nftService: $nftService,
                 router: router,
                 audioEngine: audioEngine,
-                audioUnavailableMessage: nil,
+                musicUnavailableMessage: nil,
+                showsMusicReinstallGuidance: false,
+                retryMusicSetup: {},
                 modeState: modeState,
                 dependencies: ShellBootstrapDependencies.live.makeMainTabDependencies(modelContext),
                 auraPlayModelContainer: auraPlayModelContainer

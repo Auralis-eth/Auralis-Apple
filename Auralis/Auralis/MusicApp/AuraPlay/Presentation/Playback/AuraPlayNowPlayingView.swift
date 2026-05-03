@@ -1,22 +1,12 @@
-//
-//  NowPlayingView.swift
-//  Auralis
-//
-//  Created by Daniel Bell on 9/16/25.
-//
-
 import SwiftUI
 
-// MARK: - Now Playing (expanded) view
-
-struct NowPlayingView: View {
+struct AuraPlayNowPlayingView: View {
     @ObservedObject var audioEngine: AudioEngine
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
 
     @State private var seekValue: Double = 0
-    @State private var isDraggingSeek: Bool = false
+    @State private var isDraggingSeek = false
 
-    // Neighbor previews
     private var nextPreviewNFT: NFT? { audioEngine.nextAudio.tracks.first }
     private var previousPreviewNFT: NFT? { audioEngine.previousAudio.tracks.last }
     private let previousRestartThreshold: TimeInterval = 3.0
@@ -25,20 +15,19 @@ struct NowPlayingView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Drag indicator / sheet handle
                     Capsule()
                         .frame(width: 40, height: 6)
                         .foregroundStyle(.secondary)
                         .padding(.top, 8)
+                        .accessibilityHidden(true)
 
                     if let track = audioEngine.currentTrack {
                         VStack(spacing: 24) {
-                            // Artwork + Title / Artist
                             VStack(spacing: 16) {
-                                nftArtworkView
+                                artworkView
 
                                 VStack(spacing: 8) {
-                                    if let title = (track.title), !title.isEmpty {
+                                    if let title = track.title, !title.isEmpty {
                                         Text(title)
                                             .font(.title2)
                                             .fontWeight(.bold)
@@ -46,7 +35,7 @@ struct NowPlayingView: View {
                                             .lineLimit(3)
                                     }
 
-                                    if let artist = (track.artist), !artist.isEmpty {
+                                    if let artist = track.artist, !artist.isEmpty {
                                         Text(artist)
                                             .font(.title3)
                                             .foregroundStyle(.secondary)
@@ -56,9 +45,7 @@ struct NowPlayingView: View {
                                 .frame(maxWidth: .infinity)
                             }
 
-                            // Progress + Controls
                             VStack(spacing: 20) {
-                                // Slider + times
                                 VStack(spacing: 8) {
                                     Slider(
                                         value: $seekValue,
@@ -70,8 +57,8 @@ struct NowPlayingView: View {
                                             }
                                         }
                                     )
+                                    .accessibilityLabel("Playback position")
                                     .onChange(of: audioEngine.currentTrack) { _, _ in
-                                        // Reset seek to start when track changes
                                         seekValue = 0
                                     }
                                     .onChange(of: audioEngine.progress) { _, newValue in
@@ -92,142 +79,91 @@ struct NowPlayingView: View {
                                     .foregroundStyle(.secondary)
                                 }
 
-                                // Playback controls row
                                 HStack(spacing: 28) {
-                                    // Coarse skip backward
                                     Button {
                                         audioEngine.skipBackward()
                                     } label: {
                                         Image(systemName: "gobackward.10")
                                             .font(.title3)
                                     }
+                                    .frame(minWidth: 44, minHeight: 44)
                                     .accessibilityLabel("Skip backward 10 seconds")
                                     .accessibilityHint("Moves playback backward by ten seconds")
 
-                                    // Previous track
                                     Button {
-                                        Task {
-                                            await audioEngine.playPrevious()
-                                        }
+                                        Task { await audioEngine.playPrevious() }
                                     } label: {
                                         Image(systemName: "backward.fill")
                                             .font(.title2)
                                             .foregroundStyle(.primary)
                                     }
+                                    .frame(minWidth: 44, minHeight: 44)
                                     .accessibilityLabel("Previous track")
                                     .accessibilityHint("Plays the previous track")
 
-                                    // Main play/pause handling including loading state
-                                    switch audioEngine.playbackState {
-                                    case .loading:
-                                        Button(action: audioEngine.pause) {
-                                            Image(systemName: "pause.fill")
-                                                .font(.system(size: 56))
-                                        }
-                                        .disabled(true)
-                                        .overlay {
-                                            ProgressView()
-                                                .progressViewStyle(CircularProgressViewStyle())
-                                                .scaleEffect(1.2)
-                                        }
-                                        .accessibilityLabel("Loading playback")
-                                        .accessibilityHint("Playback is loading")
+                                    mainPlaybackButton
 
-                                    case .playing:
-                                        Button(action: audioEngine.pause) {
-                                            Image(systemName: "pause.fill")
-                                                .font(.system(size: 56))
-                                        }
-                                        .accessibilityLabel("Pause")
-                                        .accessibilityHint("Pauses the current track")
-
-                                    case .paused:
-                                        Button {
-                                            try? audioEngine.resume()
-                                        } label: {
-                                            Image(systemName: "play.fill")
-                                                .font(.system(size: 56))
-                                        }
-                                        .accessibilityLabel("Resume")
-                                        .accessibilityHint("Resumes the current track")
-
-                                    case .stopped:
-                                        Button {
-                                            try? audioEngine.play()
-                                        } label: {
-                                            Image(systemName: "play.fill")
-                                                .font(.system(size: 56))
-                                        }
-                                        .accessibilityLabel("Play")
-                                        .accessibilityHint("Starts playback")
-                                    case .error:
-                                        EmptyView()
-                                    }
-
-                                    // Next track
                                     Button {
-                                        Task {
-                                            await audioEngine.playNext()
-                                        }
+                                        Task { await audioEngine.playNext() }
                                     } label: {
                                         Image(systemName: "forward.fill")
                                             .font(.title2)
                                             .foregroundStyle(.primary)
                                     }
+                                    .frame(minWidth: 44, minHeight: 44)
                                     .accessibilityLabel("Next track")
                                     .accessibilityHint("Plays the next track")
 
-                                    // Coarse skip forward
                                     Button {
                                         audioEngine.skipForward()
                                     } label: {
                                         Image(systemName: "goforward.10")
                                             .font(.title3)
                                     }
+                                    .frame(minWidth: 44, minHeight: 44)
                                     .accessibilityLabel("Skip forward 10 seconds")
                                     .accessibilityHint("Moves playback forward by ten seconds")
                                 }
                             }
 
-                            // Neighbor previews (Previous / Next)
                             VStack(spacing: 8) {
                                 if let prev = previousPreviewNFT {
-                                    previewRow(title: prev.name ?? "Unknown Track",
-                                               artist: prev.artistName,
-                                               imageURLString: prev.image?.thumbnailUrl ?? prev.image?.originalUrl,
-                                               label: "Previous",
-                                               accessibilityPrefix: "Previous",
-                                               action: {
-                                                   if audioEngine.progress > previousRestartThreshold {
-                                                       try? audioEngine.seek(to: 0)
-                                                   } else {
-                                                       Task { await audioEngine.playPrevious() }
-                                                   }
-                                               })
+                                    previewRow(
+                                        title: prev.name ?? "Unknown Track",
+                                        artist: prev.artistName,
+                                        imageURLString: prev.image?.thumbnailUrl ?? prev.image?.originalUrl,
+                                        label: "Previous",
+                                        accessibilityPrefix: "Previous",
+                                        action: {
+                                            if audioEngine.progress > previousRestartThreshold {
+                                                try? audioEngine.seek(to: 0)
+                                            } else {
+                                                Task { await audioEngine.playPrevious() }
+                                            }
+                                        }
+                                    )
                                 }
 
                                 if let next = nextPreviewNFT {
-                                    previewRow(title: next.name ?? "Unknown Track",
-                                               artist: next.artistName,
-                                               imageURLString: next.image?.thumbnailUrl ?? next.image?.originalUrl,
-                                               label: "Next",
-                                               accessibilityPrefix: "Next",
-                                               action: {
-                                                   Task { await audioEngine.playNext() }
-                                               })
+                                    previewRow(
+                                        title: next.name ?? "Unknown Track",
+                                        artist: next.artistName,
+                                        imageURLString: next.image?.thumbnailUrl ?? next.image?.originalUrl,
+                                        label: "Next",
+                                        accessibilityPrefix: "Next",
+                                        action: {
+                                            Task { await audioEngine.playNext() }
+                                        }
+                                    )
                                 }
                             }
 
-                            // Recently Played Section
-                            RecentlyPlayedSection(audioEngine: audioEngine)
+                            AuraPlayRecentlyPlayedSection(audioEngine: audioEngine)
 
-                            // Details card
-                            // Bottom spacer for scrollable content
                             Color.clear.frame(height: 20)
                         }
                         .padding(.horizontal)
                     } else {
-                        // No track loaded view
                         VStack(spacing: 16) {
                             Image(systemName: "music.note")
                                 .font(.system(size: 64))
@@ -237,14 +173,14 @@ struct NowPlayingView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.top, 100)
-                        Spacer()
+                        .frame(maxWidth: .infinity)
                     }
                 }
             }
             .navigationTitle("Now Playing")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
@@ -255,17 +191,73 @@ struct NowPlayingView: View {
         .ignoresSafeArea(edges: .bottom)
     }
 
-    // MARK: - Artwork View
     @ViewBuilder
-    private var nftArtworkView: some View {
-        // prefer imageUrl / fallback to nested image.originalUrl
-        if let imageUrlString = audioEngine.currentTrack?.imageUrl,
-           !imageUrlString.isEmpty,
-           let imageUrl = URL(string: imageUrlString) {
-            CachedAsyncImage(url: imageUrl)
-            .frame(maxWidth: 280, maxHeight: 280)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+    private var mainPlaybackButton: some View {
+        switch audioEngine.playbackState {
+        case .loading:
+            Button(action: audioEngine.pause) {
+                Image(systemName: "pause.fill")
+                    .font(.system(size: 56))
+            }
+            .disabled(true)
+            .frame(minWidth: 44, minHeight: 44)
+            .overlay {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .scaleEffect(1.2)
+            }
+            .accessibilityLabel("Loading playback")
+            .accessibilityHint("Playback is loading")
+
+        case .playing:
+            Button(action: audioEngine.pause) {
+                Image(systemName: "pause.fill")
+                    .font(.system(size: 56))
+            }
+            .frame(minWidth: 44, minHeight: 44)
+            .accessibilityLabel("Pause")
+            .accessibilityHint("Pauses the current track")
+
+        case .paused:
+            Button {
+                try? audioEngine.resume()
+            } label: {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 56))
+            }
+            .frame(minWidth: 44, minHeight: 44)
+            .accessibilityLabel("Resume")
+            .accessibilityHint("Resumes the current track")
+
+        case .stopped:
+            Button {
+                try? audioEngine.play()
+            } label: {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 56))
+            }
+            .frame(minWidth: 44, minHeight: 44)
+            .accessibilityLabel("Play")
+            .accessibilityHint("Starts playback")
+
+        case .error:
+            Image(systemName: "exclamationmark.triangle")
+                .font(.title)
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("Playback unavailable")
+        }
+    }
+
+    @ViewBuilder
+    private var artworkView: some View {
+        if let imageURLString = audioEngine.currentTrack?.imageUrl,
+           !imageURLString.isEmpty,
+           let imageURL = URL(string: imageURLString) {
+            CachedAsyncImage(url: imageURL)
+                .frame(maxWidth: 280, maxHeight: 280)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
         } else {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color.gray.opacity(0.25))
@@ -280,27 +272,28 @@ struct NowPlayingView: View {
         }
     }
 
-    // MARK: - Helpers
     private func timeString(from seconds: TimeInterval) -> String {
         guard seconds.isFinite else { return "0:00" }
-        let s = Int(seconds)
-        let mins = s / 60
-        let secs = s % 60
-        return String(format: "%d:%02d", mins, secs)
+        let totalSeconds = Int(seconds)
+        let minutes = totalSeconds / 60
+        let secondsComponent = totalSeconds % 60
+        return String(format: "%d:%02d", minutes, secondsComponent)
     }
 
-    // MARK: - Compact Preview Row
     @ViewBuilder
-    private func previewRow(title: String,
-                            artist: String?,
-                            imageURLString: String?,
-                            label: String,
-                            accessibilityPrefix: String,
-                            action: @escaping () -> Void) -> some View {
+    private func previewRow(
+        title: String,
+        artist: String?,
+        imageURLString: String?,
+        label: String,
+        accessibilityPrefix: String,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                // Artwork 44–48pt
-                if let urlStr = imageURLString, !urlStr.isEmpty, let url = URL(string: urlStr) {
+                if let urlString = imageURLString,
+                   !urlString.isEmpty,
+                   let url = URL(string: urlString) {
                     CachedAsyncImage(url: url)
                         .frame(width: 48, height: 48)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -335,6 +328,7 @@ struct NowPlayingView: View {
             .padding(.vertical, 6)
         }
         .buttonStyle(.plain)
+        .frame(minHeight: 44)
         .accessibilityLabel("\(accessibilityPrefix): \(title.isEmpty ? "Unknown Track" : title)\(artist.map { ", by \($0)" } ?? "")")
         .opacity(audioEngine.playbackState == .loading ? 0.85 : 1.0)
     }

@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-struct MusicCollectionDetailView: View {
+struct AuraPlayMusicCollectionDetailView: View {
     let collectionKey: String
     let collectionTitle: String
     let currentAccountAddress: String?
@@ -42,19 +42,37 @@ struct MusicCollectionDetailView: View {
         libraryItems.filter { $0.normalizedCollectionKey == collectionKey }
     }
 
-    private var presentation: MusicCollectionDetailPresentation {
-        MusicCollectionDetailPresentation(
-            summary: MusicCollectionSummary(
-                key: collectionKey,
-                title: collectionTitle,
-                subtitle: nil,
-                artworkURL: items.compactMap(\.artworkURL).first,
-                trackCount: items.count,
-                hasUnavailableTracks: items.contains { $0.availability == .unavailable }
-            ),
-            items: items,
-            chain: currentChain
+    private var presentation: AuraPlayMusicCollectionDetailPresentation {
+        AuraPlayMusicCollectionDetailPresentation(
+            title: collectionTitle,
+            subtitle: subtitle,
+            trackCount: items.count,
+            chainTitle: currentChain.routingDisplayName,
+            hasUnavailableTracks: items.contains { $0.availability == .unavailable },
+            metadataStatus: metadataStatus
         )
+    }
+
+    private var subtitle: String? {
+        let artists = Array(Set(items.compactMap { cleanedText($0.artistName) })).sorted()
+        switch artists.count {
+        case 0:
+            return nil
+        case 1:
+            return artists[0]
+        default:
+            return "\(artists.count) artists"
+        }
+    }
+
+    private var metadataStatus: String? {
+        if items.isEmpty {
+            return "This collection currently has no scoped music items."
+        }
+        if subtitle == nil || items.compactMap(\.artworkURL).first == nil {
+            return "Some collection metadata is still being inferred from local music index fields."
+        }
+        return nil
     }
 
     var body: some View {
@@ -73,10 +91,19 @@ struct MusicCollectionDetailView: View {
                         }
 
                         HStack(spacing: 10) {
-                            MusicCollectionMetaChip(title: presentation.trackCountLabel, systemImage: "music.note.list")
-                            MusicCollectionMetaChip(title: presentation.chainTitle, systemImage: "link")
+                            collectionMetaChip(
+                                title: presentation.trackCountLabel,
+                                systemImage: "music.note.list"
+                            )
+                            collectionMetaChip(
+                                title: presentation.chainTitle,
+                                systemImage: "link"
+                            )
                             if presentation.hasUnavailableTracks {
-                                MusicCollectionMetaChip(title: "Partial", systemImage: "exclamationmark.triangle")
+                                collectionMetaChip(
+                                    title: "Partial",
+                                    systemImage: "exclamationmark.triangle"
+                                )
                             }
                         }
 
@@ -94,10 +121,10 @@ struct MusicCollectionDetailView: View {
                         Button {
                             onOpenItem(item.sourceNFTID)
                         } label: {
-                            MusicCollectionTrackRow(item: item)
+                            collectionTrackRow(item: item)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityIdentifier("music.collection.track.\(item.id)")
+                        .accessibilityIdentifier("auraplay.collection.track.\(item.id)")
                     }
                 }
             }
@@ -106,112 +133,18 @@ struct MusicCollectionDetailView: View {
         .background(Color.background)
         .navigationTitle(presentation.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .accessibilityIdentifier("music.collection.detail")
-    }
-}
-
-struct MusicCollectionSummary: Equatable, Hashable {
-    let key: String
-    let title: String
-    let subtitle: String?
-    let artworkURL: URL?
-    let trackCount: Int
-    let hasUnavailableTracks: Bool
-
-    var trackCountLabel: String {
-        "\(trackCount) track" + (trackCount == 1 ? "" : "s")
+        .accessibilityIdentifier("auraplay.collection.detail")
     }
 
-    static func summaries(from items: [MusicLibraryItem]) -> [MusicCollectionSummary] {
-        let grouped = Dictionary(grouping: items) { item in
-            cleanedKey(item.normalizedCollectionKey) ?? "__ungrouped__"
-        }
-
-        return grouped.compactMap { key, group in
-            guard let baseItem = group.first else {
-                return nil
-            }
-
-            let title = cleanedText(baseItem.collectionName)
-                ?? cleanedText(baseItem.artistName)
-                ?? "Untitled Collection"
-            let subtitle = artistSubtitle(from: group)
-            let artworkURL = group.compactMap(\.artworkURL).first
-            let hasUnavailableTracks = group.contains { $0.availability == .unavailable }
-
-            return MusicCollectionSummary(
-                key: key,
-                title: title,
-                subtitle: subtitle,
-                artworkURL: artworkURL,
-                trackCount: group.count,
-                hasUnavailableTracks: hasUnavailableTracks
-            )
-        }
-        .sorted {
-            if $0.trackCount == $1.trackCount {
-                return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-            }
-            return $0.trackCount > $1.trackCount
-        }
-    }
-
-    private static func artistSubtitle(from items: [MusicLibraryItem]) -> String? {
-        let artists = Array(Set(items.compactMap { cleanedText($0.artistName) })).sorted()
-
-        switch artists.count {
-        case 0:
-            return nil
-        case 1:
-            return artists[0]
-        default:
-            return "\(artists.count) artists"
-        }
-    }
-
-    private static func cleanedText(_ value: String?) -> String? {
-        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+    private func cleanedText(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
             return nil
         }
         return trimmed
     }
 
-    private static func cleanedKey(_ value: String?) -> String? {
-        cleanedText(value)
-    }
-}
-
-struct MusicCollectionDetailPresentation: Equatable {
-    let title: String
-    let navigationTitle: String
-    let subtitle: String?
-    let trackCountLabel: String
-    let chainTitle: String
-    let hasUnavailableTracks: Bool
-    let metadataStatus: String?
-
-    init(summary: MusicCollectionSummary, items: [MusicLibraryItem], chain: Chain) {
-        self.title = summary.title
-        self.navigationTitle = summary.title
-        self.subtitle = summary.subtitle
-        self.trackCountLabel = summary.trackCountLabel
-        self.chainTitle = chain.routingDisplayName
-        self.hasUnavailableTracks = summary.hasUnavailableTracks
-
-        if items.isEmpty {
-            self.metadataStatus = "This collection currently has no scoped music items."
-        } else if summary.subtitle == nil || summary.artworkURL == nil {
-            self.metadataStatus = "Some collection metadata is still being inferred from local music index fields."
-        } else {
-            self.metadataStatus = nil
-        }
-    }
-}
-
-private struct MusicCollectionTrackRow: View {
-    let item: MusicLibraryItem
-
-    var body: some View {
+    private func collectionTrackRow(item: MusicLibraryItem) -> some View {
         HStack(spacing: 14) {
             AsyncImage(url: item.artworkURL) { image in
                 image.resizable().scaledToFill()
@@ -244,22 +177,32 @@ private struct MusicCollectionTrackRow: View {
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.textSecondary)
+                .accessibilityHidden(true)
         }
         .padding(12)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
     }
-}
 
-private struct MusicCollectionMetaChip: View {
-    let title: String
-    let systemImage: String
-
-    var body: some View {
+    private func collectionMetaChip(title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
             .font(.caption.weight(.semibold))
             .foregroundStyle(Color.textPrimary)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(Color.secondary.opacity(0.12), in: Capsule())
+    }
+}
+
+private struct AuraPlayMusicCollectionDetailPresentation: Equatable {
+    let title: String
+    let subtitle: String?
+    let trackCount: Int
+    let chainTitle: String
+    let hasUnavailableTracks: Bool
+    let metadataStatus: String?
+
+    var navigationTitle: String { title }
+    var trackCountLabel: String {
+        "\(trackCount) track" + (trackCount == 1 ? "" : "s")
     }
 }

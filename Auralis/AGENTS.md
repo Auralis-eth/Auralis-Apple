@@ -53,6 +53,6 @@ The shell flow is:
 - Guest passes are a lightweight onboarding shortcut to curated public wallets, not a separate demo-data product mode.
 - Deep links may arrive during cold start; queue them until shell state is ready.
 - Receipt routing is intentionally safe-fail for now. Full receipt support is deferred.
-- The active audio path lives under `MusicApp/AI/`.
+- The shipping music UI now lives under `MusicApp/AuraPlay/`, while `MusicApp/AI/Audio Engine/` still provides the playback bridge.
 - Provider-facing UI expects typed failures. Prefer mapping transport/provider errors into `ProviderAbstractionError` or `NFTProviderFailure` instead of leaking raw `URLError`s upward.
 - Reuse the shared `RetryAfterSupport` helper for backoff parsing. The stack now supports both numeric and HTTP-date `Retry-After` headers.

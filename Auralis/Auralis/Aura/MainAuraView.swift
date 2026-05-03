@@ -10,7 +10,9 @@ struct MainAuraView: View {
     @State private var nftService: NFTService
     @StateObject private var modeState: ModeState
     @State private var audioEngine: AudioEngine?
+    @State private var audioEngineInitializationErrorMessage: String?
     @State private var auraPlayModelContainer: ModelContainer?
+    @State private var auraPlayInitializationErrorMessage: String?
     @State private var shellStore: ShellStore?
     @State private var gatewayDependencies: GatewayDependencies?
     @State private var mainTabDependencies: MainTabDependencies?
@@ -20,8 +22,6 @@ struct MainAuraView: View {
 
     private let dependencies: ShellBootstrapDependencies
     private let deepLinkParser = AppDeepLinkParser()
-    private let audioEngineInitializationErrorMessage: String?
-    private let auraPlayInitializationErrorMessage: String?
     private let primaryStoreInitializationErrorMessage: String?
 
     @MainActor
@@ -43,15 +43,10 @@ struct MainAuraView: View {
         _modeState = StateObject(wrappedValue: dependencies.modeStateFactory())
         let auraPlayBootstrap = Self.makeAuraPlayModelContainer()
         _auraPlayModelContainer = State(initialValue: auraPlayBootstrap.container)
-        auraPlayInitializationErrorMessage = auraPlayBootstrap.errorMessage
-        do {
-            let engine = try AudioEngine()
-            _audioEngine = State(initialValue: engine)
-            audioEngineInitializationErrorMessage = nil
-        } catch {
-            _audioEngine = State(initialValue: nil)
-            audioEngineInitializationErrorMessage = error.localizedDescription
-        }
+        _auraPlayInitializationErrorMessage = State(initialValue: auraPlayBootstrap.errorMessage)
+        let audioBootstrap = Self.makeAudioEngine()
+        _audioEngine = State(initialValue: audioBootstrap.engine)
+        _audioEngineInitializationErrorMessage = State(initialValue: audioBootstrap.errorMessage)
     }
 
     var body: some View {
@@ -114,7 +109,9 @@ struct MainAuraView: View {
                         nftService: $nftService,
                         router: router,
                         audioEngine: audioEngine,
-                        audioUnavailableMessage: musicUnavailableMessage,
+                        musicUnavailableMessage: musicUnavailableMessage,
+                        showsMusicReinstallGuidance: auraPlayInitializationErrorMessage != nil,
+                        retryMusicSetup: reloadMusicServices,
                         modeState: modeState,
                         dependencies: mainTabDependencies,
                         auraPlayModelContainer: auraPlayModelContainer
@@ -122,7 +119,7 @@ struct MainAuraView: View {
                     .tabBarMinimizeBehavior(.onScrollDown)
                     .tabViewBottomAccessory {
                         if let audioEngine {
-                            MiniPlayerView(audioEngine: audioEngine)
+                            AuraPlayMiniPlayerView(audioEngine: audioEngine)
                         }
                     }
                 }
@@ -265,6 +262,28 @@ struct MainAuraView: View {
             .nilIfEmpty
     }
 
+    @MainActor
+    private func reloadMusicServices() async {
+        let auraPlayBootstrap = Self.makeAuraPlayModelContainer()
+        auraPlayModelContainer = auraPlayBootstrap.container
+        auraPlayInitializationErrorMessage = auraPlayBootstrap.errorMessage
+
+        let audioBootstrap = Self.makeAudioEngine()
+        audioEngine = audioBootstrap.engine
+        audioEngineInitializationErrorMessage = audioBootstrap.errorMessage
+    }
+
+    private static func makeAudioEngine() -> (
+        engine: AudioEngine?,
+        errorMessage: String?
+    ) {
+        do {
+            return (try AudioEngine(), nil)
+        } catch {
+            return (nil, error.localizedDescription)
+        }
+    }
+
     private static func makeAuraPlayModelContainer() -> (
         container: ModelContainer?,
         errorMessage: String?
@@ -274,7 +293,7 @@ struct MainAuraView: View {
         } catch {
             return (
                 nil,
-                "AuraPlay storage could not be opened on this launch, so Music is using the legacy library path."
+                "AuraPlay storage could not be opened on this launch."
             )
         }
     }
