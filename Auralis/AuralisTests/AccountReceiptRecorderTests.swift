@@ -7,9 +7,11 @@ import Testing
 struct AccountReceiptRecorderTests {
     @MainActor
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([EOAccount.self, NFT.self, Tag.self, StoredReceipt.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
+        return try ModelContainer(
+            for: PrimaryStoreSchema.schema,
+            configurations: [configuration]
+        )
     }
 
     @Test("receipt-backed account recorder emits real receipts for account add select and remove flows")

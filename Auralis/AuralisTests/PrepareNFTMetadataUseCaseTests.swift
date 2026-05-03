@@ -6,7 +6,7 @@ import Testing
 struct PrepareNFTMetadataUseCaseTests {
     @Test("applies refresh scope to prepared NFTs")
     @MainActor
-    func appliesAccountAndChainScope() async {
+    func appliesAccountAndChainScope() async throws {
         let nft = makeRefreshFixtureNFT(
             network: .ethMainnet,
             accountAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -18,7 +18,7 @@ struct PrepareNFTMetadataUseCaseTests {
             accountAddress: "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
             chain: .baseMainnet
         )
-        let prepared = try! #require(inventory.nfts.first)
+        let prepared = try #require(inventory.nfts.first)
 
         #expect(prepared.networkRawValue == Chain.baseMainnet.rawValue)
         #expect(prepared.accountAddressRawValue == "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
@@ -28,7 +28,7 @@ struct PrepareNFTMetadataUseCaseTests {
 
     @Test("decodes base64 token URI metadata when available")
     @MainActor
-    func decodesBase64TokenURIMetadata() async {
+    func decodesBase64TokenURIMetadata() async throws {
         let metadataJSON = #"{"name":"Decoded Name","image":"https://example.com/image.png"}"#
         let encoded = Data(metadataJSON.utf8).base64EncodedString()
         let nft = makeRefreshFixtureNFT(
@@ -41,7 +41,7 @@ struct PrepareNFTMetadataUseCaseTests {
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet
         )
-        let prepared = try! #require(inventory.nfts.first)
+        let prepared = try #require(inventory.nfts.first)
 
         #expect(prepared.name == "Decoded Name")
         #expect(prepared.image?.originalUrl == "https://example.com/image.png")
@@ -49,7 +49,7 @@ struct PrepareNFTMetadataUseCaseTests {
 
     @Test("falls back to raw metadata when token URI decoding is unavailable")
     @MainActor
-    func fallsBackToRawMetadata() async {
+    func fallsBackToRawMetadata() async throws {
         let nft = makeRefreshFixtureNFT(
             tokenURI: "ipfs://fixture-json",
             rawMetadata: [
@@ -64,7 +64,7 @@ struct PrepareNFTMetadataUseCaseTests {
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet
         )
-        let prepared = try! #require(inventory.nfts.first)
+        let prepared = try #require(inventory.nfts.first)
 
         #expect(prepared.name == "Raw Metadata Name")
         #expect(prepared.audioUrl == "https://example.com/audio.mp3")

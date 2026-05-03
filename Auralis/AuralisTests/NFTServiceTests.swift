@@ -255,11 +255,17 @@ private struct ServicePersistUseCase: PersistNFTInventoryUsing {
         _ inventory: PreparedNFTInventory,
         accountAddress: String,
         chain: Chain,
-        modelContext: ModelContext,
-        shouldCleanupStaleInventory: Bool
+        modelContext: ModelContext
     ) async throws {
         trace.events.append("persist")
     }
+
+    func cleanupStaleInventory(
+        currentNFTIDs: [String],
+        accountAddress: String,
+        chain: Chain,
+        modelContext: ModelContext
+    ) async throws { }
 }
 
 @MainActor
@@ -271,12 +277,18 @@ private struct FailingPersistUseCase: PersistNFTInventoryUsing {
         _ inventory: PreparedNFTInventory,
         accountAddress: String,
         chain: Chain,
-        modelContext: ModelContext,
-        shouldCleanupStaleInventory: Bool
+        modelContext: ModelContext
     ) async throws {
         trace.events.append("persist.failed")
         throw error
     }
+
+    func cleanupStaleInventory(
+        currentNFTIDs: [String],
+        accountAddress: String,
+        chain: Chain,
+        modelContext: ModelContext
+    ) async throws { }
 }
 
 @MainActor
