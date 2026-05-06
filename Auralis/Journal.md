@@ -218,6 +218,23 @@ This one was pure configuration archaeology. The ship checklist warned that Face
 
 The actual codebase told a simpler story: there is no `LAContext`, no `LocalAuthentication`, no biometric policy evaluation, and no `NSFaceIDUsageDescription` anywhere in the repo-visible plist or config files. What *did* exist was an empty `Auralis.entitlements` file, which is the configuration equivalent of leaving an unlabeled key on the ring and hoping nobody asks what door it opens.
 
+### Music Receipts: Teach the Existing Ledger a New Dialect
+
+This pass was a good example of how architecture tickets go wrong when they confuse “new behavior” with “new subsystem.”
+
+- The music plan wanted playlist events, dry-run facts, and music-specific policy denials. The trap would have been inventing a parallel audit trail like `MusicAuditStore` and then spending the next month pretending it was “temporary.” We did the opposite. The new code rides the exact same rails as the rest of Auralis: `ReceiptDraft`, `ReceiptStore`, payload sanitization, SwiftData persistence, and the generic timeline/detail UI.
+- The new piece is a translator, not a second database. `MusicReceiptEventLogger` gives the music domain a typed vocabulary with stable dotted triggers such as `music.playlist.created` and `music.auto_organization.run`, plus one consistent payload shape. Think of it like teaching the house stenographer music notation instead of hiring a second stenographer who only follows the band.
+- Playlist wiring had one subtle gotcha. The create path runs through the old `PlaylistPersistenceStore` actor, while the new receipt logger is `@MainActor`. Shoving the logger directly through that actor boundary would have been concurrency soup. The fix was to let the persistence seam return a small sendable snapshot after save, then log on the main actor afterward. Same truth, less actor-crossing drama.
+- We also extended the existing `ActionPolicyGate` instead of replacing it. A blocked music action now *can* emit a second, music-shaped receipt, but the global `policy.denied` fact still lands first. That matters because the app already has one policy story; music is just adding domain detail to it, not staging a coup.
+- There was no real auto-organization implementation in the active tree, so we avoided fake UI theater. Instead we added a narrow dry-run service seam that emits a receipt now and gives the future organizer a real place to plug in later. That is much better than burying “TODO: remember to log this someday” in a plan doc and calling it architecture.
+
+The lesson is pleasantly reusable: when a product area needs richer facts, first ask whether the existing ledger is missing vocabulary or missing plumbing. Most of the time, the answer is vocabulary. Build the translator, not a second courthouse.
+
+- The second half of the work answered the more practical question: “fine, but where are the *real* music mutations?” The answer was less glamorous than the ticket taxonomy and more useful than pretending. Playlist creation already had a live UI seam, so it now emits receipts after successful persistence. Playback and queue transitions were the other genuine shipping path, so `AudioEngine` became the active seam for `music.playback.started`, `music.playback.completed`, and `music.queue.changed`.
+- The important engineering choice there was injection without global sprawl. The shell now hands the shared engine a `MusicReceiptEventLogger` after `ModelContext` exists, which lets the engine write shared receipts without learning how to build stores or containers for itself. That keeps the DJ booth playing records instead of also moonlighting as the courthouse clerk.
+- We also had to be careful not to let playback receipts lie. Completion logging is tied to the track that actually finished, auto-advance is marked as such, and queue-change receipts are emitted only after the next or previous transition successfully lands. The app already had stale-load and cancellation logic; the receipts needed to respect that reality rather than write fan fiction about what “probably” happened.
+- The final gap turned out to live in the AuraPlay sync seam, not in some missing future screen. The persisted-library sync already classifies playable versus metadata-only items, normalizes sparse NFT metadata, projects shared NFT rows into the AuraPlay store, and runs as a system-owned music task. So the missing taxonomy moved there: `music.media_classified`, `music.metadata_override.applied`, `music.export.created`, and `music.background_task.run` now come from the wallet-scoped sync path with one shared correlation ID. That is the grown-up version of finishing the ticket. Instead of inventing fake buttons just to satisfy an enum, we taught the code that already does the work to leave a paper trail.
+
 So we resolved the discrepancy in the honest direction: no biometric feature, no biometric declaration, no empty entitlement stub lingering around to imply otherwise.
 
 The lesson is straightforward: App Review cares about the contract your binary advertises, not the excuses you planned to give later. If a capability is not real, remove every trace that suggests it might be.
@@ -1121,3 +1138,45 @@ This pass was documentation work, but the useful part was not the markdown. The 
 The new runbook lives at `Auralis/Auralis/docs/plans/AuraPlay/AuraPlay-Legacy-Music-Removal-Runbook.md`, and its main lesson is simple: repo archaeology beats confidence. Old product surfaces rarely die in one folder. They die in routes, schemas, adapters, cleanup code, tests, and the one "temporary" bridge everyone forgot was still load-bearing.
 
 One important decision got clarified immediately after that audit: `AudioEngine` is not being grandfathered in as a blessed survivor. The plan is to empty `MusicApp/AI/Audio Engine/` out and move detail routing plus the mini-player path fully into AuraPlay. That is the right kind of ruthlessness. Otherwise you do not really delete the old music app; you just give it a fake mustache and let it keep living in the crawlspace.
+
+## AP-SYS-005 Planning Pass: Music Receipts Stop Being Background Noise
+
+This planning pass was a useful reminder that “receipt” and “log line” are cousins, not twins. Logs are what the app mutters to itself in the back room. Receipts are what it should be willing to say out loud later when Mission Control asks, “what exactly happened here?”
+
+- The first important discovery was that the receipt plumbing is already real and reusable. `StoredReceipt`, `SwiftDataReceiptStore`, `ReceiptEventLogger`, and the timeline/detail views already give us the filing cabinet. Music does not need a second cabinet with “special audio papers” scribbled on the front.
+- The second discovery was that the active music code is split like a house with a new kitchen and an old furnace. `AuraPlay/` is the current product-facing shell, but `AI/Audio Engine/` still owns the concrete playback and playlist mutation seams. That means playlist receipts belong down in the mutation layer, not in some shiny SwiftUI button that only happens to call it today.
+- The third lesson was about honesty under pressure. `AudioEngine` already has cancellation and auto-advance logic, which means playback receipts can lie very easily if they fire too early. A cancelled load is not “playback started.” A superseded track is not “playback completed.” The plan locks that down before implementation gets clever.
+- There was also a surprisingly practical architecture choice around actors. The ticket asks for `user`, `system`, `operator`, and `plugin`, but the app’s top-level receipt actor model is still just `user` or `system`. Instead of widening global types for one ticket, the better move is the same trick used in external-link receipts: keep the coarse top-level actor, then use payload and provenance to tell the sharper story.
+
+The memorable bit: music receipts are not there to make the app sound busy. They are there so the app can testify later without improvising.
+
+## AP-SYS-005 Status Pass: The Repo Already Built Half The Bridge
+
+This was a good old-fashioned documentation reality check. The plan file was still talking like the band had not shown up yet, while the repo was already halfway through soundcheck.
+
+- The first useful discovery was that the “future architecture” from the planning doc is no longer future. `MusicReceiptEventType`, `MusicReceiptPayloads`, `MusicReceiptEventLogger`, and even a dry-run auto-organization service already exist. In other words, the blueprint was still warning us to pour the foundation while the studs and wiring were already in the walls.
+- The second discovery was more important than the first: implemented is not the same thing as shipped. Playlist receipts are wired into the real persistence seam. Policy-block receipts are wired into the existing gate. Playback and queue receipts are wired into `AudioEngine`. But the auto-organization dry run still looks like a well-built stage prop unless a real product path actually calls it.
+- The third lesson was about verification humility. The app builds cleanly, which is worth something. But the targeted music receipt tests came back from the Xcode runner as `No result`, which is the testing equivalent of a witness shrugging and saying, “I was definitely at the scene, but I did not actually see anything.” That means the status doc had to say “incomplete verification” plainly instead of playing lawyer with the wording.
+- The sneaky architecture lesson is that stale planning docs are not harmless. Once a strategy file claims types are missing when they already exist, it stops being guidance and starts being a trap. The next engineer can waste time building a second bridge right next to the first one just because the map forgot to update.
+
+The sticky takeaway: codebases age like cities, not spreadsheets. If you want the truth, do not just read the zoning document. Walk the streets and see which buildings are already standing.
+
+## SEC-006 Follow-Through: Confirmation Is The Lock, Logging Is The Clipboard
+
+This security pass had a subtle contract question hiding inside a reasonable-sounding review comment: if receipt logging fails, should the confirmed Safari handoff fail too?
+
+- We kept the hard boundary in the right place. The meaningful security gate is the second user action, not the receipt write. If the user explicitly reviews the destination and taps `Open in Safari`, the app should honor that choice even if the audit trail has a bad day.
+- The implementation now says that plainly in code instead of mumbling it through `try?`. `ExternalLinkOpenFlow` still attempts receipt logging first, but logging is best-effort and the confirmed handoff proceeds either way.
+- The testing strategy also got more honest. We are not pretending to have UI coverage we did not write. Instead, the unit suites now do more of the useful heavy lifting: policy coverage expands across every supported explorer host plus the approved IPFS gateways and Arweave host, and the flow tests now pin the “logging failure does not block a confirmed open” rule directly.
+
+The lesson is a good one to keep around: security boundaries and observability boundaries are not the same thing. The lock on the door is the explicit confirmation step. The clipboard is the receipt log. Important? Yes. The same thing? Absolutely not.
+
+## SEC-006 Cleanup Pass: Reusable Means Not Smuggling Newsfeed Types Into App-Level Helpers
+
+The first SEC-006 pass got the behavior right, but it left a small architectural banana peel on the floor. `ExternalLinkPolicy` was supposed to be app-level and reusable, yet it still accepted `NFTExternalDestination`, a tiny type declared inside `OpenSeaLink.swift`. That is the software equivalent of building a good city water main and then routing it through one specific coffee shop’s basement.
+
+- The fix was intentionally boring: promote the candidate URL model into the helper layer as `ExternalLinkCandidateDestination`, then point the NFT-detail buttons and policy tests at that shared type.
+- The important part is not the rename. The important part is that future artwork, audio, IPFS, Arweave, or settings-link call sites can now use the confirmation policy without importing a Newsfeed component just to carry a `label` and a `url`.
+- This is one of those senior-engineer cleanup moves that does not change the demo, but it changes whether the next feature arrives as a clean extension or as a “why does Settings depend on NFT detail?” incident report.
+
+The sticky lesson: reusable abstractions are not reusable if their input types are hiding in a product leaf node wearing fake glasses.

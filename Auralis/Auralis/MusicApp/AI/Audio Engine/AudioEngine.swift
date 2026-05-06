@@ -43,6 +43,8 @@ public final class AudioEngine: ObservableObject {
     private var currentLoadTask: Task<Void, Error>?
     private var activeLoadID = UUID()
     private var displayUpdateTask: Task<Void, Never>?
+    private var musicReceiptLogger: MusicReceiptEventLogger?
+    private var pendingPlaybackTriggerCause: MusicReceiptTriggerCause?
 
     /// High-level playback states exposed to the UI.
     public enum PlaybackState: Equatable, Sendable, Codable {
@@ -132,6 +134,10 @@ public final class AudioEngine: ObservableObject {
         try setupAudioSession()
         try setupAudioEngine()
         setupInterruptionHandling()
+    }
+
+    func configureMusicReceiptLogger(_ logger: MusicReceiptEventLogger?) {
+        musicReceiptLogger = logger
     }
 
     // MARK: - Audio Session Configuration
@@ -345,6 +351,13 @@ public final class AudioEngine: ObservableObject {
 
     /// Starts playback for the current file or advances to the next queued item.
     public func play() throws {
+        if pendingPlaybackTriggerCause == nil {
+            pendingPlaybackTriggerCause = .userInitiated
+        }
+        try play(shouldRecordStart: true)
+    }
+
+    private func play(shouldRecordStart: Bool) throws {
         // If no audio file is loaded, try to advance to the next queued item
         guard let audioFile = audioFile else {
             Task { @MainActor in
@@ -369,12 +382,24 @@ public final class AudioEngine: ObservableObject {
             return
         }
 
+        let completedTrackID = currentTrack?.id
+        let completedTitle = currentTrack?.title
+        let completedArtist = currentTrack?.artist
+
         playerNode.scheduleSegment(audioFile, startingFrame: startFrame, frameCount: remainingFrames, at: nil) {
             Task { @MainActor in
-                if self.playbackState == .playing {
+                if self.playbackState == .playing, self.currentTrack?.id == completedTrackID {
+                    if let completedTrackID {
+                        await self.recordPlaybackCompletedIfPossible(
+                            mediaID: completedTrackID,
+                            title: completedTitle,
+                            artist: completedArtist,
+                            triggerCause: .autoAdvance
+                        )
+                    }
                     self.playbackState = .stopped
                     // Auto-advance to next item in the next queue if available
-                    await self.playNext()
+                    await self.playNext(triggerCause: .autoAdvance)
                 }
             }
         }
@@ -383,6 +408,10 @@ public final class AudioEngine: ObservableObject {
         playbackState = .playing
         updateCurrentTime()
         startDisplayUpdates()
+        if shouldRecordStart {
+            recordPlaybackStartedIfPossible()
+        }
+        pendingPlaybackTriggerCause = nil
     }
 
     // Fixed pause implementation - AVAudioPlayerNode doesn't have pause()
@@ -432,7 +461,7 @@ public final class AudioEngine: ObservableObject {
 
         // If we were playing, restart from new position
         if wasPlaying {
-            try play()
+            try play(shouldRecordStart: false)
         }
     }
 
@@ -440,12 +469,18 @@ public final class AudioEngine: ObservableObject {
     @MainActor
     /// Advances playback to the next queued item.
     public func playNext() async {
+        await playNext(triggerCause: .userInitiated)
+    }
+
+    @MainActor
+    private func playNext(triggerCause: MusicReceiptTriggerCause) async {
         // If there's an item queued in Next, play it
         guard !nextAudio.tracks.isEmpty else {
             stop()
             return
         }
 
+        let beforeSummary = queueStateSummary()
         let next = nextAudio.tracks.removeFirst()
 
         // Move current item to Previous if available
@@ -455,7 +490,15 @@ public final class AudioEngine: ObservableObject {
 
         do {
             // loadAndPlay auto-starts playback; no need to call play() again
-            try await loadAndPlay(nft: next)
+            try await loadAndPlay(nft: next, triggerCause: triggerCause)
+            await recordQueueChangedIfPossible(
+                operation: "next",
+                affectedMediaIDs: [next.id],
+                beforeSummary: beforeSummary,
+                afterSummary: queueStateSummary(),
+                triggerCause: triggerCause,
+                nft: next
+            )
         } catch {
             // If the error is a cancellation (stale load), do nothing; a newer request will handle playback
             if error is CancellationError { return }
@@ -476,6 +519,11 @@ public final class AudioEngine: ObservableObject {
     @MainActor
     /// Returns playback to the previous queued item.
     public func playPrevious() async {
+        await playPrevious(triggerCause: .userInitiated)
+    }
+
+    @MainActor
+    private func playPrevious(triggerCause: MusicReceiptTriggerCause) async {
         guard !previousAudio.tracks.isEmpty else {
             // If nothing in previous, restart current or stop
             seekPosition = 0
@@ -486,6 +534,7 @@ public final class AudioEngine: ObservableObject {
             return
         }
 
+        let beforeSummary = queueStateSummary()
         let previous = previousAudio.tracks.removeLast()
 
         // Put current on the front of Next so we can go forward again
@@ -495,7 +544,15 @@ public final class AudioEngine: ObservableObject {
 
         do {
             // loadAndPlay auto-starts playback; no need to call play() again
-            try await loadAndPlay(nft: previous)
+            try await loadAndPlay(nft: previous, triggerCause: triggerCause)
+            await recordQueueChangedIfPossible(
+                operation: "previous",
+                affectedMediaIDs: [previous.id],
+                beforeSummary: beforeSummary,
+                afterSummary: queueStateSummary(),
+                triggerCause: triggerCause,
+                nft: previous
+            )
         } catch {
             // If the error is a cancellation (stale load), do nothing; a newer request will handle playback
             if error is CancellationError { return }
@@ -584,10 +641,15 @@ public final class AudioEngine: ObservableObject {
     // Convenience: Play directly from an NFT and track current item for prev/next
     /// Loads the NFT audio source and starts playback immediately.
     public func loadAndPlay(nft: NFT) async throws {
+        try await loadAndPlay(nft: nft, triggerCause: .userInitiated)
+    }
+
+    private func loadAndPlay(nft: NFT, triggerCause: MusicReceiptTriggerCause) async throws {
         let loadID = await beginNewLoad()
         guard let url = nft.musicURL else {
             throw AudioEngineError.fileLoadFailed
         }
+        pendingPlaybackTriggerCause = triggerCause
 
         // Start a new load task on the current actor (MainActor)
         let task = Task { [weak self] in
@@ -729,5 +791,83 @@ public final class AudioEngine: ObservableObject {
 
     func clearPreviousHistory() {
         previousAudio.tracks.removeAll()
+    }
+}
+
+@MainActor
+private extension AudioEngine {
+    func queueStateSummary() -> MusicReceiptStateSummary {
+        MusicReceiptStateSummary(
+            values: [
+                "currentTrackID": currentNFT.map { .string($0.id) } ?? .null,
+                "upcomingCount": .number(Double(nextAudio.tracks.count)),
+                "historyCount": .number(Double(previousAudio.tracks.count))
+            ]
+        )
+    }
+
+    func receiptContext(for nft: NFT?, triggerCause: MusicReceiptTriggerCause) -> MusicReceiptContext {
+        MusicReceiptContext(
+            triggerCause: triggerCause,
+            actor: .user,
+            accountAddress: nft?.accountAddressRawValue.nilIfEmpty,
+            chain: nft.flatMap { Chain(rawValue: $0.networkRawValue) },
+            surface: "music.playback.engine"
+        )
+    }
+
+    func recordPlaybackStartedIfPossible() {
+        guard let musicReceiptLogger, let currentNFT else {
+            return
+        }
+
+        let triggerCause = pendingPlaybackTriggerCause ?? .userInitiated
+        Task { @MainActor in
+            _ = try? await musicReceiptLogger.recordPlaybackStarted(
+                mediaID: currentNFT.id,
+                title: currentNFT.name,
+                artist: currentNFT.artistName,
+                context: receiptContext(for: currentNFT, triggerCause: triggerCause)
+            )
+        }
+    }
+
+    func recordPlaybackCompletedIfPossible(
+        mediaID: String,
+        title: String?,
+        artist: String?,
+        triggerCause: MusicReceiptTriggerCause
+    ) async {
+        guard let musicReceiptLogger else {
+            return
+        }
+
+        _ = try? await musicReceiptLogger.recordPlaybackCompleted(
+            mediaID: mediaID,
+            title: title,
+            artist: artist,
+            context: receiptContext(for: currentNFT, triggerCause: triggerCause)
+        )
+    }
+
+    func recordQueueChangedIfPossible(
+        operation: String,
+        affectedMediaIDs: [String],
+        beforeSummary: MusicReceiptStateSummary,
+        afterSummary: MusicReceiptStateSummary,
+        triggerCause: MusicReceiptTriggerCause,
+        nft: NFT
+    ) async {
+        guard let musicReceiptLogger else {
+            return
+        }
+
+        _ = try? await musicReceiptLogger.recordQueueChanged(
+            operation: operation,
+            affectedMediaIDs: affectedMediaIDs,
+            beforeSummary: beforeSummary,
+            afterSummary: afterSummary,
+            context: receiptContext(for: nft, triggerCause: triggerCause)
+        )
     }
 }

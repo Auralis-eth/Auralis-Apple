@@ -257,16 +257,24 @@ struct NewPlaylistView: View {
         }
 
         isSaving = true
-        let persistenceStore = PlaylistPersistenceStore(modelContainer: modelContext.container)
+        let receiptLogger = MusicReceiptEventLogger(
+            receiptStore: ReceiptStores.live(modelContext: modelContext)
+        )
 
         Task {
             do {
-                try await persistenceStore.createPlaylist(
+                _ = try await modelContext.createPlaylist(
                     title: trimmed,
                     description: descriptionText,
                     imageRef: nil,
                     imageData: selectedImageData,
-                    trackIDs: []
+                    tracks: [],
+                    musicReceiptLogger: receiptLogger,
+                    receiptContext: MusicReceiptContext(
+                        triggerCause: .userInitiated,
+                        actor: .user,
+                        surface: "music.playlist.new"
+                    )
                 )
                 onSuccess(trimmed)
                 dismiss()

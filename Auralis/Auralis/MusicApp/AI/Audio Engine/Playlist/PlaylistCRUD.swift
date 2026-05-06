@@ -48,6 +48,19 @@ public struct PlaylistRepository: Sendable {
 
 private let logger = Logger(subsystem: "Auralis", category: "PlaylistCRUD")
 
+struct PlaylistMutationSnapshot: Equatable, Sendable {
+    let playlistID: UUID
+    let title: String
+    let itemCount: Int
+    let affectedMediaIDs: [String]
+}
+
+struct PlaylistModificationSnapshot: Equatable, Sendable {
+    let before: PlaylistMutationSnapshot
+    let after: PlaylistMutationSnapshot
+    let changedFields: [String]
+}
+
 @ModelActor
 public actor PlaylistPersistenceStore {
     public func createPlaylist(
@@ -57,6 +70,22 @@ public actor PlaylistPersistenceStore {
         imageData: Data? = nil,
         trackIDs: [PersistentIdentifier] = []
     ) throws {
+        _ = try createPlaylistReceiptSnapshot(
+            title: title,
+            description: description,
+            imageRef: imageRef,
+            imageData: imageData,
+            trackIDs: trackIDs
+        )
+    }
+
+    func createPlaylistReceiptSnapshot(
+        title: String,
+        description: String? = nil,
+        imageRef: String? = nil,
+        imageData: Data? = nil,
+        trackIDs: [PersistentIdentifier] = []
+    ) throws -> PlaylistMutationSnapshot {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else {
             throw PlaylistError.invalidData("Title must not be empty.")
@@ -76,6 +105,12 @@ public actor PlaylistPersistenceStore {
         do {
             try modelContext.save()
             logger.log("Created playlist '\(trimmedTitle, privacy: .public)'.")
+            return PlaylistMutationSnapshot(
+                playlistID: playlist.id,
+                title: playlist.title,
+                itemCount: playlist.itemCount,
+                affectedMediaIDs: playlist.tracks.map(\.id).sorted()
+            )
         } catch {
             logger.error("Failed to create playlist '\(trimmedTitle, privacy: .public)': \(error.localizedDescription, privacy: .public)")
             throw PlaylistError.saveFailed(underlying: error)
@@ -115,6 +150,36 @@ public actor PlaylistPersistenceStore {
 /// Convenience playlist persistence helpers layered onto `ModelContext`.
 public extension ModelContext {
     @discardableResult
+    internal func createPlaylist(
+        title: String,
+        description: String? = nil,
+        imageRef: String? = nil,
+        imageData: Data? = nil,
+        tracks: [NFT] = [],
+        musicReceiptLogger: MusicReceiptEventLogger,
+        receiptContext: MusicReceiptContext
+    ) async throws -> PlaylistMutationSnapshot {
+        let persistenceStore = PlaylistPersistenceStore(modelContainer: container)
+        let snapshot = try await persistenceStore.createPlaylistReceiptSnapshot(
+            title: title,
+            description: description,
+            imageRef: imageRef,
+            imageData: imageData,
+            trackIDs: tracks.map(\.persistentModelID)
+        )
+
+        _ = try await musicReceiptLogger.recordPlaylistCreated(
+            playlistID: snapshot.playlistID,
+            playlistTitle: snapshot.title,
+            affectedMediaIDs: snapshot.affectedMediaIDs,
+            itemCount: snapshot.itemCount,
+            context: receiptContext
+        )
+
+        return snapshot
+    }
+
+    @discardableResult
     /// Creates and persists a new playlist.
     func createPlaylist(
         title: String,
@@ -145,14 +210,20 @@ public extension ModelContext {
         }
     }
 
-    /// Updates mutable playlist fields and persists the changes.
-    func updatePlaylist(
+    internal func updatePlaylistReceiptSnapshot(
         _ playlist: Playlist,
         title: String? = nil,
         description: String? = nil,
         imageRef: String? = nil,
         items: [NFT]? = nil
-    ) throws {
+    ) throws -> PlaylistModificationSnapshot {
+        let before = PlaylistMutationSnapshot(
+            playlistID: playlist.id,
+            title: playlist.title,
+            itemCount: playlist.itemCount,
+            affectedMediaIDs: playlist.tracks.map(\.id).sorted()
+        )
+
         if let title {
             let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else {
@@ -171,13 +242,87 @@ public extension ModelContext {
         if let items {
             playlist.tracks = items
         }
+
+        let changedFields = [
+            title == nil ? nil : "title",
+            description == nil ? nil : "description",
+            imageRef == nil ? nil : "imageRef",
+            items == nil ? nil : "tracks"
+        ].compactMap { $0 }
+
         do {
             try save()
             logger.log("Updated playlist '\(playlist.title, privacy: .public)'.")
+            let after = PlaylistMutationSnapshot(
+                playlistID: playlist.id,
+                title: playlist.title,
+                itemCount: playlist.itemCount,
+                affectedMediaIDs: playlist.tracks.map(\.id).sorted()
+            )
+            return PlaylistModificationSnapshot(
+                before: before,
+                after: after,
+                changedFields: changedFields
+            )
         } catch {
             logger.error("Failed to update playlist '\(playlist.title, privacy: .public)': \(error.localizedDescription, privacy: .public)")
             throw PlaylistError.saveFailed(underlying: error)
         }
+    }
+
+    internal func updatePlaylist(
+        _ playlist: Playlist,
+        title: String? = nil,
+        description: String? = nil,
+        imageRef: String? = nil,
+        items: [NFT]? = nil,
+        musicReceiptLogger: MusicReceiptEventLogger,
+        receiptContext: MusicReceiptContext
+    ) async throws {
+        let snapshot = try updatePlaylistReceiptSnapshot(
+            playlist,
+            title: title,
+            description: description,
+            imageRef: imageRef,
+            items: items
+        )
+
+        _ = try await musicReceiptLogger.recordPlaylistModified(
+            playlistID: snapshot.after.playlistID,
+            playlistTitle: snapshot.after.title,
+            affectedMediaIDs: snapshot.after.affectedMediaIDs,
+            beforeSummary: MusicReceiptStateSummary.playlist(
+                playlistID: snapshot.before.playlistID,
+                playlistTitle: snapshot.before.title,
+                itemCount: snapshot.before.itemCount,
+                changedFields: snapshot.changedFields
+            ),
+            afterSummary: MusicReceiptStateSummary.playlist(
+                playlistID: snapshot.after.playlistID,
+                playlistTitle: snapshot.after.title,
+                itemCount: snapshot.after.itemCount,
+                changedFields: snapshot.changedFields
+            ),
+            changedFields: snapshot.changedFields,
+            context: receiptContext
+        )
+    }
+
+    /// Updates mutable playlist fields and persists the changes.
+    func updatePlaylist(
+        _ playlist: Playlist,
+        title: String? = nil,
+        description: String? = nil,
+        imageRef: String? = nil,
+        items: [NFT]? = nil
+    ) throws {
+        _ = try updatePlaylistReceiptSnapshot(
+            playlist,
+            title: title,
+            description: description,
+            imageRef: imageRef,
+            items: items
+        )
     }
 
     /// Deletes a playlist and persists the removal.

@@ -183,6 +183,11 @@ struct MainAuraView: View {
             return
         }
 
+        audioEngine?.configureMusicReceiptLogger(
+            MusicReceiptEventLogger(
+                receiptStore: ReceiptStores.live(modelContext: modelContext)
+            )
+        )
         let gatewayDependencies = dependencies.makeGatewayDependencies(modelContext)
         let mainTabDependencies = dependencies.makeMainTabDependencies(modelContext)
         let store = dependencies.makeShellStore(modelContext, nftService, router)
@@ -271,6 +276,11 @@ struct MainAuraView: View {
         let audioBootstrap = Self.makeAudioEngine()
         audioEngine = audioBootstrap.engine
         audioEngineInitializationErrorMessage = audioBootstrap.errorMessage
+        audioEngine?.configureMusicReceiptLogger(
+            MusicReceiptEventLogger(
+                receiptStore: ReceiptStores.live(modelContext: modelContext)
+            )
+        )
     }
 
     private static func makeAudioEngine() -> (

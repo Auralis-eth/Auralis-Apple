@@ -18,11 +18,13 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
     private let tokenService: AuraPlayNFTTokenService
     private let mediaItemService: AuraPlayMediaItemService
     private let requestBuilder: AuraPlayLibrarySyncRequestBuilder
+    private let musicReceiptLogger: MusicReceiptEventLogger
     private let logger: any AuraPlayLogging
 
     init(
         sourceModelContext: ModelContext,
         modelContainer: ModelContainer,
+        musicReceiptLogger: MusicReceiptEventLogger,
         logger: any AuraPlayLogging,
         requestBuilder: AuraPlayLibrarySyncRequestBuilder = .init()
     ) {
@@ -31,6 +33,7 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
         self.tokenService = AuraPlayNFTTokenService(modelContainer: modelContainer)
         self.mediaItemService = AuraPlayMediaItemService(modelContainer: modelContainer)
         self.requestBuilder = requestBuilder
+        self.musicReceiptLogger = musicReceiptLogger
         self.logger = logger
     }
 
@@ -40,6 +43,15 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
         }
 
         let syncedAt = Date()
+        let correlationID = UUID().uuidString
+        let receiptContext = MusicReceiptContext(
+            triggerCause: .systemSync,
+            actor: .system,
+            accountAddress: normalizedAccountAddress,
+            chain: scope.chain,
+            correlationID: correlationID,
+            surface: "music.library.sync"
+        )
         let sourceSnapshots = try await sourceSnapshotStore.fetchEligibleNFTSnapshots(
             accountAddress: normalizedAccountAddress,
             chain: scope.chain
@@ -56,6 +68,7 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
             from: sourceSnapshots,
             walletID: walletID
         )
+        let affectedMediaIDs = requestBundle.mediaItemRequests.map(\.sourceNFTID).sorted()
 
         try await tokenService.replaceAll(
             walletID: walletID,
@@ -66,6 +79,57 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
             walletID: walletID,
             requests: requestBundle.mediaItemRequests,
             syncedAt: syncedAt
+        )
+
+        if !affectedMediaIDs.isEmpty {
+            _ = try? await musicReceiptLogger.recordMediaClassified(
+                affectedMediaIDs: affectedMediaIDs,
+                beforeSummary: nil,
+                afterSummary: .classification(
+                    totalCount: requestBundle.mediaItemRequests.count,
+                    playableCount: requestBundle.mediaItemRequests.filter(\.isPlayable).count,
+                    metadataOnlyCount: requestBundle.mediaItemRequests.filter { !$0.isPlayable }.count,
+                    artworkCount: requestBundle.mediaItemRequests.filter(\.hasArtwork).count
+                ),
+                context: receiptContext
+            )
+        }
+
+        let metadataOverrideDelta = metadataOverrideDelta(
+            sourceSnapshots: sourceSnapshots,
+            mediaItemRequests: requestBundle.mediaItemRequests
+        )
+        if !metadataOverrideDelta.affectedMediaIDs.isEmpty {
+            _ = try? await musicReceiptLogger.recordMetadataOverrideApplied(
+                affectedMediaIDs: metadataOverrideDelta.affectedMediaIDs,
+                beforeSummary: metadataOverrideDelta.beforeSummary,
+                afterSummary: metadataOverrideDelta.afterSummary,
+                reason: "AuraPlay normalized sparse source metadata while projecting wallet-scoped media into the local music library.",
+                context: receiptContext
+            )
+        }
+
+        _ = try? await musicReceiptLogger.recordExportCreated(
+            exportName: "aura_play_wallet_projection",
+            format: "swiftdata_projection",
+            affectedMediaIDs: affectedMediaIDs,
+            itemCount: requestBundle.mediaItemRequests.count,
+            context: receiptContext
+        )
+        _ = try? await musicReceiptLogger.recordBackgroundMusicTaskRun(
+            taskName: "library_sync",
+            affectedMediaIDs: affectedMediaIDs,
+            beforeSummary: .task(
+                name: "library_sync",
+                inputCount: sourceSnapshots.count,
+                outputCount: 0
+            ),
+            afterSummary: .task(
+                name: "library_sync",
+                inputCount: sourceSnapshots.count,
+                outputCount: requestBundle.mediaItemRequests.count
+            ),
+            context: receiptContext
         )
 
         logger.log(
@@ -103,6 +167,87 @@ private actor AuraPlaySourceNFTSnapshotStore {
 
 extension LiveAuraPlayLibrarySyncService {
     typealias SourceNFTSnapshot = AuraPlayLibrarySyncRequestBuilder.SourceNFTSnapshot
+}
+
+private extension LiveAuraPlayLibrarySyncService {
+    struct MetadataOverrideDelta {
+        let affectedMediaIDs: [String]
+        let beforeSummary: MusicReceiptStateSummary
+        let afterSummary: MusicReceiptStateSummary
+    }
+
+    func metadataOverrideDelta(
+        sourceSnapshots: [SourceNFTSnapshot],
+        mediaItemRequests: [AuraPlayMediaItemUpsertRequest]
+    ) -> MetadataOverrideDelta {
+        let snapshotsByID = Dictionary(uniqueKeysWithValues: sourceSnapshots.map { ($0.id, $0) })
+        var affectedMediaIDs: [String] = []
+        var titleOverrideCount = 0
+        var artistOverrideCount = 0
+        var collectionOverrideCount = 0
+
+        for request in mediaItemRequests {
+            guard let sourceSnapshot = snapshotsByID[request.sourceNFTID] else {
+                continue
+            }
+
+            let sourceTitle = normalizedSourceText(sourceSnapshot.name)
+            let sourceArtist = normalizedSourceText(sourceSnapshot.artistName)
+            let sourceCollection = normalizedSourceText(sourceSnapshot.collectionName)
+            let projectedCollection = normalizedSourceText(sourceSnapshot.collectionName ?? sourceSnapshot.collectionDisplayName)
+
+            var didOverride = false
+
+            if sourceTitle == nil && request.title == "Unknown Track" {
+                titleOverrideCount += 1
+                didOverride = true
+            }
+
+            if request.artistName != sourceArtist {
+                artistOverrideCount += 1
+                didOverride = true
+            }
+
+            if request.collectionName != projectedCollection || projectedCollection != sourceCollection {
+                collectionOverrideCount += 1
+                didOverride = true
+            }
+
+            if didOverride {
+                affectedMediaIDs.append(request.sourceNFTID)
+            }
+        }
+
+        let sortedAffectedMediaIDs = Array(Set(affectedMediaIDs)).sorted()
+        let overrideCount = titleOverrideCount + artistOverrideCount + collectionOverrideCount
+
+        return MetadataOverrideDelta(
+            affectedMediaIDs: sortedAffectedMediaIDs,
+            beforeSummary: MusicReceiptStateSummary(
+                values: [
+                    "titleOverrideCount": .number(0),
+                    "artistOverrideCount": .number(0),
+                    "collectionOverrideCount": .number(0),
+                    "overrideCount": .number(0),
+                    "affectedItemCount": .number(Double(sortedAffectedMediaIDs.count))
+                ]
+            ),
+            afterSummary: MusicReceiptStateSummary(
+                values: [
+                    "titleOverrideCount": .number(Double(titleOverrideCount)),
+                    "artistOverrideCount": .number(Double(artistOverrideCount)),
+                    "collectionOverrideCount": .number(Double(collectionOverrideCount)),
+                    "overrideCount": .number(Double(overrideCount)),
+                    "affectedItemCount": .number(Double(sortedAffectedMediaIDs.count))
+                ]
+            )
+        )
+    }
+
+    func normalizedSourceText(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }
 
 struct AuraPlayLibrarySyncRequestBuilder: Sendable {

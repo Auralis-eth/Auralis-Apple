@@ -136,6 +136,8 @@ enum ActionPolicyGate {
         _ action: PolicyControlledAction,
         modeState: ModeState,
         receiptStore: any ReceiptStore,
+        musicReceiptLogger: MusicReceiptEventLogger? = nil,
+        musicPolicyContext: MusicPolicyReceiptContext? = nil,
         payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer(),
         log: @escaping (String) -> Void = { modeStateLogger.notice("\($0, privacy: .public)") }
     ) async -> PolicyGateResult {
@@ -168,6 +170,26 @@ enum ActionPolicyGate {
             )
         } catch {
             log("Policy denial receipt append failed: \(error.localizedDescription)")
+        }
+
+        if let musicReceiptLogger, let musicPolicyContext {
+            do {
+                _ = try await musicReceiptLogger.recordPolicyBlocked(
+                    action: musicPolicyContext.action,
+                    capabilityUsed: musicPolicyContext.capabilityUsed,
+                    reason: musicPolicyContext.reason,
+                    context: MusicReceiptContext(
+                        triggerCause: .policyDenied,
+                        actor: musicPolicyContext.receiptContext.actor,
+                        accountAddress: musicPolicyContext.receiptContext.accountAddress,
+                        chain: musicPolicyContext.receiptContext.chain,
+                        correlationID: musicPolicyContext.receiptContext.correlationID,
+                        surface: musicPolicyContext.receiptContext.surface
+                    )
+                )
+            } catch {
+                log("Music policy denial receipt append failed: \(error.localizedDescription)")
+            }
         }
 
         return PolicyGateResult(isAllowed: false, userMessage: userMessage)

@@ -37,6 +37,9 @@ struct AuraPlayTabRootView: View {
             librarySyncService: LiveAuraPlayLibrarySyncService(
                 sourceModelContext: appModelContext,
                 modelContainer: auraPlayModelContainer,
+                musicReceiptLogger: MusicReceiptEventLogger(
+                    receiptStore: ReceiptStores.live(modelContext: appModelContext)
+                ),
                 logger: logger
             ),
             playbackController: AuraPlayAudioEnginePlaybackController(audioEngine: audioEngine),
