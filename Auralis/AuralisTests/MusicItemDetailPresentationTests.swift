@@ -27,7 +27,7 @@ struct MusicItemDetailPresentationTests {
             availabilityReason: nil
         )
 
-        let presentation = MusicItemDetailPresentation(nft: nft, libraryItem: item)
+        let presentation = AuraPlayMusicItemDetailPresentation(nft: nft, libraryItem: item)
 
         #expect(presentation?.title == "Aurora Echo")
         #expect(presentation?.artist == "Indexed Nimbus")
@@ -59,7 +59,7 @@ struct MusicItemDetailPresentationTests {
             availabilityReason: "Provider did not return a playable source."
         )
 
-        let presentation = MusicItemDetailPresentation(nft: nft, libraryItem: item)
+        let presentation = AuraPlayMusicItemDetailPresentation(nft: nft, libraryItem: item)
 
         #expect(presentation?.title == "Recovered Track")
         #expect(presentation?.artist == nil)
@@ -82,7 +82,7 @@ struct MusicItemDetailPresentationTests {
             availabilityReason: nil
         )
 
-        let presentation = MusicItemDetailPresentation(nft: nil, libraryItem: item)
+        let presentation = AuraPlayMusicItemDetailPresentation(nft: nil, libraryItem: item)
 
         #expect(presentation?.title == "Indexed Only")
         #expect(presentation?.artist == "Offline Artist")

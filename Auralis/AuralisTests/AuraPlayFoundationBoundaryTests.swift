@@ -7,14 +7,10 @@ import Testing
 @Suite
 @MainActor
 struct AuraPlayFoundationBoundaryTests {
-    @Test("phase 2 falls back to legacy when AuraPlay persistence is unavailable")
-    func migrationStageFallsBackWithoutPersistence() {
-        #expect(
-            AuraPlayMigrationStage.phase2Persistence.resolved(hasAuraPlayPersistence: false) == .legacy
-        )
-        #expect(
-            AuraPlayMigrationStage.phase2Persistence.resolved(hasAuraPlayPersistence: true) == .phase2Persistence
-        )
+    @Test("AuraPlay persistence contract exposes the current versioned schema")
+    func persistenceContractUsesCurrentSchema() {
+        #expect(AuraPlayMigrationPlan.schemas.count == 1)
+        #expect(AuraPlayMigrationPlan.schemas.first == AuraPlaySchemaV2.self)
     }
 
     @Test("dependencies preserve the injected AuraPlay model container identity")

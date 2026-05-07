@@ -133,7 +133,6 @@ struct PrivacyResetServiceTests {
         let remainingMusicItems = try context.fetch(FetchDescriptor<MusicLibraryItem>())
         let remainingReceipts = try context.fetch(FetchDescriptor<StoredReceipt>())
         let remainingAuraPlayWallets = try context.fetch(FetchDescriptor<AuraPlayWallet>())
-        let remainingAuraPlayTokens = try context.fetch(FetchDescriptor<AuraPlayNFTToken>())
         let remainingAuraPlayMediaItems = try context.fetch(FetchDescriptor<AuraPlayMediaItem>())
         #expect(!remainingNFTs.contains(where: { $0.accountAddressRawValue == removed.address }))
         #expect(remainingNFTs.contains(where: { $0.accountAddressRawValue == preserved.address }))
@@ -144,8 +143,6 @@ struct PrivacyResetServiceTests {
         #expect(remainingReceipts.contains(where: { $0.accountAddress == preserved.address }))
         #expect(!remainingAuraPlayWallets.contains(where: { $0.addressRawValue == removed.address }))
         #expect(remainingAuraPlayWallets.contains(where: { $0.addressRawValue == preserved.address }))
-        #expect(!remainingAuraPlayTokens.contains(where: { $0.walletID.hasPrefix("\(removed.address):") }))
-        #expect(remainingAuraPlayTokens.contains(where: { $0.walletID.hasPrefix("\(preserved.address):") }))
         #expect(!remainingAuraPlayMediaItems.contains(where: { $0.accountAddressRawValue == removed.address }))
         #expect(remainingAuraPlayMediaItems.contains(where: { $0.accountAddressRawValue == preserved.address }))
         #expect(SearchHistoryStore(modelContext: context).entries(for: removed.address).isEmpty)
@@ -217,7 +214,6 @@ struct PrivacyResetServiceTests {
         let persistedMusicItems = try context.fetch(FetchDescriptor<MusicLibraryItem>())
         let persistedReceipts = try context.fetch(FetchDescriptor<StoredReceipt>())
         let persistedAuraPlayWallets = try context.fetch(FetchDescriptor<AuraPlayWallet>())
-        let persistedAuraPlayTokens = try context.fetch(FetchDescriptor<AuraPlayNFTToken>())
         let persistedAuraPlayMediaItems = try context.fetch(FetchDescriptor<AuraPlayMediaItem>())
         #expect(!persistedNFTs.contains(where: { $0.accountAddressRawValue == overwritten.address }))
         #expect(persistedNFTs.contains(where: { $0.accountAddressRawValue == other.address }))
@@ -228,8 +224,6 @@ struct PrivacyResetServiceTests {
         #expect(persistedReceipts.contains(where: { $0.accountAddress == other.address }))
         #expect(!persistedAuraPlayWallets.contains(where: { $0.addressRawValue == overwritten.address }))
         #expect(persistedAuraPlayWallets.contains(where: { $0.addressRawValue == other.address }))
-        #expect(!persistedAuraPlayTokens.contains(where: { $0.walletID.hasPrefix("\(overwritten.address):") }))
-        #expect(persistedAuraPlayTokens.contains(where: { $0.walletID.hasPrefix("\(other.address):") }))
         #expect(!persistedAuraPlayMediaItems.contains(where: { $0.accountAddressRawValue == overwritten.address }))
         #expect(persistedAuraPlayMediaItems.contains(where: { $0.accountAddressRawValue == other.address }))
         #expect(SearchHistoryStore(modelContext: context).entries(for: overwritten.address).isEmpty)
@@ -289,7 +283,6 @@ struct PrivacyResetServiceTests {
         #expect(try context.fetch(FetchDescriptor<SearchHistoryRecord>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<Playlist>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<AuraPlayWallet>()).isEmpty)
-        #expect(try context.fetch(FetchDescriptor<AuraPlayNFTToken>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<AuraPlayMediaItem>()).isEmpty)
     }
 
@@ -523,26 +516,14 @@ private func insertFixtureAuraPlayGraph(
         chain: chain,
         displayName: "Fixture Wallet"
     )
-    let token = AuraPlayNFTToken(
-        walletID: wallet.id,
-        sourceNFTID: sourceNFTID,
-        contractAddressRawValue: "0x9999999999999999999999999999999999999999",
-        tokenID: "1",
-        tokenType: "ERC721",
-        title: "Fixture AuraPlay Track",
-        artistName: "Fixture Artist",
-        collectionName: "Fixture Collection",
-        artworkURLString: "https://example.com/\(sourceNFTID).png",
-        playbackURLString: "https://example.com/\(sourceNFTID).mp3",
-        contentType: "audio/mpeg",
-        sourceUpdatedAtRawValue: "2025-01-01T00:00:00Z"
-    )
     let mediaItem = AuraPlayMediaItem(
         walletID: wallet.id,
-        tokenCompositeID: token.compositeID,
         sourceNFTID: sourceNFTID,
         accountAddressRawValue: accountAddress,
         chain: chain,
+        contractAddressRawValue: "0x9999999999999999999999999999999999999999",
+        tokenID: "1",
+        tokenType: "ERC721",
         title: "Fixture AuraPlay Track",
         artistName: "Fixture Artist",
         collectionName: "Fixture Collection",
@@ -559,12 +540,9 @@ private func insertFixtureAuraPlayGraph(
         isSearchable: true
     )
 
-    token.wallet = wallet
     mediaItem.wallet = wallet
-    mediaItem.token = token
 
     context.insert(wallet)
-    context.insert(token)
     context.insert(mediaItem)
 }
 

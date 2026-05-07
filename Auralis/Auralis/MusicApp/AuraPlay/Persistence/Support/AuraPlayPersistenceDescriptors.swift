@@ -8,27 +8,14 @@ struct AuraPlayWalletUpsertRequest: Sendable {
     let syncedAt: Date
 }
 
-struct AuraPlayNFTTokenUpsertRequest: Sendable {
-    let walletID: String
-    let sourceNFTID: String
-    let contractAddressRawValue: String
-    let tokenID: String
-    let tokenType: String?
-    let title: String
-    let artistName: String?
-    let collectionName: String?
-    let artworkURLString: String?
-    let playbackURLString: String?
-    let contentType: String?
-    let sourceUpdatedAtRawValue: String?
-}
-
 struct AuraPlayMediaItemUpsertRequest: Sendable {
     let walletID: String
-    let tokenCompositeID: String
     let sourceNFTID: String
     let accountAddressRawValue: String
     let chain: Chain
+    let contractAddressRawValue: String?
+    let tokenID: String
+    let tokenType: String?
     let title: String
     let artistName: String?
     let collectionName: String?

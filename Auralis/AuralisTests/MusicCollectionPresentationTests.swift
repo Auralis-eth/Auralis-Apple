@@ -6,7 +6,7 @@ import Testing
 struct MusicCollectionPresentationTests {
     @Test("collection summaries group scoped library items by normalized collection key")
     func summariesGroupItemsByCollection() {
-        let summaries = MusicCollectionSummary.summaries(
+        let summaries = AuraPlayMusicCollectionSummary.summaries(
             from: [
                 makeItem(id: "1", title: "Track A", artistName: "Artist One", collectionName: "Sky Archive", normalizedCollectionKey: "sky-archive", availability: .ready),
                 makeItem(id: "2", title: "Track B", artistName: "Artist One", collectionName: "Sky Archive", normalizedCollectionKey: "sky-archive", availability: .unavailable),
@@ -23,7 +23,7 @@ struct MusicCollectionPresentationTests {
 
     @Test("collection summaries fall back honestly when collection names are sparse")
     func summariesFallbackWhenCollectionNameIsMissing() {
-        let summaries = MusicCollectionSummary.summaries(
+        let summaries = AuraPlayMusicCollectionSummary.summaries(
             from: [
                 makeItem(id: "4", title: "Track D", artistName: "Only Artist", collectionName: nil, normalizedCollectionKey: "", availability: .ready)
             ]
@@ -36,7 +36,7 @@ struct MusicCollectionPresentationTests {
 
     @Test("collection detail presentation reports sparse metadata without pretending the collection is fully resolved")
     func detailPresentationReportsSparseMetadata() {
-        let summary = MusicCollectionSummary(
+        let summary = AuraPlayMusicCollectionSummary(
             key: "sky-archive",
             title: "Sky Archive",
             subtitle: nil,
@@ -45,10 +45,13 @@ struct MusicCollectionPresentationTests {
             hasUnavailableTracks: false
         )
 
-        let presentation = MusicCollectionDetailPresentation(
-            summary: summary,
-            items: [makeItem(id: "5", title: "Track E", artistName: nil, collectionName: "Sky Archive", normalizedCollectionKey: "sky-archive", availability: .ready)],
-            chain: .baseMainnet
+        let presentation = AuraPlayMusicCollectionDetailPresentation(
+            title: summary.title,
+            subtitle: summary.subtitle,
+            trackCount: summary.trackCount,
+            chainTitle: Chain.baseMainnet.routingDisplayName,
+            hasUnavailableTracks: summary.hasUnavailableTracks,
+            metadataStatus: "Some collection metadata is still being inferred from local music index fields."
         )
 
         #expect(presentation.title == "Sky Archive")

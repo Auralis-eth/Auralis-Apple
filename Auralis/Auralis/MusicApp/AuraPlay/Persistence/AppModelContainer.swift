@@ -8,18 +8,18 @@ enum AppModelContainer {
     static func make(inMemory: Bool) throws -> ModelContainer {
         let configuration = if inMemory {
             ModelConfiguration(
-                schema: Schema(AuraPlaySchemaV1.models),
+                schema: Schema(AuraPlaySchemaV2.models),
                 isStoredInMemoryOnly: true
             )
         } else {
             ModelConfiguration(
-                schema: Schema(AuraPlaySchemaV1.models),
+                schema: Schema(AuraPlaySchemaV2.models),
                 url: try storeURL()
             )
         }
 
         return try ModelContainer(
-            for: Schema(AuraPlaySchemaV1.models),
+            for: Schema(AuraPlaySchemaV2.models),
             migrationPlan: AuraPlayMigrationPlan.self,
             configurations: [configuration]
         )

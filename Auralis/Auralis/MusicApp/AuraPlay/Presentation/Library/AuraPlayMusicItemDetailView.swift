@@ -212,7 +212,7 @@ struct AuraPlayMusicItemDetailView: View {
     }
 }
 
-private struct AuraPlayMusicItemDetailPresentation: Equatable {
+struct AuraPlayMusicItemDetailPresentation: Equatable {
     struct PlaybackSummary: Equatable {
         let title: String
         let message: String

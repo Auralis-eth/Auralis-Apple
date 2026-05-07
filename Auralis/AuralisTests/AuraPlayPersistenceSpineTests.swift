@@ -10,6 +10,6 @@ struct AuraPlayPersistenceSpineTests {
         let container = try AppModelContainer.make(inMemory: true)
 
         #expect(container.migrationPlan == AuraPlayMigrationPlan.self)
-        #expect(container.schema == Schema(AuraPlaySchemaV1.models))
+        #expect(container.schema == Schema(AuraPlaySchemaV2.models))
     }
 }

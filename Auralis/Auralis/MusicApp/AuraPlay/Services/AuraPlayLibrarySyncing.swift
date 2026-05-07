@@ -16,7 +16,6 @@ struct NoOpAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
 struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
     private let sourceSnapshotStore: AuraPlaySourceNFTSnapshotStore
     private let walletService: AuraPlayWalletService
-    private let tokenService: AuraPlayNFTTokenService
     private let mediaItemService: AuraPlayMediaItemService
     private let requestBuilder: AuraPlayLibrarySyncRequestBuilder
     private let musicReceiptLogger: MusicReceiptEventLogger
@@ -31,7 +30,6 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
     ) {
         self.sourceSnapshotStore = AuraPlaySourceNFTSnapshotStore(modelContainer: sourceModelContext.container)
         self.walletService = AuraPlayWalletService(modelContainer: modelContainer)
-        self.tokenService = AuraPlayNFTTokenService(modelContainer: modelContainer)
         self.mediaItemService = AuraPlayMediaItemService(modelContainer: modelContainer)
         self.requestBuilder = requestBuilder
         self.musicReceiptLogger = musicReceiptLogger
@@ -71,11 +69,6 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
         )
         let affectedMediaIDs = requestBundle.mediaItemRequests.map(\.sourceNFTID).sorted()
 
-        try await tokenService.replaceAll(
-            walletID: walletID,
-            requests: requestBundle.tokenRequests,
-            syncedAt: syncedAt
-        )
         try await mediaItemService.replaceAll(
             walletID: walletID,
             requests: requestBundle.mediaItemRequests,
@@ -253,7 +246,6 @@ private extension LiveAuraPlayLibrarySyncService {
 
 struct AuraPlayLibrarySyncRequestBuilder: Sendable {
     struct RequestBundle: Sendable {
-        let tokenRequests: [AuraPlayNFTTokenUpsertRequest]
         let mediaItemRequests: [AuraPlayMediaItemUpsertRequest]
     }
 
@@ -336,36 +328,12 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
                 .values
                 .sorted { $0.id < $1.id }
 
-            let tokenRequests = dedupedSnapshots.map { makeTokenRequest(from: $0, walletID: walletID) }
             let mediaItemRequests = dedupedSnapshots.map { makeMediaItemRequest(from: $0, walletID: walletID) }
 
             return RequestBundle(
-                tokenRequests: tokenRequests,
                 mediaItemRequests: mediaItemRequests
             )
         }.value
-    }
-
-    private func makeTokenRequest(
-        from snapshot: SourceNFTSnapshot,
-        walletID: String
-    ) -> AuraPlayNFTTokenUpsertRequest {
-        let contractAddress = NFT.normalizedScopeComponent(snapshot.contractAddressRawValue) ?? "__missing_contract__"
-
-        return AuraPlayNFTTokenUpsertRequest(
-            walletID: walletID,
-            sourceNFTID: snapshot.id,
-            contractAddressRawValue: contractAddress,
-            tokenID: snapshot.tokenID,
-            tokenType: snapshot.tokenType,
-            title: cleanedText(snapshot.name) ?? "Unknown Track",
-            artistName: cleanedText(snapshot.artistName),
-            collectionName: cleanedText(snapshot.collectionName ?? snapshot.collectionDisplayName),
-            artworkURLString: artworkURLString(from: snapshot),
-            playbackURLString: cleanedText(snapshot.playbackURLString),
-            contentType: cleanedText(snapshot.contentType),
-            sourceUpdatedAtRawValue: cleanedText(snapshot.sourceUpdatedAtRawValue)
-        )
     }
 
     private func makeMediaItemRequest(
@@ -377,19 +345,16 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
         let collectionName = cleanedText(snapshot.collectionName ?? snapshot.collectionDisplayName)
         let playbackURLString = cleanedText(snapshot.playbackURLString)
         let artworkURLString = artworkURLString(from: snapshot)
-        let contractAddress = NFT.normalizedScopeComponent(snapshot.contractAddressRawValue) ?? "__missing_contract__"
-        let tokenCompositeID = AuraPlayNFTToken.makeCompositeID(
-            walletID: walletID,
-            contractAddressRawValue: contractAddress,
-            tokenID: snapshot.tokenID
-        )
+        let contractAddress = NFT.normalizedScopeComponent(snapshot.contractAddressRawValue)
 
         return AuraPlayMediaItemUpsertRequest(
             walletID: walletID,
-            tokenCompositeID: tokenCompositeID,
             sourceNFTID: snapshot.id,
             accountAddressRawValue: snapshot.accountAddressRawValue,
             chain: snapshot.chain,
+            contractAddressRawValue: contractAddress,
+            tokenID: snapshot.tokenID,
+            tokenType: snapshot.tokenType,
             title: title,
             artistName: artistName,
             collectionName: collectionName,

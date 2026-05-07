@@ -16,15 +16,16 @@ actor AuraPlayMediaItemService {
 
         for request in requests {
             retainedIDs.insert(request.sourceNFTID)
-            let token = try fetchToken(compositeID: request.tokenCompositeID)
 
             let item = existingByID[request.sourceNFTID] ?? {
                 let newItem = AuraPlayMediaItem(
                     walletID: walletID,
-                    tokenCompositeID: request.tokenCompositeID,
                     sourceNFTID: request.sourceNFTID,
                     accountAddressRawValue: request.accountAddressRawValue,
                     chain: request.chain,
+                    contractAddressRawValue: request.contractAddressRawValue,
+                    tokenID: request.tokenID,
+                    tokenType: request.tokenType,
                     title: request.title,
                     artistName: request.artistName,
                     collectionName: request.collectionName,
@@ -43,16 +44,17 @@ actor AuraPlayMediaItemService {
                     updatedAt: syncedAt
                 )
                 newItem.wallet = wallet
-                newItem.token = token
                 modelContext.insert(newItem)
                 existingByID[request.sourceNFTID] = newItem
                 return newItem
             }()
 
             item.walletID = walletID
-            item.tokenCompositeID = request.tokenCompositeID
             item.accountAddressRawValue = request.accountAddressRawValue
             item.chain = request.chain
+            item.contractAddressRawValue = request.contractAddressRawValue
+            item.tokenID = request.tokenID
+            item.tokenType = request.tokenType
             item.title = request.title
             item.artistName = request.artistName
             item.collectionName = request.collectionName
@@ -68,7 +70,6 @@ actor AuraPlayMediaItemService {
             item.isPlayable = request.isPlayable
             item.isSearchable = request.isSearchable
             item.wallet = wallet
-            item.token = token
             item.updatedAt = syncedAt
         }
 
@@ -83,15 +84,6 @@ actor AuraPlayMediaItemService {
         let descriptor = FetchDescriptor<AuraPlayWallet>(
             predicate: #Predicate<AuraPlayWallet> { wallet in
                 wallet.id == id
-            }
-        )
-        return try modelContext.fetch(descriptor).first
-    }
-
-    private func fetchToken(compositeID: String) throws -> AuraPlayNFTToken? {
-        let descriptor = FetchDescriptor<AuraPlayNFTToken>(
-            predicate: #Predicate<AuraPlayNFTToken> { token in
-                token.compositeID == compositeID
             }
         )
         return try modelContext.fetch(descriptor).first

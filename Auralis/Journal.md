@@ -160,6 +160,16 @@ Wave 2 is where the storage story stops being architectural fan fiction and star
 
 The memorable lesson here is that migration work gets safer the moment you stop treating “old path” and “new path” like enemies. A good transition seam is more like a bilingual host than a coup.
 
+### AuraPlay Wave 2.5: Stop Mirroring the Same Record Twice
+
+This cleanup was the software equivalent of realizing the stock room had both a master spreadsheet and a second spreadsheet that was just a copy with slightly different column names.
+
+- `NFT` was already the canonical source of truth for collectible identity. AuraPlay was reading from it during sync, then persisting both `AuraPlayNFTToken` and `AuraPlayMediaItem`. That meant the feature was paying rent for two local projections when only one of them was actually serving the user experience.
+- The fix was to delete `AuraPlayNFTToken` outright and let `AuraPlayMediaItem` carry the few token fields AuraPlay still cares about: contract address, token ID, and token type. Wallet sync state stayed on `AuraPlayWallet`, and the feature-specific searchable/playable projection stayed on `AuraPlayMediaItem`.
+- The nice side effect is that the sync path got more honest. Instead of `NFT -> token copy -> media copy`, the pipeline is now `NFT -> media projection`. Fewer moving parts, fewer reset paths, fewer tests building fake graphs just to satisfy a relationship no screen was actually using.
+
+The lesson is one worth keeping framed on the wall: when a feature-specific cache stops adding meaning and starts duplicating identity, it is no longer architecture. It is paperwork.
+
 ### The App Contract Still Counts When the Feature Has Barely Started
 
 This pass was configuration work, which means it was exactly the kind of work people postpone until App Review turns into a hostage situation.

@@ -18,9 +18,6 @@ final class AuraPlayWallet {
     var updatedAt: Date
     var lastSyncedAt: Date?
 
-    @Relationship(deleteRule: .cascade, inverse: \AuraPlayNFTToken.wallet)
-    var tokens: [AuraPlayNFTToken]?
-
     @Relationship(deleteRule: .cascade, inverse: \AuraPlayMediaItem.wallet)
     var mediaItems: [AuraPlayMediaItem]?
 

@@ -73,10 +73,6 @@ actor SwiftDataAuraPlayPersistenceResetService: AuraPlayPersistenceResetting {
                 where: #Predicate<AuraPlayMediaItem> { _ in true }
             )
             try modelContext.delete(
-                model: AuraPlayNFTToken.self,
-                where: #Predicate<AuraPlayNFTToken> { _ in true }
-            )
-            try modelContext.delete(
                 model: AuraPlayWallet.self,
                 where: #Predicate<AuraPlayWallet> { _ in true }
             )

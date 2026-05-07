@@ -54,10 +54,6 @@ extension ModelContext {
             where: #Predicate<AuraPlayMediaItem> { _ in true }
         )
         try delete(
-            model: AuraPlayNFTToken.self,
-            where: #Predicate<AuraPlayNFTToken> { _ in true }
-        )
-        try delete(
             model: AuraPlayWallet.self,
             where: #Predicate<AuraPlayWallet> { _ in true }
         )
@@ -134,15 +130,6 @@ extension ModelContext {
 
         guard !walletIDs.isEmpty else {
             return
-        }
-
-        for walletID in walletIDs {
-            try delete(
-                model: AuraPlayNFTToken.self,
-                where: #Predicate<AuraPlayNFTToken> { token in
-                    token.walletID == walletID
-                }
-            )
         }
 
         let walletDescriptor = FetchDescriptor<AuraPlayWallet>(

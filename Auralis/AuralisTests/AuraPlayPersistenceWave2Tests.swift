@@ -7,12 +7,11 @@ import Testing
 @MainActor
 @Suite
 struct AuraPlayPersistenceWave2Tests {
-    @Test("Wave 2 schema registers wallet token and media models")
+    @Test("Wave 2 schema registers wallet and media models")
     func schemaContainsWave2CoreEntities() {
-        let modelNames = Set(AuraPlaySchemaV1.models.map { String(describing: $0) })
+        let modelNames = Set(AuraPlaySchemaV2.models.map { String(describing: $0) })
 
         #expect(modelNames.contains("AuraPlayWallet"))
-        #expect(modelNames.contains("AuraPlayNFTToken"))
         #expect(modelNames.contains("AuraPlayMediaItem"))
     }
 
@@ -42,7 +41,6 @@ struct AuraPlayPersistenceWave2Tests {
     func libraryRepositoryPrefersPersistedMediaGraph() async throws {
         let container = try AppModelContainer.make(inMemory: true)
         let walletService = AuraPlayWalletService(modelContainer: container)
-        let tokenService = AuraPlayNFTTokenService(modelContainer: container)
         let mediaItemService = AuraPlayMediaItemService(modelContainer: container)
         let scope = AuraPlayLibraryScope(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
@@ -57,41 +55,17 @@ struct AuraPlayPersistenceWave2Tests {
                 syncedAt: .now
             )
         )
-        let tokenCompositeID = AuraPlayNFTToken.makeCompositeID(
-            walletID: walletID,
-            contractAddressRawValue: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-            tokenID: "1"
-        )
-
-        try await tokenService.replaceAll(
-            walletID: walletID,
-            requests: [
-                AuraPlayNFTTokenUpsertRequest(
-                    walletID: walletID,
-                    sourceNFTID: "nft-1",
-                    contractAddressRawValue: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-                    tokenID: "1",
-                    tokenType: "ERC721",
-                    title: "Genesis Track",
-                    artistName: "Aura",
-                    collectionName: "Origin",
-                    artworkURLString: "https://example.com/artwork.png",
-                    playbackURLString: "https://example.com/track.mp3",
-                    contentType: "audio/mpeg",
-                    sourceUpdatedAtRawValue: "2025-01-01T00:00:00Z"
-                )
-            ],
-            syncedAt: .now
-        )
         try await mediaItemService.replaceAll(
             walletID: walletID,
             requests: [
                 AuraPlayMediaItemUpsertRequest(
                     walletID: walletID,
-                    tokenCompositeID: tokenCompositeID,
                     sourceNFTID: "nft-1",
                     accountAddressRawValue: "0x1234567890abcdef1234567890abcdef12345678",
                     chain: .ethMainnet,
+                    contractAddressRawValue: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                    tokenID: "1",
+                    tokenType: "ERC721",
                     title: "Genesis Track",
                     artistName: "Aura",
                     collectionName: "Origin",
@@ -183,9 +157,7 @@ struct AuraPlayPersistenceWave2Tests {
             walletID: "0x1234567890abcdef1234567890abcdef12345678:eth-mainnet"
         )
 
-        #expect(bundle.tokenRequests.count == 2)
         #expect(bundle.mediaItemRequests.count == 2)
-        #expect(bundle.tokenRequests.map(\.sourceNFTID) == ["track-1", "track-2"])
         #expect(bundle.mediaItemRequests.map(\.sourceNFTID) == ["track-1", "track-2"])
     }
 
@@ -193,7 +165,6 @@ struct AuraPlayPersistenceWave2Tests {
     func auraPlayResetClearsLiveContainerWithoutInvalidatingIt() async throws {
         let container = try AppModelContainer.make(inMemory: true)
         let walletService = AuraPlayWalletService(modelContainer: container)
-        let tokenService = AuraPlayNFTTokenService(modelContainer: container)
         let mediaItemService = AuraPlayMediaItemService(modelContainer: container)
         let resetService = SwiftDataAuraPlayPersistenceResetService(modelContainer: container)
 
@@ -205,41 +176,17 @@ struct AuraPlayPersistenceWave2Tests {
                 syncedAt: .now
             )
         )
-        let tokenCompositeID = AuraPlayNFTToken.makeCompositeID(
-            walletID: walletID,
-            contractAddressRawValue: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-            tokenID: "1"
-        )
-
-        try await tokenService.replaceAll(
-            walletID: walletID,
-            requests: [
-                AuraPlayNFTTokenUpsertRequest(
-                    walletID: walletID,
-                    sourceNFTID: "nft-1",
-                    contractAddressRawValue: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-                    tokenID: "1",
-                    tokenType: "ERC721",
-                    title: "Genesis Track",
-                    artistName: "Aura",
-                    collectionName: "Origin",
-                    artworkURLString: "https://example.com/artwork.png",
-                    playbackURLString: "https://example.com/track.mp3",
-                    contentType: "audio/mpeg",
-                    sourceUpdatedAtRawValue: "2025-01-01T00:00:00Z"
-                )
-            ],
-            syncedAt: .now
-        )
         try await mediaItemService.replaceAll(
             walletID: walletID,
             requests: [
                 AuraPlayMediaItemUpsertRequest(
                     walletID: walletID,
-                    tokenCompositeID: tokenCompositeID,
                     sourceNFTID: "nft-1",
                     accountAddressRawValue: "0x1234567890abcdef1234567890abcdef12345678",
                     chain: .ethMainnet,
+                    contractAddressRawValue: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                    tokenID: "1",
+                    tokenType: "ERC721",
                     title: "Genesis Track",
                     artistName: "Aura",
                     collectionName: "Origin",
@@ -263,7 +210,6 @@ struct AuraPlayPersistenceWave2Tests {
 
         let verificationContext = ModelContext(container)
         #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayWallet>()).isEmpty)
-        #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayNFTToken>()).isEmpty)
         #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayMediaItem>()).isEmpty)
 
         let replacementWalletID = try await walletService.upsert(

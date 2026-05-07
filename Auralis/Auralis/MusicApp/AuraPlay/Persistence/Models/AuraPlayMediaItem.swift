@@ -6,6 +6,7 @@ import SwiftData
 final class AuraPlayMediaItem {
     #Index<AuraPlayMediaItem>(
         [\.walletID, \.sourceNFTID],
+        [\.walletID, \.contractAddressRawValue, \.tokenID],
         [\.walletID, \.normalizedArtistKey, \.normalizedTitleKey, \.id],
         [\.accountAddressRawValue, \.chainRawValue]
     )
@@ -13,10 +14,12 @@ final class AuraPlayMediaItem {
     @Attribute(.unique) var id: String
 
     var walletID: String
-    var tokenCompositeID: String
     var sourceNFTID: String
     var accountAddressRawValue: String
     var chainRawValue: String
+    var contractAddressRawValue: String?
+    var tokenID: String
+    var tokenType: String?
     var title: String
     var artistName: String?
     var collectionName: String?
@@ -35,14 +38,15 @@ final class AuraPlayMediaItem {
     var updatedAt: Date
 
     var wallet: AuraPlayWallet?
-    var token: AuraPlayNFTToken?
 
     init(
         walletID: String,
-        tokenCompositeID: String,
         sourceNFTID: String,
         accountAddressRawValue: String,
         chain: Chain,
+        contractAddressRawValue: String?,
+        tokenID: String,
+        tokenType: String?,
         title: String,
         artistName: String?,
         collectionName: String?,
@@ -62,10 +66,12 @@ final class AuraPlayMediaItem {
     ) {
         self.id = sourceNFTID
         self.walletID = walletID
-        self.tokenCompositeID = tokenCompositeID
         self.sourceNFTID = sourceNFTID
         self.accountAddressRawValue = accountAddressRawValue
         self.chainRawValue = chain.rawValue
+        self.contractAddressRawValue = contractAddressRawValue
+        self.tokenID = tokenID
+        self.tokenType = tokenType
         self.title = title
         self.artistName = artistName
         self.collectionName = collectionName

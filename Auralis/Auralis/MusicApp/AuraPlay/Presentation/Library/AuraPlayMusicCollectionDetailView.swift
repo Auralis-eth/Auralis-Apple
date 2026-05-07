@@ -194,7 +194,63 @@ struct AuraPlayMusicCollectionDetailView: View {
     }
 }
 
-private struct AuraPlayMusicCollectionDetailPresentation: Equatable {
+struct AuraPlayMusicCollectionSummary: Equatable {
+    let key: String
+    let title: String
+    let subtitle: String?
+    let artworkURL: URL?
+    let trackCount: Int
+    let hasUnavailableTracks: Bool
+
+    static func summaries(from items: [MusicLibraryItem]) -> [AuraPlayMusicCollectionSummary] {
+        let groupedItems = Dictionary(grouping: items) { item in
+            let key = cleanedText(item.normalizedCollectionKey)
+            return key ?? "__ungrouped__"
+        }
+
+        return groupedItems
+            .map { key, items in
+                let sortedItems = items.sorted {
+                    ($0.normalizedArtistKey, $0.normalizedTitleKey, $0.id) <
+                        ($1.normalizedArtistKey, $1.normalizedTitleKey, $1.id)
+                }
+                let title = cleanedText(sortedItems.compactMap(\.collectionName).first)
+                    ?? cleanedText(sortedItems.compactMap(\.artistName).first)
+                    ?? "Unknown Collection"
+                let artists = Array(Set(sortedItems.compactMap { cleanedText($0.artistName) })).sorted()
+                let subtitle: String? = switch artists.count {
+                case 0:
+                    nil
+                case 1:
+                    artists[0]
+                default:
+                    "\(artists.count) artists"
+                }
+
+                return AuraPlayMusicCollectionSummary(
+                    key: key,
+                    title: title,
+                    subtitle: subtitle,
+                    artworkURL: sortedItems.compactMap(\.artworkURL).first,
+                    trackCount: sortedItems.count,
+                    hasUnavailableTracks: sortedItems.contains { $0.availability == .unavailable }
+                )
+            }
+            .sorted {
+                ($0.title.localizedLowercase, $0.key) < ($1.title.localizedLowercase, $1.key)
+            }
+    }
+
+    private static func cleanedText(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+}
+
+struct AuraPlayMusicCollectionDetailPresentation: Equatable {
     let title: String
     let subtitle: String?
     let trackCount: Int
