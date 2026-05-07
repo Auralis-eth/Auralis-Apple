@@ -37,8 +37,11 @@ actor SwiftDataTransactionalPrivacyResetService: TransactionalPrivacyResetting {
             try modelContext.deleteAllNFTData()
 
             let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
-            for account in accounts where account.trackedNFTCount != 0 {
-                account.trackedNFTCount = 0
+            for account in accounts {
+                if account.trackedNFTCount != 0 {
+                    account.trackedNFTCount = 0
+                }
+                account.clearAllAuraPlaySyncState()
             }
         }
     }
@@ -71,10 +74,6 @@ actor SwiftDataAuraPlayPersistenceResetService: AuraPlayPersistenceResetting {
             try modelContext.delete(
                 model: AuraPlayMediaItem.self,
                 where: #Predicate<AuraPlayMediaItem> { _ in true }
-            )
-            try modelContext.delete(
-                model: AuraPlayWallet.self,
-                where: #Predicate<AuraPlayWallet> { _ in true }
             )
         }
     }

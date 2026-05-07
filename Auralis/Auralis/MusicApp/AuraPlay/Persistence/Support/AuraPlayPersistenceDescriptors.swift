@@ -1,7 +1,8 @@
-import AuralisPrimaryModels
 import Foundation
 
-struct AuraPlayWalletUpsertRequest: Sendable {
+import AuralisPrimaryModels
+
+struct AuraPlayAccountSyncUpdateRequest: Sendable {
     let address: String
     let chain: Chain
     let displayName: String?
@@ -9,7 +10,6 @@ struct AuraPlayWalletUpsertRequest: Sendable {
 }
 
 struct AuraPlayMediaItemUpsertRequest: Sendable {
-    let walletID: String
     let sourceNFTID: String
     let accountAddressRawValue: String
     let chain: Chain

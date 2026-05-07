@@ -33,6 +33,7 @@ public final class EOAccount: Codable, Identifiable {
     public var trackedNFTCount: Int
     public var preferredChainRawValue: String = Chain.ethMainnet.rawValue
     public var currentChainRawValue: String = Chain.ethMainnet.rawValue
+    public var auraPlaySyncStateRawValue: String?
 
     @Relationship(deleteRule: .cascade, inverse: \NFT.account) public var nfts: [NFT] = []
 
@@ -56,6 +57,7 @@ public final class EOAccount: Codable, Identifiable {
         self.trackedNFTCount = trackedNFTCount
         self.preferredChainRawValue = Chain.ethMainnet.rawValue
         self.currentChainRawValue = Chain.ethMainnet.rawValue
+        self.auraPlaySyncStateRawValue = nil
     }
 
     enum CodingKeys: String, CodingKey {
@@ -69,6 +71,7 @@ public final class EOAccount: Codable, Identifiable {
         case trackedNFTCount
         case preferredChainRawValue
         case currentChainRawValue
+        case auraPlaySyncStateRawValue
     }
 
     public required init(from decoder: Decoder) throws {
@@ -89,6 +92,7 @@ public final class EOAccount: Codable, Identifiable {
 
         let decodedPreferred = try container.decodeIfPresent(String.self, forKey: .preferredChainRawValue) ?? Chain.ethMainnet.rawValue
         let decodedCurrent = try container.decodeIfPresent(String.self, forKey: .currentChainRawValue) ?? Chain.ethMainnet.rawValue
+        let decodedAuraPlaySyncStateRawValue = try container.decodeIfPresent(String.self, forKey: .auraPlaySyncStateRawValue)
         let decodedNormalizedName = try container.decodeIfPresent(String.self, forKey: .normalizedName)
 
         address = decodedAddress
@@ -101,6 +105,7 @@ public final class EOAccount: Codable, Identifiable {
         trackedNFTCount = decodedTrackedNFTCount
         preferredChainRawValue = decodedPreferred
         currentChainRawValue = decodedCurrent
+        auraPlaySyncStateRawValue = decodedAuraPlaySyncStateRawValue
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -115,6 +120,7 @@ public final class EOAccount: Codable, Identifiable {
         try container.encode(trackedNFTCount, forKey: .trackedNFTCount)
         try container.encode(preferredChainRawValue, forKey: .preferredChainRawValue)
         try container.encode(currentChainRawValue, forKey: .currentChainRawValue)
+        try container.encodeIfPresent(auraPlaySyncStateRawValue, forKey: .auraPlaySyncStateRawValue)
     }
 
     public var mostRecentActivityAt: Date {
@@ -188,6 +194,65 @@ public final class EOAccount: Codable, Identifiable {
         )
         normalizedName = resolvedNormalizedName
         return true
+    }
+
+    public func auraPlayLastSyncedAt(for chain: Chain) -> Date? {
+        auraPlaySyncStates[chain.rawValue]
+    }
+
+    public func markAuraPlaySynced(on chain: Chain, at syncedAt: Date) {
+        var states = auraPlaySyncStates
+        states[chain.rawValue] = syncedAt
+        auraPlaySyncStates = states
+    }
+
+    public func clearAuraPlaySyncState(for chain: Chain) {
+        var states = auraPlaySyncStates
+        states.removeValue(forKey: chain.rawValue)
+        auraPlaySyncStates = states
+    }
+
+    public func clearAllAuraPlaySyncState() {
+        auraPlaySyncStates = [:]
+    }
+
+    private var auraPlaySyncStates: [String: Date] {
+        get {
+            Self.decodeAuraPlaySyncStates(from: auraPlaySyncStateRawValue)
+        }
+        set {
+            auraPlaySyncStateRawValue = Self.encodeAuraPlaySyncStates(newValue)
+        }
+    }
+
+    private static func decodeAuraPlaySyncStates(from rawValue: String?) -> [String: Date] {
+        guard
+            let rawValue,
+            let data = rawValue.data(using: .utf8)
+        else {
+            return [:]
+        }
+
+        do {
+            return try JSONDecoder().decode([String: Date].self, from: data)
+        } catch {
+            eoAccountLogger.error("Failed to decode AuraPlay sync state for account metadata")
+            return [:]
+        }
+    }
+
+    private static func encodeAuraPlaySyncStates(_ states: [String: Date]) -> String? {
+        guard !states.isEmpty else {
+            return nil
+        }
+
+        do {
+            let data = try JSONEncoder().encode(states)
+            return String(data: data, encoding: .utf8)
+        } catch {
+            eoAccountLogger.error("Failed to encode AuraPlay sync state for account metadata")
+            return nil
+        }
     }
 }
 

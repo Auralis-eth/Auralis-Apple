@@ -5,15 +5,14 @@ import SwiftData
 @Model
 final class AuraPlayMediaItem {
     #Index<AuraPlayMediaItem>(
-        [\.walletID, \.sourceNFTID],
-        [\.walletID, \.contractAddressRawValue, \.tokenID],
-        [\.walletID, \.normalizedArtistKey, \.normalizedTitleKey, \.id],
+        [\.accountAddressRawValue, \.chainRawValue, \.sourceNFTID],
+        [\.accountAddressRawValue, \.chainRawValue, \.contractAddressRawValue, \.tokenID],
+        [\.accountAddressRawValue, \.chainRawValue, \.normalizedArtistKey, \.normalizedTitleKey, \.id],
         [\.accountAddressRawValue, \.chainRawValue]
     )
 
     @Attribute(.unique) var id: String
 
-    var walletID: String
     var sourceNFTID: String
     var accountAddressRawValue: String
     var chainRawValue: String
@@ -37,10 +36,7 @@ final class AuraPlayMediaItem {
     var createdAt: Date
     var updatedAt: Date
 
-    var wallet: AuraPlayWallet?
-
     init(
-        walletID: String,
         sourceNFTID: String,
         accountAddressRawValue: String,
         chain: Chain,
@@ -65,7 +61,6 @@ final class AuraPlayMediaItem {
         updatedAt: Date = .now
     ) {
         self.id = sourceNFTID
-        self.walletID = walletID
         self.sourceNFTID = sourceNFTID
         self.accountAddressRawValue = accountAddressRawValue
         self.chainRawValue = chain.rawValue

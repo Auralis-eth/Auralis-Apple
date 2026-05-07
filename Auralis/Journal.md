@@ -775,6 +775,26 @@ The repair was deliberately small. The tests now ask the same question the app a
 
 The lesson is worth keeping: freshness and cache timestamps almost always start life as one innocent value and later become scope-dependent. When that happens, tests should be updated to mirror the real lookup contract immediately, or they become fossilized documentation for an API the app no longer has.
 
+## 2025-04-29 AuraPlay Stops Carrying A Fake Wallet Passport
+
+`AuraPlayWallet` had become the software equivalent of a temporary badge that somehow got promoted to middle management. It existed mostly so AuraPlay could say “I have persisted library data for this address on this chain,” but the real account model in the app was already `EOAccount`. That meant we were carrying two identities for one human story: the shell knew the person as an account, while AuraPlay kept inventing a second little wallet record just to remember sync state.
+
+The merge fixed that split personality in three pieces:
+
+- `EOAccount` now carries AuraPlay per-chain sync metadata. Think of it like adding a proper travel history section to the real passport instead of issuing a separate paper stub every time someone changes terminals.
+- `AuraPlayMediaItem` is now scoped directly by `accountAddressRawValue + chainRawValue`. The media store no longer needs a parent wallet row standing nearby like a chaperone.
+- The dedicated AuraPlay store shrank to what it actually owns: persisted media items. The “was this chain already synced?” signal moved back to the primary account store where it belongs.
+
+The subtle gotcha was store boundaries. The tempting move would have been “just put `EOAccount` inside the AuraPlay store too,” but that is how one source of truth quietly becomes two synchronized liars. The cleaner design was to let the primary store own identity and sync metadata, and let the AuraPlay store own only its media projection.
+
+There was also a migration wrinkle hiding in plain sight: we still needed the old `AuraPlayWallet` type around as a historical schema artifact so `AuraPlaySchemaV2` could migrate to `AuraPlaySchemaV3`. In other words, the old stage prop is gone from the script, but it still has to sit in the backstage closet long enough for the moving crew to recognize it.
+
+The engineering lesson is a good one:
+
+- if a model exists only to smuggle state that already belongs to a stronger domain type, merge it back before it starts attracting relationships
+- if a feature store is really a projection cache, keep it narrow and let the primary store own identity
+- if a migration needs legacy types to exist for one more release, keep them explicitly as legacy scaffolding instead of pretending they are still first-class design
+
 ## 2025-04-29 AuraPlay Phase 1: Building The Stage Before Moving The Band
 
 AuraPlay finally stopped being a hopeful folder name and started behaving like a real module boundary.

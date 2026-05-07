@@ -7,59 +7,62 @@ import Testing
 @MainActor
 @Suite
 struct AuraPlayPersistenceWave2Tests {
-    @Test("Wave 2 schema registers wallet and media models")
-    func schemaContainsWave2CoreEntities() {
-        let modelNames = Set(AuraPlaySchemaV2.models.map { String(describing: $0) })
+    @Test("current AuraPlay schema keeps only persisted media rows in the dedicated store")
+    func schemaContainsCurrentCoreEntities() {
+        let modelNames = Set(AuraPlaySchema.models.map { String(describing: $0) })
 
-        #expect(modelNames.contains("AuraPlayWallet"))
         #expect(modelNames.contains("AuraPlayMediaItem"))
+        #expect(modelNames.count == 1)
     }
 
-    @Test("wallet service can upsert a scoped wallet into the AuraPlay container")
-    func walletServiceUpsertsScopedWallet() async throws {
-        let container = try AppModelContainer.make(inMemory: true)
-        let walletService = AuraPlayWalletService(modelContainer: container)
+    @Test("account sync state service records per-chain AuraPlay sync state on EOAccount")
+    func accountSyncStateServiceMarksSyncedChain() async throws {
+        let container = try TestModelContainers.primary()
+        let context = ModelContext(container)
+        let service = AuraPlayAccountSyncStateService(modelContainer: container)
+        let syncedAt = Date(timeIntervalSince1970: 1_735_689_600)
 
-        let walletID = try await walletService.upsert(
-            AuraPlayWalletUpsertRequest(
+        try await service.markSynced(
+            AuraPlayAccountSyncUpdateRequest(
                 address: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .ethMainnet,
                 displayName: "Aura Wallet",
-                syncedAt: .now
+                syncedAt: syncedAt
             )
         )
 
-        let context = ModelContext(container)
-        let wallets = try context.fetch(FetchDescriptor<AuraPlayWallet>())
+        let accounts = try context.fetch(FetchDescriptor<EOAccount>())
 
-        #expect(walletID == "0x1234567890abcdef1234567890abcdef12345678:eth-mainnet")
-        #expect(wallets.count == 1)
-        #expect(wallets.first?.displayName == "Aura Wallet")
+        #expect(accounts.count == 1)
+        #expect(accounts.first?.name == "Aura Wallet")
+        #expect(accounts.first?.auraPlayLastSyncedAt(for: .ethMainnet) == syncedAt)
     }
 
-    @Test("library repository prefers persisted AuraPlay media once a scoped wallet exists")
+    @Test("library repository prefers persisted AuraPlay media once EOAccount marks the chain as synced")
     func libraryRepositoryPrefersPersistedMediaGraph() async throws {
-        let container = try AppModelContainer.make(inMemory: true)
-        let walletService = AuraPlayWalletService(modelContainer: container)
-        let mediaItemService = AuraPlayMediaItemService(modelContainer: container)
+        let auraPlayContainer = try AppModelContainer.make(inMemory: true)
+        let primaryContainer = try TestModelContainers.primary()
+        let primaryContext = ModelContext(primaryContainer)
+        let mediaItemService = AuraPlayMediaItemService(modelContainer: auraPlayContainer)
         let scope = AuraPlayLibraryScope(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet
         )
 
-        let walletID = try await walletService.upsert(
-            AuraPlayWalletUpsertRequest(
-                address: "0x1234567890abcdef1234567890abcdef12345678",
-                chain: .ethMainnet,
-                displayName: "Aura Wallet",
-                syncedAt: .now
-            )
+        let account = EOAccount(
+            address: "0x1234567890abcdef1234567890abcdef12345678",
+            access: .readonly,
+            name: "Aura Wallet"
         )
+        account.markAuraPlaySynced(on: .ethMainnet, at: .now)
+        primaryContext.insert(account)
+        try primaryContext.save()
+
         try await mediaItemService.replaceAll(
-            walletID: walletID,
+            accountAddress: account.address,
+            chain: .ethMainnet,
             requests: [
                 AuraPlayMediaItemUpsertRequest(
-                    walletID: walletID,
                     sourceNFTID: "nft-1",
                     accountAddressRawValue: "0x1234567890abcdef1234567890abcdef12345678",
                     chain: .ethMainnet,
@@ -88,7 +91,8 @@ struct AuraPlayPersistenceWave2Tests {
         let repository = LiveAuraPlayLibraryRepository(
             indexer: MockMusicLibraryIndexer(),
             receiptEventLogger: ReceiptEventLogger(receiptStore: UnusedReceiptStore()),
-            modelContainer: container
+            auraPlayModelContainer: auraPlayContainer,
+            accountModelContext: primaryContext
         )
 
         #expect(try repository.itemCount(in: scope) == 1)
@@ -153,8 +157,7 @@ struct AuraPlayPersistenceWave2Tests {
         ]
 
         let bundle = await requestBuilder.makeRequestBundle(
-            from: snapshots,
-            walletID: "0x1234567890abcdef1234567890abcdef12345678:eth-mainnet"
+            from: snapshots
         )
 
         #expect(bundle.mediaItemRequests.count == 2)
@@ -164,23 +167,14 @@ struct AuraPlayPersistenceWave2Tests {
     @Test("AuraPlay reset clears the live container and leaves it reusable in the same launch")
     func auraPlayResetClearsLiveContainerWithoutInvalidatingIt() async throws {
         let container = try AppModelContainer.make(inMemory: true)
-        let walletService = AuraPlayWalletService(modelContainer: container)
         let mediaItemService = AuraPlayMediaItemService(modelContainer: container)
         let resetService = SwiftDataAuraPlayPersistenceResetService(modelContainer: container)
 
-        let walletID = try await walletService.upsert(
-            AuraPlayWalletUpsertRequest(
-                address: "0x1234567890abcdef1234567890abcdef12345678",
-                chain: .ethMainnet,
-                displayName: "Aura Wallet",
-                syncedAt: .now
-            )
-        )
         try await mediaItemService.replaceAll(
-            walletID: walletID,
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet,
             requests: [
                 AuraPlayMediaItemUpsertRequest(
-                    walletID: walletID,
                     sourceNFTID: "nft-1",
                     accountAddressRawValue: "0x1234567890abcdef1234567890abcdef12345678",
                     chain: .ethMainnet,
@@ -209,22 +203,41 @@ struct AuraPlayPersistenceWave2Tests {
         try await resetService.resetAuraPlayPersistence()
 
         let verificationContext = ModelContext(container)
-        #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayWallet>()).isEmpty)
         #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayMediaItem>()).isEmpty)
 
-        let replacementWalletID = try await walletService.upsert(
-            AuraPlayWalletUpsertRequest(
-                address: "0x9999999999999999999999999999999999999999",
-                chain: .baseMainnet,
-                displayName: "Replacement Wallet",
-                syncedAt: .now
-            )
+        try await mediaItemService.replaceAll(
+            accountAddress: "0x9999999999999999999999999999999999999999",
+            chain: .baseMainnet,
+            requests: [
+                AuraPlayMediaItemUpsertRequest(
+                    sourceNFTID: "nft-2",
+                    accountAddressRawValue: "0x9999999999999999999999999999999999999999",
+                    chain: .baseMainnet,
+                    contractAddressRawValue: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                    tokenID: "2",
+                    tokenType: "ERC721",
+                    title: "Replacement Track",
+                    artistName: "Aura",
+                    collectionName: "Origin",
+                    normalizedTitleKey: "replacement track",
+                    normalizedArtistKey: "aura",
+                    normalizedCollectionKey: "origin",
+                    artworkURLString: "https://example.com/replacement.png",
+                    playbackURLString: "https://example.com/replacement.mp3",
+                    contentType: "audio/mpeg",
+                    sourceUpdatedAtRawValue: "2025-01-02T00:00:00Z",
+                    hasArtwork: true,
+                    hasAudio: true,
+                    isPlayable: true,
+                    isSearchable: true
+                )
+            ],
+            syncedAt: .now
         )
-        let reusedWallets = try verificationContext.fetch(FetchDescriptor<AuraPlayWallet>())
+        let reusedMediaItems = try verificationContext.fetch(FetchDescriptor<AuraPlayMediaItem>())
 
-        #expect(replacementWalletID == "0x9999999999999999999999999999999999999999:base-mainnet")
-        #expect(reusedWallets.count == 1)
-        #expect(reusedWallets.first?.displayName == "Replacement Wallet")
+        #expect(reusedMediaItems.count == 1)
+        #expect(reusedMediaItems.first?.accountAddressRawValue == "0x9999999999999999999999999999999999999999")
     }
 }
 

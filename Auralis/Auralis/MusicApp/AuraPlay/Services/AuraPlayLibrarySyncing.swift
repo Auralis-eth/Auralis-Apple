@@ -15,7 +15,7 @@ struct NoOpAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
 @MainActor
 struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
     private let sourceSnapshotStore: AuraPlaySourceNFTSnapshotStore
-    private let walletService: AuraPlayWalletService
+    private let accountSyncStateService: AuraPlayAccountSyncStateService
     private let mediaItemService: AuraPlayMediaItemService
     private let requestBuilder: AuraPlayLibrarySyncRequestBuilder
     private let musicReceiptLogger: MusicReceiptEventLogger
@@ -23,14 +23,14 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
 
     init(
         sourceModelContext: ModelContext,
-        modelContainer: ModelContainer,
+        auraPlayModelContainer: ModelContainer,
         musicReceiptLogger: MusicReceiptEventLogger,
         logger: any AuraPlayLogging,
         requestBuilder: AuraPlayLibrarySyncRequestBuilder = .init()
     ) {
         self.sourceSnapshotStore = AuraPlaySourceNFTSnapshotStore(modelContainer: sourceModelContext.container)
-        self.walletService = AuraPlayWalletService(modelContainer: modelContainer)
-        self.mediaItemService = AuraPlayMediaItemService(modelContainer: modelContainer)
+        self.accountSyncStateService = AuraPlayAccountSyncStateService(modelContainer: sourceModelContext.container)
+        self.mediaItemService = AuraPlayMediaItemService(modelContainer: auraPlayModelContainer)
         self.requestBuilder = requestBuilder
         self.musicReceiptLogger = musicReceiptLogger
         self.logger = logger
@@ -55,8 +55,8 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
             accountAddress: normalizedAccountAddress,
             chain: scope.chain
         )
-        let walletID = try await walletService.upsert(
-            AuraPlayWalletUpsertRequest(
+        try await accountSyncStateService.markSynced(
+            AuraPlayAccountSyncUpdateRequest(
                 address: normalizedAccountAddress,
                 chain: scope.chain,
                 displayName: accountName,
@@ -64,13 +64,13 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
             )
         )
         let requestBundle = await requestBuilder.makeRequestBundle(
-            from: sourceSnapshots,
-            walletID: walletID
+            from: sourceSnapshots
         )
         let affectedMediaIDs = requestBundle.mediaItemRequests.map(\.sourceNFTID).sorted()
 
         try await mediaItemService.replaceAll(
-            walletID: walletID,
+            accountAddress: normalizedAccountAddress,
+            chain: scope.chain,
             requests: requestBundle.mediaItemRequests,
             syncedAt: syncedAt
         )
@@ -98,13 +98,13 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
                 affectedMediaIDs: metadataOverrideDelta.affectedMediaIDs,
                 beforeSummary: metadataOverrideDelta.beforeSummary,
                 afterSummary: metadataOverrideDelta.afterSummary,
-                reason: "AuraPlay normalized sparse source metadata while projecting wallet-scoped media into the local music library.",
+                reason: "AuraPlay normalized sparse source metadata while projecting account-scoped media into the local music library.",
                 context: receiptContext
             )
         }
 
         _ = try? await musicReceiptLogger.recordExportCreated(
-            exportName: "aura_play_wallet_projection",
+            exportName: "aura_play_account_projection",
             format: "swiftdata_projection",
             affectedMediaIDs: affectedMediaIDs,
             itemCount: requestBundle.mediaItemRequests.count,
@@ -130,7 +130,7 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
             AuraPlayLogEvent(
                 category: .library,
                 level: .info,
-                message: "AuraPlay synced \(requestBundle.mediaItemRequests.count) persisted media items for \(walletID)"
+                message: "AuraPlay synced \(requestBundle.mediaItemRequests.count) persisted media items for \(normalizedAccountAddress):\(scope.chain.rawValue)"
             )
         )
     }
@@ -320,15 +320,14 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
     }
 
     func makeRequestBundle(
-        from snapshots: [SourceNFTSnapshot],
-        walletID: String
+        from snapshots: [SourceNFTSnapshot]
     ) async -> RequestBundle {
         await Task.detached(priority: .userInitiated) {
             let dedupedSnapshots = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.id, $0) })
                 .values
                 .sorted { $0.id < $1.id }
 
-            let mediaItemRequests = dedupedSnapshots.map { makeMediaItemRequest(from: $0, walletID: walletID) }
+            let mediaItemRequests = dedupedSnapshots.map(makeMediaItemRequest(from:))
 
             return RequestBundle(
                 mediaItemRequests: mediaItemRequests
@@ -337,8 +336,7 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
     }
 
     private func makeMediaItemRequest(
-        from snapshot: SourceNFTSnapshot,
-        walletID: String
+        from snapshot: SourceNFTSnapshot
     ) -> AuraPlayMediaItemUpsertRequest {
         let title = cleanedText(snapshot.name) ?? "Unknown Track"
         let artistName = cleanedText(snapshot.artistName)
@@ -348,7 +346,6 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
         let contractAddress = NFT.normalizedScopeComponent(snapshot.contractAddressRawValue)
 
         return AuraPlayMediaItemUpsertRequest(
-            walletID: walletID,
             sourceNFTID: snapshot.id,
             accountAddressRawValue: snapshot.accountAddressRawValue,
             chain: snapshot.chain,

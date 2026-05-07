@@ -5,11 +5,11 @@ import Testing
 
 @Suite
 struct AuraPlayPersistenceSpineTests {
-    @Test("AuraPlay Phase 2 migration plan can construct an in-memory container")
+    @Test("AuraPlay container can construct an in-memory container for the current schema")
     func inMemoryContainerBoots() throws {
         let container = try AppModelContainer.make(inMemory: true)
 
-        #expect(container.migrationPlan == AuraPlayMigrationPlan.self)
-        #expect(container.schema == Schema(AuraPlaySchemaV2.models))
+        #expect(container.migrationPlan == nil)
+        #expect(container.schema == Schema(AuraPlaySchema.models))
     }
 }

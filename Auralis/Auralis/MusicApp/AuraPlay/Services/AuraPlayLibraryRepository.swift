@@ -18,16 +18,19 @@ protocol AuraPlayLibraryRepository {
 struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
     private let indexer: any MusicLibraryIndexing
     private let receiptEventLogger: ReceiptEventLogger
-    private let readModelContext: ModelContext
+    private let auraPlayModelContext: ModelContext
+    private let accountModelContext: ModelContext
 
     init(
         indexer: any MusicLibraryIndexing,
         receiptEventLogger: ReceiptEventLogger,
-        modelContainer: ModelContainer
+        auraPlayModelContainer: ModelContainer,
+        accountModelContext: ModelContext
     ) {
         self.indexer = indexer
         self.receiptEventLogger = receiptEventLogger
-        self.readModelContext = ModelContext(modelContainer)
+        self.auraPlayModelContext = ModelContext(auraPlayModelContainer)
+        self.accountModelContext = accountModelContext
     }
 
     func itemCount(in scope: AuraPlayLibraryScope) throws -> Int {
@@ -42,7 +45,7 @@ struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
     }
 
     func needsRebuild(in scope: AuraPlayLibraryScope) async throws -> Bool {
-        if try hasPersistedWallet(in: scope) {
+        if try hasPersistedLibrary(in: scope) {
             return false
         }
 
@@ -65,7 +68,7 @@ struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
     }
 
     private func persistedItemCountIfAvailable(in scope: AuraPlayLibraryScope) throws -> Int? {
-        guard try hasPersistedWallet(in: scope) else {
+        guard try hasPersistedLibrary(in: scope) else {
             return nil
         }
 
@@ -77,20 +80,23 @@ struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
                 item.chainRawValue == chainRawValue
             }
         )
-        return try readModelContext.fetchCount(descriptor)
+        return try auraPlayModelContext.fetchCount(descriptor)
     }
 
-    private func hasPersistedWallet(in scope: AuraPlayLibraryScope) throws -> Bool {
+    private func hasPersistedLibrary(in scope: AuraPlayLibraryScope) throws -> Bool {
         guard let normalizedAccountAddress = NFT.normalizedScopeComponent(scope.accountAddress) else {
             return false
         }
 
-        let walletID = AuraPlayWallet.scopedID(address: normalizedAccountAddress, chain: scope.chain)
-        let descriptor = FetchDescriptor<AuraPlayWallet>(
-            predicate: #Predicate<AuraPlayWallet> { wallet in
-                wallet.id == walletID
+        let descriptor = FetchDescriptor<EOAccount>(
+            predicate: #Predicate<EOAccount> { account in
+                account.address == normalizedAccountAddress
             }
         )
-        return try readModelContext.fetchCount(descriptor) > 0
+        guard let account = try accountModelContext.fetch(descriptor).first else {
+            return false
+        }
+
+        return account.auraPlayLastSyncedAt(for: scope.chain) != nil
     }
 }

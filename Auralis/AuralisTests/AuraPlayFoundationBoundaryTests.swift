@@ -7,10 +7,11 @@ import Testing
 @Suite
 @MainActor
 struct AuraPlayFoundationBoundaryTests {
-    @Test("AuraPlay persistence contract exposes the current versioned schema")
+    @Test("AuraPlay persistence contract exposes the current schema")
     func persistenceContractUsesCurrentSchema() {
-        #expect(AuraPlayMigrationPlan.schemas.count == 1)
-        #expect(AuraPlayMigrationPlan.schemas.first == AuraPlaySchemaV2.self)
+        let modelNames = Set(AuraPlaySchema.models.map { String(describing: $0) })
+
+        #expect(modelNames == ["AuraPlayMediaItem"])
     }
 
     @Test("dependencies preserve the injected AuraPlay model container identity")

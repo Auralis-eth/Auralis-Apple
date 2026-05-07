@@ -92,11 +92,7 @@ struct PrivacyResetServiceTests {
             sourceNFTID: "removed-source-1",
             accountAddressRawValue: removed.address
         ))
-        insertFixtureAuraPlayGraph(
-            into: context,
-            accountAddress: removed.address,
-            sourceNFTID: "removed-auraplay-source-1"
-        )
+        removed.markAuraPlaySynced(on: .ethMainnet, at: .now)
         context.insert(try makeFixtureStoredReceipt(accountAddress: removed.address))
         try await SearchHistoryStore(modelContext: context).recordCommittedQuery("Removed Scope", accountAddress: removed.address)
         try await TokenHoldingsStore(modelContext: context).upsertNativeHolding(
@@ -115,11 +111,7 @@ struct PrivacyResetServiceTests {
             sourceNFTID: "preserved-source-1",
             accountAddressRawValue: preserved.address
         ))
-        insertFixtureAuraPlayGraph(
-            into: context,
-            accountAddress: preserved.address,
-            sourceNFTID: "preserved-auraplay-source-1"
-        )
+        preserved.markAuraPlaySynced(on: .ethMainnet, at: .now)
         context.insert(try makeFixtureStoredReceipt(accountAddress: preserved.address))
         try context.save()
 
@@ -132,8 +124,7 @@ struct PrivacyResetServiceTests {
         let remainingHoldings = try context.fetch(FetchDescriptor<TokenHolding>())
         let remainingMusicItems = try context.fetch(FetchDescriptor<MusicLibraryItem>())
         let remainingReceipts = try context.fetch(FetchDescriptor<StoredReceipt>())
-        let remainingAuraPlayWallets = try context.fetch(FetchDescriptor<AuraPlayWallet>())
-        let remainingAuraPlayMediaItems = try context.fetch(FetchDescriptor<AuraPlayMediaItem>())
+        let remainingAccounts = try context.fetch(FetchDescriptor<EOAccount>())
         #expect(!remainingNFTs.contains(where: { $0.accountAddressRawValue == removed.address }))
         #expect(remainingNFTs.contains(where: { $0.accountAddressRawValue == preserved.address }))
         #expect(!remainingHoldings.contains(where: { $0.accountAddressRawValue == removed.address }))
@@ -141,10 +132,7 @@ struct PrivacyResetServiceTests {
         #expect(remainingMusicItems.contains(where: { $0.accountAddressRawValue == preserved.address }))
         #expect(remainingReceipts.contains(where: { $0.accountAddress == removed.address }))
         #expect(remainingReceipts.contains(where: { $0.accountAddress == preserved.address }))
-        #expect(!remainingAuraPlayWallets.contains(where: { $0.addressRawValue == removed.address }))
-        #expect(remainingAuraPlayWallets.contains(where: { $0.addressRawValue == preserved.address }))
-        #expect(!remainingAuraPlayMediaItems.contains(where: { $0.accountAddressRawValue == removed.address }))
-        #expect(remainingAuraPlayMediaItems.contains(where: { $0.accountAddressRawValue == preserved.address }))
+        #expect(remainingAccounts.contains(where: { $0.address == preserved.address && $0.auraPlayLastSyncedAt(for: .ethMainnet) != nil }))
         #expect(SearchHistoryStore(modelContext: context).entries(for: removed.address).isEmpty)
         #expect(try context.fetch(FetchDescriptor<NFT.Contract>()).count == 1)
         #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).count == 1)
@@ -171,11 +159,7 @@ struct PrivacyResetServiceTests {
             sourceNFTID: "overwrite-source-1",
             accountAddressRawValue: overwritten.address
         ))
-        insertFixtureAuraPlayGraph(
-            into: context,
-            accountAddress: overwritten.address,
-            sourceNFTID: "overwrite-auraplay-source-1"
-        )
+        overwritten.markAuraPlaySynced(on: .ethMainnet, at: .now)
         context.insert(try makeFixtureStoredReceipt(accountAddress: overwritten.address))
         try await SearchHistoryStore(modelContext: context).recordCommittedQuery("Overwrite Scope", accountAddress: overwritten.address)
         try await TokenHoldingsStore(modelContext: context).upsertNativeHolding(
@@ -194,11 +178,7 @@ struct PrivacyResetServiceTests {
             sourceNFTID: "keep-other-source-1",
             accountAddressRawValue: other.address
         ))
-        insertFixtureAuraPlayGraph(
-            into: context,
-            accountAddress: other.address,
-            sourceNFTID: "other-auraplay-source-1"
-        )
+        other.markAuraPlaySynced(on: .ethMainnet, at: .now)
         context.insert(try makeFixtureStoredReceipt(accountAddress: other.address))
         try context.save()
 
@@ -213,8 +193,7 @@ struct PrivacyResetServiceTests {
         let persistedHoldings = try context.fetch(FetchDescriptor<TokenHolding>())
         let persistedMusicItems = try context.fetch(FetchDescriptor<MusicLibraryItem>())
         let persistedReceipts = try context.fetch(FetchDescriptor<StoredReceipt>())
-        let persistedAuraPlayWallets = try context.fetch(FetchDescriptor<AuraPlayWallet>())
-        let persistedAuraPlayMediaItems = try context.fetch(FetchDescriptor<AuraPlayMediaItem>())
+        let persistedAccounts = try context.fetch(FetchDescriptor<EOAccount>())
         #expect(!persistedNFTs.contains(where: { $0.accountAddressRawValue == overwritten.address }))
         #expect(persistedNFTs.contains(where: { $0.accountAddressRawValue == other.address }))
         #expect(!persistedHoldings.contains(where: { $0.accountAddressRawValue == overwritten.address }))
@@ -222,10 +201,8 @@ struct PrivacyResetServiceTests {
         #expect(persistedMusicItems.contains(where: { $0.accountAddressRawValue == other.address }))
         #expect(persistedReceipts.contains(where: { $0.accountAddress == overwritten.address }))
         #expect(persistedReceipts.contains(where: { $0.accountAddress == other.address }))
-        #expect(!persistedAuraPlayWallets.contains(where: { $0.addressRawValue == overwritten.address }))
-        #expect(persistedAuraPlayWallets.contains(where: { $0.addressRawValue == other.address }))
-        #expect(!persistedAuraPlayMediaItems.contains(where: { $0.accountAddressRawValue == overwritten.address }))
-        #expect(persistedAuraPlayMediaItems.contains(where: { $0.accountAddressRawValue == other.address }))
+        #expect(persistedAccounts.contains(where: { $0.address == overwritten.address && $0.auraPlayLastSyncedAt(for: .ethMainnet) == nil }))
+        #expect(persistedAccounts.contains(where: { $0.address == other.address && $0.auraPlayLastSyncedAt(for: .ethMainnet) != nil }))
         #expect(SearchHistoryStore(modelContext: context).entries(for: overwritten.address).isEmpty)
         #expect(try context.fetch(FetchDescriptor<NFT.Contract>()).count == 1)
         #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).count == 1)
@@ -248,11 +225,7 @@ struct PrivacyResetServiceTests {
             sourceNFTID: "logout-source-1",
             accountAddressRawValue: preservedAccount.address
         ))
-        insertFixtureAuraPlayGraph(
-            into: context,
-            accountAddress: preservedAccount.address,
-            sourceNFTID: "logout-auraplay-source-1"
-        )
+        preservedAccount.markAuraPlaySynced(on: .ethMainnet, at: .now)
         context.insert(try makeFixtureStoredReceipt(accountAddress: preservedAccount.address))
         try await SearchHistoryStore(modelContext: context).recordCommittedQuery(
             "Logout Scope",
@@ -282,8 +255,8 @@ struct PrivacyResetServiceTests {
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<SearchHistoryRecord>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<Playlist>()).isEmpty)
-        #expect(try context.fetch(FetchDescriptor<AuraPlayWallet>()).isEmpty)
-        #expect(try context.fetch(FetchDescriptor<AuraPlayMediaItem>()).isEmpty)
+        let remainingAccount = try #require(context.fetch(FetchDescriptor<EOAccount>()).first)
+        #expect(remainingAccount.auraPlayLastSyncedAt(for: .ethMainnet) == nil)
     }
 
     @Test("AuraPlay store reset removes separate persisted store files when no live container is available")
@@ -502,48 +475,6 @@ private func makeFixtureStoredReceipt(
         timelineChainRawValue: chainRawValue,
         details: ReceiptPayload(values: [:])
     )
-}
-
-@MainActor
-private func insertFixtureAuraPlayGraph(
-    into context: ModelContext,
-    accountAddress: String,
-    sourceNFTID: String,
-    chain: Chain = .ethMainnet
-) {
-    let wallet = AuraPlayWallet(
-        address: accountAddress,
-        chain: chain,
-        displayName: "Fixture Wallet"
-    )
-    let mediaItem = AuraPlayMediaItem(
-        walletID: wallet.id,
-        sourceNFTID: sourceNFTID,
-        accountAddressRawValue: accountAddress,
-        chain: chain,
-        contractAddressRawValue: "0x9999999999999999999999999999999999999999",
-        tokenID: "1",
-        tokenType: "ERC721",
-        title: "Fixture AuraPlay Track",
-        artistName: "Fixture Artist",
-        collectionName: "Fixture Collection",
-        normalizedTitleKey: "fixture auraplay track",
-        normalizedArtistKey: "fixture artist",
-        normalizedCollectionKey: "fixture collection",
-        artworkURLString: "https://example.com/\(sourceNFTID).png",
-        playbackURLString: "https://example.com/\(sourceNFTID).mp3",
-        contentType: "audio/mpeg",
-        sourceUpdatedAtRawValue: "2025-01-01T00:00:00Z",
-        hasArtwork: true,
-        hasAudio: true,
-        isPlayable: true,
-        isSearchable: true
-    )
-
-    mediaItem.wallet = wallet
-
-    context.insert(wallet)
-    context.insert(mediaItem)
 }
 
 private actor RecordingENSCacheResetService: ENSCacheResetting {

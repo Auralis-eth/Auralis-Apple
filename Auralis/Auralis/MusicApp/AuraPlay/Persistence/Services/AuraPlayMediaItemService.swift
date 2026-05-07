@@ -5,12 +5,12 @@ import SwiftData
 @ModelActor
 actor AuraPlayMediaItemService {
     func replaceAll(
-        walletID: String,
+        accountAddress: String,
+        chain: Chain,
         requests: [AuraPlayMediaItemUpsertRequest],
         syncedAt: Date
     ) throws {
-        let wallet = try fetchWallet(id: walletID)
-        let existingItems = try fetchScopedItems(walletID: walletID)
+        let existingItems = try fetchScopedItems(accountAddress: accountAddress, chain: chain)
         var existingByID = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
         var retainedIDs: Set<String> = []
 
@@ -19,7 +19,6 @@ actor AuraPlayMediaItemService {
 
             let item = existingByID[request.sourceNFTID] ?? {
                 let newItem = AuraPlayMediaItem(
-                    walletID: walletID,
                     sourceNFTID: request.sourceNFTID,
                     accountAddressRawValue: request.accountAddressRawValue,
                     chain: request.chain,
@@ -43,13 +42,11 @@ actor AuraPlayMediaItemService {
                     createdAt: syncedAt,
                     updatedAt: syncedAt
                 )
-                newItem.wallet = wallet
                 modelContext.insert(newItem)
                 existingByID[request.sourceNFTID] = newItem
                 return newItem
             }()
 
-            item.walletID = walletID
             item.accountAddressRawValue = request.accountAddressRawValue
             item.chain = request.chain
             item.contractAddressRawValue = request.contractAddressRawValue
@@ -69,7 +66,6 @@ actor AuraPlayMediaItemService {
             item.hasAudio = request.hasAudio
             item.isPlayable = request.isPlayable
             item.isSearchable = request.isSearchable
-            item.wallet = wallet
             item.updatedAt = syncedAt
         }
 
@@ -80,19 +76,12 @@ actor AuraPlayMediaItemService {
         try modelContext.save()
     }
 
-    private func fetchWallet(id: String) throws -> AuraPlayWallet? {
-        let descriptor = FetchDescriptor<AuraPlayWallet>(
-            predicate: #Predicate<AuraPlayWallet> { wallet in
-                wallet.id == id
-            }
-        )
-        return try modelContext.fetch(descriptor).first
-    }
-
-    private func fetchScopedItems(walletID: String) throws -> [AuraPlayMediaItem] {
+    private func fetchScopedItems(accountAddress: String, chain: Chain) throws -> [AuraPlayMediaItem] {
+        let chainRawValue = chain.rawValue
         let descriptor = FetchDescriptor<AuraPlayMediaItem>(
             predicate: #Predicate<AuraPlayMediaItem> { item in
-                item.walletID == walletID
+                item.accountAddressRawValue == accountAddress &&
+                item.chainRawValue == chainRawValue
             }
         )
         return try modelContext.fetch(descriptor)

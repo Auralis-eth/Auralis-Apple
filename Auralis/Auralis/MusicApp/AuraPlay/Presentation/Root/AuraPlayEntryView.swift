@@ -173,7 +173,7 @@ struct AuraPlayEntryView: View {
                     AuraPill("AuraPlay", systemImage: "waveform.circle", emphasis: .accent)
                     AuraSectionHeader(
                         title: "AuraPlay Persistence Live",
-                        subtitle: "This root is the migration seam for the wallet-scoped persisted library."
+                        subtitle: "This root is the migration seam for the account-scoped persisted library."
                     )
                 }
 

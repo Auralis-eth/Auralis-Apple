@@ -33,11 +33,12 @@ struct AuraPlayTabRootView: View {
             libraryRepository: LiveAuraPlayLibraryRepository(
                 indexer: musicLibraryIndexer,
                 receiptEventLogger: musicLibraryReceiptLogger,
-                modelContainer: auraPlayModelContainer
+                auraPlayModelContainer: auraPlayModelContainer,
+                accountModelContext: appModelContext
             ),
             librarySyncService: LiveAuraPlayLibrarySyncService(
                 sourceModelContext: appModelContext,
-                modelContainer: auraPlayModelContainer,
+                auraPlayModelContainer: auraPlayModelContainer,
                 musicReceiptLogger: MusicReceiptEventLogger(
                     receiptStore: ReceiptStores.live(modelContext: appModelContext)
                 ),
