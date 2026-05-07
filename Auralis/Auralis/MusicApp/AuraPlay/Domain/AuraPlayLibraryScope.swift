@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Foundation
 
 /// Identifies the active wallet-and-chain scope for AuraPlay library queries.

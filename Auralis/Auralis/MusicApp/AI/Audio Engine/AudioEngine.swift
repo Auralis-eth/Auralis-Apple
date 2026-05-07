@@ -5,6 +5,7 @@
 //  Created by Daniel Bell on 9/4/25.
 //
 
+import AuralisPrimaryModels
 import AVFoundation
 import Foundation
 

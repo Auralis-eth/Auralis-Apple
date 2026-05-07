@@ -5,6 +5,7 @@
 //  Created by Codex on 8/26/25.
 //
 
+import AuralisPrimaryModels
 import Foundation
 
 struct PreparedNFTInventory {

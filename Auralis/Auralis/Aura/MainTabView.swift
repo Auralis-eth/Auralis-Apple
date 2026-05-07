@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Observation
 import SwiftData
 import SwiftUI

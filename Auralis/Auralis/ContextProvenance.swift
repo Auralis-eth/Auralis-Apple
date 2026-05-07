@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Foundation
 
 enum ContextProvenance: String, Equatable, Sendable {

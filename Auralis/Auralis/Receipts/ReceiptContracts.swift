@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Foundation
 
 /// JSON-compatible payload value used by receipts before export.

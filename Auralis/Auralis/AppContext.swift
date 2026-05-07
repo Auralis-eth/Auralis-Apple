@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Foundation
 
 /// Compatibility model used by shell consumers that still need the compact

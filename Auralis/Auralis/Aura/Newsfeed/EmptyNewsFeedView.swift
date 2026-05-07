@@ -5,6 +5,7 @@
 //  Created by Daniel Bell on 7/5/25.
 //
 
+import AuralisPrimaryModels
 import SwiftUI
 
 struct EmptyNewsFeedView: View {

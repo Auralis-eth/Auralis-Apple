@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import ImagePlayground
 import OSLog
 import SwiftData

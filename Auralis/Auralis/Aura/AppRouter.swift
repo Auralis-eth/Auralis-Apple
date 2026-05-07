@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Observation
 
 /// Lists the top-level tabs managed by the shared app router.

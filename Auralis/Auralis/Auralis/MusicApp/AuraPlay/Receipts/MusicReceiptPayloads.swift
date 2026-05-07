@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Foundation
 
 enum MusicReceiptActorValue: String, Sendable {

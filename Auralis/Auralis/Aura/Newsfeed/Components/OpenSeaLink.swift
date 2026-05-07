@@ -5,6 +5,7 @@
 //  Created by Daniel Bell on 3/24/25.
 //
 
+import AuralisPrimaryModels
 import SwiftUI
 
 private enum ExternalLinkStyle {

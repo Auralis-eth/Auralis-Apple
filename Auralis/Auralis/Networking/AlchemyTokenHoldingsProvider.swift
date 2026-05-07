@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Foundation
 
 private enum BalanceDataEnvelopeCodingKeys: String, CodingKey {

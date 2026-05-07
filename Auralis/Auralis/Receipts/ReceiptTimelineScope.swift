@@ -1,3 +1,5 @@
+import AuralisPrimaryModels
+
 struct ReceiptTimelineScope: Equatable, Sendable {
     let accountAddress: String
     let chain: Chain

@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Foundation
 
 /// Live source implementation for Phase 0 context.
