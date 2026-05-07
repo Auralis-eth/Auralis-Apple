@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */ = {isa = PBXBuildFile; productRef = 6F6A10052F90000100BEEF01 /* AuralisPrimaryModels */; };
 		6F4179322DA96363002A78F5 /* web3.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 6F4179312DA96363002A78F5 /* web3.swift */; };
 		6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */; };
 		6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = 6F7B76032D962FE800DF0AD7 /* CodeScanner */; };
@@ -79,6 +80,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */,
 				6F4179322DA96363002A78F5 /* web3.swift in Frameworks */,
 				6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */,
 			);
@@ -163,6 +165,7 @@
 			);
 			name = Auralis;
 			packageProductDependencies = (
+				6F6A10052F90000100BEEF01 /* AuralisPrimaryModels */,
 				6F7B76032D962FE800DF0AD7 /* CodeScanner */,
 				6F4179312DA96363002A78F5 /* web3.swift */,
 			);
@@ -249,6 +252,7 @@
 			mainGroup = 6FB455D22CC5BEBB009A055C;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				6F6A10042F90000100BEEF01 /* XCLocalSwiftPackageReference "AuralisPrimaryModels" */,
 				6F7B76022D962FE800DF0AD7 /* XCRemoteSwiftPackageReference "CodeScanner" */,
 				6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */,
 				6FC0A1022F70000100A0BEEF /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
@@ -653,6 +657,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		6F6A10042F90000100BEEF01 /* XCLocalSwiftPackageReference "AuralisPrimaryModels" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = AuralisPrimaryModels;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -681,6 +692,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		6F6A10052F90000100BEEF01 /* AuralisPrimaryModels */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F6A10042F90000100BEEF01 /* XCLocalSwiftPackageReference "AuralisPrimaryModels" */;
+			productName = AuralisPrimaryModels;
+		};
 		6F4179312DA96363002A78F5 /* web3.swift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */;

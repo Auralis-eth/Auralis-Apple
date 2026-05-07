@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import SwiftData
 
 enum PrimaryStoreSchema {

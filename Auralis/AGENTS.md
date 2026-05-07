@@ -44,6 +44,7 @@ The shell flow is:
 - `P0-Future-Work.md` is the post-Phase-0 backlog and should be updated when hardening or architecture follow-on work becomes clearer.
 - `P0-Physical-Device-QA-Suite.md` is the real-device manual QA contract for Phase 0.
 - `P0-UI-Design-Audit-Checklist.md` is the product/design quality checklist for Phase 0 surfaces.
+- `AuralisPrimaryModels/` is a local Swift package for foundational shared primary-model support that can grow without bloating the app target.
 
 ## Quirks And Gotchas
 

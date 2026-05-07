@@ -53,6 +53,8 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+- Package extraction pass: `EOAccount`, `NFT`, `Chain`, and their persistence-side traveling companions moved into `AuralisPrimaryModels`, but the interesting part was not the file shuffle. The real lesson was that `NFT` had been quietly towing a parade float: `Tag`, `Playlist`, nested SwiftData models, and media/JSON helpers all had to cross the module border too. The fix in the app target was deliberately boring and therefore good: app-side typealiases now point at the package models, which avoids a “touch fifty imports and pray” migration while keeping the package as the new source of truth. One seam stayed local on purpose: `Chain.web3EthereumNetwork` remains in the app as an extension so the package does not inherit an unnecessary `web3` dependency just to compute one adapter value.
+
 - War story: the "old music player" was not one old view. It was a whole backstage crew still sneaking onstage through the Music tab fallback, the shell mini player, the now-playing sheet, and detail routes that still pushed `AI/V1` views even when AuraPlay owned the tab. The cleanup fix was to move the still-shipping player surfaces into `MusicApp/AuraPlay/`, delete the legacy fallback switch, and make failure honest: if AuraPlay storage or audio boot fails, Music now shows an explicit unavailable state with retry guidance instead of quietly slipping users back into the retired app.
 - The lesson was memorable and mildly rude, which usually means it is true: a "migration seam" stops being a seam the minute production users can still walk through it every day. At that point it is just a side door for technical debt wearing a visitor badge.
 - War story: the `NFTService` refactor split persistence and cleanup into separate seams, but three unit-test files were still speaking the old dialect. The failures looked noisy at first, but the root cause was simple contract drift: tests were still passing `shouldCleanupStaleInventory` into `persist`, and the `NFTService` test doubles no longer satisfied `PersistNFTInventoryUsing`. Fix was to update the tests to call `cleanupStaleInventory(...)` explicitly where needed and teach the stubs the new protocol shape.
@@ -598,6 +600,26 @@ The fix was to separate interpretation from mutation.
 This is one of those engineering moves that feels a bit like moving a kitchen remodel into the garage so dinner service can keep running. The heavy chopping and prep happen off to the side; the final plating still happens where the real dishes live.
 
 The practical lesson: if a model object is actor-bound, do not try to brute-force it across concurrency boundaries. Extract the pure inputs, do the expensive interpretation elsewhere, then apply the result back at the ownership boundary. That pattern is safer, easier to explain in code review, and much less likely to produce the kind of “it builds, but now persistence is haunted” regression that ruins a Friday.
+
+### Local Package Footing: Start Small, Wire It For Real
+
+This change was intentionally modest, because the dangerous version of “let’s modularize” is when somebody opens a chainsaw before deciding which wall is load-bearing.
+
+- We added a new local Swift package named `AuralisPrimaryModels` at the repo root and wired it into the app target as an actual package dependency, not as a decorative folder that happens to contain Swift.
+- The package currently exports `PrimaryStoreCopy`, which is tiny on purpose. It gives the app one real integration point for primary-store UI copy without forcing a rushed migration of the actual SwiftData model graph into a package before the seams are ready.
+- The first usage lives in `AuralisApp`, where the local-storage recovery alert now reads from the package instead of another hardcoded app-local string. Small move, real dependency, zero theater.
+
+The lesson is classic renovation logic: when you want a future guest house, first pour one clean concrete pad and make sure the plumbing reaches it. Do not start by trying to relocate the entire kitchen with dinner service still in progress.
+
+### EOAccount Extraction Plan: Stop Pretending a String-Scoped System Is an Object Graph
+
+This planning pass answered a very specific packaging question: can `EOAccount` move into `AuralisPrimaryModels` without dragging half the app behind it? The useful answer was “yes, but only after we make the schema tell the truth.”
+
+- On paper, `EOAccount` and `NFT` still have a direct SwiftData relationship. In practice, the app already behaves mostly like an ID-scoped system. Queries filter on `accountAddressRawValue`, cleanup deletes by scoped predicates, and `trackedNFTCount` is recomputed from fetch counts instead of walking `account.nfts`.
+- That is actually good news. It means the first migration step is not a philosophical rewrite. It is mostly removing a relationship that the app has already outgrown.
+- We wrote the migration down as a two-phase plan: first decouple `EOAccount` from `NFT` with minimal churn, then move `EOAccount` into the local package once it no longer depends on the NFT graph. That sequence matters because it separates persistence-behavior risk from module-boundary risk.
+
+The memorable lesson is one architecture keeps teaching in different accents: if the running system already trusts stable IDs more than object references, the model layer should stop cosplaying as a tightly coupled object graph. Better to admit the truth in one controlled diff than let the mismatch keep charging interest.
 
 ### Small Defects, Real Consequences
 
