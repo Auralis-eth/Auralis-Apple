@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 struct HomeAccountSummaryPresentation: Equatable {
     let title: String
     let addressLine: String

@@ -5,6 +5,7 @@
 //  Created by Daniel Bell on 6/24/25.
 //
 
+import AuralisPrimaryModels
 import OSLog
 import SwiftUI
 

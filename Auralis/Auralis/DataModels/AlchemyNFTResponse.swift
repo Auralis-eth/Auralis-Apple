@@ -5,6 +5,7 @@
 //  Created by Daniel Bell on 3/29/25.
 //
 
+import AuralisPrimaryModels
 import Foundation
 
 struct AlchemyNFTResponse: Codable {

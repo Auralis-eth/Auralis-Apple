@@ -5,6 +5,7 @@
 //  Created by Daniel Bell on 4/9/25.
 //
 
+import AuralisPrimaryModels
 import SwiftUI
 
 struct NFTSortButton: View {

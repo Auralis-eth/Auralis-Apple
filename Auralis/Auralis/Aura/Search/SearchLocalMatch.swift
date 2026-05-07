@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Foundation
 
 struct SearchLocalMatch: Identifiable, Equatable, Sendable {

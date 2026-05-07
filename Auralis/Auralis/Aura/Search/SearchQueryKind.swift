@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Foundation
 
 enum SearchQueryKind: String, Equatable, Sendable {

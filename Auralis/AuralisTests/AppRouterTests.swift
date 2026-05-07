@@ -1,4 +1,5 @@
 @testable import Auralis
+import AuralisPrimaryModels
 import Testing
 
 @Suite struct AppRouterTests {

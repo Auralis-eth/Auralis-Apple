@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 struct MetadataChunk: Identifiable, Hashable {
     var id: String {
         systemImage + text

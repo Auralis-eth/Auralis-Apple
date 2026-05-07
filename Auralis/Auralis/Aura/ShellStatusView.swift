@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import SwiftUI
 
 enum ShellStatusTone: Equatable {

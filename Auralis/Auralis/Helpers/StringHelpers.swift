@@ -5,6 +5,7 @@
 //  Created by Daniel Bell on 3/13/25.
 //
 
+import AuralisPrimaryModels
 import Foundation
 import OSLog
 

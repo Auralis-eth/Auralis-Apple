@@ -5,6 +5,7 @@
 //  Created by Daniel Bell on 3/22/25.
 //
 
+import AuralisPrimaryModels
 import SwiftUI
 
 extension Color {
