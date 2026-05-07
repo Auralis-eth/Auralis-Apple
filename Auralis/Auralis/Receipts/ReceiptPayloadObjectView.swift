@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import SwiftUI
 
 struct ReceiptPayloadObjectView: View {
