@@ -53,6 +53,9 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+- Package boundary cleanup:
+  We moved `SearchHistoryRecord`, `StoredReceipt`, `TokenHolding`, `MusicLibraryItem`, and `AuraPlayMediaItem` into `AuralisPrimaryModels` so the app target stops owning persistence models that are shared across search, receipts, holdings, and music. The lesson was simple but useful: if multiple product surfaces depend on the same SwiftData vocabulary, that vocabulary should live at the package boundary instead of hiding inside one feature folder.
+
 - Package extraction pass: `EOAccount`, `NFT`, `Chain`, and their persistence-side traveling companions moved into `AuralisPrimaryModels`, but the interesting part was not the file shuffle. The real lesson was that `NFT` had been quietly towing a parade float: `Tag`, `Playlist`, nested SwiftData models, and media/JSON helpers all had to cross the module border too. The fix in the app target was deliberately boring and therefore good: app-side typealiases now point at the package models, which avoids a “touch fifty imports and pray” migration while keeping the package as the new source of truth. One seam stayed local on purpose: `Chain.web3EthereumNetwork` remains in the app as an extension so the package does not inherit an unnecessary `web3` dependency just to compute one adapter value.
 
 - War story: the "old music player" was not one old view. It was a whole backstage crew still sneaking onstage through the Music tab fallback, the shell mini player, the now-playing sheet, and detail routes that still pushed `AI/V1` views even when AuraPlay owned the tab. The cleanup fix was to move the still-shipping player surfaces into `MusicApp/AuraPlay/`, delete the legacy fallback switch, and make failure honest: if AuraPlay storage or audio boot fails, Music now shows an explicit unavailable state with retry guidance instead of quietly slipping users back into the retired app.

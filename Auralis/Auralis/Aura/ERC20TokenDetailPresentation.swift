@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Foundation
 
 struct ERC20TokenDetailPresentation: Equatable {

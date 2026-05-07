@@ -1,9 +1,8 @@
-import AuralisPrimaryModels
 import Foundation
 import SwiftData
 
 @Model
-final class AuraPlayMediaItem {
+public final class AuraPlayMediaItem {
     #Index<AuraPlayMediaItem>(
         [\.accountAddressRawValue, \.chainRawValue, \.sourceNFTID],
         [\.accountAddressRawValue, \.chainRawValue, \.contractAddressRawValue, \.tokenID],
@@ -11,32 +10,31 @@ final class AuraPlayMediaItem {
         [\.accountAddressRawValue, \.chainRawValue]
     )
 
-    @Attribute(.unique) var id: String
+    @Attribute(.unique) public var id: String
+    public var sourceNFTID: String
+    public var accountAddressRawValue: String
+    public var chainRawValue: String
+    public var contractAddressRawValue: String?
+    public var tokenID: String
+    public var tokenType: String?
+    public var title: String
+    public var artistName: String?
+    public var collectionName: String?
+    public var normalizedTitleKey: String
+    public var normalizedArtistKey: String
+    public var normalizedCollectionKey: String
+    public var artworkURLString: String?
+    public var playbackURLString: String?
+    public var contentType: String?
+    public var sourceUpdatedAtRawValue: String?
+    public var hasArtwork: Bool
+    public var hasAudio: Bool
+    public var isPlayable: Bool
+    public var isSearchable: Bool
+    public var createdAt: Date
+    public var updatedAt: Date
 
-    var sourceNFTID: String
-    var accountAddressRawValue: String
-    var chainRawValue: String
-    var contractAddressRawValue: String?
-    var tokenID: String
-    var tokenType: String?
-    var title: String
-    var artistName: String?
-    var collectionName: String?
-    var normalizedTitleKey: String
-    var normalizedArtistKey: String
-    var normalizedCollectionKey: String
-    var artworkURLString: String?
-    var playbackURLString: String?
-    var contentType: String?
-    var sourceUpdatedAtRawValue: String?
-    var hasArtwork: Bool
-    var hasAudio: Bool
-    var isPlayable: Bool
-    var isSearchable: Bool
-    var createdAt: Date
-    var updatedAt: Date
-
-    init(
+    public init(
         sourceNFTID: String,
         accountAddressRawValue: String,
         chain: Chain,
@@ -85,7 +83,7 @@ final class AuraPlayMediaItem {
         self.updatedAt = updatedAt
     }
 
-    var chain: Chain {
+    public var chain: Chain {
         get { Chain(rawValue: chainRawValue) ?? .ethMainnet }
         set { chainRawValue = newValue.rawValue }
     }
