@@ -26,6 +26,12 @@ extension String {
 }
 
 extension String {
+    func withLeadingHashPrefix() -> String {
+        hasPrefix("#") ? self : "#\(self)"
+    }
+}
+
+extension String {
     var extractedEthereumAddress: String? {
         let address = trimmingCharacters(in: .whitespacesAndNewlines)
         guard !address.isEmpty else { return nil }
