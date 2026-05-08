@@ -1,31 +1,8 @@
+import AccountsCore
 import AuralisPrimaryModels
 import Foundation
 import OSLog
 import SwiftData
-
-enum AccountEvent: Equatable {
-    case added(address: String)
-    case removed(address: String)
-    case selected(address: String)
-    case preferredChainChanged(address: String, from: Chain, to: Chain)
-    case currentChainChanged(address: String, from: Chain, to: Chain)
-}
-
-@MainActor
-protocol AccountEventRecorder {
-    func record(_ event: AccountEvent, correlationID: String?) async
-}
-
-extension AccountEventRecorder {
-    func record(_ event: AccountEvent) async {
-        await record(event, correlationID: nil)
-    }
-}
-
-@MainActor
-struct NoOpAccountEventRecorder: AccountEventRecorder {
-    func record(_ event: AccountEvent, correlationID: String?) async { }
-}
 
 @MainActor
 struct ReceiptBackedAccountEventRecorder: AccountEventRecorder {

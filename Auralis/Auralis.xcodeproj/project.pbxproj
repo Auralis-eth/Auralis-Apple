@@ -11,6 +11,7 @@
 		6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */; };
 		6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */ = {isa = PBXBuildFile; productRef = 6F6A10052F90000100BEEF01 /* AuralisPrimaryModels */; };
 		6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = 6F7B76032D962FE800DF0AD7 /* CodeScanner */; };
+		6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E0152FAE32FF00CD4102 /* AccountsCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -81,6 +82,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */,
+				6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */,
 				6F4179322DA96363002A78F5 /* web3.swift in Frameworks */,
 				6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */,
 			);
@@ -168,6 +170,7 @@
 				6F6A10052F90000100BEEF01 /* AuralisPrimaryModels */,
 				6F7B76032D962FE800DF0AD7 /* CodeScanner */,
 				6F4179312DA96363002A78F5 /* web3.swift */,
+				6F84E0152FAE32FF00CD4102 /* AccountsCore */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -256,6 +259,7 @@
 				6F7B76022D962FE800DF0AD7 /* XCRemoteSwiftPackageReference "CodeScanner" */,
 				6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */,
 				6FC0A1022F70000100A0BEEF /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
+				6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -662,6 +666,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = AuralisPrimaryModels;
 		};
+		6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = AccountsCore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -706,6 +714,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6F7B76022D962FE800DF0AD7 /* XCRemoteSwiftPackageReference "CodeScanner" */;
 			productName = CodeScanner;
+		};
+		6F84E0152FAE32FF00CD4102 /* AccountsCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
+			productName = AccountsCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

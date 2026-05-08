@@ -127,12 +127,12 @@ private actor AccountPersistenceStore {
 }
 
 /// Enumerates the account-store failures surfaced to wallet entry and selection flows.
-enum AccountStoreError: LocalizedError, Equatable {
+public enum AccountStoreError: LocalizedError, Equatable {
     case invalidAddress
     case duplicateAddress(String)
     case accountNotFound(String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .invalidAddress:
             return NSLocalizedString(
@@ -159,13 +159,13 @@ enum AccountStoreError: LocalizedError, Equatable {
 }
 
 /// Classifies pasted or scanned wallet input before account mutations run.
-enum AccountAddressValidationResult: Equatable {
+public enum AccountAddressValidationResult: Equatable {
     case empty
     case valid(String)
     case unsupportedENS
     case invalidFormat
 
-    var normalizedAddress: String? {
+    public var normalizedAddress: String? {
         guard case .valid(let address) = self else {
             return nil
         }
@@ -173,7 +173,7 @@ enum AccountAddressValidationResult: Equatable {
         return address
     }
 
-    var userFacingMessage: String {
+    public var userFacingMessage: String {
         switch self {
         case .empty:
             return "Please enter your Ethereum address or use a guest pass."
@@ -188,26 +188,42 @@ enum AccountAddressValidationResult: Equatable {
 }
 
 /// Describes the result of removing an account, including any fallback selection.
-struct AccountRemovalResult {
-    let removedAddress: String
-    let fallbackAccount: EOAccount?
+public struct AccountRemovalResult {
+    public let removedAddress: String
+    public let fallbackAccount: EOAccount?
+
+    public init(
+        removedAddress: String,
+        fallbackAccount: EOAccount?
+    ) {
+        self.removedAddress = removedAddress
+        self.fallbackAccount = fallbackAccount
+    }
 }
 
 /// Describes the result of activating an account, including whether it was newly created.
-struct AccountActivationResult {
-    let account: EOAccount
-    let wasCreated: Bool
+public struct AccountActivationResult {
+    public let account: EOAccount
+    public let wasCreated: Bool
+
+    public init(
+        account: EOAccount,
+        wasCreated: Bool
+    ) {
+        self.account = account
+        self.wasCreated = wasCreated
+    }
 }
 
 @MainActor
 /// Coordinates wallet validation, persistence, selection, and account-level receipt logging.
-struct AccountStore {
+public struct AccountStore {
     private let modelContext: ModelContext
     private let eventRecorder: any AccountEventRecorder
     private let persistenceStore: AccountPersistenceStore
 
     /// Creates an account store that performs mutations without recording account events.
-    init(modelContext: ModelContext) {
+    public init(modelContext: ModelContext) {
         self.init(
             modelContext: modelContext,
             eventRecorder: NoOpAccountEventRecorder()
@@ -215,7 +231,7 @@ struct AccountStore {
     }
 
     /// Creates an account store backed by SwiftData and an explicit account event recorder.
-    init(
+    public init(
         modelContext: ModelContext,
         eventRecorder: any AccountEventRecorder
     ) {
@@ -225,12 +241,12 @@ struct AccountStore {
     }
 
     /// Normalizes supported wallet-address input into the canonical stored representation.
-    static func normalizeAddress(_ rawAddress: String) -> String? {
+    public static func normalizeAddress(_ rawAddress: String) -> String? {
         validateAddressInput(rawAddress).normalizedAddress
     }
 
     /// Validates wallet entry input and reports whether it can be used for account mutations.
-    static func validateAddressInput(_ rawAddress: String) -> AccountAddressValidationResult {
+    public static func validateAddressInput(_ rawAddress: String) -> AccountAddressValidationResult {
         let trimmed = rawAddress.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmed.isEmpty else {
@@ -249,14 +265,14 @@ struct AccountStore {
     }
 
     /// Returns whether the supplied input resembles an ENS name instead of a raw wallet address.
-    static func looksLikeENSName(_ candidate: String) -> Bool {
+    public static func looksLikeENSName(_ candidate: String) -> Bool {
         candidate.trimmingCharacters(in: .whitespacesAndNewlines).range(
             of: #"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.eth$"#,
             options: .regularExpression
         ) != nil
     }
 
-    func listAccounts() throws -> [EOAccount] {
+    public func listAccounts() throws -> [EOAccount] {
         let accounts = try modelContext.fetch(
             FetchDescriptor(sortBy: accountSortDescriptors)
         )
@@ -267,7 +283,7 @@ struct AccountStore {
         return accounts
     }
 
-    func account(for rawAddress: String) throws -> EOAccount? {
+    public func account(for rawAddress: String) throws -> EOAccount? {
         guard let normalizedAddress = AccountStore.normalizeAddress(rawAddress) else {
             return nil
         }
@@ -286,7 +302,7 @@ struct AccountStore {
         return account
     }
 
-    func createWatchAccount(
+    public func createWatchAccount(
         from rawAddress: String,
         name: String? = nil,
         source: EOAccountSource = .manualEntry,
@@ -317,7 +333,7 @@ struct AccountStore {
         return account
     }
 
-    func activateWatchAccount(
+    public func activateWatchAccount(
         from rawAddress: String,
         name: String? = nil,
         source: EOAccountSource = .manualEntry,
@@ -358,7 +374,7 @@ struct AccountStore {
         }
     }
 
-    func selectAccount(
+    public func selectAccount(
         address rawAddress: String,
         selectedAt: Date = .now,
         correlationID: String? = nil
@@ -380,7 +396,7 @@ struct AccountStore {
         return account
     }
 
-    func removeAccount(
+    public func removeAccount(
         address rawAddress: String,
         activeAddress: String? = nil,
         correlationID: String? = nil
@@ -401,7 +417,7 @@ struct AccountStore {
         )
     }
 
-    func persistCurrentChain(
+    public func persistCurrentChain(
         address rawAddress: String,
         chain: Chain,
         correlationID: String? = nil
@@ -434,7 +450,7 @@ struct AccountStore {
         return refreshedAccount
     }
 
-    func persistPreferredChain(
+    public func persistPreferredChain(
         address rawAddress: String,
         chain: Chain,
         correlationID: String? = nil
@@ -519,5 +535,106 @@ private extension EOAccount {
         let repairedChains = normalizeStoredChainsIfNeeded()
         let repairedName = normalizeStoredNameIfNeeded()
         return repairedChains || repairedName
+    }
+}
+
+private extension ModelContext {
+    func performRollbackSafeMutation(_ work: () throws -> Void) throws {
+        do {
+            try work()
+            try save()
+        } catch {
+            rollback()
+            throw error
+        }
+    }
+
+    @MainActor
+    func performUndoableMutation(
+        named actionName: String,
+        _ work: () throws -> Void
+    ) throws {
+        guard let undoManager else {
+            try performRollbackSafeMutation(work)
+            return
+        }
+
+        let initialGroupingLevel = undoManager.groupingLevel
+        undoManager.beginUndoGrouping()
+
+        do {
+            try work()
+            try save()
+            processPendingChanges()
+            undoManager.setActionName(actionName)
+            undoManager.endUndoGrouping()
+        } catch {
+            rollback()
+            processPendingChanges()
+            if undoManager.groupingLevel > initialGroupingLevel {
+                undoManager.endUndoGrouping()
+            }
+            throw error
+        }
+    }
+
+    func deleteAccountScopedSupportData(accountAddress: String) throws {
+        try delete(
+            model: TokenHolding.self,
+            where: #Predicate<TokenHolding> { holding in
+                holding.accountAddressRawValue == accountAddress
+            }
+        )
+        try delete(
+            model: MusicLibraryItem.self,
+            where: #Predicate<MusicLibraryItem> { item in
+                item.accountAddressRawValue == accountAddress
+            }
+        )
+        try delete(
+            model: SearchHistoryRecord.self,
+            where: #Predicate<SearchHistoryRecord> { record in
+                record.accountAddressRawValue == accountAddress
+            }
+        )
+
+        let accountDescriptor = FetchDescriptor<EOAccount>(
+            predicate: #Predicate<EOAccount> { account in
+                account.address == accountAddress
+            }
+        )
+        if let account = try fetch(accountDescriptor).first {
+            account.clearAllAuraPlaySyncState()
+        }
+    }
+
+    func deleteNFTsScopedToAccount(_ accountAddress: String) throws {
+        let descriptor = FetchDescriptor<NFT>(
+            predicate: #Predicate<NFT> { nft in
+                nft.accountAddressRawValue == accountAddress
+            }
+        )
+
+        for nft in try fetch(descriptor) {
+            delete(nft)
+        }
+
+        try pruneOrphanedNFTSharedModels()
+    }
+
+    func pruneOrphanedNFTSharedModels() throws {
+        let allNFTs = try fetch(FetchDescriptor<NFT>())
+        let referencedContractIDs = Set(allNFTs.map(\.contract.id))
+        let referencedCollectionIDs = Set(allNFTs.compactMap(\.collection?.id))
+
+        let persistedContracts = try fetch(FetchDescriptor<NFT.Contract>())
+        for contract in persistedContracts where !referencedContractIDs.contains(contract.id) {
+            delete(contract)
+        }
+
+        let persistedCollections = try fetch(FetchDescriptor<NFT.Collection>())
+        for collection in persistedCollections where !referencedCollectionIDs.contains(collection.id) {
+            delete(collection)
+        }
     }
 }

@@ -1,3 +1,4 @@
+import AccountsCore
 import AuralisPrimaryModels
 import Foundation
 import Observation
@@ -125,24 +126,11 @@ final class ShellStore {
             startRefresh(for: selection, correlationID: correlationID)
 
         case .refreshStarted(let requestID, let selection, let correlationID):
-            state.latestRefreshRequestID = requestID
-            state.isRefreshingSelection = true
-            state.pendingCorrelationID = correlationID
-            state.selection = selection
-            refreshTask?.cancel()
-            let refreshCoordinator = refreshCoordinator
-            refreshTask = Task { [weak self] in
-                await refreshCoordinator.refresh(
-                    selection: selection,
-                    correlationID: correlationID
-                )
-                await self?.send(
-                    .refreshFinished(
-                        requestID: requestID,
-                        selection: selection
-                    )
-                )
-            }
+            beginRefresh(
+                requestID: requestID,
+                selection: selection,
+                correlationID: correlationID
+            )
 
         case .refreshFinished(let requestID, let selection):
             guard state.latestRefreshRequestID == requestID else {
@@ -332,13 +320,33 @@ final class ShellStore {
     }
 
     private func startRefresh(for selection: ActiveShellSelection, correlationID: String?) {
-        let requestID = UUID()
-        Task {
-            await self.send(
-                .refreshStarted(
+        beginRefresh(
+            requestID: UUID(),
+            selection: selection,
+            correlationID: correlationID ?? UUID().uuidString
+        )
+    }
+
+    private func beginRefresh(
+        requestID: UUID,
+        selection: ActiveShellSelection,
+        correlationID: String?
+    ) {
+        state.latestRefreshRequestID = requestID
+        state.isRefreshingSelection = true
+        state.pendingCorrelationID = correlationID
+        state.selection = selection
+        refreshTask?.cancel()
+        let refreshCoordinator = refreshCoordinator
+        refreshTask = Task { [weak self] in
+            await refreshCoordinator.refresh(
+                selection: selection,
+                correlationID: correlationID
+            )
+            await self?.send(
+                .refreshFinished(
                     requestID: requestID,
-                    selection: selection,
-                    correlationID: correlationID ?? UUID().uuidString
+                    selection: selection
                 )
             )
         }

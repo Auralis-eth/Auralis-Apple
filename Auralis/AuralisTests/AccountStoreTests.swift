@@ -1,4 +1,5 @@
 @testable import Auralis
+import AccountsCore
 import Foundation
 import SwiftData
 import Testing

@@ -5,6 +5,7 @@
 //  Created by Daniel Bell on 6/14/25.
 //
 
+import AccountsCore
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
