@@ -3,6 +3,7 @@ import AccountsCore
 import AgentIdentityCore
 import AuralisPrimaryModels
 import Foundation
+import PolicyCore
 import SwiftData
 
 protocol ShellContextSourceBuilding {
@@ -175,33 +176,6 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
             pinnedActionsProvider: pinnedActionsProvider,
             prefersDemoDataProvider: prefersDemoDataProvider,
             pinnedItemCountProvider: pinnedItemCountProvider
-        )
-    }
-}
-
-@MainActor
-protocol PolicyActionGating {
-    func attempt(_ action: PolicyControlledAction) async -> PolicyGateResult
-}
-
-@MainActor
-struct PolicyActionGateService: PolicyActionGating {
-    private let modeState: ModeState
-    private let receiptStore: any ReceiptStore
-
-    init(
-        modeState: ModeState,
-        receiptStore: any ReceiptStore
-    ) {
-        self.modeState = modeState
-        self.receiptStore = receiptStore
-    }
-
-    func attempt(_ action: PolicyControlledAction) async -> PolicyGateResult {
-        await ActionPolicyGate.attempt(
-            action,
-            modeState: modeState,
-            receiptStore: receiptStore
         )
     }
 }
@@ -437,7 +411,7 @@ private struct ShellServiceHub {
             },
             policyActionHandlerFactory: { modelContext, modeState in
                 PolicyActionGateService(
-                    modeState: modeState,
+                    modeProvider: { modeState.mode },
                     receiptStore: ReceiptStores.live(modelContext: modelContext)
                 )
             }

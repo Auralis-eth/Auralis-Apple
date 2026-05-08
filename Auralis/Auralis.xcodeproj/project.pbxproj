@@ -14,6 +14,7 @@
 		6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E0152FAE32FF00CD4102 /* AccountsCore */; };
 		6F84E01B2FAE48B000CD4102 /* AgentIdentityCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E01A2FAE48B000CD4102 /* AgentIdentityCore */; };
 		6F84E0202FAE627D00CD4102 /* ReceiptsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E01F2FAE627D00CD4102 /* ReceiptsCore */; };
+		6F84E0262FAE705B00CD4102 /* PolicyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E0252FAE705B00CD4102 /* PolicyCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -89,6 +90,7 @@
 				6F84E01B2FAE48B000CD4102 /* AgentIdentityCore in Frameworks */,
 				6F84E0202FAE627D00CD4102 /* ReceiptsCore in Frameworks */,
 				6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */,
+				6F84E0262FAE705B00CD4102 /* PolicyCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -177,6 +179,7 @@
 				6F84E0152FAE32FF00CD4102 /* AccountsCore */,
 				6F84E01A2FAE48B000CD4102 /* AgentIdentityCore */,
 				6F84E01F2FAE627D00CD4102 /* ReceiptsCore */,
+				6F84E0252FAE705B00CD4102 /* PolicyCore */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -268,6 +271,7 @@
 				6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */,
 				6F84E0192FAE48B000CD4102 /* XCLocalSwiftPackageReference "AgentIdentityCore" */,
 				6F84E01E2FAE627D00CD4102 /* XCLocalSwiftPackageReference "ReceiptsCore" */,
+				6F84E0242FAE705B00CD4102 /* XCLocalSwiftPackageReference "PolicyCore" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -686,6 +690,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ReceiptsCore;
 		};
+		6F84E0242FAE705B00CD4102 /* XCLocalSwiftPackageReference "PolicyCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = PolicyCore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -743,6 +751,10 @@
 		6F84E01F2FAE627D00CD4102 /* ReceiptsCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ReceiptsCore;
+		};
+		6F84E0252FAE705B00CD4102 /* PolicyCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PolicyCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1285,3 +1285,14 @@ Receipts finally got the low-level package boundary they had been quietly asking
 - Account receipt adapters, ENS receipt adapters, external-link flow logging, and shell dependency builders all stayed green after moving the ledger underneath them.
 
 The sticky lesson: a receipt package should be a vault, not a scrapbook. It stores and sanitizes facts. Product stories can write into it, but they should not live inside it.
+
+## PolicyCore Migration: The Rulebook Leaves The UI Drawer
+
+The policy gate finally moved out of `ModeState.swift`, which had been trying to be three things at once: the app's persisted mode switch, SwiftUI environment plumbing, and the bouncer deciding which actions are allowed through the door. That worked while Observe mode was tiny, but it was the wrong shape for code that other packages and tests need to trust.
+
+- `PolicyCore` now owns the reusable rulebook: `AppMode`, `PolicyControlledAction`, `PolicyGateResult`, `ActionPolicyGate`, `PolicyActionGating`, and `PolicyActionGateService`.
+- The app kept `ModeState`, `EnvironmentValues.modeState`, `View.modeState(_:)`, and `ModeReceiptAugmentor`, because those are SwiftUI/AppStorage concerns rather than reusable policy logic.
+- Generic denial receipt writing moved with the core gate through `ReceiptsCore`, while music-specific policy receipts stayed app-side in `AppActionPolicyGate.swift`. That keeps the package honest: it can log a policy denial without learning what a music export is.
+- Validation covered the important contract: the app builds, blocked Observe actions still write `policy.denied`, plugin actions still pass, music policy blocks still write their music receipt, and shell dependency wiring still resolves the policy gate through shared receipts.
+
+The sticky lesson: policy code is a rulebook, not a settings screen. Keep the bouncer near the door, but do not make it also own the wallpaper.

@@ -2,6 +2,7 @@ import ReceiptsCore
 import AuralisPrimaryModels
 import Foundation
 import Observation
+import PolicyCore
 
 @MainActor
 @Observable
