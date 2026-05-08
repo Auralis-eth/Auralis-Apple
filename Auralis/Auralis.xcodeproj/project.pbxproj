@@ -15,6 +15,7 @@
 		6F84E01B2FAE48B000CD4102 /* AgentIdentityCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E01A2FAE48B000CD4102 /* AgentIdentityCore */; };
 		6F84E0202FAE627D00CD4102 /* ReceiptsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E01F2FAE627D00CD4102 /* ReceiptsCore */; };
 		6F84E0262FAE705B00CD4102 /* PolicyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E0252FAE705B00CD4102 /* PolicyCore */; };
+		6F84E0292FAE829200CD4102 /* OperatorCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E0282FAE829200CD4102 /* OperatorCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,6 +86,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */,
+				6F84E0292FAE829200CD4102 /* OperatorCore in Frameworks */,
 				6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */,
 				6F4179322DA96363002A78F5 /* web3.swift in Frameworks */,
 				6F84E01B2FAE48B000CD4102 /* AgentIdentityCore in Frameworks */,
@@ -180,6 +182,7 @@
 				6F84E01A2FAE48B000CD4102 /* AgentIdentityCore */,
 				6F84E01F2FAE627D00CD4102 /* ReceiptsCore */,
 				6F84E0252FAE705B00CD4102 /* PolicyCore */,
+				6F84E0282FAE829200CD4102 /* OperatorCore */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -272,6 +275,7 @@
 				6F84E0192FAE48B000CD4102 /* XCLocalSwiftPackageReference "AgentIdentityCore" */,
 				6F84E01E2FAE627D00CD4102 /* XCLocalSwiftPackageReference "ReceiptsCore" */,
 				6F84E0242FAE705B00CD4102 /* XCLocalSwiftPackageReference "PolicyCore" */,
+				6F84E0272FAE829200CD4102 /* XCLocalSwiftPackageReference "OperatorCore" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -694,6 +698,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = PolicyCore;
 		};
+		6F84E0272FAE829200CD4102 /* XCLocalSwiftPackageReference "OperatorCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = OperatorCore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -755,6 +763,10 @@
 		6F84E0252FAE705B00CD4102 /* PolicyCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PolicyCore;
+		};
+		6F84E0282FAE829200CD4102 /* OperatorCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OperatorCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

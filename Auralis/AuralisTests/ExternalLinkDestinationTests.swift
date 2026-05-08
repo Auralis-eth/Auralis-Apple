@@ -1,3 +1,4 @@
+import OperatorCore
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation

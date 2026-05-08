@@ -7,6 +7,7 @@ import ReceiptsCore
 //
 
 import AuralisPrimaryModels
+import OperatorCore
 import SwiftUI
 
 private enum ExternalLinkStyle {
@@ -200,8 +201,10 @@ struct OpenSeaLink: View {
 
         Task {
             await ExternalLinkOpenFlow(
-                eventLogger: ReceiptEventLogger(
-                    receiptStore: ReceiptStores.live(modelContext: modelContext)
+                eventLogger: AppExternalLinkEventLogger(
+                    receiptEventLogger: ReceiptEventLogger(
+                        receiptStore: ReceiptStores.live(modelContext: modelContext)
+                    )
                 ),
                 openURL: { url in
                     openURL(url)
@@ -333,8 +336,10 @@ struct EtherscanLink: View {
 
         Task {
             await ExternalLinkOpenFlow(
-                eventLogger: ReceiptEventLogger(
-                    receiptStore: ReceiptStores.live(modelContext: modelContext)
+                eventLogger: AppExternalLinkEventLogger(
+                    receiptEventLogger: ReceiptEventLogger(
+                        receiptStore: ReceiptStores.live(modelContext: modelContext)
+                    )
                 ),
                 openURL: { url in
                     openURL(url)

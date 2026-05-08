@@ -1307,3 +1307,14 @@ Capabilities used to show up as raw strings in receipts and policy paths. That i
 - Validation kept the migration focused: the app builds, policy gate tests pass, and the changed music capability paths pass. One broader playlist receipt test still exposes the existing sanitizer behavior for nested playlist titles, so that was left untouched instead of being smuggled into this package migration.
 
 The sticky lesson: strings are fine for display, but bad as passports. Once multiple systems need to recognize a capability, give it an ID card and make everyone check the same one.
+
+## OperatorCore Migration: The Door Guard Moves Out Of The View
+
+External links look like simple buttons, but they are really handoffs to the outside world. That makes them operator territory: validate the destination, preserve who initiated the handoff, write the receipt if possible, and then open the URL only after confirmation.
+
+- `OperatorCore` now owns the external-link domain contracts: candidate and confirmation destinations, validation failures, allowlist policy, provenance, open requests, the event logging protocol, and the open flow.
+- SwiftUI stayed in the app. `ExternalLinkConfirmationSheet` and `OpenSeaLink` import the package, but the package does not know how the confirmation UI is presented.
+- The app kept a small `AppExternalLinkEventLogger` adapter around `ReceiptEventLogger`, avoiding a retroactive conformance between two imported modules.
+- Validation covered the useful surface area: the app builds, supported hosts still pass, blocked hosts and unsafe schemes still fail, confirmed opens still log before opening, logging failure still does not block the confirmed handoff, and operator/plugin provenance remains preserved in receipts.
+
+The sticky lesson: opening a browser is not just navigation when a system, operator, or plugin can initiate it. Treat it like a controlled handoff, not a random tap target.

@@ -1,3 +1,4 @@
+import OperatorCore
 import ReceiptsCore
 @testable import Auralis
 import AuralisPrimaryModels

@@ -1,3 +1,4 @@
+import OperatorCore
 import SwiftUI
 
 struct ExternalLinkConfirmationSheet: View {
