@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 
-public struct ProviderEndpointConfiguration: Equatable {
+public struct ProviderEndpointConfiguration: Equatable, Sendable {
     public let chain: Chain
     public let alchemyNFTBaseURL: URL?
     public let alchemyDataAPIBaseURL: URL?
