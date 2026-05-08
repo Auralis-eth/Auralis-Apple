@@ -1,3 +1,4 @@
+import CapabilitiesCore
 import ReceiptsCore
 @testable import Auralis
 import Foundation
@@ -105,7 +106,7 @@ struct MusicReceiptEventLoggerTests {
             musicReceiptLogger: logger,
             musicPolicyContext: MusicPolicyReceiptContext(
                 action: "music.export.create",
-                capabilityUsed: "music_export",
+                capabilityUsed: .musicExport,
                 reason: "Observe mode blocks export actions.",
                 receiptContext: MusicReceiptContext(
                     triggerCause: .policyDenied,

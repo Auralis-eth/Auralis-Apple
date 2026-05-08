@@ -14,12 +14,14 @@ let package = Package(
         ),
     ],
     dependencies: [
+        .package(path: "../CapabilitiesCore"),
         .package(path: "../ReceiptsCore"),
     ],
     targets: [
         .target(
             name: "PolicyCore",
             dependencies: [
+                "CapabilitiesCore",
                 "ReceiptsCore",
             ]
         ),

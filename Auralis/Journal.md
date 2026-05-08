@@ -1296,3 +1296,14 @@ The policy gate finally moved out of `ModeState.swift`, which had been trying to
 - Validation covered the important contract: the app builds, blocked Observe actions still write `policy.denied`, plugin actions still pass, music policy blocks still write their music receipt, and shell dependency wiring still resolves the policy gate through shared receipts.
 
 The sticky lesson: policy code is a rulebook, not a settings screen. Keep the bouncer near the door, but do not make it also own the wallpaper.
+
+## CapabilitiesCore Migration: Stop Passing Around Handwritten Name Tags
+
+Capabilities used to show up as raw strings in receipts and policy paths. That is fine when there are three of them and everyone remembers the spelling. It gets fragile once music, policy, approvals, and future operator flows all need to agree that `music_export` means the same thing everywhere.
+
+- `CapabilitiesCore` now owns the canonical capability vocabulary: `CapabilityID`, `CapabilityCategory`, `CapabilityDescriptor`, `CapabilityUseContext`, `CapabilityDecision`, and registry/mapping helpers.
+- `PolicyCore` now maps each `PolicyControlledAction` to a canonical `CapabilityID`, so policy decisions have a bridge into the same capability language the rest of the system can use.
+- Music receipts now pass `CapabilityID` values through `MusicReceiptEventLogger` and `MusicPolicyReceiptContext`, while preserving the exact existing raw values in stored receipt payloads.
+- Validation kept the migration focused: the app builds, policy gate tests pass, and the changed music capability paths pass. One broader playlist receipt test still exposes the existing sanitizer behavior for nested playlist titles, so that was left untouched instead of being smuggled into this package migration.
+
+The sticky lesson: strings are fine for display, but bad as passports. Once multiple systems need to recognize a capability, give it an ID card and make everyone check the same one.

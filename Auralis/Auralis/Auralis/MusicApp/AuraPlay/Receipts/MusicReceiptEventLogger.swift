@@ -1,3 +1,4 @@
+import CapabilitiesCore
 import ReceiptsCore
 import AuralisPrimaryModels
 import Foundation
@@ -26,7 +27,7 @@ struct MusicReceiptEventLogger {
     ) async throws -> ReceiptRecord {
         try await append(
             eventType: .playlistCreated,
-            capabilityUsed: "playlist_management",
+            capabilityUsed: .playlistManagement,
             policyDecision: .allowed,
             affectedMediaIDs: affectedMediaIDs,
             beforeSummary: nil,
@@ -57,7 +58,7 @@ struct MusicReceiptEventLogger {
     ) async throws -> ReceiptRecord {
         try await append(
             eventType: .playlistModified,
-            capabilityUsed: "playlist_management",
+            capabilityUsed: .playlistManagement,
             policyDecision: .allowed,
             affectedMediaIDs: affectedMediaIDs,
             beforeSummary: beforeSummary,
@@ -82,7 +83,7 @@ struct MusicReceiptEventLogger {
     ) async throws -> ReceiptRecord {
         try await append(
             eventType: .autoOrganizationRun,
-            capabilityUsed: "auto_organization",
+            capabilityUsed: .autoOrganization,
             policyDecision: .dryRun,
             affectedMediaIDs: affectedMediaIDs,
             beforeSummary: beforeSummary,
@@ -106,7 +107,7 @@ struct MusicReceiptEventLogger {
     ) async throws -> ReceiptRecord {
         try await append(
             eventType: .mediaClassified,
-            capabilityUsed: "music_library_classification",
+            capabilityUsed: .musicLibraryClassification,
             policyDecision: .allowed,
             affectedMediaIDs: affectedMediaIDs,
             beforeSummary: beforeSummary,
@@ -131,7 +132,7 @@ struct MusicReceiptEventLogger {
     ) async throws -> ReceiptRecord {
         try await append(
             eventType: .metadataOverrideApplied,
-            capabilityUsed: "metadata_override",
+            capabilityUsed: .metadataOverride,
             policyDecision: .allowed,
             affectedMediaIDs: affectedMediaIDs,
             beforeSummary: beforeSummary,
@@ -149,7 +150,7 @@ struct MusicReceiptEventLogger {
 
     func recordPolicyBlocked(
         action: String,
-        capabilityUsed: String,
+        capabilityUsed: CapabilityID,
         reason: String?,
         context: MusicReceiptContext
     ) async throws -> ReceiptRecord {
@@ -180,7 +181,7 @@ struct MusicReceiptEventLogger {
     ) async throws -> ReceiptRecord {
         try await append(
             eventType: .backgroundMusicTaskRun,
-            capabilityUsed: "background_music_task",
+            capabilityUsed: .backgroundMusicTask,
             policyDecision: .allowed,
             affectedMediaIDs: affectedMediaIDs,
             beforeSummary: beforeSummary,
@@ -205,7 +206,7 @@ struct MusicReceiptEventLogger {
     ) async throws -> ReceiptRecord {
         try await append(
             eventType: .exportCreated,
-            capabilityUsed: "music_export",
+            capabilityUsed: .musicExport,
             policyDecision: .allowed,
             affectedMediaIDs: affectedMediaIDs,
             beforeSummary: nil,
@@ -234,7 +235,7 @@ struct MusicReceiptEventLogger {
     ) async throws -> ReceiptRecord {
         try await append(
             eventType: .queueChanged,
-            capabilityUsed: "playback_queue",
+            capabilityUsed: .playbackQueue,
             policyDecision: .allowed,
             affectedMediaIDs: affectedMediaIDs,
             beforeSummary: beforeSummary,
@@ -258,7 +259,7 @@ struct MusicReceiptEventLogger {
     ) async throws -> ReceiptRecord {
         try await append(
             eventType: .playbackStarted,
-            capabilityUsed: "audio_playback",
+            capabilityUsed: .audioPlayback,
             policyDecision: .allowed,
             affectedMediaIDs: [mediaID],
             beforeSummary: nil,
@@ -288,7 +289,7 @@ struct MusicReceiptEventLogger {
     ) async throws -> ReceiptRecord {
         try await append(
             eventType: .playbackCompleted,
-            capabilityUsed: "audio_playback",
+            capabilityUsed: .audioPlayback,
             policyDecision: .allowed,
             affectedMediaIDs: [mediaID],
             beforeSummary: MusicReceiptStateSummary(
@@ -315,7 +316,7 @@ struct MusicReceiptEventLogger {
 private extension MusicReceiptEventLogger {
     func append(
         eventType: MusicReceiptEventType,
-        capabilityUsed: String,
+        capabilityUsed: CapabilityID,
         policyDecision: MusicReceiptPolicyDecision,
         affectedMediaIDs: [String],
         beforeSummary: MusicReceiptStateSummary?,
@@ -372,7 +373,7 @@ private extension MusicReceiptEventLogger {
 
     func makePayload(
         eventType: MusicReceiptEventType,
-        capabilityUsed: String,
+        capabilityUsed: CapabilityID,
         policyDecision: MusicReceiptPolicyDecision,
         affectedMediaIDs: [String],
         beforeSummary: MusicReceiptStateSummary?,
@@ -393,7 +394,7 @@ private extension MusicReceiptEventLogger {
             .public("mode", string: ReceiptMode.observe.rawValue, kind: .label),
             .public("trigger", string: context.triggerCause.rawValue, kind: .label),
             .public("actor", string: context.actor.rawValue, kind: .label),
-            .public("capabilityUsed", string: capabilityUsed, kind: .label),
+            .public("capabilityUsed", string: capabilityUsed.rawValue, kind: .label),
             .public("policyDecision", string: policyDecision.rawValue, kind: .label),
             .stringArray("affectedMediaIDs", values: dedupedMediaIDs, kind: .label),
             .nullableObject("beforeSummary", summary: beforeSummary),

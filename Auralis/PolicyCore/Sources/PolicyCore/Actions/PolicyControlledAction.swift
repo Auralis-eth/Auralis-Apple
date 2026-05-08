@@ -1,3 +1,5 @@
+import CapabilitiesCore
+
 /// Actions evaluated by the app policy gate before execution-style behavior runs.
 public enum PolicyControlledAction: String, CaseIterable, Sendable {
     case signMessage = "sign_message"
@@ -37,6 +39,19 @@ public enum PolicyControlledAction: String, CaseIterable, Sendable {
             return true
         case .runPlugin:
             return false
+        }
+    }
+
+    public var capabilityID: CapabilityID {
+        switch self {
+        case .signMessage:
+            return .signMessage
+        case .approveSpending:
+            return .approveSpending
+        case .draftTransaction:
+            return .draftTransaction
+        case .runPlugin:
+            return .runPlugin
         }
     }
 }

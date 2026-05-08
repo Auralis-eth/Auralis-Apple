@@ -1,3 +1,4 @@
+import CapabilitiesCore
 import ReceiptsCore
 import AuralisPrimaryModels
 import Foundation
@@ -82,7 +83,7 @@ struct MusicReceiptContext: Sendable {
 
 struct MusicPolicyReceiptContext: Sendable {
     let action: String
-    let capabilityUsed: String
+    let capabilityUsed: CapabilityID
     let reason: String?
     let receiptContext: MusicReceiptContext
 }
