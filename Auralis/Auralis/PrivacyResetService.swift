@@ -1,3 +1,4 @@
+import AgentIdentityCore
 import AuralisPrimaryModels
 import Foundation
 import SwiftData

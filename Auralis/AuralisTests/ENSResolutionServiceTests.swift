@@ -1,4 +1,5 @@
 @testable import Auralis
+import AgentIdentityCore
 import AuralisPrimaryModels
 import Foundation
 import SwiftData

@@ -1,6 +1,6 @@
 import Foundation
 
-enum ENSResolutionError: LocalizedError, Equatable {
+public enum ENSResolutionError: LocalizedError, Equatable {
     case invalidENSName
     case invalidAddress
     case unavailableProvider
@@ -9,7 +9,7 @@ enum ENSResolutionError: LocalizedError, Equatable {
     case notFound
     case mappingChanged(ensName: String, cachedAddress: String, resolvedAddress: String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .invalidENSName:
             return "Enter a valid ENS name ending in .eth."

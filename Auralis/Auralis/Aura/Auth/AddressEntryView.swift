@@ -6,6 +6,7 @@
 //
 
 import AccountsCore
+import AgentIdentityCore
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI

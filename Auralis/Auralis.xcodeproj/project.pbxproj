@@ -12,6 +12,7 @@
 		6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */ = {isa = PBXBuildFile; productRef = 6F6A10052F90000100BEEF01 /* AuralisPrimaryModels */; };
 		6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = 6F7B76032D962FE800DF0AD7 /* CodeScanner */; };
 		6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E0152FAE32FF00CD4102 /* AccountsCore */; };
+		6F84E01B2FAE48B000CD4102 /* AgentIdentityCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E01A2FAE48B000CD4102 /* AgentIdentityCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -84,6 +85,7 @@
 				6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */,
 				6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */,
 				6F4179322DA96363002A78F5 /* web3.swift in Frameworks */,
+				6F84E01B2FAE48B000CD4102 /* AgentIdentityCore in Frameworks */,
 				6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -171,6 +173,7 @@
 				6F7B76032D962FE800DF0AD7 /* CodeScanner */,
 				6F4179312DA96363002A78F5 /* web3.swift */,
 				6F84E0152FAE32FF00CD4102 /* AccountsCore */,
+				6F84E01A2FAE48B000CD4102 /* AgentIdentityCore */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -260,6 +263,7 @@
 				6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */,
 				6FC0A1022F70000100A0BEEF /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
 				6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */,
+				6F84E0192FAE48B000CD4102 /* XCLocalSwiftPackageReference "AgentIdentityCore" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -670,6 +674,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = AccountsCore;
 		};
+		6F84E0192FAE48B000CD4102 /* XCLocalSwiftPackageReference "AgentIdentityCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = AgentIdentityCore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -719,6 +727,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
 			productName = AccountsCore;
+		};
+		6F84E01A2FAE48B000CD4102 /* AgentIdentityCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AgentIdentityCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

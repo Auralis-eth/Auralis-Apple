@@ -1,3 +1,4 @@
+import AgentIdentityCore
 import Foundation
 import OSLog
 

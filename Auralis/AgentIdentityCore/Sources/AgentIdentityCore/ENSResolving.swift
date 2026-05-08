@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Methods may be called from any actor. Conformers are responsible for synchronizing access to
 /// their internal caches and transport clients.
-protocol ENSResolving: Sendable {
+public protocol ENSResolving: Sendable {
     /// Returns the cached forward lookup result if one is already available.
     func cachedForwardResolution(forENS name: String) async -> ENSForwardResolution?
     /// Returns the cached reverse lookup result if one is already available.

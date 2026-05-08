@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-actor ENSResolutionCacheStore {
+public actor ENSResolutionCacheStore {
     private let logger = Logger(subsystem: "Auralis", category: "ENSResolutionCacheStore")
     private let userDefaults: UserDefaults
     private let storageKey: String
@@ -10,7 +10,7 @@ actor ENSResolutionCacheStore {
     private let decoder = JSONDecoder()
     private var state: ENSCacheState
 
-    init(
+    public init(
         userDefaults: UserDefaults = .standard,
         storageKey: String = "Auralis.ENSResolutionCache.v1",
         retentionTTL: TimeInterval = 60 * 60 * 24 * 7
@@ -43,34 +43,34 @@ actor ENSResolutionCacheStore {
         }
     }
 
-    func cachedForwardResolution(forENS name: String) -> ENSForwardCacheEntry? {
+    public func cachedForwardResolution(forENS name: String) -> ENSForwardCacheEntry? {
         pruneExpiredEntriesAndPersistIfNeeded()
         return state.forward[name]
     }
 
-    func cachedReverseResolution(forAddress address: String) -> ENSReverseCacheEntry? {
+    public func cachedReverseResolution(forAddress address: String) -> ENSReverseCacheEntry? {
         pruneExpiredEntriesAndPersistIfNeeded()
         return state.reverse[address]
     }
 
-    func storeForwardResolution(_ entry: ENSForwardCacheEntry) {
+    public func storeForwardResolution(_ entry: ENSForwardCacheEntry) {
         pruneExpiredEntriesAndPersistIfNeeded()
         state.forward[entry.ensName] = entry
         persist()
     }
 
-    func removeForwardResolution(forENS name: String) {
+    public func removeForwardResolution(forENS name: String) {
         state.forward.removeValue(forKey: name)
         persist()
     }
 
-    func storeReverseResolution(_ entry: ENSReverseCacheEntry) {
+    public func storeReverseResolution(_ entry: ENSReverseCacheEntry) {
         pruneExpiredEntriesAndPersistIfNeeded()
         state.reverse[entry.address] = entry
         persist()
     }
 
-    func clearAll() {
+    public func clearAll() {
         state = .empty
         userDefaults.removeObject(forKey: storageKey)
     }

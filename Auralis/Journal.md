@@ -1263,3 +1263,14 @@ This migration moved the account lifecycle clerk into its own room. `AccountsCor
 - The shell tests also caught a refresh timing smell. `ShellStore` used to schedule a separate task just to send `.refreshStarted`, which let tests observe the shell in the awkward half-second before refresh work was actually visible. Refresh state now starts synchronously, and only the actual refresh operation runs in the task.
 
 The sticky lesson: package extraction is not only moving files. It is deciding which promises belong at the reusable boundary and which adapters should stay close to the app plumbing.
+
+## AgentIdentityCore Migration: ENS Gets Its Own Passport Office
+
+The ENS stack moved out of the general networking pile and into `AgentIdentityCore`, which is a better home for identity resolution than a folder full of provider machinery. ENS is not just “another HTTP call”; it is identity evidence. A name, an address, a stale cache hit, and a forward-verified reverse lookup all carry trust meaning, so they deserve a boundary with a name that says what they are doing.
+
+- `AgentIdentityCore` now owns the ENS contracts, cache state/store, reset service, provider client protocol, unavailable client, Web3-backed client, resolver, provenance, and error types.
+- The app kept `ReceiptBackedENSEventRecorder` as a bridge. That is the right split: the package can report identity events without knowing how Auralis stores receipts.
+- `ENSResolvers` was split into reusable package composition plus an app extension in `AppENSResolvers.swift`. The package takes a tiny ENS provider configuration contract; the app adapts its existing Alchemy/provider configuration and receipt store into that contract.
+- Validation found a SwiftData cleanup trap while running nearby privacy tests. Bulk deletes were not clearing pending inserted fixture rows for several model shapes, so logout cleanup now fetches and deletes NFTs, music library items, and receipts explicitly. Boring, but much less magical.
+
+The memorable rule: identity resolution should not live in the same junk drawer as generic provider plumbing. Put the passport office where everyone can find it, and keep the receipt printer plugged into the app.

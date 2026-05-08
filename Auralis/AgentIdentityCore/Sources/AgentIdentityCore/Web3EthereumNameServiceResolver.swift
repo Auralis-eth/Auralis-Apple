@@ -1,14 +1,14 @@
 import Foundation
 import web3
 
-actor Web3EthereumNameServiceResolver: ENSResolving {
+public actor Web3EthereumNameServiceResolver: ENSResolving {
     private let client: any EthereumNameServiceClient
     private let cacheStore: ENSResolutionCacheStore
     private let eventRecorder: any ENSEventRecording
     private let freshnessTTL: TimeInterval
     private let nowProvider: @Sendable () -> Date
 
-    init(
+    public init(
         client: any EthereumNameServiceClient,
         cacheStore: ENSResolutionCacheStore = ENSResolutionCacheStore(),
         eventRecorder: any ENSEventRecording = NoOpENSEventRecorder(),
@@ -22,7 +22,7 @@ actor Web3EthereumNameServiceResolver: ENSResolving {
         self.nowProvider = nowProvider
     }
 
-    func cachedForwardResolution(forENS name: String) async -> ENSForwardResolution? {
+    public func cachedForwardResolution(forENS name: String) async -> ENSForwardResolution? {
         guard let normalizedName = Self.normalizedENSName(name),
               let entry = await cacheStore.cachedForwardResolution(forENS: normalizedName) else {
             return nil
@@ -37,7 +37,7 @@ actor Web3EthereumNameServiceResolver: ENSResolving {
         )
     }
 
-    func cachedReverseResolution(forAddress address: String) async -> ENSReverseResolution? {
+    public func cachedReverseResolution(forAddress address: String) async -> ENSReverseResolution? {
         guard let normalizedAddress = Self.normalizedAddress(address),
               let entry = await cacheStore.cachedReverseResolution(forAddress: normalizedAddress) else {
             return nil
@@ -53,7 +53,7 @@ actor Web3EthereumNameServiceResolver: ENSResolving {
         )
     }
 
-    func resolveAddress(forENS name: String, correlationID: String?) async throws -> ENSForwardResolution {
+    public func resolveAddress(forENS name: String, correlationID: String?) async throws -> ENSForwardResolution {
         guard let normalizedName = Self.normalizedENSName(name) else {
             throw ENSResolutionError.invalidENSName
         }
@@ -149,7 +149,7 @@ actor Web3EthereumNameServiceResolver: ENSResolving {
         }
     }
 
-    func reverseLookup(address: String, correlationID: String?) async -> ENSReverseResolution? {
+    public func reverseLookup(address: String, correlationID: String?) async -> ENSReverseResolution? {
         guard let normalizedAddress = Self.normalizedAddress(address) else {
             return nil
         }

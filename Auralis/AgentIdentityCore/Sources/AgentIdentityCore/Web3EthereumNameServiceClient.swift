@@ -1,19 +1,19 @@
 import Foundation
 @preconcurrency import web3
 
-final class Web3EthereumNameServiceClient: EthereumNameServiceClient, Sendable {
+public final class Web3EthereumNameServiceClient: EthereumNameServiceClient, Sendable {
     private enum ClientError: Error {
         case timedOut
     }
 
     private let rpcURL: URL
-    let allowsOffchainLookup: Bool
+    public let allowsOffchainLookup: Bool
     private let requestTimeout: Duration
     private let maxAttempts: Int
     private let initialRetryDelay: Duration
     private let maxRetryDelay: Duration
 
-    init(
+    public init(
         rpcURL: URL,
         allowsOffchainLookup: Bool = true,
         requestTimeout: Duration = .seconds(15),
@@ -29,7 +29,7 @@ final class Web3EthereumNameServiceClient: EthereumNameServiceClient, Sendable {
         self.maxRetryDelay = maxRetryDelay
     }
 
-    func resolveAddress(forENS name: String) async throws -> String {
+    public func resolveAddress(forENS name: String) async throws -> String {
         try await performWithRetry {
             if self.allowsOffchainLookup {
                 let address = try await self.makeEthereumNameService().resolve(
@@ -47,7 +47,7 @@ final class Web3EthereumNameServiceClient: EthereumNameServiceClient, Sendable {
         }
     }
 
-    func resolveName(forAddress address: String) async throws -> String {
+    public func resolveName(forAddress address: String) async throws -> String {
         try await performWithRetry {
             if self.allowsOffchainLookup {
                 return try await self.makeEthereumNameService().resolve(

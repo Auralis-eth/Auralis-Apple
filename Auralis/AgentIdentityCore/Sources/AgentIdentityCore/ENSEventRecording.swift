@@ -1,6 +1,6 @@
 import Foundation
 
-protocol ENSEventRecording: Sendable {
+public protocol ENSEventRecording: Sendable {
     func recordCacheHit(
         kind: String,
         key: String,

@@ -40,18 +40,16 @@ extension ModelContext {
     }
 
     func deleteAllShellSupportData() throws {
-        try delete(
-            model: StoredReceipt.self,
-            where: #Predicate<StoredReceipt> { _ in true }
-        )
+        for receipt in try fetch(FetchDescriptor<StoredReceipt>()) {
+            delete(receipt)
+        }
         try delete(
             model: TokenHolding.self,
             where: #Predicate<TokenHolding> { _ in true }
         )
-        try delete(
-            model: MusicLibraryItem.self,
-            where: #Predicate<MusicLibraryItem> { _ in true }
-        )
+        for item in try fetch(FetchDescriptor<MusicLibraryItem>()) {
+            delete(item)
+        }
         try delete(
             model: SearchHistoryRecord.self,
             where: #Predicate<SearchHistoryRecord> { _ in true }
@@ -81,10 +79,9 @@ extension ModelContext {
     }
 
     func deleteAllNFTData() throws {
-        try delete(
-            model: NFT.self,
-            where: #Predicate<NFT> { _ in true }
-        )
+        for nft in try fetch(FetchDescriptor<NFT>()) {
+            delete(nft)
+        }
         try pruneOrphanedNFTSharedModels()
     }
 
