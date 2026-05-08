@@ -1,21 +1,9 @@
 import AuralisPrimaryModels
 import Foundation
-import OSLog
+import ReceiptsCore
 
 @MainActor
-struct ReceiptEventLogger {
-    private let receiptStore: any ReceiptStore
-    private let payloadSanitizer: any ReceiptPayloadSanitizing
-    private let logger = Logger(subsystem: "Auralis", category: "Receipts")
-
-    init(
-        receiptStore: any ReceiptStore,
-        payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer()
-    ) {
-        self.receiptStore = receiptStore
-        self.payloadSanitizer = payloadSanitizer
-    }
-
+extension ReceiptEventLogger {
     func recordAppLaunch(
         accountAddress: String,
         chain: Chain,
@@ -186,47 +174,6 @@ struct ReceiptEventLogger {
             actor: .system,
             isSuccess: false
         )
-    }
-}
-
-@MainActor
-private extension ReceiptEventLogger {
-    func append(
-        trigger: String,
-        scope: String,
-        summary: String,
-        provenance: String,
-        timelineAccountAddress: String?,
-        timelineChainRawValue: String?,
-        rawPayload: RawReceiptPayload,
-        correlationID: String?,
-        actor: ReceiptActor,
-        isSuccess: Bool
-    ) async throws -> ReceiptRecord {
-        let payload = payloadSanitizer.sanitize(rawPayload)
-
-        do {
-            return try await receiptStore.append(
-                ReceiptDraft(
-                    actor: actor,
-                    mode: .observe,
-                    trigger: trigger,
-                    scope: scope,
-                    summary: summary,
-                    provenance: provenance,
-                    isSuccess: isSuccess,
-                    correlationID: correlationID,
-                    timelineAccountAddress: timelineAccountAddress,
-                    timelineChainRawValue: timelineChainRawValue,
-                    details: payload
-                )
-            )
-        } catch {
-            logger.error(
-                "Failed to append receipt event trigger=\(trigger, privacy: .public) scope=\(scope, privacy: .public) correlationID=\(correlationID ?? "nil", privacy: .private(mask: .hash)) error=\(error.localizedDescription, privacy: .public)"
-            )
-            throw error
-        }
     }
 }
 

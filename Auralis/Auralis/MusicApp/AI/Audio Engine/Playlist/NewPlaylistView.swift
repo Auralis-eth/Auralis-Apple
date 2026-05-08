@@ -1,6 +1,7 @@
 import ImagePlayground
 import OSLog
 import PhotosUI
+import ReceiptsCore
 import SwiftData
 import SwiftUI
 import UIKit

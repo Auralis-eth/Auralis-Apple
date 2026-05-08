@@ -1,3 +1,4 @@
+import ReceiptsCore
 //
 //  OpenSeaLink.swift
 //  Auralis

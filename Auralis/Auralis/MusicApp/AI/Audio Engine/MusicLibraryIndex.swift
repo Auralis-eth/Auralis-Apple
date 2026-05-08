@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
+import ReceiptsCore
 import SwiftData
 
 struct MusicLibraryIndexRebuildResult: Equatable, Sendable {

@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import CryptoKit
 import Foundation
 
-struct DefaultReceiptPayloadSanitizer: ReceiptPayloadSanitizing {
+public struct DefaultReceiptPayloadSanitizer: ReceiptPayloadSanitizing {
     private let suspiciousKeyFragments: Set<String> = [
         "apikey",
         "api_key",
@@ -19,7 +19,9 @@ struct DefaultReceiptPayloadSanitizer: ReceiptPayloadSanitizing {
         "value"
     ]
 
-    func sanitize(_ payload: RawReceiptPayload) -> ReceiptPayload {
+    public init() { }
+
+    public func sanitize(_ payload: RawReceiptPayload) -> ReceiptPayload {
         ReceiptPayload(
             values: Dictionary(
                 uniqueKeysWithValues: payload.fields.map { field in

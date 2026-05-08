@@ -1,3 +1,4 @@
+import ReceiptsCore
 @testable import Auralis
 import AccountsCore
 import AgentIdentityCore

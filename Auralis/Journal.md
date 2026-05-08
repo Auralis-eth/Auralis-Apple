@@ -1274,3 +1274,14 @@ The ENS stack moved out of the general networking pile and into `AgentIdentityCo
 - Validation found a SwiftData cleanup trap while running nearby privacy tests. Bulk deletes were not clearing pending inserted fixture rows for several model shapes, so logout cleanup now fetches and deletes NFTs, music library items, and receipts explicitly. Boring, but much less magical.
 
 The memorable rule: identity resolution should not live in the same junk drawer as generic provider plumbing. Put the passport office where everyone can find it, and keep the receipt printer plugged into the app.
+
+## ReceiptsCore Migration: The Ledger Moves Into Its Own Vault
+
+Receipts finally got the low-level package boundary they had been quietly asking for. `ReceiptsCore` now owns the append-only store contract, raw payload field vocabulary, sanitizer, SwiftData-backed store, reset service, and generic logger. The stored receipt model itself stayed in `AuralisPrimaryModels`, which keeps the persistence vocabulary shared without making the app target the owner of every receipt behavior.
+
+- The important split was `ReceiptEventLogger`. The package owns the generic `append(...)` behavior: sanitize, draft, store, log failures. The app keeps feature-specific conveniences like app launch, context build, external-link open, copy action, and music library indexing in `AppReceiptEventLogging.swift`.
+- That boundary keeps `ReceiptsCore` low in the graph. It does not need to know about `ContextSnapshot`, `ExternalLinkOpenProvenance`, shell state, or music indexing just to provide the ledger.
+- The SwiftData reset path now uses explicit fetch/delete for receipts, matching the cleanup lesson from the privacy reset validation instead of relying on bulk delete behavior in places where pending inserted rows can surprise the tests.
+- Account receipt adapters, ENS receipt adapters, external-link flow logging, and shell dependency builders all stayed green after moving the ledger underneath them.
+
+The sticky lesson: a receipt package should be a vault, not a scrapbook. It stores and sanitizes facts. Product stories can write into it, but they should not live inside it.

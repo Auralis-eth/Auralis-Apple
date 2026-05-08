@@ -1,3 +1,4 @@
+import ReceiptsCore
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI

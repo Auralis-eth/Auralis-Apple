@@ -1,3 +1,4 @@
+import ReceiptsCore
 import OSLog
 import SwiftUI
 

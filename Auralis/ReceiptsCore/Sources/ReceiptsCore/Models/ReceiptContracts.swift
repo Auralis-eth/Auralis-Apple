@@ -1,14 +1,14 @@
 import AuralisPrimaryModels
 import Foundation
 
-enum ReceiptPayloadFieldSensitivity: Equatable, Sendable {
+public enum ReceiptPayloadFieldSensitivity: Equatable, Sendable {
     case `public`
     case redact
     case hash
     case truncate(maxLength: Int)
 }
 
-enum ReceiptPayloadValueKind: Equatable, Sendable {
+public enum ReceiptPayloadValueKind: Equatable, Sendable {
     case chain
     case url
     case walletAddress
@@ -26,29 +26,45 @@ enum ReceiptPayloadValueKind: Equatable, Sendable {
     case null
 }
 
-struct ReceiptPayloadField: Equatable, Sendable {
-    let key: String
-    let value: ReceiptJSONValue
-    let sensitivity: ReceiptPayloadFieldSensitivity
-    let valueKind: ReceiptPayloadValueKind
+public struct ReceiptPayloadField: Equatable, Sendable {
+    public let key: String
+    public let value: ReceiptJSONValue
+    public let sensitivity: ReceiptPayloadFieldSensitivity
+    public let valueKind: ReceiptPayloadValueKind
+
+    public init(
+        key: String,
+        value: ReceiptJSONValue,
+        sensitivity: ReceiptPayloadFieldSensitivity,
+        valueKind: ReceiptPayloadValueKind
+    ) {
+        self.key = key
+        self.value = value
+        self.sensitivity = sensitivity
+        self.valueKind = valueKind
+    }
 }
 
 /// Unsanitized input used at orchestration boundaries before persistence.
-struct RawReceiptPayload: Equatable, Sendable {
-    let fields: [ReceiptPayloadField]
+public struct RawReceiptPayload: Equatable, Sendable {
+    public let fields: [ReceiptPayloadField]
+
+    public init(fields: [ReceiptPayloadField]) {
+        self.fields = fields
+    }
 }
 
-protocol TypedReceiptPayload {
+public protocol TypedReceiptPayload {
     var fields: [ReceiptPayloadField] { get }
 }
 
-extension TypedReceiptPayload {
+public extension TypedReceiptPayload {
     var rawPayload: RawReceiptPayload {
         RawReceiptPayload(fields: fields)
     }
 }
 
-extension ReceiptPayloadField {
+public extension ReceiptPayloadField {
     static func `public`(_ key: String, string value: String, kind: ReceiptPayloadValueKind) -> ReceiptPayloadField {
         ReceiptPayloadField(
             key: key,
@@ -133,21 +149,21 @@ extension ReceiptPayloadField {
 }
 
 /// Phase 0 append requests are immutable facts. The store adds identifiers and ordering metadata.
-struct ReceiptDraft: Equatable, Sendable {
-    let createdAt: Date
-    let actor: ReceiptActor
-    let mode: ReceiptMode
-    let trigger: String
-    let scope: String
-    let summary: String
-    let provenance: String
-    let isSuccess: Bool
-    let correlationID: String?
-    let timelineAccountAddress: String?
-    let timelineChainRawValue: String?
-    let details: ReceiptPayload
+public struct ReceiptDraft: Equatable, Sendable {
+    public let createdAt: Date
+    public let actor: ReceiptActor
+    public let mode: ReceiptMode
+    public let trigger: String
+    public let scope: String
+    public let summary: String
+    public let provenance: String
+    public let isSuccess: Bool
+    public let correlationID: String?
+    public let timelineAccountAddress: String?
+    public let timelineChainRawValue: String?
+    public let details: ReceiptPayload
 
-    init(
+    public init(
         createdAt: Date = .now,
         actor: ReceiptActor = .system,
         mode: ReceiptMode = .observe,
@@ -175,7 +191,7 @@ struct ReceiptDraft: Equatable, Sendable {
         self.details = details
     }
 
-    init(
+    public init(
         createdAt: Date = .now,
         category: String,
         kind: String,
@@ -207,35 +223,63 @@ struct ReceiptDraft: Equatable, Sendable {
 }
 
 /// Receipt records are immutable historical facts. Append-only means stores may create and list them, export them, or reset the full collection.
-struct ReceiptRecord: Identifiable, Codable, Equatable, Sendable {
-    let id: UUID
-    let sequenceID: Int
-    let createdAt: Date
-    let actor: ReceiptActor
-    let mode: ReceiptMode
-    let trigger: String
-    let scope: String
-    let summary: String
-    let provenance: String
-    let isSuccess: Bool
-    let correlationID: String?
-    let details: ReceiptPayload
+public struct ReceiptRecord: Identifiable, Codable, Equatable, Sendable {
+    public let id: UUID
+    public let sequenceID: Int
+    public let createdAt: Date
+    public let actor: ReceiptActor
+    public let mode: ReceiptMode
+    public let trigger: String
+    public let scope: String
+    public let summary: String
+    public let provenance: String
+    public let isSuccess: Bool
+    public let correlationID: String?
+    public let details: ReceiptPayload
+
+    public init(
+        id: UUID,
+        sequenceID: Int,
+        createdAt: Date,
+        actor: ReceiptActor,
+        mode: ReceiptMode,
+        trigger: String,
+        scope: String,
+        summary: String,
+        provenance: String,
+        isSuccess: Bool,
+        correlationID: String?,
+        details: ReceiptPayload
+    ) {
+        self.id = id
+        self.sequenceID = sequenceID
+        self.createdAt = createdAt
+        self.actor = actor
+        self.mode = mode
+        self.trigger = trigger
+        self.scope = scope
+        self.summary = summary
+        self.provenance = provenance
+        self.isSuccess = isSuccess
+        self.correlationID = correlationID
+        self.details = details
+    }
 }
 
-extension ReceiptDraft {
-    var category: String { scope }
-    var kind: String { trigger }
-    var payload: ReceiptPayload { details }
+public extension ReceiptDraft {
+    public var category: String { scope }
+    public var kind: String { trigger }
+    public var payload: ReceiptPayload { details }
 }
 
-extension ReceiptRecord {
-    var category: String { scope }
-    var kind: String { trigger }
-    var payload: ReceiptPayload { details }
+public extension ReceiptRecord {
+    public var category: String { scope }
+    public var kind: String { trigger }
+    public var payload: ReceiptPayload { details }
 }
 
 /// Sanitization must happen before persistence so export can use persisted payloads directly.
-protocol ReceiptPayloadSanitizing {
+public protocol ReceiptPayloadSanitizing {
     func sanitize(_ payload: RawReceiptPayload) -> ReceiptPayload
 }
 
@@ -248,7 +292,7 @@ protocol ReceiptPayloadSanitizing {
 /// - `resetAll` is a separate destructive operation, not a convenience delete helper
 /// - stores must not invent correlation IDs
 @MainActor
-protocol ReceiptStore {
+public protocol ReceiptStore {
     func append(_ receipt: ReceiptDraft) async throws -> ReceiptRecord
     func latest(limit: Int) throws -> [ReceiptRecord]
     func receipts(

@@ -1,3 +1,4 @@
+import ReceiptsCore
 import AgentIdentityCore
 import Foundation
 import OSLog

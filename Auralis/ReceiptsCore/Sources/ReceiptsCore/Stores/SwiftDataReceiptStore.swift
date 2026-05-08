@@ -3,10 +3,10 @@ import Foundation
 import SwiftData
 
 @ModelActor
-actor ReceiptPersistenceStore {
+public actor ReceiptPersistenceStore {
     private var nextSequenceIDCache: Int?
 
-    func append(_ receipt: ReceiptDraft) throws -> ReceiptRecord {
+    public func append(_ receipt: ReceiptDraft) throws -> ReceiptRecord {
         let nextSequenceID = try allocateSequenceID()
         let storedReceipt = try StoredReceipt(
             sequenceID: nextSequenceID,
@@ -29,12 +29,11 @@ actor ReceiptPersistenceStore {
         return storedReceipt.asReceiptRecord()
     }
 
-    func resetAll() throws {
+    public func resetAll() throws {
         try modelContext.performRollbackSafeMutation {
-            try modelContext.delete(
-                model: StoredReceipt.self,
-                where: #Predicate<StoredReceipt> { _ in true }
-            )
+            for receipt in try modelContext.fetch(FetchDescriptor<StoredReceipt>()) {
+                modelContext.delete(receipt)
+            }
         }
         nextSequenceIDCache = nil
     }
@@ -57,11 +56,11 @@ actor ReceiptPersistenceStore {
 }
 
 @MainActor
-final class SwiftDataReceiptStore: ReceiptStore {
+public final class SwiftDataReceiptStore: ReceiptStore {
     private let modelContext: ModelContext
     private let persistenceStore: ReceiptPersistenceStore
 
-    init(
+    public init(
         modelContext: ModelContext,
         persistenceStore: ReceiptPersistenceStore
     ) {
@@ -69,7 +68,7 @@ final class SwiftDataReceiptStore: ReceiptStore {
         self.persistenceStore = persistenceStore
     }
 
-    convenience init(
+    public convenience init(
         modelContext: ModelContext,
         sequenceAllocator: ReceiptSequenceAllocator
     ) {
@@ -79,11 +78,11 @@ final class SwiftDataReceiptStore: ReceiptStore {
         )
     }
 
-    func append(_ receipt: ReceiptDraft) async throws -> ReceiptRecord {
+    public func append(_ receipt: ReceiptDraft) async throws -> ReceiptRecord {
         try await persistenceStore.append(receipt)
     }
 
-    func latest(limit: Int) throws -> [ReceiptRecord] {
+    public func latest(limit: Int) throws -> [ReceiptRecord] {
         guard limit > 0 else {
             return []
         }
@@ -99,7 +98,7 @@ final class SwiftDataReceiptStore: ReceiptStore {
         return try modelContext.fetch(descriptor).map { $0.asReceiptRecord() }
     }
 
-    func receipts(
+    public func receipts(
         forCorrelationID correlationID: String,
         limit: Int
     ) throws -> [ReceiptRecord] {
@@ -122,7 +121,7 @@ final class SwiftDataReceiptStore: ReceiptStore {
         return try modelContext.fetch(descriptor).map { $0.asReceiptRecord() }
     }
 
-    func exportAll() throws -> Data {
+    public func exportAll() throws -> Data {
         let descriptor = FetchDescriptor<StoredReceipt>(
             sortBy: [
                 SortDescriptor(\StoredReceipt.createdAt),
@@ -136,17 +135,17 @@ final class SwiftDataReceiptStore: ReceiptStore {
         return try encoder.encode(records)
     }
 
-    func resetAll() async throws {
+    public func resetAll() async throws {
         try await persistenceStore.resetAll()
     }
 }
 
-final class ReceiptSequenceAllocator {
-    init() { }
+public final class ReceiptSequenceAllocator {
+    public init() { }
 }
 
 @MainActor
-enum ReceiptStores {
+public enum ReceiptStores {
     // These caches are keyed by long-lived shell-owned ModelContext instances.
     // We intentionally keep one receipt store and sequence allocator per context
     // rather than evicting aggressively, because churning either object would
@@ -154,7 +153,7 @@ enum ReceiptStores {
     private static var cachedStores: [ObjectIdentifier: SwiftDataReceiptStore] = [:]
     private static var cachedPersistenceStores: [ObjectIdentifier: ReceiptPersistenceStore] = [:]
 
-    static func live(modelContext: ModelContext) -> any ReceiptStore {
+    public static func live(modelContext: ModelContext) -> any ReceiptStore {
         let key = ObjectIdentifier(modelContext)
         if let cachedStore = cachedStores[key] {
             return cachedStore
@@ -194,5 +193,17 @@ private extension StoredReceipt {
             correlationID: correlationID,
             details: decodedDetailsOrEmpty()
         )
+    }
+}
+
+private extension ModelContext {
+    func performRollbackSafeMutation(_ work: () throws -> Void) throws {
+        do {
+            try work()
+            try save()
+        } catch {
+            rollback()
+            throw error
+        }
     }
 }

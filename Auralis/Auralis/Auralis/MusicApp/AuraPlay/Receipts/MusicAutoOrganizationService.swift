@@ -1,3 +1,4 @@
+import ReceiptsCore
 import Foundation
 
 struct MusicAutoOrganizationDryRunProposal: Equatable, Sendable {
