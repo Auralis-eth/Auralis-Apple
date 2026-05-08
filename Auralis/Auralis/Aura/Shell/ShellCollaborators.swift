@@ -3,6 +3,7 @@ import AccountsCore
 import AuralisPrimaryModels
 import Foundation
 import SwiftData
+import NFTKit
 
 @MainActor
 /// Persists and restores the active shell wallet selection.

@@ -1,6 +1,7 @@
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
+import NFTKit
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext

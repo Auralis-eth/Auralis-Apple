@@ -1318,3 +1318,13 @@ External links look like simple buttons, but they are really handoffs to the out
 - Validation covered the useful surface area: the app builds, supported hosts still pass, blocked hosts and unsafe schemes still fail, confirmed opens still log before opening, logging failure still does not block the confirmed handoff, and operator/plugin provenance remains preserved in receipts.
 
 The sticky lesson: opening a browser is not just navigation when a system, operator, or plugin can initiate it. Treat it like a controlled handoff, not a random tap target.
+
+## NFTKit Migration: The Inventory Warehouse Gets Its Own Loading Dock
+
+`NFTKit` is now the home for the NFT and token-inventory service layer: Alchemy NFT fetching, token balance fetching, refresh orchestration, metadata preparation, SwiftData persistence/cleanup, provider failures, and `TokenHoldingsStore`. The shared model nouns (`NFT`, `TokenHolding`, `Chain`) still live in `AuralisPrimaryModels`, which keeps the package from pretending it owns the whole data dictionary.
+
+- The app and tests now import `NFTKit` at the call sites that use those services directly. That replaces the old “keep the app target as a typealias hallway” style of migration with real module ownership.
+- A practical boundary wrinkle showed up immediately: provider configuration, retry parsing, decimal formatting, and `Secrets` are not glamorous NFT features, but the moved providers depend on them. They moved with the package so the warehouse has its own loading dock instead of borrowing the app’s side door.
+- One Xcode-specific gotcha remains: the local `NFTKit` package product must be added to the app target through Xcode’s package UI. Editing the project file by hand while Xcode is open is a good way to turn a clean migration into project-file confetti.
+
+The sticky lesson: a package boundary is not just a folder move. If callers still see the old module, you have only rearranged shelves. Real extraction means importing the new warehouse by name.

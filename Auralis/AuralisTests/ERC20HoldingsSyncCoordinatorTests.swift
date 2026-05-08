@@ -1,6 +1,7 @@
 @testable import Auralis
 import Foundation
 import Testing
+import NFTKit
 
 @Suite
 struct ERC20HoldingsSyncCoordinatorTests {

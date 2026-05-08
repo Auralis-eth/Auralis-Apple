@@ -2,6 +2,7 @@ import ReceiptsCore
 import AuralisPrimaryModels
 import SwiftUI
 import SwiftData
+import NFTKit
 
 /// Root seam for the shipping AuraPlay music experience.
 struct AuraPlayTabRootView: View {

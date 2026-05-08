@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
+import NFTKit
 
 struct AlchemyRPCProvider: NativeBalanceProviding {
     private enum RPCRequestError: Error {

@@ -5,6 +5,7 @@ import AuralisPrimaryModels
 import Foundation
 import PolicyCore
 import SwiftData
+import NFTKit
 
 protocol ShellContextSourceBuilding {
     func makeContextSource(

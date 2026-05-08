@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
+import NFTKit
 
 struct ReadOnlyProviderFactory {
     private let configurationResolver: any ProviderConfigurationResolving

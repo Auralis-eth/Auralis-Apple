@@ -1,4 +1,5 @@
 import ReceiptsCore
+import NFTKit
 @testable import Auralis
 import AccountsCore
 import AgentIdentityCore

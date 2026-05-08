@@ -2,6 +2,7 @@
 import AuralisPrimaryModels
 import Foundation
 import Testing
+import NFTKit
 
 @Suite(.serialized)
 struct ProviderAbstractionTests {

@@ -1,6 +1,7 @@
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
+import NFTKit
 
 struct SharedNFTDetailView: View {
     let route: NFTDetailRoute

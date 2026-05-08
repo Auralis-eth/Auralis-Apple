@@ -3,6 +3,7 @@ import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
 import Testing
+import NFTKit
 
 @Suite
 struct HelperConsistencyTests {

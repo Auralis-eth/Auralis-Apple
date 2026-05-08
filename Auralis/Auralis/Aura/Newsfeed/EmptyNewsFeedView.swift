@@ -7,6 +7,7 @@
 
 import AuralisPrimaryModels
 import SwiftUI
+import NFTKit
 
 struct EmptyNewsFeedView: View {
     let currentAccount: EOAccount?

@@ -1,4 +1,5 @@
 import Foundation
+import NFTKit
 
 struct NativeBalance: Equatable, Sendable {
     let weiHex: String

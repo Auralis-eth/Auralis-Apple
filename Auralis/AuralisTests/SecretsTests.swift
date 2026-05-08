@@ -8,6 +8,7 @@
 @testable import Auralis
 import Foundation
 import Testing
+import NFTKit
 
 @Suite struct SecretsTests {
     @Test("missing provider keys fail deterministically when the test bundle is not configured")

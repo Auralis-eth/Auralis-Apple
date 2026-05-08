@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
+import NFTKit
 
 struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
     enum GasPricingError: Error, LocalizedError {

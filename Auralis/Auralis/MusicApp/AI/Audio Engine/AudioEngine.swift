@@ -8,6 +8,7 @@
 import AuralisPrimaryModels
 import AVFoundation
 import Foundation
+import NFTKit
 
 @MainActor
 /// Shared playback engine for loading remote NFT audio, managing queue state, and exposing playback status to SwiftUI.

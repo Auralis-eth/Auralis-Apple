@@ -3,6 +3,7 @@ import AuralisPrimaryModels
 import Foundation
 import Testing
 import UIKit
+import NFTKit
 
 @Suite(.serialized)
 @MainActor

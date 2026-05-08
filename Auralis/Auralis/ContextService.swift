@@ -3,6 +3,7 @@ import AuralisPrimaryModels
 import Foundation
 import Observation
 import PolicyCore
+import NFTKit
 
 @MainActor
 @Observable

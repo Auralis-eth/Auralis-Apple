@@ -8,6 +8,7 @@
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
+import NFTKit
 
 // MARK: - Updated Views
 

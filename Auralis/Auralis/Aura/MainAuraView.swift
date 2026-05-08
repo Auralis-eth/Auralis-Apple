@@ -2,6 +2,7 @@ import ReceiptsCore
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
+import NFTKit
 
 struct MainAuraView: View {
     @Environment(\.scenePhase) private var scenePhase

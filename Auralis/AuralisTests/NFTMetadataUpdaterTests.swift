@@ -1,6 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import Testing
+import NFTKit
 
 @Suite
 struct NFTMetadataUpdaterTests {

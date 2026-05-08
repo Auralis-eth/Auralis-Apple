@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import SwiftUI
+import NFTKit
 
 enum ShellStatusTone: Equatable {
     case neutral

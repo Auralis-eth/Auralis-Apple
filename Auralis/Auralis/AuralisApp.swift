@@ -2,6 +2,7 @@ import AuralisPrimaryModels
 import OSLog
 import SwiftData
 import SwiftUI
+import NFTKit
 
 @main
 struct AuralisApp: App {

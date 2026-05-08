@@ -3,6 +3,7 @@ import AgentIdentityCore
 import AuralisPrimaryModels
 import Foundation
 import SwiftData
+import NFTKit
 
 @MainActor
 extension ENSResolvers {

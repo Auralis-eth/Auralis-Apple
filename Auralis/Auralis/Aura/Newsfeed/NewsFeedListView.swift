@@ -8,6 +8,7 @@
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
+import NFTKit
 
 struct NewsFeedListView: View {
     @Binding var currentAccount: EOAccount?

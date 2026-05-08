@@ -3,6 +3,7 @@ import Observation
 import PolicyCore
 import SwiftData
 import SwiftUI
+import NFTKit
 
 struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext

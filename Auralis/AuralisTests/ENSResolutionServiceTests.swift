@@ -4,6 +4,7 @@ import AuralisPrimaryModels
 import Foundation
 import SwiftData
 import Testing
+import NFTKit
 
 @Suite
 struct ENSResolutionServiceTests {
