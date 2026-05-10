@@ -1,6 +1,7 @@
 import AgentIdentityCore
 import AuralisPrimaryModels
 import Foundation
+import ProviderKit
 import SwiftData
 
 protocol TransactionalPrivacyResetting: Sendable {

@@ -1,4 +1,5 @@
 @testable import Auralis
+import AccountStorage
 import AccountsCore
 import AuralisPrimaryModels
 import Foundation
@@ -30,7 +31,7 @@ struct UndoSupportTests {
     func accountRemovalCanUndo() async throws {
         let container = try TestModelContainers.primaryStore(undoEnabled: true)
         let context = container.mainContext
-        let store = AccountStore(modelContext: context)
+        let store = SwiftDataAccountStore(modelContext: context)
 
         let removed = try await store.createWatchAccount(
             from: "0x1010101010101010101010101010101010101010",

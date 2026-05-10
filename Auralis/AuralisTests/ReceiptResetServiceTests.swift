@@ -1,4 +1,5 @@
 import ReceiptsCore
+import ReceiptStorage
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
@@ -15,14 +16,14 @@ struct ReceiptResetServiceTests {
     }
 
     @MainActor
-    private func makeStoreAndResetService() throws -> (SwiftDataReceiptStore, ReceiptResetService) {
+    private func makeStoreAndResetService() throws -> (SwiftDataReceiptStore, SwiftDataReceiptResetService) {
         let container = try makeContainer()
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
             modelContext: context,
             sequenceAllocator: ReceiptSequenceAllocator()
         )
-        let resetService = ReceiptResetService(receiptStore: store)
+        let resetService = SwiftDataReceiptResetService(modelContext: context)
         return (store, resetService)
     }
 

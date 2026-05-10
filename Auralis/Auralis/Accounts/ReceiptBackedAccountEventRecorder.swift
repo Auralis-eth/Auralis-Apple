@@ -1,4 +1,5 @@
 import ReceiptsCore
+import ReceiptStorage
 import AccountsCore
 import AuralisPrimaryModels
 import Foundation

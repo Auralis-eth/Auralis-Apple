@@ -1,4 +1,5 @@
 import ReceiptsCore
+import ReceiptStorage
 import NFTKit
 @testable import Auralis
 import AuralisPrimaryModels

@@ -1,12 +1,15 @@
 import ReceiptsCore
+import ReceiptStorage
 import NFTKit
 @testable import Auralis
+import AccountStorage
 import AccountsCore
 import AgentIdentityCore
 import AuralisPrimaryModels
 import Foundation
 import SwiftData
 import Testing
+import TokenStorage
 
 @MainActor
 @Suite
@@ -30,7 +33,7 @@ struct PrivacyResetServiceTests {
             homePinnedItemsStore: pinnedItemsStore
         )
         let searchHistoryStore = SearchHistoryStore(modelContext: context)
-        let tokenHoldingsStore = TokenHoldingsStore(modelContext: context)
+        let tokenHoldingsStore = SwiftDataTokenHoldingsStore(modelContext: context)
         let receiptStore = ReceiptStores.live(modelContext: context)
 
         try await searchHistoryStore.recordCommittedQuery("Moonpunks", accountAddress: nil)
@@ -79,7 +82,7 @@ struct PrivacyResetServiceTests {
     func accountRemovalPurgesScopedNFTs() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let store = AccountStore(modelContext: context)
+        let store = SwiftDataAccountStore(modelContext: context)
 
         let removed = try await store.createWatchAccount(
             from: "0x1010101010101010101010101010101010101010",
@@ -99,7 +102,7 @@ struct PrivacyResetServiceTests {
         removed.markAuraPlaySynced(on: .ethMainnet, at: .now)
         context.insert(try makeFixtureStoredReceipt(accountAddress: removed.address))
         try await SearchHistoryStore(modelContext: context).recordCommittedQuery("Removed Scope", accountAddress: removed.address)
-        try await TokenHoldingsStore(modelContext: context).upsertNativeHolding(
+        try await SwiftDataTokenHoldingsStore(modelContext: context).upsertNativeHolding(
             accountAddress: removed.address,
             chain: .ethMainnet,
             amountDisplay: "4.2",
@@ -146,7 +149,7 @@ struct PrivacyResetServiceTests {
     func accountOverwritePurgesScopedNFTs() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let store = AccountStore(modelContext: context)
+        let store = SwiftDataAccountStore(modelContext: context)
 
         let overwritten = try await store.createWatchAccount(
             from: "0x3030303030303030303030303030303030303030",
@@ -166,7 +169,7 @@ struct PrivacyResetServiceTests {
         overwritten.markAuraPlaySynced(on: .ethMainnet, at: .now)
         context.insert(try makeFixtureStoredReceipt(accountAddress: overwritten.address))
         try await SearchHistoryStore(modelContext: context).recordCommittedQuery("Overwrite Scope", accountAddress: overwritten.address)
-        try await TokenHoldingsStore(modelContext: context).upsertNativeHolding(
+        try await SwiftDataTokenHoldingsStore(modelContext: context).upsertNativeHolding(
             accountAddress: overwritten.address,
             chain: .ethMainnet,
             amountDisplay: "9.9",
@@ -235,7 +238,7 @@ struct PrivacyResetServiceTests {
             "Logout Scope",
             accountAddress: preservedAccount.address
         )
-        try await TokenHoldingsStore(modelContext: context).upsertNativeHolding(
+        try await SwiftDataTokenHoldingsStore(modelContext: context).upsertNativeHolding(
             accountAddress: preservedAccount.address,
             chain: .ethMainnet,
             amountDisplay: "1.0",
@@ -298,7 +301,7 @@ struct PrivacyResetServiceTests {
     func tokenHoldingsStoreRejectsEmptyAccountScope() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let store = TokenHoldingsStore(modelContext: context)
+        let store = SwiftDataTokenHoldingsStore(modelContext: context)
 
         await #expect(throws: TokenHoldingsStoreError.invalidAccountAddress("   ")) {
             try await store.upsertNativeHolding(
@@ -368,7 +371,7 @@ struct PrivacyResetServiceTests {
             homePinnedItemsStore: pinnedItemsStore
         )
         let searchHistoryStore = SearchHistoryStore(modelContext: context)
-        let tokenHoldingsStore = TokenHoldingsStore(modelContext: context)
+        let tokenHoldingsStore = SwiftDataTokenHoldingsStore(modelContext: context)
 
         try await searchHistoryStore.recordCommittedQuery("Retry", accountAddress: nil)
         try await tokenHoldingsStore.upsertNativeHolding(

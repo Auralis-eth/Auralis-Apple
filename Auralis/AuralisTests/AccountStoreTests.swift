@@ -1,4 +1,5 @@
 @testable import Auralis
+import AccountStorage
 import AccountsCore
 import Foundation
 import SwiftData
@@ -13,7 +14,7 @@ struct AccountStoreTests {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
-        let store = AccountStore(modelContext: context, eventRecorder: recorder)
+        let store = SwiftDataAccountStore(modelContext: context, eventRecorder: recorder)
 
         let older = try await store.createWatchAccount(
             from: "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -42,7 +43,7 @@ struct AccountStoreTests {
     func accountLookupNormalizesInput() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let store = AccountStore(modelContext: context)
+        let store = SwiftDataAccountStore(modelContext: context)
 
         let account = try await store.createWatchAccount(
             from: "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
@@ -87,7 +88,7 @@ struct AccountStoreTests {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
-        let store = AccountStore(modelContext: context, eventRecorder: recorder)
+        let store = SwiftDataAccountStore(modelContext: context, eventRecorder: recorder)
 
         let first = try await store.createWatchAccount(
             from: "0x1111111111111111111111111111111111111111",
@@ -116,7 +117,7 @@ struct AccountStoreTests {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
-        let store = AccountStore(modelContext: context, eventRecorder: recorder)
+        let store = SwiftDataAccountStore(modelContext: context, eventRecorder: recorder)
 
         let created = try await store.activateWatchAccount(
             from: "0x1212121212121212121212121212121212121212",
@@ -149,7 +150,7 @@ struct AccountStoreTests {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
-        let store = AccountStore(modelContext: context, eventRecorder: recorder)
+        let store = SwiftDataAccountStore(modelContext: context, eventRecorder: recorder)
 
         let original = try await store.createWatchAccount(
             from: "0x3333333333333333333333333333333333333333",
@@ -198,7 +199,7 @@ struct AccountStoreTests {
     func invalidAndMissingAccountErrors() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let store = AccountStore(modelContext: context)
+        let store = SwiftDataAccountStore(modelContext: context)
 
         await #expect(throws: AccountStoreError.invalidAddress) {
             _ = try await store.createWatchAccount(from: "definitely not an address")
@@ -219,7 +220,7 @@ struct AccountStoreTests {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
-        let store = AccountStore(modelContext: context, eventRecorder: recorder)
+        let store = SwiftDataAccountStore(modelContext: context, eventRecorder: recorder)
 
         let first = try await store.createWatchAccount(
             from: "0x4444444444444444444444444444444444444444",
@@ -253,7 +254,7 @@ struct AccountStoreTests {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
-        let store = AccountStore(modelContext: context, eventRecorder: recorder)
+        let store = SwiftDataAccountStore(modelContext: context, eventRecorder: recorder)
 
         let active = try await store.createWatchAccount(
             from: "0x6666666666666666666666666666666666666666",
@@ -287,7 +288,7 @@ struct AccountStoreTests {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let recorder = RecordingAccountEventRecorder()
-        let store = AccountStore(modelContext: context, eventRecorder: recorder)
+        let store = SwiftDataAccountStore(modelContext: context, eventRecorder: recorder)
         let correlationID = "account-activation-123"
 
         _ = try await store.activateWatchAccount(
@@ -309,7 +310,7 @@ struct AccountStoreTests {
     func listAccountsUsesSelectionThenAddedAtOrdering() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let store = AccountStore(modelContext: context)
+        let store = SwiftDataAccountStore(modelContext: context)
 
         let oldestSelected = try await store.createWatchAccount(
             from: "0x8888888888888888888888888888888888888888",

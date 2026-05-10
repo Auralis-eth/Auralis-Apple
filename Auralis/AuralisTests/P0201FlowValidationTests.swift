@@ -1,4 +1,5 @@
 @testable import Auralis
+import AccountStorage
 import AccountsCore
 import AuralisPrimaryModels
 import Foundation
@@ -19,7 +20,7 @@ struct P0201FlowValidationTests {
     func validatesPrimaryWatchAccountFlow() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let store = AccountStore(modelContext: context)
+        let store = SwiftDataAccountStore(modelContext: context)
         let shellLogic = MainAuraShellLogic()
 
         let firstAccount = try await store.activateWatchAccount(
@@ -67,7 +68,7 @@ struct P0201FlowValidationTests {
     func validatesLogoutAndRelaunchBehavior() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let store = AccountStore(modelContext: context)
+        let store = SwiftDataAccountStore(modelContext: context)
         let shellLogic = MainAuraShellLogic()
         let homeLogic = HomeTabLogic()
 

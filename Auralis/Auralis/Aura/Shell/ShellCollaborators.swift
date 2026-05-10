@@ -1,4 +1,5 @@
 import ReceiptsCore
+import AccountStorage
 import AccountsCore
 import AuralisPrimaryModels
 import Foundation
@@ -100,11 +101,11 @@ struct SwiftDataShellAccountResolver: ShellAccountResolving {
     }
 
     func account(for address: String) throws -> EOAccount? {
-        try AccountStore(modelContext: modelContext).account(for: address)
+        try SwiftDataAccountStore(modelContext: modelContext).account(for: address)
     }
 
     func fallbackAccount() throws -> EOAccount? {
-        try AccountStore(modelContext: modelContext).listAccounts().first
+        try SwiftDataAccountStore(modelContext: modelContext).listAccounts().first
     }
 }
 
@@ -124,7 +125,7 @@ struct SwiftDataShellAccountMutator: ShellAccountMutating {
     }
 
     func selectAccount(address: String, correlationID: String?) async throws -> EOAccount {
-        try await AccountStore(
+        try await SwiftDataAccountStore(
             modelContext: modelContext,
             eventRecorder: eventRecorder
         )
@@ -136,7 +137,7 @@ struct SwiftDataShellAccountMutator: ShellAccountMutating {
         activeAddress: String,
         correlationID: String?
     ) async throws -> AccountRemovalResult {
-        try await AccountStore(
+        try await SwiftDataAccountStore(
             modelContext: modelContext,
             eventRecorder: eventRecorder
         )
@@ -152,7 +153,7 @@ struct SwiftDataShellAccountMutator: ShellAccountMutating {
         chain: Chain,
         correlationID: String?
     ) async throws -> EOAccount {
-        let store = AccountStore(
+        let store = SwiftDataAccountStore(
             modelContext: modelContext,
             eventRecorder: eventRecorder
         )

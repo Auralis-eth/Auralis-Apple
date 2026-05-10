@@ -1,5 +1,7 @@
 import ReceiptsCore
+import ReceiptStorage
 @testable import Auralis
+import AccountStorage
 import AccountsCore
 import AuralisPrimaryModels
 import Foundation
@@ -31,7 +33,7 @@ struct AccountReceiptRecorderTests {
             receiptStore: receiptStore,
             payloadSanitizer: DefaultReceiptPayloadSanitizer()
         )
-        let accountStore = AccountStore(modelContext: context, eventRecorder: recorder)
+        let accountStore = SwiftDataAccountStore(modelContext: context, eventRecorder: recorder)
 
         let account = try await accountStore.createWatchAccount(
             from: "0x1234567890abcdef1234567890abcdef12345678",
@@ -77,7 +79,7 @@ struct AccountReceiptRecorderTests {
             receiptStore: receiptStore,
             payloadSanitizer: DefaultReceiptPayloadSanitizer()
         )
-        let accountStore = AccountStore(modelContext: context, eventRecorder: recorder)
+        let accountStore = SwiftDataAccountStore(modelContext: context, eventRecorder: recorder)
         let correlationID = "account-activation-correlation"
 
         _ = try await accountStore.activateWatchAccount(
