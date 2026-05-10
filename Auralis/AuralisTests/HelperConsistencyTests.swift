@@ -4,6 +4,7 @@ import SwiftData
 import SwiftUI
 import Testing
 import NFTKit
+import TokenStorage
 
 @Suite
 struct HelperConsistencyTests {
@@ -123,7 +124,7 @@ struct HelperConsistencyTests {
     func nativeHoldingsPersistByScope() async throws {
         let container = try makeTokenHoldingContainer()
         let context = ModelContext(container)
-        let store = TokenHoldingsStore(modelContext: context)
+        let store = SwiftDataTokenHoldingsStore(modelContext: context)
 
         try await store.upsertNativeHolding(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
@@ -167,7 +168,7 @@ struct HelperConsistencyTests {
     func nativeHoldingUpsertReusesScopedRow() async throws {
         let container = try makeTokenHoldingContainer()
         let context = ModelContext(container)
-        let store = TokenHoldingsStore(modelContext: context)
+        let store = SwiftDataTokenHoldingsStore(modelContext: context)
 
         try await store.upsertNativeHolding(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
@@ -194,7 +195,7 @@ struct HelperConsistencyTests {
     func tokenHoldingsStayScopedAcrossAccountAndChain() async throws {
         let container = try makeTokenHoldingContainer()
         let context = ModelContext(container)
-        let store = TokenHoldingsStore(modelContext: context)
+        let store = SwiftDataTokenHoldingsStore(modelContext: context)
 
         try await store.upsertNativeHolding(
             accountAddress: "0x1111111111111111111111111111111111111111",
@@ -309,7 +310,7 @@ struct HelperConsistencyTests {
     func replacingScopedERC20HoldingsReconcilesRows() async throws {
         let container = try makeTokenHoldingContainer()
         let context = ModelContext(container)
-        let store = TokenHoldingsStore(modelContext: context)
+        let store = SwiftDataTokenHoldingsStore(modelContext: context)
 
         try await store.replaceERC20Holdings(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",

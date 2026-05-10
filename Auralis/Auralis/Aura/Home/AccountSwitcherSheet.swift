@@ -20,7 +20,7 @@ struct AccountSwitcherSheet: View {
 
     let currentAccount: EOAccount?
     let activeSelection: ActiveShellSelection?
-    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let accountStoreFactory: @MainActor (ModelContext) -> any AccountStoring
     let onSelectAccount: @MainActor (String) -> Void
     let onRemoveAccount: @MainActor (String) -> Void
     let onCurrentChainChange: @MainActor (Chain) -> Void

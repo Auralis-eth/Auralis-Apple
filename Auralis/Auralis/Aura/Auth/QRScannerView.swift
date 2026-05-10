@@ -41,7 +41,7 @@ struct QRScannerView: View {
     @State private var alertTitle = ""
     @State private var alertMessage = ""
     @State private var showingAlert = false
-    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let accountStoreFactory: @MainActor (ModelContext) -> any AccountStoring
     let onAccountActivated: @MainActor (EOAccount, String?) -> Void
 
     private var haptics: AuraHaptics {

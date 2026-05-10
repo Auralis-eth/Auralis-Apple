@@ -17,7 +17,7 @@ struct HomeTabView: View {
 
     let router: AppRouter
     let ensResolver: any ENSResolving
-    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let accountStoreFactory: @MainActor (ModelContext) -> any AccountStoring
     let logoutCleanupServiceFactory: @MainActor (ModelContext) -> any LogoutCleaning
     let pinnedItemsStore: HomePinnedItemsStore
     @Binding var pinnedItemCount: Int
@@ -56,7 +56,7 @@ struct HomeTabView: View {
         contextSnapshot: ContextSnapshot,
         router: AppRouter,
         ensResolver: any ENSResolving,
-        accountStoreFactory: @escaping @MainActor (ModelContext) -> AccountStore,
+        accountStoreFactory: @escaping @MainActor (ModelContext) -> any AccountStoring,
         logoutCleanupServiceFactory: @escaping @MainActor (ModelContext) -> any LogoutCleaning,
         pinnedItemsStore: HomePinnedItemsStore,
         pinnedItemCountBinding: Binding<Int>

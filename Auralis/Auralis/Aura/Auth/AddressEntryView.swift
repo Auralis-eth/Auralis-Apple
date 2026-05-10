@@ -62,7 +62,7 @@ struct AddressInputView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.modelContext) private var modelContext
     let ensResolver: any ENSResolving
-    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let accountStoreFactory: @MainActor (ModelContext) -> any AccountStoring
     let onAccountActivated: @MainActor (EOAccount, String?) -> Void
 
     private var validationPresentation: AddressEntryValidationPresentation {
@@ -332,7 +332,7 @@ private struct AddressEntryContentView: View {
     let isSubmitting: Bool
     let handleSubmit: () -> Void
     let selectGuestPass: (String) -> Void
-    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let accountStoreFactory: @MainActor (ModelContext) -> any AccountStoring
     let onAccountActivated: @MainActor (EOAccount, String?) -> Void
 
     var body: some View {
