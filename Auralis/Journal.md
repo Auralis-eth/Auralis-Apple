@@ -1328,3 +1328,72 @@ The sticky lesson: opening a browser is not just navigation when a system, opera
 - One Xcode-specific gotcha remains: the local `NFTKit` package product must be added to the app target through Xcode’s package UI. Editing the project file by hand while Xcode is open is a good way to turn a clean migration into project-file confetti.
 
 The sticky lesson: a package boundary is not just a folder move. If callers still see the old module, you have only rearranged shelves. Real extraction means importing the new warehouse by name.
+
+## Provider Package Planning: Draw The Plumbing Before Moving The Pipes
+
+The next modularization question is about provider and adapter packages: `ProviderKit`, `ChainProviders`, `ENS`, `ExplorerAdapter`, plus focused storage packages. The useful answer is not “move every network-looking file into one shiny package.” That would just turn the app target’s junk drawer into a package-shaped junk drawer.
+
+- `ProviderKit` should own API keys, endpoint configuration, retry/backoff, RPC/HTTP transport, and Alchemy clients. It is the utility room for provider plumbing.
+- `ChainProviders` should own chain capability policy and provider composition. It decides what a chain can do; it should not perform the network calls itself.
+- `ENS` should own resolver protocols, the Web3 client, cache store, cache entries, errors, provenance, and provider-backed ENS configuration. ENS is a complete domain, not a permanent corner of `AgentIdentityCore` and not mere adapter glue.
+- Storage splits into five focused packages: `ReceiptStorage`, `AccountStorage`, `TokenStorage`, `SwiftDataAdapters`, and `UserDefaultsAdapters`. That keeps domain-specific stores from hiding inside a generic storage junk drawer, while shared SwiftData and UserDefaults mechanics still get a reusable home.
+- `ExplorerAdapter` should build typed explorer and marketplace destinations. It should not open URLs or present confirmation UI.
+
+The sticky lesson: package names are promises. `ProviderKit` should not become “everything involving the internet,” and `SwiftDataAdapters` should not become “every type that once touched SwiftData.” Good boundaries are boring enough that the dependency graph can explain them without a meeting.
+
+The lesson: a good ticket should make the next engineer dangerous in the useful way. If they still have to guess package names, file moves, dependency direction, and acceptance tests, it is not an implementation ticket yet. It is just architecture wallpaper.
+
+## ProviderKit / ChainProviders Checkpoint: The Pipes Moved, The Fuse Box Did Not
+
+The provider split got its next real checkpoint. `ProviderKit` now owns the concrete Alchemy RPC and gas-pricing providers, plus the provider-facing native balance and gas estimate contracts they need to compile outside the app. `ChainProviders` now owns the safe generic composition factory for gas pricing and native balance providers, while NFT/token inventory construction stays in the app-side factory to avoid dragging `NFTKit` into the chain policy package.
+
+- `AlchemyRPCProvider`, `AlchemyGasPricingProvider`, `NativeBalance`, `NativeBalanceProviding`, `GasPricingProviding`, `GasPriceEstimate`, and `GasPriceCache` moved under `ProviderKit`.
+- `ProviderKit` deliberately does not import `ChainProviders`. It has a tiny internal EVM support check because provider transport is lower in the graph; `ChainProviders` can depend on `ProviderKit`, but not the other way around.
+- `ReadOnlyChainProviderFactory` now lives in `ChainProviders` for gas/native balance composition. The app's `ReadOnlyProviderFactory` delegates those two paths there and keeps NFT/token paths locally.
+- ENS extraction hit an Xcode project boundary: a new `ENS` package cannot be imported by `AgentIdentityCore` or the app until the package product is added to the Xcode project dependency graph. Because the project file is off-limits, the safe move was to restore the build and leave ENS for a checkpoint that is allowed to update project metadata.
+
+The sticky lesson: moving pipes is easy until the fuse box says it has never heard of the new room. Package extraction is source code plus project wiring; pretending the wiring is optional just creates a build that cannot find its modules.
+
+## AccountStorage Migration: The Key Rack Gets Its Own Closet
+
+Account persistence finally stopped living inside `AccountsCore`. That package now owns the account vocabulary and contracts: validation results, store errors, account activation/removal results, account event recording, and the `AccountStoring` protocol. The SwiftData machinery moved into `AccountStorage` as `SwiftDataAccountStore`.
+
+- The important boundary is simple: feature code that only needs “an account store” imports `AccountsCore` and receives `any AccountStoring`; composition code that actually builds the SwiftData store imports `AccountStorage`.
+- We kept `AccountStore` in `AccountsCore` as a pure validation namespace, not as a typealias backdoor. Pasted/scanned address validation is still available to UI without dragging SwiftData storage into those views.
+- The concrete store kept the existing behavior: canonical address normalization, duplicate handling, overwrite semantics, sorted account listing, undo-aware removal, account-scoped cleanup, and receipt/event logging.
+- `AccountStorageTests` now owns the SwiftData storage contract with in-memory containers: save, lookup, overwrite-without-duplicates, delete/fallback, ordering, and invalid address handling.
+
+The sticky lesson: contracts are the key rack; persistence is the locked closet behind it. Most of the app should ask for a key by name, not know which shelf the locksmith uses.
+
+## ReceiptStorage Migration: The Vault Door Moves, The Ledger Stays Honest
+
+Receipts got the same package-boundary treatment as accounts. `ReceiptsCore` now keeps the durable receipt language: drafts, records, payload sanitizing, the store/reset protocols, and `ReceiptEventLogger`. The SwiftData-backed storage machinery moved into `ReceiptStorage`, where it belongs.
+
+- `SwiftDataReceiptStore`, `ReceiptPersistenceStore`, `ReceiptStores.live(modelContext:)`, and `SwiftDataReceiptResetService` now live in `ReceiptStorage`.
+- The generic `ReceiptResetService` stayed in `ReceiptsCore` because it only talks to the `ReceiptStore` protocol. The concrete live reset factory moved with SwiftData.
+- App composition and feature adapters that build a local store now import `ReceiptStorage`; code that only logs or accepts a receipt store still imports `ReceiptsCore`.
+- `ReceiptStorageTests` covers the storage contract with in-memory SwiftData: append, timeline ordering, export ordering, destructive reset, inserted-unsaved reset cleanup, and sanitizer-through-logger behavior.
+
+The useful lesson: receipt logging is not the same thing as receipt storage. The logger writes the story, the sanitizer redacts the sensitive bits, and the storage package owns the vault where the story lands.
+
+## SwiftDataAdapters: Shared Tools, Not A Storage Junk Drawer
+
+The storage strategy is now more than a document. `SwiftDataAdapters` stopped being a placeholder and took ownership of the shared SwiftData mutation mechanics that both `AccountStorage` and `ReceiptStorage` were carrying around locally.
+
+- The shared package now exposes rollback-safe and undoable `ModelContext` mutation helpers.
+- `AccountStorage` uses those helpers for account creation, overwrite cleanup, and undo-aware account removal.
+- `ReceiptStorage` uses the same helpers for append/reset safety, including the reset path that cleans up inserted-but-unsaved receipts.
+- The app still keeps domain stores out of `SwiftDataAdapters`, which is the whole point. A helper package should be a toolbox, not a moving truck for every model that has ever touched SwiftData.
+
+The sticky lesson: shared infrastructure earns its place when two real packages use it. Anything broader than that is how a tidy toolbox turns into the drawer where old batteries and mystery screws go to retire.
+
+## TokenStorage Migration: Portfolio Shelves Leave The NFT Warehouse
+
+Token holdings are no longer stored by `NFTKit`. `NFTKit` still owns the provider-facing token contracts for now, but the concrete SwiftData persistence adapter moved into `TokenStorage` as `SwiftDataTokenHoldingsStore`.
+
+- This uses the ticket's option A: `TokenStorage` depends on `NFTKit` for `ProviderTokenHolding` and token freshness helpers. No `TokenCore` package was invented during this pass.
+- App composition and ERC-20 UI construction now import `TokenStorage` directly when they build the concrete store.
+- The old `TokenHoldingsStore` name was retired instead of preserved through a typealias. The new name says what the type actually is: a SwiftData-backed token holdings adapter.
+- `TokenStorageTests` covers native and ERC-20 writes, account/chain scoping, stale replacement within a single scope, metadata placeholder fields, clear-all reset, and invalid account scope errors.
+
+The practical gotcha: source code can move faster than Xcode's package graph. The local package still has to be attached to the app target through Xcode before `import TokenStorage` can build there. Once that wiring is in, this is a real package boundary rather than another module-shaped hallway.
