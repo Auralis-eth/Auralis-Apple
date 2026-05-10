@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 
 @MainActor
 public protocol ReceiptResetting {
@@ -16,14 +15,5 @@ public struct ReceiptResetService: ReceiptResetting {
 
     public func resetReceipts() async throws {
         try await receiptStore.resetAll()
-    }
-}
-
-@MainActor
-public enum ReceiptResetServices {
-    public static func live(modelContext: ModelContext) -> ReceiptResetService {
-        ReceiptResetService(
-            receiptStore: ReceiptStores.live(modelContext: modelContext)
-        )
     }
 }

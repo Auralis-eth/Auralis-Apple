@@ -1,6 +1,8 @@
 import AuralisPrimaryModels
 import Foundation
+import ReceiptsCore
 import SwiftData
+import SwiftDataAdapters
 
 @ModelActor
 public actor ReceiptPersistenceStore {
@@ -193,17 +195,5 @@ private extension StoredReceipt {
             correlationID: correlationID,
             details: decodedDetailsOrEmpty()
         )
-    }
-}
-
-private extension ModelContext {
-    func performRollbackSafeMutation(_ work: () throws -> Void) throws {
-        do {
-            try work()
-            try save()
-        } catch {
-            rollback()
-            throw error
-        }
     }
 }
