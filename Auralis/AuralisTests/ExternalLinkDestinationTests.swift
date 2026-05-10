@@ -2,30 +2,36 @@ import OperatorCore
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
+import NFTKit
 import Testing
 
 @Suite
 struct ExternalLinkDestinationTests {
-    @Test("OpenSea URLs are chain aware and unsupported chains stay hidden")
-    func openSeaURLsFollowChainSupport() {
-        let baseURL = Chain.baseMainnet.openSeaURL(contractAddress: "0xabc", tokenId: "1")
-        #expect(baseURL?.absoluteString == "https://opensea.io/assets/base/0xabc/1")
+    private let contract = "0x1234567890abcdef1234567890abcdef12345678"
 
-        let unsupportedURL = Chain.baseSepoliaTestnet.openSeaURL(contractAddress: "0xabc", tokenId: "1")
-        #expect(unsupportedURL == nil)
+    @Test("OpenSea URLs are chain aware and unsupported chains stay hidden")
+    func openSeaURLsFollowChainSupport() throws {
+        let builder = OpenSeaDestinationBuilder()
+        let baseURL = try builder.url(contract: contract, tokenID: "1", chain: .baseMainnet)
+        #expect(baseURL.absoluteString == "https://opensea.io/assets/base/0x1234567890abcdef1234567890abcdef12345678/1")
+
+        #expect(throws: ExplorerURLBuildError.unsupportedChain(.baseSepoliaTestnet)) {
+            try builder.url(contract: contract, tokenID: "1", chain: .baseSepoliaTestnet)
+        }
     }
 
     @Test("Explorer URLs use the chain-specific scanner host")
-    func explorerURLsFollowChain() {
-        let baseURL = Chain.baseMainnet.nftExplorerURL(contractAddress: "0xabc", tokenId: "1")
-        #expect(baseURL?.absoluteString == "https://basescan.org/token/0xabc?a=1")
+    func explorerURLsFollowChain() throws {
+        let builder = ExplorerURLBuilder()
+        let baseURL = try builder.url(for: .nft(contract: contract, tokenID: "1", chain: .baseMainnet))
+        #expect(baseURL.absoluteString == "https://basescan.org/token/0x1234567890abcdef1234567890abcdef12345678?a=1")
 
-        let arbitrumLabel = Chain.arbMainnet.nftExplorerDestination?.label
+        let arbitrumLabel = builder.label(for: .arbMainnet)
         #expect(arbitrumLabel == "Arbiscan")
     }
 
     @Test("external link policy accepts every supported explorer host")
-    func policyAcceptsAllSupportedExplorerHosts() {
+    func policyAcceptsAllSupportedExplorerHosts() throws {
         let policy = ExternalLinkPolicy()
         let explorerCandidates: [(String, Chain)] = [
             ("Etherscan", .ethMainnet),
@@ -40,12 +46,10 @@ struct ExternalLinkDestinationTests {
             ("PolygonScan", .polygonMainnet),
             ("PolygonScan", .polygonAmoyTestnet)
         ]
+        let builder = ExplorerURLBuilder()
 
         for (label, chain) in explorerCandidates {
-            guard let url = chain.nftExplorerURL(contractAddress: "0xabc", tokenId: "1") else {
-                Issue.record("Expected explorer URL for \(chain.rawValue)")
-                continue
-            }
+            let url = try builder.url(for: .nft(contract: contract, tokenID: "1", chain: chain))
 
             let candidate = ExternalLinkCandidateDestination(label: label, url: url)
             guard case .success(let destination) = policy.validate(candidate) else {

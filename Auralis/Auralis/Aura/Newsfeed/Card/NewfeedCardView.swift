@@ -1,4 +1,5 @@
 import ReceiptsCore
+import ReceiptStorage
 //
 //  NewfeedCardView.swift
 //  Auralis

@@ -1,4 +1,5 @@
 import ReceiptsCore
+import ReceiptStorage
 //
 //  OpenSeaLink.swift
 //  Auralis
@@ -7,90 +8,13 @@ import ReceiptsCore
 //
 
 import AuralisPrimaryModels
+import NFTKit
 import OperatorCore
 import SwiftUI
 
 private enum ExternalLinkStyle {
     static let primaryGradient = [Color.accent, Color.accent.opacity(0.78)]
     static let secondaryGradient = [Color.deepBlue, Color.deepBlue.opacity(0.82)]
-}
-
-extension Chain {
-    private static func externalDestination(label: String, host: String) -> ExternalLinkCandidateDestination? {
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = host
-
-        guard let url = components.url else {
-            return nil
-        }
-
-        return ExternalLinkCandidateDestination(label: label, url: url)
-    }
-
-    var openSeaChainSlug: String? {
-        switch self {
-        case .ethMainnet:
-            return "ethereum"
-        case .baseMainnet:
-            return "base"
-        case .arbMainnet:
-            return "arbitrum"
-        case .optMainnet:
-            return "optimism"
-        case .polygonMainnet:
-            return "matic"
-        case .zoraMainnet:
-            return "zora"
-        default:
-            return nil
-        }
-    }
-
-    var nftExplorerDestination: ExternalLinkCandidateDestination? {
-        switch self {
-        case .ethMainnet:
-            return Self.externalDestination(label: "Etherscan", host: "etherscan.io")
-        case .ethSepoliaTestnet:
-            return Self.externalDestination(label: "Etherscan", host: "sepolia.etherscan.io")
-        case .baseMainnet:
-            return Self.externalDestination(label: "BaseScan", host: "basescan.org")
-        case .baseSepoliaTestnet:
-            return Self.externalDestination(label: "BaseScan", host: "sepolia.basescan.org")
-        case .arbMainnet:
-            return Self.externalDestination(label: "Arbiscan", host: "arbiscan.io")
-        case .arbSepoliaTestnet:
-            return Self.externalDestination(label: "Arbiscan", host: "sepolia.arbiscan.io")
-        case .arbNovaMainnet:
-            return Self.externalDestination(label: "Arbiscan", host: "nova.arbiscan.io")
-        case .optMainnet:
-            return Self.externalDestination(label: "Optimistic Etherscan", host: "optimistic.etherscan.io")
-        case .optSepoliaTestnet:
-            return Self.externalDestination(label: "Optimistic Etherscan", host: "sepolia-optimism.etherscan.io")
-        case .polygonMainnet:
-            return Self.externalDestination(label: "PolygonScan", host: "polygonscan.com")
-        case .polygonAmoyTestnet:
-            return Self.externalDestination(label: "PolygonScan", host: "amoy.polygonscan.com")
-        default:
-            return nil
-        }
-    }
-
-    func openSeaURL(contractAddress: String, tokenId: String) -> URL? {
-        guard let chainSlug = openSeaChainSlug else {
-            return nil
-        }
-
-        return URL(string: "https://opensea.io/assets/\(chainSlug)/\(contractAddress)/\(tokenId)")
-    }
-
-    func nftExplorerURL(contractAddress: String, tokenId: String) -> URL? {
-        guard let destination = nftExplorerDestination else {
-            return nil
-        }
-
-        return URL(string: "\(destination.url.absoluteString)/token/\(contractAddress)?a=\(tokenId)")
-    }
 }
 
 struct OpenSeaLink: View {
@@ -106,6 +30,7 @@ struct OpenSeaLink: View {
     @State private var validationFailure: ExternalLinkValidationFailure?
 
     private let policy = ExternalLinkPolicy()
+    private let openSeaDestinationBuilder = OpenSeaDestinationBuilder()
 
     init(chain: Chain,
          contractAddress: String,
@@ -118,7 +43,7 @@ struct OpenSeaLink: View {
     }
 
     private var openSeaURL: URL? {
-        chain.openSeaURL(contractAddress: contractAddress, tokenId: tokenId)
+        try? openSeaDestinationBuilder.url(contract: contractAddress, tokenID: tokenId, chain: chain)
     }
 
     var body: some View {
@@ -235,6 +160,7 @@ struct EtherscanLink: View {
     @State private var validationFailure: ExternalLinkValidationFailure?
 
     private let policy = ExternalLinkPolicy()
+    private let explorerURLBuilder = ExplorerURLBuilder()
 
     init(
         chain: Chain,
@@ -249,11 +175,16 @@ struct EtherscanLink: View {
     }
 
     private var explorerDestination: ExternalLinkCandidateDestination? {
-        chain.nftExplorerDestination
+        guard let label = explorerURLBuilder.label(for: chain),
+              let url = explorerURL else {
+            return nil
+        }
+
+        return ExternalLinkCandidateDestination(label: label, url: url)
     }
 
     private var explorerURL: URL? {
-        chain.nftExplorerURL(contractAddress: contractAddress, tokenId: tokenId)
+        try? explorerURLBuilder.url(for: .nft(contract: contractAddress, tokenID: tokenId, chain: chain))
     }
 
     var body: some View {
