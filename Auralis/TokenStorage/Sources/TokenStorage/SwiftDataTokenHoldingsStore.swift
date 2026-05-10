@@ -1,6 +1,8 @@
 import AuralisPrimaryModels
 import Foundation
+import NFTKit
 import SwiftData
+import SwiftDataAdapters
 
 public enum TokenHoldingsStoreError: LocalizedError, Equatable {
     case invalidAccountAddress(String)
@@ -149,7 +151,7 @@ private actor TokenHoldingsPersistenceStore {
 }
 
 @MainActor
-public struct TokenHoldingsStore {
+public struct SwiftDataTokenHoldingsStore: Sendable {
     private let persistenceStore: TokenHoldingsPersistenceStore
 
     public init(modelContext: ModelContext) {
