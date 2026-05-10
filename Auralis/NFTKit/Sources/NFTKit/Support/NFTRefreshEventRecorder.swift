@@ -1,4 +1,5 @@
 import ReceiptsCore
+import ReceiptStorage
 import AuralisPrimaryModels
 import Foundation
 import OSLog

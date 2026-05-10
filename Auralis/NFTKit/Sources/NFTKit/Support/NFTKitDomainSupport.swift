@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import Foundation
 
 public extension TokenHolding {
-    static let hiddenAmountDisplay = "Amount hidden"
+    static let hiddenAmountDisplay = DecimalQuantityFormatter.hiddenAmountDisplay
 
     var hidesAmountUntilMetadataLoads: Bool {
         amountDisplay == Self.hiddenAmountDisplay
@@ -14,24 +14,6 @@ public extension TokenHolding {
 }
 
 public extension Chain {
-    var supportsEVMRPC: Bool {
-        switch self {
-        case .solanaMainnet, .solanaDevnetTestnet:
-            return false
-        default:
-            return true
-        }
-    }
-
-    var supportsERC20Holdings: Bool {
-        switch self {
-        case .solanaMainnet, .solanaDevnetTestnet:
-            return false
-        default:
-            return true
-        }
-    }
-
     var nativeTokenSymbol: String {
         switch self {
         case .polygonMainnet, .polygonAmoyTestnet:

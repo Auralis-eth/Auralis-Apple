@@ -7,6 +7,7 @@
 
 import AuralisPrimaryModels
 import OSLog
+import ProviderKit
 import RegexBuilder
 import SwiftData
 import SwiftUI
