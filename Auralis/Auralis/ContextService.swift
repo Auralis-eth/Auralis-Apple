@@ -2,6 +2,7 @@ import ReceiptsCore
 import AuralisPrimaryModels
 import Foundation
 import Observation
+import ProviderKit
 import PolicyCore
 import NFTKit
 

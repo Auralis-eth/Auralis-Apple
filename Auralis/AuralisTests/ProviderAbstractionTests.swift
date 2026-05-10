@@ -1,6 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
+import ProviderKit
 import Testing
 import NFTKit
 

@@ -1,8 +1,11 @@
 import AuralisPrimaryModels
+import ChainProviders
 import Foundation
 import NFTKit
+import ProviderKit
 
 struct ReadOnlyProviderFactory {
+    private let chainProviderFactory: ReadOnlyChainProviderFactory
     private let configurationResolver: any ProviderConfigurationResolving
     private let session: URLSession?
 
@@ -12,6 +15,10 @@ struct ReadOnlyProviderFactory {
     ) {
         self.configurationResolver = configurationResolver
         self.session = session
+        self.chainProviderFactory = ReadOnlyChainProviderFactory(
+            configurationResolver: configurationResolver,
+            session: session
+        )
     }
 
     func makeNFTInventoryProvider(for chain: Chain) throws -> any NFTInventoryProviding {
@@ -30,29 +37,11 @@ struct ReadOnlyProviderFactory {
     }
 
     func makeGasPricingProvider() -> any GasPricingProviding {
-        if let session {
-            return AlchemyGasPricingProvider(
-                configurationResolver: configurationResolver,
-                session: session
-            )
-        }
-
-        return AlchemyGasPricingProvider(
-            configurationResolver: configurationResolver
-        )
+        chainProviderFactory.makeGasPricingProvider()
     }
 
     func makeNativeBalanceProvider() -> any NativeBalanceProviding {
-        if let session {
-            return AlchemyRPCProvider(
-                configurationResolver: configurationResolver,
-                session: session
-            )
-        }
-
-        return AlchemyRPCProvider(
-            configurationResolver: configurationResolver
-        )
+        chainProviderFactory.makeNativeBalanceProvider()
     }
 
     func makeTokenHoldingsProvider() -> any TokenHoldingsProviding {

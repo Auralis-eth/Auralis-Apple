@@ -2,6 +2,7 @@ import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
 import NFTKit
+import TokenStorage
 
 struct ERC20TokensRootView: View {
     @Environment(\.modelContext) private var modelContext
@@ -13,7 +14,7 @@ struct ERC20TokensRootView: View {
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
     let router: AppRouter
-    let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
+    let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> SwiftDataTokenHoldingsStore
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
 
     @State private var syncCoordinator = ERC20HoldingsSyncCoordinator()
@@ -30,7 +31,7 @@ struct ERC20TokensRootView: View {
         nftService: NFTService,
         refreshAction: @escaping @MainActor () async -> Void,
         router: AppRouter,
-        tokenHoldingsStoreFactory: @escaping @MainActor (ModelContext) -> TokenHoldingsStore,
+        tokenHoldingsStoreFactory: @escaping @MainActor (ModelContext) -> SwiftDataTokenHoldingsStore,
         tokenHoldingsProviderFactory: @escaping () -> any TokenHoldingsProviding
     ) {
         self.currentAccountAddress = currentAccountAddress

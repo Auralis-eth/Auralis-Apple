@@ -1,11 +1,15 @@
 import ReceiptsCore
+import ReceiptStorage
+import AccountStorage
 import AccountsCore
 import AgentIdentityCore
 import AuralisPrimaryModels
 import Foundation
+import ProviderKit
 import PolicyCore
 import SwiftData
 import NFTKit
+import TokenStorage
 
 protocol ShellContextSourceBuilding {
     func makeContextSource(
@@ -227,7 +231,7 @@ struct ShellStoreDependencies {
 @MainActor
 struct GatewayDependencies {
     let ensResolver: any ENSResolving
-    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let accountStoreFactory: @MainActor (ModelContext) -> any AccountStoring
 
     static func live(modelContext: ModelContext) -> GatewayDependencies {
         let services = ShellServiceHub.live
@@ -240,7 +244,7 @@ struct GatewayDependencies {
 
 @MainActor
 struct MainTabDependencies {
-    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let accountStoreFactory: @MainActor (ModelContext) -> any AccountStoring
     let contextServiceBuilder: any ShellContextServiceBuilding
     let nativeBalanceProvider: any NativeBalanceProviding
     let ensResolver: any ENSResolving
@@ -249,7 +253,7 @@ struct MainTabDependencies {
     let musicLibraryIndexer: any MusicLibraryIndexing
     let receiptEventLoggerFactory: @MainActor (ModelContext) -> ReceiptEventLogger
     let searchHistoryStore: SearchHistoryStore
-    let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
+    let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> SwiftDataTokenHoldingsStore
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
     let logoutCleanupServiceFactory: @MainActor (ModelContext) -> any LogoutCleaning
     let privacyResetServiceFactory: @MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting
@@ -319,7 +323,7 @@ private struct ShellServiceHub {
     /// Factory for read-only provider dependencies used across shell features.
     let readOnlyProviderFactory: ReadOnlyProviderFactory
     /// Builds the account store for the current model context.
-    let accountStoreFactory: @MainActor (ModelContext) -> AccountStore
+    let accountStoreFactory: @MainActor (ModelContext) -> any AccountStoring
     /// Builds the account event recorder for the current model context.
     let accountEventRecorderFactory: @MainActor (ModelContext) -> any AccountEventRecorder
     /// Builds the shell context service.
@@ -337,7 +341,7 @@ private struct ShellServiceHub {
     /// Builds the home pinned-items store.
     let homePinnedItemsStoreFactory: () -> HomePinnedItemsStore
     /// Builds the persisted token holdings store.
-    let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> TokenHoldingsStore
+    let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> SwiftDataTokenHoldingsStore
     /// Builds the token holdings network provider.
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
     /// Builds the logout cleanup service for the current model context.
@@ -366,7 +370,7 @@ private struct ShellServiceHub {
             },
             readOnlyProviderFactory: readOnlyProviderFactory,
             accountStoreFactory: { modelContext in
-                AccountStore(
+                SwiftDataAccountStore(
                     modelContext: modelContext,
                     eventRecorder: AccountEventRecorders.live(modelContext: modelContext)
                 )
@@ -396,7 +400,7 @@ private struct ShellServiceHub {
                 HomePinnedItemsStore()
             },
             tokenHoldingsStoreFactory: { modelContext in
-                TokenHoldingsStore(modelContext: modelContext)
+                SwiftDataTokenHoldingsStore(modelContext: modelContext)
             },
             tokenHoldingsProviderFactory: {
                 readOnlyProviderFactory.makeTokenHoldingsProvider()

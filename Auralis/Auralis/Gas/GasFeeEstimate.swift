@@ -7,6 +7,7 @@
 
 import AuralisPrimaryModels
 import Observation
+import ProviderKit
 import SwiftUI
 import UIKit
 
