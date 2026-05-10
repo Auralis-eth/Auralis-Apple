@@ -1,5 +1,6 @@
 import CapabilitiesCore
 import ReceiptsCore
+import ReceiptStorage
 @testable import Auralis
 import Foundation
 import PolicyCore
