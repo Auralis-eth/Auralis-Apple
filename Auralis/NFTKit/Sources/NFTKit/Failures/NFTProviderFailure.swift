@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
+import ProviderKit
 
 public struct NFTProviderFailure: Equatable {
     public let kind: NFTProviderFailureKind

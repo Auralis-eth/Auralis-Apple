@@ -27,7 +27,7 @@ public struct LiveProviderConfigurationResolver: ProviderConfigurationResolving 
             chain: chain,
             alchemyNFTBaseURL: alchemyNFTBaseURL,
             alchemyDataAPIBaseURL: alchemyDataAPIBaseURL,
-            alchemyRPCURL: chain.supportsEVMRPC ? alchemyRPCURL : nil
+            alchemyRPCURL: chain.supportsProviderRPC ? alchemyRPCURL : nil
         )
         return configuration
     }
@@ -38,5 +38,16 @@ public struct LiveProviderConfigurationResolver: ProviderConfigurationResolving 
         }
 
         return url
+    }
+}
+
+private extension Chain {
+    var supportsProviderRPC: Bool {
+        switch self {
+        case .solanaMainnet, .solanaDevnetTestnet:
+            return false
+        default:
+            return true
+        }
     }
 }

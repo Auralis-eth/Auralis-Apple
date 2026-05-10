@@ -1,5 +1,7 @@
 import AuralisPrimaryModels
+import ChainProviders
 import Foundation
+import ProviderKit
 
 private enum BalanceDataEnvelopeCodingKeys: String, CodingKey {
     case tokens

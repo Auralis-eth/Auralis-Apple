@@ -15,14 +15,22 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
+        .package(path: "../ChainProviders"),
+        .package(path: "../ExplorerAdapter"),
+        .package(path: "../ProviderKit"),
         .package(path: "../ReceiptsCore"),
+        .package(path: "../ReceiptStorage"),
     ],
     targets: [
         .target(
             name: "NFTKit",
             dependencies: [
                 "AuralisPrimaryModels",
+                "ChainProviders",
+                "ExplorerAdapter",
+                "ProviderKit",
                 "ReceiptsCore",
+                "ReceiptStorage",
             ]
         ),
     ]
