@@ -1,4 +1,5 @@
 import ReceiptsCore
+import ReceiptStorage
 @testable import Auralis
 import AgentIdentityCore
 import AuralisPrimaryModels

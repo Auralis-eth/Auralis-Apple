@@ -1,4 +1,5 @@
 import ReceiptsCore
+import ReceiptStorage
 import AgentIdentityCore
 import AuralisPrimaryModels
 import Foundation
@@ -9,23 +10,16 @@ import NFTKit
 extension ENSResolvers {
     static func live(
         modelContext: ModelContext,
-        configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver(),
         cacheStore: ENSResolutionCacheStore = sharedCacheStore
     ) -> any ENSResolving {
         live(
-            configurationResolver: AppENSProviderConfigurationResolver(configurationResolver: configurationResolver),
+            configurationResolver: AppENSProviderConfigurationResolver(
+                configurationResolver: LiveProviderConfigurationResolver()
+            ),
             cacheStore: cacheStore,
             eventRecorder: ReceiptBackedENSEventRecorder(
                 receiptStore: ReceiptStores.live(modelContext: modelContext)
             )
-        )
-    }
-
-    static func makeLiveClient(
-        configurationResolver: any ProviderConfigurationResolving = LiveProviderConfigurationResolver()
-    ) -> any EthereumNameServiceClient {
-        makeLiveClient(
-            configurationResolver: AppENSProviderConfigurationResolver(configurationResolver: configurationResolver)
         )
     }
 }
