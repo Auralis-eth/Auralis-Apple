@@ -20,6 +20,7 @@
 		6F84E2FC2FAF6CEA00CD4102 /* SwiftDataAdapters in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E2FB2FAF6CEA00CD4102 /* SwiftDataAdapters */; };
 		6F84E2FF2FAFF7FE00CD4102 /* AccountStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E2FE2FAFF7FE00CD4102 /* AccountStorage */; };
 		6F84E3022FB0C5BC00CD4102 /* TokenStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3012FB0C5BC00CD4102 /* TokenStorage */; };
+		6F84E3052FB2202700CD4102 /* UserDefaultsAdapters in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3042FB2202700CD4102 /* UserDefaultsAdapters */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -93,6 +94,7 @@
 				6F84E0292FAE829200CD4102 /* OperatorCore in Frameworks */,
 				6F84E2FC2FAF6CEA00CD4102 /* SwiftDataAdapters in Frameworks */,
 				6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */,
+				6F84E3052FB2202700CD4102 /* UserDefaultsAdapters in Frameworks */,
 				6F84E02C2FAE901500CD4102 /* NFTKit in Frameworks */,
 				6F4179322DA96363002A78F5 /* web3.swift in Frameworks */,
 				6F84E3022FB0C5BC00CD4102 /* TokenStorage in Frameworks */,
@@ -195,6 +197,7 @@
 				6F84E2FB2FAF6CEA00CD4102 /* SwiftDataAdapters */,
 				6F84E2FE2FAFF7FE00CD4102 /* AccountStorage */,
 				6F84E3012FB0C5BC00CD4102 /* TokenStorage */,
+				6F84E3042FB2202700CD4102 /* UserDefaultsAdapters */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -292,6 +295,7 @@
 				6F84E2FA2FAF6CEA00CD4102 /* XCLocalSwiftPackageReference "SwiftDataAdapters" */,
 				6F84E2FD2FAFF7FE00CD4102 /* XCLocalSwiftPackageReference "AccountStorage" */,
 				6F84E3002FB0C5BC00CD4102 /* XCLocalSwiftPackageReference "TokenStorage" */,
+				6F84E3032FB2202700CD4102 /* XCLocalSwiftPackageReference "UserDefaultsAdapters" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -734,6 +738,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = TokenStorage;
 		};
+		6F84E3032FB2202700CD4102 /* XCLocalSwiftPackageReference "UserDefaultsAdapters" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = UserDefaultsAdapters;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -815,6 +823,10 @@
 		6F84E3012FB0C5BC00CD4102 /* TokenStorage */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TokenStorage;
+		};
+		6F84E3042FB2202700CD4102 /* UserDefaultsAdapters */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = UserDefaultsAdapters;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

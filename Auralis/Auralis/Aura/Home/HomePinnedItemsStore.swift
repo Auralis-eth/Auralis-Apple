@@ -1,6 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 import OSLog
+import UserDefaultsAdapters
 
 struct HomePinnedItemRecord: Codable, Equatable {
     let accountAddress: String
@@ -21,8 +22,7 @@ enum HomePinnedItemsStoreError: LocalizedError, Equatable {
 
 struct HomePinnedItemsStore {
     private static let logger = Logger(subsystem: "Auralis", category: "HomePinnedItemsStore")
-    private let userDefaults: UserDefaults
-    private let storageKey: String
+    private let store: UserDefaultsCodableStore<HomePinnedItemRecord>
     private let maximumPinnedItemsPerAccount: Int
 
     init(
@@ -30,8 +30,11 @@ struct HomePinnedItemsStore {
         storageKey: String = "auralis.home.pinned-items.v1",
         maximumPinnedItemsPerAccount: Int = 6
     ) {
-        self.userDefaults = userDefaults
-        self.storageKey = storageKey
+        self.store = UserDefaultsCodableStore(
+            userDefaults: userDefaults,
+            key: storageKey,
+            corruptionPolicy: .returnEmptyAndClear
+        )
         self.maximumPinnedItemsPerAccount = maximumPinnedItemsPerAccount
     }
 
@@ -90,44 +93,33 @@ struct HomePinnedItemsStore {
     }
 
     private func loadRecords() -> [HomePinnedItemRecord] {
-        guard let data = userDefaults.data(forKey: storageKey) else {
-            return []
-        }
-
         do {
-            return try JSONDecoder().decode([HomePinnedItemRecord].self, from: data)
+            return try store.load()
         } catch {
-            Self.logger.error("Failed to decode pinned items for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("Failed to load pinned items: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
 
     private func loadRecordsForMutation() throws -> [HomePinnedItemRecord] {
-        guard let data = userDefaults.data(forKey: storageKey) else {
-            return []
-        }
-
         do {
-            return try JSONDecoder().decode([HomePinnedItemRecord].self, from: data)
+            return try store.load()
         } catch {
-            Self.logger.error("Failed to decode pinned items for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            userDefaults.removeObject(forKey: storageKey)
-            Self.logger.notice("Cleared corrupt pinned items for key \(self.storageKey, privacy: .public) before rewriting state")
+            Self.logger.error("Failed to load pinned items before mutation: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
 
     private func saveRecords(_ records: [HomePinnedItemRecord]) throws {
         do {
-            let data = try JSONEncoder().encode(records)
-            userDefaults.set(data, forKey: storageKey)
+            try store.save(records)
         } catch {
-            Self.logger.error("Failed to encode pinned items for key \(self.storageKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("Failed to save pinned items: \(error.localizedDescription, privacy: .public)")
             throw error
         }
     }
 
     func clearAll() {
-        userDefaults.removeObject(forKey: storageKey)
+        store.clear()
     }
 }

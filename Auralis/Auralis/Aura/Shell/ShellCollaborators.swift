@@ -5,6 +5,7 @@ import AuralisPrimaryModels
 import Foundation
 import SwiftData
 import NFTKit
+import UserDefaultsAdapters
 
 @MainActor
 /// Persists and restores the active shell wallet selection.
@@ -63,30 +64,60 @@ protocol ShellClock {
 @MainActor
 /// Persists the active shell selection in user defaults.
 struct UserDefaultsShellSelectionPersistence: ShellSelectionPersisting {
+    private struct SelectionRecord: Codable, Equatable, Sendable {
+        let address: String
+        let chainID: String
+    }
+
+    private let store: UserDefaultsCodableStore<SelectionRecord>
     private let defaults: UserDefaults
-    private let addressKey = "currentAccountAddress"
-    private let chainIDKey = "currentChainId"
+    private let legacyAddressKey = "currentAccountAddress"
+    private let legacyChainIDKey = "currentChainId"
+    private let defaultSelection = SelectionRecord(
+        address: "",
+        chainID: Chain.ethMainnet.rawValue
+    )
 
     /// Creates a user-defaults-backed selection persistence service.
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-    }
-
-    func loadSelection() -> (address: String, chainID: String) {
-        (
-            address: defaults.string(forKey: addressKey) ?? "",
-            chainID: defaults.string(forKey: chainIDKey) ?? Chain.ethMainnet.rawValue
+        self.store = UserDefaultsCodableStore(
+            userDefaults: defaults,
+            key: "auralis.shell.selection.v1",
+            corruptionPolicy: .returnEmptyAndClear
         )
     }
 
+    func loadSelection() -> (address: String, chainID: String) {
+        if let selection = try? store.load().first {
+            return (address: selection.address, chainID: selection.chainID)
+        }
+
+        let legacySelection = SelectionRecord(
+            address: defaults.string(forKey: legacyAddressKey) ?? defaultSelection.address,
+            chainID: defaults.string(forKey: legacyChainIDKey) ?? defaultSelection.chainID
+        )
+
+        if legacySelection != defaultSelection {
+            try? store.save([legacySelection])
+        }
+
+        let selection = legacySelection
+        return (address: selection.address, chainID: selection.chainID)
+    }
+
     func saveSelection(address: String, chainID: String) {
-        defaults.set(address, forKey: addressKey)
-        defaults.set(chainID, forKey: chainIDKey)
+        try? store.save([
+            SelectionRecord(address: address, chainID: chainID),
+        ])
+        defaults.set(address, forKey: legacyAddressKey)
+        defaults.set(chainID, forKey: legacyChainIDKey)
     }
 
     func clearSelection() {
-        defaults.set("", forKey: addressKey)
-        defaults.set(Chain.ethMainnet.rawValue, forKey: chainIDKey)
+        try? store.save([defaultSelection])
+        defaults.set(defaultSelection.address, forKey: legacyAddressKey)
+        defaults.set(defaultSelection.chainID, forKey: legacyChainIDKey)
     }
 }
 

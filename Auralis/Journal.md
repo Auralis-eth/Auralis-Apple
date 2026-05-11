@@ -1397,3 +1397,14 @@ Token holdings are no longer stored by `NFTKit`. `NFTKit` still owns the provide
 - `TokenStorageTests` covers native and ERC-20 writes, account/chain scoping, stale replacement within a single scope, metadata placeholder fields, clear-all reset, and invalid account scope errors.
 
 The practical gotcha: source code can move faster than Xcode's package graph. The local package still has to be attached to the app target through Xcode before `import TokenStorage` can build there. Once that wiring is in, this is a real package boundary rather than another module-shaped hallway.
+
+## UserDefaultsAdapters: The Tiny Pantry Gets Its Own Label
+
+Not every storage package needs to be a database vault. Some app state is just a small jar on the pantry shelf: pinned home actions, shell selection, little Codable blobs that belong in `UserDefaults` as long as they are handled consistently.
+
+- `UserDefaultsAdapters` now owns the boring-but-important Codable array mechanics: load, save, clear, and explicit corrupt-payload policy.
+- `HomePinnedItemsStore` still owns all home-specific behavior: account scoping, launcher actions, max pinned count, and UI-facing decisions. The package only knows how to store records.
+- `UserDefaultsShellSelectionPersistence` became the second real consumer. It uses the helper for the new storage shape while still reading and writing the legacy `currentAccountAddress` and `currentChainId` keys so existing installs do not forget who was checked in at the front desk.
+- We deliberately used real imports instead of typealias bridges. A moved storage adapter should be an honest module boundary, not a cardboard cutout standing where the old type used to be.
+
+The lesson: shared helpers should be small enough to explain in one breath and useful enough to have two customers. Otherwise you are not extracting infrastructure; you are just moving clutter into a new closet.
