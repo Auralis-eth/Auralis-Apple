@@ -5,7 +5,7 @@
 //  Created by Daniel Bell on 2/8/26.
 //
 
-import AgentIdentityCore
+import ENS
 import AuralisPrimaryModels
 import ImagePlayground
 import SwiftUI

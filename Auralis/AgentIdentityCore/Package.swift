@@ -14,15 +14,13 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(path: "../AuralisPrimaryModels"),
-        .package(url: "https://github.com/argentlabs/web3.swift", from: "1.6.1"),
+        .package(path: "../ENS"),
     ],
     targets: [
         .target(
             name: "AgentIdentityCore",
             dependencies: [
-                "AuralisPrimaryModels",
-                .product(name: "web3.swift", package: "web3.swift"),
+                "ENS",
             ]
         ),
     ]

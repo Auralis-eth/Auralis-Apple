@@ -1,7 +1,7 @@
 import ReceiptsCore
 import ReceiptStorage
 @testable import Auralis
-import AgentIdentityCore
+import ENS
 import AuralisPrimaryModels
 import Foundation
 import SwiftData

@@ -21,6 +21,7 @@
 		6F84E2FF2FAFF7FE00CD4102 /* AccountStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E2FE2FAFF7FE00CD4102 /* AccountStorage */; };
 		6F84E3022FB0C5BC00CD4102 /* TokenStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3012FB0C5BC00CD4102 /* TokenStorage */; };
 		6F84E3052FB2202700CD4102 /* UserDefaultsAdapters in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3042FB2202700CD4102 /* UserDefaultsAdapters */; };
+		6F84E3082FB35A0A00CD4102 /* AgentIdentityCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3072FB35A0A00CD4102 /* AgentIdentityCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -93,6 +94,7 @@
 				6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */,
 				6F84E0292FAE829200CD4102 /* OperatorCore in Frameworks */,
 				6F84E2FC2FAF6CEA00CD4102 /* SwiftDataAdapters in Frameworks */,
+				6F84E3082FB35A0A00CD4102 /* AgentIdentityCore in Frameworks */,
 				6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */,
 				6F84E3052FB2202700CD4102 /* UserDefaultsAdapters in Frameworks */,
 				6F84E02C2FAE901500CD4102 /* NFTKit in Frameworks */,
@@ -198,6 +200,7 @@
 				6F84E2FE2FAFF7FE00CD4102 /* AccountStorage */,
 				6F84E3012FB0C5BC00CD4102 /* TokenStorage */,
 				6F84E3042FB2202700CD4102 /* UserDefaultsAdapters */,
+				6F84E3072FB35A0A00CD4102 /* AgentIdentityCore */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -287,7 +290,6 @@
 				6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */,
 				6FC0A1022F70000100A0BEEF /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
 				6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */,
-				6F84E0192FAE48B000CD4102 /* XCLocalSwiftPackageReference "AgentIdentityCore" */,
 				6F84E01E2FAE627D00CD4102 /* XCLocalSwiftPackageReference "ReceiptsCore" */,
 				6F84E0242FAE705B00CD4102 /* XCLocalSwiftPackageReference "PolicyCore" */,
 				6F84E0272FAE829200CD4102 /* XCLocalSwiftPackageReference "OperatorCore" */,
@@ -296,6 +298,7 @@
 				6F84E2FD2FAFF7FE00CD4102 /* XCLocalSwiftPackageReference "AccountStorage" */,
 				6F84E3002FB0C5BC00CD4102 /* XCLocalSwiftPackageReference "TokenStorage" */,
 				6F84E3032FB2202700CD4102 /* XCLocalSwiftPackageReference "UserDefaultsAdapters" */,
+				6F84E3062FB35A0A00CD4102 /* XCLocalSwiftPackageReference "AgentIdentityCore" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -706,10 +709,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = AccountsCore;
 		};
-		6F84E0192FAE48B000CD4102 /* XCLocalSwiftPackageReference "AgentIdentityCore" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = AgentIdentityCore;
-		};
 		6F84E01E2FAE627D00CD4102 /* XCLocalSwiftPackageReference "ReceiptsCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ReceiptsCore;
@@ -741,6 +740,10 @@
 		6F84E3032FB2202700CD4102 /* XCLocalSwiftPackageReference "UserDefaultsAdapters" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = UserDefaultsAdapters;
+		};
+		6F84E3062FB35A0A00CD4102 /* XCLocalSwiftPackageReference "AgentIdentityCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = AgentIdentityCore;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -827,6 +830,10 @@
 		6F84E3042FB2202700CD4102 /* UserDefaultsAdapters */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = UserDefaultsAdapters;
+		};
+		6F84E3072FB35A0A00CD4102 /* AgentIdentityCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AgentIdentityCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

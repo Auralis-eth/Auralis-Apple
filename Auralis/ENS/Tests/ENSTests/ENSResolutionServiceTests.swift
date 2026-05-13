@@ -1,10 +1,8 @@
-@testable import Auralis
-import AgentIdentityCore
 import AuralisPrimaryModels
+import ENS
 import Foundation
-import SwiftData
+import ProviderKit
 import Testing
-import NFTKit
 
 @Suite
 struct ENSResolutionServiceTests {
@@ -12,13 +10,6 @@ struct ENSResolutionServiceTests {
         offsetFromNow: TimeInterval = 0
     ) -> Date {
         Date().addingTimeInterval(offsetFromNow)
-    }
-
-    @MainActor
-    private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([StoredReceipt.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
     }
 
     @Test("live ENS client preserves missing provider configuration instead of flattening it to provider unavailable")
@@ -31,7 +22,11 @@ struct ENSResolutionServiceTests {
             alchemyRPCURL: nil
         ))
 
-        let client = ENSResolvers.makeLiveClient(configurationResolver: resolver)
+        let client = ENSResolvers.makeLiveClient(
+            configurationResolver: ProviderBackedENSConfigurationResolver(
+                configurationResolver: resolver
+            )
+        )
 
         await #expect(throws: ENSResolutionError.missingProviderConfiguration) {
             _ = try await client.resolveAddress(forENS: "vitalik.eth")
@@ -42,7 +37,9 @@ struct ENSResolutionServiceTests {
     @MainActor
     func liveClientSurfacesInvalidProviderConfiguration() async {
         let client = ENSResolvers.makeLiveClient(
-            configurationResolver: StubProviderConfigurationResolver(error: ProviderAbstractionError.invalidURL)
+            configurationResolver: ProviderBackedENSConfigurationResolver(
+                configurationResolver: StubProviderConfigurationResolver(error: ProviderAbstractionError.invalidURL)
+            )
         )
 
         await #expect(throws: ENSResolutionError.invalidProviderConfiguration) {
@@ -238,8 +235,6 @@ struct ENSResolutionServiceTests {
     @Test("live ENS resolver and cache reset service share one cache store instance")
     @MainActor
     func liveResolverAndResetServiceShareCacheStore() async throws {
-        let container = try makeContainer()
-        let context = ModelContext(container)
         let defaults = UserDefaults(
             suiteName: "ENSResolutionServiceTests.shared-reset.\(UUID().uuidString)"
         )!
@@ -249,8 +244,9 @@ struct ENSResolutionServiceTests {
         )
 
         let resolver = ENSResolvers.live(
-            modelContext: context,
-            configurationResolver: StubProviderConfigurationResolver(error: ProviderAbstractionError.invalidURL),
+            configurationResolver: ProviderBackedENSConfigurationResolver(
+                configurationResolver: StubProviderConfigurationResolver(error: ProviderAbstractionError.invalidURL)
+            ),
             cacheStore: cacheStore
         )
         let resetService = ENSResolvers.cacheResetService(cacheStore: cacheStore)

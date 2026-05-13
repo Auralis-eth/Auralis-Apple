@@ -1408,3 +1408,25 @@ Not every storage package needs to be a database vault. Some app state is just a
 - We deliberately used real imports instead of typealias bridges. A moved storage adapter should be an honest module boundary, not a cardboard cutout standing where the old type used to be.
 
 The lesson: shared helpers should be small enough to explain in one breath and useful enough to have two customers. Otherwise you are not extracting infrastructure; you are just moving clutter into a new closet.
+
+## ENS Migration: The Name Service Gets Its Own Desk
+
+ENS used to live inside `AgentIdentityCore`, which made the package name do too much work. Agent identity and Ethereum name resolution are related, but they are not the same job. That is like asking the concierge to also run DNS for the whole hotel.
+
+- `ENS` is now the home for resolver protocols, cache records, resolution provenance/errors, Web3 client code, cache reset support, and the ProviderKit-backed ENS configuration adapter.
+- App code that actually speaks ENS now imports `ENS` directly. `AgentIdentityCore` no longer re-exports or owns the ENS implementation.
+- The receipt-backed ENS event recorder stayed in the app because it knows Auralis receipt taxonomy. The package owns name resolution; the app owns how product events are narrated.
+- Resolver behavior tests moved into `ENSTests`, where they can exercise cache, stale fallback, mapping-change, reverse-lookup, and provider-configuration behavior without pretending they are app tests.
+
+The useful lesson: a package boundary should tell the truth about the domain. ENS is not a side pocket of agent identity; it is its own service desk with its own cache, provider configuration, and failure language.
+
+## ChainProviders Completion: The Support Matrix Gets A Clipboard
+
+`ChainProviders` crossed the line from “package-shaped idea” to actual policy owner. The app no longer needs an app-local networking extension to ask whether a chain supports EVM RPC or ERC-20 holdings; that decision now lives in the chain/provider package where future provider composition work can find it.
+
+- The public `Chain` capability checks now enumerate every supported chain explicitly instead of leaning on `default`.
+- The tests keep their own expected chain list, so adding a new `Chain` case forces a real capability decision.
+- The app-side `ReadOnlyProviderFactory` delegates gas and native-balance construction to `ReadOnlyChainProviderFactory`, while NFT/token inventory construction stays app-side to avoid a dependency cycle with `NFTKit`.
+- `ProviderKit` still keeps a tiny internal EVM guard because the dependency direction matters: `ChainProviders` can build on `ProviderKit`, but transport should not reach back upward into policy.
+
+The sticky lesson: a support matrix is not a vibe check. It is a clipboard with every chain named on it, and new chains do not get to sneak through the side door as “probably EVM.”

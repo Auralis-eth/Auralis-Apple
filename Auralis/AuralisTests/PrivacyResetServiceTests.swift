@@ -4,7 +4,7 @@ import NFTKit
 @testable import Auralis
 import AccountStorage
 import AccountsCore
-import AgentIdentityCore
+import ENS
 import AuralisPrimaryModels
 import Foundation
 import SwiftData

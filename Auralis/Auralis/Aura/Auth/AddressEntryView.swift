@@ -6,7 +6,7 @@
 //
 
 import AccountsCore
-import AgentIdentityCore
+import ENS
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI

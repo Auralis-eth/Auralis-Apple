@@ -1,5 +1,5 @@
 import AccountsCore
-import AgentIdentityCore
+import ENS
 import AuralisPrimaryModels
 import ImagePlayground
 import OSLog

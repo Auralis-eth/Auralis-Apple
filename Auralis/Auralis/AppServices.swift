@@ -2,7 +2,7 @@ import ReceiptsCore
 import ReceiptStorage
 import AccountStorage
 import AccountsCore
-import AgentIdentityCore
+import ENS
 import AuralisPrimaryModels
 import Foundation
 import ProviderKit

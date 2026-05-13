@@ -1,4 +1,4 @@
-import AgentIdentityCore
+import ENS
 import AuralisPrimaryModels
 import Foundation
 

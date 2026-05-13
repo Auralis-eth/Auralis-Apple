@@ -1,5 +1,5 @@
 import ReceiptsCore
-import AgentIdentityCore
+import ENS
 import Foundation
 import OSLog
 
