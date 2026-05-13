@@ -27,7 +27,11 @@ let package = Package(
         ),
         .testTarget(
             name: "ChainProvidersTests",
-            dependencies: ["ChainProviders"]
+            dependencies: [
+                "AuralisPrimaryModels",
+                "ChainProviders",
+                "ProviderKit",
+            ]
         ),
     ]
 )

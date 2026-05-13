@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import ChainProviders
 import SwiftData
 import SwiftUI
 import NFTKit
