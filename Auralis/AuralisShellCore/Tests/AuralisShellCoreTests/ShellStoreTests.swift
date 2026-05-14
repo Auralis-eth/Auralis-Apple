@@ -1,4 +1,3 @@
-@testable import Auralis
 import AccountsCore
 import AuralisPrimaryModels
 import AuralisShellCore

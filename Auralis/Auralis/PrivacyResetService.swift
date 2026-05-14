@@ -1,4 +1,5 @@
 import ENS
+import AuralisShellCore
 import AuralisPrimaryModels
 import Foundation
 import ProviderKit

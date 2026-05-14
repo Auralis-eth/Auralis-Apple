@@ -1,15 +1,13 @@
 import AccountsCore
 import AuralisPrimaryModels
-import AuralisShellCore
 import Foundation
 import Observation
-import SwiftData
 
 @MainActor
 @Observable
 /// Coordinates shell state transitions, persistence restore, refreshes, and deep-link replay.
-final class ShellStore {
-    private(set) var state: ShellState
+public final class ShellStore {
+    public private(set) var state: ShellState
 
     private let selectionPersistence: any ShellSelectionPersisting
     private let accountResolver: any ShellAccountResolving
@@ -24,7 +22,7 @@ final class ShellStore {
     private var didRecordAppLaunchReceipt = false
 
     /// Creates a shell store with explicit collaborators for persistence, routing, and refresh work.
-    init(
+    public init(
         state: ShellState = ShellState(),
         selectionPersistence: any ShellSelectionPersisting,
         accountResolver: any ShellAccountResolving,
@@ -47,7 +45,7 @@ final class ShellStore {
     }
 
     /// Builds the production shell store wired to live services and the app router.
-    static func live(
+    public static func live(
         dependencies: ShellStoreDependencies
     ) -> ShellStore {
         return ShellStore(
@@ -63,7 +61,7 @@ final class ShellStore {
     }
 
     /// Builds a preview shell store with inert collaborators and optional seeded selection.
-    static func preview(selection: ActiveShellSelection? = nil) -> ShellStore {
+    public static func preview(selection: ActiveShellSelection? = nil) -> ShellStore {
         ShellStore(
             state: ShellState(selection: selection),
             selectionPersistence: PreviewShellSelectionPersistence(),
@@ -78,7 +76,7 @@ final class ShellStore {
     }
 
     /// Applies a shell action and updates state, routing, or refresh work as needed.
-    func send(_ action: ShellAction) async {
+    public func send(_ action: ShellAction) async {
         switch action {
         case .restoreFromPersistence:
             await restoreFromPersistence()
@@ -592,5 +590,5 @@ private struct PreviewShellRouterEffectHandler: ShellRouterEffectHandling {
 
 @MainActor
 private struct PreviewShellReceiptLogger: ShellReceiptLogging {
-    func recordAppLaunch(address: String, chain: Chain, correlationID: String) { }
+    func recordAppLaunch(address: String, chain: Chain, correlationID: String) async { }
 }

@@ -13,7 +13,8 @@ The shell flow is:
 
 ## Architecture Decisions
 
-- `ShellStore` is the canonical shell state machine. It owns active selection, refresh sequencing, persistence mirrors, and pending deep-link replay.
+- `AuralisShellCore` owns the package-level shell state machine boundary: `ShellStore`, shell state/actions, collaborator protocols, route effects, and deep-link replay rules.
+- App-side shell files provide live adapters only, such as SwiftData account resolution, NFT refresh coordination, receipt logging, and router effect handling.
 - `MainAuraView` owns the shared router and long-lived services, but it now consumes `ShellStore` state instead of synchronizing `currentAddress` / `currentAccount` / `currentChain` / `currentChainId` itself.
 - `AppRouter` is the central navigation store for selected tab, per-tab back stacks, and routed errors.
 - `MainTabView` renders top-level tabs and sends shell intents upward. It no longer repairs shell state through `onChange` fan-out.
@@ -45,6 +46,7 @@ The shell flow is:
 - `P0-Physical-Device-QA-Suite.md` is the real-device manual QA contract for Phase 0.
 - `P0-UI-Design-Audit-Checklist.md` is the product/design quality checklist for Phase 0 surfaces.
 - `AuralisPrimaryModels/` is a local Swift package for foundational shared primary-model support that can grow without bloating the app target.
+- `AuralisShellCore/` is the local Swift package for shell state, shell actions, `ShellStore`, dependency protocols, and deep-link routing rules. Keep live app infrastructure out of this package.
 - `SwiftDataAdapters/` is the local Swift package for shared SwiftData mechanics such as rollback-safe and undoable mutation helpers. It should provide tools, not domain-specific stores.
 - `AccountStorage/` is the local Swift package for SwiftData-backed account persistence. Keep protocol consumers on `AccountsCore.AccountStoring`; only composition and storage tests should import `AccountStorage`.
 - `ReceiptStorage/` is the local Swift package for SwiftData-backed receipt persistence and destructive receipt reset adapters. Keep protocol/logging consumers on `ReceiptsCore`; only concrete builders and storage tests should import `ReceiptStorage`.

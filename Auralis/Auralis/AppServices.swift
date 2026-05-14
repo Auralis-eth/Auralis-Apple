@@ -2,6 +2,7 @@ import ReceiptsCore
 import ReceiptStorage
 import AccountStorage
 import AccountsCore
+import AuralisShellCore
 import ENS
 import AuralisPrimaryModels
 import Foundation
@@ -186,16 +187,7 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
 }
 
 @MainActor
-struct ShellStoreDependencies {
-    let selectionPersistence: any ShellSelectionPersisting
-    let accountResolver: any ShellAccountResolving
-    let accountMutator: any ShellAccountMutating
-    let refreshCoordinator: any ShellRefreshing
-    let deepLinkReplayer: any ShellDeepLinkReplaying
-    let routerEffectHandler: any ShellRouterEffectHandling
-    let receiptLogger: any ShellReceiptLogging
-    let clock: any ShellClock
-
+extension ShellStoreDependencies {
     static func live(
         modelContext: ModelContext,
         nftService: NFTService,

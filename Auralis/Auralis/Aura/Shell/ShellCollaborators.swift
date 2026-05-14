@@ -9,60 +9,6 @@ import NFTKit
 import UserDefaultsAdapters
 
 @MainActor
-/// Persists and restores the active shell wallet selection.
-protocol ShellSelectionPersisting {
-    func loadSelection() -> (address: String, chainID: String)
-    func saveSelection(address: String, chainID: String)
-    func clearSelection()
-}
-
-@MainActor
-/// Resolves persisted accounts needed to restore or repair shell selection.
-protocol ShellAccountResolving {
-    func account(for address: String) throws -> EOAccount?
-    func fallbackAccount() throws -> EOAccount?
-}
-
-@MainActor
-/// Applies account mutations that change the shell's active wallet or chain.
-protocol ShellAccountMutating {
-    func selectAccount(address: String, correlationID: String?) async throws -> EOAccount
-    func removeAccount(address: String, activeAddress: String, correlationID: String?) async throws -> AccountRemovalResult
-    func persistCurrentChain(address: String, chain: Chain, correlationID: String?) async throws -> EOAccount
-}
-
-@MainActor
-/// Refreshes data for the active shell selection and exposes refresh freshness.
-protocol ShellRefreshing {
-    var isLoading: Bool { get }
-    var refreshTTL: TimeInterval { get }
-    func lastSuccessfulRefreshAt(for address: String, chain: Chain) -> Date?
-    func refresh(selection: ActiveShellSelection, correlationID: String?) async
-}
-
-/// Resolves pending deep links into shell actions once enough context is available.
-protocol ShellDeepLinkReplaying {
-    func resolve(deepLink: AppDeepLink, context: PendingDeepLinkContext) -> PendingDeepLinkResolution
-}
-
-@MainActor
-/// Applies routing side effects emitted by the shell state machine.
-protocol ShellRouterEffectHandling {
-    func handle(_ effect: ShellRoutingEffect) -> AppRouteError?
-}
-
-@MainActor
-/// Records receipt events emitted by shell-level actions.
-protocol ShellReceiptLogging {
-    func recordAppLaunch(address: String, chain: Chain, correlationID: String) async
-}
-
-/// Supplies the current time for refresh staleness decisions.
-protocol ShellClock {
-    var now: Date { get }
-}
-
-@MainActor
 /// Persists the active shell selection in user defaults.
 struct UserDefaultsShellSelectionPersistence: ShellSelectionPersisting {
     private struct SelectionRecord: Codable, Equatable, Sendable {
@@ -242,15 +188,6 @@ struct NFTServiceShellRefreshCoordinator: ShellRefreshing {
     }
 }
 
-/// Replays pending deep links using the shared deep-link resolver.
-struct DefaultShellDeepLinkReplayer: ShellDeepLinkReplaying {
-    private let resolver = PendingDeepLinkResolver()
-
-    func resolve(deepLink: AppDeepLink, context: PendingDeepLinkContext) -> PendingDeepLinkResolution {
-        resolver.resolve(deepLink, context: context)
-    }
-}
-
 @MainActor
 /// Records shell receipt events through the shared receipt event logger.
 struct ReceiptEventShellLogger: ShellReceiptLogging {
@@ -267,13 +204,6 @@ struct ReceiptEventShellLogger: ShellReceiptLogging {
             chain: chain,
             correlationID: correlationID
         )
-    }
-}
-
-/// Supplies wall-clock time from the current system clock.
-struct SystemShellClock: ShellClock {
-    var now: Date {
-        Date()
     }
 }
 

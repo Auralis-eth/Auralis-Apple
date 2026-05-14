@@ -15,18 +15,21 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
+        .package(path: "../AccountsCore"),
     ],
     targets: [
         .target(
             name: "AuralisShellCore",
             dependencies: [
                 "AuralisPrimaryModels",
+                "AccountsCore",
             ]
         ),
         .testTarget(
             name: "AuralisShellCoreTests",
             dependencies: [
                 "AuralisShellCore",
+                "AccountsCore",
             ]
         ),
     ]

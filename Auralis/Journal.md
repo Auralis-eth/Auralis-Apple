@@ -1500,3 +1500,14 @@ The shell finally got its own package-shaped office. `AuralisShellCore` now owns
 - Parser and pending-replay tests moved into `AuralisShellCoreTests`, so the rules can be tested without launching the app target once the package is attached to the Xcode project.
 
 The gotcha: moving source files is only half the migration. Xcode still needs the local `AuralisShellCore` package product added to the app and test targets through the project UI. Until that package graph is wired, `import AuralisShellCore` is like putting a new desk in the building but forgetting to add it to the directory.
+
+## AuralisShellCore: The Front Desk Runs Its Own Shift
+
+The migration is now the real thing, not just a forwarding address. `ShellStore` moved into `AuralisShellCore` with the collaborator protocols it needs to stay honest: selection persistence, account resolving and mutation, refresh coordination, deep-link replay, router effects, receipt logging, and a clock. The package now owns the rules; the app target owns the plugs in the wall.
+
+- `ShellStore` no longer imports SwiftData or NFT service code. It talks to protocols, which is the architectural equivalent of asking for "someone who can unlock the door" instead of depending on a specific locksmith with a specific van.
+- The app-side `ShellCollaborators.swift` is now an adapter shelf. SwiftData account stores, user defaults, NFT refresh, receipt logging, and `AppRouter` effect handling stay there because those are live infrastructure, not shell law.
+- `ShellStoreTests` moved into `AuralisShellCoreTests`, so account switching, chain changes, logout, refresh timing, route errors, and deep-link replay are tested at the package boundary instead of sneaking through the app target.
+- One practical test wrinkle: `swift test` from Terminal still tries to compile the iOS-only primary models as a macOS package and trips over `UIKit`. Xcode builds the iOS scheme cleanly, so package tests should run through an iOS-capable Xcode test destination or test plan entry rather than plain macOS SwiftPM.
+
+The useful lesson: a state machine package should be a rulebook, not a tiny copy of the app. If the package can explain what should happen without knowing how SwiftData, NFTs, receipts, or navigation views are physically wired, the boundary is doing its job.

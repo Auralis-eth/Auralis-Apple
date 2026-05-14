@@ -1,4 +1,5 @@
 import AccountsCore
+import AuralisShellCore
 import ENS
 import AuralisPrimaryModels
 import ImagePlayground
