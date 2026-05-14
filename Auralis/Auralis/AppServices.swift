@@ -247,6 +247,7 @@ struct MainTabDependencies {
     let accountStoreFactory: @MainActor (ModelContext) -> any AccountStoring
     let contextServiceBuilder: any ShellContextServiceBuilding
     let nativeBalanceProvider: any NativeBalanceProviding
+    let gasPricingProvider: any GasPricingProviding
     let ensResolver: any ENSResolving
     let homePinnedItemsStore: HomePinnedItemsStore
     let libraryContextProvider: any ShellLibraryContextProviding
@@ -265,6 +266,7 @@ struct MainTabDependencies {
             accountStoreFactory: services.accountStoreFactory,
             contextServiceBuilder: services.contextServiceBuilder,
             nativeBalanceProvider: services.readOnlyProviderFactory.makeNativeBalanceProvider(),
+            gasPricingProvider: services.readOnlyProviderFactory.makeGasPricingProvider(),
             ensResolver: services.ensResolverFactory(modelContext),
             homePinnedItemsStore: services.homePinnedItemsStoreFactory(),
             libraryContextProvider: services.libraryContextProviderFactory(modelContext),

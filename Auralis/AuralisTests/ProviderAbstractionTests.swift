@@ -31,6 +31,62 @@ struct ProviderAbstractionTests {
         #expect(configuration.alchemyRPCURL == nil)
     }
 
+    @Test("Retry-After parser accepts numeric seconds")
+    func retryAfterParserAcceptsNumericSeconds() {
+        #expect(RetryAfterSupport.parse("2.5") == 2.5)
+    }
+
+    @Test("Retry-After parser accepts HTTP-date values")
+    func retryAfterParserAcceptsHTTPDates() throws {
+        let now = try #require(DateComponents(
+            calendar: Calendar(identifier: .gregorian),
+            timeZone: TimeZone(secondsFromGMT: 0),
+            year: 2026,
+            month: 5,
+            day: 8,
+            hour: 12
+        ).date)
+
+        #expect(RetryAfterSupport.parse("Fri, 08 May 2026 12:00:05 GMT", now: now) == 5)
+    }
+
+    @Test("native balance provider maps missing RPC configuration to missing API key")
+    func nativeBalanceProviderMapsMissingRPCConfiguration() async {
+        let provider = AlchemyRPCProvider(
+            configurationResolver: StubProviderConfigurationResolver(
+                configuration: ProviderEndpointConfiguration(
+                    chain: .baseMainnet,
+                    alchemyNFTBaseURL: nil,
+                    alchemyDataAPIBaseURL: nil,
+                    alchemyRPCURL: nil
+                )
+            ),
+            maxRetryCount: 1
+        )
+
+        await #expect(throws: ProviderAbstractionError.missingAPIKey(.alchemy)) {
+            try await provider.nativeBalance(
+                for: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .baseMainnet
+            )
+        }
+    }
+
+    @Test("native balance provider forwards invalid endpoint configuration")
+    func nativeBalanceProviderForwardsInvalidEndpointConfiguration() async {
+        let provider = AlchemyRPCProvider(
+            configurationResolver: ThrowingProviderConfigurationResolver(error: .invalidURL),
+            maxRetryCount: 1
+        )
+
+        await #expect(throws: ProviderAbstractionError.invalidURL) {
+            try await provider.nativeBalance(
+                for: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .baseMainnet
+            )
+        }
+    }
+
     @Test("Alchemy NFT service throws DecodingError when a success response body is malformed")
     @MainActor
     func alchemyNFTServiceSurfacesMalformedSuccessBody() async throws {
@@ -1823,6 +1879,22 @@ private extension URLRequest {
         }
 
         return data.isEmpty ? nil : data
+    }
+}
+
+private struct StubProviderConfigurationResolver: ProviderConfigurationResolving {
+    let configuration: ProviderEndpointConfiguration
+
+    func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration {
+        configuration
+    }
+}
+
+private struct ThrowingProviderConfigurationResolver: ProviderConfigurationResolving {
+    let error: ProviderAbstractionError
+
+    func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration {
+        throw error
     }
 }
 

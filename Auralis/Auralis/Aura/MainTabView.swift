@@ -297,7 +297,10 @@ struct MainTabView: View {
 
             Tab("Gas", systemImage: "fuelpump", value: AppTab.gas) {
                 AuraScenicScreen {
-                    GasPriceEstimateView(chain: readOnlyChainBinding)
+                    GasPriceEstimateView(
+                        chain: readOnlyChainBinding,
+                        provider: dependencies.gasPricingProvider
+                    )
                 }
             }
 

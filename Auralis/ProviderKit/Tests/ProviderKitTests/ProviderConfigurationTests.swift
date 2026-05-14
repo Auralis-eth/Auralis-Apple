@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
-import ProviderKit
 import Testing
+@testable import ProviderKit
 
 @Suite
 struct ProviderConfigurationTests {
@@ -27,6 +27,40 @@ struct ProviderConfigurationTests {
         #expect(configuration.alchemyRPCURL == nil)
     }
 
+    @Test("Native balance provider maps missing RPC endpoint to missing API key")
+    func nativeBalanceProviderMapsMissingRPCURL() async throws {
+        let resolver = StubProviderConfigurationResolver(
+            configuration: ProviderEndpointConfiguration(
+                chain: .baseMainnet,
+                alchemyNFTBaseURL: nil,
+                alchemyDataAPIBaseURL: nil,
+                alchemyRPCURL: nil
+            )
+        )
+        let provider = AlchemyRPCProvider(configurationResolver: resolver)
+
+        await #expect(throws: ProviderAbstractionError.missingAPIKey(.alchemy)) {
+            try await provider.nativeBalance(
+                for: "0x0000000000000000000000000000000000000001",
+                chain: .baseMainnet
+            )
+        }
+    }
+
+    @Test("Native balance provider forwards invalid endpoint configuration")
+    func nativeBalanceProviderForwardsInvalidEndpointConfiguration() async throws {
+        let provider = AlchemyRPCProvider(
+            configurationResolver: ThrowingProviderConfigurationResolver(error: .invalidURL)
+        )
+
+        await #expect(throws: ProviderAbstractionError.invalidURL) {
+            try await provider.nativeBalance(
+                for: "0x0000000000000000000000000000000000000001",
+                chain: .baseMainnet
+            )
+        }
+    }
+
     @Test("Retry-After parser accepts numeric seconds")
     func retryAfterNumericSeconds() {
         #expect(RetryAfterSupport.parse("2.5") == 2.5)
@@ -45,4 +79,183 @@ struct ProviderConfigurationTests {
 
         #expect(RetryAfterSupport.parse("Fri, 08 May 2026 12:00:05 GMT", now: now) == 5)
     }
+
+    @Test("RPC envelope decodes success payloads")
+    func rpcEnvelopeDecodesSuccessPayload() throws {
+        let data = try #require(#"{"jsonrpc":"2.0","id":1,"result":"0xde0b6b3a7640000"}"#.data(using: .utf8))
+
+        let envelope = try JSONDecoder().decode(AlchemyRPCProvider.RPCEnvelope<String>.self, from: data)
+
+        #expect(envelope.result == "0xde0b6b3a7640000")
+        #expect(envelope.error == nil)
+    }
+
+    @Test(
+        "RPC envelope decodes error payloads",
+        arguments: [
+            RPCErrorMappingCase(
+                payload: #"{"jsonrpc":"2.0","id":1,"error":{"code":429,"message":"rate limit exceeded"}}"#,
+                expectedCode: 429,
+                expectedMessage: "rate limit exceeded",
+                expectedError: .rateLimited
+            ),
+            RPCErrorMappingCase(
+                payload: #"{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"API key unauthorized"}}"#,
+                expectedCode: -32000,
+                expectedMessage: "API key unauthorized",
+                expectedError: .unauthorized
+            ),
+            RPCErrorMappingCase(
+                payload: #"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}"#,
+                expectedCode: -32601,
+                expectedMessage: "method not found",
+                expectedError: .unsupportedMethod
+            ),
+            RPCErrorMappingCase(
+                payload: #"{"jsonrpc":"2.0","id":1,"error":{"code":-32003,"message":"upstream failed"}}"#,
+                expectedCode: -32003,
+                expectedMessage: "upstream failed",
+                expectedError: .providerError("upstream failed")
+            ),
+        ]
+    )
+    func rpcErrorPayloadsDecodeForProviderMapping(mappingCase: RPCErrorMappingCase) throws {
+        let data = try #require(mappingCase.payload.data(using: .utf8))
+
+        let envelope = try JSONDecoder().decode(AlchemyRPCProvider.RPCEnvelope<String>.self, from: data)
+        let error = try #require(envelope.error)
+
+        #expect(error.code == mappingCase.expectedCode)
+        #expect(error.message == mappingCase.expectedMessage)
+    }
+
+    @Test("Native balance maps RPC error responses to provider errors")
+    func nativeBalanceMapsRPCErrorResponses() async throws {
+        let mappingCases = [
+            RPCErrorMappingCase(
+                payload: #"{"jsonrpc":"2.0","id":1,"error":{"code":429,"message":"rate limit exceeded"}}"#,
+                expectedCode: 429,
+                expectedMessage: "rate limit exceeded",
+                expectedError: .rateLimited
+            ),
+            RPCErrorMappingCase(
+                payload: #"{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"API key unauthorized"}}"#,
+                expectedCode: -32000,
+                expectedMessage: "API key unauthorized",
+                expectedError: .unauthorized
+            ),
+            RPCErrorMappingCase(
+                payload: #"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}"#,
+                expectedCode: -32601,
+                expectedMessage: "method not found",
+                expectedError: .unsupportedMethod
+            ),
+            RPCErrorMappingCase(
+                payload: #"{"jsonrpc":"2.0","id":1,"error":{"code":-32003,"message":"upstream failed"}}"#,
+                expectedCode: -32003,
+                expectedMessage: "upstream failed",
+                expectedError: .providerError("upstream failed")
+            ),
+        ]
+
+        for mappingCase in mappingCases {
+            let data = try #require(mappingCase.payload.data(using: .utf8))
+            let session = StubURLProtocol.makeSession(statusCode: 200, data: data)
+            let provider = AlchemyRPCProvider(
+                configurationResolver: StubProviderConfigurationResolver(
+                    configuration: ProviderEndpointConfiguration(
+                        chain: .baseMainnet,
+                        alchemyNFTBaseURL: nil,
+                        alchemyDataAPIBaseURL: nil,
+                        alchemyRPCURL: try #require(URL(string: "https://example.com/rpc"))
+                    )
+                ),
+                session: session,
+                maxRetryCount: 1
+            )
+
+            await #expect(throws: mappingCase.expectedError) {
+                try await provider.nativeBalance(
+                    for: "0x0000000000000000000000000000000000000001",
+                    chain: .baseMainnet
+                )
+            }
+        }
+    }
+
+    @Test(
+        "Native balance converts hex quantity to decimal string",
+        arguments: [
+            ("0x0", "0"),
+            ("0xde0b6b3a7640000", "1000000000000000000"),
+            ("0xffffffffffffffff", "18446744073709551615"),
+        ]
+    )
+    func nativeBalanceHexQuantityConversion(hexQuantity: String, expectedDecimal: String) {
+        #expect(AlchemyRPCProvider.decimalString(fromHexQuantity: hexQuantity) == expectedDecimal)
+    }
+}
+
+private struct StubProviderConfigurationResolver: ProviderConfigurationResolving {
+    let configuration: ProviderEndpointConfiguration
+
+    func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration {
+        configuration
+    }
+}
+
+private struct ThrowingProviderConfigurationResolver: ProviderConfigurationResolving {
+    let error: ProviderAbstractionError
+
+    func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration {
+        throw error
+    }
+}
+
+private struct RPCErrorMappingCase: Sendable {
+    let payload: String
+    let expectedCode: Int
+    let expectedMessage: String
+    let expectedError: ProviderAbstractionError
+}
+
+private final class StubURLProtocol: URLProtocol, @unchecked Sendable {
+    private nonisolated(unsafe) static var statusCode = 200
+    private nonisolated(unsafe) static var responseData = Data()
+
+    static func makeSession(statusCode: Int, data: Data) -> URLSession {
+        self.statusCode = statusCode
+        self.responseData = data
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let url = request.url,
+              let response = HTTPURLResponse(
+                url: url,
+                statusCode: Self.statusCode,
+                httpVersion: "HTTP/1.1",
+                headerFields: nil
+              ) else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Self.responseData)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() { }
 }

@@ -187,7 +187,7 @@ final class GasPriceEstimateViewModel {
     private var currentTask: Task<Void, Never>?
     private var refreshTimer: Timer?
 
-    init(provider: any GasPricingProviding = AlchemyGasPricingProvider()) {
+    init(provider: any GasPricingProviding) {
         self.provider = provider
     }
 
@@ -297,7 +297,17 @@ struct GasPriceEstimateView: View {
 
     init(
         chain: Binding<Chain>,
-        viewModel: GasPriceEstimateViewModel = GasPriceEstimateViewModel()
+        provider: any GasPricingProviding
+    ) {
+        self.init(
+            chain: chain,
+            viewModel: GasPriceEstimateViewModel(provider: provider)
+        )
+    }
+
+    init(
+        chain: Binding<Chain>,
+        viewModel: GasPriceEstimateViewModel
     ) {
         _chain = chain
         _viewModel = State(initialValue: viewModel)
