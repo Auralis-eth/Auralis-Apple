@@ -1441,3 +1441,25 @@ Explorer URLs stopped being little bits of string glue scattered near buttons. `
 - `OperatorCore` still owns external-link validation and confirmation policy; its host allowlist now matches the explorer catalog hosts the app can generate.
 
 The useful lesson: outbound links are product trust surfaces, not decoration. A wrong explorer URL is like giving someone the right street address in the wrong city, so the package now makes every supported chain say exactly where its map lives.
+
+## ProviderKit Checkpoint: Move the Plumbing, Leave the Menu Copy Upstairs
+
+The ProviderKit migration had already done the big furniture move: configuration, secrets, retry parsing, request throttling, native balance, gas pricing, and the live Alchemy RPC/gas clients now live in the package that owns provider plumbing. This pass tightened the checkpoint instead of pretending every provider-adjacent word belongs there.
+
+- The important boundary call was leaving `NFTProviderFailure` in `NFTKit`. It sounds shared from the name, but the implementation still speaks fluent NFT: `NFTFetcher.FetcherError`, `AlchemyNFTService.APIError`, and collection-refresh presentation copy. Moving that into `ProviderKit` would have been like storing the restaurant menu in the boiler room just because both mention soup.
+- ProviderKit’s package tests cover the pieces the package truly owns, and the active `AuralisTests` provider suite mirrors the ship-critical coverage Xcode can run under the app scheme: missing RPC configuration becoming `missingAPIKey`, invalid endpoint configuration flowing as `invalidURL`, numeric and HTTP-date `Retry-After`, RPC error handling, and native balance behavior.
+- The Gas tab stopped building an Alchemy client in feature code. `MainTabDependencies` now receives a gas-pricing provider from the shell composition layer, then injects it into `GasPriceEstimateViewModel`. Same UI, cleaner ownership.
+- At this checkpoint, the NFT and token holdings HTTP clients were deliberately still in `NFTKit` for the next transport-split pass. They already used ProviderKit configuration and retry vocabulary, but their orchestration was still tangled enough that pretending this checkpoint finished that split would have been dishonest.
+
+The lesson: package extraction is not a scavenger hunt where every similarly named type gets swept into the new crate. Good boundaries move the plumbing to the plumbing package and leave product language with the product feature that actually uses it.
+
+## ProviderKit Transport Split: The Last Provider Pipes Left NFTKit
+
+The follow-up migration finished the ProviderKit split without turning it into architecture karaoke. The goal was not to invent shiny new client objects just because a planning doc once suggested names. The goal was simpler and better: move the provider transport that already existed to the package that owns provider transport.
+
+- `AlchemyNFTService`, `AlchemyNFTResponse`, `NFTInventoryProviding`, `AlchemyTokenHoldingsProvider`, token balance DTOs, token holdings DTOs, and the lossy array decoder now live in `ProviderKit`.
+- `NFTKit` still owns NFT-specific refresh orchestration and `NFTProviderFailure`, which is correct because that code speaks in collection refresh semantics, receipts, and fetcher errors.
+- The token provider no longer reaches upward into `ChainProviders` or `NFTKit`; ProviderKit keeps its own tiny chain capability guard and local string normalization helpers so the dependency graph stays one-way.
+- The migration was verified with a full app build and the provider-focused app tests: 33 tests passed across provider configuration, Retry-After parsing, Alchemy NFT responses, token balances, token holdings pagination, retries, and error mapping.
+
+The memorable bit: moving pipes is not the same thing as redesigning the kitchen. The best package migration is boring in exactly the right way: same faucets, same water pressure, cleaner basement.

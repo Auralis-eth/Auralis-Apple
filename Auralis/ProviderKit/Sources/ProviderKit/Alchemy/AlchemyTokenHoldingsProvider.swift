@@ -1,7 +1,5 @@
 import AuralisPrimaryModels
-import ChainProviders
 import Foundation
-import ProviderKit
 
 private enum BalanceDataEnvelopeCodingKeys: String, CodingKey {
     case tokens
@@ -186,12 +184,12 @@ public struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalance
                     tokenBalance: $0.tokenBalance
                 )
             },
-            pageKey: payload.data.pageKey?.nilIfEmpty
+            pageKey: payload.data.pageKey?.providerKitNilIfEmpty
         )
     }
 
     public func tokenHoldings(for address: String, chain: Chain) async throws -> TokenHoldingsFetchResult {
-        guard chain.supportsERC20Holdings else {
+        guard chain.supportsProviderKitERC20Holdings else {
             throw ProviderAbstractionError.unsupportedChain(chain)
         }
         guard let normalizedAddress = address.extractedEthereumAddress else {
@@ -224,7 +222,7 @@ public struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalance
         let holdings = balances.map { balance in
             let enrichment = enrichments?[balance.contractAddress]
             let symbol = enrichment?.symbol
-            let displayName = enrichment?.name ?? symbol ?? balance.contractAddress.displayAddress
+            let displayName = enrichment?.name ?? symbol ?? balance.contractAddress.providerKitDisplayAddress
             let amountPresentation = DecimalQuantityFormatter.tokenAmountPresentation(
                 from: balance.rawBalance,
                 decimals: enrichment?.decimals,
@@ -263,6 +261,14 @@ public struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalance
 private extension AlchemyTokenHoldingsProvider {
     static func isZeroBalance(_ balance: String) -> Bool {
         balance.allSatisfy { $0 == "0" }
+    }
+
+    static func normalizedScopeComponent(_ value: String?) -> String? {
+        guard let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmedValue.isEmpty else {
+            return nil
+        }
+
+        return trimmedValue.lowercased()
     }
 
     func fetchEnrichmentResult(
@@ -329,7 +335,7 @@ private extension AlchemyTokenHoldingsProvider {
             )
 
             for token in payload.data.tokens {
-                guard let contractAddress = NFT.normalizedScopeComponent(token.tokenAddress),
+                guard let contractAddress = Self.normalizedScopeComponent(token.tokenAddress),
                       !Self.isZeroBalance(token.tokenBalance) else {
                     continue
                 }
@@ -340,7 +346,7 @@ private extension AlchemyTokenHoldingsProvider {
                 )
             }
 
-            let nextPageKey = payload.data.pageKey?.nilIfEmpty
+            let nextPageKey = payload.data.pageKey?.providerKitNilIfEmpty
             consecutiveEmptyPages = try Self.updatedEmptyPageCount(
                 currentCount: consecutiveEmptyPages,
                 requestedPageKey: requestedPageKey,
@@ -395,20 +401,20 @@ private extension AlchemyTokenHoldingsProvider {
 
             for token in payload.data.tokens {
                 guard token.error == nil,
-                      let contractAddress = NFT.normalizedScopeComponent(token.tokenAddress),
+                      let contractAddress = Self.normalizedScopeComponent(token.tokenAddress),
                       allowedContractAddresses.contains(contractAddress) else {
                     continue
                 }
 
                 enrichmentsByContract[contractAddress] = AlchemyTokenEnrichment(
                     decimals: token.tokenMetadata?.decimals,
-                    symbol: token.tokenMetadata?.symbol?.nilIfEmpty,
-                    name: token.tokenMetadata?.name?.nilIfEmpty,
+                    symbol: token.tokenMetadata?.symbol?.providerKitNilIfEmpty,
+                    name: token.tokenMetadata?.name?.providerKitNilIfEmpty,
                     updatedAt: fetchedAt
                 )
             }
 
-            let nextPageKey = payload.data.pageKey?.nilIfEmpty
+            let nextPageKey = payload.data.pageKey?.providerKitNilIfEmpty
             consecutiveEmptyPages = try Self.updatedEmptyPageCount(
                 currentCount: consecutiveEmptyPages,
                 requestedPageKey: requestedPageKey,
@@ -605,5 +611,21 @@ public extension AlchemyTokenHoldingsProvider {
 
     private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {
         RetryAfterSupport.parse(from: response)
+    }
+}
+
+private extension String {
+    var providerKitNilIfEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    var providerKitDisplayAddress: String {
+        if count > 10 {
+            let start = prefix(6)
+            let end = suffix(4)
+            return "\(start)...\(end)"
+        }
+        return self
     }
 }

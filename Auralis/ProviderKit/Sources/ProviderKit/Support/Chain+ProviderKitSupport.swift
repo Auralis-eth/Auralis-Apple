@@ -2,6 +2,14 @@ import AuralisPrimaryModels
 
 extension Chain {
     var supportsProviderKitEVMRPC: Bool {
+        supportsProviderKitEVMChain
+    }
+
+    var supportsProviderKitERC20Holdings: Bool {
+        supportsProviderKitEVMChain
+    }
+
+    private var supportsProviderKitEVMChain: Bool {
         switch self {
         case .ethMainnet,
              .ethSepoliaTestnet,

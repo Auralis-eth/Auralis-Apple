@@ -8,7 +8,6 @@
 import AuralisPrimaryModels
 import Foundation
 import OSLog
-import ProviderKit
 
 private let defaultAlchemyNFTSession: URLSession = {
     let configuration = URLSessionConfiguration.default
