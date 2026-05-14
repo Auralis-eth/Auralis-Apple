@@ -1,4 +1,5 @@
 import Foundation
+import AuraUI
 
 struct AppRouteError: Error, Identifiable, Hashable {
     let id = UUID()

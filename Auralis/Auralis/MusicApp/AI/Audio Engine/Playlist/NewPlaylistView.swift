@@ -5,6 +5,7 @@ import ReceiptsCore
 import ReceiptStorage
 import SwiftData
 import SwiftUI
+import AuraUI
 import UIKit
 
 struct NewPlaylistView: View {

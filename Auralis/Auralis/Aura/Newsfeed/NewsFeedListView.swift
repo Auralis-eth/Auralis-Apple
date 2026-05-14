@@ -8,6 +8,7 @@
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
+import AuraUI
 import NFTKit
 
 struct NewsFeedListView: View {

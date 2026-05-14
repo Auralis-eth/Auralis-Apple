@@ -1,4 +1,5 @@
 import SwiftUI
+import AuraUI
 
 struct ERC20TokenDetailRow: View {
     let title: String

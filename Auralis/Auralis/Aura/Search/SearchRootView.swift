@@ -2,6 +2,7 @@ import AuralisPrimaryModels
 import OSLog
 import SwiftData
 import SwiftUI
+import AuraUI
 
 // SwiftLint currently misclassifies these file-scope snapshot helpers as overly nested.
 private struct SearchLocalIndexRefreshKey: Equatable {

@@ -1,4 +1,5 @@
 import SwiftUI
+import AuraUI
 
 struct ReceiptTimelineEmptyStateView: View {
     let scope: ReceiptTimelineScope

@@ -1,14 +1,15 @@
+#if canImport(UIKit)
 import UIKit
 
-struct AuraHaptics {
+public struct AuraHaptics {
     private let isEnabled: Bool
 
-    init(accessibilityReduceMotion: Bool) {
+    public init(accessibilityReduceMotion: Bool) {
         self.isEnabled = !accessibilityReduceMotion
     }
 
     @MainActor
-    func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+    public func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
         guard isEnabled else {
             return
         }
@@ -19,7 +20,7 @@ struct AuraHaptics {
     }
 
     @MainActor
-    func notification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
+    public func notification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
         guard isEnabled else {
             return
         }
@@ -30,7 +31,7 @@ struct AuraHaptics {
     }
 
     @MainActor
-    func selection() {
+    public func selection() {
         guard isEnabled else {
             return
         }
@@ -40,3 +41,4 @@ struct AuraHaptics {
         generator.selectionChanged()
     }
 }
+#endif

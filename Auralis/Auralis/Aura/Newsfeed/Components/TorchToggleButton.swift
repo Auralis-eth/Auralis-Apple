@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AuraUI
 
 struct TorchToggleButton: View {
     @Binding var torchOn: Bool

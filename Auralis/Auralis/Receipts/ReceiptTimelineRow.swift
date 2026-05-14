@@ -1,4 +1,5 @@
 import SwiftUI
+import AuraUI
 
 struct ReceiptTimelineRow: View {
     let record: ReceiptTimelineRecord

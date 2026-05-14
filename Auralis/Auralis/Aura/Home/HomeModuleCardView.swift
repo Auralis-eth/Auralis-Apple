@@ -1,4 +1,5 @@
 import SwiftUI
+import AuraUI
 
 struct HomeModuleCardView: View {
     let item: HomeLauncherItem

@@ -9,6 +9,7 @@ import ENS
 import AuralisPrimaryModels
 import ImagePlayground
 import SwiftUI
+import AuraUI
 
 struct ProfileCardView: View {
     @Binding var currentAccount: EOAccount?

@@ -1,4 +1,5 @@
 import SwiftUI
+import AuraUI
 
 /// Presents content on top of the shared scenic Aura gateway backdrop.
 struct AuraScenicScreen<Content: View>: View {

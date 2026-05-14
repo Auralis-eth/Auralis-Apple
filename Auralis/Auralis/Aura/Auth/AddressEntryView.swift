@@ -10,6 +10,7 @@ import ENS
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
+import AuraUI
 import UIKit
 
 @MainActor

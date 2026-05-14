@@ -11,6 +11,7 @@ import AuralisPrimaryModels
 import ExplorerAdapter
 import OperatorCore
 import SwiftUI
+import AuraUI
 
 private enum ExternalLinkStyle {
     static let primaryGradient = [Color.accent, Color.accent.opacity(0.78)]

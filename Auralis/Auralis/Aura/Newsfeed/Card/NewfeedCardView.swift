@@ -9,6 +9,7 @@ import ReceiptStorage
 
 import AuralisPrimaryModels
 import SwiftUI
+import AuraUI
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -311,11 +312,10 @@ private struct TagChip: View {
     let tag: Tag
 
     private var tintColor: Color {
-#if canImport(UIKit)
-        if let uiColor = UIColor(hex: tag.color) {
-            return Color(uiColor: uiColor)
+        if Color.rgbaComponents(from: tag.color) != nil {
+            return Color(hexString: tag.color)
         }
-#endif
+
         return .accent
     }
 

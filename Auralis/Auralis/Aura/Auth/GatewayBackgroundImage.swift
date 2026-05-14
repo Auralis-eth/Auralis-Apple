@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AuraUI
 
 struct GatewayBackgroundImage: View {
     var body: some View {

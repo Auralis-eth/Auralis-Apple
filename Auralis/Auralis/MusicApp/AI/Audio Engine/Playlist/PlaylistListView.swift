@@ -2,6 +2,7 @@ import AuralisPrimaryModels
 import OSLog
 import SwiftData
 import SwiftUI
+import AuraUI
 
 struct PlaylistListView: View {
     @Environment(\.modelContext) var modelContext

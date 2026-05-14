@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum AuraFeedbackTone: Equatable {
+public enum AuraFeedbackTone: Equatable {
     case neutral
     case warning
     case critical
@@ -10,7 +10,7 @@ enum AuraFeedbackTone: Equatable {
         case .neutral:
             return .accent
         case .warning:
-            return Color.orange
+            return .orange
         case .critical:
             return .error
         }
@@ -19,7 +19,7 @@ enum AuraFeedbackTone: Equatable {
     var secondaryTintColor: Color {
         switch self {
         case .neutral:
-            return Color.textSecondary
+            return .textSecondary
         case .warning:
             return Color.orange.opacity(0.9)
         case .critical:
@@ -28,22 +28,28 @@ enum AuraFeedbackTone: Equatable {
     }
 }
 
-struct AuraFeedbackAction {
-    let title: String
-    let systemImage: String
-    let handler: () -> Void
+public struct AuraFeedbackAction {
+    public let title: String
+    public let systemImage: String
+    public let handler: () -> Void
+
+    public init(title: String, systemImage: String, handler: @escaping () -> Void) {
+        self.title = title
+        self.systemImage = systemImage
+        self.handler = handler
+    }
 }
 
-struct AuraEmptyState: View {
-    let eyebrow: String?
-    let title: String
-    let message: String
-    let systemImage: String
-    let tone: AuraFeedbackTone
-    let primaryAction: AuraFeedbackAction?
-    let secondaryAction: AuraFeedbackAction?
+public struct AuraEmptyState: View {
+    private let eyebrow: String?
+    private let title: String
+    private let message: String
+    private let systemImage: String
+    private let tone: AuraFeedbackTone
+    private let primaryAction: AuraFeedbackAction?
+    private let secondaryAction: AuraFeedbackAction?
 
-    init(
+    public init(
         eyebrow: String? = nil,
         title: String,
         message: String,
@@ -61,7 +67,7 @@ struct AuraEmptyState: View {
         self.secondaryAction = secondaryAction
     }
 
-    var body: some View {
+    public var body: some View {
         AuraSurfaceCard(style: .regular, cornerRadius: 30, padding: 20) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top, spacing: 14) {
@@ -111,19 +117,62 @@ struct AuraEmptyState: View {
     }
 }
 
-#Preview {
-    AuraScenicScreen(contentAlignment: .center) {
-        AuraEmptyState(
-            eyebrow: "Library",
-            title: "Nothing Here Yet",
-            message: "This reusable empty state is intended for shell and feature surfaces alike.",
-            systemImage: "square.stack.3d.up",
-            tone: .neutral,
-            primaryAction: AuraFeedbackAction(
-                title: "Refresh",
-                systemImage: "arrow.clockwise",
-                handler: { }
-            )
+public struct AuraErrorBanner: View {
+    private let title: String
+    private let message: String
+    private let systemImage: String
+    private let tone: AuraFeedbackTone
+    private let action: AuraFeedbackAction?
+
+    public init(
+        title: String,
+        message: String,
+        systemImage: String,
+        tone: AuraFeedbackTone = .warning,
+        action: AuraFeedbackAction? = nil
+    ) {
+        self.title = title
+        self.message = message
+        self.systemImage = systemImage
+        self.tone = tone
+        self.action = action
+    }
+
+    public var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            SystemImage(systemImage)
+                .font(.headline)
+                .foregroundStyle(tone.tintColor)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.textPrimary)
+
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(Color.textSecondary)
+            }
+
+            Spacer(minLength: 8)
+
+            if let action {
+                Button(action: action.handler) {
+                    Label(action.title, systemImage: action.systemImage)
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.textPrimary)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Color.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(tone.tintColor.opacity(0.18), lineWidth: 1)
         )
+        .accessibilityElement(children: .combine)
     }
 }

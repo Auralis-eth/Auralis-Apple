@@ -1,4 +1,5 @@
 import SwiftUI
+import AuraUI
 
 struct ReceiptDetailFact: View {
     let label: String

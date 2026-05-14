@@ -8,6 +8,7 @@
 import AuralisPrimaryModels
 import OSLog
 import SwiftUI
+import AuraUI
 import NFTKit
 
 struct NFTNewsfeedLoadingView: View {

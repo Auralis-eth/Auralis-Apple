@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import SwiftUI
+import AuraUI
 import NFTKit
 
 enum ShellStatusTone: Equatable {

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AuraUI
 
 struct EnergyCardView: View {
     private static let timeFormatter: DateFormatter = {

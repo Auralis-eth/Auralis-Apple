@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import SwiftUI
+import AuraUI
 
 struct ReceiptPayloadValueView: View {
     let label: String

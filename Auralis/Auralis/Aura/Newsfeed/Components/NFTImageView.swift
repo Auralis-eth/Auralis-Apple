@@ -8,6 +8,7 @@
 import AuralisPrimaryModels
 import ImageIO
 import SwiftUI
+import AuraUI
 
 // NSCache is internally synchronized for concurrent access, so this wrapper is
 // safe to share across tasks even though UIImage itself is not Sendable.

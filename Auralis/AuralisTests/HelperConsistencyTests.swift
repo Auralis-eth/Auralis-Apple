@@ -2,6 +2,7 @@
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
+import AuraUI
 import Testing
 import NFTKit
 import TokenStorage

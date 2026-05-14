@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import SwiftUI
+import AuraUI
 
 struct ERC20HoldingsLoadingView: View {
     let chain: Chain

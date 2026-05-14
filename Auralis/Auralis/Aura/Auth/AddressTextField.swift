@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AuraUI
 import UIKit
 
 struct AddressPasteboardValue: Equatable {

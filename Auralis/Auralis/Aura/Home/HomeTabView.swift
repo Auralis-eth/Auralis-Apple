@@ -5,6 +5,7 @@ import ImagePlayground
 import OSLog
 import SwiftData
 import SwiftUI
+import AuraUI
 
 struct HomeTabView: View {
     private let logger = Logger(subsystem: "Auralis", category: "HomeTabView")

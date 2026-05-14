@@ -22,6 +22,7 @@
 		6F84E3022FB0C5BC00CD4102 /* TokenStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3012FB0C5BC00CD4102 /* TokenStorage */; };
 		6F84E3052FB2202700CD4102 /* UserDefaultsAdapters in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3042FB2202700CD4102 /* UserDefaultsAdapters */; };
 		6F84E3082FB35A0A00CD4102 /* AgentIdentityCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3072FB35A0A00CD4102 /* AgentIdentityCore */; };
+		6F84E3132FB66B8200CD4102 /* AuraUI in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3122FB66B8200CD4102 /* AuraUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,6 +102,7 @@
 				6F4179322DA96363002A78F5 /* web3.swift in Frameworks */,
 				6F84E3022FB0C5BC00CD4102 /* TokenStorage in Frameworks */,
 				6F84E01B2FAE48B000CD4102 /* AgentIdentityCore in Frameworks */,
+				6F84E3132FB66B8200CD4102 /* AuraUI in Frameworks */,
 				6F84E0202FAE627D00CD4102 /* ReceiptsCore in Frameworks */,
 				6F84E2FF2FAFF7FE00CD4102 /* AccountStorage in Frameworks */,
 				6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */,
@@ -201,6 +203,7 @@
 				6F84E3012FB0C5BC00CD4102 /* TokenStorage */,
 				6F84E3042FB2202700CD4102 /* UserDefaultsAdapters */,
 				6F84E3072FB35A0A00CD4102 /* AgentIdentityCore */,
+				6F84E3122FB66B8200CD4102 /* AuraUI */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -299,6 +302,7 @@
 				6F84E3002FB0C5BC00CD4102 /* XCLocalSwiftPackageReference "TokenStorage" */,
 				6F84E3032FB2202700CD4102 /* XCLocalSwiftPackageReference "UserDefaultsAdapters" */,
 				6F84E3062FB35A0A00CD4102 /* XCLocalSwiftPackageReference "AgentIdentityCore" */,
+				6F84E3112FB66B8200CD4102 /* XCLocalSwiftPackageReference "AuraUI" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -745,6 +749,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = AgentIdentityCore;
 		};
+		6F84E3112FB66B8200CD4102 /* XCLocalSwiftPackageReference "AuraUI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = AuraUI;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -834,6 +842,10 @@
 		6F84E3072FB35A0A00CD4102 /* AgentIdentityCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AgentIdentityCore;
+		};
+		6F84E3122FB66B8200CD4102 /* AuraUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AuraUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -10,6 +10,7 @@ import AuralisPrimaryModels
 import CodeScanner
 import SwiftData
 import SwiftUI
+import AuraUI
 import UIKit
 
 @MainActor

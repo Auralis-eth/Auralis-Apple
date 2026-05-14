@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AuraUI
 
 struct ErrorView: View {
     let action: @MainActor () -> Void

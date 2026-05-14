@@ -1,6 +1,7 @@
 import AuralisPrimaryModels
 import Observation
 import SwiftUI
+import AuraUI
 
 /// Root presentation model for the active AuraPlay Phase 2 persistence seam.
 @Observable

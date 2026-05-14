@@ -2,6 +2,7 @@ import AuralisPrimaryModels
 import PolicyCore
 import SwiftData
 import SwiftUI
+import AuraUI
 
 struct ProfileDetailPresentation: Equatable {
     let title: String

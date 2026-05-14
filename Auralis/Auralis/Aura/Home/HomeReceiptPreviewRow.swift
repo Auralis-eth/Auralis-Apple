@@ -1,4 +1,5 @@
 import SwiftUI
+import AuraUI
 
 struct HomeReceiptPreviewRow: View {
     let item: HomeRecentActivityPreviewItem

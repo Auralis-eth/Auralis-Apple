@@ -1463,3 +1463,29 @@ The follow-up migration finished the ProviderKit split without turning it into a
 - The migration was verified with a full app build and the provider-focused app tests: 33 tests passed across provider configuration, Retry-After parsing, Alchemy NFT responses, token balances, token holdings pagination, retries, and error mapping.
 
 The memorable bit: moving pipes is not the same thing as redesigning the kitchen. The best package migration is boring in exactly the right way: same faucets, same water pressure, cleaner basement.
+
+## Feature Package Migration Maps: Label the Moving Boxes Before Lifting Them
+
+This planning pass drew context-free migration maps for four package candidates: `AuralisShellCore`, `NFTLibraryFeature`, `MusicFeature`, and `AccountsFeature`.
+
+- `AuralisShellCore` is the front-desk rulebook: shell state, actions, route effects, and deep-link replay belong there, while live service construction stays in the app target.
+- `NFTLibraryFeature` is the gallery wing: NFT listing, detail, collection views, cards, sort controls, and marketplace handoff can move together without dragging provider plumbing along for the ride.
+- `MusicFeature` is the AuraPlay room getting real walls: the shipping music UI and service protocols fit a package, but the long-lived audio engine should stay behind a playback protocol until the boundary proves itself.
+- `AccountsFeature` is the check-in counter: gateway, address entry, guest passes, account switching, and account presentation make sense as feature UI, while `AccountsCore` and `AccountStorage` keep owning the lower floors.
+
+The lesson is satisfyingly practical: a package name is not a wish. It becomes architecture only when the migration doc says what moves, what refuses to move, what the package may import, and what the first session should do without needing a tour guide.
+
+One extra rule got nailed to the wall before anyone starts moving files: use real imports, not compatibility typealiases. When a type moves into a feature package, the app and tests should import that package directly. Typealias bridges feel convenient in the moment, but they turn module ownership into a stage set: it looks like a wall until somebody leans on it.
+
+## AuraUI: The Shared Stage Gets A Name
+
+The feature-package plans exposed an awkward truth: every future feature wanted the same Aura primitives, but those primitives were still tucked inside the app target like reusable stage lights stored in one actor's dressing room.
+
+- `AuraUI` now exists as a root-level local Swift package for shared presentation vocabulary: colors, text wrappers, icon helpers, haptics, surface cards, action buttons, empty/error feedback, pills, and trust labels.
+- The package layout is intentionally flatter than the app's old `Aura/Primitives` nesting. Shared UI should be easy to browse because it is the drawer every feature package will open.
+- Gateway-specific scenery stays app-side for now. A reusable button belongs in `AuraUI`; a specific onboarding background still belongs to the onboarding surface until it proves otherwise.
+- The broad call-site migration is now complete. App, Gas, Music, Receipt, and test files import `AuraUI` directly instead of relying on app-target duplicate definitions.
+- The old app-local primitive files, `Text+Font.swift`, and `Colour.swift` are gone. `AuraScenicScreen` stays app-side because it still composes the gateway-specific background.
+- One namespace lesson arrived immediately: `Color.secondary` is already SwiftUI vocabulary, so the Aura palette uses `Color.auraSecondary` rather than fighting the framework for the same name.
+
+The useful lesson: shared UI is a stage kit, not a feature. Once it has a name and a clean shelf, feature packages can borrow the same lights without dragging the whole theater around.

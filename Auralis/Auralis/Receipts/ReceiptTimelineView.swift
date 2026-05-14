@@ -2,6 +2,7 @@ import AuralisPrimaryModels
 import Foundation
 import SwiftData
 import SwiftUI
+import AuraUI
 import UIKit
 
 // SwiftLint currently misclassifies these file-scope receipt snapshot helpers as overly nested.

@@ -3,6 +3,7 @@ import Observation
 import PolicyCore
 import SwiftData
 import SwiftUI
+import AuraUI
 import NFTKit
 
 struct MainTabView: View {

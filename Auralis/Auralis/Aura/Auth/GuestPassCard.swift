@@ -1,4 +1,5 @@
 import SwiftUI
+import AuraUI
 
 struct GuestPassCard: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion

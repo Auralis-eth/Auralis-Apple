@@ -7,6 +7,7 @@
 
 import AuralisPrimaryModels
 import SwiftUI
+import AuraUI
 import NFTKit
 
 struct EmptyNewsFeedView: View {

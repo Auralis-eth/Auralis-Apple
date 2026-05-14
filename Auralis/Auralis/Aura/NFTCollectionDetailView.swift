@@ -1,6 +1,7 @@
 import AuralisPrimaryModels
 import SwiftData
 import SwiftUI
+import AuraUI
 
 struct NFTCollectionDetailPresentation: Equatable {
     let title: String

@@ -1,6 +1,7 @@
 import PolicyCore
 import SwiftData
 import SwiftUI
+import AuraUI
 
 private struct ObserveModePolicyView: View {
     @Environment(\.modelContext) private var modelContext

@@ -1,5 +1,6 @@
 import OperatorCore
 import SwiftUI
+import AuraUI
 
 struct ExternalLinkConfirmationSheet: View {
     @Environment(\.dismiss) private var dismiss

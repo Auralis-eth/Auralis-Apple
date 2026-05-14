@@ -1,9 +1,7 @@
 import SwiftUI
 
-/// Renders an Aura-styled capsule button for hero and inline actions.
-struct AuraActionButton: View {
-    /// Defines the visual treatment for an Aura action button.
-    enum Style {
+public struct AuraActionButton: View {
+    public enum Style {
         case hero
         case surface
     }
@@ -13,8 +11,7 @@ struct AuraActionButton: View {
     private let style: Style
     private let action: () -> Void
 
-    /// Creates an Aura-styled action button with optional SF Symbol adornment.
-    init(
+    public init(
         _ title: String,
         systemImage: String? = nil,
         style: Style = .surface,
@@ -26,7 +23,7 @@ struct AuraActionButton: View {
         self.action = action
     }
 
-    var body: some View {
+    public var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 if let systemImage {
@@ -41,7 +38,7 @@ struct AuraActionButton: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .foregroundStyle(foregroundStyle)
+            .foregroundStyle(Color.textPrimary)
             .frame(maxWidth: style == .hero ? .infinity : nil)
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
@@ -52,26 +49,12 @@ struct AuraActionButton: View {
         .accessibilityLabel(title)
     }
 
-    private var foregroundStyle: Color {
-        Color.textPrimary
-    }
-
     private var horizontalPadding: CGFloat {
-        switch style {
-        case .hero:
-            return 20
-        case .surface:
-            return 16
-        }
+        style == .hero ? 20 : 16
     }
 
     private var verticalPadding: CGFloat {
-        switch style {
-        case .hero:
-            return 18
-        case .surface:
-            return 8
-        }
+        style == .hero ? 18 : 8
     }
 
     @ViewBuilder
@@ -90,15 +73,4 @@ struct AuraActionButton: View {
                 .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 2)
         }
     }
-}
-
-#Preview {
-    VStack(spacing: 20) {
-        AuraActionButton("Enter Auralis", style: .hero) {}
-
-        AuraActionButton("Open player", systemImage: "play.fill") {}
-    }
-    .padding()
-    .background(Color.background)
-    .preferredColorScheme(.dark)
 }

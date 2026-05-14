@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AuraUI
 
 /// New GalleryGrid View added as requested
 struct GalleryGrid: View {

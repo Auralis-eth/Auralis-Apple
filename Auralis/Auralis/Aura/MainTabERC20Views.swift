@@ -2,6 +2,7 @@ import AuralisPrimaryModels
 import ChainProviders
 import SwiftData
 import SwiftUI
+import AuraUI
 import NFTKit
 import TokenStorage
 

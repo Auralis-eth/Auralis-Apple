@@ -1,4 +1,5 @@
 import SwiftUI
+import AuraUI
 
 struct AuraPlayUnavailableView: View {
     let message: String?
