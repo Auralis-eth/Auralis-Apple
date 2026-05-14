@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import Foundation
 
 /// Enumerates the intents that can mutate shell state or trigger shell side effects.
-enum ShellAction {
+public enum ShellAction {
     case restoreFromPersistence
     case accountActivated(account: EOAccount, correlationID: String?)
     case accountSelectionRequested(address: String, correlationID: String?, chainOverride: Chain? = nil)

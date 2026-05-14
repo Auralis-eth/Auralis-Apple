@@ -1,5 +1,5 @@
-@testable import Auralis
 import AuralisPrimaryModels
+import AuralisShellCore
 import Foundation
 import Testing
 
@@ -26,7 +26,7 @@ import Testing
             (
                 "auralis://receipt/0xreceipt123",
                 AppDeepLink.destination(.receipt(id: "0xreceipt123"))
-            )
+            ),
         ]
     )
     func parsesTopLevelRoutes(urlString: String, expectedRoute: AppDeepLink) throws {
@@ -129,7 +129,7 @@ import Testing
             (
                 "auralis://receipt/",
                 "Invalid Receipt Link"
-            )
+            ),
         ]
     )
     func rejectsInvalidRoutePayloads(urlString: String, expectedTitle: String) throws {

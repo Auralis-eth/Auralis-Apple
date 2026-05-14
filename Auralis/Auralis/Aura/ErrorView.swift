@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AuraUI
+import AuralisShellCore
 
 struct ErrorView: View {
     let action: @MainActor () -> Void

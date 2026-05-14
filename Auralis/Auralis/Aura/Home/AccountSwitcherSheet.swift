@@ -1,5 +1,6 @@
 import AccountsCore
 import AuralisPrimaryModels
+import AuralisShellCore
 import OSLog
 import SwiftData
 import SwiftUI

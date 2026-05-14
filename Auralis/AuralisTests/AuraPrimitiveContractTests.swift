@@ -1,4 +1,5 @@
 @testable import Auralis
+import AuraUI
 import Testing
 
 @Suite

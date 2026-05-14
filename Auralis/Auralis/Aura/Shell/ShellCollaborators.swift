@@ -2,6 +2,7 @@ import ReceiptsCore
 import AccountStorage
 import AccountsCore
 import AuralisPrimaryModels
+import AuralisShellCore
 import Foundation
 import SwiftData
 import NFTKit

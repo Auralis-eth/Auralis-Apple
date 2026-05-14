@@ -1,5 +1,6 @@
 import AccountsCore
 import AuralisPrimaryModels
+import AuralisShellCore
 import Foundation
 import Observation
 import SwiftData
@@ -315,7 +316,7 @@ final class ShellStore {
 
     private func applyCommittedSelection(_ selection: ActiveShellSelection, account: EOAccount) {
         state.selection = selection
-        state.activeAccountID = account.persistentModelID
+        state.activeAccountID = account.address
         state.pendingCorrelationID = nil
     }
 

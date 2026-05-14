@@ -1,6 +1,7 @@
 import ReceiptsCore
 import ReceiptStorage
 import AuralisPrimaryModels
+import AuralisShellCore
 import SwiftData
 import SwiftUI
 import AuraUI
@@ -247,7 +248,7 @@ struct MainAuraView: View {
             return nil
         }
 
-        return accounts.first(where: { $0.persistentModelID == activeAccountID })
+        return accounts.first(where: { $0.address == activeAccountID })
     }
 
     private func routeErrorBinding(for shellStore: ShellStore) -> Binding<AppRouteError?> {

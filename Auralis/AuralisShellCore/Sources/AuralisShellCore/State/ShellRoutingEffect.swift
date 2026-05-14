@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 
-enum ShellRoutingEffect: Equatable {
+public enum ShellRoutingEffect: Equatable {
     case resetAllRoutes
     case selectTab(AppTab)
     case routeDeepLink(

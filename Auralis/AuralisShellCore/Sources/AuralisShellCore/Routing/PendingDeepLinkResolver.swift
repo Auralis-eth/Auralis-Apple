@@ -1,8 +1,10 @@
 import AuralisPrimaryModels
 import Foundation
 
-struct PendingDeepLinkResolver {
-    func resolve(_ deepLink: AppDeepLink, context: PendingDeepLinkContext) -> PendingDeepLinkResolution {
+public struct PendingDeepLinkResolver {
+    public init() { }
+
+    public func resolve(_ deepLink: AppDeepLink, context: PendingDeepLinkContext) -> PendingDeepLinkResolution {
         switch deepLink {
         case .account(let address, let chain, let destination):
             if context.currentAddress != address {

@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import AuralisShellCore
 import Observation
 import PolicyCore
 import SwiftData

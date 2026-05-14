@@ -1,12 +1,7 @@
-import Foundation
 import AuraUI
+import AuralisShellCore
 
-struct AppRouteError: Error, Identifiable, Hashable {
-    let id = UUID()
-    let title: String
-    let message: String
-    let urlString: String?
-
+extension AppRouteError {
     var trustLabelKind: AuraUntrustedValueKind? {
         guard urlString != nil else {
             return nil

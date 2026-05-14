@@ -1,5 +1,6 @@
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisShellCore
 import Testing
 
 @Suite

@@ -41,13 +41,13 @@ public struct AuraFeedbackAction {
 }
 
 public struct AuraEmptyState: View {
-    private let eyebrow: String?
-    private let title: String
-    private let message: String
-    private let systemImage: String
-    private let tone: AuraFeedbackTone
-    private let primaryAction: AuraFeedbackAction?
-    private let secondaryAction: AuraFeedbackAction?
+    public let eyebrow: String?
+    public let title: String
+    public let message: String
+    public let systemImage: String
+    public let tone: AuraFeedbackTone
+    public let primaryAction: AuraFeedbackAction?
+    public let secondaryAction: AuraFeedbackAction?
 
     public init(
         eyebrow: String? = nil,
@@ -118,11 +118,11 @@ public struct AuraEmptyState: View {
 }
 
 public struct AuraErrorBanner: View {
-    private let title: String
-    private let message: String
-    private let systemImage: String
-    private let tone: AuraFeedbackTone
-    private let action: AuraFeedbackAction?
+    public let title: String
+    public let message: String
+    public let systemImage: String
+    public let tone: AuraFeedbackTone
+    public let action: AuraFeedbackAction?
 
     public init(
         title: String,

@@ -1489,3 +1489,14 @@ The feature-package plans exposed an awkward truth: every future feature wanted 
 - One namespace lesson arrived immediately: `Color.secondary` is already SwiftUI vocabulary, so the Aura palette uses `Color.auraSecondary` rather than fighting the framework for the same name.
 
 The useful lesson: shared UI is a stage kit, not a feature. Once it has a name and a clean shelf, feature packages can borrow the same lights without dragging the whole theater around.
+
+## AuralisShellCore: The Front Desk Rulebook Moves Out
+
+The shell finally got its own package-shaped office. `AuralisShellCore` now owns the small but important rules that decide what the app is trying to do before any SwiftUI screen gets involved: active selection, shell actions, route effects, deep-link values, parsing, and pending deep-link replay.
+
+- The first pass moved value types and parser/resolver logic only. `ShellStore` stayed in the app target because it still talks to live app collaborators, SwiftData accounts, NFT refresh, receipt logging, and the router effect handler.
+- `AppRouteError` moved into the shell package, but the Aura trust-label presentation stayed app-side as an extension. That keeps the core error transport clean while letting the UI keep its warning sticker.
+- `ShellState.activeAccountID` stopped using SwiftData's `PersistentIdentifier` and now stores the account address. That is the shell's stable identity key already, and it avoids dragging SwiftData into the shell core just to know whether an account is active.
+- Parser and pending-replay tests moved into `AuralisShellCoreTests`, so the rules can be tested without launching the app target once the package is attached to the Xcode project.
+
+The gotcha: moving source files is only half the migration. Xcode still needs the local `AuralisShellCore` package product added to the app and test targets through the project UI. Until that package graph is wired, `import AuralisShellCore` is like putting a new desk in the building but forgetting to add it to the directory.

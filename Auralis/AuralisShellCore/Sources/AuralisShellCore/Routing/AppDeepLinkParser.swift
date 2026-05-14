@@ -1,8 +1,10 @@
 import AuralisPrimaryModels
 import Foundation
 
-struct AppDeepLinkParser {
-    func parse(url: URL) -> Result<AppDeepLink, AppRouteError> {
+public struct AppDeepLinkParser {
+    public init() { }
+
+    public func parse(url: URL) -> Result<AppDeepLink, AppRouteError> {
         let segments = routeSegments(for: url)
 
         guard let route = segments.first?.lowercased() else {
@@ -307,5 +309,22 @@ struct AppDeepLinkParser {
 
     private func queryValue(named name: String, in components: URLComponents?) -> String? {
         components?.queryItems?.first(where: { $0.name == name })?.value
+    }
+}
+
+private extension String {
+    var extractedEthereumAddress: String? {
+        let address = trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !address.isEmpty else { return nil }
+
+        if let match = address.range(of: #"^0x[a-fA-F0-9]{40}$"#, options: .regularExpression) {
+            return String(address[match])
+        }
+
+        if let match = address.range(of: #"^[a-fA-F0-9]{40}$"#, options: .regularExpression) {
+            return "0x" + String(address[match])
+        }
+
+        return nil
     }
 }

@@ -1,18 +1,6 @@
 import AuralisPrimaryModels
+import AuralisShellCore
 import Observation
-
-/// Lists the top-level tabs managed by the shared app router.
-enum AppTab: Hashable, CaseIterable {
-    case home
-    case news
-    case gas
-    case music
-    case receipts
-    case profile
-    case search
-    case erc20Tokens
-    case nftTokens
-}
 
 struct AppTabBarVisibility: Equatable {
     let tabBarTabs: Set<AppTab>

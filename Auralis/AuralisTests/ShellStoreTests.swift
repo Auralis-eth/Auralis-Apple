@@ -1,6 +1,7 @@
 @testable import Auralis
 import AccountsCore
 import AuralisPrimaryModels
+import AuralisShellCore
 import Foundation
 import Testing
 
@@ -27,7 +28,7 @@ struct ShellStoreTests {
         await store.send(.restoreFromPersistence)
 
         #expect(store.state.selection == ActiveShellSelection(address: account.address, chain: .baseMainnet))
-        #expect(store.state.activeAccountID == account.persistentModelID)
+        #expect(store.state.activeAccountID == account.address)
         #expect(store.state.didFinishInitialRestore)
         #expect(store.state.hasPresentedAuthenticatedExperience)
         #expect(persistence.savedSelections.map(\.chainID) == [Chain.baseMainnet.rawValue, Chain.baseMainnet.rawValue])
@@ -57,7 +58,7 @@ struct ShellStoreTests {
         await store.send(.restoreFromPersistence)
 
         #expect(store.state.selection == ActiveShellSelection(address: fallbackAccount.address, chain: .polygonMainnet))
-        #expect(store.state.activeAccountID == fallbackAccount.persistentModelID)
+        #expect(store.state.activeAccountID == fallbackAccount.address)
         #expect(persistence.savedSelections.last?.address == fallbackAccount.address)
         #expect(persistence.savedSelections.last?.chainID == Chain.polygonMainnet.rawValue)
     }
@@ -79,7 +80,7 @@ struct ShellStoreTests {
         let store = makeStore(
             state: ShellState(
                 selection: ActiveShellSelection(address: previousAccount.address, chain: .ethMainnet),
-                activeAccountID: previousAccount.persistentModelID
+                activeAccountID: previousAccount.address
             ),
             selectionPersistence: TestShellSelectionPersistence(),
             accountMutator: mutator,
@@ -123,7 +124,7 @@ struct ShellStoreTests {
         let store = makeStore(
             state: ShellState(
                 selection: ActiveShellSelection(address: account.address, chain: .ethMainnet),
-                activeAccountID: account.persistentModelID
+                activeAccountID: account.address
             ),
             selectionPersistence: persistence,
             accountMutator: mutator,
@@ -171,7 +172,7 @@ struct ShellStoreTests {
         let store = makeStore(
             state: ShellState(
                 selection: ActiveShellSelection(address: account.address, chain: .baseMainnet),
-                activeAccountID: account.persistentModelID,
+                activeAccountID: account.address,
                 didFinishInitialRestore: true
             ),
             deepLinkReplayer: replayer,
@@ -246,7 +247,7 @@ struct ShellStoreTests {
         let store = makeStore(
             state: ShellState(
                 selection: ActiveShellSelection(address: account.address, chain: .ethMainnet),
-                activeAccountID: account.persistentModelID,
+                activeAccountID: account.address,
                 didFinishInitialRestore: true
             ),
             refreshCoordinator: refreshCoordinator,
@@ -273,7 +274,7 @@ struct ShellStoreTests {
         let store = makeStore(
             state: ShellState(
                 selection: ActiveShellSelection(address: account.address, chain: .ethMainnet),
-                activeAccountID: account.persistentModelID,
+                activeAccountID: account.address,
                 didFinishInitialRestore: true
             ),
             refreshCoordinator: refreshCoordinator,
@@ -299,7 +300,7 @@ struct ShellStoreTests {
         let store = makeStore(
             state: ShellState(
                 selection: ActiveShellSelection(address: account.address, chain: .baseMainnet),
-                activeAccountID: account.persistentModelID,
+                activeAccountID: account.address,
                 pendingDeepLink: .destination(.receipt(id: "logout")),
                 pendingCorrelationID: "logout-1",
                 latestRefreshRequestID: UUID(),

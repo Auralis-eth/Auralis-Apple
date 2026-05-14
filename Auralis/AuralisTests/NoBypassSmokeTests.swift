@@ -2,6 +2,7 @@ import ReceiptsCore
 import ReceiptStorage
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisShellCore
 import Foundation
 import PolicyCore
 import SwiftData
