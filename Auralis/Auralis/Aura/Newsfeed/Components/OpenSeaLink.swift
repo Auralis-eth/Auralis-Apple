@@ -8,7 +8,7 @@ import ReceiptStorage
 //
 
 import AuralisPrimaryModels
-import NFTKit
+import ExplorerAdapter
 import OperatorCore
 import SwiftUI
 

@@ -1,8 +1,8 @@
 import OperatorCore
 @testable import Auralis
 import AuralisPrimaryModels
+import ExplorerAdapter
 import Foundation
-import NFTKit
 import Testing
 
 @Suite
@@ -44,7 +44,22 @@ struct ExternalLinkDestinationTests {
             ("Optimistic Etherscan", .optMainnet),
             ("Optimistic Etherscan", .optSepoliaTestnet),
             ("PolygonScan", .polygonMainnet),
-            ("PolygonScan", .polygonAmoyTestnet)
+            ("PolygonScan", .polygonAmoyTestnet),
+            ("WorldScan", .worldchainMainnet),
+            ("WorldScan", .worldchainSepoliaTestnet),
+            ("ShapeScan", .shapeMainnet),
+            ("ShapeScan", .shapeSepoliaTestnet),
+            ("Ink Explorer", .inkMainnet),
+            ("Ink Explorer", .inkSepoliaTestnet),
+            ("Uniscan", .unichainMainnet),
+            ("Uniscan", .unichainSepoliaTestnet),
+            ("Soneium Blockscout", .soneiumMainnet),
+            ("Soneium Blockscout", .soneiumMinatoTestnet),
+            ("BeraScan", .berachainMainnet),
+            ("Zora Explorer", .zoraMainnet),
+            ("Zora Explorer", .zoraSepoliaTestnet),
+            ("PolynomialScan", .polynomialMainnet),
+            ("PolynomialScan", .polynomialSepoliaTestnet),
         ]
         let builder = ExplorerURLBuilder()
 

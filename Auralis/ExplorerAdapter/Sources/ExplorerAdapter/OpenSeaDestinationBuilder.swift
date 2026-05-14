@@ -36,17 +36,43 @@ public struct OpenSeaDestinationBuilder: Sendable {
             return "matic"
         case .zoraMainnet:
             return "zora"
-        default:
+        case .ethSepoliaTestnet,
+             .baseSepoliaTestnet,
+             .arbSepoliaTestnet,
+             .arbNovaMainnet,
+             .optSepoliaTestnet,
+             .polygonAmoyTestnet,
+             .worldchainMainnet,
+             .worldchainSepoliaTestnet,
+             .shapeMainnet,
+             .shapeSepoliaTestnet,
+             .inkMainnet,
+             .inkSepoliaTestnet,
+             .unichainMainnet,
+             .unichainSepoliaTestnet,
+             .soneiumMainnet,
+             .soneiumMinatoTestnet,
+             .solanaMainnet,
+             .solanaDevnetTestnet,
+             .berachainMainnet,
+             .zoraSepoliaTestnet,
+             .polynomialMainnet,
+             .polynomialSepoliaTestnet:
             return nil
         }
     }
 
     private func normalizedOpenSeaAddress(_ address: String) throws -> String {
         let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedAddress.range(of: #"^0x[a-fA-F0-9]{40}$"#, options: .regularExpression) != nil else {
-            throw ExplorerURLBuildError.invalidAddress(address)
+
+        if trimmedAddress.range(of: #"^0x[a-fA-F0-9]{40}$"#, options: .regularExpression) != nil {
+            return trimmedAddress
         }
 
-        return trimmedAddress
+        if trimmedAddress.range(of: #"^[a-fA-F0-9]{40}$"#, options: .regularExpression) != nil {
+            return "0x" + trimmedAddress
+        }
+
+        throw ExplorerURLBuildError.invalidAddress(address)
     }
 }

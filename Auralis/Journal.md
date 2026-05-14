@@ -1430,3 +1430,14 @@ The useful lesson: a package boundary should tell the truth about the domain. EN
 - `ProviderKit` still keeps a tiny internal EVM guard because the dependency direction matters: `ChainProviders` can build on `ProviderKit`, but transport should not reach back upward into policy.
 
 The sticky lesson: a support matrix is not a vibe check. It is a clipboard with every chain named on it, and new chains do not get to sneak through the side door as “probably EVM.”
+
+## ExplorerAdapter Migration: The Map Drawer Gets Labels
+
+Explorer URLs stopped being little bits of string glue scattered near buttons. `ExplorerAdapter` is now the map drawer: given a typed destination and a chain, it either hands back a precise URL or refuses with a typed error.
+
+- `ExplorerCatalog` owns chain-to-explorer labels and base URLs for every current EVM chain in `Chain`.
+- `ExplorerURLBuilder` builds address, transaction, token, and NFT URLs without falling back to Ethereum mainnet when a chain is unsupported.
+- `OpenSeaDestinationBuilder` owns marketplace asset URLs and keeps OpenSea support deliberately narrower than generic explorer support.
+- `OperatorCore` still owns external-link validation and confirmation policy; its host allowlist now matches the explorer catalog hosts the app can generate.
+
+The useful lesson: outbound links are product trust surfaces, not decoration. A wrong explorer URL is like giving someone the right street address in the wrong city, so the package now makes every supported chain say exactly where its map lives.
