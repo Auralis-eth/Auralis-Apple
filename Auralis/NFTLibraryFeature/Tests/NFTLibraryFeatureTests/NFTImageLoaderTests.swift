@@ -1,17 +1,15 @@
-@testable import Auralis
-import AuralisPrimaryModels
+@testable import NFTLibraryFeature
 import Foundation
 import Testing
 import UIKit
-import NFTKit
 
 @Suite(.serialized)
 @MainActor
 struct NFTImageLoaderTests {
     @Test("default loaders share the reusable session")
     func defaultLoadersReuseSharedSession() {
-        let firstLoader = ImageLoader(url: URL(string: "https://example.com/first.png")!)
-        let secondLoader = ImageLoader(url: URL(string: "https://example.com/second.png")!)
+        let firstLoader = NFTImageLoader(url: URL(string: "https://example.com/first.png")!)
+        let secondLoader = NFTImageLoader(url: URL(string: "https://example.com/second.png")!)
 
         let firstSession = Mirror(reflecting: firstLoader).descendant("session") as? URLSession
         let secondSession = Mirror(reflecting: secondLoader).descendant("session") as? URLSession
@@ -19,12 +17,12 @@ struct NFTImageLoaderTests {
         #expect(firstSession != nil)
         #expect(secondSession != nil)
         #expect(firstSession === secondSession)
-        #expect(firstSession === ImageLoader.defaultSession)
+        #expect(firstSession === NFTImageLoader.defaultSession)
     }
 
     @Test("mp4 URL extension rejects immediately and clears loading state")
     func mp4ExtensionRejectClearsLoading() async {
-        let loader = ImageLoader(url: URL(string: "https://example.com/clip.mp4")!)
+        let loader = NFTImageLoader(url: URL(string: "https://example.com/clip.mp4")!)
         loader.loadIfNeeded()
 
         await Task.yield()
@@ -55,7 +53,7 @@ struct NFTImageLoaderTests {
             MockURLProtocol.handler = nil
         }
 
-        let loader = ImageLoader(
+        let loader = NFTImageLoader(
             url: URL(string: "https://example.com/not-an-image")!,
             session: session
         )
@@ -94,7 +92,7 @@ struct NFTImageLoaderTests {
             MockURLProtocol.handler = nil
         }
 
-        let loader = ImageLoader(
+        let loader = NFTImageLoader(
             url: URL(string: "https://example.com/missing.png")!,
             session: session
         )
@@ -111,7 +109,7 @@ struct NFTImageLoaderTests {
 
     @Test("retry succeeds after a transient network failure")
     func retryRecoversAfterNetworkFailure() async throws {
-        ImageCache.shared.clear()
+        NFTImageCache.shared.clear()
         let pngData = try #require(
             UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2))
                 .image { context in
@@ -143,7 +141,7 @@ struct NFTImageLoaderTests {
             MockURLProtocol.handler = nil
         }
 
-        let loader = ImageLoader(
+        let loader = NFTImageLoader(
             url: URL(string: "https://example.com/transient.png")!,
             session: session
         )
@@ -170,7 +168,7 @@ struct NFTImageLoaderTests {
 
     @Test("offline transport failures surface an offline-specific image error")
     func offlineTransportFailureUsesOfflineError() async throws {
-        ImageCache.shared.clear()
+        NFTImageCache.shared.clear()
         MockURLProtocol.handler = { _ in
             throw URLError(.notConnectedToInternet)
         }
@@ -181,7 +179,7 @@ struct NFTImageLoaderTests {
             MockURLProtocol.handler = nil
         }
 
-        let loader = ImageLoader(
+        let loader = NFTImageLoader(
             url: URL(string: "https://example.com/offline.png")!,
             session: session
         )
@@ -198,7 +196,7 @@ struct NFTImageLoaderTests {
 
     @Test("timed out transport failures surface a timeout-specific image error")
     func timedOutTransportFailureUsesTimedOutError() async throws {
-        ImageCache.shared.clear()
+        NFTImageCache.shared.clear()
         MockURLProtocol.handler = { _ in
             throw URLError(.timedOut)
         }
@@ -209,7 +207,7 @@ struct NFTImageLoaderTests {
             MockURLProtocol.handler = nil
         }
 
-        let loader = ImageLoader(
+        let loader = NFTImageLoader(
             url: URL(string: "https://example.com/timeout.png")!,
             session: session
         )
@@ -226,10 +224,10 @@ struct NFTImageLoaderTests {
 
     @Test("oversized payload reports file-too-large instead of generic invalid data")
     func oversizedPayloadReportsFileTooLarge() async throws {
-        ImageCache.shared.clear()
+        NFTImageCache.shared.clear()
         let oversizedData = Data(
             repeating: 0x61,
-            count: ImageLoader.maxDownloadSizeBytes + 1
+            count: NFTImageLoader.maxDownloadSizeBytes + 1
         )
         MockURLProtocol.handler = { request in
             let response = HTTPURLResponse(
@@ -250,7 +248,7 @@ struct NFTImageLoaderTests {
             MockURLProtocol.handler = nil
         }
 
-        let loader = ImageLoader(
+        let loader = NFTImageLoader(
             url: URL(string: "https://example.com/oversized.svg")!,
             session: session
         )
@@ -267,7 +265,7 @@ struct NFTImageLoaderTests {
 }
 
 @MainActor
-private func waitForLoaderToFinish(_ loader: ImageLoader) async throws {
+private func waitForLoaderToFinish(_ loader: NFTImageLoader) async throws {
     for _ in 0..<40 {
         if loader.isLoading == false, loader.image != nil || loader.error != nil {
             return
@@ -310,198 +308,4 @@ private final class MockURLProtocol: URLProtocol {
     }
 
     override func stopLoading() {}
-}
-
-@Suite(.serialized)
-struct TokenHoldingsPaginationTests {
-    @Test("pagination guard rejects repeated cursors")
-    func paginationGuardRejectsRepeatedCursors() {
-        #expect(throws: ProviderAbstractionError.paginationStalled) {
-            try AlchemyTokenHoldingsProvider.updatedEmptyPageCount(
-                currentCount: 0,
-                requestedPageKey: "cursor-1",
-                nextPageKey: "cursor-1",
-                returnedItemCount: 1
-            )
-        }
-    }
-
-    @Test("pagination guard rejects repeated empty pages before hanging")
-    func paginationGuardRejectsRepeatedEmptyPages() {
-        let firstCount = try? AlchemyTokenHoldingsProvider.updatedEmptyPageCount(
-            currentCount: 0,
-            requestedPageKey: nil,
-            nextPageKey: "cursor-1",
-            returnedItemCount: 0
-        )
-        let secondCount = try? AlchemyTokenHoldingsProvider.updatedEmptyPageCount(
-            currentCount: try #require(firstCount),
-            requestedPageKey: "cursor-1",
-            nextPageKey: "cursor-2",
-            returnedItemCount: 0
-        )
-
-        #expect(firstCount == 1)
-        #expect(secondCount == 2)
-        #expect(throws: ProviderAbstractionError.paginationStalled) {
-            try AlchemyTokenHoldingsProvider.updatedEmptyPageCount(
-                currentCount: try #require(secondCount),
-                requestedPageKey: "cursor-2",
-                nextPageKey: "cursor-3",
-                returnedItemCount: 0
-            )
-        }
-    }
-
-    @Test("pagination guard resets after progress or completion")
-    func paginationGuardResetsAfterProgressOrCompletion() throws {
-        let resetAfterItems = try AlchemyTokenHoldingsProvider.updatedEmptyPageCount(
-            currentCount: 2,
-            requestedPageKey: "cursor-1",
-            nextPageKey: "cursor-2",
-            returnedItemCount: 3
-        )
-        let resetAtCompletion = try AlchemyTokenHoldingsProvider.updatedEmptyPageCount(
-            currentCount: 2,
-            requestedPageKey: "cursor-2",
-            nextPageKey: nil,
-            returnedItemCount: 0
-        )
-
-        #expect(resetAfterItems == 0)
-        #expect(resetAtCompletion == 0)
-    }
-}
-@Suite(.serialized)
-struct AlchemyTokenHoldingsProviderWarningTests {
-    @Test("provider returns holdings plus warning when enrichment fails")
-    func providerReturnsWarningForEnrichmentFailure() async throws {
-        MockURLProtocol.handler = { request in
-            let url = try #require(request.url)
-
-            if url.path.contains("assets/tokens/balances/by-address") {
-                let response = HTTPURLResponse(
-                    url: url,
-                    statusCode: 200,
-                    httpVersion: nil,
-                    headerFields: ["Content-Type": "application/json"]
-                )!
-                let data = Data("""
-                {
-                  "data": {
-                    "tokens": [
-                      {
-                        "network": "eth-mainnet",
-                        "address": "0x1234567890abcdef1234567890abcdef12345678",
-                        "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-                        "tokenBalance": "1230000"
-                      }
-                    ],
-                    "pageKey": null
-                  }
-                }
-                """.utf8)
-                return (response, data)
-            }
-
-            let response = HTTPURLResponse(
-                url: url,
-                statusCode: 503,
-                httpVersion: nil,
-                headerFields: ["Content-Type": "application/json"]
-            )!
-            return (response, Data("{}".utf8))
-        }
-
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let session = URLSession(configuration: configuration)
-        let provider = AlchemyTokenHoldingsProvider(
-            configurationResolver: MockProviderConfigurationResolver(),
-            session: session,
-            nowProvider: { Date(timeIntervalSince1970: 123) }
-        )
-        defer {
-            MockURLProtocol.handler = nil
-        }
-
-        let result = try await provider.tokenHoldings(
-            for: "0x1234567890abcdef1234567890abcdef12345678",
-            chain: .ethMainnet
-        )
-
-        #expect(result.holdings.count == 1)
-        #expect(result.holdings[0].isPlaceholder)
-        #expect(result.warning?.message.isEmpty == false)
-    }
-
-    @Test("unauthorized enrichment failures surface instead of degrading into a generic warning")
-    func unauthorizedEnrichmentFailureThrows() async throws {
-        MockURLProtocol.handler = { request in
-            let url = try #require(request.url)
-
-            if url.path.contains("assets/tokens/balances/by-address") {
-                let response = HTTPURLResponse(
-                    url: url,
-                    statusCode: 200,
-                    httpVersion: nil,
-                    headerFields: ["Content-Type": "application/json"]
-                )!
-                let data = Data("""
-                {
-                  "data": {
-                    "tokens": [
-                      {
-                        "network": "eth-mainnet",
-                        "address": "0x1234567890abcdef1234567890abcdef12345678",
-                        "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-                        "tokenBalance": "1230000"
-                      }
-                    ],
-                    "pageKey": null
-                  }
-                }
-                """.utf8)
-                return (response, data)
-            }
-
-            let response = HTTPURLResponse(
-                url: url,
-                statusCode: 401,
-                httpVersion: nil,
-                headerFields: ["Content-Type": "application/json"]
-            )!
-            return (response, Data(#"{"message":"unauthorized"}"#.utf8))
-        }
-
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let session = URLSession(configuration: configuration)
-        let provider = AlchemyTokenHoldingsProvider(
-            configurationResolver: MockProviderConfigurationResolver(),
-            session: session,
-            nowProvider: { Date(timeIntervalSince1970: 123) }
-        )
-        defer {
-            MockURLProtocol.handler = nil
-        }
-
-        await #expect(throws: ProviderAbstractionError.unauthorized) {
-            _ = try await provider.tokenHoldings(
-                for: "0x1234567890abcdef1234567890abcdef12345678",
-                chain: .ethMainnet
-            )
-        }
-    }
-}
-
-private struct MockProviderConfigurationResolver: ProviderConfigurationResolving {
-    func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration {
-        ProviderEndpointConfiguration(
-            chain: chain,
-            alchemyNFTBaseURL: nil,
-            alchemyDataAPIBaseURL: URL(string: "https://example.com/data/v1/demo"),
-            alchemyRPCURL: nil
-        )
-    }
 }

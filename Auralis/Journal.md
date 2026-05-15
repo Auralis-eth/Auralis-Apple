@@ -1522,3 +1522,13 @@ The NFT library migration started turning the gallery from an app-side hallway i
 - Package tests cover the logic that should not require an app launch: collection filtering, display fallback copy, image URL preference, route hashability, and sort metadata.
 
 The gotcha was pure Xcode reality: adding a local package product to the app target requires project graph wiring. We deliberately did not hand-edit `project.pbxproj` while Xcode was open, because that is how an otherwise tidy migration turns into a project-file incident. The next step is to add `NFTLibraryFeature` through Xcode's package UI, then run the app build so the new imports resolve in the app target.
+
+## NFTLibraryFeature: One Image Loader, Two Honest Homes
+
+The cleanup pass after the NFT library move found the classic migration leftover: the gallery had moved into its own wing, but one old moving box was still sitting in the app hallway.
+
+- `Auralis/Aura/Newsfeed/Components/NFTImageView.swift` was the duplicate. The real NFT image loader/cache/view now lives in `NFTLibraryFeature` as `NFTImageLoader`, `NFTImageCache`, and `NFTCachedAsyncImage`, so the app-local copy was retired.
+- The surprise was that AuraPlay had been borrowing the same old file for a generic `CachedAsyncImage`. That was not NFT library code; it was music artwork plumbing wearing an NFT file path. We gave AuraPlay its own small playback-local image wrapper so music no longer depends on a gallery component by accident.
+- The image-loader tests moved with the image-loader behavior into `NFTLibraryFeatureTests`. The app test file was renamed around what it still actually tests: token-holdings provider pagination and warning behavior.
+
+The lesson is neat and transferable: when moving a feature package, do not just ask “who imports this?” Ask “which product is this type really serving?” A duplicate file often contains two truths tangled together. Separate the truths, then delete the duplicate.
