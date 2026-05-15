@@ -1,5 +1,6 @@
 @testable import Auralis
 import AuralisPrimaryModels
+import MusicFeature
 import Testing
 
 @Suite
@@ -15,10 +16,10 @@ struct MusicCollectionPresentationTests {
         )
 
         #expect(summaries.count == 2)
-        #expect(summaries.first?.key == "sky-archive")
-        #expect(summaries.first?.title == "Sky Archive")
-        #expect(summaries.first?.trackCount == 2)
-        #expect(summaries.first?.hasUnavailableTracks == true)
+        let skyArchive = summaries.first { $0.key == "sky-archive" }
+        #expect(skyArchive?.title == "Sky Archive")
+        #expect(skyArchive?.trackCount == 2)
+        #expect(skyArchive?.hasUnavailableTracks == true)
     }
 
     @Test("collection summaries fall back honestly when collection names are sparse")

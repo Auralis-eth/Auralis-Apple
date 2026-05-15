@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
+import MusicFeature
 import SwiftData
 
 @ModelActor

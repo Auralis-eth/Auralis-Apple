@@ -8,6 +8,7 @@ import ENS
 import AuralisPrimaryModels
 import AuralisShellCore
 import Foundation
+import MusicFeature
 import SwiftData
 import Testing
 import TokenStorage
@@ -279,7 +280,7 @@ struct PrivacyResetServiceTests {
             try? FileManager.default.removeItem(at: temporaryDirectory)
         }
 
-        let storeURL = try AppModelContainer.storeURL(baseDirectory: temporaryDirectory)
+        let storeURL = try AuraPlayModelContainer.storeURL(baseDirectory: temporaryDirectory)
         let shmURL = storeURL.appendingPathExtension("shm")
         let walURL = storeURL.appendingPathExtension("wal")
         FileManager.default.createFile(atPath: storeURL.path(), contents: Data("store".utf8))

@@ -2,6 +2,7 @@ import ReceiptsCore
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
+import MusicFeature
 import SwiftData
 import Testing
 
@@ -41,7 +42,7 @@ struct AuraPlayPersistenceWave2Tests {
 
     @Test("library repository prefers persisted AuraPlay media once EOAccount marks the chain as synced")
     func libraryRepositoryPrefersPersistedMediaGraph() async throws {
-        let auraPlayContainer = try AppModelContainer.make(inMemory: true)
+        let auraPlayContainer = try AuraPlayModelContainer.make(inMemory: true)
         let primaryContainer = try TestModelContainers.primary()
         let primaryContext = ModelContext(primaryContainer)
         let mediaItemService = AuraPlayMediaItemService(modelContainer: auraPlayContainer)
@@ -167,7 +168,7 @@ struct AuraPlayPersistenceWave2Tests {
 
     @Test("AuraPlay reset clears the live container and leaves it reusable in the same launch")
     func auraPlayResetClearsLiveContainerWithoutInvalidatingIt() async throws {
-        let container = try AppModelContainer.make(inMemory: true)
+        let container = try AuraPlayModelContainer.make(inMemory: true)
         let mediaItemService = AuraPlayMediaItemService(modelContainer: container)
         let resetService = SwiftDataAuraPlayPersistenceResetService(modelContainer: container)
 

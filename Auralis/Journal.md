@@ -53,6 +53,11 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+- MusicFeature migration, first pass:
+  AuraPlay finally got its first real package boundary in `MusicFeature`. The trick was not to shove the whole DJ booth into a moving box. We moved the feature vocabulary first: library scope, errors, bundle configuration, logging events, playback state/track snapshots, queue snapshots, artwork loading, library repository, and sync protocols. The app target still owns the live adapters over `AudioEngine`, SwiftData, receipts, and the existing indexer. That keeps the music package honest: it describes what the feature needs without secretly importing every wire in the building.
+
+- The gotcha was classic migration work: the old protocols casually mentioned concrete app types like `AudioEngine.Track` and `MusicLibraryIndexRebuildResult`. Those names are convenient inside the app and poison inside a package. The fix was to introduce package-owned DTOs (`AuraPlayTrack`, `AuraPlayPlaybackState`, `AuraPlayLibraryRebuildResult`) and let app adapters translate. It is the software equivalent of using a customs form at the border instead of asking the whole country to share one suitcase.
+
 - Package boundary cleanup:
   We moved `SearchHistoryRecord`, `StoredReceipt`, `TokenHolding`, `MusicLibraryItem`, and `AuraPlayMediaItem` into `AuralisPrimaryModels` so the app target stops owning persistence models that are shared across search, receipts, holdings, and music. The lesson was simple but useful: if multiple product surfaces depend on the same SwiftData vocabulary, that vocabulary should live at the package boundary instead of hiding inside one feature folder.
 
@@ -1532,3 +1537,13 @@ The cleanup pass after the NFT library move found the classic migration leftover
 - The image-loader tests moved with the image-loader behavior into `NFTLibraryFeatureTests`. The app test file was renamed around what it still actually tests: token-holdings provider pagination and warning behavior.
 
 The lesson is neat and transferable: when moving a feature package, do not just ask “who imports this?” Ask “which product is this type really serving?” A duplicate file often contains two truths tangled together. Separate the truths, then delete the duplicate.
+
+## MusicFeature: AuraPlay Finally Moves Into Its Own Room
+
+AuraPlay is no longer just leaning on a package boundary; the shipping music surface now lives behind it. The package owns the root view, detail screens, mini player, now-playing sheet, presentation models, service protocols, and the dedicated AuraPlay SwiftData projection helpers. The app target keeps the wall plugs: `AudioEngine`, receipt storage, source NFT snapshots, account sync state, and live SwiftData contexts.
+
+The most important move was the playback bridge. `AudioEngine` did not move into `MusicFeature`; instead, the package asks for `AuraPlayPlaybackPresenting` and the app teaches `AudioEngine` how to speak that language. That keeps AVFoundation lifetime and queue mechanics in the app while letting the UI compile from the feature package.
+
+The migration also retired a subtle old shortcut: the music tab used to enter through `AuraPlayTabRootView` in the app target. `MainTabView` now hosts `MusicFeatureRootView` directly and builds a package dependency bundle from live app adapters. That is the difference between “we have a package” and “the app actually uses the package.”
+
+War story: the test runner got sticky during two older Wave 2 persistence tests and left an `Auralis.app` process hanging around like a stagehand who missed the blackout cue. The build was clean, and the focused root/presentation/schema tests passed, but those long-running persistence cases should be revisited separately if they keep wedging the Xcode test harness.

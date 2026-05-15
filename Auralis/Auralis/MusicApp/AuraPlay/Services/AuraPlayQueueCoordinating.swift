@@ -1,14 +1,5 @@
 import Foundation
-
-struct AuraPlayQueueSnapshot: Equatable, Sendable {
-    let upcomingCount: Int
-    let historyCount: Int
-}
-
-@MainActor
-protocol AuraPlayQueueCoordinating {
-    func snapshot() -> AuraPlayQueueSnapshot
-}
+import MusicFeature
 
 @MainActor
 struct AuraPlayAudioEngineQueueCoordinator: AuraPlayQueueCoordinating {

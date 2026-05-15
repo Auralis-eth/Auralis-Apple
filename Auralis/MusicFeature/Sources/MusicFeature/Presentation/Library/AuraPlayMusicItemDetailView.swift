@@ -1,18 +1,18 @@
 import AuralisPrimaryModels
+import AuraUI
 import SwiftData
 import SwiftUI
-import AuraUI
 
-struct AuraPlayMusicItemDetailView: View {
-    let itemID: String
-    let currentAccountAddress: String?
-    let currentChain: Chain
-    let onOpenCollection: (String, String) -> Void
+public struct AuraPlayMusicItemDetailView: View {
+    public let itemID: String
+    public let currentAccountAddress: String?
+    public let currentChain: Chain
+    public let onOpenCollection: (String, String) -> Void
 
     @Query private var nfts: [NFT]
     @Query private var libraryItems: [MusicLibraryItem]
 
-    init(
+    public init(
         itemID: String,
         currentAccountAddress: String?,
         currentChain: Chain,
@@ -51,7 +51,7 @@ struct AuraPlayMusicItemDetailView: View {
         AuraPlayMusicItemDetailPresentation(nft: nft, libraryItem: libraryItem)
     }
 
-    var body: some View {
+    public var body: some View {
         Group {
             if let presentation {
                 ScrollView {
@@ -213,25 +213,30 @@ struct AuraPlayMusicItemDetailView: View {
     }
 }
 
-struct AuraPlayMusicItemDetailPresentation: Equatable {
-    struct PlaybackSummary: Equatable {
-        let title: String
-        let message: String
+public struct AuraPlayMusicItemDetailPresentation: Equatable {
+    public struct PlaybackSummary: Equatable {
+        public let title: String
+        public let message: String
+
+        public init(title: String, message: String) {
+            self.title = title
+            self.message = message
+        }
     }
 
-    let title: String
-    let navigationTitle: String
-    let artist: String?
-    let collection: String?
-    let collectionKey: String?
-    let description: String?
-    let artworkURL: URL?
-    let chainTitle: String
-    let contentType: String?
-    let metadataStatus: String?
-    let playbackSummary: PlaybackSummary?
+    public let title: String
+    public let navigationTitle: String
+    public let artist: String?
+    public let collection: String?
+    public let collectionKey: String?
+    public let description: String?
+    public let artworkURL: URL?
+    public let chainTitle: String
+    public let contentType: String?
+    public let metadataStatus: String?
+    public let playbackSummary: PlaybackSummary?
 
-    init?(nft: NFT?, libraryItem: MusicLibraryItem?) {
+    public init?(nft: NFT?, libraryItem: MusicLibraryItem?) {
         guard nft != nil || libraryItem != nil else {
             return nil
         }
@@ -318,6 +323,6 @@ struct AuraPlayMusicItemDetailPresentation: Equatable {
         guard let cleaned = cleanedText(value) else {
             return nil
         }
-        return URL.sanitizedRemoteMediaURL(from: cleaned)
+        return URL(string: cleaned)
     }
 }

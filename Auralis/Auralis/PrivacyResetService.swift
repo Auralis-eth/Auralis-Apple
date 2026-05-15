@@ -2,6 +2,7 @@ import ENS
 import AuralisShellCore
 import AuralisPrimaryModels
 import Foundation
+import MusicFeature
 import ProviderKit
 import SwiftData
 
@@ -63,7 +64,7 @@ actor AuraPlayStoreResetService: AuraPlayPersistenceResetting {
     }
 
     func resetAuraPlayPersistence() throws {
-        try AppModelContainer.resetStoreFiles(
+        try AuraPlayModelContainer.resetStoreFiles(
             fileManager: fileManager,
             baseDirectory: baseDirectory
         )

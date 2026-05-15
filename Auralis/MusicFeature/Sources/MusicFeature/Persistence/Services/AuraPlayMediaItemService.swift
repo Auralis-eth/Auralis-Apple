@@ -3,8 +3,8 @@ import Foundation
 import SwiftData
 
 @ModelActor
-actor AuraPlayMediaItemService {
-    func replaceAll(
+public actor AuraPlayMediaItemService {
+    public func replaceAll(
         accountAddress: String,
         chain: Chain,
         requests: [AuraPlayMediaItemUpsertRequest],

@@ -1,12 +1,22 @@
 import Foundation
 
 /// Snapshot of the app-level bundle contract AuraPlay relies on during the rebuild.
-struct AuraPlayModuleConfiguration: Equatable, Sendable {
-    let backgroundAudioEnabled: Bool
-    let declaredURLSchemes: Set<String>
-    let walletQuerySchemes: Set<String>
+public struct AuraPlayModuleConfiguration: Equatable, Sendable {
+    public let backgroundAudioEnabled: Bool
+    public let declaredURLSchemes: Set<String>
+    public let walletQuerySchemes: Set<String>
 
-    var missingRequirements: [String] {
+    public init(
+        backgroundAudioEnabled: Bool,
+        declaredURLSchemes: Set<String>,
+        walletQuerySchemes: Set<String>
+    ) {
+        self.backgroundAudioEnabled = backgroundAudioEnabled
+        self.declaredURLSchemes = declaredURLSchemes
+        self.walletQuerySchemes = walletQuerySchemes
+    }
+
+    public var missingRequirements: [String] {
         var requirements: [String] = []
 
         if !backgroundAudioEnabled {
@@ -29,7 +39,7 @@ struct AuraPlayModuleConfiguration: Equatable, Sendable {
         return requirements
     }
 
-    static func live(infoDictionary: [String: Any]) -> AuraPlayModuleConfiguration {
+    public static func live(infoDictionary: [String: Any]) -> AuraPlayModuleConfiguration {
         let backgroundModes = Set(infoDictionary["UIBackgroundModes"] as? [String] ?? [])
         let declaredURLSchemes = Set(
             (infoDictionary["CFBundleURLTypes"] as? [[String: Any]] ?? [])

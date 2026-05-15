@@ -1,18 +1,18 @@
 import AuralisPrimaryModels
+import AuraUI
 import SwiftData
 import SwiftUI
-import AuraUI
 
-struct AuraPlayMusicCollectionDetailView: View {
-    let collectionKey: String
-    let collectionTitle: String
-    let currentAccountAddress: String?
-    let currentChain: Chain
-    let onOpenItem: (String) -> Void
+public struct AuraPlayMusicCollectionDetailView: View {
+    public let collectionKey: String
+    public let collectionTitle: String
+    public let currentAccountAddress: String?
+    public let currentChain: Chain
+    public let onOpenItem: (String) -> Void
 
     @Query private var libraryItems: [MusicLibraryItem]
 
-    init(
+    public init(
         collectionKey: String,
         collectionTitle: String,
         currentAccountAddress: String?,
@@ -77,7 +77,7 @@ struct AuraPlayMusicCollectionDetailView: View {
         return nil
     }
 
-    var body: some View {
+    public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 AuraSurfaceCard(style: .soft, cornerRadius: 28, padding: 18) {
@@ -195,15 +195,31 @@ struct AuraPlayMusicCollectionDetailView: View {
     }
 }
 
-struct AuraPlayMusicCollectionSummary: Equatable {
-    let key: String
-    let title: String
-    let subtitle: String?
-    let artworkURL: URL?
-    let trackCount: Int
-    let hasUnavailableTracks: Bool
+public struct AuraPlayMusicCollectionSummary: Equatable {
+    public let key: String
+    public let title: String
+    public let subtitle: String?
+    public let artworkURL: URL?
+    public let trackCount: Int
+    public let hasUnavailableTracks: Bool
 
-    static func summaries(from items: [MusicLibraryItem]) -> [AuraPlayMusicCollectionSummary] {
+    public init(
+        key: String,
+        title: String,
+        subtitle: String?,
+        artworkURL: URL?,
+        trackCount: Int,
+        hasUnavailableTracks: Bool
+    ) {
+        self.key = key
+        self.title = title
+        self.subtitle = subtitle
+        self.artworkURL = artworkURL
+        self.trackCount = trackCount
+        self.hasUnavailableTracks = hasUnavailableTracks
+    }
+
+    public static func summaries(from items: [MusicLibraryItem]) -> [AuraPlayMusicCollectionSummary] {
         let groupedItems = Dictionary(grouping: items) { item in
             let key = cleanedText(item.normalizedCollectionKey)
             return key ?? "__ungrouped__"
@@ -251,16 +267,32 @@ struct AuraPlayMusicCollectionSummary: Equatable {
     }
 }
 
-struct AuraPlayMusicCollectionDetailPresentation: Equatable {
-    let title: String
-    let subtitle: String?
-    let trackCount: Int
-    let chainTitle: String
-    let hasUnavailableTracks: Bool
-    let metadataStatus: String?
+public struct AuraPlayMusicCollectionDetailPresentation: Equatable {
+    public let title: String
+    public let subtitle: String?
+    public let trackCount: Int
+    public let chainTitle: String
+    public let hasUnavailableTracks: Bool
+    public let metadataStatus: String?
 
-    var navigationTitle: String { title }
-    var trackCountLabel: String {
+    public var navigationTitle: String { title }
+    public var trackCountLabel: String {
         "\(trackCount) track" + (trackCount == 1 ? "" : "s")
+    }
+
+    public init(
+        title: String,
+        subtitle: String?,
+        trackCount: Int,
+        chainTitle: String,
+        hasUnavailableTracks: Bool,
+        metadataStatus: String?
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.trackCount = trackCount
+        self.chainTitle = chainTitle
+        self.hasUnavailableTracks = hasUnavailableTracks
+        self.metadataStatus = metadataStatus
     }
 }

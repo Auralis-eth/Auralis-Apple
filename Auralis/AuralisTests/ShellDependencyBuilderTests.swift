@@ -4,6 +4,7 @@ import NFTKit
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
+import MusicFeature
 import SwiftData
 import Testing
 
@@ -17,7 +18,7 @@ struct ShellDependencyBuilderTests {
 
     @MainActor
     private func makeAuraPlayContainer() throws -> ModelContainer {
-        try AppModelContainer.make(inMemory: true)
+        try AuraPlayModelContainer.make(inMemory: true)
     }
 
     @MainActor

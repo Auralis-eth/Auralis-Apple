@@ -1,12 +1,12 @@
 import AuralisPrimaryModels
+import AuraUI
 import Observation
 import SwiftUI
-import AuraUI
 
 /// Root presentation model for the active AuraPlay Phase 2 persistence seam.
 @Observable
 @MainActor
-final class AuraPlayRootModel {
+public final class AuraPlayRootModel {
     @ObservationIgnored
     let libraryRepository: any AuraPlayLibraryRepository
 
@@ -14,7 +14,7 @@ final class AuraPlayRootModel {
     let librarySyncService: any AuraPlayLibrarySyncing
 
     @ObservationIgnored
-    let playbackController: any AuraPlayPlaybackControlling
+    public let playbackController: any AuraPlayPlaybackControlling
 
     @ObservationIgnored
     let queueCoordinator: any AuraPlayQueueCoordinating
@@ -28,18 +28,18 @@ final class AuraPlayRootModel {
     @ObservationIgnored
     let configuration: AuraPlayModuleConfiguration
 
-    private(set) var currentAccount: EOAccount?
-    private(set) var currentChain: Chain
+    public private(set) var currentAccount: EOAccount?
+    public private(set) var currentChain: Chain
 
-    var libraryItemCount: Int?
-    var upcomingQueueCount: Int
-    var playbackHistoryCount: Int
-    var currentArtworkURL: URL?
-    var lastError: AuraPlayError?
-    var configurationStatus: String
-    var statusMessage: String
+    public var libraryItemCount: Int?
+    public var upcomingQueueCount: Int
+    public var playbackHistoryCount: Int
+    public var currentArtworkURL: URL?
+    public var lastError: AuraPlayError?
+    public var configurationStatus: String
+    public var statusMessage: String
 
-    init(
+    public init(
         libraryRepository: any AuraPlayLibraryRepository,
         librarySyncService: any AuraPlayLibrarySyncing,
         playbackController: any AuraPlayPlaybackControlling,
@@ -66,14 +66,14 @@ final class AuraPlayRootModel {
         self.statusMessage = "AuraPlay Phase 2 persistence is wired. Wallet-scoped media now syncs into the AuraPlay store through explicit seams."
     }
 
-    var scope: AuraPlayLibraryScope {
+    public var scope: AuraPlayLibraryScope {
         AuraPlayLibraryScope(
             accountAddress: currentAccount?.address,
             chain: currentChain
         )
     }
 
-    func updateContext(
+    public func updateContext(
         currentAccount: EOAccount?,
         currentChain: Chain
     ) {
@@ -89,7 +89,7 @@ final class AuraPlayRootModel {
         configurationStatus = Self.makeConfigurationStatus(configuration)
     }
 
-    func refreshLibrarySummary() async {
+    public func refreshLibrarySummary() async {
         logger.log(
             AuraPlayLogEvent(
                 category: .library,
@@ -168,7 +168,7 @@ struct AuraPlayEntryView: View {
     @Bindable var model: AuraPlayRootModel
 
     var body: some View {
-        AuraScenicScreen(contentAlignment: .topLeading) {
+        ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
                     AuraPill("AuraPlay", systemImage: "waveform.circle", emphasis: .accent)
@@ -217,6 +217,8 @@ struct AuraPlayEntryView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 24)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.background.ignoresSafeArea())
         .navigationTitle("Music")
         .task(
             id: "\(model.currentAccount?.address ?? "none")|\(model.currentChain.rawValue)"

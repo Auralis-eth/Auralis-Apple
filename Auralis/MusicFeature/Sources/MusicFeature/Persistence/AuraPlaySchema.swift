@@ -1,8 +1,8 @@
 import AuralisPrimaryModels
 import SwiftData
 
-enum AuraPlaySchema {
-    static var models: [any PersistentModel.Type] {
+public enum AuraPlaySchema {
+    public static var models: [any PersistentModel.Type] {
         [
             AuraPlayMediaItem.self,
         ]

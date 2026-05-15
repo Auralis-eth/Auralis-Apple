@@ -47,6 +47,7 @@ The shell flow is:
 - `P0-UI-Design-Audit-Checklist.md` is the product/design quality checklist for Phase 0 surfaces.
 - `AuralisPrimaryModels/` is a local Swift package for foundational shared primary-model support that can grow without bloating the app target.
 - `AuralisShellCore/` is the local Swift package for shell state, shell actions, `ShellStore`, dependency protocols, and deep-link routing rules. Keep live app infrastructure out of this package.
+- `MusicFeature/` is the local Swift package for the AuraPlay music feature boundary. It currently owns AuraPlay domain values and service protocols; keep `AudioEngine`, SwiftData live adapters, and app composition in the app target until later migration phases deliberately move them.
 - `SwiftDataAdapters/` is the local Swift package for shared SwiftData mechanics such as rollback-safe and undoable mutation helpers. It should provide tools, not domain-specific stores.
 - `AccountStorage/` is the local Swift package for SwiftData-backed account persistence. Keep protocol consumers on `AccountsCore.AccountStoring`; only composition and storage tests should import `AccountStorage`.
 - `ReceiptStorage/` is the local Swift package for SwiftData-backed receipt persistence and destructive receipt reset adapters. Keep protocol/logging consumers on `ReceiptsCore`; only concrete builders and storage tests should import `ReceiptStorage`.

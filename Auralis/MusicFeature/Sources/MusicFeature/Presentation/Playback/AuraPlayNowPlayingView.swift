@@ -1,15 +1,14 @@
-import AuralisPrimaryModels
 import SwiftUI
 
-struct AuraPlayNowPlayingView: View {
-    @ObservedObject var audioEngine: AudioEngine
+struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
+    @ObservedObject var player: Player
     @Environment(\.dismiss) private var dismiss
 
     @State private var seekValue: Double = 0
     @State private var isDraggingSeek = false
 
-    private var nextPreviewNFT: NFT? { audioEngine.nextAudio.tracks.first }
-    private var previousPreviewNFT: NFT? { audioEngine.previousAudio.tracks.last }
+    private var nextPreviewTrack: AuraPlayTrack? { player.auraPlayNextPreviewTrack }
+    private var previousPreviewTrack: AuraPlayTrack? { player.auraPlayPreviousPreviewTrack }
     private let previousRestartThreshold: TimeInterval = 3.0
 
     var body: some View {
@@ -22,7 +21,7 @@ struct AuraPlayNowPlayingView: View {
                         .padding(.top, 8)
                         .accessibilityHidden(true)
 
-                    if let track = audioEngine.currentTrack {
+                    if let track = player.auraPlayCurrentTrack {
                         VStack(spacing: 24) {
                             VStack(spacing: 16) {
                                 artworkView
@@ -54,21 +53,21 @@ struct AuraPlayNowPlayingView: View {
                                         onEditingChanged: { dragging in
                                             isDraggingSeek = dragging
                                             if !dragging {
-                                                try? audioEngine.seek(to: seekValue)
+                                                try? player.auraPlaySeek(to: seekValue)
                                             }
                                         }
                                     )
                                     .accessibilityLabel("Playback position")
-                                    .onChange(of: audioEngine.currentTrack) { _, _ in
+                                    .onChange(of: player.auraPlayCurrentTrack) { _, _ in
                                         seekValue = 0
                                     }
-                                    .onChange(of: audioEngine.progress) { _, newValue in
+                                    .onChange(of: player.auraPlayProgress) { _, newValue in
                                         if !isDraggingSeek {
                                             seekValue = newValue
                                         }
                                     }
                                     .onAppear {
-                                        seekValue = audioEngine.progress
+                                        seekValue = player.auraPlayProgress
                                     }
 
                                     HStack {
@@ -82,7 +81,7 @@ struct AuraPlayNowPlayingView: View {
 
                                 HStack(spacing: 28) {
                                     Button {
-                                        audioEngine.skipBackward()
+                                        player.auraPlaySkipBackward()
                                     } label: {
                                         Image(systemName: "gobackward.10")
                                             .font(.title3)
@@ -92,7 +91,7 @@ struct AuraPlayNowPlayingView: View {
                                     .accessibilityHint("Moves playback backward by ten seconds")
 
                                     Button {
-                                        Task { await audioEngine.playPrevious() }
+                                        Task { await player.auraPlayPrevious() }
                                     } label: {
                                         Image(systemName: "backward.fill")
                                             .font(.title2)
@@ -105,7 +104,7 @@ struct AuraPlayNowPlayingView: View {
                                     mainPlaybackButton
 
                                     Button {
-                                        Task { await audioEngine.playNext() }
+                                        Task { await player.auraPlayNext() }
                                     } label: {
                                         Image(systemName: "forward.fill")
                                             .font(.title2)
@@ -116,7 +115,7 @@ struct AuraPlayNowPlayingView: View {
                                     .accessibilityHint("Plays the next track")
 
                                     Button {
-                                        audioEngine.skipForward()
+                                        player.auraPlaySkipForward()
                                     } label: {
                                         Image(systemName: "goforward.10")
                                             .font(.title3)
@@ -128,38 +127,38 @@ struct AuraPlayNowPlayingView: View {
                             }
 
                             VStack(spacing: 8) {
-                                if let prev = previousPreviewNFT {
+                                if let prev = previousPreviewTrack {
                                     previewRow(
-                                        title: prev.name ?? "Unknown Track",
-                                        artist: prev.artistName,
-                                        imageURLString: prev.image?.thumbnailUrl ?? prev.image?.originalUrl,
+                                        title: prev.title ?? "Unknown Track",
+                                        artist: prev.artist,
+                                        imageURLString: prev.imageURLString,
                                         label: "Previous",
                                         accessibilityPrefix: "Previous",
                                         action: {
-                                            if audioEngine.progress > previousRestartThreshold {
-                                                try? audioEngine.seek(to: 0)
+                                            if player.auraPlayProgress > previousRestartThreshold {
+                                                try? player.auraPlaySeek(to: 0)
                                             } else {
-                                                Task { await audioEngine.playPrevious() }
+                                                Task { await player.auraPlayPrevious() }
                                             }
                                         }
                                     )
                                 }
 
-                                if let next = nextPreviewNFT {
+                                if let next = nextPreviewTrack {
                                     previewRow(
-                                        title: next.name ?? "Unknown Track",
-                                        artist: next.artistName,
-                                        imageURLString: next.image?.thumbnailUrl ?? next.image?.originalUrl,
+                                        title: next.title ?? "Unknown Track",
+                                        artist: next.artist,
+                                        imageURLString: next.imageURLString,
                                         label: "Next",
                                         accessibilityPrefix: "Next",
                                         action: {
-                                            Task { await audioEngine.playNext() }
+                                            Task { await player.auraPlayNext() }
                                         }
                                     )
                                 }
                             }
 
-                            AuraPlayRecentlyPlayedSection(audioEngine: audioEngine)
+                            AuraPlayRecentlyPlayedSection(player: player)
 
                             Color.clear.frame(height: 20)
                         }
@@ -194,9 +193,9 @@ struct AuraPlayNowPlayingView: View {
 
     @ViewBuilder
     private var mainPlaybackButton: some View {
-        switch audioEngine.playbackState {
+        switch player.auraPlayPlaybackState {
         case .loading:
-            Button(action: audioEngine.pause) {
+            Button(action: player.auraPlayPause) {
                 Image(systemName: "pause.fill")
                     .font(.system(size: 56))
             }
@@ -211,7 +210,7 @@ struct AuraPlayNowPlayingView: View {
             .accessibilityHint("Playback is loading")
 
         case .playing:
-            Button(action: audioEngine.pause) {
+            Button(action: player.auraPlayPause) {
                 Image(systemName: "pause.fill")
                     .font(.system(size: 56))
             }
@@ -221,7 +220,7 @@ struct AuraPlayNowPlayingView: View {
 
         case .paused:
             Button {
-                try? audioEngine.resume()
+                try? player.auraPlayResume()
             } label: {
                 Image(systemName: "play.fill")
                     .font(.system(size: 56))
@@ -232,7 +231,7 @@ struct AuraPlayNowPlayingView: View {
 
         case .stopped:
             Button {
-                try? audioEngine.play()
+                try? player.auraPlayPlay()
             } label: {
                 Image(systemName: "play.fill")
                     .font(.system(size: 56))
@@ -252,7 +251,7 @@ struct AuraPlayNowPlayingView: View {
 
     @ViewBuilder
     private var artworkView: some View {
-        if let imageURLString = audioEngine.currentTrack?.imageUrl,
+        if let imageURLString = player.auraPlayCurrentTrack?.imageURLString,
            !imageURLString.isEmpty,
            let imageURL = URL(string: imageURLString) {
             CachedAsyncImage(url: imageURL)
@@ -331,6 +330,6 @@ struct AuraPlayNowPlayingView: View {
         .buttonStyle(.plain)
         .frame(minHeight: 44)
         .accessibilityLabel("\(accessibilityPrefix): \(title.isEmpty ? "Unknown Track" : title)\(artist.map { ", by \($0)" } ?? "")")
-        .opacity(audioEngine.playbackState == .loading ? 0.85 : 1.0)
+        .opacity(player.auraPlayPlaybackState == .loading ? 0.85 : 1.0)
     }
 }

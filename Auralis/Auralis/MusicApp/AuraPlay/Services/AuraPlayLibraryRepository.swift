@@ -1,18 +1,8 @@
 import ReceiptsCore
 import AuralisPrimaryModels
 import Foundation
+import MusicFeature
 import SwiftData
-
-@MainActor
-/// Library-facing seam for AuraPlay surfaces that need music inventory without depending on the raw indexer.
-protocol AuraPlayLibraryRepository {
-    func itemCount(in scope: AuraPlayLibraryScope) throws -> Int
-    func needsRebuild(in scope: AuraPlayLibraryScope) async throws -> Bool
-    func rebuildLibrary(
-        in scope: AuraPlayLibraryScope,
-        correlationID: String?
-    ) async throws -> MusicLibraryIndexRebuildResult
-}
 
 @MainActor
 /// Production adapter over the existing shared music-library indexer.
@@ -59,12 +49,17 @@ struct LiveAuraPlayLibraryRepository: AuraPlayLibraryRepository {
     func rebuildLibrary(
         in scope: AuraPlayLibraryScope,
         correlationID: String?
-    ) async throws -> MusicLibraryIndexRebuildResult {
-        try await indexer.rebuildIndex(
+    ) async throws -> AuraPlayLibraryRebuildResult {
+        let result = try await indexer.rebuildIndex(
             accountAddress: scope.accountAddress,
             chain: scope.chain,
             correlationID: correlationID,
             receiptEventLogger: receiptEventLogger
+        )
+        return AuraPlayLibraryRebuildResult(
+            scannedCount: result.scannedCount,
+            writtenCount: result.writtenCount,
+            removedCount: result.removedCount
         )
     }
 

@@ -1,6 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
+import MusicFeature
 import SwiftData
 import Testing
 
@@ -14,9 +15,8 @@ struct AuraPlayFoundationBoundaryTests {
         #expect(modelNames == ["AuraPlayMediaItem"])
     }
 
-    @Test("dependencies preserve the injected AuraPlay model container identity")
-    func dependenciesPreserveInjectedModelContainer() throws {
-        let container = try AppModelContainer.make(inMemory: true)
+    @Test("dependencies preserve injected feature collaborators")
+    func dependenciesPreserveInjectedCollaborators() {
         let dependencies = AuraPlayDependencies(
             libraryRepository: MockAuraPlayLibraryRepository(),
             librarySyncService: NoOpAuraPlayLibrarySyncService(),
@@ -24,11 +24,10 @@ struct AuraPlayFoundationBoundaryTests {
             queueCoordinator: MockAuraPlayQueueCoordinator(),
             artworkLoader: MockAuraPlayArtworkLoader(),
             logger: MockAuraPlayLogger(),
-            configuration: .validFixture,
-            modelContainer: container
+            configuration: .validFixture
         )
 
-        #expect(ObjectIdentifier(dependencies.modelContainer) == ObjectIdentifier(container))
+        #expect(dependencies.configuration.missingRequirements.isEmpty)
     }
 
     @Test("root model refreshes the library summary for the active wallet scope")
@@ -150,13 +149,13 @@ struct AuraPlayFoundationBoundaryTests {
 
 @MainActor
 private final class MockAuraPlayPlaybackController: AuraPlayPlaybackControlling {
-    var playbackState: AudioEngine.PlaybackState = .stopped
-    var currentTrack: AudioEngine.Track? = AudioEngine.Track(
+    var playbackState: AuraPlayPlaybackState = .stopped
+    var currentTrack: AuraPlayTrack? = AuraPlayTrack(
         id: "track-1",
         title: "Foundation",
         artist: "AuraPlay",
         duration: 120,
-        imageUrl: "https://example.com/cover.png"
+        imageURLString: "https://example.com/cover.png"
     )
     var currentTrackID: String?
     var currentTime: TimeInterval = 0
@@ -195,8 +194,8 @@ private final class MockAuraPlayLibraryRepository: AuraPlayLibraryRepository {
     func rebuildLibrary(
         in scope: AuraPlayLibraryScope,
         correlationID: String?
-    ) async throws -> MusicLibraryIndexRebuildResult {
-        MusicLibraryIndexRebuildResult(
+    ) async throws -> AuraPlayLibraryRebuildResult {
+        AuraPlayLibraryRebuildResult(
             scannedCount: 0,
             writtenCount: 0,
             removedCount: 0
@@ -213,9 +212,9 @@ private final class MockAuraPlayQueueCoordinator: AuraPlayQueueCoordinating {
 
 @MainActor
 private final class MockAuraPlayArtworkLoader: AuraPlayArtworkLoading {
-    func artworkURL(for track: AudioEngine.Track?) throws -> URL? {
-        _ = try #require(track?.imageUrl)
-        return URL(string: track?.imageUrl ?? "")
+    func artworkURL(for track: AuraPlayTrack?) throws -> URL? {
+        _ = try #require(track?.imageURLString)
+        return URL(string: track?.imageURLString ?? "")
     }
 }
 

@@ -1,13 +1,13 @@
 import Foundation
 
-enum AuraPlayError: Error, Equatable, LocalizedError {
+public enum AuraPlayError: Error, Equatable, LocalizedError {
     case library(String)
     case playback(String)
     case queue(String)
     case artwork(String)
     case configuration(String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .library(let message):
             message
@@ -22,19 +22,19 @@ enum AuraPlayError: Error, Equatable, LocalizedError {
         }
     }
 
-    static func library(_ error: Error) -> AuraPlayError {
+    public static func library(_ error: Error) -> AuraPlayError {
         .library("AuraPlay could not load the music library summary yet: \(error.localizedDescription)")
     }
 
-    static func playback(_ error: Error) -> AuraPlayError {
+    public static func playback(_ error: Error) -> AuraPlayError {
         .playback("AuraPlay could not read playback state cleanly: \(error.localizedDescription)")
     }
 
-    static func queue(_ error: Error) -> AuraPlayError {
+    public static func queue(_ error: Error) -> AuraPlayError {
         .queue("AuraPlay could not inspect the playback queue: \(error.localizedDescription)")
     }
 
-    static func artwork(_ error: Error) -> AuraPlayError {
+    public static func artwork(_ error: Error) -> AuraPlayError {
         .artwork("AuraPlay could not resolve artwork for the active track: \(error.localizedDescription)")
     }
 }

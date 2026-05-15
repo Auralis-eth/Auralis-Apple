@@ -1,13 +1,12 @@
-import AuralisPrimaryModels
 import SwiftUI
 
-struct AuraPlayRecentlyPlayedSection: View {
-    @ObservedObject var audioEngine: AudioEngine
+struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
+    @ObservedObject var player: Player
     private let initialLimit = 20
     @State private var isClearing = false
 
-    private var items: [NFT] {
-        audioEngine.getRecentlyPlayed(limit: initialLimit)
+    private var items: [AuraPlayRecentlyPlayedItem] {
+        player.auraPlayRecentlyPlayed(limit: initialLimit)
     }
 
     var body: some View {
@@ -42,29 +41,28 @@ struct AuraPlayRecentlyPlayedSection: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(items, id: \.id) { nft in
+                        ForEach(items, id: \.id) { item in
                             AuraPlayRecentlyPlayedMiniCard(
-                                nft: nft,
-                                lastPlayed: audioEngine.lastPlayedDate(for: nft.id)
+                                item: item
                             ) {
-                                playTapped(nft: nft)
+                                playTapped(item: item)
                             }
                             .frame(width: 160)
                             .contextMenu {
                                 Button {
-                                    playTapped(nft: nft)
+                                    playTapped(item: item)
                                 } label: {
                                     Label("Play", systemImage: "play.fill")
                                 }
 
                                 Button {
-                                    startOverTapped(nft: nft)
+                                    startOverTapped(item: item)
                                 } label: {
                                     Label("Start Over", systemImage: "arrow.counterclockwise")
                                 }
 
                                 Button(role: .destructive) {
-                                    audioEngine.removeFromPrevious(id: nft.id)
+                                    player.auraPlayRemoveRecentlyPlayed(id: item.id)
                                 } label: {
                                     Label("Remove from Recently Played", systemImage: "trash")
                                 }
@@ -82,32 +80,32 @@ struct AuraPlayRecentlyPlayedSection: View {
             titleVisibility: .visible
         ) {
             Button("Clear All", role: .destructive) {
-                audioEngine.clearPreviousHistory()
+                player.auraPlayClearRecentlyPlayed()
                 impact()
             }
             Button("Cancel", role: .cancel) {}
         }
     }
 
-    private func startOverTapped(nft: NFT) {
+    private func startOverTapped(item: AuraPlayRecentlyPlayedItem) {
         impact()
         Task {
-            if audioEngine.currentTrackNFTID == nft.id {
-                try? audioEngine.seek(to: 0)
-                try? audioEngine.play()
+            if player.auraPlayCurrentTrack?.id == item.id {
+                try? player.auraPlaySeek(to: 0)
+                try? player.auraPlayPlay()
             } else {
-                try? await audioEngine.loadAndPlay(nft: nft)
+                try? await player.auraPlayPlayRecentlyPlayed(id: item.id)
             }
         }
     }
 
-    private func playTapped(nft: NFT) {
+    private func playTapped(item: AuraPlayRecentlyPlayedItem) {
         impact()
         Task {
-            if audioEngine.currentTrackNFTID == nft.id {
-                try? audioEngine.resume()
+            if player.auraPlayCurrentTrack?.id == item.id {
+                try? player.auraPlayResume()
             } else {
-                try? await audioEngine.loadAndPlay(nft: nft)
+                try? await player.auraPlayPlayRecentlyPlayed(id: item.id)
             }
         }
     }
@@ -126,8 +124,7 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
         return formatter
     }()
 
-    let nft: NFT
-    let lastPlayed: Date?
+    let item: AuraPlayRecentlyPlayedItem
     let onTap: () -> Void
 
     private func relativeDescription(for date: Date?) -> String {
@@ -139,7 +136,7 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack(alignment: .bottomTrailing) {
-                    if let source = nft.image?.thumbnailUrl ?? nft.image?.originalUrl,
+                    if let source = item.imageURLString,
                        let url = URL(string: source) {
                         CachedAsyncImage(url: url)
                             .aspectRatio(1, contentMode: .fill)
@@ -164,17 +161,17 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(nft.name ?? "Unknown Track")
+                    Text(item.title)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(2)
                         .foregroundStyle(.primary)
-                    if let artist = nft.artistName, !artist.isEmpty {
+                    if let artist = item.artist, !artist.isEmpty {
                         Text(artist)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
-                    if let lastPlayed {
+                    if let lastPlayed = item.lastPlayed {
                         Text(lastPlayed, style: .relative)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -197,9 +194,9 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
     }
 
     private var accessibilityLabel: String {
-        let title = nft.name ?? "Unknown Track"
-        let played = relativeDescription(for: lastPlayed)
-        if let artist = nft.artistName, !artist.isEmpty {
+        let title = item.title
+        let played = relativeDescription(for: item.lastPlayed)
+        if let artist = item.artist, !artist.isEmpty {
             return "\(title), \(artist), \(played)"
         }
         return "\(title), \(played)"

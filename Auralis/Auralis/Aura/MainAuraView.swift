@@ -2,6 +2,7 @@ import ReceiptsCore
 import ReceiptStorage
 import AuralisPrimaryModels
 import AuralisShellCore
+import MusicFeature
 import SwiftData
 import SwiftUI
 import AuraUI
@@ -126,7 +127,7 @@ struct MainAuraView: View {
                     .tabBarMinimizeBehavior(.onScrollDown)
                     .tabViewBottomAccessory {
                         if let audioEngine {
-                            AuraPlayMiniPlayerView(audioEngine: audioEngine)
+                            AuraPlayMiniPlayerView(player: audioEngine)
                         }
                     }
                 }
@@ -306,7 +307,7 @@ struct MainAuraView: View {
         errorMessage: String?
     ) {
         do {
-            return (try AppModelContainer.make(inMemory: false), nil)
+            return (try AuraPlayModelContainer.make(inMemory: false), nil)
         } catch {
             return (
                 nil,

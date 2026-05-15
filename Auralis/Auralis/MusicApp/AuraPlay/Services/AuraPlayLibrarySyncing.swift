@@ -1,17 +1,8 @@
 import ReceiptsCore
 import AuralisPrimaryModels
 import Foundation
+import MusicFeature
 import SwiftData
-
-@MainActor
-protocol AuraPlayLibrarySyncing {
-    func syncLibrary(in scope: AuraPlayLibraryScope, accountName: String?) async throws
-}
-
-@MainActor
-struct NoOpAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
-    func syncLibrary(in scope: AuraPlayLibraryScope, accountName: String?) async throws {}
-}
 
 @MainActor
 struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {

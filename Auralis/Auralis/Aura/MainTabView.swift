@@ -1,7 +1,10 @@
 import AuralisPrimaryModels
 import AuralisShellCore
+import MusicFeature
 import Observation
 import PolicyCore
+import ReceiptsCore
+import ReceiptStorage
 import SwiftData
 import SwiftUI
 import AuraUI
@@ -311,15 +314,13 @@ struct MainTabView: View {
                     Group {
                         if let audioEngine, let auraPlayModelContainer {
                             VStack {
-                                AuraPlayTabRootView(
-                                    audioEngine: audioEngine,
+                                MusicFeatureRootView(
                                     currentAccount: currentAccount,
                                     currentChain: currentChain,
-                                    nftService: nftService,
-                                    appModelContext: modelContext,
-                                    auraPlayModelContainer: auraPlayModelContainer,
-                                    musicLibraryIndexer: dependencies.musicLibraryIndexer,
-                                    musicLibraryReceiptLogger: dependencies.receiptEventLoggerFactory(modelContext)
+                                    dependencies: makeMusicFeatureDependencies(
+                                        audioEngine: audioEngine,
+                                        auraPlayModelContainer: auraPlayModelContainer
+                                    )
                                 )
                             }
                             .navigationDestination(for: MusicRoute.self) { route in
@@ -424,6 +425,37 @@ struct MainTabView: View {
             }
         }
         .tint(.accent)
+    }
+
+    @MainActor
+    private func makeMusicFeatureDependencies(
+        audioEngine: AudioEngine,
+        auraPlayModelContainer: ModelContainer
+    ) -> AuraPlayDependencies {
+        let logger = LiveAuraPlayLogger()
+        return AuraPlayDependencies(
+            libraryRepository: LiveAuraPlayLibraryRepository(
+                indexer: dependencies.musicLibraryIndexer,
+                receiptEventLogger: dependencies.receiptEventLoggerFactory(modelContext),
+                auraPlayModelContainer: auraPlayModelContainer,
+                accountModelContext: modelContext
+            ),
+            librarySyncService: LiveAuraPlayLibrarySyncService(
+                sourceModelContext: modelContext,
+                auraPlayModelContainer: auraPlayModelContainer,
+                musicReceiptLogger: MusicReceiptEventLogger(
+                    receiptStore: ReceiptStores.live(modelContext: modelContext)
+                ),
+                logger: logger
+            ),
+            playbackController: AuraPlayAudioEnginePlaybackController(audioEngine: audioEngine),
+            queueCoordinator: AuraPlayAudioEngineQueueCoordinator(audioEngine: audioEngine),
+            artworkLoader: AuraPlayTrackArtworkLoader(),
+            logger: logger,
+            configuration: AuraPlayModuleConfiguration.live(
+                infoDictionary: Bundle.main.infoDictionary ?? [:]
+            )
+        )
     }
 
     @ViewBuilder

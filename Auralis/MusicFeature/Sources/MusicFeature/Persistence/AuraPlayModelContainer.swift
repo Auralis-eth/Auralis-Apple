@@ -1,11 +1,11 @@
 import Foundation
 import SwiftData
 
-enum AppModelContainer {
+public enum AuraPlayModelContainer {
     private static let storeDirectoryName = "AuraPlay"
     private static let storeFileName = "AuraPlay.store"
 
-    static func make(inMemory: Bool) throws -> ModelContainer {
+    public static func make(inMemory: Bool) throws -> ModelContainer {
         let configuration = if inMemory {
             ModelConfiguration(
                 schema: Schema(AuraPlaySchema.models),
@@ -28,7 +28,7 @@ enum AppModelContainer {
         try storeURL(baseDirectory: nil)
     }
 
-    static func storeURL(baseDirectory: URL?) throws -> URL {
+    public static func storeURL(baseDirectory: URL?) throws -> URL {
         let applicationSupportDirectory = try baseDirectory ?? FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
@@ -47,7 +47,7 @@ enum AppModelContainer {
         return storeDirectory.appending(path: storeFileName)
     }
 
-    static func resetStoreFiles(
+    public static func resetStoreFiles(
         fileManager: FileManager = .default,
         baseDirectory: URL? = nil
     ) throws {

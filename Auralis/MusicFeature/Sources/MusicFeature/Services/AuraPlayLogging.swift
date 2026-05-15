@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-enum AuraPlayLogCategory: String, Sendable {
+public enum AuraPlayLogCategory: String, Sendable {
     case library = "music.library"
     case playback = "music.playback"
     case queue = "music.queue"
@@ -9,28 +9,36 @@ enum AuraPlayLogCategory: String, Sendable {
     case sync = "music.sync"
 }
 
-enum AuraPlayLogLevel: Sendable {
+public enum AuraPlayLogLevel: Sendable {
     case debug
     case info
     case error
 }
 
-struct AuraPlayLogEvent: Equatable, Sendable {
-    let category: AuraPlayLogCategory
-    let level: AuraPlayLogLevel
-    let message: String
+public struct AuraPlayLogEvent: Equatable, Sendable {
+    public let category: AuraPlayLogCategory
+    public let level: AuraPlayLogLevel
+    public let message: String
+
+    public init(category: AuraPlayLogCategory, level: AuraPlayLogLevel, message: String) {
+        self.category = category
+        self.level = level
+        self.message = message
+    }
 }
 
 @MainActor
-protocol AuraPlayLogging {
+public protocol AuraPlayLogging {
     func log(_ event: AuraPlayLogEvent)
 }
 
 @MainActor
-struct LiveAuraPlayLogger: AuraPlayLogging {
+public struct LiveAuraPlayLogger: AuraPlayLogging {
     private let subsystem = "Auralis"
 
-    func log(_ event: AuraPlayLogEvent) {
+    public init() {}
+
+    public func log(_ event: AuraPlayLogEvent) {
         let logger = Logger(subsystem: subsystem, category: event.category.rawValue)
 
         switch event.level {

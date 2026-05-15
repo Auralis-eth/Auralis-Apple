@@ -1,33 +1,29 @@
 import SwiftUI
 
-struct AuraPlayMiniPlayerView: View {
-    @ObservedObject var audioEngine: AudioEngine
+private enum AuraPlayMiniPlayerAccessoryMode {
+    case inline
+    case expanded
+    case unknown
+}
 
-    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+public struct AuraPlayMiniPlayerView<Player: AuraPlayPlaybackPresenting>: View {
+    @ObservedObject private var player: Player
+
     @State private var showNowPlaying = false
 
-    fileprivate enum AccessoryMode {
-        case inline
-        case expanded
-        case unknown
+    private var accessoryMode: AuraPlayMiniPlayerAccessoryMode {
+        .expanded
     }
 
-    private var accessoryMode: AccessoryMode {
-        switch placement {
-        case .some(.inline):
-            return .inline
-        case .some(.expanded):
-            return .expanded
-        default:
-            return .unknown
-        }
+    public init(player: Player) {
+        self.player = player
     }
 
-    var body: some View {
+    public var body: some View {
         Group {
-            if audioEngine.currentTrack != nil {
+            if player.auraPlayCurrentTrack != nil {
                 AuraPlayMiniPlayerContentView(
-                    audioEngine: audioEngine,
+                    player: player,
                     accessoryMode: accessoryMode
                 )
                 .contentShape(Rectangle())
@@ -42,7 +38,7 @@ struct AuraPlayMiniPlayerView: View {
                     }
                 }
                 .sheet(isPresented: $showNowPlaying) {
-                    AuraPlayNowPlayingView(audioEngine: audioEngine)
+                    AuraPlayNowPlayingView(player: player)
                 }
             }
         }
@@ -50,9 +46,9 @@ struct AuraPlayMiniPlayerView: View {
     }
 }
 
-private struct AuraPlayMiniPlayerContentView: View {
-    @ObservedObject var audioEngine: AudioEngine
-    fileprivate let accessoryMode: AuraPlayMiniPlayerView.AccessoryMode
+private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>: View {
+    @ObservedObject var player: Player
+    let accessoryMode: AuraPlayMiniPlayerAccessoryMode
 
     @State private var miniSeekValue: Double = 0
     @State private var miniIsDragging = false
@@ -60,7 +56,7 @@ private struct AuraPlayMiniPlayerContentView: View {
     var body: some View {
         VStack {
             HStack {
-                if let currentTrack = audioEngine.currentTrack {
+                if let currentTrack = player.auraPlayCurrentTrack {
                     AuraPlayMiniPlayerTrackView(
                         currentTrack: currentTrack,
                         accessoryMode: accessoryMode
@@ -71,7 +67,7 @@ private struct AuraPlayMiniPlayerContentView: View {
 
                 HStack(spacing: 8) {
                     Button {
-                        Task { await audioEngine.playPrevious() }
+                        Task { await player.auraPlayPrevious() }
                     } label: {
                         Image(systemName: "backward.fill")
                             .font(.title3)
@@ -80,14 +76,14 @@ private struct AuraPlayMiniPlayerContentView: View {
                     .accessibilityLabel("Previous track")
 
                     AuraPlayPlaybackStateButton(
-                        sourceState: audioEngine.playbackState,
-                        play: { try? audioEngine.play() },
-                        pause: audioEngine.pause,
-                        resume: { try? audioEngine.resume() }
+                        sourceState: player.auraPlayPlaybackState,
+                        play: { try? player.auraPlayPlay() },
+                        pause: player.auraPlayPause,
+                        resume: { try? player.auraPlayResume() }
                     )
 
                     Button {
-                        Task { await audioEngine.playNext() }
+                        Task { await player.auraPlayNext() }
                     } label: {
                         Image(systemName: "forward.fill")
                             .font(.title3)
@@ -95,10 +91,10 @@ private struct AuraPlayMiniPlayerContentView: View {
                     .frame(minWidth: 44, minHeight: 44)
                     .accessibilityLabel("Next track")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.borderless)
             }
 
-            switch (accessoryMode, audioEngine.currentTrack) {
+            switch (accessoryMode, player.auraPlayCurrentTrack) {
             case (.expanded, let track?):
                 Slider(
                     value: $miniSeekValue,
@@ -106,21 +102,21 @@ private struct AuraPlayMiniPlayerContentView: View {
                     onEditingChanged: { dragging in
                         miniIsDragging = dragging
                         if !dragging {
-                            try? audioEngine.seek(to: miniSeekValue)
+                            try? player.auraPlaySeek(to: miniSeekValue)
                         }
                     }
                 )
                 .accessibilityLabel("Playback position")
-                .onChange(of: audioEngine.currentTrack) { _, _ in
+                .onChange(of: player.auraPlayCurrentTrack) { _, _ in
                     miniSeekValue = 0
                 }
-                .onChange(of: audioEngine.progress) { _, newValue in
+                .onChange(of: player.auraPlayProgress) { _, newValue in
                     if !miniIsDragging {
                         miniSeekValue = newValue
                     }
                 }
                 .onAppear {
-                    miniSeekValue = audioEngine.progress
+                    miniSeekValue = player.auraPlayProgress
                 }
             default:
                 ProgressView()
@@ -132,12 +128,12 @@ private struct AuraPlayMiniPlayerContentView: View {
 }
 
 private struct AuraPlayMiniPlayerTrackView: View {
-    let currentTrack: AudioEngine.Track
-    fileprivate let accessoryMode: AuraPlayMiniPlayerView.AccessoryMode
+    let currentTrack: AuraPlayTrack
+    let accessoryMode: AuraPlayMiniPlayerAccessoryMode
 
     var body: some View {
         Group {
-            if let imageURLString = currentTrack.imageUrl,
+            if let imageURLString = currentTrack.imageURLString,
                !imageURLString.isEmpty,
                let imageURL = URL(string: imageURLString) {
                 CachedAsyncImage(url: imageURL)
@@ -175,7 +171,7 @@ private struct AuraPlayMiniPlayerTrackView: View {
 }
 
 private struct AuraPlayPlaybackStateButton: View {
-    let sourceState: AudioEngine.PlaybackState
+    let sourceState: AuraPlayPlaybackState
     let play: () -> Void
     let pause: () -> Void
     let resume: () -> Void

@@ -1,3 +1,4 @@
+import MusicFeature
 import SwiftData
 
 @MainActor
@@ -15,7 +16,7 @@ enum PreviewModelContainers {
 
     static func auraPlay() -> ModelContainer {
         do {
-            return try AppModelContainer.make(inMemory: true)
+            return try AuraPlayModelContainer.make(inMemory: true)
         } catch {
             fatalError("Failed to create AuraPlay preview model container: \(error.localizedDescription)")
         }
