@@ -1,6 +1,7 @@
 import AccountsCore
 import AuralisShellCore
 import ENS
+import AccountsFeature
 import AuralisPrimaryModels
 import ImagePlayground
 import OSLog
@@ -179,7 +180,7 @@ struct HomeTabView: View {
             imagePreviewSheet
         }
         .sheet(isPresented: $showAccountSwitcher) {
-            AccountSwitcherSheet(
+            AccountSwitcherHostSheet(
                 currentAccount: currentAccount,
                 activeSelection: shellStore.state.selection,
                 accountStoreFactory: accountStoreFactory,

@@ -3,6 +3,7 @@ import ReceiptStorage
 @testable import Auralis
 import AccountStorage
 import AccountsCore
+import AccountsFeature
 import AuralisPrimaryModels
 import Foundation
 import PolicyCore

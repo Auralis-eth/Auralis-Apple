@@ -1,22 +1,27 @@
-import SwiftUI
 import AuraUI
+import SwiftUI
 
-struct GuestPassCard: View {
+public struct GuestPassCard: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
-    let account: GuestPassAccount
-    var onTap: (() -> Void)?
+    private let account: GuestPassAccount
+    private var onTap: (() -> Void)?
 
     @State private var isAnimating = false
+
+    public init(account: GuestPassAccount, onTap: (() -> Void)? = nil) {
+        self.account = account
+        self.onTap = onTap
+    }
 
     private var shortAddress: String {
         let trimmed = account.address.trimmingCharacters(in: .whitespacesAndNewlines)
         let start = trimmed.prefix(6)
         let end = trimmed.suffix(4)
-        return "\(start)…\(end)"
+        return "\(start)...\(end)"
     }
 
-    var body: some View {
+    public var body: some View {
         Group {
             if let onTap {
                 Button(action: onTap) {

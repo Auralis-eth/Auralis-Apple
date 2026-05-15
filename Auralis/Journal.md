@@ -53,6 +53,11 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+- AccountsFeature migration, first pass:
+  The account-entry flow started moving out of the app target and into `AccountsFeature`. This pass deliberately moved the pieces that behave like good package citizens: guest pass definitions, guest pass card/carousel presentation, address pasteboard normalization, address validation presentation, and account summary presentation DTOs/presenter. Think of it like packing the front desk stationery, room keys, and check-in script before trying to move the entire hotel lobby.
+
+- The important seam stayed put: actual account activation still lives in the app target because it touches SwiftData, ENS resolution errors, haptics, and shell callbacks. That is the right kind of restraint. A package boundary should not smuggle the whole app through a side door just because a view wants to compile.
+
 - MusicFeature migration, first pass:
   AuraPlay finally got its first real package boundary in `MusicFeature`. The trick was not to shove the whole DJ booth into a moving box. We moved the feature vocabulary first: library scope, errors, bundle configuration, logging events, playback state/track snapshots, queue snapshots, artwork loading, library repository, and sync protocols. The app target still owns the live adapters over `AudioEngine`, SwiftData, receipts, and the existing indexer. That keeps the music package honest: it describes what the feature needs without secretly importing every wire in the building.
 
@@ -1547,3 +1552,25 @@ The most important move was the playback bridge. `AudioEngine` did not move into
 The migration also retired a subtle old shortcut: the music tab used to enter through `AuraPlayTabRootView` in the app target. `MainTabView` now hosts `MusicFeatureRootView` directly and builds a package dependency bundle from live app adapters. That is the difference between “we have a package” and “the app actually uses the package.”
 
 War story: the test runner got sticky during two older Wave 2 persistence tests and left an `Auralis.app` process hanging around like a stagehand who missed the blackout cue. The build was clean, and the focused root/presentation/schema tests passed, but those long-running persistence cases should be revisited separately if they keep wedging the Xcode test harness.
+
+## AccountsFeature: The Front Desk Moves Out Of The Lobby
+
+The AccountsFeature migration is now past the halfway-house phase. The gateway, address entry, guest passes, QR scanning, account switcher presentation, address validation, pasteboard handling, and chain-scope planning now compile from `AccountsFeature`. The app target still keeps the live wiring: SwiftData queries, concrete account stores, real ENS resolution, and shell actions.
+
+- The package owns the front-desk experience: collect an address, validate it, scan a QR code, offer guest passes, and present saved accounts. It asks for small protocols like `AccountActivating`, `AccountSwitching`, and `AccountENSResolving` instead of knowing about `ModelContext`, `ShellStore`, or the concrete ENS/web3 stack.
+- The app-side `AccountSwitcherHostSheet` is now the adapter tray. It feeds SwiftData accounts into the package view and wraps `AccountStoring` so the feature can save chain preferences without importing `AccountStorage`.
+- ENS was the useful boundary lesson. Pulling the real `ENS` module into `AccountsFeature` dragged web3/C-module planning noise into a UI package. The fix was to make AccountsFeature speak a tiny account-facing ENS protocol and let the app translate real `ENSResolutionError` values at the edge.
+- Xcode had one packaging quirk: the active package source list initially ignored newly added files, so the migrated feature API was folded into an existing compiled package source file for this pass. That is not elegant architecture, but it kept the module boundary honest and the build green. A later cleanup can split that large file once Xcode's package graph is refreshed cleanly.
+
+The senior-engineer takeaway: a feature package should know the shape of the user promise, not the shape of the basement. If account UI can activate, switch, and resolve accounts through narrow protocols, it can move rooms without dragging SwiftData, shell state, or provider plumbing behind it.
+
+## AccountsFeature: The Front Desk Gets Its Closing Checklist
+
+PKG-004 is now closed in the important architectural sense: the account-entry package owns the user-facing rules, and the app target owns the live building wiring.
+
+- The final hardening pass added package-owned presenters for ENS resolution states and account activation errors. That matters because the entry flow now has a tested vocabulary for “verified,” “stale cache,” “mapping changed,” and “save failed” instead of scattering those sentences through SwiftUI callbacks.
+- The account switcher also got its own ordering presenter. The app still performs the SwiftData query, but the package owns how saved accounts are presented: recently selected accounts first, then newest additions, then address tie-breaks. Think of it like the app handing over the guest list while the front desk decides the order of the clipboard.
+- `ProfileCardView` intentionally stayed home. It may sound account-ish, but it now owns Home-specific avatar generation, ENS display refresh, Aura artwork prompts, and dashboard composition. Moving it would be like packing the lobby mural with the check-in forms just because both are near the front desk.
+- The plan doc now records that decision directly, which is the real migration hygiene lesson: “not moved” should be a named boundary decision, not a mystery for the next engineer to rediscover.
+
+The memorable bit: a migration is not finished when the files are merely in a new room. It is finished when the new room owns its rules, the old room owns only the adapters, and the map says why the furniture that stayed behind belongs there.

@@ -26,6 +26,7 @@
 		6FA256402FB683EB00292ECA /* AuralisShellCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA2563F2FB683EB00292ECA /* AuralisShellCore */; };
 		6FA256432FB6A28400292ECA /* NFTLibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA256422FB6A28400292ECA /* NFTLibraryFeature */; };
 		6FA256482FB77B4800292ECA /* MusicFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA256472FB77B4800292ECA /* MusicFeature */; };
+		6FA2564B2FB79FC600292ECA /* AccountsFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA2564A2FB79FC600292ECA /* AccountsFeature */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -113,6 +114,7 @@
 				6F84E2FF2FAFF7FE00CD4102 /* AccountStorage in Frameworks */,
 				6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */,
 				6F84E0262FAE705B00CD4102 /* PolicyCore in Frameworks */,
+				6FA2564B2FB79FC600292ECA /* AccountsFeature in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -213,6 +215,7 @@
 				6FA2563F2FB683EB00292ECA /* AuralisShellCore */,
 				6FA256422FB6A28400292ECA /* NFTLibraryFeature */,
 				6FA256472FB77B4800292ECA /* MusicFeature */,
+				6FA2564A2FB79FC600292ECA /* AccountsFeature */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -315,6 +318,7 @@
 				6FA2563E2FB683EB00292ECA /* XCLocalSwiftPackageReference "AuralisShellCore" */,
 				6FA256412FB6A28400292ECA /* XCLocalSwiftPackageReference "NFTLibraryFeature" */,
 				6FA256462FB77B4800292ECA /* XCLocalSwiftPackageReference "MusicFeature" */,
+				6FA256492FB79FC600292ECA /* XCLocalSwiftPackageReference "AccountsFeature" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -777,6 +781,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = MusicFeature;
 		};
+		6FA256492FB79FC600292ECA /* XCLocalSwiftPackageReference "AccountsFeature" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = AccountsFeature;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -882,6 +890,10 @@
 		6FA256472FB77B4800292ECA /* MusicFeature */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MusicFeature;
+		};
+		6FA2564A2FB79FC600292ECA /* AccountsFeature */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AccountsFeature;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1,14 +1,20 @@
-import AuralisPrimaryModels
-struct MetadataChunk: Identifiable, Hashable {
-    var id: String {
+import Foundation
+
+public struct MetadataChunk: Identifiable, Hashable, Sendable {
+    public var id: String {
         systemImage + text
     }
 
-    let systemImage: String
-    let text: String
+    public let systemImage: String
+    public let text: String
+
+    public init(systemImage: String, text: String) {
+        self.systemImage = systemImage
+        self.text = text
+    }
 }
 
-enum AccountRole {
+public enum AccountRole: Hashable, Sendable {
     case label
     case collector
     case artist
@@ -25,16 +31,32 @@ enum AccountRole {
     }
 }
 
-struct GuestPassAccount: Identifiable, Hashable {
-    var id: String { address }
-    let address: String
-    let ens: String?
-    let role: AccountRole
-    let title: String
-    let subtitle: String
-    let metadata: [MetadataChunk]
+public struct GuestPassAccount: Identifiable, Hashable, Sendable {
+    public var id: String { address }
+    public let address: String
+    public let ens: String?
+    public let role: AccountRole
+    public let title: String
+    public let subtitle: String
+    public let metadata: [MetadataChunk]
 
-    var roleImage: String {
+    public init(
+        address: String,
+        ens: String?,
+        role: AccountRole,
+        title: String,
+        subtitle: String,
+        metadata: [MetadataChunk]
+    ) {
+        self.address = address
+        self.ens = ens
+        self.role = role
+        self.title = title
+        self.subtitle = subtitle
+        self.metadata = metadata
+    }
+
+    public var roleImage: String {
         let options = role.imageOptions
         guard options.count > 1 else { return options[0] }
         return options[addressIconSeed % options.count]
@@ -50,7 +72,7 @@ struct GuestPassAccount: Identifiable, Hashable {
     }
 }
 
-extension GuestPassAccount {
+public extension GuestPassAccount {
     static let accounts: [GuestPassAccount] = [
         GuestPassAccount(
             address: "0x9266f125fb2ecb730d9953b46de9c32e2fa83e4a",

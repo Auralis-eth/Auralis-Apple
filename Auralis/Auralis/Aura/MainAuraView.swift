@@ -1,5 +1,6 @@
 import ReceiptsCore
 import ReceiptStorage
+import AccountsFeature
 import AuralisPrimaryModels
 import AuralisShellCore
 import MusicFeature
@@ -148,8 +149,8 @@ struct MainAuraView: View {
                 }
             } else {
                 if let gatewayDependencies {
-                    GatewayView(
-                        dependencies: gatewayDependencies,
+                    AccountsGatewayView(
+                        dependencies: gatewayDependencies.featureDependencies,
                         onAccountActivated: { account, correlationID in
                             Task {
                                 await shellStore.send(

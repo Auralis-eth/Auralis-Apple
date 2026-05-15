@@ -1,3 +1,4 @@
+import AccountsFeature
 import AuralisPrimaryModels
 import AuralisShellCore
 import MusicFeature
@@ -165,7 +166,7 @@ struct MainTabView: View {
             chromeBackground
         }
         .sheet(isPresented: $showAccountSwitcher) {
-            AccountSwitcherSheet(
+            AccountSwitcherHostSheet(
                 currentAccount: currentAccount,
                 activeSelection: shellStore.state.selection,
                 accountStoreFactory: dependencies.accountStoreFactory,

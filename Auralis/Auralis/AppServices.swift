@@ -2,6 +2,7 @@ import ReceiptsCore
 import ReceiptStorage
 import AccountStorage
 import AccountsCore
+import AccountsFeature
 import AuralisShellCore
 import ENS
 import AuralisPrimaryModels
@@ -222,14 +223,19 @@ extension ShellStoreDependencies {
 
 @MainActor
 struct GatewayDependencies {
-    let ensResolver: any ENSResolving
-    let accountStoreFactory: @MainActor (ModelContext) -> any AccountStoring
+    let featureDependencies: AccountsGatewayDependencies
 
     static func live(modelContext: ModelContext) -> GatewayDependencies {
         let services = ShellServiceHub.live
         return GatewayDependencies(
-            ensResolver: services.ensResolverFactory(modelContext),
-            accountStoreFactory: services.accountStoreFactory
+            featureDependencies: AccountsGatewayDependencies(
+                ensResolver: AppAccountENSResolver(
+                    resolver: services.ensResolverFactory(modelContext)
+                ),
+                accountActivator: AccountStoreAccountActivator(
+                    store: services.accountStoreFactory(modelContext)
+                )
+            )
         )
     }
 }

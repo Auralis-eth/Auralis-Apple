@@ -1,10 +1,18 @@
 import SwiftUI
 
-struct GuestPassCarousel: View {
-    let items: [GuestPassAccount]
-    let select: (GuestPassAccount) -> Void
+public struct GuestPassCarousel: View {
+    private let items: [GuestPassAccount]
+    private let select: (GuestPassAccount) -> Void
 
-    var body: some View {
+    public init(
+        items: [GuestPassAccount],
+        select: @escaping (GuestPassAccount) -> Void
+    ) {
+        self.items = items
+        self.select = select
+    }
+
+    public var body: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 12) {
                 ForEach(items) { account in

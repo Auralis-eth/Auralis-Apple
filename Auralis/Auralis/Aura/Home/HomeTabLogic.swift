@@ -1,7 +1,10 @@
+import AccountsFeature
 import AuralisPrimaryModels
 import Foundation
 
 struct HomeTabLogic {
+    private let accountSummaryPresenter = AccountSummaryPresenter()
+
     func logoutPlan() -> HomeLogoutPlan {
         HomeLogoutPlan(
             shouldDeleteNFTs: true,
@@ -77,24 +80,7 @@ struct HomeTabLogic {
     func accountSummaryPresentation(
         inputs: HomeAccountSummaryInputs
     ) -> HomeAccountSummaryPresentation {
-        let resolvedTitle = inputs.accountName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let title = (resolvedTitle?.isEmpty == false ? resolvedTitle : nil) ?? "Active Account"
-        let chainTitle = "\(inputs.chain.routingDisplayName) scope"
-        let trackedNFTLabel = inputs.scopedNFTCount == 0
-            ? "No scoped NFTs yet"
-            : "\(inputs.scopedNFTCount) scoped NFT\(inputs.scopedNFTCount == 1 ? "" : "s")"
-
-        let lastActivityLabel = inputs.mostRecentActivityAt.map {
-            "Last active \($0.formatted(date: .abbreviated, time: .omitted))"
-        }
-
-        return HomeAccountSummaryPresentation(
-            title: title,
-            addressLine: inputs.address.displayAddress,
-            chainTitle: chainTitle,
-            trackedNFTLabel: trackedNFTLabel,
-            lastActivityLabel: lastActivityLabel
-        )
+        accountSummaryPresenter.presentation(inputs: inputs)
     }
 
     func modulesPresentation(
