@@ -6,6 +6,7 @@ import AccountStorage
 import AccountsCore
 import ENS
 import AuralisPrimaryModels
+import AuralisShellCore
 import Foundation
 import SwiftData
 import Testing

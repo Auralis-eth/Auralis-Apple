@@ -1,5 +1,6 @@
 @testable import Auralis
 import AuralisPrimaryModels
+import NFTLibraryFeature
 import Testing
 
 @Suite

@@ -1511,3 +1511,14 @@ The migration is now the real thing, not just a forwarding address. `ShellStore`
 - One practical test wrinkle: `swift test` from Terminal still tries to compile the iOS-only primary models as a macOS package and trips over `UIKit`. Xcode builds the iOS scheme cleanly, so package tests should run through an iOS-capable Xcode test destination or test plan entry rather than plain macOS SwiftPM.
 
 The useful lesson: a state machine package should be a rulebook, not a tiny copy of the app. If the package can explain what should happen without knowing how SwiftData, NFTs, receipts, or navigation views are physically wired, the boundary is doing its job.
+
+## NFTLibraryFeature: The Gallery Gets Its Own Wing
+
+The NFT library migration started turning the gallery from an app-side hallway into a feature package with its own walls. The tricky part was refusing to move the basement machinery with it.
+
+- `NFTLibraryFeature` now owns the NFT gallery vocabulary: route values, sort fields, collection-detail presentation, loading and empty states, detail UI, collection UI, feed cards, token-list UI, cached image loading, and external marketplace confirmation.
+- The app target still owns SwiftData queries, `NFTService` refresh orchestration, receipt-backed event logging, and `openURL`. Those are the electrical outlets in the building; the gallery should plug into them, not install a second breaker panel.
+- The app-side NFT wrappers are now thin adapters. They scope NFTs with SwiftData, translate `AppRouter` routes into `NFTLibraryRoute`, and hand the package a dependency closure for trusted external-link opening.
+- Package tests cover the logic that should not require an app launch: collection filtering, display fallback copy, image URL preference, route hashability, and sort metadata.
+
+The gotcha was pure Xcode reality: adding a local package product to the app target requires project graph wiring. We deliberately did not hand-edit `project.pbxproj` while Xcode was open, because that is how an otherwise tidy migration turns into a project-file incident. The next step is to add `NFTLibraryFeature` through Xcode's package UI, then run the app build so the new imports resolve in the app target.

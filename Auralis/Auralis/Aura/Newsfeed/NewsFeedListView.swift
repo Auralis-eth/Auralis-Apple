@@ -6,9 +6,10 @@
 //
 
 import AuralisPrimaryModels
+import AuraUI
+import NFTLibraryFeature
 import SwiftData
 import SwiftUI
-import AuraUI
 import NFTKit
 
 struct NewsFeedListView: View {
@@ -42,9 +43,9 @@ struct NewsFeedListView: View {
         .toolbar {
             ToolbarItemGroup {
                 Menu {
-                    NFTSortButton(title: "Acquired", field: .acquired, sortOrder: $sortOrder)
-                    NFTSortButton(title: "Collection Name", field: .collectionName, sortOrder: $sortOrder)
-                    NFTSortButton(title: "Item Name", field: .itemName, sortOrder: $sortOrder)
+                    NFTLibrarySortButton(title: "Acquired", field: .acquired, sortOrder: $sortOrder)
+                    NFTLibrarySortButton(title: "Collection Name", field: .collectionName, sortOrder: $sortOrder)
+                    NFTLibrarySortButton(title: "Item Name", field: .itemName, sortOrder: $sortOrder)
                 } label: {
                     SystemImage("ellipsis")
                         .padding(8)

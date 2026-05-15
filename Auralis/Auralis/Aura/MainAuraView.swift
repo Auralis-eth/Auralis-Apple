@@ -6,6 +6,7 @@ import SwiftData
 import SwiftUI
 import AuraUI
 import NFTKit
+import NFTLibraryFeature
 
 struct MainAuraView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -130,7 +131,7 @@ struct MainAuraView: View {
                     }
                 }
             } else if nftsAreLoading, shellStore.state.selection != nil {
-                NFTNewsfeedLoadingView(
+                NFTLibraryLoadingView(
                     itemsLoaded: nftService.itemsLoaded,
                     total: nftService.total,
                     phase: nftService.refreshPhase

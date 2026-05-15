@@ -24,6 +24,7 @@
 		6F84E3082FB35A0A00CD4102 /* AgentIdentityCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3072FB35A0A00CD4102 /* AgentIdentityCore */; };
 		6F84E3132FB66B8200CD4102 /* AuraUI in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3122FB66B8200CD4102 /* AuraUI */; };
 		6FA256402FB683EB00292ECA /* AuralisShellCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA2563F2FB683EB00292ECA /* AuralisShellCore */; };
+		6FA256432FB6A28400292ECA /* NFTLibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA256422FB6A28400292ECA /* NFTLibraryFeature */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -94,6 +95,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */,
+				6FA256432FB6A28400292ECA /* NFTLibraryFeature in Frameworks */,
 				6F84E0292FAE829200CD4102 /* OperatorCore in Frameworks */,
 				6FA256402FB683EB00292ECA /* AuralisShellCore in Frameworks */,
 				6F84E2FC2FAF6CEA00CD4102 /* SwiftDataAdapters in Frameworks */,
@@ -207,6 +209,7 @@
 				6F84E3072FB35A0A00CD4102 /* AgentIdentityCore */,
 				6F84E3122FB66B8200CD4102 /* AuraUI */,
 				6FA2563F2FB683EB00292ECA /* AuralisShellCore */,
+				6FA256422FB6A28400292ECA /* NFTLibraryFeature */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -307,6 +310,7 @@
 				6F84E3062FB35A0A00CD4102 /* XCLocalSwiftPackageReference "AgentIdentityCore" */,
 				6F84E3112FB66B8200CD4102 /* XCLocalSwiftPackageReference "AuraUI" */,
 				6FA2563E2FB683EB00292ECA /* XCLocalSwiftPackageReference "AuralisShellCore" */,
+				6FA256412FB6A28400292ECA /* XCLocalSwiftPackageReference "NFTLibraryFeature" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -761,6 +765,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = AuralisShellCore;
 		};
+		6FA256412FB6A28400292ECA /* XCLocalSwiftPackageReference "NFTLibraryFeature" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = NFTLibraryFeature;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -858,6 +866,10 @@
 		6FA2563F2FB683EB00292ECA /* AuralisShellCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AuralisShellCore;
+		};
+		6FA256422FB6A28400292ECA /* NFTLibraryFeature */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = NFTLibraryFeature;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

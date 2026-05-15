@@ -1,14 +1,20 @@
 import AuralisPrimaryModels
+import NFTKit
+import NFTLibraryFeature
+import OperatorCore
+import ReceiptStorage
+import ReceiptsCore
 import SwiftData
 import SwiftUI
-import AuraUI
-import NFTKit
 
 struct SharedNFTDetailView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
+    @Query private var nfts: [NFT]
+
     let route: NFTDetailRoute
     let currentAccountAddress: String?
     let currentChain: Chain
-    @Query private var nfts: [NFT]
 
     init(route: NFTDetailRoute, currentAccountAddress: String?, currentChain: Chain) {
         self.route = route
@@ -34,120 +40,32 @@ struct SharedNFTDetailView: View {
         _nfts = Query(descriptor)
     }
 
-    private var nft: NFT? {
-        nfts.first
-    }
-
-    private var imageURL: URL? {
-        guard let nft else { return nil }
-
-        if let originalURL = nft.image?.originalUrl, let url = URL(string: originalURL) {
-            return url
-        }
-
-        if let thumbnailURL = nft.image?.thumbnailUrl, let url = URL(string: thumbnailURL) {
-            return url
-        }
-
-        return nil
-    }
-
-    private var titleText: String {
-        nft?.name ?? "Untitled NFT"
-    }
-
-    private var collectionName: String? {
-        nft?.collection?.name ?? nft?.collectionName
-    }
-
-    private var descriptionText: String? {
-        guard let description = nft?.nftDescription, !description.isEmpty else {
-            return nil
-        }
-
-        return description
-    }
-
     var body: some View {
-        Group {
-            if let nft {
-                VStack {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 20) {
-                            nftImage
-
-                            VStack(alignment: .leading, spacing: 12) {
-                                AuraTrustLabel(kind: .metadata)
-
-                                HeadlineFontText(titleText)
-                                    .fontWeight(.semibold)
-                                    .accessibilityIdentifier("nft.detail.title")
-
-                                if let collectionName {
-                                    SubheadlineFontText(collectionName)
-                                }
-
-                                if let description = descriptionText {
-                                    SecondaryText(description)
-                                }
-
-                                badgeRow(for: nft)
-                            }
-                        }
-                        .padding()
-                    }
-                }
-                .navigationTitle(titleText)
-                .navigationBarTitleDisplayMode(.inline)
-                .background(Color.background)
-                .accessibilityIdentifier("nft.detail.screen")
-            } else {
-                ContentUnavailableView(
-                    "NFT Unavailable",
-                    systemImage: "exclamationmark.triangle",
-                    description: Text("The requested NFT could not be resolved for the current account.")
-                )
-                .navigationTitle("NFT Detail")
-                .accessibilityIdentifier("nft.detail.unavailable")
-            }
-        }
+        NFTLibraryDetailView(
+            nft: nfts.first,
+            dependencies: libraryDependencies
+        )
     }
 
-    private var nftImage: some View {
-        AsyncImage(url: imageURL) { image in
-            image
-                .resizable()
-                .scaledToFill()
-        } placeholder: {
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.secondary.opacity(0.2))
-                .overlay {
-                    SystemImage("photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
+    private var libraryDependencies: NFTLibraryDependencies {
+        NFTLibraryDependencies { request in
+            await ExternalLinkOpenFlow(
+                eventLogger: AppExternalLinkEventLogger(
+                    receiptEventLogger: ReceiptEventLogger(
+                        receiptStore: ReceiptStores.live(modelContext: modelContext)
+                    )
+                ),
+                openURL: { url in
+                    openURL(url)
                 }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 280)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
-
-    @ViewBuilder
-    private func badgeRow(for nft: NFT) -> some View {
-        HStack(spacing: 12) {
-            if let chain = nft.network {
-                BadgeLabel(title: chain.routingDisplayName)
-            }
-
-            if nft.isMusic() {
-                BadgeLabel(title: "Music NFT")
-            }
+            ).confirm(request)
         }
     }
 }
 
 struct NFTTokensRootView: View {
     @Query private var nfts: [NFT]
+
     let currentAccount: EOAccount?
     let currentChain: Chain
     let contextSnapshot: ContextSnapshot
@@ -182,65 +100,26 @@ struct NFTTokensRootView: View {
     }
 
     var body: some View {
-        Group {
-            if nfts.isEmpty {
-                AuraScenicScreen(contentAlignment: .center) {
-                    if let failure = nftService.providerFailurePresentation(isShowingCachedContent: false) {
-                        ShellProviderFailureStateView(
-                            failure: failure,
-                            retry: refresh
-                        )
-                    } else {
-                        ShellEmptyLibraryStateView(
-                            kind: .nft,
-                            snapshot: contextSnapshot
-                        )
-                    }
-                }
-            } else {
-                VStack(spacing: 0) {
-                    if let failure = nftService.providerFailurePresentation(isShowingCachedContent: true) {
-                        ShellStatusBanner(
-                            title: failure.title,
-                            message: failure.message,
-                            systemImage: failure.systemImage,
-                            tone: .warning,
-                            action: failure.isRetryable ? ShellStatusAction(
-                                title: "Retry",
-                                systemImage: "arrow.clockwise",
-                                handler: refresh
-                            ) : nil
-                        )
-                        .padding(.horizontal, 12)
-                        .padding(.top, 8)
-                    }
-
-                    List(nfts) { nft in
-                        Button {
-                            router.showNFTTokensDetail(id: nft.id)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(nft.name ?? "Untitled NFT")
-                                    .foregroundStyle(Color.textPrimary)
-
-                                Text(nft.collection?.name ?? nft.collectionName ?? nft.tokenId)
-                                    .font(.caption)
-                                    .foregroundStyle(Color.textSecondary)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("nftTokens.row.\(nft.id)")
-                    }
-                }
-            }
-        }
-        .navigationTitle("NFT Tokens")
-        .accessibilityIdentifier("nftTokens.root")
+        NFTLibraryTokensRootView(
+            nfts: nfts,
+            currentChain: currentChain,
+            emptyMessage: emptyMessage,
+            isLoading: nftService.isLoading,
+            failure: nftService.providerFailurePresentation(isShowingCachedContent: !nfts.isEmpty),
+            actions: NFTLibraryActions(
+                openNFT: { id in
+                    router.showNFTTokensDetail(id: id)
+                },
+                openCollection: { contractAddress, title, chain in
+                    router.showNFTCollectionDetail(contractAddress: contractAddress, title: title, chain: chain)
+                },
+                refresh: refreshAction
+            )
+        )
     }
 
-    private func refresh() {
-        Task {
-            await refreshAction()
-        }
+    private var emptyMessage: String {
+        let scope = contextSnapshot.scopeSummary
+        return "No NFTs are available for \(scope). Try refreshing or switch to another saved account."
     }
 }

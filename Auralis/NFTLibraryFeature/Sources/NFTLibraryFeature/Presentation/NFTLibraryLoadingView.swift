@@ -1,41 +1,39 @@
-//
-//  NFTNewsfeedLoadingView.swift
-//  Auralis
-//
-//  Created by Daniel Bell on 6/24/25.
-//
-
-import AuralisPrimaryModels
-import OSLog
-import SwiftUI
 import AuraUI
 import NFTKit
+import SwiftUI
 
-struct NFTNewsfeedLoadingView: View {
-    enum Size {
+public struct NFTLibraryLoadingView: View {
+    public enum Size {
         case large
         case small
     }
 
-    let itemsLoaded: Int?
-    let total: Int?
-    let phase: NFTService.RefreshPhase
-    var size: Size = .large
+    public let itemsLoaded: Int?
+    public let total: Int?
+    public let phase: NFTServiceRefreshPhase
+    public var size: Size
+
+    public init(itemsLoaded: Int?, total: Int?, phase: NFTServiceRefreshPhase, size: Size = .large) {
+        self.itemsLoaded = itemsLoaded
+        self.total = total
+        self.phase = phase
+        self.size = size
+    }
 
     private var titleText: String {
         switch phase {
         case .idle, .fetching:
-            return "Loading your collection..."
+            "Loading your collection..."
         case .processingMetadata:
-            return "Preparing your NFTs..."
+            "Preparing your NFTs..."
         case .persisting:
-            return "Saving your library..."
+            "Saving your library..."
         case .cleaningUp:
-            return "Finishing up..."
+            "Finishing up..."
         }
     }
 
-    var body: some View {
+    public var body: some View {
         VStack {
             if size == .large {
                 ProgressView()
@@ -46,49 +44,52 @@ struct NFTNewsfeedLoadingView: View {
             HeadlineFontText(titleText)
                 .lineLimit(2, reservesSpace: true)
                 .padding(.top, 16)
-            LoadingProgressView(total: total, itemsLoaded: itemsLoaded, phase: phase)
+            NFTLibraryLoadingProgressView(total: total, itemsLoaded: itemsLoaded, phase: phase)
         }
         .padding(.vertical)
         .frame(maxWidth: size == .large ? .infinity : 200)
-        .glassEffect(.clear.tint(.surface), in: .containerRelative)
+        .background {
+            if #available(iOS 26.0, *) {
+                Color.clear
+                    .glassEffect(.clear.tint(.surface), in: .containerRelative)
+            } else {
+                Color.surface.opacity(0.82)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
-struct LoadingProgressView: View {
-    private static let logger = Logger(subsystem: "Auralis", category: "NFTNewsfeedLoadingView")
-    var total: Int?
-    var itemsLoaded: Int?
-    var phase: NFTService.RefreshPhase = .idle
+public struct NFTLibraryLoadingProgressView: View {
+    public var total: Int?
+    public var itemsLoaded: Int?
+    public var phase: NFTServiceRefreshPhase
+
+    public init(total: Int?, itemsLoaded: Int?, phase: NFTServiceRefreshPhase = .idle) {
+        self.total = total
+        self.itemsLoaded = itemsLoaded
+        self.phase = phase
+    }
 
     private var progressValue: Double {
-        guard let total = total, let loaded = itemsLoaded, total > 0 else {
+        guard let total, let itemsLoaded, total > 0 else {
             return 0.0
         }
 
-        if loaded < 0 {
-            Self.logger.warning("itemsLoaded cannot be negative: \(loaded, privacy: .public)")
-        } else if total < 0 {
-            Self.logger.warning("total cannot be negative: \(total, privacy: .public)")
-        }
-
-        if loaded > total {
-            return 1.0
-        } else {
-            return Double(loaded) / Double(total)
-        }
+        return min(Double(itemsLoaded) / Double(total), 1.0)
     }
 
     private var isIndeterminate: Bool {
         switch phase {
         case .processingMetadata, .persisting, .cleaningUp:
-            return true
+            true
         case .idle, .fetching:
-            return total != nil && itemsLoaded == nil
+            total != nil && itemsLoaded == nil
         }
     }
 
     private var isLoading: Bool {
-        return total != nil || itemsLoaded != nil
+        total != nil || itemsLoaded != nil
     }
 
     private var statusText: String {
@@ -103,12 +104,8 @@ struct LoadingProgressView: View {
             break
         }
 
-        if let loaded = itemsLoaded, let total = total {
-            if loaded > total {
-                return "Loaded \(total) items"
-            } else {
-                return "Loaded \(loaded) of \(total)"
-            }
+        if let loaded = itemsLoaded, let total {
+            return loaded > total ? "Loaded \(total) items" : "Loaded \(loaded) of \(total)"
         } else if total != nil {
             return "Loading your collection..."
         } else {
@@ -116,30 +113,26 @@ struct LoadingProgressView: View {
         }
     }
 
-    var body: some View {
+    public var body: some View {
         VStack(spacing: 20) {
             if isLoading {
-                if isIndeterminate || progressValue < 0.00 {
-                    // Indeterminate progress indicator
+                if isIndeterminate {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .tint(.secondary)
                         .scaleEffect(1.5)
                 } else {
-                    // Determinate progress bar
                     ProgressView(value: progressValue)
                         .progressViewStyle(.linear)
                         .tint(.secondary)
                         .frame(height: 8)
                         .padding(.horizontal)
 
-                    // Progress percentage
                     HeadlineFontText("\(Int(progressValue * 100))%")
                         .fontWeight(.bold)
                 }
             }
 
-            // Status text
             SubheadlineFontText(statusText)
                 .lineLimit(2, reservesSpace: true)
         }
