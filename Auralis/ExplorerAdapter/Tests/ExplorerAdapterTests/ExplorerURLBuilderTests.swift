@@ -17,35 +17,35 @@ struct ExplorerURLBuilderTests {
     }
 
     @Test("Explorer builder creates chain-specific address URLs", arguments: Self.supportedExplorerCases)
-    func addressURL(testCase: ExplorerCase) throws {
+    private func addressURL(testCase: ExplorerCase) throws {
         let url = try builder.url(for: .address(contract, chain: testCase.chain))
 
         #expect(url.absoluteString == "\(testCase.baseURL)/address/\(contract)")
     }
 
     @Test("Explorer builder creates chain-specific transaction URLs", arguments: Self.supportedExplorerCases)
-    func transactionURL(testCase: ExplorerCase) throws {
+    private func transactionURL(testCase: ExplorerCase) throws {
         let url = try builder.url(for: .transaction(transaction, chain: testCase.chain))
 
         #expect(url.absoluteString == "\(testCase.baseURL)/tx/\(transaction)")
     }
 
     @Test("Explorer builder creates chain-specific token contract URLs", arguments: Self.supportedExplorerCases)
-    func tokenURL(testCase: ExplorerCase) throws {
+    private func tokenURL(testCase: ExplorerCase) throws {
         let url = try builder.url(for: .token(contract: contract, chain: testCase.chain))
 
         #expect(url.absoluteString == "\(testCase.baseURL)/token/\(contract)")
     }
 
     @Test("Explorer builder creates chain-specific NFT asset URLs", arguments: Self.supportedExplorerCases)
-    func nftURL(testCase: ExplorerCase) throws {
+    private func nftURL(testCase: ExplorerCase) throws {
         let url = try builder.url(for: .nft(contract: contract, tokenID: "1", chain: testCase.chain))
 
         #expect(url.absoluteString == "\(testCase.baseURL)/token/\(contract)?a=1")
     }
 
     @Test("Explorer labels match the catalog", arguments: Self.supportedExplorerCases)
-    func labelsMatchCatalog(testCase: ExplorerCase) {
+    private func labelsMatchCatalog(testCase: ExplorerCase) {
         #expect(builder.label(for: testCase.chain) == testCase.label)
     }
 

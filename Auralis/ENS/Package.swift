@@ -17,6 +17,7 @@ let package = Package(
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../ProviderKit"),
         .package(url: "https://github.com/argentlabs/web3.swift", from: "1.6.1"),
+        .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", exact: "0.6.0"),
     ],
     targets: [
         .target(

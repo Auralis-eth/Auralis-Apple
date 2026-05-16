@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 
-public enum AppDeepLinkDestination: Hashable {
+public enum AppDeepLinkDestination: Hashable, Sendable {
     case nft(id: String)
     case token(contractAddress: String, chain: Chain?, symbol: String)
     case receipt(id: String)

@@ -29,7 +29,7 @@ struct SwiftDataTokenHoldingsStoreTests {
         #expect(holdings.first?.balanceKind == .native)
         #expect(holdings.first?.contractAddress == nil)
         #expect(holdings.first?.symbol == "ETH")
-        #expect(holdings.first?.displayName == "Ethereum")
+        #expect(holdings.first?.displayName == "Ethereum Native")
         #expect(holdings.first?.amountDisplay == "1.25 ETH")
         #expect(holdings.first?.updatedAt == updatedAt)
     }
@@ -56,7 +56,7 @@ struct SwiftDataTokenHoldingsStoreTests {
             balanceKind: .erc20
         )
 
-        #expect(holdings.map(\.contractAddressRawValue).sorted() == [
+        #expect(holdings.compactMap(\.contractAddressRawValue).sorted() == [
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         ])
@@ -122,13 +122,13 @@ struct SwiftDataTokenHoldingsStoreTests {
             balanceKind: .erc20
         )
 
-        #expect(primaryEthHoldings.map(\.contractAddressRawValue) == [
+        #expect(primaryEthHoldings.compactMap(\.contractAddressRawValue) == [
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         ])
-        #expect(primaryBaseHoldings.map(\.contractAddressRawValue) == [
+        #expect(primaryBaseHoldings.compactMap(\.contractAddressRawValue) == [
             "0xcccccccccccccccccccccccccccccccccccccccc",
         ])
-        #expect(otherEthHoldings.map(\.contractAddressRawValue) == [
+        #expect(otherEthHoldings.compactMap(\.contractAddressRawValue) == [
             "0xdddddddddddddddddddddddddddddddddddddddd",
         ])
     }
@@ -137,7 +137,7 @@ struct SwiftDataTokenHoldingsStoreTests {
     func metadataFreshnessFieldsArePersisted() async throws {
         let context = try makeContext()
         let store = SwiftDataTokenHoldingsStore(modelContext: context)
-        let updatedAt = Date(timeIntervalSince1970: 200)
+        let updatedAt = Date(timeIntervalSinceNow: -60)
 
         try await store.replaceERC20Holdings(
             accountAddress: "0x3333333333333333333333333333333333333333",

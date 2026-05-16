@@ -212,7 +212,7 @@ private struct ThrowingProviderConfigurationResolver: ProviderConfigurationResol
     }
 }
 
-private struct RPCErrorMappingCase: Sendable {
+struct RPCErrorMappingCase: Sendable {
     let payload: String
     let expectedCode: Int
     let expectedMessage: String

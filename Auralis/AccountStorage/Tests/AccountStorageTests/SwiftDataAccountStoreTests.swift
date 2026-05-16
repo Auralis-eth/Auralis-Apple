@@ -132,6 +132,7 @@ struct SwiftDataAccountStoreTests {
     }
 }
 
+@MainActor
 private func makeStore() throws -> SwiftDataAccountStore {
     let container = try ModelContainer(
         for: Schema([

@@ -15,6 +15,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../ENS"),
+        .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", exact: "0.6.0"),
     ],
     targets: [
         .target(

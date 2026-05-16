@@ -76,7 +76,7 @@ public final class SwiftDataReceiptStore: ReceiptStore {
     ) {
         self.init(
             modelContext: modelContext,
-            persistenceStore: ReceiptPersistenceStore(modelContainer: modelContext.container)
+            persistenceStore: ReceiptStores.persistenceStore(for: modelContext)
         )
     }
 
@@ -161,21 +161,23 @@ public enum ReceiptStores {
             return cachedStore
         }
 
-        let persistenceStore: ReceiptPersistenceStore
-        if let cachedPersistenceStore = cachedPersistenceStores[key] {
-            persistenceStore = cachedPersistenceStore
-        } else {
-            let newPersistenceStore = ReceiptPersistenceStore(modelContainer: modelContext.container)
-            cachedPersistenceStores[key] = newPersistenceStore
-            persistenceStore = newPersistenceStore
-        }
-
         let store = SwiftDataReceiptStore(
             modelContext: modelContext,
-            persistenceStore: persistenceStore
+            persistenceStore: persistenceStore(for: modelContext)
         )
         cachedStores[key] = store
         return store
+    }
+
+    static func persistenceStore(for modelContext: ModelContext) -> ReceiptPersistenceStore {
+        let key = ObjectIdentifier(modelContext.container)
+        if let cachedPersistenceStore = cachedPersistenceStores[key] {
+            return cachedPersistenceStore
+        }
+
+        let newPersistenceStore = ReceiptPersistenceStore(modelContainer: modelContext.container)
+        cachedPersistenceStores[key] = newPersistenceStore
+        return newPersistenceStore
     }
 }
 

@@ -1574,3 +1574,24 @@ PKG-004 is now closed in the important architectural sense: the account-entry pa
 - The plan doc now records that decision directly, which is the real migration hygiene lesson: “not moved” should be a named boundary decision, not a mystery for the next engineer to rediscover.
 
 The memorable bit: a migration is not finished when the files are merely in a new room. It is finished when the new room owns its rules, the old room owns only the adapters, and the map says why the furniture that stayed behind belongs there.
+
+## Package Migration Plans: Stop Moving Furniture Without A Floor Plan
+
+This pass turned the next wave of package candidates into implementation contracts under `Auralis/docs/plans/PackageMigrations/`. The important architectural move was turning “move the furniture over there” into “here is the floor plan, here are the doors, and here is the list of pipes nobody gets to cut.” `ContextCore` comes before `ContextInspectorFeature`, `ApprovalsCore` comes before any speculative approvals UI, and app composition stays in the app target even when feature UI moves out.
+
+- `ReceiptsFeature`, `SearchFeature`, `TokenHoldingsFeature`, and `GasFeature` now have concrete package layouts, public APIs, adapter contracts, dependency graphs, and test ownership. That means implementation should be boring in the best way: move the code, wire the adapters, prove parity.
+- External links got the most important non-move decision. The policy and confirmed-open flow already live in `OperatorCore`, so creating `ExternalLinkFeature` right now would duplicate the map instead of improving the route. The real task is to move the wallet-app probe protocol into `OperatorCore` and keep `UIApplication`, receipts, and `openURL` as app-side adapters.
+- `ApprovalsCore` is deliberately just core vocabulary for now. The current app only blocks policy-controlled actions in Observe mode; inventing a full approvals UI before real agent approval flows exist would be architecture theater.
+
+The lesson sharpened a bit: a migration plan is not implementation-ready until it names the exact DTOs, protocols, package dependencies, access levels, async/cancellation behavior, and app adapters. Otherwise the next engineer is not implementing a plan; they are doing architecture live on stage with a stopwatch running.
+
+## ApprovalsCore: A Permission Slip Before The Inbox Exists
+
+The first approval migration deliberately avoided building an approval center, queue, or review screen. Instead, `ApprovalsCore` now gives the future workflow a small shared vocabulary: immutable approval request IDs, request metadata, requesters, actors, risk levels, audit references, and decisions. It is the permission-slip form, not the front-office filing cabinet.
+
+- The package imports `CapabilitiesCore` directly for `CapabilityID`. No typealias bridge was added, because the point of this migration is to make package boundaries explicit instead of leaving forwarding signs around the codebase.
+- Validation is intentionally boring: request IDs, titles, and summaries are trimmed before storage; empty values throw `ApprovalValidationError`; nil expiry never expires; finite expiry flips at `now >= expiresAt`.
+- The app's current Observe-mode policy behavior stayed untouched. Signing, spending approval, and transaction drafting are still denied by the existing policy gate, and `ApprovalsCore` does not sneak into runtime flow until there is a real approval workflow to model.
+- Tests live with the package using Swift Testing, matching the repo's direction for new unit coverage. One local tooling wrinkle: this machine's selected command-line toolchain is `/Library/Developer/CommandLineTools`, which builds the package source but does not expose the `Testing` module. Run the package tests from an Xcode toolchain or destination that includes Swift Testing.
+
+The useful architecture lesson is restraint. A core package should name the durable nouns and rules first. Storage, routing, receipts, notifications, signing, and UI can arrive later with their own adapters instead of being guessed into existence today.

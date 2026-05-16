@@ -47,7 +47,7 @@ public enum NFTLibraryPresentation {
             let normalizedContractAddress = contractAddress.flatMap(NFT.normalizedScopeComponent)
             filteredNFTs = nfts.filter { nft in
                 if let normalizedContractAddress {
-                    return NFT.normalizedScopeComponent(nft.contract.address) == normalizedContractAddress
+                    return normalizedContractAddresses(for: nft).contains(normalizedContractAddress)
                 }
 
                 let nftCollectionName = (nft.collection?.name ?? nft.collectionName ?? "")
@@ -108,5 +108,13 @@ public enum NFTLibraryPresentation {
         }
 
         return value
+    }
+
+    private static func normalizedContractAddresses(for nft: NFT) -> Set<String> {
+        [nft.contract.address, nft.collection?.contractAddress]
+            .compactMap(NFT.normalizedScopeComponent)
+            .reduce(into: Set<String>()) { addresses, address in
+                addresses.insert(address)
+            }
     }
 }

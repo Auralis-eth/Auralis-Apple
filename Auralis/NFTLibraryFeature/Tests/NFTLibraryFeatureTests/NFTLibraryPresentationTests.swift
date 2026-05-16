@@ -32,7 +32,7 @@ struct NFTLibraryPresentationTests {
         )
 
         #expect(presentation.title == "Moonpunks")
-        #expect(presentation.items.map(\.id) == ["matching"])
+        #expect(presentation.items.map(\.id) == [matching.id])
         #expect(presentation.items.first?.title == "Moonpunk #1")
         #expect(presentation.contractAddressLine == "0xaaaa...aaaa")
     }

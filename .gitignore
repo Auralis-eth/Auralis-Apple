@@ -1,8 +1,12 @@
 
 .DS_Store
-Auralis/.DS_Store
-Auralis/Auralis/.DS_Store
-Auralis/Auralis/SVGView/.DS_Store
-/Auralis/Auralis.xcodeproj/xcuserdata
-/Auralis/Auralis.xcodeproj/project.xcworkspace/xcuserdata
+
+# Swift Package Manager build output
+**/.build/
+
+# Xcode and SwiftPM local user/workspace state
+**/xcuserdata/
+**/*.xcuserstate
+**/.swiftpm/xcode/package.xcworkspace/
+
 Auralis/Auralis/Secrets.plist

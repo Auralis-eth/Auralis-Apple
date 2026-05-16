@@ -26,8 +26,8 @@ public extension ModelContext {
 
         do {
             try work()
-            try save()
             processPendingChanges()
+            try save()
             undoManager.setActionName(actionName)
             undoManager.endUndoGrouping()
         } catch {

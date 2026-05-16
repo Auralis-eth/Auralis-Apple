@@ -191,6 +191,10 @@ public final class NFTImageLoader: ObservableObject {
                 return .failure(.badStatus(httpResponse.statusCode))
             }
 
+            if response.isNFTLibraryVideoResponse {
+                return .failure(.videoData)
+            }
+
             if response.expectedContentLength > Int64(maxDownloadSizeBytes) {
                 return .failure(.fileTooLarge)
             }
@@ -366,6 +370,16 @@ private extension Data {
         }
         let range = NSRange(location: 0, length: string.utf16.count)
         return NFTLibrarySVGConstants.regex.firstMatch(in: string, options: [], range: range) != nil
+    }
+}
+
+private extension URLResponse {
+    var isNFTLibraryVideoResponse: Bool {
+        guard let mimeType = mimeType?.lowercased() else {
+            return false
+        }
+
+        return mimeType.hasPrefix("video/") || mimeType == "application/mp4"
     }
 }
 

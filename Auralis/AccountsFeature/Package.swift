@@ -6,6 +6,7 @@ let package = Package(
     name: "AccountsFeature",
     platforms: [
         .iOS(.v18),
+        .macOS(.v14),
     ],
     products: [
         .library(
@@ -17,7 +18,7 @@ let package = Package(
         .package(path: "../AccountsCore"),
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../AuraUI"),
-        .package(path: "../CodeScanner"),
+        .package(url: "https://github.com/twoStraws/CodeScanner", from: "2.5.2"),
     ],
     targets: [
         .target(
@@ -26,7 +27,7 @@ let package = Package(
                 "AccountsCore",
                 "AuralisPrimaryModels",
                 "AuraUI",
-                "CodeScanner",
+                .product(name: "CodeScanner", package: "CodeScanner"),
             ],
             sources: [
                 "Domain",

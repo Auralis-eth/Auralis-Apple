@@ -34,11 +34,12 @@ struct ShellDependencyBuilderTests {
         let container = try makePrimaryContainer()
         let context = ModelContext(container)
         let dependencies = GatewayDependencies.live(modelContext: context)
-        let accountStore = dependencies.accountStoreFactory(context)
         let receiptStore = ReceiptStores.live(modelContext: context)
 
-        _ = try await accountStore.activateWatchAccount(
+        _ = try await dependencies.featureDependencies.accountActivator.activateWatchAccount(
             from: "0x1234567890abcdef1234567890abcdef12345678",
+            name: nil,
+            source: .manualEntry,
             correlationID: "gateway-account-store"
         )
 
