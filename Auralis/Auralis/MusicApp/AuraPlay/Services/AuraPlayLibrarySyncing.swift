@@ -315,7 +315,9 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
         from snapshots: [SourceNFTSnapshot]
     ) async -> RequestBundle {
         await Task.detached(priority: .userInitiated) {
-            let dedupedSnapshots = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.id, $0) })
+            let dedupedSnapshots = Dictionary(snapshots.map { ($0.id, $0) }) { _, latest in
+                latest
+            }
                 .values
                 .sorted { $0.id < $1.id }
 

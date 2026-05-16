@@ -19,9 +19,13 @@ public final class EOAccount: Codable, Identifiable {
         address
     }
 
+    @Attribute(originalName: "name") private var storedName: String?
+
     public var name: String? {
-        didSet {
-            normalizedName = Self.normalizedName(from: name)
+        get { storedName }
+        set {
+            storedName = newValue
+            normalizedName = Self.normalizedName(from: newValue)
         }
     }
 
@@ -49,7 +53,7 @@ public final class EOAccount: Codable, Identifiable {
         let resolvedName = name ?? EOAccount.defaultName(for: address)
         self.address = address
         self.access = access
-        self.name = resolvedName
+        self.storedName = resolvedName
         self.normalizedName = Self.normalizedName(from: resolvedName)
         self.source = source
         self.addedAt = addedAt
@@ -97,7 +101,7 @@ public final class EOAccount: Codable, Identifiable {
 
         address = decodedAddress
         access = decodedAccess
-        name = decodedName
+        storedName = decodedName
         normalizedName = decodedNormalizedName ?? Self.normalizedName(from: decodedName)
         source = decodedSource
         addedAt = decodedAddedAt

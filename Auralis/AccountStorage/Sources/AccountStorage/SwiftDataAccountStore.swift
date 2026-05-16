@@ -352,16 +352,242 @@ private extension SwiftDataAccountStore {
             fallbackAddress = nil
         }
 
-        try modelContext.performUndoableMutation(named: "Remove Account") {
-            try modelContext.deleteAccountScopedSupportData(accountAddress: removedAddress)
-            try modelContext.deleteNFTsScopedToAccount(removedAddress)
-            modelContext.delete(account)
+        if let undoManager = modelContext.undoManager {
+            let undoSnapshot = try modelContext.accountRemovalUndoSnapshot(
+                account: account,
+                accountAddress: removedAddress
+            )
+
+            undoManager.disableUndoRegistration()
+            do {
+                try modelContext.performRollbackSafeMutation {
+                    try modelContext.deleteAccountScopedSupportData(accountAddress: removedAddress)
+                    try modelContext.deleteNFTsScopedToAccount(removedAddress)
+                    modelContext.delete(account)
+                }
+            } catch {
+                undoManager.enableUndoRegistration()
+                throw error
+            }
+            undoManager.enableUndoRegistration()
+
+            undoManager.removeAllActions()
+            undoManager.registerUndo(withTarget: modelContext) { context in
+                context.undoManager?.disableUndoRegistration()
+                defer {
+                    context.undoManager?.enableUndoRegistration()
+                }
+                try? context.restoreAccountRemovalUndoSnapshot(undoSnapshot)
+            }
+            undoManager.setActionName("Remove Account")
+        } else {
+            try modelContext.performRollbackSafeMutation {
+                try modelContext.deleteAccountScopedSupportData(accountAddress: removedAddress)
+                try modelContext.deleteNFTsScopedToAccount(removedAddress)
+                modelContext.delete(account)
+            }
         }
 
         return AccountPersistenceStore.RemovalSnapshot(
             removedAddress: removedAddress,
             fallbackAddress: fallbackAddress
         )
+    }
+}
+
+private struct AccountRemovalUndoSnapshot {
+    let account: AccountSnapshot
+    let tokenHoldings: [TokenHoldingSnapshot]
+    let searchHistory: [SearchHistorySnapshot]
+    let nfts: [NFTSnapshot]
+}
+
+private struct AccountSnapshot {
+    let address: String
+    let access: EthereumAddressAccess?
+    let name: String?
+    let source: EOAccountSource
+    let addedAt: Date
+    let lastSelectedAt: Date?
+    let trackedNFTCount: Int
+    let preferredChainRawValue: String
+    let currentChainRawValue: String
+    let auraPlaySyncStateRawValue: String?
+
+    init(_ account: EOAccount) {
+        self.address = account.address
+        self.access = account.access
+        self.name = account.name
+        self.source = account.source
+        self.addedAt = account.addedAt
+        self.lastSelectedAt = account.lastSelectedAt
+        self.trackedNFTCount = account.trackedNFTCount
+        self.preferredChainRawValue = account.preferredChainRawValue
+        self.currentChainRawValue = account.currentChainRawValue
+        self.auraPlaySyncStateRawValue = account.auraPlaySyncStateRawValue
+    }
+
+    func model() -> EOAccount {
+        let account = EOAccount(
+            address: address,
+            access: access,
+            name: name,
+            source: source,
+            addedAt: addedAt,
+            lastSelectedAt: lastSelectedAt,
+            trackedNFTCount: trackedNFTCount
+        )
+        account.preferredChainRawValue = preferredChainRawValue
+        account.currentChainRawValue = currentChainRawValue
+        account.auraPlaySyncStateRawValue = auraPlaySyncStateRawValue
+        return account
+    }
+}
+
+private struct TokenHoldingSnapshot {
+    let accountAddress: String
+    let chain: Chain
+    let contractAddress: String?
+    let symbol: String?
+    let displayName: String
+    let amountDisplay: String
+    let balanceKind: TokenHoldingKind
+    let updatedAt: Date
+    let isPlaceholder: Bool
+    let sortPriority: Int
+
+    init(_ holding: TokenHolding) {
+        self.accountAddress = holding.accountAddressRawValue
+        self.chain = holding.chain
+        self.contractAddress = holding.contractAddressRawValue
+        self.symbol = holding.symbol
+        self.displayName = holding.displayName
+        self.amountDisplay = holding.amountDisplay
+        self.balanceKind = holding.balanceKind
+        self.updatedAt = holding.updatedAt
+        self.isPlaceholder = holding.isPlaceholder
+        self.sortPriority = holding.sortPriority
+    }
+
+    func model() -> TokenHolding {
+        TokenHolding(
+            accountAddress: accountAddress,
+            chain: chain,
+            contractAddress: contractAddress,
+            symbol: symbol,
+            displayName: displayName,
+            amountDisplay: amountDisplay,
+            balanceKind: balanceKind,
+            updatedAt: updatedAt,
+            isPlaceholder: isPlaceholder,
+            sortPriority: sortPriority
+        )
+    }
+}
+
+private struct SearchHistorySnapshot {
+    let accountAddressRawValue: String?
+    let normalizedQuery: String
+    let query: String
+    let recordedAt: Date
+
+    init(_ record: SearchHistoryRecord) {
+        self.accountAddressRawValue = record.accountAddressRawValue
+        self.normalizedQuery = record.normalizedQuery
+        self.query = record.query
+        self.recordedAt = record.recordedAt
+    }
+
+    func model() -> SearchHistoryRecord {
+        SearchHistoryRecord(
+            accountAddressRawValue: accountAddressRawValue,
+            normalizedQuery: normalizedQuery,
+            query: query,
+            recordedAt: recordedAt
+        )
+    }
+}
+
+private struct NFTSnapshot {
+    let id: String
+    let contractAddress: String?
+    let tokenId: String
+    let tokenType: String?
+    let name: String?
+    let nftDescription: String?
+    let collectionNameValue: String?
+    let collectionContractAddress: String?
+    let tokenUri: String?
+    let timeLastUpdated: String?
+    let acquiredAtBlockTimestamp: String?
+    let network: Chain
+    let accountAddress: String
+    let contentType: String?
+    let displayCollectionName: String?
+    let artistName: String?
+    let animationUrl: String?
+    let secureAnimationUrl: String?
+    let audioUrl: String?
+    let attributes: [AttributeSnapshot]
+
+    init(_ nft: NFT) {
+        self.id = nft.id
+        self.contractAddress = nft.contract.address
+        self.tokenId = nft.tokenId
+        self.tokenType = nft.tokenType
+        self.name = nft.name
+        self.nftDescription = nft.nftDescription
+        self.collectionNameValue = nft.collection?.name
+        self.collectionContractAddress = nft.collection?.contractAddress
+        self.tokenUri = nft.tokenUri
+        self.timeLastUpdated = nft.timeLastUpdated
+        self.acquiredAtBlockTimestamp = nft.acquiredAt?.blockTimestamp
+        self.network = nft.network ?? .ethMainnet
+        self.accountAddress = nft.accountAddressRawValue
+        self.contentType = nft.contentType
+        self.displayCollectionName = nft.collectionName
+        self.artistName = nft.artistName
+        self.animationUrl = nft.animationUrl
+        self.secureAnimationUrl = nft.secureAnimationUrl
+        self.audioUrl = nft.audioUrl
+        self.attributes = (nft.attributes ?? []).map(AttributeSnapshot.init)
+    }
+
+    func model() -> NFT {
+        NFT(
+            id: id,
+            contract: NFT.Contract(address: contractAddress, chain: network),
+            tokenId: tokenId,
+            tokenType: tokenType,
+            name: name,
+            nftDescription: nftDescription,
+            collection: NFT.Collection(
+                name: collectionNameValue,
+                chain: network,
+                contractAddress: collectionContractAddress
+            ),
+            tokenUri: tokenUri,
+            timeLastUpdated: timeLastUpdated,
+            acquiredAt: NFT.AcquiredAt(blockTimestamp: acquiredAtBlockTimestamp),
+            network: network,
+            accountAddress: accountAddress,
+            contentType: contentType,
+            collectionName: displayCollectionName,
+            artistName: artistName,
+            animationUrl: animationUrl,
+            secureAnimationUrl: secureAnimationUrl,
+            audioUrl: audioUrl
+        )
+    }
+}
+
+private struct AttributeSnapshot {
+    let value: String
+    let traitType: String?
+
+    init(_ attribute: NFT.Attribute) {
+        self.value = attribute.value
+        self.traitType = attribute.traitType
     }
 }
 
@@ -374,25 +600,101 @@ private extension EOAccount {
 }
 
 private extension ModelContext {
-    func deleteAccountScopedSupportData(accountAddress: String) throws {
-        try delete(
-            model: TokenHolding.self,
-            where: #Predicate<TokenHolding> { holding in
+    func containsModel<T: PersistentModel>(_ modelType: T.Type) -> Bool {
+        container.schema.entity(for: modelType) != nil
+    }
+
+    func accountRemovalUndoSnapshot(account: EOAccount, accountAddress: String) throws -> AccountRemovalUndoSnapshot {
+        AccountRemovalUndoSnapshot(
+            account: AccountSnapshot(account),
+            tokenHoldings: try fetchTokenHoldings(accountAddress: accountAddress).map(TokenHoldingSnapshot.init),
+            searchHistory: try fetchSearchHistory(accountAddress: accountAddress).map(SearchHistorySnapshot.init),
+            nfts: try fetchNFTs(accountAddress: accountAddress).map(NFTSnapshot.init)
+        )
+    }
+
+    func restoreAccountRemovalUndoSnapshot(_ snapshot: AccountRemovalUndoSnapshot) throws {
+        insert(snapshot.account.model())
+
+        for holding in snapshot.tokenHoldings where containsModel(TokenHolding.self) {
+            insert(holding.model())
+        }
+
+        for record in snapshot.searchHistory where containsModel(SearchHistoryRecord.self) {
+            insert(record.model())
+        }
+
+        for nft in snapshot.nfts where containsModel(NFT.self) {
+            insert(nft.model())
+        }
+
+        try save()
+    }
+
+    func fetchTokenHoldings(accountAddress: String) throws -> [TokenHolding] {
+        guard containsModel(TokenHolding.self) else {
+            return []
+        }
+
+        let descriptor = FetchDescriptor<TokenHolding>(
+            predicate: #Predicate<TokenHolding> { holding in
                 holding.accountAddressRawValue == accountAddress
             }
         )
-        try delete(
-            model: MusicLibraryItem.self,
-            where: #Predicate<MusicLibraryItem> { item in
-                item.accountAddressRawValue == accountAddress
-            }
-        )
-        try delete(
-            model: SearchHistoryRecord.self,
-            where: #Predicate<SearchHistoryRecord> { record in
+        return try fetch(descriptor)
+    }
+
+    func fetchSearchHistory(accountAddress: String) throws -> [SearchHistoryRecord] {
+        guard containsModel(SearchHistoryRecord.self) else {
+            return []
+        }
+
+        let descriptor = FetchDescriptor<SearchHistoryRecord>(
+            predicate: #Predicate<SearchHistoryRecord> { record in
                 record.accountAddressRawValue == accountAddress
             }
         )
+        return try fetch(descriptor)
+    }
+
+    func fetchNFTs(accountAddress: String) throws -> [NFT] {
+        guard containsModel(NFT.self) else {
+            return []
+        }
+
+        let descriptor = FetchDescriptor<NFT>(
+            predicate: #Predicate<NFT> { nft in
+                nft.accountAddressRawValue == accountAddress
+            }
+        )
+        return try fetch(descriptor)
+    }
+
+    func deleteAccountScopedSupportData(accountAddress: String) throws {
+        if containsModel(TokenHolding.self) {
+            try delete(
+                model: TokenHolding.self,
+                where: #Predicate<TokenHolding> { holding in
+                    holding.accountAddressRawValue == accountAddress
+                }
+            )
+        }
+        if containsModel(MusicLibraryItem.self) {
+            try delete(
+                model: MusicLibraryItem.self,
+                where: #Predicate<MusicLibraryItem> { item in
+                    item.accountAddressRawValue == accountAddress
+                }
+            )
+        }
+        if containsModel(SearchHistoryRecord.self) {
+            try delete(
+                model: SearchHistoryRecord.self,
+                where: #Predicate<SearchHistoryRecord> { record in
+                    record.accountAddressRawValue == accountAddress
+                }
+            )
+        }
 
         let accountDescriptor = FetchDescriptor<EOAccount>(
             predicate: #Predicate<EOAccount> { account in
@@ -405,13 +707,11 @@ private extension ModelContext {
     }
 
     func deleteNFTsScopedToAccount(_ accountAddress: String) throws {
-        let descriptor = FetchDescriptor<NFT>(
-            predicate: #Predicate<NFT> { nft in
-                nft.accountAddressRawValue == accountAddress
-            }
-        )
+        guard containsModel(NFT.self) else {
+            return
+        }
 
-        for nft in try fetch(descriptor) {
+        for nft in try fetchNFTs(accountAddress: accountAddress) {
             delete(nft)
         }
 
@@ -419,18 +719,26 @@ private extension ModelContext {
     }
 
     func pruneOrphanedNFTSharedModels() throws {
+        guard containsModel(NFT.self) else {
+            return
+        }
+
         let allNFTs = try fetch(FetchDescriptor<NFT>())
         let referencedContractIDs = Set(allNFTs.map(\.contract.id))
         let referencedCollectionIDs = Set(allNFTs.compactMap(\.collection?.id))
 
-        let persistedContracts = try fetch(FetchDescriptor<NFT.Contract>())
-        for contract in persistedContracts where !referencedContractIDs.contains(contract.id) {
-            delete(contract)
+        if containsModel(NFT.Contract.self) {
+            let persistedContracts = try fetch(FetchDescriptor<NFT.Contract>())
+            for contract in persistedContracts where !referencedContractIDs.contains(contract.id) {
+                delete(contract)
+            }
         }
 
-        let persistedCollections = try fetch(FetchDescriptor<NFT.Collection>())
-        for collection in persistedCollections where !referencedCollectionIDs.contains(collection.id) {
-            delete(collection)
+        if containsModel(NFT.Collection.self) {
+            let persistedCollections = try fetch(FetchDescriptor<NFT.Collection>())
+            for collection in persistedCollections where !referencedCollectionIDs.contains(collection.id) {
+                delete(collection)
+            }
         }
     }
 }

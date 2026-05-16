@@ -26,7 +26,7 @@ struct PrivacyResetServiceTests {
         )
         let auraPlayPersistenceResetService = RecordingAuraPlayPersistenceResetService()
         let selectionPersistence = RecordingShellSelectionPersistence()
-        let pinnedItemsStore = HomePinnedItemsStore(userDefaults: UserDefaults(suiteName: #function)!)
+        let pinnedItemsStore = makeIsolatedPinnedItemsStore()
         let service = PrivacyResetService(
             transactionalResetService: transactionalResetService,
             ensCacheResetService: ensCacheResetService,
@@ -336,7 +336,7 @@ struct PrivacyResetServiceTests {
             ensCacheResetService: RecordingENSCacheResetService(),
             auraPlayPersistenceResetService: FailingAuraPlayPersistenceResetService(),
             selectionPersistence: RecordingShellSelectionPersistence(),
-            homePinnedItemsStore: HomePinnedItemsStore(userDefaults: UserDefaults(suiteName: "\(#function).pins")!)
+            homePinnedItemsStore: makeIsolatedPinnedItemsStore()
         )
         let searchHistoryStore = SearchHistoryStore(modelContext: context)
 
@@ -362,7 +362,7 @@ struct PrivacyResetServiceTests {
         let ensCacheResetService = RecordingENSCacheResetService()
         let auraPlayPersistenceResetService = FailingOnceAuraPlayPersistenceResetService()
         let selectionPersistence = RecordingShellSelectionPersistence()
-        let pinnedItemsStore = HomePinnedItemsStore(userDefaults: UserDefaults(suiteName: "\(#function).pins")!)
+        let pinnedItemsStore = makeIsolatedPinnedItemsStore()
         let service = PrivacyResetService(
             transactionalResetService: SwiftDataTransactionalPrivacyResetService(
                 modelContainer: context.container
@@ -406,6 +406,13 @@ struct PrivacyResetServiceTests {
         #expect(selectionPersistence.clearSelectionCallCount == 1)
         #expect(pinnedItemsStore.pinnedActions(for: "0x1111111111111111111111111111111111111111").isEmpty)
     }
+}
+
+private func makeIsolatedPinnedItemsStore() -> HomePinnedItemsStore {
+    let suiteName = "PrivacyResetServiceTests.pins.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defaults.removePersistentDomain(forName: suiteName)
+    return HomePinnedItemsStore(userDefaults: defaults)
 }
 
 private func makeFixtureNFT(

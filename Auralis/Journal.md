@@ -1595,3 +1595,51 @@ The first approval migration deliberately avoided building an approval center, q
 - Tests live with the package using Swift Testing, matching the repo's direction for new unit coverage. One local tooling wrinkle: this machine's selected command-line toolchain is `/Library/Developer/CommandLineTools`, which builds the package source but does not expose the `Testing` module. Run the package tests from an Xcode toolchain or destination that includes Swift Testing.
 
 The useful architecture lesson is restraint. A core package should name the durable nouns and rules first. Storage, routing, receipts, notifications, signing, and UI can arrive later with their own adapters instead of being guessed into existence today.
+
+## SwiftData Undo: Do Not Let The Janitor Rebuild The Museum
+
+The account-removal undo test exposed a nasty SwiftData edge case: deleting an account also deletes scoped NFTs, token holdings, and search history. Letting SwiftData record every raw delete into `UndoManager` looked convenient until `context.undoManager?.undo()` tried to create a snapshot for an `NFT.Contract` relationship and crashed with `_FullFutureBackingData`.
+
+The fix was to treat destructive account removal like packing a museum exhibit before renovation. `SwiftDataAccountStore` now takes a small restoration snapshot of the account and its scoped support data, disables automatic undo registration while the destructive delete runs, clears any raw SwiftData undo entries that slipped onto the stack, and registers one explicit undo action that reinserts fresh model instances. The restore action also disables undo registration so SwiftData does not try to create redo snapshots for relationship futures while undo is already in progress.
+
+The lesson: Undo for graph-shaped SwiftData deletes should be a controlled transaction, not a replay of every broom stroke. Snapshot the user-visible state you promise to restore, then make the undo stack hold that promise directly.
+
+## Privacy Reset Tests: Shared Defaults Are Sticky Notes, Not Test Fixtures
+
+The privacy reset suite had the kind of failure pattern that makes engineers squint: targeted runs passed, but Xcode could still report failures after broader or interrupted test sessions. The production reset path was doing the right big things, but part of the test setup used stable `UserDefaults` suite names for pinned home actions. That meant an interrupted run could leave a little sticky note behind for the next run to find.
+
+The fix was intentionally small. `PrivacyResetServiceTests` now creates UUID-backed pinned-item stores, matching the isolation style already used by `HomePinnedItemsStoreTests`. Each test gets a clean preference room instead of borrowing a room with yesterday's notes still on the desk.
+
+The lesson: in-memory SwiftData containers are only half the isolation story. If a test also touches `UserDefaults`, files, caches, or singletons, those need their own fresh sandbox too. Otherwise the bug report starts looking haunted even when the app code is innocent.
+
+## EOAccount Names: Property Observers Do Not Guard The Door
+
+`EOAccountTests` caught a subtle SwiftData trap: `EOAccount.name` looked like it had a perfectly reasonable `didSet` observer that refreshed `normalizedName`, but `@Model` properties do not reliably honor property observers. The result was an account that could change its display name while its indexed search key stayed stuck on the old value.
+
+The fix was to make the public `name` API computed and back it with a persisted `storedName` field using `@Attribute(originalName: "name")`. Now direct assignments like `account.name = "ENS Alias"` update both the stored display name and the normalized search key in one place, while the underlying store keeps the existing column identity.
+
+The lesson: when a SwiftData model needs an invariant, put that invariant in an explicit setter or method you control. A property observer on a persisted model field is more like a decorative lock than a security system.
+
+## Account Deletion: Check Which Storage Room Exists
+
+`P0201FlowValidationTests.validatesPrimaryWatchAccountFlow` hit a crash that looked like account deletion but was really a schema contract mismatch. The flow test used a lean SwiftData container with accounts, NFTs, tags, and receipts. `SwiftDataAccountStore` removed an account, then helpfully tried to delete `TokenHolding`, `MusicLibraryItem`, and `SearchHistoryRecord` rows too. SwiftData quite reasonably replied that this container had no such entity.
+
+The fix was to make account-scoped cleanup ask the container's schema before touching optional support models. In the full app store, account deletion still purges token holdings, music library rows, search history, NFTs, and orphaned NFT shared models. In smaller package or flow-validation containers, it skips models that are not part of that schema instead of crashing.
+
+The lesson: a reusable storage adapter should not assume every test or package container is the production warehouse. If cleanup spans optional feature data, check the schema before opening that door.
+
+## Music Receipts: Nested Payloads Need Their Own Passport
+
+`MusicReceiptEventLoggerTests` exposed a receipt sanitizer mismatch that only showed up inside nested payload objects. The top-level `playlistTitle` field was explicitly classified as a public label, but the same title inside `afterSummary` traveled as a plain object value. Once the sanitizer unpacked that object, it had to infer the field kind from the key and treated `playlistTitle` as an unknown string. Unknown strings get redacted, so the receipt said the playlist title was `<redacted-unclassified-string>`.
+
+The fix was to teach the sanitizer that nested keys containing `title` are bounded freeform display text. That keeps short titles useful in receipts, still truncates long titles, and does not weaken sensitive fields like `reason`, errors, URLs, tokens, or wallet addresses.
+
+The lesson: metadata attached to a top-level receipt field does not automatically follow values into nested dictionaries. If a nested object has strings that should survive sanitization, the inference rules need to know what those keys mean.
+
+## AuraPlay Sync: Dictionary Initializers Are Not Dedupers
+
+`AuraPlayPersistenceWave2Tests.requestBundleDeduplicatesAndSortsSnapshots` found a very Swift-shaped trap: `Dictionary(uniqueKeysWithValues:)` sounds like a handy way to build a lookup, but it is actually a promise that the input has no duplicate keys. Break that promise and it does not politely pick a winner; it crashes.
+
+The AuraPlay sync request builder receives NFT snapshots from a refresh boundary, where duplicate IDs are not exotic. They can happen when upstream data is noisy or when a later snapshot supersedes an earlier one. The fix was to use `Dictionary(_:uniquingKeysWith:)` and make the later snapshot win, then sort by ID before building media-item upsert requests.
+
+The lesson: when production data can contain duplicates, make the conflict policy explicit. A fatal dictionary initializer is a great assertion for impossible states and a bad broom for messy provider data.

@@ -184,6 +184,9 @@ private extension DefaultReceiptPayloadSanitizer {
             if normalizedKey.contains("label") || normalizedKey.contains("kind") || normalizedKey.contains("subject") || normalizedKey.contains("surface") {
                 return .label
             }
+            if normalizedKey.contains("title") {
+                return .freeformText
+            }
             if normalizedKey.contains("error") {
                 return .errorMessage
             }
