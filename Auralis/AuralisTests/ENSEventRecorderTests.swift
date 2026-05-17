@@ -73,7 +73,7 @@ struct ENSEventRecorderTests {
             "ens.forward.cache_hit"
         ])
         #expect(receipts.allSatisfy { $0.scope == "identity.ens" })
-        #expect(receipts.first?.details.values["error"] == ReceiptJSONValue.string("<redacted-error>"))
+        #expect(receipts.first?.details.values["errorCode"] == ReceiptJSONValue.string("<redacted-label>"))
         #expect(receipts.last?.details.values["fetchedAt"] == ReceiptJSONValue.string("1970-01-01T00:02:03Z"))
     }
 }

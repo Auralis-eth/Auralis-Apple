@@ -100,6 +100,27 @@ struct GasPriceEstimateViewModelTests {
                 "Auralis could not refresh gas prices because the provider rejected this build's credentials."
         )
     }
+
+    @Test("gas pricing public messages do not expose raw provider diagnostics")
+    func gasPricingMessagesHideProviderDiagnostics() {
+        let badStatus = AlchemyGasPricingProvider.GasPricingError.badStatus(
+            400,
+            message: #"{"message":"wallet=0x123 apiKey=secret"}"#
+        )
+        let rpcError = AlchemyGasPricingProvider.GasPricingError.rpcError(
+            code: -32000,
+            message: "debug url https://rpc.example/secret?apiKey=secret"
+        )
+
+        #expect(
+            badStatus.userFacingMessage ==
+                "Auralis could not load gas prices because the provider returned HTTP 400."
+        )
+        #expect(
+            rpcError.userFacingMessage ==
+                "Auralis could not load gas prices because the provider reported an error."
+        )
+    }
 }
 
 private struct SlowGasPricingProvider: GasPricingProviding {

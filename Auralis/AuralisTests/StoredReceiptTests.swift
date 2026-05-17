@@ -44,6 +44,10 @@ struct StoredReceiptTests {
             provenance: "on_chain",
             isSuccess: false,
             correlationID: "refresh-7",
+            accountSequenceID: 1,
+            payloadHash: "payload-hash-7",
+            previousReceiptHash: "previous-hash-7",
+            chainHash: "chain-hash-7",
             details: payload
         )
 
@@ -98,6 +102,10 @@ struct StoredReceiptTests {
                 provenance: "user_provided",
                 isSuccess: true,
                 correlationID: "flow-11",
+                accountSequenceID: 1,
+                payloadHash: "payload-hash-11",
+                previousReceiptHash: "previous-hash-11",
+                chainHash: "chain-hash-11",
                 details: ReceiptPayload(values: [
                     "address": .string("0x1234567890abcdef1234567890abcdef12345678")
                 ])
@@ -146,6 +154,10 @@ struct StoredReceiptTests {
             provenance: "local_cache",
             isSuccess: true,
             correlationID: "context-21",
+            accountSequenceID: 1,
+            payloadHash: "payload-hash-21",
+            previousReceiptHash: "previous-hash-21",
+            chainHash: "chain-hash-21",
             details: payload
         )
         storedReceipt.accountAddress = nil

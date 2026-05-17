@@ -147,6 +147,10 @@ private func makeStoredReceipt(
         correlationID: nil,
         timelineAccountAddress: nil,
         timelineChainRawValue: nil,
+        accountSequenceID: sequenceID,
+        payloadHash: "payload-hash-\(sequenceID)",
+        previousReceiptHash: "previous-hash-\(sequenceID)",
+        chainHash: "chain-hash-\(sequenceID)",
         details: ReceiptPayload(values: [:])
     )
 }

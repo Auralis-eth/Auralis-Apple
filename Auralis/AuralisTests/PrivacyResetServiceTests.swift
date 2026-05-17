@@ -25,12 +25,14 @@ struct PrivacyResetServiceTests {
             modelContainer: context.container
         )
         let auraPlayPersistenceResetService = RecordingAuraPlayPersistenceResetService()
+        let credentialResetService = RecordingCredentialPrivacyResetter()
         let selectionPersistence = RecordingShellSelectionPersistence()
         let pinnedItemsStore = makeIsolatedPinnedItemsStore()
         let service = PrivacyResetService(
             transactionalResetService: transactionalResetService,
             ensCacheResetService: ensCacheResetService,
             auraPlayPersistenceResetService: auraPlayPersistenceResetService,
+            credentialResetService: credentialResetService,
             selectionPersistence: selectionPersistence,
             homePinnedItemsStore: pinnedItemsStore
         )
@@ -70,6 +72,7 @@ struct PrivacyResetServiceTests {
         #expect(searchHistoryStore.entries(for: "0x1111111111111111111111111111111111111111").isEmpty)
         #expect(await ensCacheResetService.resetCount() == 1)
         #expect(await auraPlayPersistenceResetService.resetCount() == 1)
+        #expect(await credentialResetService.clearCount() == 1)
         #expect(try context.fetch(FetchDescriptor<StoredReceipt>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<NFT>()).isEmpty)
@@ -335,6 +338,7 @@ struct PrivacyResetServiceTests {
             ),
             ensCacheResetService: RecordingENSCacheResetService(),
             auraPlayPersistenceResetService: FailingAuraPlayPersistenceResetService(),
+            credentialResetService: RecordingCredentialPrivacyResetter(),
             selectionPersistence: RecordingShellSelectionPersistence(),
             homePinnedItemsStore: makeIsolatedPinnedItemsStore()
         )
@@ -369,6 +373,7 @@ struct PrivacyResetServiceTests {
             ),
             ensCacheResetService: ensCacheResetService,
             auraPlayPersistenceResetService: auraPlayPersistenceResetService,
+            credentialResetService: RecordingCredentialPrivacyResetter(),
             selectionPersistence: selectionPersistence,
             homePinnedItemsStore: pinnedItemsStore
         )
@@ -405,6 +410,32 @@ struct PrivacyResetServiceTests {
         #expect(await ensCacheResetService.resetCount() == 2)
         #expect(selectionPersistence.clearSelectionCallCount == 1)
         #expect(pinnedItemsStore.pinnedActions(for: "0x1111111111111111111111111111111111111111").isEmpty)
+    }
+
+    @Test("privacy reset surfaces credential clearing failures as typed phase errors")
+    func resetLocalPrivacyDataFailsWhenCredentialClearFails() async throws {
+        let container = try TestModelContainers.primary()
+        let context = ModelContext(container)
+        let service = PrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+                modelContainer: context.container
+            ),
+            ensCacheResetService: RecordingENSCacheResetService(),
+            auraPlayPersistenceResetService: RecordingAuraPlayPersistenceResetService(),
+            credentialResetService: FailingCredentialPrivacyResetter(),
+            selectionPersistence: RecordingShellSelectionPersistence(),
+            homePinnedItemsStore: makeIsolatedPinnedItemsStore()
+        )
+
+        await #expect {
+            try await service.resetLocalPrivacyData()
+        } throws: { error in
+            guard case LocalDataResetError.phaseFailed(let phase, let completedPhases, _) = error else {
+                return false
+            }
+            return phase == .credentialStore
+                && completedPhases == [.transactionalStore, .supportCaches, .auraPlayPersistence]
+        }
     }
 }
 
@@ -489,6 +520,10 @@ private func makeFixtureStoredReceipt(
         isSuccess: true,
         timelineAccountAddress: accountAddress,
         timelineChainRawValue: chainRawValue,
+        accountSequenceID: 1,
+        payloadHash: "payload-hash-\(accountAddress)",
+        previousReceiptHash: "previous-hash-\(accountAddress)",
+        chainHash: "chain-hash-\(accountAddress)",
         details: ReceiptPayload(values: [:])
     )
 }
@@ -541,6 +576,26 @@ private actor FailingOnceAuraPlayPersistenceResetService: AuraPlayPersistenceRes
 
     func attemptCount() -> Int {
         resetCallCount
+    }
+}
+
+private actor RecordingCredentialPrivacyResetter: CredentialPrivacyResetting {
+    private var count = 0
+
+    func clearCredentials() async throws {
+        count += 1
+    }
+
+    func clearCount() -> Int {
+        count
+    }
+}
+
+private actor FailingCredentialPrivacyResetter: CredentialPrivacyResetting {
+    struct Failure: Error { }
+
+    func clearCredentials() async throws {
+        throw Failure()
     }
 }
 

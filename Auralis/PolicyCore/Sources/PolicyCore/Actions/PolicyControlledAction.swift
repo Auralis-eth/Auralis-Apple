@@ -42,6 +42,13 @@ public enum PolicyControlledAction: String, CaseIterable, Sendable {
         }
     }
 
+    public var requiresHighRiskReceipt: Bool {
+        switch self {
+        case .signMessage, .approveSpending, .draftTransaction, .runPlugin:
+            return true
+        }
+    }
+
     public var capabilityID: CapabilityID {
         switch self {
         case .signMessage:

@@ -23,7 +23,7 @@ struct ReceiptResetServiceTests {
             modelContext: context,
             sequenceAllocator: ReceiptSequenceAllocator()
         )
-        let resetService = SwiftDataReceiptResetService(modelContext: context)
+        let resetService = SwiftDataReceiptResetService(receiptStore: store)
         return (store, resetService)
     }
 

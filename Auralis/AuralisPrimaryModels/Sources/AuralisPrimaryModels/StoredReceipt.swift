@@ -25,6 +25,10 @@ public final class StoredReceipt {
     public var correlationID: String?
     public var accountAddress: String?
     public var chainRawValue: String?
+    public var accountSequenceID: Int
+    public var payloadHash: String
+    public var previousReceiptHash: String
+    public var chainHash: String
     @Attribute(.externalStorage) private var detailsData: Data
 
     public init(
@@ -41,6 +45,10 @@ public final class StoredReceipt {
         correlationID: String? = nil,
         timelineAccountAddress: String? = nil,
         timelineChainRawValue: String? = nil,
+        accountSequenceID: Int,
+        payloadHash: String,
+        previousReceiptHash: String,
+        chainHash: String,
         details: ReceiptPayload
     ) throws {
         self.id = id
@@ -56,6 +64,10 @@ public final class StoredReceipt {
         self.correlationID = correlationID
         self.accountAddress = timelineAccountAddress ?? details.timelineAccountAddress
         self.chainRawValue = timelineChainRawValue ?? details.timelineChainRawValue
+        self.accountSequenceID = accountSequenceID
+        self.payloadHash = payloadHash
+        self.previousReceiptHash = previousReceiptHash
+        self.chainHash = chainHash
         self.detailsData = try Self.encodeDetails(details)
     }
 

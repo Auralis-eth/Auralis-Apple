@@ -49,7 +49,7 @@ struct NoBypassSmokeTests {
         #expect(receipts.first?.details.values["action"] == ReceiptJSONValue.string("draft_transaction"))
     }
 
-    @Test("allowed observe actions do not masquerade as denied policy events")
+    @Test("allowed high-risk observe actions record approval receipts without masquerading as denial events")
     @MainActor
     func allowedObserveActionsDoNotWriteDenialReceipts() async throws {
         let container = try makeContainer()
@@ -70,7 +70,12 @@ struct NoBypassSmokeTests {
 
         #expect(result.isAllowed == true)
         #expect(result.userMessage.isEmpty)
-        #expect(receipts.isEmpty)
+        #expect(receipts.count == 1)
+        #expect(receipts.first?.trigger == "policy.approved")
+        #expect(receipts.first?.isSuccess == true)
+        #expect(receipts.first?.details.values["action"] == ReceiptJSONValue.string("run_plugin"))
+        #expect(receipts.first?.details.values["policy_denied"] == ReceiptJSONValue.bool(false))
+        #expect(receipts.first?.details.values["policy_approved"] == ReceiptJSONValue.bool(true))
     }
 
     @Test("raw deep-link input is labeled while non-raw route errors are not")

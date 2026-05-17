@@ -1,6 +1,13 @@
 import AuralisPrimaryModels
 import Foundation
 
+public enum ProviderPublicErrorCode: String, Equatable, Sendable {
+    case rateLimited
+    case unauthorizedProviderConfiguration
+    case providerUnavailable
+    case invalidResponse
+}
+
 public enum ProviderAbstractionError: LocalizedError, Equatable {
     case missingAPIKey(Secrets.APIKeyProvider)
     case unsupportedChain(Chain)
@@ -50,6 +57,19 @@ public enum ProviderAbstractionError: LocalizedError, Equatable {
             return "Provider does not support the requested RPC method."
         case .providerError(let message):
             return "Provider returned an RPC error: \(message)"
+        }
+    }
+
+    public var publicErrorCode: ProviderPublicErrorCode {
+        switch self {
+        case .rateLimited:
+            return .rateLimited
+        case .missingAPIKey, .invalidURL, .unauthorized:
+            return .unauthorizedProviderConfiguration
+        case .invalidResponse, .invalidBalancePayload, .paginationStalled:
+            return .invalidResponse
+        case .offline, .unavailable, .unsupportedChain, .unsupportedMethod, .badStatus, .providerError, .invalidAddress:
+            return .providerUnavailable
         }
     }
 }

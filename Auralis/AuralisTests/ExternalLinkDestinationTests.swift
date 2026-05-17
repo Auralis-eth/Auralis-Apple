@@ -105,6 +105,7 @@ struct ExternalLinkDestinationTests {
         let policy = ExternalLinkPolicy()
 
         let unsupportedHost = ExternalLinkCandidateDestination(label: "Bad", url: URL(string: "https://example.com/phish")!)
+        let unsupportedPath = ExternalLinkCandidateDestination(label: "Bad Path", url: URL(string: "https://opensea.io/settings")!)
         let missingHost = ExternalLinkCandidateDestination(label: "Broken", url: URL(string: "https:///missing-host")!)
         let badSchemes = [
             "javascript:alert(1)",
@@ -114,6 +115,7 @@ struct ExternalLinkDestinationTests {
         ]
 
         #expect(policy.validate(unsupportedHost) == .failure(.unsupportedHost("example.com")))
+        #expect(policy.validate(unsupportedPath) == .failure(.unsupportedPath(host: "opensea.io", path: "/settings")))
         #expect(policy.validate(missingHost) == .failure(.missingHost))
 
         for rawValue in badSchemes {
@@ -144,6 +146,8 @@ struct ExternalLinkDestinationTests {
         }
         #expect(tokenDestination.hostDisplay == "opensea.io")
         #expect(tokenDestination.pathDisplay == "/assets/base/0xabc/1")
+        #expect(tokenDestination.routeTypeDisplay == "Marketplace")
         #expect(tokenDestination.fullURLDisplay == "https://opensea.io/assets/base/0xabc/1?ref=auralis")
+        #expect(tokenDestination.fullURLDisplay == tokenDestination.url.absoluteString)
     }
 }

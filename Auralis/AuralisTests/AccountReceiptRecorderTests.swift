@@ -129,7 +129,7 @@ struct AccountReceiptRecorderTests {
         #expect(receipts.first?.details.values["policy_denied"] == ReceiptJSONValue.bool(true))
     }
 
-    @Test("policy gate allows plugin actions in observe mode without writing denial receipts")
+    @Test("policy gate allows plugin actions in observe mode and records an approval receipt")
     @MainActor
     func observeModePolicyGateAllowsPluginActions() async throws {
         let container = try makeContainer()
@@ -150,7 +150,13 @@ struct AccountReceiptRecorderTests {
 
         #expect(result.isAllowed == true)
         #expect(result.userMessage.isEmpty)
-        #expect(receipts.isEmpty)
+        #expect(receipts.count == 1)
+        #expect(receipts.first?.trigger == "policy.approved")
+        #expect(receipts.first?.scope == "policy")
+        #expect(receipts.first?.mode == .observe)
+        #expect(receipts.first?.isSuccess == true)
+        #expect(receipts.first?.details.values["action"] == ReceiptJSONValue.string("run_plugin"))
+        #expect(receipts.first?.details.values["policy_approved"] == ReceiptJSONValue.bool(true))
     }
 
     @Test("chain-scope account events emit one receipt per real preferred and current change")

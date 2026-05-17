@@ -726,7 +726,7 @@ extension AlchemyGasPricingProvider.GasPricingError {
             return "Auralis could not load gas prices because the provider did not respond cleanly."
         case .badStatus(let statusCode, let message):
             if let message, !message.isEmpty {
-                return "Auralis could not load gas prices because the provider returned HTTP \(statusCode) (\(message))."
+                return "Auralis could not load gas prices because the provider returned HTTP \(statusCode)."
             }
             return "Auralis could not load gas prices because the provider returned HTTP \(statusCode)."
         case .invalidResponse:
@@ -739,8 +739,8 @@ extension AlchemyGasPricingProvider.GasPricingError {
             return "Auralis could not refresh gas prices because the provider rejected this build's credentials."
         case .unsupportedMethod:
             return "Auralis could not refresh gas prices because the provider does not support the required method."
-        case .rpcError(_, let message):
-            return "Auralis could not load gas prices because the provider reported an error: \(message)"
+        case .rpcError:
+            return "Auralis could not load gas prices because the provider reported an error."
         }
     }
 }

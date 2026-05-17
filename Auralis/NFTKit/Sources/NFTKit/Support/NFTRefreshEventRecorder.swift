@@ -153,7 +153,6 @@ public final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecordin
             rawPayload: NFTFetchFailedPayload(
                 accountAddress: accountAddress,
                 chain: chain,
-                errorDescription: String(describing: error),
                 providerFailure: NFTProviderFailure(error: error)
             ).rawPayload,
             summary: "NFT fetch failed",
@@ -196,7 +195,7 @@ public final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecordin
             rawPayload: NFTPersistenceFailedPayload(
                 accountAddress: accountAddress,
                 chain: chain,
-                errorDescription: String(describing: error)
+                errorCode: "persistenceFailed"
             ).rawPayload,
             summary: "Persisting refreshed NFTs failed",
             isSuccess: false
@@ -284,14 +283,17 @@ private struct NFTFetchSucceededPayload: TypedReceiptPayload {
 private struct NFTFetchFailedPayload: TypedReceiptPayload {
     let accountAddress: String
     let chain: Chain
-    let errorDescription: String
     let providerFailure: NFTProviderFailure?
 
     var fields: [ReceiptPayloadField] {
         var fields: [ReceiptPayloadField] = [
             .hashed("accountAddress", string: accountAddress, kind: .walletAddress),
             .public("chain", string: chain.rawValue, kind: .chain),
-            .redacted("error", string: errorDescription, kind: .errorMessage)
+            .public(
+                "errorCode",
+                string: (providerFailure?.publicErrorCode ?? .providerUnavailable).rawValue,
+                kind: .label
+            )
         ]
 
         if let providerFailure {
@@ -320,13 +322,13 @@ private struct NFTPersistenceCompletedPayload: TypedReceiptPayload {
 private struct NFTPersistenceFailedPayload: TypedReceiptPayload {
     let accountAddress: String
     let chain: Chain
-    let errorDescription: String
+    let errorCode: String
 
     var fields: [ReceiptPayloadField] {
         [
             .hashed("accountAddress", string: accountAddress, kind: .walletAddress),
             .public("chain", string: chain.rawValue, kind: .chain),
-            .redacted("error", string: errorDescription, kind: .errorMessage)
+            .public("errorCode", string: errorCode, kind: .label)
         ]
     }
 }

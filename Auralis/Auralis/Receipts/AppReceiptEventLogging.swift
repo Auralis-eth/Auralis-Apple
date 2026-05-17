@@ -169,7 +169,7 @@ extension ReceiptEventLogger {
             rawPayload: MusicLibraryIndexFailedReceiptPayload(
                 accountAddress: accountAddress,
                 chain: chain,
-                errorDescription: String(describing: error)
+                errorCode: "musicLibraryIndexFailed"
             ).rawPayload,
             correlationID: correlationID,
             actor: .system,
@@ -221,7 +221,7 @@ private struct ExternalLinkOpenedReceiptPayload: TypedReceiptPayload {
         var fields: [ReceiptPayloadField] = [
             .public("label", string: label, kind: .label),
             .public("surface", string: surface, kind: .label),
-            .public("url", string: url.absoluteString, kind: .url),
+            .public("url", string: url.receiptSafeExternalLinkString, kind: .url),
             .public("provenance", string: provenance.rawValue, kind: .label)
         ]
 
@@ -236,6 +236,17 @@ private struct ExternalLinkOpenedReceiptPayload: TypedReceiptPayload {
         }
 
         return fields
+    }
+}
+
+private extension URL {
+    var receiptSafeExternalLinkString: String {
+        guard var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else {
+            return absoluteString
+        }
+        components.percentEncodedQuery = nil
+        components.fragment = nil
+        return components.string ?? absoluteString
     }
 }
 
@@ -298,13 +309,13 @@ private struct MusicLibraryIndexCompletedReceiptPayload: TypedReceiptPayload {
 private struct MusicLibraryIndexFailedReceiptPayload: TypedReceiptPayload {
     let accountAddress: String
     let chain: Chain
-    let errorDescription: String
+    let errorCode: String
 
     var fields: [ReceiptPayloadField] {
         [
             .hashed("accountAddress", string: accountAddress, kind: .walletAddress),
             .public("chain", string: chain.rawValue, kind: .chain),
-            .redacted("error", string: errorDescription, kind: .errorMessage)
+            .public("errorCode", string: errorCode, kind: .label)
         ]
     }
 }

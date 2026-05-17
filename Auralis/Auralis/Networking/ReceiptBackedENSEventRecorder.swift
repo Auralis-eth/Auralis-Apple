@@ -88,7 +88,7 @@ final class ReceiptBackedENSEventRecorder: ENSEventRecording {
             rawPayload: ENSLookupFailedReceiptPayload(
                 kind: kind,
                 key: key,
-                errorDescription: String(describing: error)
+                errorCode: "lookupFailed"
             ).rawPayload
         )
     }
@@ -202,13 +202,13 @@ private struct ENSLookupSucceededReceiptPayload: TypedReceiptPayload {
 private struct ENSLookupFailedReceiptPayload: TypedReceiptPayload {
     let kind: String
     let key: String
-    let errorDescription: String
+    let errorCode: String
 
     var fields: [ReceiptPayloadField] {
         [
             .public("lookupKind", string: kind, kind: .label),
             .hashed("key", string: key, kind: .unknownString),
-            .redacted("error", string: errorDescription, kind: .errorMessage)
+            .public("errorCode", string: errorCode, kind: .label)
         ]
     }
 }

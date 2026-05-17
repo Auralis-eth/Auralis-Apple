@@ -235,6 +235,10 @@ public struct ReceiptRecord: Identifiable, Codable, Equatable, Sendable {
     public let provenance: String
     public let isSuccess: Bool
     public let correlationID: String?
+    public let accountSequenceID: Int
+    public let payloadHash: String
+    public let previousReceiptHash: String
+    public let chainHash: String
     public let details: ReceiptPayload
 
     public init(
@@ -249,6 +253,10 @@ public struct ReceiptRecord: Identifiable, Codable, Equatable, Sendable {
         provenance: String,
         isSuccess: Bool,
         correlationID: String?,
+        accountSequenceID: Int = 1,
+        payloadHash: String = "",
+        previousReceiptHash: String = "",
+        chainHash: String = "",
         details: ReceiptPayload
     ) {
         self.id = id
@@ -262,6 +270,10 @@ public struct ReceiptRecord: Identifiable, Codable, Equatable, Sendable {
         self.provenance = provenance
         self.isSuccess = isSuccess
         self.correlationID = correlationID
+        self.accountSequenceID = accountSequenceID
+        self.payloadHash = payloadHash
+        self.previousReceiptHash = previousReceiptHash
+        self.chainHash = chainHash
         self.details = details
     }
 }

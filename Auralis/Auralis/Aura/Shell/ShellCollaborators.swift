@@ -62,9 +62,9 @@ struct UserDefaultsShellSelectionPersistence: ShellSelectionPersisting {
     }
 
     func clearSelection() {
-        try? store.save([defaultSelection])
-        defaults.set(defaultSelection.address, forKey: legacyAddressKey)
-        defaults.set(defaultSelection.chainID, forKey: legacyChainIDKey)
+        store.clear()
+        defaults.removeObject(forKey: legacyAddressKey)
+        defaults.removeObject(forKey: legacyChainIDKey)
     }
 }
 

@@ -15,6 +15,7 @@ public struct ExternalLinkConfirmationDestination: Identifiable, Equatable, Send
     public let url: URL
     public let hostDisplay: String
     public let pathDisplay: String
+    public let routeTypeDisplay: String
     public let fullURLDisplay: String
 
     public var id: String {
@@ -26,12 +27,14 @@ public struct ExternalLinkConfirmationDestination: Identifiable, Equatable, Send
         url: URL,
         hostDisplay: String,
         pathDisplay: String,
+        routeTypeDisplay: String = "Approved route",
         fullURLDisplay: String
     ) {
         self.label = label
         self.url = url
         self.hostDisplay = hostDisplay
         self.pathDisplay = pathDisplay
+        self.routeTypeDisplay = routeTypeDisplay
         self.fullURLDisplay = fullURLDisplay
     }
 }

@@ -4,6 +4,7 @@ import AuralisPrimaryModels
 import Foundation
 import MusicFeature
 import ProviderKit
+import ReceiptStorage
 import SwiftData
 
 protocol TransactionalPrivacyResetting: Sendable {
@@ -14,40 +15,96 @@ protocol AuraPlayPersistenceResetting: Sendable {
     func resetAuraPlayPersistence() async throws
 }
 
+protocol CredentialPrivacyResetting: Sendable {
+    func clearCredentials() async throws
+}
+
+struct PasswordCredentialPrivacyResetter: CredentialPrivacyResetting {
+    func clearCredentials() async throws {
+        try await Password.clear()
+    }
+}
+
 @ModelActor
 actor SwiftDataTransactionalPrivacyResetService: TransactionalPrivacyResetting {
-    func resetTransactionalPrivacyData() throws {
-        try modelContext.performRollbackSafeMutation {
-            try modelContext.delete(
-                model: StoredReceipt.self,
-                where: #Predicate<StoredReceipt> { _ in true }
-            )
-            try modelContext.delete(
-                model: SearchHistoryRecord.self,
-                where: #Predicate<SearchHistoryRecord> { _ in true }
-            )
-            try modelContext.delete(
-                model: TokenHolding.self,
-                where: #Predicate<TokenHolding> { _ in true }
-            )
-            try modelContext.delete(
-                model: MusicLibraryItem.self,
-                where: #Predicate<MusicLibraryItem> { _ in true }
-            )
-            try modelContext.delete(
-                model: Playlist.self,
-                where: #Predicate<Playlist> { _ in true }
-            )
-            try modelContext.deleteAllNFTData()
+    func resetTransactionalPrivacyData() async throws {
+        let receiptHeads = try latestReceiptHeads()
+        let receiptIntegrityHeadStore = KeychainReceiptIntegrityHeadStore()
 
-            let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
-            for account in accounts {
-                if account.trackedNFTCount != 0 {
-                    account.trackedNFTCount = 0
+        try await receiptIntegrityHeadStore.clearAllHeads()
+        do {
+            try modelContext.performRollbackSafeMutation {
+                try modelContext.delete(
+                    model: StoredReceipt.self,
+                    where: #Predicate<StoredReceipt> { _ in true }
+                )
+                try modelContext.delete(
+                    model: SearchHistoryRecord.self,
+                    where: #Predicate<SearchHistoryRecord> { _ in true }
+                )
+                try modelContext.delete(
+                    model: TokenHolding.self,
+                    where: #Predicate<TokenHolding> { _ in true }
+                )
+                try modelContext.delete(
+                    model: MusicLibraryItem.self,
+                    where: #Predicate<MusicLibraryItem> { _ in true }
+                )
+                try modelContext.delete(
+                    model: Playlist.self,
+                    where: #Predicate<Playlist> { _ in true }
+                )
+                try modelContext.deleteAllNFTData()
+
+                let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
+                for account in accounts {
+                    if account.trackedNFTCount != 0 {
+                        account.trackedNFTCount = 0
+                    }
+                    account.clearAllAuraPlaySyncState()
                 }
-                account.clearAllAuraPlaySyncState()
+            }
+        } catch {
+            for (accountKey, chainHash) in receiptHeads {
+                try? await receiptIntegrityHeadStore.saveHead(chainHash, for: accountKey)
+            }
+            throw error
+        }
+    }
+
+    private func latestReceiptHeads() throws -> [String: String] {
+        let receipts = try modelContext.fetch(FetchDescriptor<StoredReceipt>())
+        var latestByAccount: [String: StoredReceipt] = [:]
+
+        for receipt in receipts where receipt.hasCompleteIntegrityMetadata {
+            let accountKey = receipt.receiptIntegrityAccountKey
+            let current = latestByAccount[accountKey]
+            if current == nil
+                || receipt.accountSequenceID > current!.accountSequenceID
+                || (
+                    receipt.accountSequenceID == current!.accountSequenceID
+                    && receipt.sequenceID > current!.sequenceID
+                ) {
+                latestByAccount[accountKey] = receipt
             }
         }
+
+        return latestByAccount.mapValues(\.chainHash)
+    }
+}
+
+private extension StoredReceipt {
+    var hasCompleteIntegrityMetadata: Bool {
+        !payloadHash.isEmpty
+            && !previousReceiptHash.isEmpty
+            && !chainHash.isEmpty
+    }
+
+    var receiptIntegrityAccountKey: String {
+        guard let accountAddress, !accountAddress.isEmpty else {
+            return "global"
+        }
+        return accountAddress.lowercased()
     }
 }
 
@@ -92,6 +149,7 @@ enum PrivacyResetPhase: String, Sendable, CaseIterable {
     case transactionalStore = "transactional wallet data"
     case supportCaches = "support caches"
     case auraPlayPersistence = "AuraPlay persistence"
+    case credentialStore = "credential store"
     case localPreferences = "local preferences"
 }
 
@@ -123,6 +181,7 @@ struct PrivacyResetService: PrivacyResetting {
     private let transactionalResetService: any TransactionalPrivacyResetting
     private let ensCacheResetService: any ENSCacheResetting
     private let auraPlayPersistenceResetService: any AuraPlayPersistenceResetting
+    private let credentialResetService: any CredentialPrivacyResetting
     private let selectionPersistence: any ShellSelectionPersisting
     private let homePinnedItemsStore: HomePinnedItemsStore
 
@@ -130,12 +189,14 @@ struct PrivacyResetService: PrivacyResetting {
         transactionalResetService: any TransactionalPrivacyResetting,
         ensCacheResetService: any ENSCacheResetting,
         auraPlayPersistenceResetService: any AuraPlayPersistenceResetting,
+        credentialResetService: any CredentialPrivacyResetting = PasswordCredentialPrivacyResetter(),
         selectionPersistence: any ShellSelectionPersisting = UserDefaultsShellSelectionPersistence(),
         homePinnedItemsStore: HomePinnedItemsStore = HomePinnedItemsStore()
     ) {
         self.transactionalResetService = transactionalResetService
         self.ensCacheResetService = ensCacheResetService
         self.auraPlayPersistenceResetService = auraPlayPersistenceResetService
+        self.credentialResetService = credentialResetService
         self.selectionPersistence = selectionPersistence
         self.homePinnedItemsStore = homePinnedItemsStore
     }
@@ -168,8 +229,20 @@ struct PrivacyResetService: PrivacyResetting {
         }
         completedPhases.append(.auraPlayPersistence)
 
+        do {
+            try await credentialResetService.clearCredentials()
+        } catch {
+            throw LocalDataResetError.phaseFailed(
+                phase: .credentialStore,
+                completedPhases: completedPhases,
+                underlying: error
+            )
+        }
+        completedPhases.append(.credentialStore)
+
         selectionPersistence.clearSelection()
         homePinnedItemsStore.clearAll()
+        completedPhases.append(.localPreferences)
     }
 }
 
@@ -187,6 +260,7 @@ enum PrivacyResetServices {
             auraPlayPersistenceResetService: auraPlayModelContainer.map {
                 SwiftDataAuraPlayPersistenceResetService(modelContainer: $0)
             } ?? AuraPlayStoreResetService(),
+            credentialResetService: PasswordCredentialPrivacyResetter(),
             selectionPersistence: UserDefaultsShellSelectionPersistence(),
             homePinnedItemsStore: HomePinnedItemsStore()
         )

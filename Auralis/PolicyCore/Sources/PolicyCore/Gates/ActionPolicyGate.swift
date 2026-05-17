@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import ReceiptsCore
 
 /// Applies the current action policy and records denied execution-style behavior.
@@ -11,6 +12,17 @@ public enum ActionPolicyGate {
         log: @escaping (String) -> Void = { _ in }
     ) async -> PolicyGateResult {
         guard mode == .observe, action.isBlockedInObserveMode else {
+            if action.requiresHighRiskReceipt, let receiptStore {
+                await appendPolicyReceipt(
+                    action: action,
+                    mode: mode,
+                    receiptStore: receiptStore,
+                    payloadSanitizer: payloadSanitizer,
+                    decision: .approved,
+                    userMessage: "Policy allowed this high-risk action.",
+                    log: log
+                )
+            }
             return PolicyGateResult(isAllowed: true, userMessage: "")
         }
 
@@ -18,46 +30,87 @@ public enum ActionPolicyGate {
         log("Policy denied: \(action.rawValue)")
 
         if let receiptStore {
-            let payload = payloadSanitizer.sanitize(
-                PolicyDeniedReceiptPayload(
-                    action: action.rawValue,
-                    capabilityID: action.capabilityID.rawValue,
-                    userMessage: userMessage
-                ).rawPayload
+            await appendPolicyReceipt(
+                action: action,
+                mode: mode,
+                receiptStore: receiptStore,
+                payloadSanitizer: payloadSanitizer,
+                decision: .denied,
+                userMessage: userMessage,
+                log: log
             )
-
-            do {
-                _ = try await receiptStore.append(
-                    ReceiptDraft(
-                        actor: .user,
-                        mode: .observe,
-                        trigger: "policy.denied",
-                        scope: "policy",
-                        summary: action.summary,
-                        provenance: "policy",
-                        isSuccess: false,
-                        details: payload
-                    )
-                )
-            } catch {
-                log("Policy denial receipt append failed: \(error.localizedDescription)")
-            }
         }
 
         return PolicyGateResult(isAllowed: false, userMessage: userMessage)
     }
 }
 
-private struct PolicyDeniedReceiptPayload: TypedReceiptPayload {
+private extension ActionPolicyGate {
+    enum PolicyReceiptDecision: String {
+        case approved
+        case denied
+
+        var trigger: String {
+            "policy.\(rawValue)"
+        }
+    }
+
+    static func appendPolicyReceipt(
+        action: PolicyControlledAction,
+        mode: AppMode,
+        receiptStore: any ReceiptStore,
+        payloadSanitizer: any ReceiptPayloadSanitizing,
+        decision: PolicyReceiptDecision,
+        userMessage: String,
+        log: @escaping (String) -> Void
+    ) async {
+        let payload = payloadSanitizer.sanitize(
+            PolicyDecisionReceiptPayload(
+                action: action.rawValue,
+                capabilityID: action.capabilityID.rawValue,
+                decision: decision.rawValue,
+                userMessage: userMessage
+            ).rawPayload
+        )
+
+        do {
+            _ = try await receiptStore.append(
+                ReceiptDraft(
+                    actor: .user,
+                    mode: mode.receiptMode,
+                    trigger: decision.trigger,
+                    scope: "policy",
+                    summary: action.summary,
+                    provenance: "policy",
+                    isSuccess: decision == .approved,
+                    details: payload
+                )
+            )
+        } catch {
+            log("Policy \(decision.rawValue) receipt append failed: \(error.localizedDescription)")
+        }
+    }
+}
+
+private extension AppMode {
+    var receiptMode: ReceiptMode {
+        ReceiptMode(rawValue: rawValue) ?? .observe
+    }
+}
+
+private struct PolicyDecisionReceiptPayload: TypedReceiptPayload {
     let action: String
     let capabilityID: String
+    let decision: String
     let userMessage: String
 
     var fields: [ReceiptPayloadField] {
         [
             .public("action", string: action, kind: .label),
             .public("capabilityID", string: capabilityID, kind: .label),
-            .bool("policy_denied", true),
+            .public("decision", string: decision, kind: .label),
+            .bool("policy_denied", decision == "denied"),
+            .bool("policy_approved", decision == "approved"),
             .redacted("message", string: userMessage, kind: .freeformText)
         ]
     }

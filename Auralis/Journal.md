@@ -53,6 +53,17 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+- Receipt integrity end-state cleanup:
+  We briefly had receipt verification acting like a helpful repair shop: if it found rows without integrity metadata, it tried to rebuild the missing chain and protected heads. That sounds friendly, but for an app that has not shipped yet it is the wrong instinct. The right pre-release contract is stricter and simpler: receipts are born with their fingerprint, previous-page link, per-account page number, and protected Keychain bookmark, or they are invalid. Verification is now a bouncer with a clipboard, not a mechanic with a toolbox. It checks the ledger, compares the Keychain heads, and refuses to mutate history while doing it.
+
+- Receipt integrity deletion gap:
+  The receipt chain had a last-page bookmark locked in the Keychain, but the verifier was only asking about bookmarks for pages it could still see in SwiftData. That meant a full out-of-band deletion of one account's receipt history could slip through because there were no remaining receipts to point the verifier at the orphaned protected head. The fix was to make the Keychain head store list every protected head and then compare both ledgers: SwiftData must have a head for every protected account, and the Keychain must have a matching head for every persisted account. Legitimate privacy resets still clear both sides together, while tampering now leaves footprints.
+
+- Security audit closeout for SEC-008 and SEC-011:
+  The receipt system now behaves less like a mutable notebook and more like a ledger with page numbers, fingerprints, and a last-page bookmark locked away separately. `ReceiptStorage` already had the integrity chain; the missing practical piece was making sure both sides of high-risk policy decisions left receipts. Denied signing/spending/transaction attempts still log `policy.denied`, and the currently allowed high-risk plugin path now logs `policy.approved`, so the audit trail records both "no" and "yes" instead of only the dramatic refusals.
+
+- The provider-error cleanup was a reminder that redaction is not just for receipts. Gas pricing UI was still willing to repeat backend-supplied HTTP/RPC messages to users, which is how debug strings, URLs, or account hints accidentally become product copy. The fix was to keep the useful public fact ("HTTP 400" or "provider reported an error") and drop the provider prose. Good security messaging is like a courtroom summary: enough to act on, not a transcript of everything the other side said.
+
 - AccountsFeature migration, first pass:
   The account-entry flow started moving out of the app target and into `AccountsFeature`. This pass deliberately moved the pieces that behave like good package citizens: guest pass definitions, guest pass card/carousel presentation, address pasteboard normalization, address validation presentation, and account summary presentation DTOs/presenter. Think of it like packing the front desk stationery, room keys, and check-in script before trying to move the entire hotel lobby.
 
@@ -1645,3 +1656,25 @@ The lesson: metadata attached to a top-level receipt field does not automaticall
 The AuraPlay sync request builder receives NFT snapshots from a refresh boundary, where duplicate IDs are not exotic. They can happen when upstream data is noisy or when a later snapshot supersedes an earlier one. The fix was to use `Dictionary(_:uniquingKeysWith:)` and make the later snapshot win, then sort by ID before building media-item upsert requests.
 
 The lesson: when production data can contain duplicates, make the conflict policy explicit. A fatal dictionary initializer is a great assertion for impossible states and a bad broom for messy provider data.
+
+## Phase 2 Audit Triage: The Tickets Are Still Standing
+
+This validation pass took the Phase 2 architecture tickets back to the actual code instead of trusting the old audit wording. The result was blunt: none of the eight tickets were imaginary.
+
+- The package-boundary tickets are real. The app still imports package products that are not explicit app target dependencies, `NFTKit` still reaches into `ReceiptStorage`, and `TokenStorage` still leans on `NFTKit` for provider/domain vocabulary and normalization.
+- The view-boundary tickets are real too. Several SwiftUI views still build `FetchDescriptor`s, fetch/count directly, or listen to `ModelContext.didSave`. That is convenient in the way keeping tools on the kitchen counter is convenient: fine for one sandwich, annoying once the whole restaurant opens.
+- The composition ticket has made progress, not disappeared. `ShellBootstrapDependencies` and `ShellServiceHub` are a useful halfway house, but `MainAuraView` and `MainTabView` still know enough about bootstrapping, audio receipts, AuraPlay storage, and context construction to keep the ticket alive.
+- Address parsing and local storage classification remain the two quiet drift risks. Ethereum address normalization still has multiple homes, while wallet-ish state still spans `UserDefaults`, `@AppStorage`, SwiftData, and view state without a documented tier map.
+
+The lesson: validating a ticket is not the same as agreeing with its original drama level. Good triage asks, “Does this still describe the code?” and then adds receipts. In this case, the answer was yes across Phase 2, with ARCH-005 carrying the important footnote: partially addressed, still not done.
+
+## Phase 1 Security Tickets: The Erase Button Has To Mean It
+
+The Phase 1 audit cleanup tightened four places where the app was close to safe but not quite honest enough.
+
+- Privacy reset now clears the credential store through an injected dependency, and Keychain delete failures become typed reset phase errors instead of disappearing behind a friendly “done.” An erase button should behave like a shredder, not like a desk drawer with a nicer label.
+- Receipts grew an integrity envelope: account-scoped sequence IDs, payload hashes, previous hashes, chain hashes, and a Keychain-protected chain head. SwiftData still stores the timeline, but the protected head gives verification something outside the mutable table to compare against.
+- External links stopped treating an approved host as permission for every possible path and query string. The policy now has route rules, confirmation display drops raw query and fragment data, and receipt logging records a query-free URL.
+- Provider failures now have public error codes. Receipts no longer need `String(describing:)` from raw provider errors to say “rate limited,” “bad provider auth,” “unavailable,” or “invalid response.”
+
+The lesson: security work often starts as “add one check,” but the real fix is usually making the contract explicit. What gets cleared, what gets logged, what can be opened, and what can be trusted all need names the code can enforce.

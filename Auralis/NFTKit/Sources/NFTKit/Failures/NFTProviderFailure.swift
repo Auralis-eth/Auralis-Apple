@@ -7,6 +7,19 @@ public struct NFTProviderFailure: Equatable {
     public let message: String
     public let isRetryable: Bool
 
+    public var publicErrorCode: ProviderPublicErrorCode {
+        switch kind {
+        case .rateLimited:
+            return .rateLimited
+        case .misconfigured:
+            return .unauthorizedProviderConfiguration
+        case .invalidResponse:
+            return .invalidResponse
+        case .offline, .invalidScope, .busy, .unavailable:
+            return .providerUnavailable
+        }
+    }
+
     private init(
         kind: NFTProviderFailureKind,
         message: String,
