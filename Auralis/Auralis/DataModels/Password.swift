@@ -6,30 +6,44 @@
 //
 
 import Foundation
-import OSLog
 import Security
-
-private let passwordStoreLogger = Logger(subsystem: "Auralis", category: "PasswordStore")
 
 typealias Password = String
 
 struct PasswordStore {
-    let save: (Password) -> Void
-    let load: () -> Password?
-    let clear: () -> Void
+    let save: (Password) async throws -> Void
+    let load: () async throws -> Password?
+    let clear: () async throws -> Void
+}
+
+enum KeychainFailure: Error, Equatable {
+    case operationFailed(operation: String, status: OSStatus)
+    case stringEncodingFailed
+    case dataDecodingFailed
+    case accessControlCreationFailed(status: OSStatus)
+
+    var status: OSStatus? {
+        switch self {
+        case .operationFailed(_, let status), .accessControlCreationFailed(let status):
+            return status
+        case .stringEncodingFailed, .dataDecodingFailed:
+            return nil
+        }
+    }
 }
 
 enum PasswordStores {
     static var live: PasswordStore {
-        PasswordStore(
+        let store = KeychainPasswordStore()
+        return PasswordStore(
             save: { password in
-                KeychainPasswordStore().save(password)
+                try await store.save(password)
             },
             load: {
-                KeychainPasswordStore().load()
+                try await store.load()
             },
             clear: {
-                KeychainPasswordStore().clear()
+                try await store.clear()
             }
         )
     }
@@ -53,51 +67,55 @@ enum PasswordStores {
     #endif
 }
 
-private struct KeychainPasswordStore {
+private actor KeychainPasswordStore {
+    private let accessibility = kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String
+
     private var keychainBaseQuery: [String: Any] {
-        [
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: "WalletPasswordAccount",
             kSecAttrService as String: "WalletPasswordService"
         ]
+        #if os(macOS)
+        query[kSecUseDataProtectionKeychain as String] = true
+        #endif
+        return query
     }
 
-    func save(_ password: Password) {
+    func save(_ password: Password) throws {
         guard let passwordData = password.data(using: .utf8) else {
-            return
+            throw KeychainFailure.stringEncodingFailed
         }
 
         let keychainQuery = keychainBaseQuery.merging(
             [
                 kSecValueData as String: passwordData,
-                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+                kSecAttrAccessible as String: accessibility
             ],
             uniquingKeysWith: { _, new in new }
         )
 
         let status = SecItemAdd(keychainQuery as CFDictionary, nil)
-        if status == errSecDuplicateItem {
+        switch status {
+        case errSecSuccess:
+            return
+        case errSecDuplicateItem:
             let updateStatus = SecItemUpdate(
                 keychainBaseQuery as CFDictionary,
                 [
-                    kSecValueData as String: passwordData,
-                    kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+                    kSecValueData as String: passwordData
                 ] as CFDictionary
             )
             guard updateStatus == errSecSuccess else {
-                passwordStoreLogger.error("Error updating password in Keychain: \(updateStatus, privacy: .public)")
-                return
+                throw KeychainFailure.operationFailed(operation: "update", status: updateStatus)
             }
             return
-        }
-
-        guard status == errSecSuccess else {
-            passwordStoreLogger.error("Error saving password to Keychain: \(status, privacy: .public)")
-            return
+        default:
+            throw KeychainFailure.operationFailed(operation: "add", status: status)
         }
     }
 
-    func load() -> Password? {
+    func load() throws -> Password? {
         let keychainQuery: [String: Any] = keychainBaseQuery.merging([
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne
@@ -106,17 +124,46 @@ private struct KeychainPasswordStore {
         var dataTypeRef: AnyObject?
         let status = SecItemCopyMatching(keychainQuery as CFDictionary, &dataTypeRef)
 
-        if status == errSecSuccess,
-           let retrievedData = dataTypeRef as? Data,
-           let password = String(data: retrievedData, encoding: .utf8) {
+        switch status {
+        case errSecSuccess:
+            guard let retrievedData = dataTypeRef as? Data,
+                  let password = String(data: retrievedData, encoding: .utf8) else {
+                throw KeychainFailure.dataDecodingFailed
+            }
             return password
+        case errSecItemNotFound:
+            return nil
+        default:
+            throw KeychainFailure.operationFailed(operation: "load", status: status)
         }
-
-        return nil
     }
 
-    func clear() {
-        SecItemDelete(keychainBaseQuery as CFDictionary)
+    func clear() throws {
+        let status = SecItemDelete(keychainBaseQuery as CFDictionary)
+        switch status {
+        case errSecSuccess, errSecItemNotFound:
+            return
+        default:
+            throw KeychainFailure.operationFailed(operation: "delete", status: status)
+        }
+    }
+
+    /// Future path for biometric-gated secrets: create the item with this access control
+    /// instead of `kSecAttrAccessible`, then let Keychain enforce LocalAuthentication during reads.
+    private func makeBiometricAccessControl() throws -> SecAccessControl {
+        var error: Unmanaged<CFError>?
+        guard let accessControl = SecAccessControlCreateWithFlags(
+            nil,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            .biometryCurrentSet,
+            &error
+        ) else {
+            let status = error
+                .map { OSStatus(CFErrorGetCode($0.takeRetainedValue())) }
+                ?? errSecParam
+            throw KeychainFailure.accessControlCreationFailed(status: status)
+        }
+        return accessControl
     }
 }
 
@@ -204,15 +251,15 @@ extension Password {
 }
 
 extension Password {
-    func save(using store: PasswordStore = PasswordStores.live) {
-        store.save(self)
+    func save(using store: PasswordStore = PasswordStores.live) async throws {
+        try await store.save(self)
     }
 
-    static func load(using store: PasswordStore = PasswordStores.live) -> Password? {
-        store.load()
+    static func load(using store: PasswordStore = PasswordStores.live) async throws -> Password? {
+        try await store.load()
     }
 
-    static func clear(using store: PasswordStore = PasswordStores.live) {
-        store.clear()
+    static func clear(using store: PasswordStore = PasswordStores.live) async throws {
+        try await store.clear()
     }
 }
