@@ -4,67 +4,151 @@ import AccountsCore
 import AuralisPrimaryModels
 import AuralisShellCore
 import Foundation
+import Security
 import SwiftData
 import NFTKit
-import UserDefaultsAdapters
 
 @MainActor
-/// Persists the active shell selection in user defaults.
-struct UserDefaultsShellSelectionPersistence: ShellSelectionPersisting {
-    private struct SelectionRecord: Codable, Equatable, Sendable {
-        let address: String
-        let chainID: String
-    }
-
-    private let store: UserDefaultsCodableStore<SelectionRecord>
-    private let defaults: UserDefaults
-    private let legacyAddressKey = "currentAccountAddress"
-    private let legacyChainIDKey = "currentChainId"
-    private let defaultSelection = SelectionRecord(
+/// Persists active wallet selection as protected wallet metadata.
+struct KeychainShellSelectionPersistence: ShellSelectionPersisting {
+    private let store: KeychainShellSelectionStore
+    private let defaultSelection = KeychainShellSelectionStore.SelectionRecord(
         address: "",
         chainID: Chain.ethMainnet.rawValue
     )
 
-    /// Creates a user-defaults-backed selection persistence service.
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        self.store = UserDefaultsCodableStore(
-            userDefaults: defaults,
-            key: "auralis.shell.selection.v1",
-            corruptionPolicy: .returnEmptyAndClear
-        )
+    init(service: String = "auralis.shell.selection.v1") {
+        self.store = KeychainShellSelectionStore(service: service)
     }
 
-    func loadSelection() -> (address: String, chainID: String) {
-        if let selection = try? store.load().first {
-            return (address: selection.address, chainID: selection.chainID)
+    func loadSelection() async throws -> (address: String, chainID: String) {
+        guard let selection = try await store.loadSelection() else {
+            return (address: defaultSelection.address, chainID: defaultSelection.chainID)
         }
 
-        let legacySelection = SelectionRecord(
-            address: defaults.string(forKey: legacyAddressKey) ?? defaultSelection.address,
-            chainID: defaults.string(forKey: legacyChainIDKey) ?? defaultSelection.chainID
-        )
-
-        if legacySelection != defaultSelection {
-            try? store.save([legacySelection])
-        }
-
-        let selection = legacySelection
         return (address: selection.address, chainID: selection.chainID)
     }
 
-    func saveSelection(address: String, chainID: String) {
-        try? store.save([
-            SelectionRecord(address: address, chainID: chainID),
-        ])
-        defaults.set(address, forKey: legacyAddressKey)
-        defaults.set(chainID, forKey: legacyChainIDKey)
+    func saveSelection(address: String, chainID: String) async throws {
+        try await store.saveSelection(
+            KeychainShellSelectionStore.SelectionRecord(
+                address: address,
+                chainID: chainID
+            )
+        )
     }
 
-    func clearSelection() {
-        store.clear()
-        defaults.removeObject(forKey: legacyAddressKey)
-        defaults.removeObject(forKey: legacyChainIDKey)
+    func clearSelection() async throws {
+        try await store.clearSelection()
+    }
+}
+
+enum ShellSelectionPersistenceError: LocalizedError, Equatable {
+    case operationFailed(operation: String, status: OSStatus)
+    case encodingFailed
+    case decodingFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .operationFailed(let operation, let status):
+            return "Auralis could not \(operation) the saved wallet selection. Keychain returned status \(status)."
+        case .encodingFailed:
+            return "Auralis could not encode the saved wallet selection."
+        case .decodingFailed:
+            return "Auralis could not decode the saved wallet selection."
+        }
+    }
+}
+
+actor KeychainShellSelectionStore {
+    struct SelectionRecord: Codable, Equatable, Sendable {
+        let address: String
+        let chainID: String
+    }
+
+    private let service: String
+    private let account = "active-selection"
+    private let accessibility = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String
+
+    init(service: String) {
+        self.service = service
+    }
+
+    func loadSelection() throws -> SelectionRecord? {
+        var result: AnyObject?
+        let status = SecItemCopyMatching(loadQuery as CFDictionary, &result)
+
+        switch status {
+        case errSecSuccess:
+            guard let data = result as? Data,
+                  let selection = try? JSONDecoder().decode(SelectionRecord.self, from: data) else {
+                throw ShellSelectionPersistenceError.decodingFailed
+            }
+
+            return selection
+        case errSecItemNotFound:
+            return nil
+        default:
+            throw ShellSelectionPersistenceError.operationFailed(operation: "load", status: status)
+        }
+    }
+
+    func saveSelection(_ selection: SelectionRecord) throws {
+        guard let data = try? JSONEncoder().encode(selection) else {
+            throw ShellSelectionPersistenceError.encodingFailed
+        }
+
+        let addStatus = SecItemAdd(addQuery(data: data) as CFDictionary, nil)
+        switch addStatus {
+        case errSecSuccess:
+            return
+        case errSecDuplicateItem:
+            let updateStatus = SecItemUpdate(
+                baseQuery as CFDictionary,
+                [kSecValueData as String: data] as CFDictionary
+            )
+            guard updateStatus == errSecSuccess else {
+                throw ShellSelectionPersistenceError.operationFailed(operation: "update", status: updateStatus)
+            }
+        default:
+            throw ShellSelectionPersistenceError.operationFailed(operation: "save", status: addStatus)
+        }
+    }
+
+    func clearSelection() throws {
+        let status = SecItemDelete(baseQuery as CFDictionary)
+        switch status {
+        case errSecSuccess, errSecItemNotFound:
+            return
+        default:
+            throw ShellSelectionPersistenceError.operationFailed(operation: "clear", status: status)
+        }
+    }
+
+    private var baseQuery: [String: Any] {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        #if os(macOS)
+        query[kSecUseDataProtectionKeychain as String] = true
+        #endif
+        return query
+    }
+
+    private var loadQuery: [String: Any] {
+        baseQuery.merging([
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ], uniquingKeysWith: { _, new in new })
+    }
+
+    private func addQuery(data: Data) -> [String: Any] {
+        baseQuery.merging([
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: accessibility
+        ], uniquingKeysWith: { _, new in new })
     }
 }
 

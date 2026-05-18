@@ -208,18 +208,10 @@ struct SearchRootView: View {
 
     private func refreshLocalIndex() async {
         do {
-            let nftSnapshots = try fetchScopedNFTSnapshots()
-            let holdingSnapshots = try fetchScopedHoldingSnapshots()
-            let accountSnapshots = try fetchAccountSnapshots()
-            let refreshedIndex = await Task.detached(priority: .userInitiated) {
-                SearchLocalIndex.make(
-                    nftSnapshots: nftSnapshots,
-                    holdingSnapshots: holdingSnapshots,
-                    accountSnapshots: accountSnapshots,
-                    currentAccountAddress: currentAccountAddress,
-                    currentChain: currentChain
-                )
-            }.value
+            let refreshedIndex = try await SearchIndexBuilder(modelContext: modelContext).makeIndex(
+                currentAccountAddress: currentAccountAddress,
+                currentChain: currentChain
+            )
             try Task.checkCancellation()
             localIndex = refreshedIndex
         } catch is CancellationError {
@@ -230,18 +222,7 @@ struct SearchRootView: View {
     }
 
     private func observeModelContextSaves() async {
-        let observedContextID = ObjectIdentifier(modelContext)
-
-        for await notification in NotificationCenter.default.notifications(named: ModelContext.didSave) {
-            guard !Task.isCancelled else {
-                return
-            }
-
-            guard let savedContext = notification.object as? ModelContext,
-                  ObjectIdentifier(savedContext) == observedContextID else {
-                continue
-            }
-
+        await SearchIndexBuilder(modelContext: modelContext).observePersistenceChanges {
             await refreshLocalIndex()
         }
     }
@@ -250,77 +231,6 @@ struct SearchRootView: View {
         logger.error("Failed to \(operation, privacy: .public) search history: \(error.localizedDescription, privacy: .public)")
         historyErrorMessage = "Auralis could not \(operation) recent searches right now. Existing results are still shown."
         reloadHistory()
-    }
-
-    private func fetchAccountSnapshots() throws -> [SearchLocalIndex.AccountSnapshot] {
-        let descriptor = FetchDescriptor<EOAccount>(
-            sortBy: [
-                SortDescriptor(\EOAccount.lastSelectedAt, order: .reverse),
-                SortDescriptor(\EOAccount.addedAt, order: .reverse),
-                SortDescriptor(\EOAccount.address)
-            ]
-        )
-
-        return try modelContext.fetch(descriptor).map {
-            SearchLocalIndex.AccountSnapshot(
-                address: $0.address,
-                name: $0.name
-            )
-        }
-    }
-
-    private func fetchScopedNFTSnapshots() throws -> [SearchLocalIndex.NFTSnapshot] {
-        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
-        let chainRawValue = currentChain.rawValue
-        var descriptor = FetchDescriptor<NFT>(
-            predicate: #Predicate<NFT> {
-                $0.accountAddressRawValue == normalizedAccountAddress &&
-                $0.networkRawValue == chainRawValue
-            },
-            sortBy: [SortDescriptor(\NFT.id)]
-        )
-        descriptor.relationshipKeyPathsForPrefetching = [
-            \NFT.contract,
-            \NFT.collection,
-        ]
-
-        return try modelContext.fetch(descriptor).map {
-            SearchLocalIndex.NFTSnapshot(
-                id: $0.id,
-                name: $0.name,
-                collectionName: $0.collectionName,
-                collectionDisplayName: $0.collection?.name,
-                contractAddress: $0.contract.address,
-                accountAddressRawValue: $0.accountAddressRawValue,
-                networkRawValue: $0.networkRawValue
-            )
-        }
-    }
-
-    private func fetchScopedHoldingSnapshots() throws -> [SearchLocalIndex.HoldingSnapshot] {
-        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
-        let chainRawValue = currentChain.rawValue
-        let descriptor = FetchDescriptor<TokenHolding>(
-            predicate: #Predicate<TokenHolding> {
-                $0.accountAddressRawValue == normalizedAccountAddress &&
-                $0.chainRawValue == chainRawValue
-            },
-            sortBy: [
-                SortDescriptor(\TokenHolding.sortPriority),
-                SortDescriptor(\TokenHolding.displayName)
-            ]
-        )
-
-        return try modelContext.fetch(descriptor).map {
-            SearchLocalIndex.HoldingSnapshot(
-                accountAddressRawValue: $0.accountAddressRawValue,
-                chainRawValue: $0.chainRawValue,
-                balanceKind: $0.balanceKind,
-                contractAddress: $0.contractAddress,
-                symbol: $0.symbol,
-                displayName: $0.displayName
-            )
-        }
     }
 
     static func makePresentation(

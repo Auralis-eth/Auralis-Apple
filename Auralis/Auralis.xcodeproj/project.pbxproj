@@ -27,6 +27,11 @@
 		6FA256432FB6A28400292ECA /* NFTLibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA256422FB6A28400292ECA /* NFTLibraryFeature */; };
 		6FA256482FB77B4800292ECA /* MusicFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA256472FB77B4800292ECA /* MusicFeature */; };
 		6FA2564B2FB79FC600292ECA /* AccountsFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA2564A2FB79FC600292ECA /* AccountsFeature */; };
+		6FDB397E2FBA7B4B00075FCE /* ENS in Frameworks */ = {isa = PBXBuildFile; productRef = 6FDB397D2FBA7B4B00075FCE /* ENS */; };
+		6FDB39812FBA7B5E00075FCE /* ProviderKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6FDB39802FBA7B5E00075FCE /* ProviderKit */; };
+		6FDB39842FBA7B7200075FCE /* ReceiptStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6FDB39832FBA7B7200075FCE /* ReceiptStorage */; };
+		6FDB39872FBA7B8F00075FCE /* ChainProviders in Frameworks */ = {isa = PBXBuildFile; productRef = 6FDB39862FBA7B8F00075FCE /* ChainProviders */; };
+		6FDB398C2FBA7CB800075FCE /* CapabilitiesCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6FDB398B2FBA7CB800075FCE /* CapabilitiesCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -97,20 +102,25 @@
 			buildActionMask = 2147483647;
 			files = (
 				6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */,
+				6FDB397E2FBA7B4B00075FCE /* ENS in Frameworks */,
 				6FA256432FB6A28400292ECA /* NFTLibraryFeature in Frameworks */,
 				6F84E0292FAE829200CD4102 /* OperatorCore in Frameworks */,
 				6FA256402FB683EB00292ECA /* AuralisShellCore in Frameworks */,
+				6FDB39812FBA7B5E00075FCE /* ProviderKit in Frameworks */,
 				6F84E2FC2FAF6CEA00CD4102 /* SwiftDataAdapters in Frameworks */,
 				6F84E3082FB35A0A00CD4102 /* AgentIdentityCore in Frameworks */,
 				6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */,
 				6F84E3052FB2202700CD4102 /* UserDefaultsAdapters in Frameworks */,
 				6F84E02C2FAE901500CD4102 /* NFTKit in Frameworks */,
+				6FDB39842FBA7B7200075FCE /* ReceiptStorage in Frameworks */,
 				6F4179322DA96363002A78F5 /* web3.swift in Frameworks */,
 				6F84E3022FB0C5BC00CD4102 /* TokenStorage in Frameworks */,
 				6FA256482FB77B4800292ECA /* MusicFeature in Frameworks */,
 				6F84E01B2FAE48B000CD4102 /* AgentIdentityCore in Frameworks */,
 				6F84E3132FB66B8200CD4102 /* AuraUI in Frameworks */,
+				6FDB39872FBA7B8F00075FCE /* ChainProviders in Frameworks */,
 				6F84E0202FAE627D00CD4102 /* ReceiptsCore in Frameworks */,
+				6FDB398C2FBA7CB800075FCE /* CapabilitiesCore in Frameworks */,
 				6F84E2FF2FAFF7FE00CD4102 /* AccountStorage in Frameworks */,
 				6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */,
 				6F84E0262FAE705B00CD4102 /* PolicyCore in Frameworks */,
@@ -216,6 +226,11 @@
 				6FA256422FB6A28400292ECA /* NFTLibraryFeature */,
 				6FA256472FB77B4800292ECA /* MusicFeature */,
 				6FA2564A2FB79FC600292ECA /* AccountsFeature */,
+				6FDB397D2FBA7B4B00075FCE /* ENS */,
+				6FDB39802FBA7B5E00075FCE /* ProviderKit */,
+				6FDB39832FBA7B7200075FCE /* ReceiptStorage */,
+				6FDB39862FBA7B8F00075FCE /* ChainProviders */,
+				6FDB398B2FBA7CB800075FCE /* CapabilitiesCore */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -319,6 +334,11 @@
 				6FA256412FB6A28400292ECA /* XCLocalSwiftPackageReference "NFTLibraryFeature" */,
 				6FA256462FB77B4800292ECA /* XCLocalSwiftPackageReference "MusicFeature" */,
 				6FA256492FB79FC600292ECA /* XCLocalSwiftPackageReference "AccountsFeature" */,
+				6FDB397C2FBA7B4B00075FCE /* XCLocalSwiftPackageReference "ENS" */,
+				6FDB397F2FBA7B5E00075FCE /* XCLocalSwiftPackageReference "ProviderKit" */,
+				6FDB39822FBA7B7200075FCE /* XCLocalSwiftPackageReference "ReceiptStorage" */,
+				6FDB39852FBA7B8F00075FCE /* XCLocalSwiftPackageReference "ChainProviders" */,
+				6FDB398A2FBA7CB800075FCE /* XCLocalSwiftPackageReference "CapabilitiesCore" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -785,6 +805,26 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = AccountsFeature;
 		};
+		6FDB397C2FBA7B4B00075FCE /* XCLocalSwiftPackageReference "ENS" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ENS;
+		};
+		6FDB397F2FBA7B5E00075FCE /* XCLocalSwiftPackageReference "ProviderKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ProviderKit;
+		};
+		6FDB39822FBA7B7200075FCE /* XCLocalSwiftPackageReference "ReceiptStorage" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ReceiptStorage;
+		};
+		6FDB39852FBA7B8F00075FCE /* XCLocalSwiftPackageReference "ChainProviders" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ChainProviders;
+		};
+		6FDB398A2FBA7CB800075FCE /* XCLocalSwiftPackageReference "CapabilitiesCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = CapabilitiesCore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -894,6 +934,26 @@
 		6FA2564A2FB79FC600292ECA /* AccountsFeature */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AccountsFeature;
+		};
+		6FDB397D2FBA7B4B00075FCE /* ENS */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ENS;
+		};
+		6FDB39802FBA7B5E00075FCE /* ProviderKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ProviderKit;
+		};
+		6FDB39832FBA7B7200075FCE /* ReceiptStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ReceiptStorage;
+		};
+		6FDB39862FBA7B8F00075FCE /* ChainProviders */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ChainProviders;
+		};
+		6FDB398B2FBA7CB800075FCE /* CapabilitiesCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CapabilitiesCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

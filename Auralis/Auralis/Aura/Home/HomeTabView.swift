@@ -16,7 +16,6 @@ struct HomeTabView: View {
     let currentAddress: String
     let currentChain: Chain
     let contextSnapshot: ContextSnapshot
-    @Query private var recentStoredReceipts: [StoredReceipt]
 
     let router: AppRouter
     let ensResolver: any ENSResolving
@@ -47,6 +46,7 @@ struct HomeTabView: View {
     @State private var promptCacheOrder: [String] = []
     @State private var avatarImage: UIImage?
     @State private var pinnedActions: Set<HomeLauncherAction> = []
+    @State private var recentActivity: [ReceiptTimelineRecord] = []
     @State private var scopedNFTCount = 0
     @State private var musicNFTCount = 0
     private let maxPromptCacheEntries = 32
@@ -75,15 +75,6 @@ struct HomeTabView: View {
         self.logoutCleanupServiceFactory = logoutCleanupServiceFactory
         self.pinnedItemsStore = pinnedItemsStore
         self._pinnedItemCount = pinnedItemCountBinding
-
-        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address ?? currentAddress) ?? ""
-        let chainRawValue = currentChain.rawValue
-        _recentStoredReceipts = Query(
-            Self.makeRecentReceiptsDescriptor(
-                accountAddress: normalizedAccountAddress,
-                chainRawValue: chainRawValue
-            )
-        )
     }
 
     private var receiptScope: ReceiptTimelineScope {
@@ -91,10 +82,6 @@ struct HomeTabView: View {
             accountAddress: currentAccount?.address ?? currentAddress,
             chain: currentChain
         )
-    }
-
-    private var recentActivity: [ReceiptTimelineRecord] {
-        recentStoredReceipts.map(ReceiptTimelineRecord.init)
     }
 
     private var recentActivityPreviewItems: [HomeRecentActivityPreviewItem] {
@@ -106,24 +93,6 @@ struct HomeTabView: View {
             accountAddress: currentAccount?.address ?? currentAddress,
             chain: currentChain
         )
-    }
-
-    private static func makeRecentReceiptsDescriptor(
-        accountAddress: String,
-        chainRawValue: String
-    ) -> FetchDescriptor<StoredReceipt> {
-        var descriptor = FetchDescriptor<StoredReceipt>(
-            predicate: #Predicate<StoredReceipt> { receipt in
-                receipt.accountAddress == accountAddress &&
-                receipt.chainRawValue == chainRawValue
-            },
-            sortBy: [
-                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
-                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
-            ]
-        )
-        descriptor.fetchLimit = 5
-        return descriptor
     }
 
     private var homeSparseDataState: HomeSparseDataState {
@@ -868,44 +837,30 @@ private extension HomeTabView {
     }
 
     func refreshScopedNFTCounts() async {
-        let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccount?.address ?? currentAddress) ?? ""
-        let chainRawValue = currentChain.rawValue
-
-        let scopedDescriptor = FetchDescriptor<NFT>(
-            predicate: #Predicate<NFT> { nft in
-                nft.accountAddressRawValue == normalizedAccountAddress &&
-                nft.networkRawValue == chainRawValue
-            }
-        )
-        let musicDescriptor = FetchDescriptor<NFT>(
-            predicate: #Predicate<NFT> { nft in
-                nft.accountAddressRawValue == normalizedAccountAddress &&
-                nft.networkRawValue == chainRawValue &&
-                nft.audioUrl != nil &&
-                nft.audioUrl != ""
-            }
-        )
+        let service = HomeScopedNFTCountService(modelContext: modelContext)
+        let accountAddress = currentAccount?.address ?? currentAddress
 
         do {
-            let nextScopedNFTCount = try modelContext.fetchCount(scopedDescriptor)
-            let nextMusicNFTCount = try modelContext.fetchCount(musicDescriptor)
+            let counts = try service.counts(accountAddress: accountAddress, chain: currentChain)
+            let latestActivity = try service.recentActivity(accountAddress: accountAddress, chain: currentChain)
 
-            if scopedNFTCount != nextScopedNFTCount {
-                scopedNFTCount = nextScopedNFTCount
+            if scopedNFTCount != counts.scopedNFTCount {
+                scopedNFTCount = counts.scopedNFTCount
             }
-            if musicNFTCount != nextMusicNFTCount {
-                musicNFTCount = nextMusicNFTCount
+            if musicNFTCount != counts.musicNFTCount {
+                musicNFTCount = counts.musicNFTCount
+            }
+            if recentActivity != latestActivity {
+                recentActivity = latestActivity
             }
         } catch {
-            logger.error("Failed to refresh scoped NFT counts: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to refresh home summary: \(error.localizedDescription, privacy: .public)")
         }
     }
 
     func observeScopedNFTPersistenceChanges() async {
-        for await _ in NotificationCenter.default.notifications(named: ModelContext.didSave) {
-            guard !Task.isCancelled else {
-                return
-            }
+        let service = HomeScopedNFTCountService(modelContext: modelContext)
+        await service.observePersistenceChanges {
             await refreshScopedNFTCounts()
         }
     }

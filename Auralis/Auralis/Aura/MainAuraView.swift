@@ -17,7 +17,7 @@ struct MainAuraView: View {
 
     @State private var router = AppRouter()
     @State private var nftService: NFTService
-    @StateObject private var modeState: ModeState
+    @State private var modeState: ModeState
     @State private var audioEngine: AudioEngine?
     @State private var audioEngineInitializationErrorMessage: String?
     @State private var auraPlayModelContainer: ModelContainer?
@@ -49,13 +49,12 @@ struct MainAuraView: View {
         self.dependencies = dependencies
         self.primaryStoreInitializationErrorMessage = primaryStoreInitializationErrorMessage
         _nftService = State(initialValue: dependencies.nftServiceFactory())
-        _modeState = StateObject(wrappedValue: dependencies.modeStateFactory())
-        let auraPlayBootstrap = Self.makeAuraPlayModelContainer()
-        _auraPlayModelContainer = State(initialValue: auraPlayBootstrap.container)
-        _auraPlayInitializationErrorMessage = State(initialValue: auraPlayBootstrap.errorMessage)
-        let audioBootstrap = Self.makeAudioEngine()
-        _audioEngine = State(initialValue: audioBootstrap.engine)
-        _audioEngineInitializationErrorMessage = State(initialValue: audioBootstrap.errorMessage)
+        _modeState = State(initialValue: dependencies.modeStateFactory())
+        let musicRuntime = dependencies.makeMusicRuntime()
+        _auraPlayModelContainer = State(initialValue: musicRuntime.auraPlayModelContainer)
+        _auraPlayInitializationErrorMessage = State(initialValue: musicRuntime.auraPlayInitializationErrorMessage)
+        _audioEngine = State(initialValue: musicRuntime.audioEngine)
+        _audioEngineInitializationErrorMessage = State(initialValue: musicRuntime.audioEngineInitializationErrorMessage)
     }
 
     var body: some View {
@@ -192,11 +191,7 @@ struct MainAuraView: View {
             return
         }
 
-        audioEngine?.configureMusicReceiptLogger(
-            MusicReceiptEventLogger(
-                receiptStore: ReceiptStores.live(modelContext: modelContext)
-            )
-        )
+        dependencies.configureMusicReceiptLogger(audioEngine, modelContext)
         let gatewayDependencies = dependencies.makeGatewayDependencies(modelContext)
         let mainTabDependencies = dependencies.makeMainTabDependencies(modelContext)
         let store = dependencies.makeShellStore(modelContext, nftService, router)
@@ -270,50 +265,22 @@ struct MainAuraView: View {
     }
 
     private var musicUnavailableMessage: String? {
-        [audioEngineInitializationErrorMessage, auraPlayInitializationErrorMessage]
-            .compactMap { $0 }
-            .joined(separator: " ")
-            .nilIfEmpty
+        MusicRuntime(
+            audioEngine: audioEngine,
+            audioEngineInitializationErrorMessage: audioEngineInitializationErrorMessage,
+            auraPlayModelContainer: auraPlayModelContainer,
+            auraPlayInitializationErrorMessage: auraPlayInitializationErrorMessage
+        ).unavailableMessage
     }
 
     @MainActor
     private func reloadMusicServices() async {
-        let auraPlayBootstrap = Self.makeAuraPlayModelContainer()
-        auraPlayModelContainer = auraPlayBootstrap.container
-        auraPlayInitializationErrorMessage = auraPlayBootstrap.errorMessage
-
-        let audioBootstrap = Self.makeAudioEngine()
-        audioEngine = audioBootstrap.engine
-        audioEngineInitializationErrorMessage = audioBootstrap.errorMessage
-        audioEngine?.configureMusicReceiptLogger(
-            MusicReceiptEventLogger(
-                receiptStore: ReceiptStores.live(modelContext: modelContext)
-            )
-        )
+        let musicRuntime = dependencies.makeMusicRuntime()
+        auraPlayModelContainer = musicRuntime.auraPlayModelContainer
+        auraPlayInitializationErrorMessage = musicRuntime.auraPlayInitializationErrorMessage
+        audioEngine = musicRuntime.audioEngine
+        audioEngineInitializationErrorMessage = musicRuntime.audioEngineInitializationErrorMessage
+        dependencies.configureMusicReceiptLogger(audioEngine, modelContext)
     }
 
-    private static func makeAudioEngine() -> (
-        engine: AudioEngine?,
-        errorMessage: String?
-    ) {
-        do {
-            return (try AudioEngine(), nil)
-        } catch {
-            return (nil, error.localizedDescription)
-        }
-    }
-
-    private static func makeAuraPlayModelContainer() -> (
-        container: ModelContainer?,
-        errorMessage: String?
-    ) {
-        do {
-            return (try AuraPlayModelContainer.make(inMemory: false), nil)
-        } catch {
-            return (
-                nil,
-                "AuraPlay storage could not be opened on this launch."
-            )
-        }
-    }
 }

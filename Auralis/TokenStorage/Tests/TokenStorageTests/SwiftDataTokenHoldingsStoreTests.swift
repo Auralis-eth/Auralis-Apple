@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
-import NFTKit
+import ProviderKit
 import SwiftData
 import Testing
 import TokenStorage

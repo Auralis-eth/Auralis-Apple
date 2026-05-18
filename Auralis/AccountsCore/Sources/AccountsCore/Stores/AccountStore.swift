@@ -204,16 +204,6 @@ public enum AccountStore {
     }
 
     private static func strictEthereumAddress(from candidate: String) -> String? {
-        let lowered = candidate.lowercased()
-
-        if lowered.range(of: #"^0x[a-f0-9]{40}$"#, options: .regularExpression) != nil {
-            return lowered
-        }
-
-        if lowered.range(of: #"^[a-f0-9]{40}$"#, options: .regularExpression) != nil {
-            return "0x" + lowered
-        }
-
-        return nil
+        AuralisEthereumAddress.normalized(candidate)
     }
 }

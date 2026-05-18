@@ -63,16 +63,10 @@ public struct OpenSeaDestinationBuilder: Sendable {
     }
 
     private func normalizedOpenSeaAddress(_ address: String) throws -> String {
-        let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if trimmedAddress.range(of: #"^0x[a-fA-F0-9]{40}$"#, options: .regularExpression) != nil {
-            return trimmedAddress
+        guard let normalizedAddress = AuralisEthereumAddress.normalized(address) else {
+            throw ExplorerURLBuildError.invalidAddress(address)
         }
 
-        if trimmedAddress.range(of: #"^[a-fA-F0-9]{40}$"#, options: .regularExpression) != nil {
-            return "0x" + trimmedAddress
-        }
-
-        throw ExplorerURLBuildError.invalidAddress(address)
+        return normalizedAddress
     }
 }

@@ -142,7 +142,7 @@ struct ReceiptsRootView: View {
     private static func makeStoredReceiptsDescriptor(
         for scope: ReceiptTimelineScope
     ) -> FetchDescriptor<StoredReceipt> {
-        let normalizedAccountAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
+        let normalizedAccountAddress = AuralisEthereumAddress.normalized(scope.accountAddress)
 
         if let normalizedAccountAddress, !normalizedAccountAddress.isEmpty {
             return FetchDescriptor(

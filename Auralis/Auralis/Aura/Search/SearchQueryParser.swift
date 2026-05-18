@@ -15,7 +15,7 @@ struct SearchQueryParser {
             )
         }
 
-        if let normalizedAddress = trimmed.extractedEthereumAddress?.lowercased() {
+        if let normalizedAddress = AuralisEthereumAddress.normalized(trimmed) {
             let accountMatches = index.accountMatches(address: normalizedAddress)
             let contractMatches = index.contractMatches(address: normalizedAddress)
             let combinedMatches = (accountMatches + contractMatches).prefix(6)

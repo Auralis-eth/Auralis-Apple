@@ -1,3 +1,4 @@
+import Observation
 import PolicyCore
 import SwiftUI
 
@@ -6,11 +7,15 @@ import SwiftUI
 /// Observable owner for the current app mode.
 /// Phase 0 persists via AppStorage and is locked to `.observe`.
 @MainActor
-public final class ModeState: ObservableObject {
+@Observable
+public final class ModeState {
+    public nonisolated static let storageDecisionIdentifier = "app.mode"
+
+    @ObservationIgnored
     @AppStorage private var storedModeRaw: String
 
     /// The currently active application mode.
-    @Published public private(set) var mode: AppMode = .observe
+    public private(set) var mode: AppMode = .observe
 
     /// Creates a mode state store and normalizes persisted values to the Phase 0 observe-only mode.
     public init(

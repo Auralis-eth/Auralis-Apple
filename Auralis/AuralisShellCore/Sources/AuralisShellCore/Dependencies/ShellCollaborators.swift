@@ -5,9 +5,9 @@ import Foundation
 @MainActor
 /// Persists and restores the active shell wallet selection.
 public protocol ShellSelectionPersisting {
-    func loadSelection() -> (address: String, chainID: String)
-    func saveSelection(address: String, chainID: String)
-    func clearSelection()
+    func loadSelection() async throws -> (address: String, chainID: String)
+    func saveSelection(address: String, chainID: String) async throws
+    func clearSelection() async throws
 }
 
 @MainActor

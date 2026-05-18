@@ -119,9 +119,7 @@ public final class StoredReceipt {
 
 private extension ReceiptPayload {
     var timelineAccountAddress: String? {
-        value(forKeys: ["accountAddress", "address"])?
-            .extractedEthereumAddress?
-            .lowercased()
+        AuralisEthereumAddress.normalized(value(forKeys: ["accountAddress", "address"]))
     }
 
     var timelineChainRawValue: String? {
@@ -137,27 +135,6 @@ private extension ReceiptPayload {
             if case .string(let value)? = values[key] {
                 return value
             }
-        }
-
-        return nil
-    }
-}
-
-private extension String {
-    var extractedEthereumAddress: String? {
-        let address = trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !address.isEmpty else {
-            return nil
-        }
-
-        let addressPattern = #"^0x[a-fA-F0-9]{40}$"#
-        if let match = address.range(of: addressPattern, options: .regularExpression) {
-            return String(address[match])
-        }
-
-        let noPrefixPattern = #"^[a-fA-F0-9]{40}$"#
-        if let match = address.range(of: noPrefixPattern, options: .regularExpression) {
-            return "0x" + String(address[match])
         }
 
         return nil

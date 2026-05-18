@@ -190,7 +190,7 @@ struct PrivacyResetService: PrivacyResetting {
         ensCacheResetService: any ENSCacheResetting,
         auraPlayPersistenceResetService: any AuraPlayPersistenceResetting,
         credentialResetService: any CredentialPrivacyResetting = PasswordCredentialPrivacyResetter(),
-        selectionPersistence: any ShellSelectionPersisting = UserDefaultsShellSelectionPersistence(),
+        selectionPersistence: any ShellSelectionPersisting = KeychainShellSelectionPersistence(),
         homePinnedItemsStore: HomePinnedItemsStore = HomePinnedItemsStore()
     ) {
         self.transactionalResetService = transactionalResetService
@@ -240,8 +240,16 @@ struct PrivacyResetService: PrivacyResetting {
         }
         completedPhases.append(.credentialStore)
 
-        selectionPersistence.clearSelection()
-        homePinnedItemsStore.clearAll()
+        do {
+            try await selectionPersistence.clearSelection()
+            homePinnedItemsStore.clearAll()
+        } catch {
+            throw LocalDataResetError.phaseFailed(
+                phase: .localPreferences,
+                completedPhases: completedPhases,
+                underlying: error
+            )
+        }
         completedPhases.append(.localPreferences)
     }
 }
@@ -261,7 +269,7 @@ enum PrivacyResetServices {
                 SwiftDataAuraPlayPersistenceResetService(modelContainer: $0)
             } ?? AuraPlayStoreResetService(),
             credentialResetService: PasswordCredentialPrivacyResetter(),
-            selectionPersistence: UserDefaultsShellSelectionPersistence(),
+            selectionPersistence: KeychainShellSelectionPersistence(),
             homePinnedItemsStore: HomePinnedItemsStore()
         )
     }

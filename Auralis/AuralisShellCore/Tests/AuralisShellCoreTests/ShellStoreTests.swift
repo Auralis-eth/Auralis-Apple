@@ -385,15 +385,15 @@ private final class TestShellSelectionPersistence: ShellSelectionPersisting {
         self.loadedSelection = loadedSelection
     }
 
-    func loadSelection() -> (address: String, chainID: String) {
+    func loadSelection() async throws -> (address: String, chainID: String) {
         loadedSelection
     }
 
-    func saveSelection(address: String, chainID: String) {
+    func saveSelection(address: String, chainID: String) async throws {
         savedSelections.append(SavedSelection(address: address, chainID: chainID))
     }
 
-    func clearSelection() {
+    func clearSelection() async throws {
         clearSelectionCallCount += 1
     }
 }

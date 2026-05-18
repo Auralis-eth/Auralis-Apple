@@ -3,6 +3,8 @@ import ReceiptStorage
 import NFTKit
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisShellCore
+import ENS
 import Foundation
 import MusicFeature
 import SwiftData
@@ -22,10 +24,15 @@ struct ShellDependencyBuilderTests {
     }
 
     @MainActor
-    private func clearShellPreferences() {
-        UserDefaults.standard.removeObject(forKey: "currentAccountAddress")
-        UserDefaults.standard.removeObject(forKey: "currentChainId")
-        HomePinnedItemsStore().clearAll()
+    private func makeIsolatedPinnedItemsStore(
+        suiteName: String = "ShellDependencyBuilderTests.\(UUID().uuidString)"
+    ) -> HomePinnedItemsStore {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return HomePinnedItemsStore(
+            userDefaults: defaults,
+            storageKey: "\(HomePinnedItemsStore.storageDecisionIdentifier).\(suiteName)"
+        )
     }
 
     @Test("gateway dependencies build account stores through the shared recorder seam")
@@ -73,7 +80,11 @@ struct ShellDependencyBuilderTests {
     func mainTabDependenciesExposeStableFeatureStores() async throws {
         let container = try makePrimaryContainer()
         let context = ModelContext(container)
-        let dependencies = MainTabDependencies.live(modelContext: context)
+        let pinnedItemsStore = makeIsolatedPinnedItemsStore()
+        let dependencies = MainTabDependencies.live(
+            modelContext: context,
+            homePinnedItemsStore: pinnedItemsStore
+        )
 
         try await dependencies.tokenHoldingsStoreFactory(context).upsertNativeHolding(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
@@ -97,16 +108,17 @@ struct ShellDependencyBuilderTests {
     @Test("shell bootstrap dependencies construct a live shell store that records app launch")
     @MainActor
     func shellBootstrapDependenciesConstructLiveShellStore() async throws {
-        clearShellPreferences()
-        defer { clearShellPreferences() }
-
         let container = try makePrimaryContainer()
         let context = ModelContext(container)
         let router = AppRouter()
-        let store = ShellBootstrapDependencies.live.makeShellStore(
-            context,
-            NFTService(),
-            router
+        let selectionPersistence = RecordingShellSelectionPersistence()
+        let store = ShellStore.live(
+            dependencies: ShellStoreDependencies.live(
+                modelContext: context,
+                nftService: NFTService(),
+                router: router,
+                selectionPersistence: selectionPersistence
+            )
         )
 
         await store.send(.restoreFromPersistence)
@@ -137,26 +149,98 @@ struct ShellDependencyBuilderTests {
     @Test("main tab dependencies wire privacy reset through shell preferences and pinned items")
     @MainActor
     func mainTabDependenciesWirePrivacyReset() async throws {
-        clearShellPreferences()
-        defer { clearShellPreferences() }
-
         let container = try makePrimaryContainer()
         let context = ModelContext(container)
         let auraPlayContainer = try makeAuraPlayContainer()
-        let dependencies = MainTabDependencies.live(modelContext: context)
-        let selectionPersistence = UserDefaultsShellSelectionPersistence()
+        let pinnedItemsStore = makeIsolatedPinnedItemsStore()
+        let selectionPersistence = RecordingShellSelectionPersistence()
+        let dependencies = MainTabDependencies.live(
+            modelContext: context,
+            homePinnedItemsStore: pinnedItemsStore,
+            privacyResetServiceFactory: { modelContext, auraPlayContainer in
+                PrivacyResetService(
+                    transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+                        modelContainer: modelContext.container
+                    ),
+                    ensCacheResetService: ENSResolvers.cacheResetService(),
+                    auraPlayPersistenceResetService: auraPlayContainer.map {
+                        SwiftDataAuraPlayPersistenceResetService(modelContainer: $0)
+                    } ?? AuraPlayStoreResetService(),
+                    credentialResetService: RecordingCredentialPrivacyResetter(),
+                    selectionPersistence: selectionPersistence,
+                    homePinnedItemsStore: pinnedItemsStore
+                )
+            }
+        )
         let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
 
-        selectionPersistence.saveSelection(address: accountAddress, chainID: Chain.baseMainnet.rawValue)
+        try await selectionPersistence.saveSelection(address: accountAddress, chainID: Chain.baseMainnet.rawValue)
         _ = try dependencies.homePinnedItemsStore.togglePin(.openSearch, accountAddress: accountAddress)
 
         try await dependencies
             .privacyResetServiceFactory(context, auraPlayContainer)
             .resetLocalPrivacyData()
 
-        let restoredSelection = selectionPersistence.loadSelection()
+        let restoredSelection = try await selectionPersistence.loadSelection()
         #expect(restoredSelection.address.isEmpty)
         #expect(restoredSelection.chainID == Chain.ethMainnet.rawValue)
         #expect(dependencies.homePinnedItemsStore.isPinned(.openSearch, accountAddress: accountAddress) == false)
+    }
+
+    @Test("keychain shell selection persistence save update load and clear use isolated service")
+    @MainActor
+    func keychainShellSelectionPersistenceUsesCheckedOperations() async throws {
+        let serviceName = "auralis.tests.shell.selection.\(UUID().uuidString)"
+        let persistence = KeychainShellSelectionPersistence(service: serviceName)
+        let firstAddress = "0x1234567890abcdef1234567890abcdef12345678"
+        let secondAddress = "0xabcdef1234567890abcdef1234567890abcdef12"
+        defer {
+            Task {
+                try? await persistence.clearSelection()
+            }
+        }
+
+        try await persistence.clearSelection()
+        try await persistence.saveSelection(address: firstAddress, chainID: Chain.ethMainnet.rawValue)
+        var restoredSelection = try await persistence.loadSelection()
+        #expect(restoredSelection.address == firstAddress)
+        #expect(restoredSelection.chainID == Chain.ethMainnet.rawValue)
+
+        try await persistence.saveSelection(address: secondAddress, chainID: Chain.baseMainnet.rawValue)
+        restoredSelection = try await persistence.loadSelection()
+        #expect(restoredSelection.address == secondAddress)
+        #expect(restoredSelection.chainID == Chain.baseMainnet.rawValue)
+
+        try await persistence.clearSelection()
+        restoredSelection = try await persistence.loadSelection()
+        #expect(restoredSelection.address.isEmpty)
+        #expect(restoredSelection.chainID == Chain.ethMainnet.rawValue)
+    }
+}
+
+@MainActor
+private final class RecordingShellSelectionPersistence: ShellSelectionPersisting {
+    private var selection: (address: String, chainID: String) = ("", Chain.ethMainnet.rawValue)
+    private(set) var clearSelectionCallCount = 0
+
+    func loadSelection() async throws -> (address: String, chainID: String) {
+        selection
+    }
+
+    func saveSelection(address: String, chainID: String) async throws {
+        selection = (address, chainID)
+    }
+
+    func clearSelection() async throws {
+        selection = ("", Chain.ethMainnet.rawValue)
+        clearSelectionCallCount += 1
+    }
+}
+
+private actor RecordingCredentialPrivacyResetter: CredentialPrivacyResetting {
+    private(set) var clearCount = 0
+
+    func clearCredentials() async throws {
+        clearCount += 1
     }
 }

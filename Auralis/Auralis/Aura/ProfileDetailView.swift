@@ -248,43 +248,23 @@ private extension ProfileDetailView {
     }
 
     func refreshPresentationData() async {
-        let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? ""
-        let chainRawValue = currentChain.rawValue
-
-        let accountDescriptor = FetchDescriptor<EOAccount>(
-            predicate: #Predicate<EOAccount> { account in
-                account.address == normalizedAccountAddress
-            }
-        )
-        let nftDescriptor = FetchDescriptor<NFT>(
-            predicate: #Predicate<NFT> { nft in
-                nft.accountAddressRawValue == normalizedAccountAddress &&
-                nft.networkRawValue == chainRawValue
-            }
-        )
-        let holdingDescriptor = FetchDescriptor<TokenHolding>(
-            predicate: #Predicate<TokenHolding> { holding in
-                holding.accountAddressRawValue == normalizedAccountAddress &&
-                holding.chainRawValue == chainRawValue
-            }
-        )
-
         do {
-            let nextAccount = try modelContext.fetch(accountDescriptor).first
-            let nextScopedNFTCount = try modelContext.fetchCount(nftDescriptor)
-            let nextScopedTokenCount = try modelContext.fetchCount(holdingDescriptor)
+            let summary = try ProfileAssetSummaryService(modelContext: modelContext).summary(
+                accountAddress: accountAddress,
+                chain: currentChain
+            )
 
-            if account?.persistentModelID != nextAccount?.persistentModelID {
-                account = nextAccount
+            if account?.persistentModelID != summary.account?.persistentModelID {
+                account = summary.account
             } else {
-                account?.name = nextAccount?.name
+                account?.name = summary.account?.name
             }
 
-            if scopedNFTCount != nextScopedNFTCount {
-                scopedNFTCount = nextScopedNFTCount
+            if scopedNFTCount != summary.scopedNFTCount {
+                scopedNFTCount = summary.scopedNFTCount
             }
-            if scopedTokenCount != nextScopedTokenCount {
-                scopedTokenCount = nextScopedTokenCount
+            if scopedTokenCount != summary.scopedTokenCount {
+                scopedTokenCount = summary.scopedTokenCount
             }
         } catch {
             account = nil
@@ -294,10 +274,7 @@ private extension ProfileDetailView {
     }
 
     func observePersistenceChanges() async {
-        for await _ in NotificationCenter.default.notifications(named: ModelContext.didSave) {
-            guard !Task.isCancelled else {
-                return
-            }
+        await ProfileAssetSummaryService(modelContext: modelContext).observePersistenceChanges {
             await refreshPresentationData()
         }
     }

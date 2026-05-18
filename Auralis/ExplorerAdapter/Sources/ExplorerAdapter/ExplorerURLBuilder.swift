@@ -57,19 +57,11 @@ public struct ExplorerURLBuilder: ExplorerURLBuilding, Sendable {
 }
 
 private func normalizedEthereumAddress(_ address: String) throws -> String {
-    let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
-    let prefixedPattern = #"^0x[a-fA-F0-9]{40}$"#
-    let unprefixedPattern = #"^[a-fA-F0-9]{40}$"#
-
-    if trimmedAddress.range(of: prefixedPattern, options: .regularExpression) != nil {
-        return trimmedAddress
+    guard let normalizedAddress = AuralisEthereumAddress.normalized(address) else {
+        throw ExplorerURLBuildError.invalidAddress(address)
     }
 
-    if trimmedAddress.range(of: unprefixedPattern, options: .regularExpression) != nil {
-        return "0x" + trimmedAddress
-    }
-
-    throw ExplorerURLBuildError.invalidAddress(address)
+    return normalizedAddress
 }
 
 private func normalizedTransactionHash(_ hash: String) throws -> String {

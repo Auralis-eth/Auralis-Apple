@@ -51,8 +51,8 @@ public class NFTService {
         prepareMetadataUseCase: (any PrepareNFTMetadataUsing)? = nil,
         persistInventoryUseCase: (any PersistNFTInventoryUsing)? = nil,
         refreshStateComputer: NFTRefreshStateComputer? = nil,
-        eventRecorderFactory: @escaping @MainActor (ModelContext) -> any NFTRefreshEventRecording = {
-            NFTRefreshEventRecorders.live(modelContext: $0)
+        eventRecorderFactory: @escaping @MainActor (ModelContext) -> any NFTRefreshEventRecording = { _ in
+            NoOpNFTRefreshEventRecorder()
         }
     ) {
         let resolvedFetcher = nftFetcher ?? NFTFetcher()

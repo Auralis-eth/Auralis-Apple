@@ -1,5 +1,25 @@
 # Journal
 
+## 2026-05-17 — Phase 2 Architecture Boundaries: Put the Walls Where the Floor Plan Said
+
+Phase 2 was the kind of cleanup that makes an app feel less like a successful prototype and more like a system you can keep extending without flinching.
+
+- Package boundaries got teeth. The app target now has explicit direct package dependencies, `NFTKit` no longer reaches down into `ReceiptStorage`, and `TokenStorage` no longer borrows NFT orchestration just to understand token holdings. That is the architecture equivalent of making sure the kitchen, front desk, and accounting office each have their own keys.
+- SwiftData work moved out of the SwiftUI views that were doing too much. Home, Search, Profile, and Chrome now ask small service types for scoped summaries and context records instead of building fetch descriptors in the middle of view code.
+- Address parsing stopped being a folk tradition. `AuralisEthereumAddress` is now the first-party canonical normalizer, which matters because wallet input, provider calls, receipts, ENS, and deep links should not each carry their own idea of what a valid address looks like.
+- Local storage has labels now. `LocalDataClassification` and ADR-003 draw the line between harmless preferences, wallet metadata, and credentials. The big behavior change is active shell selection moving out of UserDefaults and into Keychain-backed wallet metadata storage.
+- The Observation migration got the app onto one UI-state model. `ModeState` and `AudioEngine` now use `@Observable`, and the main views own them with `@State` instead of `@StateObject`.
+
+The lesson: architecture tickets only count when they leave behind tripwires. The new tests are those tripwires: they fail if a forbidden package edge returns, if wallet regexes start multiplying again, if shell selection slips back into UserDefaults, or if old ObservableObject wrappers reappear in app code.
+
+## 2026-05-17 — The Context Race Test Learned to Wait for the Doorbell
+
+The context-service race test had a tiny but nasty timing bug: it used `Task.yield()` as if yielding meant "the first refresh definitely reached the gate now." Swift's scheduler made no such promise. Sometimes the second refresh got to the gate first, blocked behind the continuation, and the test sat there like someone waiting outside a locked apartment while the person with the key was still on the elevator.
+
+The fix was to make the test synchronization explicit. `ControlledResolveGate` now announces when the first refresh has actually suspended, and the race tests wait for that signal before changing the wallet scope and starting the second refresh. We also gave those race tests a Swift Testing time limit so a future coordination bug fails as a test failure instead of turning the suite into wet cement.
+
+The lesson: async tests need handshakes, not vibes. `Task.yield()` is useful for giving work a chance to run, but it is not a contract that a specific line of code has executed.
+
 ## The Big Picture
 
 Auralis is what happens when an NFT wallet explorer, a polished dashboard, and a music player decide to share an apartment instead of living in separate apps. You connect an address, the app pulls in wallet context and NFT inventory, then turns that data into several product surfaces: home, newsfeed, gas tools, token views, receipts, and music playback.
@@ -1678,3 +1698,13 @@ The Phase 1 audit cleanup tightened four places where the app was close to safe 
 - Provider failures now have public error codes. Receipts no longer need `String(describing:)` from raw provider errors to say “rate limited,” “bad provider auth,” “unavailable,” or “invalid response.”
 
 The lesson: security work often starts as “add one check,” but the real fix is usually making the contract explicit. What gets cleared, what gets logged, what can be opened, and what can be trusted all need names the code can enforce.
+## Shell Selection Keychain: The Valet Needs To Hand Back A Ticket
+
+The active wallet selection moved out of `UserDefaults` and into Keychain, which was the right storage room for wallet metadata. But the first pass had a dangerous valet problem: it accepted your keys, nodded politely, and never told you if the key hook fell off the wall. Keychain reads, writes, updates, and deletes were synchronous on the main actor, and several `OSStatus` failures were ignored.
+
+The fix made the storage contract honest. `ShellSelectionPersisting` is now async and throwing, backed by a dedicated Keychain actor that checks `errSecSuccess`, `errSecItemNotFound`, `errSecDuplicateItem`, update failures, decode failures, and delete failures explicitly. The shell now surfaces persistence failures as route errors instead of pretending a failed load means “no saved wallet.” Privacy reset also treats saved-selection clearing as a real local-preferences phase, so a failed Keychain delete blocks the success message instead of leaving old wallet metadata behind.
+
+The tests got their own lesson too: production Keychain services and default `UserDefaults` are not test fixtures. The dependency-builder tests now inject isolated shell selection persistence and UUID-backed pinned-item stores, while a focused Keychain test uses a one-off service name to prove save, duplicate update, load, and clear behavior without touching the production slot.
+
+The lesson: persistence APIs should either complete the promise or return the claim ticket saying they could not. Silent storage failure is not graceful degradation; it is a future launch bug wearing a calm face.
+

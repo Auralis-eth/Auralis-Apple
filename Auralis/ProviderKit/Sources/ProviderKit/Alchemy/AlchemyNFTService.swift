@@ -388,11 +388,6 @@ public final class AlchemyNFTService: NFTInventoryProviding, Sendable {
 
     // MARK: - Validation
 
-    // Safe regex compilation (optional)
-    private static let ethAddressRegex: NSRegularExpression? = {
-        try? NSRegularExpression(pattern: "^0x[0-9a-fA-F]{40}$")
-    }()
-
     // ENS: labels of [a-z0-9-], 1-63 chars, ends with .eth
     private static let ensNameRegex: NSRegularExpression? = {
         try? NSRegularExpression(
@@ -402,9 +397,7 @@ public final class AlchemyNFTService: NFTInventoryProviding, Sendable {
     }()
 
     private static func isValidEthereumAddress(_ value: String) -> Bool {
-        guard let regex = ethAddressRegex else { return false }
-        let range = NSRange(value.startIndex..., in: value)
-        return regex.firstMatch(in: value, options: [], range: range) != nil
+        AuralisEthereumAddress.normalized(value) != nil
     }
 
     private static func isValidENSName(_ value: String) -> Bool {

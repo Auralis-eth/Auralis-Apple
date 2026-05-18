@@ -111,7 +111,7 @@ struct ReceiptTimelineRecord: Identifiable, Equatable, Sendable {
     }
 
     func matches(_ scope: ReceiptTimelineScope) -> Bool {
-        let normalizedScopeAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
+        let normalizedScopeAddress = AuralisEthereumAddress.normalized(scope.accountAddress)
 
         guard let normalizedScopeAddress else {
             return true

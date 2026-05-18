@@ -106,53 +106,11 @@ struct MainTabView: View {
             )
         )
         _contextService = State(
-            initialValue: dependencies.contextServiceBuilder.makeContextService(
-                accountProvider: { resolveCurrentAccount() },
-                addressProvider: { shellStore.state.selection?.address ?? "" },
-                chainProvider: { shellStore.state.selection?.chain ?? .ethMainnet },
-                modeProvider: { modeState.mode },
-                loadingProvider: { nftService.wrappedValue.isLoading },
-                refreshedAtProvider: {
-                    let activeAddress = resolveCurrentAccount()?.address
-                        ?? shellStore.state.selection?.address
-                        ?? ""
-                    return nftService.wrappedValue.lastSuccessfulRefreshAt(
-                        for: activeAddress,
-                        chain: shellStore.state.selection?.chain ?? .ethMainnet
-                    )
-                },
-                nativeBalanceProvider: dependencies.nativeBalanceProvider,
-                freshnessTTLProvider: { nftService.wrappedValue.refreshTTL },
-                trackedNFTCountProvider: {
-                    resolveCurrentAccount()?.trackedNFTCount
-                },
-                musicCollectionCountProvider: {
-                    dependencies.libraryContextProvider.playlistCount()
-                },
-                receiptCountProvider: {
-                    dependencies.libraryContextProvider.receiptCount(
-                        scope: ReceiptTimelineScope(
-                            accountAddress: shellStore.state.selection?.address ?? "",
-                            chain: shellStore.state.selection?.chain ?? .ethMainnet
-                        )
-                    )
-                },
-                pinnedActionsProvider: {
-                    Array(
-                        homePinnedItemsStore.pinnedActions(
-                            for: shellStore.state.selection?.address ?? ""
-                        )
-                    )
-                    .sorted { $0.rawValue < $1.rawValue }
-                },
-                prefersDemoDataProvider: {
-                    resolveCurrentAccount()?.source == .guestPass
-                },
-                pinnedItemCountProvider: {
-                    homePinnedItemsStore.pinnedCount(
-                        for: shellStore.state.selection?.address ?? ""
-                    )
-                }
+            initialValue: dependencies.makeContextService(
+                shellStore: shellStore,
+                resolveCurrentAccount: resolveCurrentAccount,
+                modeState: modeState,
+                nftServiceProvider: { nftService.wrappedValue }
             )
         )
     }
@@ -318,9 +276,10 @@ struct MainTabView: View {
                                 MusicFeatureRootView(
                                     currentAccount: currentAccount,
                                     currentChain: currentChain,
-                                    dependencies: makeMusicFeatureDependencies(
+                                    dependencies: dependencies.makeMusicFeatureDependencies(
                                         audioEngine: audioEngine,
-                                        auraPlayModelContainer: auraPlayModelContainer
+                                        auraPlayModelContainer: auraPlayModelContainer,
+                                        accountModelContext: modelContext
                                     )
                                 )
                             }
@@ -426,37 +385,6 @@ struct MainTabView: View {
             }
         }
         .tint(.accent)
-    }
-
-    @MainActor
-    private func makeMusicFeatureDependencies(
-        audioEngine: AudioEngine,
-        auraPlayModelContainer: ModelContainer
-    ) -> AuraPlayDependencies {
-        let logger = LiveAuraPlayLogger()
-        return AuraPlayDependencies(
-            libraryRepository: LiveAuraPlayLibraryRepository(
-                indexer: dependencies.musicLibraryIndexer,
-                receiptEventLogger: dependencies.receiptEventLoggerFactory(modelContext),
-                auraPlayModelContainer: auraPlayModelContainer,
-                accountModelContext: modelContext
-            ),
-            librarySyncService: LiveAuraPlayLibrarySyncService(
-                sourceModelContext: modelContext,
-                auraPlayModelContainer: auraPlayModelContainer,
-                musicReceiptLogger: MusicReceiptEventLogger(
-                    receiptStore: ReceiptStores.live(modelContext: modelContext)
-                ),
-                logger: logger
-            ),
-            playbackController: AuraPlayAudioEnginePlaybackController(audioEngine: audioEngine),
-            queueCoordinator: AuraPlayAudioEngineQueueCoordinator(audioEngine: audioEngine),
-            artworkLoader: AuraPlayTrackArtworkLoader(),
-            logger: logger,
-            configuration: AuraPlayModuleConfiguration.live(
-                infoDictionary: Bundle.main.infoDictionary ?? [:]
-            )
-        )
     }
 
     @ViewBuilder
@@ -657,7 +585,7 @@ private struct ContextLocalRefreshKey: Hashable {
         @State private var nftService = NFTService()
         @State private var router = AppRouter()
         let audioEngine: AudioEngine? = try? AudioEngine()
-        @StateObject private var modeState = ModeState()
+        @State private var modeState = ModeState()
         private let auraPlayModelContainer = PreviewModelContainers.auraPlay()
         private let shellStore = ShellStore.preview(
             selection: ActiveShellSelection(

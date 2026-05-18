@@ -22,12 +22,14 @@ enum HomePinnedItemsStoreError: LocalizedError, Equatable {
 
 struct HomePinnedItemsStore {
     private static let logger = Logger(subsystem: "Auralis", category: "HomePinnedItemsStore")
+    static let storageDecisionIdentifier = "auralis.home.pinned-items.v1"
+
     private let store: UserDefaultsCodableStore<HomePinnedItemRecord>
     private let maximumPinnedItemsPerAccount: Int
 
     init(
         userDefaults: UserDefaults = .standard,
-        storageKey: String = "auralis.home.pinned-items.v1",
+        storageKey: String = Self.storageDecisionIdentifier,
         maximumPinnedItemsPerAccount: Int = 6
     ) {
         self.store = UserDefaultsCodableStore(

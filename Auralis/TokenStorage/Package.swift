@@ -15,7 +15,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
-        .package(path: "../NFTKit"),
+        .package(path: "../ProviderKit"),
         .package(path: "../SwiftDataAdapters"),
     ],
     targets: [
@@ -23,7 +23,7 @@ let package = Package(
             name: "TokenStorage",
             dependencies: [
                 "AuralisPrimaryModels",
-                "NFTKit",
+                "ProviderKit",
                 "SwiftDataAdapters",
             ]
         ),
@@ -31,7 +31,7 @@ let package = Package(
             name: "TokenStorageTests",
             dependencies: [
                 "AuralisPrimaryModels",
-                "NFTKit",
+                "ProviderKit",
                 "TokenStorage",
             ]
         ),

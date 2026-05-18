@@ -10,6 +10,7 @@ import Foundation
 import ProviderKit
 import PolicyCore
 import SwiftData
+import MusicFeature
 import NFTKit
 import TokenStorage
 
@@ -121,7 +122,7 @@ struct SwiftDataShellLibraryContextProvider: ShellLibraryContextProviding {
 
     func receiptCount(scope: ReceiptTimelineScope) -> Int? {
         do {
-            let normalizedAccountAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
+            let normalizedAccountAddress = AuralisEthereumAddress.normalized(scope.accountAddress)
             let chainRawValue = scope.chain.rawValue
             let descriptor: FetchDescriptor<StoredReceipt>
 
@@ -192,12 +193,13 @@ extension ShellStoreDependencies {
     static func live(
         modelContext: ModelContext,
         nftService: NFTService,
-        router: AppRouter
+        router: AppRouter,
+        selectionPersistence: (any ShellSelectionPersisting)? = nil
     ) -> ShellStoreDependencies {
-        let services = ShellServiceHub.live
+        let services = AppEnvironment.live
         let accountResolver = SwiftDataShellAccountResolver(modelContext: modelContext)
         return ShellStoreDependencies(
-            selectionPersistence: UserDefaultsShellSelectionPersistence(),
+            selectionPersistence: selectionPersistence ?? KeychainShellSelectionPersistence(),
             accountResolver: accountResolver,
             accountMutator: SwiftDataShellAccountMutator(
                 modelContext: modelContext,
@@ -226,7 +228,7 @@ struct GatewayDependencies {
     let featureDependencies: AccountsGatewayDependencies
 
     static func live(modelContext: ModelContext) -> GatewayDependencies {
-        let services = ShellServiceHub.live
+        let services = AppEnvironment.live
         return GatewayDependencies(
             featureDependencies: AccountsGatewayDependencies(
                 ensResolver: AppAccountENSResolver(
@@ -237,6 +239,20 @@ struct GatewayDependencies {
                 )
             )
         )
+    }
+}
+
+struct MusicRuntime {
+    let audioEngine: AudioEngine?
+    let audioEngineInitializationErrorMessage: String?
+    let auraPlayModelContainer: ModelContainer?
+    let auraPlayInitializationErrorMessage: String?
+
+    var unavailableMessage: String? {
+        [audioEngineInitializationErrorMessage, auraPlayInitializationErrorMessage]
+            .compactMap { $0 }
+            .joined(separator: " ")
+            .nilIfEmpty
     }
 }
 
@@ -258,15 +274,19 @@ struct MainTabDependencies {
     let privacyResetServiceFactory: @MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
 
-    static func live(modelContext: ModelContext) -> MainTabDependencies {
-        let services = ShellServiceHub.live
+    static func live(
+        modelContext: ModelContext,
+        homePinnedItemsStore: HomePinnedItemsStore? = nil,
+        privacyResetServiceFactory: (@MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting)? = nil
+    ) -> MainTabDependencies {
+        let services = AppEnvironment.live
         return MainTabDependencies(
             accountStoreFactory: services.accountStoreFactory,
             contextServiceBuilder: services.contextServiceBuilder,
             nativeBalanceProvider: services.readOnlyProviderFactory.makeNativeBalanceProvider(),
             gasPricingProvider: services.readOnlyProviderFactory.makeGasPricingProvider(),
             ensResolver: services.ensResolverFactory(modelContext),
-            homePinnedItemsStore: services.homePinnedItemsStoreFactory(),
+            homePinnedItemsStore: homePinnedItemsStore ?? services.homePinnedItemsStoreFactory(),
             libraryContextProvider: services.libraryContextProviderFactory(modelContext),
             musicLibraryIndexer: services.musicLibraryIndexerFactory(modelContext),
             receiptEventLoggerFactory: services.receiptEventLoggerFactory,
@@ -274,8 +294,95 @@ struct MainTabDependencies {
             tokenHoldingsStoreFactory: services.tokenHoldingsStoreFactory,
             tokenHoldingsProviderFactory: services.tokenHoldingsProviderFactory,
             logoutCleanupServiceFactory: services.logoutCleanupServiceFactory,
-            privacyResetServiceFactory: services.privacyResetServiceFactory,
+            privacyResetServiceFactory: privacyResetServiceFactory ?? services.privacyResetServiceFactory,
             policyActionHandlerFactory: services.policyActionHandlerFactory
+        )
+    }
+
+    func makeMusicFeatureDependencies(
+        audioEngine: AudioEngine,
+        auraPlayModelContainer: ModelContainer,
+        accountModelContext: ModelContext
+    ) -> AuraPlayDependencies {
+        let logger = LiveAuraPlayLogger()
+        return AuraPlayDependencies(
+            libraryRepository: LiveAuraPlayLibraryRepository(
+                indexer: musicLibraryIndexer,
+                receiptEventLogger: receiptEventLoggerFactory(accountModelContext),
+                auraPlayModelContainer: auraPlayModelContainer,
+                accountModelContext: accountModelContext
+            ),
+            librarySyncService: LiveAuraPlayLibrarySyncService(
+                sourceModelContext: accountModelContext,
+                auraPlayModelContainer: auraPlayModelContainer,
+                musicReceiptLogger: MusicReceiptEventLogger(
+                    receiptStore: ReceiptStores.live(modelContext: accountModelContext)
+                ),
+                logger: logger
+            ),
+            playbackController: AuraPlayAudioEnginePlaybackController(audioEngine: audioEngine),
+            queueCoordinator: AuraPlayAudioEngineQueueCoordinator(audioEngine: audioEngine),
+            artworkLoader: AuraPlayTrackArtworkLoader(),
+            logger: logger,
+            configuration: AuraPlayModuleConfiguration.live(
+                infoDictionary: Bundle.main.infoDictionary ?? [:]
+            )
+        )
+    }
+
+    func makeContextService(
+        shellStore: ShellStore,
+        resolveCurrentAccount: @escaping @MainActor () -> EOAccount?,
+        modeState: ModeState,
+        nftServiceProvider: @escaping @MainActor () -> NFTService
+    ) -> ContextService {
+        contextServiceBuilder.makeContextService(
+            accountProvider: { resolveCurrentAccount() },
+            addressProvider: { shellStore.state.selection?.address ?? "" },
+            chainProvider: { shellStore.state.selection?.chain ?? .ethMainnet },
+            modeProvider: { modeState.mode },
+            loadingProvider: { nftServiceProvider().isLoading },
+            refreshedAtProvider: {
+                let activeAddress = resolveCurrentAccount()?.address
+                    ?? shellStore.state.selection?.address
+                    ?? ""
+                return nftServiceProvider().lastSuccessfulRefreshAt(
+                    for: activeAddress,
+                    chain: shellStore.state.selection?.chain ?? .ethMainnet
+                )
+            },
+            nativeBalanceProvider: nativeBalanceProvider,
+            freshnessTTLProvider: { nftServiceProvider().refreshTTL },
+            trackedNFTCountProvider: {
+                resolveCurrentAccount()?.trackedNFTCount
+            },
+            musicCollectionCountProvider: {
+                libraryContextProvider.playlistCount()
+            },
+            receiptCountProvider: {
+                libraryContextProvider.receiptCount(
+                    scope: ReceiptTimelineScope(
+                        accountAddress: shellStore.state.selection?.address ?? "",
+                        chain: shellStore.state.selection?.chain ?? .ethMainnet
+                    )
+                )
+            },
+            pinnedActionsProvider: {
+                Array(
+                    homePinnedItemsStore.pinnedActions(
+                        for: shellStore.state.selection?.address ?? ""
+                    )
+                )
+                .sorted { $0.rawValue < $1.rawValue }
+            },
+            prefersDemoDataProvider: {
+                resolveCurrentAccount()?.source == .guestPass
+            },
+            pinnedItemCountProvider: {
+                homePinnedItemsStore.pinnedCount(
+                    for: shellStore.state.selection?.address ?? ""
+                )
+            }
         )
     }
 }
@@ -284,14 +391,18 @@ struct MainTabDependencies {
 struct ShellBootstrapDependencies {
     let modeStateFactory: @MainActor () -> ModeState
     let nftServiceFactory: @MainActor () -> NFTService
+    let makeMusicRuntime: @MainActor () -> MusicRuntime
+    let configureMusicReceiptLogger: @MainActor (AudioEngine?, ModelContext) -> Void
     let makeShellStore: @MainActor (ModelContext, NFTService, AppRouter) -> ShellStore
     let makeGatewayDependencies: @MainActor (ModelContext) -> GatewayDependencies
     let makeMainTabDependencies: @MainActor (ModelContext) -> MainTabDependencies
 
     static let live: ShellBootstrapDependencies = {
         return ShellBootstrapDependencies(
-            modeStateFactory: ShellServiceHub.live.modeStateFactory,
-            nftServiceFactory: ShellServiceHub.live.nftServiceFactory,
+            modeStateFactory: AppEnvironment.live.modeStateFactory,
+            nftServiceFactory: AppEnvironment.live.nftServiceFactory,
+            makeMusicRuntime: AppEnvironment.live.makeMusicRuntime,
+            configureMusicReceiptLogger: AppEnvironment.live.configureMusicReceiptLogger,
             makeShellStore: { modelContext, nftService, router in
                 ShellStore.live(
                     dependencies: ShellStoreDependencies.live(
@@ -313,11 +424,15 @@ struct ShellBootstrapDependencies {
 
 @MainActor
 /// Bundles the long-lived service factories needed to assemble the Aura shell.
-private struct ShellServiceHub {
+struct AppEnvironment {
     /// Builds the shared mode state store used by the shell.
     let modeStateFactory: @MainActor () -> ModeState
     /// Builds the long-lived NFT refresh service.
     let nftServiceFactory: @MainActor () -> NFTService
+    /// Builds the optional music runtime and AuraPlay container.
+    let makeMusicRuntime: @MainActor () -> MusicRuntime
+    /// Wires receipt logging into the current audio engine.
+    let configureMusicReceiptLogger: @MainActor (AudioEngine?, ModelContext) -> Void
     /// Builds the ENS resolver for the current model context.
     let ensResolverFactory: @MainActor (ModelContext) -> any ENSResolving
     /// Factory for read-only provider dependencies used across shell features.
@@ -352,9 +467,9 @@ private struct ShellServiceHub {
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
 
     /// Returns the production service hub used by the app shell.
-    static let live: ShellServiceHub = {
+    static let live: AppEnvironment = {
         let readOnlyProviderFactory = ReadOnlyProviderFactory()
-        return ShellServiceHub(
+        return AppEnvironment(
             modeStateFactory: { ModeState() },
             nftServiceFactory: {
                 NFTService(
@@ -362,6 +477,40 @@ private struct ShellServiceHub {
                         nftProviderFactory: { chain in
                             try readOnlyProviderFactory.makeNFTInventoryProvider(for: chain)
                         }
+                    ),
+                    eventRecorderFactory: { modelContext in
+                        ReceiptBackedNFTRefreshEventRecorder(
+                            receiptStore: ReceiptStores.live(modelContext: modelContext)
+                        )
+                    }
+                )
+            },
+            makeMusicRuntime: {
+                let auraPlayResult: (ModelContainer?, String?)
+                do {
+                    auraPlayResult = (try AuraPlayModelContainer.make(inMemory: false), nil)
+                } catch {
+                    auraPlayResult = (nil, "AuraPlay storage could not be opened on this launch.")
+                }
+
+                let audioResult: (AudioEngine?, String?)
+                do {
+                    audioResult = (try AudioEngine(), nil)
+                } catch {
+                    audioResult = (nil, error.localizedDescription)
+                }
+
+                return MusicRuntime(
+                    audioEngine: audioResult.0,
+                    audioEngineInitializationErrorMessage: audioResult.1,
+                    auraPlayModelContainer: auraPlayResult.0,
+                    auraPlayInitializationErrorMessage: auraPlayResult.1
+                )
+            },
+            configureMusicReceiptLogger: { audioEngine, modelContext in
+                audioEngine?.configureMusicReceiptLogger(
+                    MusicReceiptEventLogger(
+                        receiptStore: ReceiptStores.live(modelContext: modelContext)
                     )
                 )
             },

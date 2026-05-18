@@ -159,7 +159,7 @@ public final class ShellStore {
             await refreshActiveSelectionIfStaleAfterForeground()
 
         case .logoutRequested:
-            performLogout()
+            await performLogout()
 
         case .pendingCorrelationConsumed(let correlationID):
             guard state.pendingCorrelationID == correlationID else {
@@ -170,33 +170,40 @@ public final class ShellStore {
     }
 
     private func restoreFromPersistence() async {
-        let persistedSelection = selectionPersistence.loadSelection()
-        let persistedAccount = try? accountResolver.account(for: persistedSelection.address)
-        let fallbackAccount = persistedAccount == nil ? (try? accountResolver.fallbackAccount()) : nil
-        let activeAccount = persistedAccount ?? fallbackAccount
+        do {
+            let persistedSelection = try await selectionPersistence.loadSelection()
+            let persistedAccount = try? accountResolver.account(for: persistedSelection.address)
+            let fallbackAccount = persistedAccount == nil ? (try? accountResolver.fallbackAccount()) : nil
+            let activeAccount = persistedAccount ?? fallbackAccount
 
-        if let activeAccount {
-            let restoredChain = restoredChain(
-                persistedChainRawValue: persistedSelection.chainID,
-                account: activeAccount
-            )
-            let selection = ActiveShellSelection(
-                address: activeAccount.address,
-                chain: restoredChain
-            )
-            applyCommittedSelection(selection, account: activeAccount)
-            selectionPersistence.saveSelection(
-                address: selection.address,
-                chainID: selection.chain.rawValue
-            )
-        } else if persistedSelection.address.isEmpty {
+            if let activeAccount {
+                let restoredChain = restoredChain(
+                    persistedChainRawValue: persistedSelection.chainID,
+                    account: activeAccount
+                )
+                let selection = ActiveShellSelection(
+                    address: activeAccount.address,
+                    chain: restoredChain
+                )
+                applyCommittedSelection(selection, account: activeAccount)
+                try await persistSelection(selection)
+            } else if persistedSelection.address.isEmpty {
+                state.selection = nil
+                state.activeAccountID = nil
+                try await selectionPersistence.clearSelection()
+            } else {
+                state.selection = nil
+                state.activeAccountID = nil
+                try await selectionPersistence.clearSelection()
+            }
+        } catch {
             state.selection = nil
             state.activeAccountID = nil
-            selectionPersistence.clearSelection()
-        } else {
-            state.selection = nil
-            state.activeAccountID = nil
-            selectionPersistence.clearSelection()
+            state.routeError = persistenceRouteError(
+                title: "Wallet Restore Failed",
+                fallbackMessage: "Auralis could not read the saved wallet selection on this device.",
+                error: error
+            )
         }
 
         state.didFinishInitialRestore = true
@@ -226,17 +233,14 @@ public final class ShellStore {
                     chain: fallbackAccount.currentChain
                 )
                 applyCommittedSelection(selection, account: fallbackAccount)
-                selectionPersistence.saveSelection(
-                    address: selection.address,
-                    chainID: selection.chain.rawValue
-                )
+                try await persistSelection(selection)
             } else {
                 state.selection = nil
                 state.activeAccountID = nil
                 state.pendingCorrelationID = nil
                 state.pendingDeepLink = nil
                 state.hasPresentedAuthenticatedExperience = false
-                selectionPersistence.clearSelection()
+                try await selectionPersistence.clearSelection()
             }
         } catch {
             state.routeError = AppRouteError(
@@ -267,10 +271,7 @@ public final class ShellStore {
                 chain: chain
             )
             applyCommittedSelection(nextSelection, account: account)
-            selectionPersistence.saveSelection(
-                address: nextSelection.address,
-                chainID: nextSelection.chain.rawValue
-            )
+            try await persistSelection(nextSelection)
             startRefresh(for: nextSelection, correlationID: correlationID)
         } catch {
             state.routeError = AppRouteError(
@@ -299,10 +300,16 @@ public final class ShellStore {
         }
 
         applyCommittedSelection(nextSelection, account: account)
-        selectionPersistence.saveSelection(
-            address: nextSelection.address,
-            chainID: nextSelection.chain.rawValue
-        )
+        do {
+            try await persistSelection(nextSelection)
+        } catch {
+            state.routeError = persistenceRouteError(
+                title: "Selection Persistence Failed",
+                fallbackMessage: "Auralis selected the wallet but could not save that selection for the next launch.",
+                error: error
+            )
+            return
+        }
 
         if refreshesSelection {
             startRefresh(for: nextSelection, correlationID: correlationID)
@@ -443,7 +450,7 @@ public final class ShellStore {
         startRefresh(for: selection, correlationID: UUID().uuidString)
     }
 
-    private func performLogout() {
+    private func performLogout() async {
         refreshTask?.cancel()
         refreshTask = nil
         state = ShellState(
@@ -457,7 +464,15 @@ public final class ShellStore {
             didFinishInitialRestore: true,
             routeError: nil
         )
-        selectionPersistence.clearSelection()
+        do {
+            try await selectionPersistence.clearSelection()
+        } catch {
+            state.routeError = persistenceRouteError(
+                title: "Logout Persistence Failed",
+                fallbackMessage: "Auralis logged out but could not clear the saved wallet selection.",
+                error: error
+            )
+        }
         applyRoutingEffect(.resetAllRoutes)
         applyRoutingEffect(.selectTab(.home))
     }
@@ -504,6 +519,25 @@ public final class ShellStore {
         routerEffectHandler.handle(effect)
     }
 
+    private func persistSelection(_ selection: ActiveShellSelection) async throws {
+        try await selectionPersistence.saveSelection(
+            address: selection.address,
+            chainID: selection.chain.rawValue
+        )
+    }
+
+    private func persistenceRouteError(
+        title: String,
+        fallbackMessage: String,
+        error: Error
+    ) -> AppRouteError {
+        AppRouteError(
+            title: title,
+            message: error.localizedDescription.isEmpty ? fallbackMessage : error.localizedDescription,
+            urlString: nil
+        )
+    }
+
     private func restoredChain(
         persistedChainRawValue: String,
         account: EOAccount
@@ -527,13 +561,13 @@ public final class ShellStore {
 
 @MainActor
 private struct PreviewShellSelectionPersistence: ShellSelectionPersisting {
-    func loadSelection() -> (address: String, chainID: String) {
+    func loadSelection() async throws -> (address: String, chainID: String) {
         ("", Chain.ethMainnet.rawValue)
     }
 
-    func saveSelection(address: String, chainID: String) { }
+    func saveSelection(address: String, chainID: String) async throws { }
 
-    func clearSelection() { }
+    func clearSelection() async throws { }
 }
 
 @MainActor

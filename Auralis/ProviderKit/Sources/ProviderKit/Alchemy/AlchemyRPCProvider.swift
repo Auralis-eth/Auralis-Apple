@@ -40,7 +40,7 @@ public struct AlchemyRPCProvider: NativeBalanceProviding {
         guard chain.supportsProviderKitEVMRPC else {
             throw ProviderAbstractionError.unsupportedChain(chain)
         }
-        guard let normalizedAddress = address.extractedEthereumAddress else {
+        guard let normalizedAddress = AuralisEthereumAddress.normalized(address) else {
             throw ProviderAbstractionError.invalidAddress
         }
 

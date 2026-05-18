@@ -365,53 +365,14 @@ struct ChromeContextInspectorSheet: View {
     }
 
     private func reloadContextReceipts() {
-        guard let receiptScope else {
-            latestContextReceipt = nil
-            relatedContextReceipts = []
-            return
-        }
-
         do {
-            let latestStoredReceipt = try modelContext.fetch(
-                Self.makeLatestContextReceiptDescriptor(for: receiptScope)
-            ).first
-
-            guard let latestStoredReceipt else {
-                latestContextReceipt = nil
-                relatedContextReceipts = []
-                return
-            }
-
-            let latestReceipt = ReceiptTimelineRecord(storedReceipt: latestStoredReceipt)
-            latestContextReceipt = latestReceipt
-            relatedContextReceipts = try loadRelatedContextReceipts(
-                correlationID: latestReceipt.correlationID,
-                excludingReceiptID: latestReceipt.id,
-                scope: receiptScope
-            )
+            let receipts = try ChromeContextRefreshService(modelContext: modelContext).contextReceipts(scope: receiptScope)
+            latestContextReceipt = receipts.latest
+            relatedContextReceipts = receipts.related
         } catch {
             latestContextReceipt = nil
             relatedContextReceipts = []
         }
-    }
-
-    private func loadRelatedContextReceipts(
-        correlationID: String?,
-        excludingReceiptID: UUID,
-        scope: ReceiptTimelineScope
-    ) throws -> [ReceiptTimelineRecord] {
-        guard let correlationID, !correlationID.isEmpty else {
-            return []
-        }
-
-        return try modelContext.fetch(
-            Self.makeRelatedContextReceiptsDescriptor(
-                correlationID: correlationID,
-                excludingReceiptID: excludingReceiptID,
-                scope: scope
-            )
-        )
-        .map(ReceiptTimelineRecord.init)
     }
 
     private func receiptDetailSummary(for receipt: ReceiptTimelineRecord) -> String {
@@ -425,47 +386,6 @@ struct ChromeContextInspectorSheet: View {
         }
 
         return String(localized: "\(timestamp) • Activity reference available")
-    }
-
-    private static func makeLatestContextReceiptDescriptor(
-        for scope: ReceiptTimelineScope
-    ) -> FetchDescriptor<StoredReceipt> {
-        let normalizedAccountAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
-        let chainRawValue = scope.chain.rawValue
-
-        return FetchDescriptor(
-            predicate: #Predicate<StoredReceipt> { storedReceipt in
-                storedReceipt.trigger == "context.built"
-                    && storedReceipt.accountAddress == normalizedAccountAddress
-                    && storedReceipt.chainRawValue == chainRawValue
-            },
-            sortBy: [
-                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
-                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
-            ]
-        )
-    }
-
-    private static func makeRelatedContextReceiptsDescriptor(
-        correlationID: String,
-        excludingReceiptID: UUID,
-        scope: ReceiptTimelineScope
-    ) -> FetchDescriptor<StoredReceipt> {
-        let normalizedAccountAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
-        let chainRawValue = scope.chain.rawValue
-
-        return FetchDescriptor(
-            predicate: #Predicate<StoredReceipt> { storedReceipt in
-                storedReceipt.correlationID == correlationID
-                    && storedReceipt.id != excludingReceiptID
-                    && storedReceipt.accountAddress == normalizedAccountAddress
-                    && storedReceipt.chainRawValue == chainRawValue
-            },
-            sortBy: [
-                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
-                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
-            ]
-        )
     }
 }
 

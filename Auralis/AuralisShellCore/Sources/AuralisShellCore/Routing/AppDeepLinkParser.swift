@@ -87,7 +87,7 @@ public struct AppDeepLinkParser {
         let pathAddressCandidate = segments.dropFirst().first
         let accountCandidate = queryValue(named: "address", in: components) ?? pathAddressCandidate
 
-        guard let accountCandidate, let address = accountCandidate.extractedEthereumAddress else {
+        guard let accountCandidate, let address = AuralisEthereumAddress.normalized(accountCandidate) else {
             return .failure(
                 AppRouteError(
                     title: "Invalid Account Link",
@@ -98,7 +98,7 @@ public struct AppDeepLinkParser {
         }
 
         let remainingSegments: [String]
-        if let pathAddressCandidate, pathAddressCandidate.extractedEthereumAddress != nil {
+        if let pathAddressCandidate, AuralisEthereumAddress.normalized(pathAddressCandidate) != nil {
             remainingSegments = Array(segments.dropFirst(2))
         } else {
             remainingSegments = Array(segments.dropFirst())
@@ -237,7 +237,7 @@ public struct AppDeepLinkParser {
         let chainCandidate = queriedChain ?? inferredPathChain
         let symbol = queriedSymbol ?? inferredPathSymbol
 
-        guard let contractCandidate, let contractAddress = contractCandidate.extractedEthereumAddress else {
+        guard let contractCandidate, let contractAddress = AuralisEthereumAddress.normalized(contractCandidate) else {
             return .failure(
                 AppRouteError(
                     title: "Invalid Token Link",
@@ -309,22 +309,5 @@ public struct AppDeepLinkParser {
 
     private func queryValue(named name: String, in components: URLComponents?) -> String? {
         components?.queryItems?.first(where: { $0.name == name })?.value
-    }
-}
-
-private extension String {
-    var extractedEthereumAddress: String? {
-        let address = trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !address.isEmpty else { return nil }
-
-        if let match = address.range(of: #"^0x[a-fA-F0-9]{40}$"#, options: .regularExpression) {
-            return String(address[match])
-        }
-
-        if let match = address.range(of: #"^[a-fA-F0-9]{40}$"#, options: .regularExpression) {
-            return "0x" + String(address[match])
-        }
-
-        return nil
     }
 }

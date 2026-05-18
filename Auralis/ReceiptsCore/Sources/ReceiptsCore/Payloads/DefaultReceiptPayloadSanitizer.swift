@@ -226,7 +226,7 @@ private extension DefaultReceiptPayloadSanitizer {
     }
 
     func looksLikeWalletAddress(_ value: String) -> Bool {
-        value.range(of: #"^0x[a-fA-F0-9]{40}$"#, options: .regularExpression) != nil
+        AuralisEthereumAddress.normalized(value) != nil
     }
 
     func looksLikeURL(_ value: String) -> Bool {

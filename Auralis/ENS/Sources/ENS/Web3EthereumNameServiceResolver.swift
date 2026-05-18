@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import Foundation
 import web3
 
@@ -269,17 +270,7 @@ private extension Web3EthereumNameServiceResolver {
     }
 
     static func normalizedAddress(_ rawValue: String) -> String? {
-        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-
-        if trimmed.range(of: #"^0x[a-f0-9]{40}$"#, options: .regularExpression) != nil {
-            return trimmed
-        }
-
-        if trimmed.range(of: #"^[a-f0-9]{40}$"#, options: .regularExpression) != nil {
-            return "0x" + trimmed
-        }
-
-        return nil
+        AuralisEthereumAddress.normalized(rawValue)
     }
 
     static func mapError(_ error: Error) -> ENSResolutionError {

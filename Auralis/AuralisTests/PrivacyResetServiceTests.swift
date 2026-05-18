@@ -437,6 +437,39 @@ struct PrivacyResetServiceTests {
                 && completedPhases == [.transactionalStore, .supportCaches, .auraPlayPersistence]
         }
     }
+
+    @Test("privacy reset surfaces saved selection clearing failures as local preference errors")
+    func resetLocalPrivacyDataFailsWhenSelectionClearFails() async throws {
+        let container = try TestModelContainers.primary()
+        let context = ModelContext(container)
+        let pinnedItemsStore = makeIsolatedPinnedItemsStore()
+        try pinnedItemsStore.togglePin(
+            .openNews,
+            accountAddress: "0x1111111111111111111111111111111111111111"
+        )
+        let service = PrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+                modelContainer: context.container
+            ),
+            ensCacheResetService: RecordingENSCacheResetService(),
+            auraPlayPersistenceResetService: RecordingAuraPlayPersistenceResetService(),
+            credentialResetService: RecordingCredentialPrivacyResetter(),
+            selectionPersistence: FailingShellSelectionPersistence(),
+            homePinnedItemsStore: pinnedItemsStore
+        )
+
+        await #expect {
+            try await service.resetLocalPrivacyData()
+        } throws: { error in
+            guard case LocalDataResetError.phaseFailed(let phase, let completedPhases, _) = error else {
+                return false
+            }
+            return phase == .localPreferences
+                && completedPhases == [.transactionalStore, .supportCaches, .auraPlayPersistence, .credentialStore]
+        }
+
+        #expect(pinnedItemsStore.pinnedCount(for: "0x1111111111111111111111111111111111111111") == 1)
+    }
 }
 
 private func makeIsolatedPinnedItemsStore() -> HomePinnedItemsStore {
@@ -603,13 +636,28 @@ private actor FailingCredentialPrivacyResetter: CredentialPrivacyResetting {
 private final class RecordingShellSelectionPersistence: ShellSelectionPersisting {
     private(set) var clearSelectionCallCount = 0
 
-    func loadSelection() -> (address: String, chainID: String) {
+    func loadSelection() async throws -> (address: String, chainID: String) {
         ("", Chain.ethMainnet.rawValue)
     }
 
-    func saveSelection(address: String, chainID: String) { }
+    func saveSelection(address: String, chainID: String) async throws { }
 
-    func clearSelection() {
+    func clearSelection() async throws {
         clearSelectionCallCount += 1
+    }
+}
+
+@MainActor
+private final class FailingShellSelectionPersistence: ShellSelectionPersisting {
+    struct Failure: Error { }
+
+    func loadSelection() async throws -> (address: String, chainID: String) {
+        ("", Chain.ethMainnet.rawValue)
+    }
+
+    func saveSelection(address: String, chainID: String) async throws { }
+
+    func clearSelection() async throws {
+        throw Failure()
     }
 }

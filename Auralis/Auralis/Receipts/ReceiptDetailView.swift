@@ -99,7 +99,7 @@ struct ReceiptDetailView: View {
         receiptID: UUID,
         scope: ReceiptTimelineScope
     ) -> FetchDescriptor<StoredReceipt> {
-        let normalizedAccountAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
+        let normalizedAccountAddress = AuralisEthereumAddress.normalized(scope.accountAddress)
 
         if let normalizedAccountAddress, !normalizedAccountAddress.isEmpty {
             return FetchDescriptor(
@@ -122,7 +122,7 @@ struct ReceiptDetailView: View {
         excludingReceiptID: UUID,
         scope: ReceiptTimelineScope
     ) -> FetchDescriptor<StoredReceipt> {
-        let normalizedAccountAddress = scope.accountAddress.extractedEthereumAddress?.lowercased()
+        let normalizedAccountAddress = AuralisEthereumAddress.normalized(scope.accountAddress)
 
         if let normalizedAccountAddress, !normalizedAccountAddress.isEmpty {
             return FetchDescriptor(

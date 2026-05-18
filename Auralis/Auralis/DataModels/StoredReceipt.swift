@@ -3,9 +3,7 @@ import Foundation
 
 extension ReceiptPayload {
     var timelineAccountAddress: String? {
-        value(forKeys: ["accountAddress", "address"])?
-            .extractedEthereumAddress?
-            .lowercased()
+        AuralisEthereumAddress.normalized(value(forKeys: ["accountAddress", "address"]))
     }
 
     var timelineChainRawValue: String? {

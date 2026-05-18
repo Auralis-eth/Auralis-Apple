@@ -1,46 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
 
-public extension TokenHolding {
-    static let hiddenAmountDisplay = DecimalQuantityFormatter.hiddenAmountDisplay
-
-    var hidesAmountUntilMetadataLoads: Bool {
-        amountDisplay == Self.hiddenAmountDisplay
-    }
-
-    var hasStaleMetadata: Bool {
-        balanceKind == .erc20 && TokenHoldingsMetadataFreshnessPolicy.isStale(updatedAt: updatedAt)
-    }
-}
-
-public extension Chain {
-    var nativeTokenSymbol: String {
-        switch self {
-        case .polygonMainnet, .polygonAmoyTestnet:
-            return "POL"
-        case .solanaMainnet, .solanaDevnetTestnet:
-            return "SOL"
-        case .berachainMainnet:
-            return "BERA"
-        default:
-            return "ETH"
-        }
-    }
-
-    var nativeTokenDisplayName: String {
-        switch self {
-        case .polygonMainnet, .polygonAmoyTestnet:
-            return "Polygon Native"
-        case .solanaMainnet, .solanaDevnetTestnet:
-            return "Solana Native"
-        case .berachainMainnet:
-            return "BeraChain Native"
-        default:
-            return "\(routingDisplayName) Native"
-        }
-    }
-}
-
 extension String {
     var displayAddress: String {
         if count > 10 {

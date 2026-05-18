@@ -265,7 +265,10 @@ struct ContextServiceTests {
         #expect(secondSnapshot.scope.accountAddress.value == currentAddress)
     }
 
-    @Test("context service isolates rapid account switches so stale requests do not overwrite the latest scope")
+    @Test(
+        "context service isolates rapid account switches so stale requests do not overwrite the latest scope",
+        .timeLimit(.minutes(1))
+    )
     func contextServiceAvoidsStaleOverwriteOnRapidAccountSwitch() async {
         let builder = CountingContextSourceBuilder()
         let resolveGate = ControlledResolveGate()
@@ -292,7 +295,7 @@ struct ContextServiceTests {
         )
 
         async let first: ContextSnapshot = service.refresh()
-        await Task.yield()
+        await resolveGate.waitUntilFirstIsSuspended()
 
         currentAddress = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         let secondSnapshot = await service.refresh()
@@ -348,7 +351,10 @@ struct ContextServiceTests {
         #expect(receipts.map { $0.kind } == ["context.built"])
     }
 
-    @Test("racing context refreshes keep each context-built receipt tied to the resolved scope and correlation")
+    @Test(
+        "racing context refreshes keep each context-built receipt tied to the resolved scope and correlation",
+        .timeLimit(.minutes(1))
+    )
     func contextServiceRaceKeepsReceiptScopeBoundToResolvedSnapshot() async throws {
         let builder = CountingContextSourceBuilder()
         let resolveGate = ControlledResolveGate()
@@ -388,7 +394,7 @@ struct ContextServiceTests {
             correlationID: "context-race-1",
             receiptEventLogger: logger
         )
-        await Task.yield()
+        await resolveGate.waitUntilFirstIsSuspended()
 
         currentAddress = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         let secondSnapshot = await service.refresh(
@@ -575,6 +581,8 @@ private actor SequencedNativeBalanceProvider: NativeBalanceProviding {
 @MainActor
 private final class ControlledResolveGate {
     private var firstContinuation: CheckedContinuation<Void, Never>?
+    private var firstDidSuspendContinuation: CheckedContinuation<Void, Never>?
+    private var didSuspendFirst = false
     private var waitCount = 0
 
     func waitIfNeeded() async {
@@ -583,8 +591,22 @@ private final class ControlledResolveGate {
             return
         }
 
+        didSuspendFirst = true
+        firstDidSuspendContinuation?.resume()
+        firstDidSuspendContinuation = nil
+
         await withCheckedContinuation { continuation in
             firstContinuation = continuation
+        }
+    }
+
+    func waitUntilFirstIsSuspended() async {
+        guard !didSuspendFirst else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            firstDidSuspendContinuation = continuation
         }
     }
 

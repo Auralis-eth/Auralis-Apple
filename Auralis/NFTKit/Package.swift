@@ -19,7 +19,6 @@ let package = Package(
         .package(path: "../ExplorerAdapter"),
         .package(path: "../ProviderKit"),
         .package(path: "../ReceiptsCore"),
-        .package(path: "../ReceiptStorage"),
     ],
     targets: [
         .target(
@@ -30,7 +29,6 @@ let package = Package(
                 "ExplorerAdapter",
                 "ProviderKit",
                 "ReceiptsCore",
-                "ReceiptStorage",
             ]
         ),
     ]

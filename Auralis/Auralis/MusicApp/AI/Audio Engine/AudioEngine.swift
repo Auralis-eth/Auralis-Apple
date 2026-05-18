@@ -9,10 +9,12 @@ import AuralisPrimaryModels
 import AVFoundation
 import Foundation
 import NFTKit
+import Observation
 
 @MainActor
 /// Shared playback engine for loading remote NFT audio, managing queue state, and exposing playback status to SwiftUI.
-public final class AudioEngine: ObservableObject {
+@Observable
+public final class AudioEngine {
     private static let downloadSession: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 15
@@ -25,28 +27,31 @@ public final class AudioEngine: ObservableObject {
     private static let initialRetryDelayNanoseconds: UInt64 = 1_000_000_000
     private static let maxRetryDelayNanoseconds: UInt64 = 4_000_000_000
 
-    private var currentNFT: NFT?
-    private var audioEngine = AVAudioEngine()
-    private var playerNode = AVAudioPlayerNode()
-    private var interruptionObserver: NSObjectProtocol?
-    private let downloadSession: URLSession
+    @ObservationIgnored private var currentNFT: NFT?
+    @ObservationIgnored private var audioEngine = AVAudioEngine()
+    @ObservationIgnored private var playerNode = AVAudioPlayerNode()
+    @ObservationIgnored private var interruptionObserver: NSObjectProtocol?
+    @ObservationIgnored private let downloadSession: URLSession
 
     /// The currently loaded audio file, if any.
+    @ObservationIgnored
     public var audioFile: AVAudioFile?
     /// Queue of previously played items.
+    @ObservationIgnored
     public var previousAudio = Playlist(name: "Previous")
     /// Queue of upcoming items.
+    @ObservationIgnored
     public var nextAudio = Playlist(name: "Next")
 
-    private var pausedAt: TimeInterval = 0
-    private var seekPosition: TimeInterval = 0
-    private var tempAudioURL: URL? // Track temporary downloaded file
+    @ObservationIgnored private var pausedAt: TimeInterval = 0
+    @ObservationIgnored private var seekPosition: TimeInterval = 0
+    @ObservationIgnored private var tempAudioURL: URL? // Track temporary downloaded file
 
-    private var currentLoadTask: Task<Void, Error>?
-    private var activeLoadID = UUID()
-    private var displayUpdateTask: Task<Void, Never>?
-    private var musicReceiptLogger: MusicReceiptEventLogger?
-    private var pendingPlaybackTriggerCause: MusicReceiptTriggerCause?
+    @ObservationIgnored private var currentLoadTask: Task<Void, Error>?
+    @ObservationIgnored private var activeLoadID = UUID()
+    @ObservationIgnored private var displayUpdateTask: Task<Void, Never>?
+    @ObservationIgnored private var musicReceiptLogger: MusicReceiptEventLogger?
+    @ObservationIgnored private var pendingPlaybackTriggerCause: MusicReceiptTriggerCause?
 
     /// High-level playback states exposed to the UI.
     public enum PlaybackState: Equatable, Sendable, Codable {
@@ -67,9 +72,9 @@ public final class AudioEngine: ObservableObject {
         var imageUrl: String?
     }
 
-    @Published var currentTrack: Track?
-    @Published var playbackState: PlaybackState = .stopped
-    @Published private(set) var currentTime: TimeInterval = 0
+    var currentTrack: Track?
+    var playbackState: PlaybackState = .stopped
+    private(set) var currentTime: TimeInterval = 0
 
     // Computed property to eliminate state redundancy
     var isPlaying: Bool {

@@ -192,7 +192,7 @@ public struct AlchemyTokenHoldingsProvider: TokenHoldingsProviding, TokenBalance
         guard chain.supportsProviderKitERC20Holdings else {
             throw ProviderAbstractionError.unsupportedChain(chain)
         }
-        guard let normalizedAddress = address.extractedEthereumAddress else {
+        guard let normalizedAddress = AuralisEthereumAddress.normalized(address) else {
             throw ProviderAbstractionError.invalidAddress
         }
 
@@ -264,11 +264,7 @@ private extension AlchemyTokenHoldingsProvider {
     }
 
     static func normalizedScopeComponent(_ value: String?) -> String? {
-        guard let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmedValue.isEmpty else {
-            return nil
-        }
-
-        return trimmedValue.lowercased()
+        AuralisEthereumAddress.normalized(value)
     }
 
     func fetchEnrichmentResult(

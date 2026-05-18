@@ -1,10 +1,7 @@
 import ReceiptsCore
-import ReceiptStorage
 import AuralisPrimaryModels
 import Foundation
 import OSLog
-import SwiftData
-import SwiftUI
 
 @MainActor
 public protocol NFTRefreshEventRecording {
@@ -203,14 +200,6 @@ public final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecordin
     }
 }
 
-@MainActor
-public enum NFTRefreshEventRecorders {
-    public static func live(modelContext: ModelContext) -> any NFTRefreshEventRecording {
-        ReceiptBackedNFTRefreshEventRecorder(
-            receiptStore: ReceiptStores.live(modelContext: modelContext)
-        )
-    }
-}
 
 @MainActor
 private extension ReceiptBackedNFTRefreshEventRecorder {
