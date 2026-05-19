@@ -6,6 +6,7 @@ import SwiftUI
 import AuraUI
 import Testing
 import NFTKit
+import ProviderKit
 import TokenStorage
 
 @Suite

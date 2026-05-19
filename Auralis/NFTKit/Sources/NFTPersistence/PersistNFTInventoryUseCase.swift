@@ -8,7 +8,16 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
+import NFTDomain
 import SwiftData
+
+public struct PreparedNFTInventory {
+    public let nfts: [NFT]
+
+    public init(nfts: [NFT]) {
+        self.nfts = nfts
+    }
+}
 
 @MainActor
 public protocol PersistNFTInventoryUsing {

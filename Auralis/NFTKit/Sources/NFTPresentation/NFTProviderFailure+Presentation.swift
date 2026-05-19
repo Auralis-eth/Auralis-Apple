@@ -1,5 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
+import NFTDomain
+import NFTProviderAdapters
 
 public extension NFTProviderFailure {
     public func presentation(

@@ -12,6 +12,22 @@ let package = Package(
             name: "NFTKit",
             targets: ["NFTKit"]
         ),
+        .library(
+            name: "NFTDomain",
+            targets: ["NFTDomain"]
+        ),
+        .library(
+            name: "NFTProviderAdapters",
+            targets: ["NFTProviderAdapters"]
+        ),
+        .library(
+            name: "NFTPersistence",
+            targets: ["NFTPersistence"]
+        ),
+        .library(
+            name: "NFTPresentation",
+            targets: ["NFTPresentation"]
+        ),
     ],
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
@@ -22,14 +38,46 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "NFTKit",
+            name: "NFTDomain",
             dependencies: [
                 "AuralisPrimaryModels",
+            ]
+        ),
+        .target(
+            name: "NFTProviderAdapters",
+            dependencies: [
+                "NFTDomain",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "ChainProviders",
                 "ExplorerAdapter",
                 "ProviderKit",
+            ]
+        ),
+        .target(
+            name: "NFTPersistence",
+            dependencies: [
+                "NFTDomain",
+                "NFTProviderAdapters",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "ReceiptsCore",
+            ]
+        ),
+        .target(
+            name: "NFTPresentation",
+            dependencies: [
+                "NFTDomain",
+                "NFTProviderAdapters",
+                "NFTPersistence",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+            ]
+        ),
+        .target(
+            name: "NFTKit",
+            dependencies: [
+                "NFTDomain",
+                "NFTProviderAdapters",
+                "NFTPersistence",
+                "NFTPresentation",
             ]
         ),
     ]

@@ -11,7 +11,6 @@ import Foundation
 import OSLog
 
 private let nftMetadataUpdaterLogger = Logger(subsystem: "Auralis", category: "NFTMetadataUpdater")
-import SwiftData
 
 // MARK: - NFTMetadataUpdater Utility Type
 public enum NFTMetadataUpdater {

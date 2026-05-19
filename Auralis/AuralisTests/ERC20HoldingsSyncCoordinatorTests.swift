@@ -2,6 +2,7 @@
 import Foundation
 import Testing
 import NFTKit
+import ProviderKit
 
 @Suite
 struct ERC20HoldingsSyncCoordinatorTests {

@@ -8,6 +8,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
+import NFTDomain
 
 public struct FetchedNFTInventory {
     public let nfts: [NFT]

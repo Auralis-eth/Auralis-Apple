@@ -38,6 +38,71 @@ struct ArchitectureBoundaryTests {
         #expect(sourceImports.contains("ReceiptStorage") == false)
     }
 
+    @Test("NFTKit layers keep one-way dependencies")
+    func nftKitLayerBoundariesStayExplicit() throws {
+        let projectRoot = try projectRootURL()
+        let nftKitRoot = projectRoot.appending(path: "NFTKit")
+        let packageText = try String(
+            contentsOf: nftKitRoot.appending(path: "Package.swift"),
+            encoding: .utf8
+        )
+        let facadeExports = try String(
+            contentsOf: nftKitRoot
+                .appending(path: "Sources")
+                .appending(path: "NFTKit")
+                .appending(path: "Support")
+                .appending(path: "NFTKitPackageExports.swift"),
+            encoding: .utf8
+        )
+
+        let domainImports = try swiftImports(under: nftKitRoot.appending(path: "Sources/NFTDomain"))
+        let providerImports = try swiftImports(under: nftKitRoot.appending(path: "Sources/NFTProviderAdapters"))
+        let persistenceImports = try swiftImports(under: nftKitRoot.appending(path: "Sources/NFTPersistence"))
+
+        let forbiddenDomainImports: Set<String> = [
+            "AuralisPrimaryPersistence",
+            "SwiftUI",
+            "SwiftData",
+            "ProviderKit",
+            "ChainProviders",
+            "ExplorerAdapter",
+            "ReceiptsCore",
+            "NFTProviderAdapters",
+            "NFTPersistence",
+            "NFTPresentation"
+        ]
+        let forbiddenProviderImports: Set<String> = [
+            "SwiftUI",
+            "SwiftData",
+            "NFTPersistence",
+            "NFTPresentation",
+            "ReceiptsCore"
+        ]
+        let forbiddenFacadeExports = [
+            "@_exported import ProviderKit",
+            "@_exported import ChainProviders",
+            "@_exported import ExplorerAdapter"
+        ]
+
+        #expect(
+            domainImports.intersection(forbiddenDomainImports).isEmpty,
+            "NFTDomain must stay pure domain: \(domainImports.intersection(forbiddenDomainImports).sorted())"
+        )
+        #expect(
+            providerImports.intersection(forbiddenProviderImports).isEmpty,
+            "NFTProviderAdapters must not own UI, SwiftData, receipts, or presentation state: \(providerImports.intersection(forbiddenProviderImports).sorted())"
+        )
+        #expect(persistenceImports.contains("SwiftData"))
+        #expect(packageText.contains("name: \"NFTDomain\""))
+        #expect(packageText.contains("name: \"NFTProviderAdapters\""))
+        #expect(packageText.contains("name: \"NFTPersistence\""))
+        #expect(packageText.contains("name: \"NFTPresentation\""))
+        #expect(
+            forbiddenFacadeExports.allSatisfy { facadeExports.contains($0) == false },
+            "NFTKit facade must not re-export provider packages"
+        )
+    }
+
     @Test("TokenStorage does not depend on NFTKit")
     func tokenStorageDoesNotDependOnNFTKit() throws {
         let projectRoot = try projectRootURL()

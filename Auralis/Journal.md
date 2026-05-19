@@ -1,5 +1,19 @@
 # Journal
 
+## 2026-05-19 — NFTKit Got Actual Walls, Not Tape On The Floor
+
+`ARCH-002` moved from floor-plan energy to real package boundaries. `NFTKit` is now a compatibility facade over four first-party rooms: `NFTDomain` for clean refresh vocabulary, `NFTProviderAdapters` for Alchemy/provider fetching and retry behavior, `NFTPersistence` for SwiftData writes and receipt-backed audit plumbing, and `NFTPresentation` for the observable `NFTService` coordinator plus user-facing failure copy.
+
+The useful gotcha was the umbrella export. Removing `@_exported import ProviderKit`, `ChainProviders`, and `ExplorerAdapter` made a few app and test files admit what they were already using: provider configuration, token holding DTOs, and Alchemy fixture types. That is like discovering the kitchen had been borrowing the loading dock's key through a hole in the wall. The fix was explicit imports at the call sites, not rebuilding the hole with nicer trim.
+
+The guardrail is now executable: `ArchitectureBoundaryTests` fails if `NFTDomain` imports SwiftUI, SwiftData, provider, explorer, receipt, or higher NFT layers; if provider adapters sneak in UI/persistence/presentation state; or if the facade starts re-exporting provider packages again. Refactors only count when the walls come with door sensors.
+
+## 2026-05-19 — NFTKit Got A Floor Plan
+
+`ARCH-002` now has an explicit migration plan instead of a one-line wish. The current `NFTKit` package is trying to be the dictionary, delivery truck, warehouse, front desk, and stage lighting all at once: domain vocabulary, provider retries, SwiftData persistence, observable refresh state, and provider re-exports all share one target.
+
+The new plan gives each job a room. `NFTDomain` becomes the clean vocabulary, `NFTProviderAdapters` owns Alchemy/provider behavior, `NFTPersistence` owns SwiftData storage, and presentation state lives in `NFTPresentation` or app composition. The extra lesson was the umbrella export: `NFTKitPackageExports.swift` quietly lets provider packages leak through the front door, so the plan now calls out explicit imports and boundary tests as first-class work.
+
 ## 2026-05-19 — AuraPlay Receipts Moved Into The Music Room
 
 `ARCH-005` is now implemented. The AuraPlay receipt vocabulary and logging service moved out of the app target and into `MusicFeature`, which is where the music feature's audit language belongs. The app still wires the live `ReceiptStore`, SwiftData contexts, and `AudioEngine`, but the feature package now owns the music-specific receipt contract instead of borrowing it from a hidden app folder.

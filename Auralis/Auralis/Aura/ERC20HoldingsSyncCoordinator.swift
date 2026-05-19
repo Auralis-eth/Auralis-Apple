@@ -1,6 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 import NFTKit
+import ProviderKit
 
 @MainActor
 final class ERC20HoldingsSyncCoordinator {

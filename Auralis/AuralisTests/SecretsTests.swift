@@ -9,6 +9,7 @@
 import Foundation
 import Testing
 import NFTKit
+import ProviderKit
 
 @Suite struct SecretsTests {
     @Test("missing provider keys fail deterministically when the test bundle is not configured")

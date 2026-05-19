@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
+import NFTDomain
 import ProviderKit
 
 public struct NFTProviderFailure: Equatable {

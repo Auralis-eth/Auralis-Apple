@@ -3,6 +3,7 @@ import SwiftData
 import SwiftUI
 import AuraUI
 import NFTKit
+import ProviderKit
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext

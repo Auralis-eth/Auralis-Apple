@@ -2,6 +2,7 @@
 import AuralisPrimaryModels
 import Foundation
 import NFTKit
+import ProviderKit
 import Testing
 
 @Suite(.serialized)

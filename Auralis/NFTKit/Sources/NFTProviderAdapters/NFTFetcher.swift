@@ -7,11 +7,10 @@
 
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import NFTDomain
 import OSLog
 import ProviderKit
 import RegexBuilder
-import SwiftData
-import SwiftUI
 
 /// Main-actor contract for NFT refresh state and pagination progress.
 ///
@@ -38,7 +37,6 @@ public protocol NFTFetching: AnyObject {
 }
 
 @MainActor
-@Observable
 public class NFTFetcher: NFTFetching {
     private let logger = Logger(subsystem: "Auralis", category: "NFTFetcher")
     public typealias NFTProviderFactory = (Chain) throws -> any NFTInventoryProviding
@@ -405,5 +403,16 @@ public class NFTFetcher: NFTFetching {
         logger.notice(
             "Refresh summary account=\(account.displayAddress, privacy: .public) chain=\(chain.rawValue, privacy: .public) pages=\(pageCount, privacy: .public) items=\(itemCount, privacy: .public) total=\(totalCount.map(String.init) ?? "nil", privacy: .public) complete=\(completedFullRefresh, privacy: .public)"
         )
+    }
+}
+
+private extension String {
+    var displayAddress: String {
+        if count > 10 {
+            let start = prefix(6)
+            let end = suffix(4)
+            return "\(start)...\(end)"
+        }
+        return self
     }
 }

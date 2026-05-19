@@ -3,6 +3,7 @@ import OSLog
 import SwiftData
 import SwiftUI
 import NFTKit
+import ProviderKit
 
 @main
 struct AuralisApp: App {

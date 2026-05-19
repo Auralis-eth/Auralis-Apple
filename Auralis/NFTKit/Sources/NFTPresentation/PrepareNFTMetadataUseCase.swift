@@ -8,14 +8,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
-
-public struct PreparedNFTInventory {
-    public let nfts: [NFT]
-
-    public init(nfts: [NFT]) {
-        self.nfts = nfts
-    }
-}
+import NFTPersistence
 
 private struct NFTMetadataPreparationInput: Sendable {
     let tokenURI: String?

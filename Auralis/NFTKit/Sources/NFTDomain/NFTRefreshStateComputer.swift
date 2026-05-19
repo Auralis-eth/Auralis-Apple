@@ -6,20 +6,31 @@
 //
 
 import AuralisPrimaryModels
-import AuralisPrimaryPersistence
 import Foundation
 
 public struct NFTRefreshScope: Hashable, Sendable {
     public let accountAddress: String
     public let chain: Chain
 
-    init?(accountAddress: String?, chain: Chain) {
-        guard let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) else {
+    public init?(accountAddress: String?, chain: Chain) {
+        guard let normalizedAccountAddress = Self.normalizedScopeComponent(accountAddress) else {
             return nil
         }
 
         self.accountAddress = normalizedAccountAddress
         self.chain = chain
+    }
+
+    private static func normalizedScopeComponent(_ value: String?) -> String? {
+        let normalizedValue = value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard let normalizedValue, !normalizedValue.isEmpty else {
+            return nil
+        }
+
+        return normalizedValue
     }
 }
 

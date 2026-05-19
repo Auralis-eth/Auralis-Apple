@@ -8,6 +8,9 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
+import NFTDomain
+import NFTPersistence
+import NFTProviderAdapters
 import SwiftData
 
 public enum NFTServiceRefreshPhase: Equatable {
