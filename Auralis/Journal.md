@@ -1,5 +1,13 @@
 # Journal
 
+## 2026-05-19 — The Wallet Password Moved Behind the Real Door
+
+SEC-005 closed a security gap that looked subtle until you squinted at the threat model. The wallet password was already in Keychain, but it was protected only by the normal unlocked-device class. That is like putting a valuable key in the hotel safe but leaving the safe code taped to the front desk monitor: better than a drawer, not the hardware-backed biometric gate the feature implied.
+
+`Password.swift` now stores the wallet password with a `SecAccessControl` built from `kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly` and `.biometryCurrentSet`. The important detail is that `kSecAttrAccessible` disappeared from the add query, because the accessibility class lives inside the access-control object. Setting both is Keychain double-booking the same room and usually gets you `errSecParam`.
+
+The practical lesson: biometrics should unlock secrets, not booleans. If the app asks “did Face ID pass?” and then flips state, runtime hooks can lie. If Keychain is the thing returning the password only after Secure Enclave approval, there is no app-side yes/no answer to spoof.
+
 ## 2026-05-17 — Phase 2 Architecture Boundaries: Put the Walls Where the Floor Plan Said
 
 Phase 2 was the kind of cleanup that makes an app feel less like a successful prototype and more like a system you can keep extending without flinching.

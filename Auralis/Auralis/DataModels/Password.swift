@@ -68,8 +68,6 @@ enum PasswordStores {
 }
 
 private actor KeychainPasswordStore {
-    private let accessibility = kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String
-
     private var keychainBaseQuery: [String: Any] {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -87,11 +85,13 @@ private actor KeychainPasswordStore {
             throw KeychainFailure.stringEncodingFailed
         }
 
+        let accessControl = try makeBiometricAccessControl()
+        let itemAttributes: [String: Any] = [
+            kSecValueData as String: passwordData,
+            kSecAttrAccessControl as String: accessControl
+        ]
         let keychainQuery = keychainBaseQuery.merging(
-            [
-                kSecValueData as String: passwordData,
-                kSecAttrAccessible as String: accessibility
-            ],
+            itemAttributes,
             uniquingKeysWith: { _, new in new }
         )
 
@@ -102,9 +102,7 @@ private actor KeychainPasswordStore {
         case errSecDuplicateItem:
             let updateStatus = SecItemUpdate(
                 keychainBaseQuery as CFDictionary,
-                [
-                    kSecValueData as String: passwordData
-                ] as CFDictionary
+                itemAttributes as CFDictionary
             )
             guard updateStatus == errSecSuccess else {
                 throw KeychainFailure.operationFailed(operation: "update", status: updateStatus)
@@ -148,13 +146,13 @@ private actor KeychainPasswordStore {
         }
     }
 
-    /// Future path for biometric-gated secrets: create the item with this access control
-    /// instead of `kSecAttrAccessible`, then let Keychain enforce LocalAuthentication during reads.
+    /// Creates an access control that binds the password to the current biometric enrollment.
+    /// The accessibility class lives inside the access control, so save queries must not also set `kSecAttrAccessible`.
     private func makeBiometricAccessControl() throws -> SecAccessControl {
         var error: Unmanaged<CFError>?
         guard let accessControl = SecAccessControlCreateWithFlags(
             nil,
-            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
             .biometryCurrentSet,
             &error
         ) else {
