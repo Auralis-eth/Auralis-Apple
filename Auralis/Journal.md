@@ -1,5 +1,19 @@
 # Journal
 
+## 2026-05-19 — The ERC-20 Tab Stopped Running the Loading Dock
+
+`ARCH-004` is now implemented, which means the ERC-20 SwiftUI view finally stopped moonlighting as a warehouse supervisor. Before this pass, `ERC20TokensRootView` was pushing buttons, calling the provider, writing SwiftData rows, deciding whether stale results counted, translating provider errors, and updating banners. That is a lot of jobs for something that should mostly render the room and react to user intent.
+
+The new `LiveERC20HoldingsSyncUseCase` owns the loading dock: native balance upsert, ERC-20 provider fetch, token replacement, coordinator-driven stale-result handling, and user-safe message mapping. The view now builds a small request, flips local loading state, awaits one collaborator, and paints the returned messages. Same user-facing behavior, much cleaner job descriptions.
+
+The useful lesson is that refactors get safer when the old behavior moves behind a named contract before it gets clever. The tests now check the happy path, native-before-token ordering, no-op guards for empty and unsupported scopes, warning propagation, provider-error copy, persistence failures, and a source-level tripwire so token provider calls do not creep back into `MainTabERC20Views.swift` wearing a fake mustache.
+
+## 2026-05-19 — ARCH-004 Got Its Work Order
+
+The ERC-20 architecture ticket graduated from “this view is doing too much” to an actual implementation map. Before this pass, `ARCH-004` pointed at the smell but left the next engineer to decide where the use case lived, what it owned, which behavior had to stay identical, and how to prove the refactor did not quietly break cached holdings.
+
+The ticket now names the boundary: SwiftUI triggers sync and renders saved rows; a focused use case owns provider fetch, native-balance persistence, ERC-20 replacement, and display-safe error mapping. It also carries the boring but important guardrails: no UI redesign, no storage schema change, no provider API reshuffle, and no new global helper bucket. A good architecture ticket should feel like a prep list in a kitchen: clear enough that another cook can start without asking where the knives are.
+
 ## 2026-05-19 — The Receipt Head Finder Put Down the Trapdoor
 
 The receipt integrity cleanup had one of those small Swift smells that deserves respect: `current!` inside the code that decides the latest receipt head for each account. The surrounding condition made the force unwrap logically safe, but security and audit code should not ask future readers to trust a boolean maze before avoiding a crash.
@@ -1763,3 +1777,11 @@ The first architecture cleanup moved the clearly owned tables to the packages al
 The pure side got some fresh vocabulary too: `NFTIdentity`, `NFTMetadataSnapshot`, `TagValue`, `AccountSummary`, `TokenHoldingDescriptor`, `PlaylistDescriptor`, and `SearchHistoryValue` are the small, Sendable shapes feature packages can pass around without borrowing a database table. Boundary tests now check that the primary package does not import SwiftUI/UIKit and that moved storage-owned models do not creep back.
 
 The lesson: package boundaries work best when the noun you import is the noun you meant. If you want a tag value, you should not have to invite a SwiftData model and a color renderer to dinner.
+
+## ERC-20 Sync: The Bouncer Has To Stay At The Same Door
+
+The ERC-20 holdings cleanup moved provider fetching and SwiftData persistence out of the SwiftUI view and into a use case, which was the right direction. But the first pass quietly changed the lifetime of the stale-sync guard. The old view owned one `ERC20HoldingsSyncCoordinator`, so when a newer wallet refresh started, the older provider response was stopped before it could write stale rows. The extracted version accidentally built a fresh use case, and therefore a fresh coordinator, for every sync call. That meant each request had its own bouncer and nobody was watching the whole line.
+
+The fix was to keep one syncer alive for the ERC-20 root view's lifetime while still leaving the provider and persistence work out of the view. Now overlapping syncs share coordinator state again, so a slow old response is dropped before persistence. We also separated native balance persistence from ERC-20 token support: Solana, Ethereum, and future chains can all have a native balance, even when their token standards differ. Native balance is the wallet's cash drawer; ERC-20 rows are just one kind of shelf next to it.
+
+The lesson: dependency injection is not only about what object you pass, but how long that object lives. If a collaborator protects ordering, cancellation, deduping, or stale-result suppression, its lifetime is part of the correctness contract.

@@ -466,8 +466,7 @@ struct MainTabView: View {
                 nftService: nftService,
                 refreshAction: refreshActiveScopeFromUserAction,
                 router: router,
-                tokenHoldingsStoreFactory: dependencies.tokenHoldingsStoreFactory,
-                tokenHoldingsProviderFactory: dependencies.tokenHoldingsProviderFactory
+                holdingsSyncerFactory: dependencies.erc20HoldingsSyncerFactory
             )
             .navigationDestination(for: ERC20TokenRoute.self) { route in
                 ERC20TokenDetailView(

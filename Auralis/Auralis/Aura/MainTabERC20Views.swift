@@ -17,15 +17,14 @@ struct ERC20TokensRootView: View {
     let nftService: NFTService
     let refreshAction: @MainActor () async -> Void
     let router: AppRouter
-    let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> SwiftDataTokenHoldingsStore
-    let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
+    let holdingsSyncerFactory: @MainActor (ModelContext) -> any ERC20HoldingsSyncing
 
-    @State private var syncCoordinator = ERC20HoldingsSyncCoordinator()
     @State private var persistenceErrorMessage: String?
     @State private var providerErrorMessage: String?
     @State private var providerWarningMessage: String?
     @State private var isSyncingTokenHoldings = false
     @State private var activeTokenSyncViewID: UUID?
+    @State private var holdingsSyncer: (any ERC20HoldingsSyncing)?
 
     init(
         currentAccountAddress: String,
@@ -34,8 +33,7 @@ struct ERC20TokensRootView: View {
         nftService: NFTService,
         refreshAction: @escaping @MainActor () async -> Void,
         router: AppRouter,
-        tokenHoldingsStoreFactory: @escaping @MainActor (ModelContext) -> SwiftDataTokenHoldingsStore,
-        tokenHoldingsProviderFactory: @escaping () -> any TokenHoldingsProviding
+        holdingsSyncerFactory: @escaping @MainActor (ModelContext) -> any ERC20HoldingsSyncing
     ) {
         self.currentAccountAddress = currentAccountAddress
         self.currentChain = currentChain
@@ -43,8 +41,7 @@ struct ERC20TokensRootView: View {
         self.nftService = nftService
         self.refreshAction = refreshAction
         self.router = router
-        self.tokenHoldingsStoreFactory = tokenHoldingsStoreFactory
-        self.tokenHoldingsProviderFactory = tokenHoldingsProviderFactory
+        self.holdingsSyncerFactory = holdingsSyncerFactory
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
         let chainRawValue = currentChain.rawValue
@@ -216,8 +213,6 @@ struct ERC20TokensRootView: View {
     }
 
     private func syncHoldings() async {
-        await syncNativeHoldingIfAvailable()
-
         let viewSyncID = UUID()
         activeTokenSyncViewID = viewSyncID
         isSyncingTokenHoldings = true
@@ -227,136 +222,32 @@ struct ERC20TokensRootView: View {
             }
         }
 
-        guard !currentAccountAddress.isEmpty,
-              currentChain.supportsERC20Holdings else {
-            providerErrorMessage = nil
-            providerWarningMessage = nil
-            persistenceErrorMessage = nil
-            return
-        }
-
-        let request = ERC20HoldingsSyncCoordinator.Request(
+        let request = ERC20HoldingsSyncRequest(
             accountAddress: currentAccountAddress,
-            chain: currentChain
+            chain: currentChain,
+            nativeBalanceDisplay: nativeBalanceDisplay,
+            nativeBalanceUpdatedAt: nativeBalanceUpdatedAt,
+            hadNoHoldings: holdings.isEmpty
         )
-        let hadNoHoldings = holdings.isEmpty
-        let result = await syncCoordinator.sync(
-            request: request,
-            fetch: { request in
-                try await tokenHoldingsProviderFactory().tokenHoldings(
-                    for: request.accountAddress,
-                    chain: request.chain
-                )
-            },
-            persist: { request, providerHoldings in
-                try await tokenHoldingsStoreFactory(modelContext).replaceERC20Holdings(
-                    accountAddress: request.accountAddress,
-                    chain: request.chain,
-                    holdings: providerHoldings
-                )
-            }
-        )
+        let result = await currentHoldingsSyncer().sync(request: request)
 
         guard activeTokenSyncViewID == viewSyncID else {
             return
         }
 
-        switch result {
-        case .applied(let warning):
-            providerErrorMessage = nil
-            providerWarningMessage = warning?.message
-            persistenceErrorMessage = nil
-        case .fetchFailed(let error):
-            providerWarningMessage = nil
-            providerErrorMessage = providerErrorMessage(
-                for: error,
-                hadNoHoldings: hadNoHoldings
-            )
-        case .persistFailed:
-            providerWarningMessage = nil
-            providerErrorMessage = nil
-            persistenceErrorMessage = "Auralis kept the last saved ERC-20 holdings, but the refreshed token rows could not be written on this device."
-        case .dropped, .cancelled:
-            return
-        }
+        providerWarningMessage = result.providerWarningMessage
+        providerErrorMessage = result.providerErrorMessage
+        persistenceErrorMessage = result.persistenceErrorMessage
     }
 
-    private func syncNativeHoldingIfAvailable() async {
-        guard let nativeBalanceDisplay,
-              let updatedAt = nativeBalanceUpdatedAt,
-              !currentAccountAddress.isEmpty else {
-            return
+    private func currentHoldingsSyncer() -> any ERC20HoldingsSyncing {
+        if let holdingsSyncer {
+            return holdingsSyncer
         }
 
-        do {
-            try await tokenHoldingsStoreFactory(modelContext).upsertNativeHolding(
-                accountAddress: currentAccountAddress,
-                chain: currentChain,
-                amountDisplay: nativeBalanceDisplay,
-                updatedAt: updatedAt
-            )
-            persistenceErrorMessage = nil
-        } catch {
-            persistenceErrorMessage = "Auralis kept the last saved holdings view, but the latest native balance could not be written on this device."
-        }
-    }
-
-    private func providerErrorMessage(
-        for error: Error,
-        hadNoHoldings: Bool
-    ) -> String {
-        if let providerError = error as? ProviderAbstractionError {
-            switch providerError {
-            case .unauthorized:
-                return "Auralis could not refresh token holdings because the provider rejected this build's credentials for this request scope."
-            case .rateLimited:
-                return hadNoHoldings
-                    ? "The token holdings provider is rate-limiting requests right now. Try again in a moment."
-                    : "The token holdings provider is rate-limiting requests right now, so Auralis kept your last saved ERC-20 holdings."
-            case .offline:
-                return hadNoHoldings
-                    ? "Auralis could not load token holdings because this device appears to be offline."
-                    : "Auralis kept your last saved ERC-20 holdings because this device appears to be offline."
-            case .unavailable:
-                return hadNoHoldings
-                    ? "Auralis could not load token holdings because the provider is temporarily unavailable for this wallet and chain."
-                    : "Auralis kept your last saved ERC-20 holdings because the provider is temporarily unavailable for this wallet and chain."
-            case .invalidResponse:
-                return hadNoHoldings
-                    ? "Auralis could not load token holdings because the provider returned data it could not read for this wallet and chain."
-                    : "Auralis kept your last saved ERC-20 holdings because the provider returned data it could not read for this wallet and chain."
-            case .badStatus(let statusCode, _):
-                return hadNoHoldings
-                    ? "Auralis could not load token holdings because the provider returned HTTP \(statusCode)."
-                    : "Auralis kept your last saved ERC-20 holdings because the provider returned HTTP \(statusCode)."
-            case .providerError:
-                return hadNoHoldings
-                    ? "Auralis could not load token holdings because the provider reported an error for this wallet and chain."
-                    : "Auralis kept your last saved ERC-20 holdings because the provider reported an error for this wallet and chain."
-            case .missingAPIKey:
-                return "Auralis could not refresh token holdings because this build is missing provider configuration."
-            case .unsupportedChain:
-                return "Auralis cannot refresh token holdings for this chain yet."
-            case .invalidURL:
-                return "Auralis could not refresh token holdings because the provider configuration is invalid."
-            case .invalidAddress:
-                return "Auralis could not refresh token holdings because the active wallet address is invalid."
-            case .invalidBalancePayload:
-                return hadNoHoldings
-                    ? "Auralis could not load token holdings because the provider returned an invalid balance payload."
-                    : "Auralis kept your last saved ERC-20 holdings because the provider returned an invalid balance payload."
-            case .paginationStalled:
-                return hadNoHoldings
-                    ? "Auralis could not load token holdings because the provider stopped paginating cleanly for this wallet and chain."
-                    : "Auralis kept your last saved ERC-20 holdings because the provider stopped paginating cleanly for this wallet and chain."
-            case .unsupportedMethod:
-                return "Auralis could not refresh token holdings because the provider does not support the required method."
-            }
-        }
-
-        return hadNoHoldings
-            ? "Auralis could not load token holdings for the active wallet and chain just now. Try again in a moment."
-            : "Auralis kept the last saved ERC-20 holdings because the live token provider did not respond cleanly for this scope."
+        let syncer = holdingsSyncerFactory(modelContext)
+        holdingsSyncer = syncer
+        return syncer
     }
 
     @ViewBuilder

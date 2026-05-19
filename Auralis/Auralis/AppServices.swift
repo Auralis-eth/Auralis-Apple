@@ -271,6 +271,7 @@ struct MainTabDependencies {
     let searchHistoryStore: SearchHistoryStore
     let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> SwiftDataTokenHoldingsStore
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
+    let erc20HoldingsSyncerFactory: @MainActor (ModelContext) -> any ERC20HoldingsSyncing
     let logoutCleanupServiceFactory: @MainActor (ModelContext) -> any LogoutCleaning
     let privacyResetServiceFactory: @MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
@@ -294,6 +295,13 @@ struct MainTabDependencies {
             searchHistoryStore: services.searchHistoryStoreFactory(modelContext),
             tokenHoldingsStoreFactory: services.tokenHoldingsStoreFactory,
             tokenHoldingsProviderFactory: services.tokenHoldingsProviderFactory,
+            erc20HoldingsSyncerFactory: { syncModelContext in
+                LiveERC20HoldingsSyncUseCase(
+                    tokenHoldingsProviderFactory: services.tokenHoldingsProviderFactory,
+                    tokenHoldingsStoreFactory: { services.tokenHoldingsStoreFactory($0) },
+                    modelContext: syncModelContext
+                )
+            },
             logoutCleanupServiceFactory: services.logoutCleanupServiceFactory,
             privacyResetServiceFactory: privacyResetServiceFactory ?? services.privacyResetServiceFactory,
             policyActionHandlerFactory: services.policyActionHandlerFactory
