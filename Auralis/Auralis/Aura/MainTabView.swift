@@ -605,7 +605,7 @@ private struct ContextLocalRefreshKey: Hashable {
                 showsMusicReinstallGuidance: false,
                 retryMusicSetup: {},
                 modeState: modeState,
-                dependencies: ShellBootstrapDependencies.live.makeMainTabDependencies(modelContext),
+                dependencies: AppEnvironment.live.mainTabs.makeMainTabDependencies(modelContext: modelContext),
                 auraPlayModelContainer: auraPlayModelContainer
             )
         }

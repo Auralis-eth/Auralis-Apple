@@ -88,6 +88,51 @@ struct ArchitectureBoundaryTests {
         )
     }
 
+    @Test("AppServices delegates feature construction to assemblies")
+    func appServicesDelegatesFeatureConstructionToAssemblies() throws {
+        let projectRoot = try projectRootURL()
+        let appServicesFile = projectRoot
+            .appending(path: "Auralis")
+            .appending(path: "AppServices.swift")
+        let source = try String(contentsOf: appServicesFile, encoding: .utf8)
+        let forbiddenConstructionTokens = [
+            "NFTService(",
+            "AudioEngine(",
+            "AuraPlayModelContainer.make",
+            "SwiftDataAccountStore(",
+            "ReceiptStores.live",
+            "SwiftDataTokenHoldingsStore(",
+            "LiveERC20HoldingsSyncUseCase(",
+            "PrivacyResetServices.live",
+            "PolicyActionGateService("
+        ]
+        let offenders = forbiddenConstructionTokens.filter { source.contains($0) }
+
+        #expect(
+            offenders.isEmpty,
+            "AppServices.swift should stay a thin composition aggregate; feature construction belongs in assemblies: \(offenders)"
+        )
+    }
+
+    @Test("assemblies do not keep temporary static live pass-throughs")
+    func assembliesDoNotKeepTemporaryStaticLivePassThroughs() throws {
+        let projectRoot = try projectRootURL()
+        let assembliesRoot = projectRoot
+            .appending(path: "Auralis")
+            .appending(path: "Assemblies")
+        let offenders = try swiftSourceFiles(under: assembliesRoot)
+            .filter { fileURL in
+                let source = try String(contentsOf: fileURL, encoding: .utf8)
+                return source.contains("static func live") || source.contains("static let live")
+            }
+            .map { $0.path().replacingOccurrences(of: projectRoot.path() + "/", with: "") }
+
+        #expect(
+            offenders.isEmpty,
+            "Feature assemblies should be injected instance values, not temporary static live pass-throughs: \(offenders.sorted())"
+        )
+    }
+
     @Test("shell selection is not persisted with UserDefaults")
     func shellSelectionDoesNotUseUserDefaultsPersistence() throws {
         let projectRoot = try projectRootURL()

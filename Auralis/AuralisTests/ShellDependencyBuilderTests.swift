@@ -1,6 +1,7 @@
 import ReceiptsCore
 import ReceiptStorage
 import NFTKit
+import ProviderKit
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisShellCore
@@ -41,7 +42,7 @@ struct ShellDependencyBuilderTests {
     func gatewayDependenciesUseSharedRecorderSeam() async throws {
         let container = try makePrimaryContainer()
         let context = ModelContext(container)
-        let dependencies = GatewayDependencies.live(modelContext: context)
+        let dependencies = AppEnvironment.live.accounts.makeGatewayDependencies(modelContext: context)
         let receiptStore = ReceiptStores.live(modelContext: context)
 
         _ = try await dependencies.featureDependencies.accountActivator.activateWatchAccount(
@@ -60,7 +61,7 @@ struct ShellDependencyBuilderTests {
     func mainTabDependenciesUseSharedReceiptStore() async throws {
         let container = try makePrimaryContainer()
         let context = ModelContext(container)
-        let dependencies = MainTabDependencies.live(modelContext: context)
+        let dependencies = AppEnvironment.live.mainTabs.makeMainTabDependencies(modelContext: context)
         let receiptLogger = dependencies.receiptEventLoggerFactory(context)
         let receiptStore = ReceiptStores.live(modelContext: context)
 
@@ -82,7 +83,7 @@ struct ShellDependencyBuilderTests {
         let container = try makePrimaryContainer()
         let context = ModelContext(container)
         let pinnedItemsStore = makeIsolatedPinnedItemsStore()
-        let dependencies = MainTabDependencies.live(
+        let dependencies = AppEnvironment.live.mainTabs.makeMainTabDependencies(
             modelContext: context,
             homePinnedItemsStore: pinnedItemsStore
         )
@@ -106,6 +107,37 @@ struct ShellDependencyBuilderTests {
         #expect(dependencies.homePinnedItemsStore.pinnedCount(for: accountAddress) == 1)
     }
 
+    @Test("feature assemblies build smoke-testable live collaborators")
+    @MainActor
+    func featureAssembliesBuildLiveCollaborators() async throws {
+        let container = try makePrimaryContainer()
+        let context = ModelContext(container)
+        let environment = AppEnvironment.live
+
+        _ = environment.providers.makeNativeBalanceProvider()
+        _ = environment.providers.makeGasPricingProvider()
+        _ = environment.providers.makeTokenHoldingsProvider()
+        _ = environment.tokenHoldings.makeStore(modelContext: context)
+        _ = environment.tokenHoldings.makeSyncer(modelContext: context)
+        _ = environment.search.makeSearchHistoryStore(modelContext: context)
+        _ = environment.home.makePinnedItemsStore()
+        _ = environment.privacy.makeLogoutCleanupService(modelContext: context)
+
+        let receiptLogger = environment.receipts.makeReceiptEventLogger(modelContext: context)
+        _ = try await receiptLogger.recordCopyAction(
+            subject: "assembly.smoke",
+            value: "ok",
+            surface: "tests.assemblies",
+            correlationID: "assembly-receipt-logger"
+        )
+
+        let receipts = try ReceiptStores.live(modelContext: context).receipts(
+            forCorrelationID: "assembly-receipt-logger",
+            limit: 10
+        )
+        #expect(receipts.count == 1)
+    }
+
     @Test("shell bootstrap dependencies construct a live shell store that records app launch")
     @MainActor
     func shellBootstrapDependenciesConstructLiveShellStore() async throws {
@@ -114,7 +146,7 @@ struct ShellDependencyBuilderTests {
         let router = AppRouter()
         let selectionPersistence = RecordingShellSelectionPersistence()
         let store = ShellStore.live(
-            dependencies: ShellStoreDependencies.live(
+            dependencies: AppEnvironment.live.shell.makeShellStoreDependencies(
                 modelContext: context,
                 nftService: NFTService(),
                 router: router,
@@ -133,7 +165,7 @@ struct ShellDependencyBuilderTests {
     func mainTabDependenciesWirePolicyGate() async throws {
         let container = try makePrimaryContainer()
         let context = ModelContext(container)
-        let dependencies = MainTabDependencies.live(modelContext: context)
+        let dependencies = AppEnvironment.live.mainTabs.makeMainTabDependencies(modelContext: context)
         let modeState = ModeState(
             userDefaults: UserDefaults(suiteName: "ShellDependencyBuilderTests.ModeState")!,
             storageKey: "app.mode.tests"
@@ -155,7 +187,7 @@ struct ShellDependencyBuilderTests {
         let auraPlayContainer = try makeAuraPlayContainer()
         let pinnedItemsStore = makeIsolatedPinnedItemsStore()
         let selectionPersistence = RecordingShellSelectionPersistence()
-        let dependencies = MainTabDependencies.live(
+        let dependencies = AppEnvironment.live.mainTabs.makeMainTabDependencies(
             modelContext: context,
             homePinnedItemsStore: pinnedItemsStore,
             privacyResetServiceFactory: { modelContext, auraPlayContainer in

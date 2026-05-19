@@ -1,5 +1,27 @@
 # Journal
 
+## 2026-05-19 — ARCH-003 Left The Active Board
+
+The last loose end in `ARCH-003` was tiny but worth cleaning up: `MusicRuntime` still lived in `AppServices.swift`, even though `MusicAssembly` was already the room that built it. That is like moving the stereo into the music room but leaving the owner's manual taped to the front door. The type now sits beside `MusicAssembly.makeRuntime()`, so the file ownership finally matches the architecture story.
+
+With that done, `ARCH-003` came off the active security and architecture ticket list. The board now reflects work that still needs decisions instead of keeping a completed refactor around as historical furniture.
+
+## 2026-05-19 — AppServices Stopped Being The Whole Building
+
+`ARCH-003` is now implemented: `AppServices.swift` went from a 584-line everything drawer to a thin bootstrap aggregate. The concrete wiring moved into feature-scoped assemblies: providers, receipts, accounts, shell, music, privacy, token holdings, search, home, policy, and main-tab composition each have an owner now.
+
+The architectural win is boring in the best way. `AppEnvironment` still gives the app one obvious composition root, but it no longer personally builds every stove, sink, speaker, and cash register in the restaurant. It hands each room to the assembly that understands that room. Provider wiring stays with `ProviderAssembly`, receipt-backed recorders with `ReceiptAssembly`, shell context with `ShellAssembly`, AuraPlay runtime with `MusicAssembly`, and so on.
+
+The tripwire matters as much as the move: `ArchitectureBoundaryTests` now fails if `AppServices.swift` starts directly constructing things like `NFTService`, `AudioEngine`, `ReceiptStores.live`, token-holding stores, privacy reset services, or policy gates again. A follow-up pass also removed the temporary `.live(...)` compatibility shims from the assembly layer, so call sites now go straight through `AppEnvironment.live.<assembly>` instead of pretending the migration scaffolding is a permanent API. Refactors only stay refactored when the codebase remembers what it learned.
+
+## 2026-05-19 — ARCH-003 Became A Moving Plan, Not A Moving Truck
+
+The `AppServices` split ticket was too vague for safe implementation: it said to pull the giant composition root apart, but it did not say which box each wire belonged in. That is how refactors become moving day with no labels: the couch arrives in the kitchen and nobody knows whether the lamp is missing or “abstracted.”
+
+The ticket now names the assemblies, their owned factories, the migration order, and the guardrails. Provider construction goes to `ProviderAssembly`, receipt wiring to `ReceiptAssembly`, token holdings sync to `TokenHoldingsAssembly`, shell context and store construction to `ShellAssembly`, and so on. The important bit is that this is app-target composition cleanup, not a sneaky package migration or concurrency rewrite.
+
+The lesson: architecture tickets need enough detail that implementation is mostly judgment plus typing, not live archaeology. A good split plan names ownership, lifetime-sensitive collaborators, tests, and what is explicitly out of scope.
+
 ## 2026-05-19 — The ERC-20 Tab Stopped Running the Loading Dock
 
 `ARCH-004` is now implemented, which means the ERC-20 SwiftUI view finally stopped moonlighting as a warehouse supervisor. Before this pass, `ERC20TokensRootView` was pushing buttons, calling the provider, writing SwiftData rows, deciding whether stale results counted, translating provider errors, and updating banners. That is a lot of jobs for something that should mostly render the room and react to user intent.
