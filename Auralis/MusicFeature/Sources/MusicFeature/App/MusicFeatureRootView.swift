@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import SwiftUI
 
 /// Composition root for the rebuilt music tab.

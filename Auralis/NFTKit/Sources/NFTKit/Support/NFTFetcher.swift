@@ -6,6 +6,7 @@
 //
 
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import OSLog
 import ProviderKit
 import RegexBuilder

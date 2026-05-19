@@ -9,6 +9,7 @@ import Foundation
 import MusicFeature
 import SwiftData
 import Testing
+import TokenStorage
 
 @Suite
 struct ShellDependencyBuilderTests {

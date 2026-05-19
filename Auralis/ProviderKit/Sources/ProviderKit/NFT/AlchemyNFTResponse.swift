@@ -6,6 +6,7 @@
 //
 
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
 
 public struct AlchemyNFTResponse: Codable {

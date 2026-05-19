@@ -1,6 +1,9 @@
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
+import ReceiptStorage
 import SwiftData
+import TokenStorage
 
 struct HomeScopedNFTCounts: Equatable {
     let scopedNFTCount: Int

@@ -1,7 +1,9 @@
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
 import Testing
+import TokenStorage
 
 @Suite
 struct SearchQueryParserTests {

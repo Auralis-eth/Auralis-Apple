@@ -6,6 +6,7 @@
 //
 
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import AVFoundation
 import Foundation
 import NFTKit

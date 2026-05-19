@@ -1,4 +1,5 @@
 import Foundation
+import AuralisPrimaryModels
 import OSLog
 import SwiftData
 

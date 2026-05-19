@@ -7,10 +7,11 @@ struct ArchitectureBoundaryTests {
     func appDirectPackageImportsAreDeclaredExplicitly() throws {
         let projectRoot = try projectRootURL()
         let declaredProducts = try appTargetPackageProductNames(projectRoot: projectRoot)
+        let declaredImportModules = declaredProducts.union(modulesExposedByDeclaredProducts(declaredProducts))
         let knownPackageProducts = try knownPackageProductNames(projectRoot: projectRoot)
         let directPackageImports = try appDirectImports(projectRoot: projectRoot)
             .intersection(knownPackageProducts)
-        let undeclaredImports = directPackageImports.subtracting(declaredProducts)
+        let undeclaredImports = directPackageImports.subtracting(declaredImportModules)
 
         #expect(
             undeclaredImports.isEmpty,
@@ -144,6 +145,16 @@ struct ArchitectureBoundaryTests {
         )
         let dependencyBlock = try extractList(named: "packageProductDependencies", from: targetBlock)
         return Set(commentNames(in: dependencyBlock))
+    }
+
+    private func modulesExposedByDeclaredProducts(_ productNames: Set<String>) -> Set<String> {
+        var modules = Set<String>()
+
+        if productNames.contains("AuralisPrimaryModels") {
+            modules.insert("AuralisPrimaryPersistence")
+        }
+
+        return modules
     }
 
     private func knownPackageProductNames(projectRoot: URL) throws -> Set<String> {

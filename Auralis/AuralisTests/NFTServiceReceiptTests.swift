@@ -3,6 +3,7 @@ import ReceiptStorage
 import NFTKit
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
 import ProviderKit
 import SwiftData

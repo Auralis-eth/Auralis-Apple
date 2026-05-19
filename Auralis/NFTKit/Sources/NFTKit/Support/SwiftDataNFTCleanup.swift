@@ -1,69 +1,9 @@
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
 import SwiftData
 
 extension ModelContext {
-    public func deleteAccountScopedSupportData(accountAddress: String) throws {
-        try delete(
-            model: StoredReceipt.self,
-            where: #Predicate<StoredReceipt> { receipt in
-                receipt.accountAddress == accountAddress
-            }
-        )
-        try delete(
-            model: TokenHolding.self,
-            where: #Predicate<TokenHolding> { holding in
-                holding.accountAddressRawValue == accountAddress
-            }
-        )
-        try delete(
-            model: MusicLibraryItem.self,
-            where: #Predicate<MusicLibraryItem> { item in
-                item.accountAddressRawValue == accountAddress
-            }
-        )
-        try delete(
-            model: SearchHistoryRecord.self,
-            where: #Predicate<SearchHistoryRecord> { record in
-                record.accountAddressRawValue == accountAddress
-            }
-        )
-
-        let accountDescriptor = FetchDescriptor<EOAccount>(
-            predicate: #Predicate<EOAccount> { account in
-                account.address == accountAddress
-            }
-        )
-        if let account = try fetch(accountDescriptor).first {
-            account.clearAllAuraPlaySyncState()
-        }
-    }
-
-    public func deleteAllShellSupportData() throws {
-        for receipt in try fetch(FetchDescriptor<StoredReceipt>()) {
-            delete(receipt)
-        }
-        try delete(
-            model: TokenHolding.self,
-            where: #Predicate<TokenHolding> { _ in true }
-        )
-        for item in try fetch(FetchDescriptor<MusicLibraryItem>()) {
-            delete(item)
-        }
-        try delete(
-            model: SearchHistoryRecord.self,
-            where: #Predicate<SearchHistoryRecord> { _ in true }
-        )
-        try delete(
-            model: Playlist.self,
-            where: #Predicate<Playlist> { _ in true }
-        )
-
-        for account in try fetch(FetchDescriptor<EOAccount>()) {
-            account.clearAllAuraPlaySyncState()
-        }
-    }
-
     public func deleteNFTsScopedToAccount(_ accountAddress: String) throws {
         let descriptor = FetchDescriptor<NFT>(
             predicate: #Predicate<NFT> { nft in

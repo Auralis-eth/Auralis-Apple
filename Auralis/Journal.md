@@ -1,5 +1,27 @@
 # Journal
 
+## 2026-05-19 — The Receipt Head Finder Put Down the Trapdoor
+
+The receipt integrity cleanup had one of those small Swift smells that deserves respect: `current!` inside the code that decides the latest receipt head for each account. The surrounding condition made the force unwrap logically safe, but security and audit code should not ask future readers to trust a boolean maze before avoiding a crash.
+
+The fix was to give the comparison a name. `StoredReceipt.isNewerIntegrityHead(than:)` now handles the empty-current case explicitly, then compares account sequence and global sequence in the same order as before. Same ledger behavior, fewer trapdoors. Good audit code should read like a checklist, not a dare.
+
+## 2026-05-19 — Primary Models Took Off the Apron
+
+`ARCH-001` is now implemented instead of merely well-described. The old problem was that `AuralisPrimaryModels` sounded like a clean vocabulary package while secretly wearing a persistence apron. Asking another package for address, chain, receipt, or tag vocabulary could also drag SwiftData schema into the room.
+
+The fix was not to create another package. We split the existing package into two targets: `AuralisPrimaryModels` is now the clean dictionary of portable values, and `AuralisPrimaryPersistence` is the storage pantry where `EOAccount`, `NFT`, `Tag`, `Playlist`, `MusicLibraryItem`, and `SearchHistoryRecord` live. Receipt, token-holding, and AuraPlay media rows stayed with their existing storage owners.
+
+The important trick was preserving the SwiftData class names, relationships, indexes, and uniqueness rules. This was moving shelves inside the same stockroom, not changing the inventory labels. Boundary tests now act like a health inspector: the pure target cannot import SwiftData, SwiftUI, or UIKit, and the persistence models have a clearly named home.
+
+## 2026-05-19 — The Primary Models Package Was Wearing Two Hats
+
+The `ARCH-001` audit ticket looked like a simple "move NFT and Tag out of the domain layer" chore until we opened the cupboard. `AuralisPrimaryModels` was not just carrying `NFT.swift` and one UI-flavored `Tag.swift`; it was also carrying the SwiftData schema for accounts, receipts, playlists, music rows, token holdings, AuraPlay media, and search history.
+
+That matters because a package called "PrimaryModels" sounds like the neutral vocabulary everyone can share. In reality, importing it could bring along SwiftData, SwiftUI, and UIKit. That is like asking for the restaurant menu and getting handed the cash register, dishwasher manual, and paint swatches too.
+
+The ticket now names the whole migration surface and the practical first move: move `@Model` classes into existing storage packages when there is already a clear owner, keep the rest in `AuralisPrimaryModels`, and map at storage boundaries. The warning label is important: preserve schema names and indexes first; this is a package-boundary cleanup, not an excuse to create another package.
+
 ## 2026-05-19 — External Links Learned When a Receipt Is the Ticket
 
 SEC-010 fixed a quiet but important policy bug in the external-link handoff. Before this pass, receipt logging was treated like a nice-to-have for every destination. If the app failed to append the audit receipt, it still opened the URL. That is acceptable for a harmless help page, but it is the wrong rule for wallet-sensitive links where the receipt is the paper trail proving what the user approved.
@@ -1731,3 +1753,13 @@ The security ticket for Release API-key validation was half true in the most dan
 The fix was to make the factory door check the badge. `ValidateReleaseSecrets.sh` now runs from the Auralis target, exits quietly for non-Release builds, and fails Release builds when the Alchemy key is empty or shaped like placeholder scaffolding. It deliberately does not print the key, because a build log should not become a tiny secrets bulletin board.
 
 The lesson: documentation is not a control. If a release rule matters, wire it into the build so the machine enforces it every time.
+
+## Primary Models: The Toolbox Stopped Packing A Couch
+
+`AuralisPrimaryModels` had become the everything drawer: portable wallet and chain vocabulary lived next to SwiftData tables, and `Tag.swift` even imported SwiftUI and UIKit just to help with colors. That meant a package could ask for a tiny domain noun and accidentally drag in UI frameworks and persistence furniture.
+
+The first architecture cleanup moved the clearly owned tables to the packages already responsible for writing them. `StoredReceipt` now lives in `ReceiptStorage`, `TokenHolding` lives in `TokenStorage`, and `AuraPlayMediaItem` lives in `MusicFeature` persistence. The app schema still opens the same model names, and the remaining primary SwiftData models stay put for now because `EOAccount`, `NFT`, `Tag`, `Playlist`, and the music/search rows are still tied together by persisted relationships.
+
+The pure side got some fresh vocabulary too: `NFTIdentity`, `NFTMetadataSnapshot`, `TagValue`, `AccountSummary`, `TokenHoldingDescriptor`, `PlaylistDescriptor`, and `SearchHistoryValue` are the small, Sendable shapes feature packages can pass around without borrowing a database table. Boundary tests now check that the primary package does not import SwiftUI/UIKit and that moved storage-owned models do not creep back.
+
+The lesson: package boundaries work best when the noun you import is the noun you meant. If you want a tag value, you should not have to invite a SwiftData model and a color renderer to dinner.

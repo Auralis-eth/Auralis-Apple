@@ -26,6 +26,7 @@ let package = Package(
             dependencies: [
                 "AccountsCore",
                 "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "AuraUI",
                 .product(name: "CodeScanner", package: "CodeScanner"),
             ],
@@ -40,6 +41,7 @@ let package = Package(
             dependencies: [
                 "AccountsFeature",
                 "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
             ]
         ),
     ]

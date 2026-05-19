@@ -23,6 +23,7 @@ let package = Package(
             name: "TokenStorage",
             dependencies: [
                 "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "ProviderKit",
                 "SwiftDataAdapters",
             ]
@@ -31,6 +32,7 @@ let package = Package(
             name: "TokenStorageTests",
             dependencies: [
                 "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "ProviderKit",
                 "TokenStorage",
             ]

@@ -21,6 +21,7 @@ let package = Package(
             name: "ProviderKit",
             dependencies: [
                 "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
             ]
         ),
         .testTarget(

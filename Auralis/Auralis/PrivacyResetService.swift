@@ -1,11 +1,13 @@
 import ENS
 import AuralisShellCore
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
 import MusicFeature
 import ProviderKit
 import ReceiptStorage
 import SwiftData
+import TokenStorage
 
 protocol TransactionalPrivacyResetting: Sendable {
     func resetTransactionalPrivacyData() async throws
@@ -78,13 +80,7 @@ actor SwiftDataTransactionalPrivacyResetService: TransactionalPrivacyResetting {
 
         for receipt in receipts where receipt.hasCompleteIntegrityMetadata {
             let accountKey = receipt.receiptIntegrityAccountKey
-            let current = latestByAccount[accountKey]
-            if current == nil
-                || receipt.accountSequenceID > current!.accountSequenceID
-                || (
-                    receipt.accountSequenceID == current!.accountSequenceID
-                    && receipt.sequenceID > current!.sequenceID
-                ) {
+            if receipt.isNewerIntegrityHead(than: latestByAccount[accountKey]) {
                 latestByAccount[accountKey] = receipt
             }
         }
@@ -105,6 +101,18 @@ private extension StoredReceipt {
             return "global"
         }
         return accountAddress.lowercased()
+    }
+
+    func isNewerIntegrityHead(than current: StoredReceipt?) -> Bool {
+        guard let current else {
+            return true
+        }
+
+        return accountSequenceID > current.accountSequenceID
+            || (
+                accountSequenceID == current.accountSequenceID
+                && sequenceID > current.sequenceID
+            )
     }
 }
 

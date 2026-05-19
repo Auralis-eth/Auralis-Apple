@@ -1,5 +1,6 @@
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import MusicFeature
 import Testing
 

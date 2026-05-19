@@ -3,6 +3,7 @@ import AuralisShellCore
 import ENS
 import AccountsFeature
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import ImagePlayground
 import OSLog
 import SwiftData

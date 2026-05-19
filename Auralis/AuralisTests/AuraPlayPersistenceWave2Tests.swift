@@ -1,6 +1,7 @@
 import ReceiptsCore
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
 import MusicFeature
 import SwiftData

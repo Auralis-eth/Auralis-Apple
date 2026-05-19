@@ -2,6 +2,7 @@ import ReceiptsCore
 import AccountStorage
 import AccountsCore
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import AuralisShellCore
 import Foundation
 import Security

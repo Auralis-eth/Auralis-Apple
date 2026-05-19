@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
 
 /// Enumerates the intents that can mutate shell state or trigger shell side effects.

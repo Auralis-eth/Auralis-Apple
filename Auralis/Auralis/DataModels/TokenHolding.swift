@@ -1,6 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 import NFTKit
+import TokenStorage
 
 /// Presentation model for token rows rendered in the ERC-20 and holdings surfaces.
 struct TokenHoldingRowModel: Identifiable, Equatable {

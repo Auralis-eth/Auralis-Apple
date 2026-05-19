@@ -16,15 +16,20 @@ let package = Package(
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../AccountsCore"),
+        .package(path: "../ReceiptStorage"),
         .package(path: "../SwiftDataAdapters"),
+        .package(path: "../TokenStorage"),
     ],
     targets: [
         .target(
             name: "AccountStorage",
             dependencies: [
                 "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "AccountsCore",
+                "ReceiptStorage",
                 "SwiftDataAdapters",
+                "TokenStorage",
             ]
         ),
         .testTarget(

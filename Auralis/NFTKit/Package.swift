@@ -25,6 +25,7 @@ let package = Package(
             name: "NFTKit",
             dependencies: [
                 "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "ChainProviders",
                 "ExplorerAdapter",
                 "ProviderKit",

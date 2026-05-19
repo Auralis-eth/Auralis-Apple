@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
+import ReceiptStorage
 import SwiftData
 import SwiftUI
 import AuraUI

@@ -1,5 +1,7 @@
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
+import TokenStorage
 
 struct SearchLocalIndex: Equatable, Sendable {
     struct AccountSnapshot: Sendable {

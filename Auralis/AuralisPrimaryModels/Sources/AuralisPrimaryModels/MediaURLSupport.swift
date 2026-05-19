@@ -15,7 +15,7 @@ extension URL {
         return scheme == "https"
     }
 
-    static func sanitizedAuralisRemoteMediaURL(from rawValue: String) -> URL? {
+    public static func sanitizedAuralisRemoteMediaURL(from rawValue: String) -> URL? {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return nil

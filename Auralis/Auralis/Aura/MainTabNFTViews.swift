@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import AuralisShellCore
 import NFTKit
 import NFTLibraryFeature

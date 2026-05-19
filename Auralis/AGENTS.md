@@ -45,7 +45,7 @@ The shell flow is:
 - `P0-Future-Work.md` is the post-Phase-0 backlog and should be updated when hardening or architecture follow-on work becomes clearer.
 - `P0-Physical-Device-QA-Suite.md` is the real-device manual QA contract for Phase 0.
 - `P0-UI-Design-Audit-Checklist.md` is the product/design quality checklist for Phase 0 surfaces.
-- `AuralisPrimaryModels/` is a local Swift package for foundational shared primary-model support that can grow without bloating the app target.
+- `AuralisPrimaryModels/` is a local Swift package with two targets: pure domain values live in `AuralisPrimaryModels`, while the remaining shared SwiftData schema cluster lives in `AuralisPrimaryPersistence`.
 - `AuralisShellCore/` is the local Swift package for shell state, shell actions, `ShellStore`, dependency protocols, and deep-link routing rules. Keep live app infrastructure out of this package.
 - `MusicFeature/` is the local Swift package for the AuraPlay music feature boundary. It currently owns AuraPlay domain values and service protocols; keep `AudioEngine`, SwiftData live adapters, and app composition in the app target until later migration phases deliberately move them.
 - `SwiftDataAdapters/` is the local Swift package for shared SwiftData mechanics such as rollback-safe and undoable mutation helpers. It should provide tools, not domain-specific stores.

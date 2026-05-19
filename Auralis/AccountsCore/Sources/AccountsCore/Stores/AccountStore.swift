@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
 
 /// Enumerates the account-store failures surfaced to wallet entry and selection flows.

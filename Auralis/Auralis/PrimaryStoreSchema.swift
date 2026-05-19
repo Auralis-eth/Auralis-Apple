@@ -1,5 +1,9 @@
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
+import MusicFeature
+import ReceiptStorage
 import SwiftData
+import TokenStorage
 
 enum PrimaryStoreSchema {
     static let models: [any PersistentModel.Type] = [

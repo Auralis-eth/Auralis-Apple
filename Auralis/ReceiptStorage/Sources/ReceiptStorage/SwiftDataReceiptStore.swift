@@ -118,13 +118,7 @@ public actor ReceiptPersistenceStore {
         var latestByAccount: [String: StoredReceipt] = [:]
         for receipt in receipts where receipt.hasCompleteIntegrityMetadata {
             let accountKey = ReceiptIntegrity.accountKey(accountAddress: receipt.accountAddress)
-            let current = latestByAccount[accountKey]
-            if current == nil
-                || receipt.accountSequenceID > current!.accountSequenceID
-                || (
-                    receipt.accountSequenceID == current!.accountSequenceID
-                    && receipt.sequenceID > current!.sequenceID
-                ) {
+            if receipt.isNewerIntegrityHead(than: latestByAccount[accountKey]) {
                 latestByAccount[accountKey] = receipt
             }
         }
@@ -391,6 +385,18 @@ private extension StoredReceipt {
         !payloadHash.isEmpty
             && !previousReceiptHash.isEmpty
             && !chainHash.isEmpty
+    }
+
+    func isNewerIntegrityHead(than current: StoredReceipt?) -> Bool {
+        guard let current else {
+            return true
+        }
+
+        return accountSequenceID > current.accountSequenceID
+            || (
+                accountSequenceID == current.accountSequenceID
+                && sequenceID > current.sequenceID
+            )
     }
 
     func asReceiptRecord() -> ReceiptRecord {

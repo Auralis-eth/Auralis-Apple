@@ -2,11 +2,13 @@ import ReceiptsCore
 import ReceiptStorage
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import AuralisShellCore
 import Foundation
 import PolicyCore
 import SwiftData
 import Testing
+import TokenStorage
 
 @Suite
 struct NoBypassSmokeTests {

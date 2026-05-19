@@ -3,6 +3,7 @@ import AuralisPrimaryModels
 import Foundation
 import Testing
 import NFTKit
+import TokenStorage
 
 @Suite
 struct ERC20TokenDetailPresentationTests {

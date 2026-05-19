@@ -1,4 +1,5 @@
 import Foundation
+import AuralisPrimaryModels
 import OSLog
 import SwiftData
 
@@ -256,42 +257,6 @@ public final class EOAccount: Codable, Identifiable {
         } catch {
             eoAccountLogger.error("Failed to encode AuraPlay sync state for account metadata")
             return nil
-        }
-    }
-}
-
-public enum EthereumAddressAccess: Codable, Sendable {
-    case wallet
-    case readonly
-
-    public var canSign: Bool {
-        switch self {
-        case .wallet:
-            return true
-        case .readonly:
-            return false
-        }
-    }
-}
-
-public enum EOAccountSource: String, Codable, Sendable {
-    case manualEntry
-    case qrScan
-    case guestPass
-
-    public init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let rawValue = try container.decode(String.self)
-        switch rawValue {
-        case Self.manualEntry.rawValue:
-            self = .manualEntry
-        case Self.qrScan.rawValue:
-            self = .qrScan
-        case "guestPass":
-            self = .guestPass
-        default:
-            eoAccountLogger.error("Unknown EOAccountSource raw value encountered during decode: \(rawValue, privacy: .public)")
-            self = .manualEntry
         }
     }
 }

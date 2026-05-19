@@ -1,5 +1,6 @@
 import AccountsFeature
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import AuralisShellCore
 import MusicFeature
 import Observation

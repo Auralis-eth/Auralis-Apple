@@ -8,6 +8,7 @@
 import AccountsFeature
 import ENS
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import ImagePlayground
 import SwiftUI
 import AuraUI

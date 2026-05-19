@@ -22,6 +22,7 @@ let package = Package(
             name: "AuralisShellCore",
             dependencies: [
                 "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "AccountsCore",
             ]
         ),
@@ -30,6 +31,7 @@ let package = Package(
             dependencies: [
                 "AuralisShellCore",
                 "AccountsCore",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
             ]
         ),
     ]

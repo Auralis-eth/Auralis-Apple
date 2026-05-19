@@ -6,6 +6,7 @@
 //
 
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import AuraUI
 import NFTLibraryFeature
 import SwiftData

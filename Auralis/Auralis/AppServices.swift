@@ -6,6 +6,7 @@ import AccountsFeature
 import AuralisShellCore
 import ENS
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
 import ProviderKit
 import PolicyCore

@@ -1,6 +1,7 @@
 import AccountsCore
 import AccountsFeature
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import AuralisShellCore
 import ENS
 import SwiftData

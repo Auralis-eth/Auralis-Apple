@@ -25,6 +25,7 @@ let package = Package(
             name: "NFTLibraryFeature",
             dependencies: [
                 "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "AuraUI",
                 "NFTKit",
                 "OperatorCore",

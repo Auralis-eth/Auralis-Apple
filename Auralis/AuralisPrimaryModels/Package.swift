@@ -10,12 +10,23 @@ let package = Package(
     products: [
         .library(
             name: "AuralisPrimaryModels",
-            targets: ["AuralisPrimaryModels"]
+            targets: [
+                "AuralisPrimaryModels",
+                "AuralisPrimaryPersistence",
+            ]
+        ),
+        .library(
+            name: "AuralisPrimaryPersistence",
+            targets: ["AuralisPrimaryPersistence"]
         ),
     ],
     targets: [
         .target(
             name: "AuralisPrimaryModels"
+        ),
+        .target(
+            name: "AuralisPrimaryPersistence",
+            dependencies: ["AuralisPrimaryModels"]
         ),
     ]
 )

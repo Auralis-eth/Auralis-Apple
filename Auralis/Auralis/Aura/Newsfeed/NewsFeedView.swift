@@ -6,6 +6,7 @@
 //
 
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import SwiftData
 import SwiftUI
 import AuraUI

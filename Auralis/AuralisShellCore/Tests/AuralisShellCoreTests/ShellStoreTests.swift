@@ -1,5 +1,6 @@
 import AccountsCore
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import AuralisShellCore
 import Foundation
 import Testing

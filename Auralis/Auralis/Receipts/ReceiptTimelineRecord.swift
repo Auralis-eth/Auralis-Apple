@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
+import ReceiptStorage
 
 struct ReceiptTimelineRecord: Identifiable, Equatable, Sendable {
     let id: UUID

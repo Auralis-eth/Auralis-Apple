@@ -22,6 +22,7 @@ let package = Package(
             name: "MusicFeature",
             dependencies: [
                 "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "AuraUI",
             ]
         ),

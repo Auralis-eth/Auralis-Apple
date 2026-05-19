@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
 
 public enum NFTLibrarySortField: String, CaseIterable, Sendable {
