@@ -29,8 +29,8 @@ struct ActionPolicyGateReceiptTests {
         #expect(receipt.details.values["policy_approved"] == .bool(false))
     }
 
-    @Test("approved high-risk actions append approved policy receipts")
-    func approvedHighRiskActionAppendsReceipt() async throws {
+    @Test("plugin actions are denied in Observe mode and append denied policy receipts")
+    func observeModePluginActionAppendsDeniedReceipt() async throws {
         let store = RecordingReceiptStore()
 
         let result = await ActionPolicyGate.attempt(
@@ -40,15 +40,16 @@ struct ActionPolicyGateReceiptTests {
         )
 
         let receipt = try #require(store.appendedReceipts.first)
-        #expect(result.isAllowed)
-        #expect(receipt.trigger == "policy.approved")
+        #expect(result.isAllowed == false)
+        #expect(result.userMessage == "Not available in Observe mode")
+        #expect(receipt.trigger == "policy.denied")
         #expect(receipt.scope == "policy")
         #expect(receipt.mode == .observe)
-        #expect(receipt.isSuccess)
+        #expect(receipt.isSuccess == false)
         #expect(receipt.details.values["action"] == .string("run_plugin"))
-        #expect(receipt.details.values["decision"] == .string("approved"))
-        #expect(receipt.details.values["policy_denied"] == .bool(false))
-        #expect(receipt.details.values["policy_approved"] == .bool(true))
+        #expect(receipt.details.values["decision"] == .string("denied"))
+        #expect(receipt.details.values["policy_denied"] == .bool(true))
+        #expect(receipt.details.values["policy_approved"] == .bool(false))
     }
 }
 

@@ -129,9 +129,9 @@ struct AccountReceiptRecorderTests {
         #expect(receipts.first?.details.values["policy_denied"] == ReceiptJSONValue.bool(true))
     }
 
-    @Test("policy gate allows plugin actions in observe mode and records an approval receipt")
+    @Test("policy gate denies plugin actions in Observe mode and records a denial receipt")
     @MainActor
-    func observeModePolicyGateAllowsPluginActions() async throws {
+    func observeModePolicyGateDeniesPluginActions() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
@@ -148,15 +148,16 @@ struct AccountReceiptRecorderTests {
 
         let receipts = try receiptStore.latest(limit: 10)
 
-        #expect(result.isAllowed == true)
-        #expect(result.userMessage.isEmpty)
+        #expect(result.isAllowed == false)
+        #expect(result.userMessage == "Not available in Observe mode")
         #expect(receipts.count == 1)
-        #expect(receipts.first?.trigger == "policy.approved")
+        #expect(receipts.first?.trigger == "policy.denied")
         #expect(receipts.first?.scope == "policy")
         #expect(receipts.first?.mode == .observe)
-        #expect(receipts.first?.isSuccess == true)
+        #expect(receipts.first?.isSuccess == false)
         #expect(receipts.first?.details.values["action"] == ReceiptJSONValue.string("run_plugin"))
-        #expect(receipts.first?.details.values["policy_approved"] == ReceiptJSONValue.bool(true))
+        #expect(receipts.first?.details.values["policy_denied"] == ReceiptJSONValue.bool(true))
+        #expect(receipts.first?.details.values["policy_approved"] == ReceiptJSONValue.bool(false))
     }
 
     @Test("chain-scope account events emit one receipt per real preferred and current change")

@@ -197,6 +197,7 @@
 				6FB455D82CC5BEBB009A055C /* Frameworks */,
 				6FB455D92CC5BEBB009A055C /* Resources */,
 				6FC0A1012F70000100A0BEEF /* SwiftLint */,
+				6FDB39A02FBBBE9700075FCE /* Validate Release Secrets. */,
 			);
 			buildRules = (
 			);
@@ -397,6 +398,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "set -e\n\nSWIFTLINT_BIN=\"${BUILD_DIR%Build/*}SourcePackages/artifacts/swiftlintplugins/SwiftLintBinary/SwiftLintBinary.artifactbundle/macos/swiftlint\"\nOUTPUT_STAMP=\"${DERIVED_FILE_DIR}/swiftlint-lint.stamp\"\n\nif [ ! -x \"$SWIFTLINT_BIN\" ]; then\n  echo \"warning: SwiftLint binary is missing. Resolve package dependencies to enable linting.\"\n  exit 0\nfi\n\n\"$SWIFTLINT_BIN\" lint --config \"$SRCROOT/.swiftlint.yml\"\ntouch \"$OUTPUT_STAMP\"\n";
+		};
+		6FDB39A02FBBBE9700075FCE /* Validate Release Secrets. */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate Release Secrets.";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n/bin/sh \"$SRCROOT/Auralis/Scripts/ValidateReleaseSecrets.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

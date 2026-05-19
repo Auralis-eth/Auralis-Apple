@@ -29,16 +29,14 @@ public enum PolicyControlledAction: String, CaseIterable, Sendable {
         case .draftTransaction:
             return "Transaction drafting is not available in Observe mode."
         case .runPlugin:
-            return "Tool and plugin execution remains available in Observe mode."
+            return "Tool and plugin execution is not available in Observe mode."
         }
     }
 
     public var isBlockedInObserveMode: Bool {
         switch self {
-        case .signMessage, .approveSpending, .draftTransaction:
+        case .signMessage, .approveSpending, .draftTransaction, .runPlugin:
             return true
-        case .runPlugin:
-            return false
         }
     }
 

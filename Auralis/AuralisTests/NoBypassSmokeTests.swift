@@ -49,9 +49,9 @@ struct NoBypassSmokeTests {
         #expect(receipts.first?.details.values["action"] == ReceiptJSONValue.string("draft_transaction"))
     }
 
-    @Test("allowed high-risk observe actions record approval receipts without masquerading as denial events")
+    @Test("plugin observe actions are blocked with a denial receipt")
     @MainActor
-    func allowedObserveActionsDoNotWriteDenialReceipts() async throws {
+    func pluginObserveActionsWriteDenialReceipt() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
@@ -68,14 +68,14 @@ struct NoBypassSmokeTests {
 
         let receipts = try receiptStore.latest(limit: 10)
 
-        #expect(result.isAllowed == true)
-        #expect(result.userMessage.isEmpty)
+        #expect(result.isAllowed == false)
+        #expect(result.userMessage == "Not available in Observe mode")
         #expect(receipts.count == 1)
-        #expect(receipts.first?.trigger == "policy.approved")
-        #expect(receipts.first?.isSuccess == true)
+        #expect(receipts.first?.trigger == "policy.denied")
+        #expect(receipts.first?.isSuccess == false)
         #expect(receipts.first?.details.values["action"] == ReceiptJSONValue.string("run_plugin"))
-        #expect(receipts.first?.details.values["policy_denied"] == ReceiptJSONValue.bool(false))
-        #expect(receipts.first?.details.values["policy_approved"] == ReceiptJSONValue.bool(true))
+        #expect(receipts.first?.details.values["policy_denied"] == ReceiptJSONValue.bool(true))
+        #expect(receipts.first?.details.values["policy_approved"] == ReceiptJSONValue.bool(false))
     }
 
     @Test("raw deep-link input is labeled while non-raw route errors are not")

@@ -1708,3 +1708,10 @@ The tests got their own lesson too: production Keychain services and default `Us
 
 The lesson: persistence APIs should either complete the promise or return the claim ticket saying they could not. Silent storage failure is not graceful degradation; it is a future launch bug wearing a calm face.
 
+## Release Secrets: The Factory Door Now Checks The Badge
+
+The security ticket for Release API-key validation was half true in the most dangerous way: the journal remembered a build gate, but the Xcode project did not actually have one. That meant an archive could still leave the factory with `AURALIS_ALCHEMY_API_KEY` missing or replaced by placeholder text, and the app would only complain later when networking tried to use it.
+
+The fix was to make the factory door check the badge. `ValidateReleaseSecrets.sh` now runs from the Auralis target, exits quietly for non-Release builds, and fails Release builds when the Alchemy key is empty or shaped like placeholder scaffolding. It deliberately does not print the key, because a build log should not become a tiny secrets bulletin board.
+
+The lesson: documentation is not a control. If a release rule matters, wire it into the build so the machine enforces it every time.
