@@ -8,6 +8,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
+import NFTDomain
 import NFTPersistence
 
 private struct NFTMetadataPreparationInput: Sendable {
@@ -19,7 +20,7 @@ private struct NFTMetadataPreparationInput: Sendable {
 @MainActor
 public protocol PrepareNFTMetadataUsing {
     func prepareInventory(
-        _ fetchedNFTs: [NFT],
+        _ fetchedNFTs: [NFTInventoryItemSnapshot],
         accountAddress: String,
         chain: Chain
     ) async -> PreparedNFTInventory
@@ -30,17 +31,19 @@ public struct LivePrepareNFTMetadataUseCase: PrepareNFTMetadataUsing {
     public init() { }
 
     public func prepareInventory(
-        _ fetchedNFTs: [NFT],
+        _ fetchedNFTs: [NFTInventoryItemSnapshot],
         accountAddress: String,
         chain: Chain
     ) async -> PreparedNFTInventory {
         let metadataPatches = await prepareMetadataPatches(for: fetchedNFTs)
 
-        for (index, nft) in fetchedNFTs.enumerated() {
-            nft.applyRefreshScope(accountAddress: accountAddress, chain: chain)
+        var preparedNFTs = fetchedNFTs
+
+        for index in preparedNFTs.indices {
+            preparedNFTs[index].applyRefreshScope(accountAddress: accountAddress, chain: chain)
             if let metadataPatch = metadataPatches[index] {
-                NFTMetadataUpdater.applyMetadataPatch(metadataPatch, to: nft)
-                nft.applyRefreshScope(accountAddress: accountAddress, chain: chain)
+                NFTMetadataUpdater.applyMetadataPatch(metadataPatch, to: &preparedNFTs[index])
+                preparedNFTs[index].applyRefreshScope(accountAddress: accountAddress, chain: chain)
             }
 
             if index.isMultiple(of: 25) {
@@ -48,12 +51,12 @@ public struct LivePrepareNFTMetadataUseCase: PrepareNFTMetadataUsing {
             }
         }
 
-        return PreparedNFTInventory(nfts: deduplicateFetchedNFTs(fetchedNFTs))
+        return PreparedNFTInventory(nfts: deduplicateFetchedNFTs(preparedNFTs))
     }
 
-    private func deduplicateFetchedNFTs(_ nfts: [NFT]) -> [NFT] {
+    private func deduplicateFetchedNFTs(_ nfts: [NFTInventoryItemSnapshot]) -> [NFTInventoryItemSnapshot] {
         var seenIDs = Set<String>()
-        var deduplicatedNFTs: [NFT] = []
+        var deduplicatedNFTs: [NFTInventoryItemSnapshot] = []
         deduplicatedNFTs.reserveCapacity(nfts.count)
 
         for nft in nfts where seenIDs.insert(nft.id).inserted {
@@ -64,12 +67,12 @@ public struct LivePrepareNFTMetadataUseCase: PrepareNFTMetadataUsing {
     }
 
     private func prepareMetadataPatches(
-        for fetchedNFTs: [NFT]
+        for fetchedNFTs: [NFTInventoryItemSnapshot]
     ) async -> [NFTMetadataUpdater.MetadataPatch?] {
         let inputs = fetchedNFTs.map {
             NFTMetadataPreparationInput(
-                tokenURI: $0.tokenUri,
-                rawTokenURI: $0.raw?.tokenUri,
+                tokenURI: $0.tokenURI,
+                rawTokenURI: $0.raw?.tokenURI,
                 rawMetadata: $0.raw?.metadata
             )
         }

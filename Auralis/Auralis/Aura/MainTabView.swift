@@ -10,7 +10,10 @@ import ReceiptStorage
 import SwiftData
 import SwiftUI
 import AuraUI
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 
 struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext

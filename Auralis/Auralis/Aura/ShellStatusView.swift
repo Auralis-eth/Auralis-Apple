@@ -2,7 +2,10 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import SwiftUI
 import AuraUI
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 
 enum ShellStatusTone: Equatable {
     case neutral

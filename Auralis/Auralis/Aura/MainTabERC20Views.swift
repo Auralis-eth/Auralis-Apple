@@ -4,7 +4,10 @@ import ChainProviders
 import SwiftData
 import SwiftUI
 import AuraUI
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import TokenStorage
 
 struct ERC20TokensRootView: View {

@@ -3,35 +3,8 @@ import Foundation
 import NFTDomain
 import ProviderKit
 
-public struct NFTProviderFailure: Equatable {
-    public let kind: NFTProviderFailureKind
-    public let message: String
-    public let isRetryable: Bool
-
-    public var publicErrorCode: ProviderPublicErrorCode {
-        switch kind {
-        case .rateLimited:
-            return .rateLimited
-        case .misconfigured:
-            return .unauthorizedProviderConfiguration
-        case .invalidResponse:
-            return .invalidResponse
-        case .offline, .invalidScope, .busy, .unavailable:
-            return .providerUnavailable
-        }
-    }
-
-    private init(
-        kind: NFTProviderFailureKind,
-        message: String,
-        isRetryable: Bool
-    ) {
-        self.kind = kind
-        self.message = message
-        self.isRetryable = isRetryable
-    }
-
-    public init?(error: Error?) {
+public extension NFTProviderFailure {
+    init?(error: Error?) {
         guard let error else {
             return nil
         }
@@ -217,32 +190,5 @@ public struct NFTProviderFailure: Equatable {
         }
 
         return nil
-    }
-
-    private static func classifyNetworkOrFallback(_ error: Error) -> NFTProviderFailure {
-        if let urlError = error as? URLError {
-            switch urlError.code {
-            case .notConnectedToInternet, .networkConnectionLost:
-                return NFTProviderFailure(
-                    kind: .offline,
-                    message: "Auralis could not reach the collection provider because this device appears to be offline.",
-                    isRetryable: true
-                )
-            case .timedOut, .cannotConnectToHost:
-                return NFTProviderFailure(
-                    kind: .unavailable,
-                    message: "The collection provider did not respond in time.",
-                    isRetryable: true
-                )
-            default:
-                break
-            }
-        }
-
-        return NFTProviderFailure(
-            kind: .unavailable,
-            message: "Auralis could not reach the collection provider just now.",
-            isRetryable: true
-        )
     }
 }

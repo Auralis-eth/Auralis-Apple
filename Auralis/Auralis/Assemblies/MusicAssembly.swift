@@ -1,6 +1,9 @@
 import Foundation
 import MusicFeature
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import ReceiptsCore
 import SwiftData
 

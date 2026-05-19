@@ -72,11 +72,19 @@ struct ArchitectureBoundaryTests {
             "NFTPresentation"
         ]
         let forbiddenProviderImports: Set<String> = [
+            "AuralisPrimaryPersistence",
             "SwiftUI",
             "SwiftData",
             "NFTPersistence",
             "NFTPresentation",
             "ReceiptsCore"
+        ]
+        let forbiddenPersistenceImports: Set<String> = [
+            "NFTProviderAdapters",
+            "ProviderKit",
+            "ChainProviders",
+            "ExplorerAdapter",
+            "SwiftUI"
         ]
         let forbiddenFacadeExports = [
             "@_exported import ProviderKit",
@@ -90,7 +98,33 @@ struct ArchitectureBoundaryTests {
         )
         #expect(
             providerImports.intersection(forbiddenProviderImports).isEmpty,
-            "NFTProviderAdapters must not own UI, SwiftData, receipts, or presentation state: \(providerImports.intersection(forbiddenProviderImports).sorted())"
+            "NFTProviderAdapters must not own persistence models, UI, SwiftData, receipts, or presentation state: \(providerImports.intersection(forbiddenProviderImports).sorted())"
+        )
+        #expect(
+            packageText.contains(
+                """
+                name: "NFTProviderAdapters",
+                            dependencies: [
+                                "NFTDomain",
+                                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                """
+            ) == false,
+            "NFTProviderAdapters must not directly depend on the SwiftData persistence product"
+        )
+        #expect(
+            persistenceImports.intersection(forbiddenPersistenceImports).isEmpty,
+            "NFTPersistence must not depend on provider adapters, provider packages, explorer packages, or UI: \(persistenceImports.intersection(forbiddenPersistenceImports).sorted())"
+        )
+        #expect(
+            packageText.contains(
+                """
+                name: "NFTPersistence",
+                            dependencies: [
+                                "NFTDomain",
+                                "NFTProviderAdapters",
+                """
+            ) == false,
+            "NFTPersistence must not directly depend on NFTProviderAdapters"
         )
         #expect(persistenceImports.contains("SwiftData"))
         #expect(packageText.contains("name: \"NFTDomain\""))
@@ -100,6 +134,33 @@ struct ArchitectureBoundaryTests {
         #expect(
             forbiddenFacadeExports.allSatisfy { facadeExports.contains($0) == false },
             "NFTKit facade must not re-export provider packages"
+        )
+    }
+
+    @Test("app and feature callers import NFTKit layers explicitly")
+    func callersDoNotUseNFTKitUmbrellaImports() throws {
+        let projectRoot = try projectRootURL()
+        let roots = [
+            projectRoot.appending(path: "Auralis"),
+            projectRoot.appending(path: "AuralisTests"),
+            projectRoot.appending(path: "NFTLibraryFeature").appending(path: "Sources")
+        ]
+        var offenders: [String] = []
+
+        for root in roots {
+            for fileURL in try swiftSourceFiles(under: root) {
+                let source = try String(contentsOf: fileURL, encoding: .utf8)
+                if importedModules(in: source).contains("NFTKit") {
+                    offenders.append(
+                        fileURL.path().replacingOccurrences(of: projectRoot.path() + "/", with: "")
+                    )
+                }
+            }
+        }
+
+        #expect(
+            offenders.isEmpty,
+            "Callers should import NFTDomain/NFTProviderAdapters/NFTPersistence/NFTPresentation explicitly: \(offenders.sorted())"
         )
     }
 

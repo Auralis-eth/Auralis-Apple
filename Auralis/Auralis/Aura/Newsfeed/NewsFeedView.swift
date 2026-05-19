@@ -10,7 +10,10 @@ import AuralisPrimaryPersistence
 import SwiftData
 import SwiftUI
 import AuraUI
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 
 // MARK: - Updated Views
 

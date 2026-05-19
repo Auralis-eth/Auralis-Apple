@@ -3,7 +3,10 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisShellCore
 import Foundation
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import PolicyCore
 import ProviderKit
 import ReceiptsCore

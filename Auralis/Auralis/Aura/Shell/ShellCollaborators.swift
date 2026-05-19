@@ -7,7 +7,10 @@ import AuralisShellCore
 import Foundation
 import Security
 import SwiftData
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 
 @MainActor
 /// Persists active wallet selection as protected wallet metadata.

@@ -6,7 +6,7 @@
 //
 
 import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import Foundation
 import NFTDomain
 import OSLog
 import ProviderKit
@@ -30,7 +30,7 @@ public protocol NFTFetching: AnyObject {
         chain: Chain,
         correlationID: String?,
         eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFT]
+    ) async throws -> [NFTInventoryItemSnapshot]
 
     /// Resets progress and failure state for a future refresh.
     func reset()
@@ -200,14 +200,15 @@ public class NFTFetcher: NFTFetching {
         chain: Chain,
         correlationID: String?,
         eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFT] {
+    ) async throws -> [NFTInventoryItemSnapshot] {
         guard !loading else {
             if let correlationID {
                 await eventRecorder.recordFetchFailed(
                     accountAddress: account,
                     chain: chain,
                     correlationID: correlationID,
-                    error: FetcherError.loadingAlreadyInProgress
+                    failure: NFTProviderFailure(error: FetcherError.loadingAlreadyInProgress)
+                        ?? NFTProviderFailure.classifyNetworkOrFallback(FetcherError.loadingAlreadyInProgress)
                 )
             }
             throw FetcherError.loadingAlreadyInProgress
@@ -221,7 +222,8 @@ public class NFTFetcher: NFTFetching {
                     accountAddress: account,
                     chain: chain,
                     correlationID: correlationID,
-                    error: error
+                    failure: NFTProviderFailure(error: error)
+                        ?? NFTProviderFailure.classifyNetworkOrFallback(error)
                 )
             }
             throw error
@@ -231,7 +233,7 @@ public class NFTFetcher: NFTFetching {
         defer { loading = false }
         error = nil
 
-        var nftMetaData: [NFT] = []
+        var nftMetaData: [NFTInventoryItemSnapshot] = []
         var seenItems: Int = 0
 
         var attempt = 0
@@ -244,7 +246,8 @@ public class NFTFetcher: NFTFetching {
                     accountAddress: account,
                     chain: chain,
                     correlationID: correlationID,
-                    error: error
+                    failure: NFTProviderFailure(error: error)
+                        ?? NFTProviderFailure.classifyNetworkOrFallback(error)
                 )
             }
             throw error
@@ -267,7 +270,10 @@ public class NFTFetcher: NFTFetching {
                 itemsLoaded = seenItems
                 total = nfts.totalCount
 
-                nftMetaData.append(contentsOf: nfts.ownedNfts)
+                let snapshots = try nfts.ownedNfts.map { providerNFT in
+                    try NFTInventoryItemSnapshot(providerNFT: providerNFT)
+                }
+                nftMetaData.append(contentsOf: snapshots)
 
                 cursor = nfts.pageKey
                 currentCursor = cursor
@@ -284,7 +290,8 @@ public class NFTFetcher: NFTFetching {
                                 accountAddress: account,
                                 chain: chain,
                                 correlationID: correlationID,
-                                error: wrappedError
+                                failure: NFTProviderFailure(error: wrappedError)
+                                    ?? NFTProviderFailure.classifyNetworkOrFallback(wrappedError)
                             )
                         }
                         throw wrappedError
@@ -350,7 +357,8 @@ public class NFTFetcher: NFTFetching {
                             accountAddress: account,
                             chain: chain,
                             correlationID: correlationID,
-                            error: wrappedError
+                            failure: NFTProviderFailure(error: wrappedError)
+                                ?? NFTProviderFailure.classifyNetworkOrFallback(wrappedError)
                         )
                     }
                     throw wrappedError
@@ -403,6 +411,13 @@ public class NFTFetcher: NFTFetching {
         logger.notice(
             "Refresh summary account=\(account.displayAddress, privacy: .public) chain=\(chain.rawValue, privacy: .public) pages=\(pageCount, privacy: .public) items=\(itemCount, privacy: .public) total=\(totalCount.map(String.init) ?? "nil", privacy: .public) complete=\(completedFullRefresh, privacy: .public)"
         )
+    }
+}
+
+private extension NFTInventoryItemSnapshot {
+    init<ProviderNFT: Encodable>(providerNFT: ProviderNFT) throws {
+        let encodedNFT = try JSONEncoder().encode(providerNFT)
+        self = try JSONDecoder().decode(NFTInventoryItemSnapshot.self, from: encodedNFT)
     }
 }
 

@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 
-public enum NFTProviderFailureKind: String, Equatable {
+public enum NFTProviderFailureKind: String, Equatable, Sendable {
     case offline
     case rateLimited
     case invalidResponse

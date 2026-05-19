@@ -1,7 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
 import NFTDomain
-import NFTProviderAdapters
 import OSLog
 import ReceiptsCore
 
@@ -65,7 +64,7 @@ public final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecordin
         accountAddress: String,
         chain: Chain,
         correlationID: String,
-        error: Error
+        failure: NFTProviderFailure
     ) async {
         await append(
             kind: "nft.fetch.failed",
@@ -75,7 +74,7 @@ public final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecordin
             rawPayload: NFTFetchFailedPayload(
                 accountAddress: accountAddress,
                 chain: chain,
-                providerFailure: NFTProviderFailure(error: error)
+                providerFailure: failure
             ).rawPayload,
             summary: "NFT fetch failed",
             isSuccess: false

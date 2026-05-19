@@ -3,14 +3,17 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import Testing
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 
 @Suite
 struct FetchNFTInventoryUseCaseTests {
     @Test("returns fetched inventory and marks a completed full refresh")
     @MainActor
     func returnsInventoryAndCompletionState() async throws {
-        let nft = makeRefreshFixtureNFT()
+        let nft = makeRefreshFixtureSnapshot()
         let fetcher = FetchUseCaseFetcherStub(
             result: .success([nft]),
             total: 1,
@@ -83,10 +86,10 @@ private final class FetchUseCaseFetcherStub: NFTFetching {
     var error: Error?
     var currentCursor: String?
 
-    private let result: Result<[NFT], Error>
+    private let result: Result<[NFTInventoryItemSnapshot], Error>
 
     init(
-        result: Result<[NFT], Error>,
+        result: Result<[NFTInventoryItemSnapshot], Error>,
         total: Int?,
         itemsLoaded: Int?,
         currentCursor: String?
@@ -102,7 +105,7 @@ private final class FetchUseCaseFetcherStub: NFTFetching {
         chain: Chain,
         correlationID: String?,
         eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFT] {
+    ) async throws -> [NFTInventoryItemSnapshot] {
         try result.get()
     }
 

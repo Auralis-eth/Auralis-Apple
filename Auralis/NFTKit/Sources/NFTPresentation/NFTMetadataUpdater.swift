@@ -8,6 +8,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
+import NFTDomain
 import OSLog
 
 private let nftMetadataUpdaterLogger = Logger(subsystem: "Auralis", category: "NFTMetadataUpdater")
@@ -246,6 +247,54 @@ public enum NFTMetadataUpdater {
         apply(patch.isStatic, to: &nft.isStatic)
         apply(patch.aspectRatio, to: &nft.aspectRatio)
         applyAttributesPatch(patch.attributes, to: nft)
+    }
+
+    public static func applyMetadataPatch(_ patch: MetadataPatch, to snapshot: inout NFTInventoryItemSnapshot) {
+        apply(patch.name, to: &snapshot.name)
+        apply(patch.nftDescription, to: &snapshot.nftDescription)
+        apply(patch.collectionName, to: &snapshot.collectionName)
+        apply(patch.collectionID, to: &snapshot.collectionID)
+        apply(patch.projectID, to: &snapshot.projectID)
+        apply(patch.series, to: &snapshot.series)
+        apply(patch.seriesID, to: &snapshot.seriesID)
+        apply(patch.artistName, to: &snapshot.artistName)
+        apply(patch.artistWebsite, to: &snapshot.artistWebsite)
+        applyImagePatch(patch, to: &snapshot)
+        apply(patch.primaryAssetURL, to: &snapshot.primaryAssetURL)
+        apply(patch.securePrimaryAssetURL, to: &snapshot.securePrimaryAssetURL)
+        apply(patch.previewAssetURL, to: &snapshot.previewAssetURL)
+        apply(patch.securePreviewAssetURL, to: &snapshot.securePreviewAssetURL)
+        apply(patch.imageDataURL, to: &snapshot.imageDataURL)
+        apply(patch.secureImageDataURL, to: &snapshot.secureImageDataURL)
+        apply(patch.imageHrURL, to: &snapshot.imageHrURL)
+        apply(patch.secureImageHrURL, to: &snapshot.secureImageHrURL)
+        apply(patch.imageHash, to: &snapshot.imageHash)
+        apply(patch.animationURL, to: &snapshot.animationURL)
+        apply(patch.secureAnimationURL, to: &snapshot.secureAnimationURL)
+        apply(patch.audioURL, to: &snapshot.audioURL)
+        apply(patch.externalURL, to: &snapshot.externalURL)
+        apply(patch.modelURL, to: &snapshot.modelURL)
+        apply(patch.tokenId, to: &snapshot.tokenId)
+        apply(patch.uniqueID, to: &snapshot.uniqueID)
+        apply(patch.timestamp, to: &snapshot.timestamp)
+        apply(patch.tokenHash, to: &snapshot.tokenHash)
+        apply(patch.backgroundColor, to: &snapshot.backgroundColor)
+        apply(patch.medium, to: &snapshot.medium)
+        apply(patch.metadataVersion, to: &snapshot.metadataVersion)
+        apply(patch.symbols, to: &snapshot.symbols)
+        apply(patch.seed, to: &snapshot.seed)
+        apply(patch.original, to: &snapshot.original)
+        apply(patch.agreement, to: &snapshot.agreement)
+        apply(patch.website, to: &snapshot.website)
+        apply(patch.payoutAddress, to: &snapshot.payoutAddress)
+        apply(patch.scriptType, to: &snapshot.scriptType)
+        apply(patch.engineType, to: &snapshot.engineType)
+        apply(patch.accessArtworkFiles, to: &snapshot.accessArtworkFiles)
+        apply(patch.sellerFeeBasisPoints, to: &snapshot.sellerFeeBasisPoints)
+        apply(patch.minted, to: &snapshot.minted)
+        apply(patch.isStatic, to: &snapshot.isStatic)
+        apply(patch.aspectRatio, to: &snapshot.aspectRatio)
+        applyAttributesPatch(patch.attributes, to: &snapshot)
     }
 
     // MARK: - Helper Methods for URL Updates
@@ -494,6 +543,35 @@ public enum NFTMetadataUpdater {
         nft.image = image
     }
 
+    private static func applyImagePatch(_ patch: MetadataPatch, to snapshot: inout NFTInventoryItemSnapshot) {
+        let hasImageChange = switch (patch.imageOriginalURL, patch.imageSecureURL) {
+        case (.unchanged, .unchanged):
+            false
+        default:
+            true
+        }
+
+        guard hasImageChange else {
+            return
+        }
+
+        if snapshot.image == nil {
+            snapshot.image = NFTInventoryItemSnapshot.Image(
+                originalURL: nil,
+                thumbnailURL: nil,
+                secureURL: nil
+            )
+        }
+
+        guard var image = snapshot.image else {
+            return
+        }
+
+        apply(patch.imageOriginalURL, to: &image.originalURL)
+        apply(patch.imageSecureURL, to: &image.secureURL)
+        snapshot.image = image
+    }
+
     private static func applyAttributesPatch(_ update: MetadataUpdate<[ParsedAttribute]>, to nft: NFT) {
         switch update {
         case .unchanged:
@@ -501,6 +579,20 @@ public enum NFTMetadataUpdater {
         case .set(let attributes):
             nft.attributes = attributes.map {
                 NFT.Attribute(value: $0.value, traitType: $0.traitType)
+            }
+        }
+    }
+
+    private static func applyAttributesPatch(
+        _ update: MetadataUpdate<[ParsedAttribute]>,
+        to snapshot: inout NFTInventoryItemSnapshot
+    ) {
+        switch update {
+        case .unchanged:
+            break
+        case .set(let attributes):
+            snapshot.attributes = attributes.map {
+                NFTInventoryItemSnapshot.Attribute(value: $0.value, traitType: $0.traitType)
             }
         }
     }

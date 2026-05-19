@@ -1,6 +1,9 @@
 import ReceiptsCore
 import ReceiptStorage
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
@@ -182,7 +185,7 @@ struct NFTServiceReceiptTests {
         let context = ModelContext(container)
         let fetcher = NFTFixtureFetcher(
             nftsByChain: [
-                .baseMainnet: [makeFixtureNFT(network: .ethMainnet)]
+                .baseMainnet: [makeFixtureSnapshot(network: .ethMainnet)]
             ]
         )
         let service = NFTService(nftFetcher: fetcher)
@@ -295,7 +298,7 @@ struct NFTServiceReceiptTests {
         let fetcher = NFTFixtureFetcher(
             nftsByChain: [
                 .ethMainnet: [
-                    makeFixtureNFT(
+                    makeFixtureSnapshot(
                         contractAddress: "0xcccccccccccccccccccccccccccccccccccccccc",
                         tokenId: "fresh",
                         network: .ethMainnet,
@@ -347,7 +350,7 @@ struct NFTServiceReceiptTests {
         let fetcher = NFTFixtureFetcher(
             nftsByChain: [
                 .ethMainnet: [
-                    makeFixtureNFT(
+                    makeFixtureSnapshot(
                         contractAddress: "0xcccccccccccccccccccccccccccccccccccccccc",
                         tokenId: "fresh-eth",
                         network: .ethMainnet,
@@ -380,13 +383,13 @@ struct NFTServiceReceiptTests {
         let fetcher = NFTFixtureFetcher(
             nftsByChain: [
                 .ethMainnet: [
-                    makeFixtureNFT(
+                    makeFixtureSnapshot(
                         contractAddress: sharedContractAddress,
                         tokenId: "1",
                         collectionName: "Shared Contract",
                         network: .ethMainnet
                     ),
-                    makeFixtureNFT(
+                    makeFixtureSnapshot(
                         contractAddress: sharedContractAddress,
                         tokenId: "2",
                         collectionName: "Shared Contract",
@@ -556,7 +559,7 @@ private final class StubNFTFetcher: NFTFetching {
         chain: Chain,
         correlationID: String?,
         eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFT] {
+    ) async throws -> [NFTInventoryItemSnapshot] {
         receivedCorrelationIDs.append(correlationID)
 
         if let correlationID {
@@ -594,7 +597,7 @@ private final class FlakyNFTFetcher: NFTFetching {
         chain: Chain,
         correlationID: String?,
         eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFT] {
+    ) async throws -> [NFTInventoryItemSnapshot] {
         fetchCallCount += 1
 
         if fetchCallCount == 1 {
@@ -616,7 +619,8 @@ private final class FlakyNFTFetcher: NFTFetching {
                 accountAddress: account,
                 chain: chain,
                 correlationID: correlationID,
-                error: error
+                failure: NFTProviderFailure(error: error)
+                    ?? NFTProviderFailure.classifyNetworkOrFallback(error)
             )
         }
         throw error
@@ -637,9 +641,9 @@ private final class NFTFixtureFetcher: NFTFetching {
     var loading = false
     var error: Error?
     var currentCursor: String?
-    private let nftsByChain: [Chain: [NFT]]
+    private let nftsByChain: [Chain: [NFTInventoryItemSnapshot]]
 
-    init(nftsByChain: [Chain: [NFT]]) {
+    init(nftsByChain: [Chain: [NFTInventoryItemSnapshot]]) {
         self.nftsByChain = nftsByChain
     }
 
@@ -648,7 +652,7 @@ private final class NFTFixtureFetcher: NFTFetching {
         chain: Chain,
         correlationID: String?,
         eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFT] {
+    ) async throws -> [NFTInventoryItemSnapshot] {
         let nfts = nftsByChain[chain] ?? []
         itemsLoaded = nfts.count
         total = nfts.count
@@ -684,7 +688,7 @@ private final class SlowStubNFTFetcher: NFTFetching {
         chain: Chain,
         correlationID: String?,
         eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFT] {
+    ) async throws -> [NFTInventoryItemSnapshot] {
         fetchCallCount += 1
 
         if let correlationID {
@@ -726,7 +730,7 @@ private final class GateControlledNFTFetcher: NFTFetching {
         chain: Chain,
         correlationID: String?,
         eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFT] {
+    ) async throws -> [NFTInventoryItemSnapshot] {
         itemsLoaded = 0
         total = 0
         didStartFetch = true
@@ -780,7 +784,7 @@ private final class FailingStateNFTFetcher: NFTFetching {
         chain: Chain,
         correlationID: String?,
         eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFT] {
+    ) async throws -> [NFTInventoryItemSnapshot] {
         throw error ?? NFTFetcher.FetcherError.networkError(URLError(.unknown))
     }
 
@@ -818,5 +822,21 @@ private func makeFixtureNFT(
         network: network,
         accountAddress: accountAddress,
         collectionName: collectionName
+    )
+}
+
+private func makeFixtureSnapshot(
+    contractAddress: String = "0x495f947276749ce646f68ac8c248420045cb7b5e",
+    tokenId: String = "42",
+    collectionName: String = "Fixture Collection",
+    network: Chain = .ethMainnet,
+    accountAddress: String = "0x1234567890abcdef1234567890abcdef12345678"
+) -> NFTInventoryItemSnapshot {
+    makeRefreshFixtureSnapshot(
+        contractAddress: contractAddress,
+        tokenId: tokenId,
+        collectionName: collectionName,
+        network: network,
+        accountAddress: accountAddress
     )
 }

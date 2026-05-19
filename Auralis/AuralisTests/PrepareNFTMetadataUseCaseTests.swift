@@ -3,14 +3,17 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import Testing
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 
 @Suite
 struct PrepareNFTMetadataUseCaseTests {
     @Test("applies refresh scope to prepared NFTs")
     @MainActor
     func appliesAccountAndChainScope() async throws {
-        let nft = makeRefreshFixtureNFT(
+        let nft = makeRefreshFixtureSnapshot(
             network: .ethMainnet,
             accountAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         )
@@ -23,10 +26,11 @@ struct PrepareNFTMetadataUseCaseTests {
         )
         let prepared = try #require(inventory.nfts.first)
 
-        #expect(prepared.networkRawValue == Chain.baseMainnet.rawValue)
-        #expect(prepared.accountAddressRawValue == "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
-        #expect(prepared.contract.id == "\(Chain.baseMainnet.rawValue):0x495f947276749ce646f68ac8c248420045cb7b5e")
-        #expect(prepared.collection?.id == "\(Chain.baseMainnet.rawValue):0x495f947276749ce646f68ac8c248420045cb7b5e")
+        #expect(prepared.network == .baseMainnet)
+        #expect(prepared.accountAddress == "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        #expect(prepared.contract.chain == .baseMainnet)
+        #expect(prepared.collection?.chain == .baseMainnet)
+        #expect(prepared.collection?.contractAddress == "0x495f947276749ce646f68ac8c248420045cb7b5e")
     }
 
     @Test("decodes base64 token URI metadata when available")
@@ -34,7 +38,7 @@ struct PrepareNFTMetadataUseCaseTests {
     func decodesBase64TokenURIMetadata() async throws {
         let metadataJSON = #"{"name":"Decoded Name","image":"https://example.com/image.png"}"#
         let encoded = Data(metadataJSON.utf8).base64EncodedString()
-        let nft = makeRefreshFixtureNFT(
+        let nft = makeRefreshFixtureSnapshot(
             tokenURI: "data:application/json;base64,\(encoded)"
         )
         let useCase = LivePrepareNFTMetadataUseCase()
@@ -47,13 +51,13 @@ struct PrepareNFTMetadataUseCaseTests {
         let prepared = try #require(inventory.nfts.first)
 
         #expect(prepared.name == "Decoded Name")
-        #expect(prepared.image?.originalUrl == "https://example.com/image.png")
+        #expect(prepared.image?.originalURL == "https://example.com/image.png")
     }
 
     @Test("falls back to raw metadata when token URI decoding is unavailable")
     @MainActor
     func fallsBackToRawMetadata() async throws {
-        let nft = makeRefreshFixtureNFT(
+        let nft = makeRefreshFixtureSnapshot(
             tokenURI: "ipfs://fixture-json",
             rawMetadata: [
                 "name": .string("Raw Metadata Name"),
@@ -70,14 +74,14 @@ struct PrepareNFTMetadataUseCaseTests {
         let prepared = try #require(inventory.nfts.first)
 
         #expect(prepared.name == "Raw Metadata Name")
-        #expect(prepared.audioUrl == "https://example.com/audio.mp3")
+        #expect(prepared.audioURL == "https://example.com/audio.mp3")
     }
 
     @Test("deduplicates repeated NFT ids after preparation")
     @MainActor
     func deduplicatesRepeatedIDs() async {
-        let first = makeRefreshFixtureNFT(tokenId: "1")
-        let second = makeRefreshFixtureNFT(tokenId: "1")
+        let first = makeRefreshFixtureSnapshot(tokenId: "1")
+        let second = makeRefreshFixtureSnapshot(tokenId: "1")
         let useCase = LivePrepareNFTMetadataUseCase()
 
         let inventory = await useCase.prepareInventory(

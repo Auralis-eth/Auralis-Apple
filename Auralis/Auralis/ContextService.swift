@@ -5,7 +5,10 @@ import Foundation
 import Observation
 import ProviderKit
 import PolicyCore
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 
 @MainActor
 @Observable

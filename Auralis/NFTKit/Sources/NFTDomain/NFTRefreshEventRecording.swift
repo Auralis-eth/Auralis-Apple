@@ -21,7 +21,7 @@ public protocol NFTRefreshEventRecording {
         accountAddress: String,
         chain: Chain,
         correlationID: String,
-        error: Error
+        failure: NFTProviderFailure
     ) async
 
     func recordPersistenceCompleted(
@@ -60,7 +60,7 @@ public struct NoOpNFTRefreshEventRecorder: NFTRefreshEventRecording {
         accountAddress: String,
         chain: Chain,
         correlationID: String,
-        error: Error
+        failure: NFTProviderFailure
     ) async { }
 
     public func recordPersistenceCompleted(

@@ -8,7 +8,10 @@
 @testable import Auralis
 import Foundation
 import Testing
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import ProviderKit
 
 @Suite struct SecretsTests {

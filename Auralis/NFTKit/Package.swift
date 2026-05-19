@@ -47,7 +47,6 @@ let package = Package(
             name: "NFTProviderAdapters",
             dependencies: [
                 "NFTDomain",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "ChainProviders",
                 "ExplorerAdapter",
                 "ProviderKit",
@@ -57,7 +56,6 @@ let package = Package(
             name: "NFTPersistence",
             dependencies: [
                 "NFTDomain",
-                "NFTProviderAdapters",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "ReceiptsCore",
             ]

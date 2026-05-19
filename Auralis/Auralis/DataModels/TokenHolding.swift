@@ -1,6 +1,9 @@
 import AuralisPrimaryModels
 import Foundation
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import TokenStorage
 
 /// Presentation model for token rows rendered in the ERC-20 and holdings surfaces.

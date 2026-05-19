@@ -1,7 +1,10 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import ProviderKit
 import Testing
 

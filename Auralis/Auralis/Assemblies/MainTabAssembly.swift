@@ -4,7 +4,10 @@ import AuralisPrimaryPersistence
 import AuralisShellCore
 import ENS
 import MusicFeature
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import PolicyCore
 import ProviderKit
 import ReceiptsCore

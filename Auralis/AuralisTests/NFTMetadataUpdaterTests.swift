@@ -2,7 +2,10 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Testing
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 
 @Suite
 struct NFTMetadataUpdaterTests {

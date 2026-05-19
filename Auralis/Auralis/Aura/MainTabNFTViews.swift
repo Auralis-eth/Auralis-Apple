@@ -1,7 +1,10 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisShellCore
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import NFTLibraryFeature
 import OperatorCore
 import ReceiptStorage

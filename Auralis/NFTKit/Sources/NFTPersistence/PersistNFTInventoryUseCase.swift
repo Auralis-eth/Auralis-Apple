@@ -12,9 +12,9 @@ import NFTDomain
 import SwiftData
 
 public struct PreparedNFTInventory {
-    public let nfts: [NFT]
+    public let nfts: [NFTInventoryItemSnapshot]
 
-    public init(nfts: [NFT]) {
+    public init(nfts: [NFTInventoryItemSnapshot]) {
         self.nfts = nfts
     }
 }
@@ -73,7 +73,7 @@ public struct LivePersistNFTInventoryUseCase: PersistNFTInventoryUsing {
     }
 
     private func makePersistenceSnapshot(
-        from nft: NFT,
+        from nft: NFTInventoryItemSnapshot,
         scopeChain: Chain
     ) -> NFTRefreshPersistenceSnapshot {
         NFTRefreshPersistenceSnapshot(
@@ -88,14 +88,14 @@ public struct LivePersistNFTInventoryUseCase: PersistNFTInventoryUsing {
             nftDescription: nft.nftDescription,
             image: nft.image.map {
                 .init(
-                    originalURL: $0.originalUrl,
-                    thumbnailURL: $0.thumbnailUrl,
-                    secureURL: $0.secureUrl
+                    originalURL: $0.originalURL,
+                    thumbnailURL: $0.thumbnailURL,
+                    secureURL: $0.secureURL
                 )
             },
             raw: nft.raw.map {
                 .init(
-                    tokenURI: $0.tokenUri,
+                    tokenURI: $0.tokenURI,
                     metadata: $0.metadata,
                     error: $0.error
                 )
@@ -107,7 +107,7 @@ public struct LivePersistNFTInventoryUseCase: PersistNFTInventoryUsing {
                     contractAddress: $0.contractAddress
                 )
             },
-            tokenURI: nft.tokenUri,
+            tokenURI: nft.tokenURI,
             timeLastUpdated: nft.timeLastUpdated,
             acquiredAt: nft.acquiredAt.map { .init(blockTimestamp: $0.blockTimestamp) },
             network: scopeChain,
@@ -115,30 +115,30 @@ public struct LivePersistNFTInventoryUseCase: PersistNFTInventoryUsing {
             contentType: nft.contentType,
             collectionName: nft.collectionName,
             artistName: nft.artistName,
-            animationURL: nft.animationUrl,
-            secureAnimationURL: nft.secureAnimationUrl,
-            audioURL: nft.audioUrl,
-            externalURL: nft.externalUrl,
-            modelURL: nft.modelUrl,
+            animationURL: nft.animationURL,
+            secureAnimationURL: nft.secureAnimationURL,
+            audioURL: nft.audioURL,
+            externalURL: nft.externalURL,
+            modelURL: nft.modelURL,
             backgroundColor: nft.backgroundColor,
             collectionID: nft.collectionID,
             projectID: nft.projectID,
             series: nft.series,
             seriesID: nft.seriesID,
-            primaryAssetURL: nft.primaryAssetUrl,
-            securePrimaryAssetURL: nft.securePrimaryAssetUrl,
-            previewAssetURL: nft.previewAssetUrl,
-            securePreviewAssetURL: nft.securePreviewAssetUrl,
+            primaryAssetURL: nft.primaryAssetURL,
+            securePrimaryAssetURL: nft.securePrimaryAssetURL,
+            previewAssetURL: nft.previewAssetURL,
+            securePreviewAssetURL: nft.securePreviewAssetURL,
             artistWebsite: nft.artistWebsite,
             uniqueID: nft.uniqueID,
             timestamp: nft.timestamp,
             tokenHash: nft.tokenHash,
             medium: nft.medium,
             metadataVersion: nft.metadataVersion,
-            imageDataURL: nft.imageDataUrl,
-            secureImageDataURL: nft.secureImageDataUrl,
-            imageHrURL: nft.imageHrUrl,
-            secureImageHrURL: nft.secureImageHrUrl,
+            imageDataURL: nft.imageDataURL,
+            secureImageDataURL: nft.secureImageDataURL,
+            imageHrURL: nft.imageHrURL,
+            secureImageHrURL: nft.secureImageHrURL,
             imageHash: nft.imageHash,
             symbols: nft.symbols,
             seed: nft.seed,

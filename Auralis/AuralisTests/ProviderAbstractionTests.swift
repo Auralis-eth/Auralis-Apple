@@ -4,7 +4,10 @@ import AuralisPrimaryPersistence
 import Foundation
 import ProviderKit
 import Testing
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 
 @Suite(.serialized)
 struct ProviderAbstractionTests {
@@ -1942,7 +1945,7 @@ private final class SpyNFTRefreshEventRecorder: NFTRefreshEventRecording {
     func recordFetchSucceeded(accountAddress: String, chain: Chain, correlationID: String, itemCount: Int, totalCount: Int?) async {
         succeededCount += 1
     }
-    func recordFetchFailed(accountAddress: String, chain: Chain, correlationID: String, error: Error) async {
+    func recordFetchFailed(accountAddress: String, chain: Chain, correlationID: String, failure: NFTProviderFailure) async {
         failedCount += 1
     }
     func recordPersistenceCompleted(accountAddress: String, chain: Chain, correlationID: String, persistedCount: Int) async {}

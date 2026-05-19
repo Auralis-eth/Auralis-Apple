@@ -1,7 +1,10 @@
 import AuralisPrimaryModels
 import ChainProviders
 import Foundation
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import ProviderKit
 
 struct ReadOnlyProviderFactory {

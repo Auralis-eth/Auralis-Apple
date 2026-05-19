@@ -1,5 +1,21 @@
 # Journal
 
+## 2026-05-19 — NFTKit Stopped Mailing Provider Errors Through The Warehouse
+
+The final `ARCH-002` gap was not the manifest diagram. It was a tiny type living in the wrong room. `NFTPersistence` imported `NFTProviderAdapters` only so receipt logging could translate a fetch error into safe public fields. That is like making the warehouse call the delivery driver every time it needs to write a shipping label: convenient, but the dependency points the wrong way.
+
+`NFTProviderFailure` now lives in `NFTDomain` as a portable failure value with a receipt-safe public error code. Provider adapters still own the messy classification from `ProviderAbstractionError`, `AlchemyNFTService.APIError`, and `NFTFetcher.FetcherError`; they convert raw errors into the domain value before handing failures to the receipt recorder. Persistence records the typed result and no longer imports provider adapters at all.
+
+The new guardrail matters: `ArchitectureBoundaryTests` now fails if `NFTPersistence` imports `NFTProviderAdapters`, `ProviderKit`, `ChainProviders`, `ExplorerAdapter`, or UI modules, or if the package manifest adds the adapter dependency back. The lesson is that “one-way dependencies” are not done until the tests protect the awkward little exceptions too.
+
+## 2026-05-19 — NFTKit Stopped Passing SwiftData Through The Loading Dock
+
+The second `ARCH-002` pass closed the sneaky part of the boundary: provider fetching no longer hands the rest of the pipeline live SwiftData `NFT` models. That old shape was like asking the delivery driver to carry the restaurant's inventory database on every trip. It worked, but it meant the provider adapter knew too much about storage furniture.
+
+The new border object is `NFTInventoryItemSnapshot` in `NFTDomain`. Provider adapters translate provider payloads into that plain snapshot, presentation enriches the snapshot with metadata and refresh scope, and only `NFTPersistence` turns it back into SwiftData rows. The compatibility `NFTKit` target still exists as a reduced facade, but app and feature source files now import the explicit layers they use instead of walking through the umbrella.
+
+The guardrail got sharper too: architecture tests now fail if `NFTProviderAdapters` imports `AuralisPrimaryPersistence` or directly declares that product dependency. The lesson is that package diagrams are cheap until data types cross the border. The crossing type is where the real architecture lives.
+
 ## 2026-05-19 — NFTKit Got Actual Walls, Not Tape On The Floor
 
 `ARCH-002` moved from floor-plan energy to real package boundaries. `NFTKit` is now a compatibility facade over four first-party rooms: `NFTDomain` for clean refresh vocabulary, `NFTProviderAdapters` for Alchemy/provider fetching and retry behavior, `NFTPersistence` for SwiftData writes and receipt-backed audit plumbing, and `NFTPresentation` for the observable `NFTService` coordinator plus user-facing failure copy.

@@ -6,15 +6,14 @@
 //
 
 import AuralisPrimaryModels
-import AuralisPrimaryPersistence
 import Foundation
 import NFTDomain
 
 public struct FetchedNFTInventory {
-    public let nfts: [NFT]
+    public let nfts: [NFTInventoryItemSnapshot]
     public let didCompleteFullRefresh: Bool
 
-    public init(nfts: [NFT], didCompleteFullRefresh: Bool) {
+    public init(nfts: [NFTInventoryItemSnapshot], didCompleteFullRefresh: Bool) {
         self.nfts = nfts
         self.didCompleteFullRefresh = didCompleteFullRefresh
     }

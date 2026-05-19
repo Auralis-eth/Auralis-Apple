@@ -4,7 +4,10 @@ import AuralisPrimaryPersistence
 import Foundation
 import SwiftData
 import Testing
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 
 @Suite
 struct NFTServiceTests {
@@ -181,7 +184,7 @@ private final class ServiceEventRecorder: NFTRefreshEventRecording {
 
     func recordFetchSucceeded(accountAddress: String, chain: Chain, correlationID: String, itemCount: Int, totalCount: Int?) async { }
 
-    func recordFetchFailed(accountAddress: String, chain: Chain, correlationID: String, error: Error) async { }
+    func recordFetchFailed(accountAddress: String, chain: Chain, correlationID: String, failure: NFTProviderFailure) async { }
 
     func recordPersistenceCompleted(accountAddress: String, chain: Chain, correlationID: String, persistedCount: Int) async {
         trace.events.append("persistence.completed")
@@ -205,7 +208,7 @@ private final class ServiceFetcherStub: NFTFetching {
         chain: Chain,
         correlationID: String?,
         eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFT] {
+    ) async throws -> [NFTInventoryItemSnapshot] {
         []
     }
 
@@ -230,7 +233,7 @@ private struct ServiceFetchUseCase: FetchNFTInventoryUsing {
     ) async throws -> FetchedNFTInventory {
         trace.events.append("fetch")
         return FetchedNFTInventory(
-            nfts: [makeRefreshFixtureNFT(accountAddress: accountAddress)],
+            nfts: [makeRefreshFixtureSnapshot(accountAddress: accountAddress)],
             didCompleteFullRefresh: false
         )
     }
@@ -241,7 +244,7 @@ private struct ServicePrepareUseCase: PrepareNFTMetadataUsing {
     let trace: ServiceTrace
 
     func prepareInventory(
-        _ fetchedNFTs: [NFT],
+        _ fetchedNFTs: [NFTInventoryItemSnapshot],
         accountAddress: String,
         chain: Chain
     ) async -> PreparedNFTInventory {

@@ -2,7 +2,10 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import ProviderKit
 import SwiftData
 import Testing

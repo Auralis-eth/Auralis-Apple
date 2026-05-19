@@ -5,7 +5,10 @@ import SwiftData
 import SwiftUI
 import AuraUI
 import Testing
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import ProviderKit
 import TokenStorage
 

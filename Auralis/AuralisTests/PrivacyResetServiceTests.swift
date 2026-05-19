@@ -1,6 +1,9 @@
 import ReceiptsCore
 import ReceiptStorage
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 @testable import Auralis
 import AccountStorage
 import AccountsCore

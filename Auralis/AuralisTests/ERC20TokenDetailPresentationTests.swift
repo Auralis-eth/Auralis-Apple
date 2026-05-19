@@ -2,7 +2,10 @@
 import AuralisPrimaryModels
 import Foundation
 import Testing
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import TokenStorage
 
 @Suite

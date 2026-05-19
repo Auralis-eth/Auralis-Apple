@@ -4,7 +4,10 @@ import AuralisPrimaryPersistence
 import Foundation
 import SwiftData
 import Testing
-import NFTKit
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 
 @Suite
 struct PersistNFTInventoryUseCaseTests {
@@ -19,8 +22,8 @@ struct PersistNFTInventoryUseCaseTests {
 
         let inventory = PreparedNFTInventory(
             nfts: [
-                makeRefreshFixtureNFT(tokenId: "1", accountAddress: account.address),
-                makeRefreshFixtureNFT(tokenId: "2", accountAddress: account.address)
+                makeRefreshFixtureSnapshot(tokenId: "1", accountAddress: account.address),
+                makeRefreshFixtureSnapshot(tokenId: "2", accountAddress: account.address)
             ]
         )
         let useCase = LivePersistNFTInventoryUseCase()
@@ -57,7 +60,7 @@ struct PersistNFTInventoryUseCaseTests {
         context.insert(existing)
         try context.save()
 
-        let refreshed = makeRefreshFixtureNFT(tokenId: "7")
+        var refreshed = makeRefreshFixtureSnapshot(tokenId: "7")
         refreshed.name = "Refreshed Name"
         let inventory = PreparedNFTInventory(nfts: [refreshed])
         let useCase = LivePersistNFTInventoryUseCase()
@@ -96,7 +99,7 @@ struct PersistNFTInventoryUseCaseTests {
         context.insert(stale)
         try context.save()
 
-        let fresh = makeRefreshFixtureNFT(
+        let fresh = makeRefreshFixtureSnapshot(
             contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             tokenId: "fresh",
             accountAddress: account.address
