@@ -9,7 +9,7 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AVFoundation
 import Foundation
-import NFTKit
+import MusicFeature
 import Observation
 
 @MainActor
@@ -303,7 +303,35 @@ public final class AudioEngine {
     }
 
     private func retryAfterInterval(from response: HTTPURLResponse) -> TimeInterval? {
-        RetryAfterSupport.parse(from: response)
+        guard let header = response.value(forHTTPHeaderField: "Retry-After") else {
+            return nil
+        }
+
+        let trimmedHeader = header.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedHeader.isEmpty else {
+            return nil
+        }
+
+        if let seconds = TimeInterval(trimmedHeader) {
+            return seconds
+        }
+
+        let retryDate = Self.httpDateParsers.lazy.compactMap { $0.date(from: trimmedHeader) }.first
+        return retryDate.map { max(0, $0.timeIntervalSince(.now)) }
+    }
+
+    private static let httpDateParsers: [DateFormatter] = [
+        makeHTTPDateFormatter("EEE',' dd MMM yyyy HH':'mm':'ss zzz"),
+        makeHTTPDateFormatter("EEEE',' dd'-'MMM'-'yy HH':'mm':'ss zzz"),
+        makeHTTPDateFormatter("EEE MMM d HH':'mm':'ss yyyy"),
+    ]
+
+    private static func makeHTTPDateFormatter(_ format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = format
+        return formatter
     }
 
     private func downloadRemoteAudio(from url: URL) async throws -> URL {

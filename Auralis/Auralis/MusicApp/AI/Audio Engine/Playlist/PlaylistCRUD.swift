@@ -1,6 +1,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
+import MusicFeature
 import OSLog
 import SwiftData
 

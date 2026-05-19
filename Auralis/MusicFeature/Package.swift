@@ -16,6 +16,8 @@ let package = Package(
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../AuraUI"),
+        .package(path: "../CapabilitiesCore"),
+        .package(path: "../ReceiptsCore"),
     ],
     targets: [
         .target(
@@ -24,6 +26,8 @@ let package = Package(
                 "AuralisPrimaryModels",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "AuraUI",
+                "CapabilitiesCore",
+                "ReceiptsCore",
             ]
         ),
         .testTarget(

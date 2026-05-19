@@ -1,5 +1,13 @@
 # Journal
 
+## 2026-05-19 — AuraPlay Receipts Moved Into The Music Room
+
+`ARCH-005` is now implemented. The AuraPlay receipt vocabulary and logging service moved out of the app target and into `MusicFeature`, which is where the music feature's audit language belongs. The app still wires the live `ReceiptStore`, SwiftData contexts, and `AudioEngine`, but the feature package now owns the music-specific receipt contract instead of borrowing it from a hidden app folder.
+
+The small trap was `AudioEngine`: dropping `NFTKit` was not just deleting an import, because it had been quietly getting HTTP `Retry-After` parsing through that dependency. The fix was to give playback its own tiny parser for numeric and HTTP-date retry headers. That keeps the DJ booth from asking the NFT warehouse how long to wait before retrying a download.
+
+The guardrail is a new architecture test. It checks that MusicFeature depends on the receipt/capability contracts it actually uses, that AuraPlay receipt implementation files do not creep back into the app target, and that `AudioEngine` does not re-import `NFTKit`.
+
 ## 2026-05-19 — ARCH-003 Left The Active Board
 
 The last loose end in `ARCH-003` was tiny but worth cleaning up: `MusicRuntime` still lived in `AppServices.swift`, even though `MusicAssembly` was already the room that built it. That is like moving the stereo into the music room but leaving the owner's manual taped to the front door. The type now sits beside `MusicAssembly.makeRuntime()`, so the file ownership finally matches the architecture story.

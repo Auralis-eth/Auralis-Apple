@@ -5,12 +5,12 @@ import Foundation
 import OSLog
 
 @MainActor
-struct MusicReceiptEventLogger {
+public struct MusicReceiptEventLogger {
     private let receiptStore: any ReceiptStore
     private let payloadSanitizer: any ReceiptPayloadSanitizing
     private let logger = Logger(subsystem: "Auralis", category: "MusicReceipts")
 
-    init(
+    public init(
         receiptStore: any ReceiptStore,
         payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer()
     ) {
@@ -18,7 +18,7 @@ struct MusicReceiptEventLogger {
         self.payloadSanitizer = payloadSanitizer
     }
 
-    func recordPlaylistCreated(
+    public func recordPlaylistCreated(
         playlistID: UUID,
         playlistTitle: String,
         affectedMediaIDs: [String],
@@ -47,7 +47,7 @@ struct MusicReceiptEventLogger {
         )
     }
 
-    func recordPlaylistModified(
+    public func recordPlaylistModified(
         playlistID: UUID,
         playlistTitle: String,
         affectedMediaIDs: [String],
@@ -74,7 +74,7 @@ struct MusicReceiptEventLogger {
         )
     }
 
-    func recordAutoOrganizationRun(
+    public func recordAutoOrganizationRun(
         affectedMediaIDs: [String],
         beforeSummary: MusicReceiptStateSummary?,
         afterSummary: MusicReceiptStateSummary?,
@@ -99,7 +99,7 @@ struct MusicReceiptEventLogger {
         )
     }
 
-    func recordMediaClassified(
+    public func recordMediaClassified(
         affectedMediaIDs: [String],
         beforeSummary: MusicReceiptStateSummary?,
         afterSummary: MusicReceiptStateSummary,
@@ -123,7 +123,7 @@ struct MusicReceiptEventLogger {
         )
     }
 
-    func recordMetadataOverrideApplied(
+    public func recordMetadataOverrideApplied(
         affectedMediaIDs: [String],
         beforeSummary: MusicReceiptStateSummary?,
         afterSummary: MusicReceiptStateSummary,
@@ -148,7 +148,7 @@ struct MusicReceiptEventLogger {
         )
     }
 
-    func recordPolicyBlocked(
+    public func recordPolicyBlocked(
         action: String,
         capabilityUsed: CapabilityID,
         reason: String?,
@@ -172,7 +172,7 @@ struct MusicReceiptEventLogger {
         )
     }
 
-    func recordBackgroundMusicTaskRun(
+    public func recordBackgroundMusicTaskRun(
         taskName: String,
         affectedMediaIDs: [String],
         beforeSummary: MusicReceiptStateSummary?,
@@ -197,7 +197,7 @@ struct MusicReceiptEventLogger {
         )
     }
 
-    func recordExportCreated(
+    public func recordExportCreated(
         exportName: String,
         format: String,
         affectedMediaIDs: [String],
@@ -226,7 +226,7 @@ struct MusicReceiptEventLogger {
         )
     }
 
-    func recordQueueChanged(
+    public func recordQueueChanged(
         operation: String,
         affectedMediaIDs: [String],
         beforeSummary: MusicReceiptStateSummary?,
@@ -251,7 +251,7 @@ struct MusicReceiptEventLogger {
         )
     }
 
-    func recordPlaybackStarted(
+    public func recordPlaybackStarted(
         mediaID: String,
         title: String?,
         artist: String?,
@@ -281,7 +281,7 @@ struct MusicReceiptEventLogger {
         )
     }
 
-    func recordPlaybackCompleted(
+    public func recordPlaybackCompleted(
         mediaID: String,
         title: String?,
         artist: String?,

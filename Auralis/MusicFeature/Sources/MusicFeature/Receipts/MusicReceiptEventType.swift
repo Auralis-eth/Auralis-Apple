@@ -1,6 +1,6 @@
 import Foundation
 
-enum MusicReceiptEventType: String, Sendable {
+public enum MusicReceiptEventType: String, Sendable {
     case mediaClassified = "music.media_classified"
     case playlistCreated = "music.playlist.created"
     case playlistModified = "music.playlist.modified"

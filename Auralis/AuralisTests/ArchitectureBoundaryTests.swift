@@ -55,6 +55,44 @@ struct ArchitectureBoundaryTests {
         #expect(sourceImports.contains("NFTKit") == false)
     }
 
+    @Test("AuraPlay receipts live in MusicFeature and playback does not import NFTKit")
+    func auraPlayReceiptBoundaryStaysInMusicFeature() throws {
+        let projectRoot = try projectRootURL()
+        let musicFeaturePackage = projectRoot
+            .appending(path: "MusicFeature")
+            .appending(path: "Package.swift")
+        let packageText = try String(contentsOf: musicFeaturePackage, encoding: .utf8)
+        let musicFeatureImports = try swiftImports(
+            under: projectRoot
+                .appending(path: "MusicFeature")
+                .appending(path: "Sources")
+        )
+        let audioEngineFile = projectRoot
+            .appending(path: "Auralis")
+            .appending(path: "MusicApp")
+            .appending(path: "AI")
+            .appending(path: "Audio Engine")
+            .appending(path: "AudioEngine.swift")
+        let audioEngineSource = try String(contentsOf: audioEngineFile, encoding: .utf8)
+        let appReceiptFiles = try swiftSourceFiles(
+            under: projectRoot
+                .appending(path: "Auralis")
+                .appending(path: "MusicApp")
+                .appending(path: "AuraPlay")
+        )
+        .filter { $0.path().contains("/Receipts/") }
+
+        #expect(packageText.contains("../ReceiptsCore"))
+        #expect(packageText.contains("../CapabilitiesCore"))
+        #expect(musicFeatureImports.contains("ReceiptsCore"))
+        #expect(musicFeatureImports.contains("CapabilitiesCore"))
+        #expect(audioEngineSource.contains("import NFTKit") == false)
+        #expect(
+            appReceiptFiles.isEmpty,
+            "AuraPlay receipt implementation belongs in MusicFeature, not the app target: \(appReceiptFiles.map(\.path).sorted())"
+        )
+    }
+
     @Test("first-party Ethereum address validation uses AuralisPrimaryModels EthereumAddress")
     func firstPartyEthereumAddressValidationUsesPrimaryModel() throws {
         let projectRoot = try projectRootURL()

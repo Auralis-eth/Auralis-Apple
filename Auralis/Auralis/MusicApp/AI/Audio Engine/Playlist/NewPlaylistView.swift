@@ -1,4 +1,5 @@
 import ImagePlayground
+import MusicFeature
 import OSLog
 import PhotosUI
 import ReceiptsCore

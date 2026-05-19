@@ -1,13 +1,12 @@
-import ReceiptsCore
 import Foundation
 
-struct MusicAutoOrganizationDryRunProposal: Equatable, Sendable {
-    let affectedMediaIDs: [String]
-    let beforeSummary: MusicReceiptStateSummary?
-    let proposedSummary: MusicReceiptStateSummary?
-    let reason: String?
+public struct MusicAutoOrganizationDryRunProposal: Equatable, Sendable {
+    public let affectedMediaIDs: [String]
+    public let beforeSummary: MusicReceiptStateSummary?
+    public let proposedSummary: MusicReceiptStateSummary?
+    public let reason: String?
 
-    init(
+    public init(
         affectedMediaIDs: [String],
         beforeSummary: MusicReceiptStateSummary? = nil,
         proposedSummary: MusicReceiptStateSummary? = nil,
@@ -20,15 +19,27 @@ struct MusicAutoOrganizationDryRunProposal: Equatable, Sendable {
     }
 }
 
-struct MusicAutoOrganizationDryRunResult: Equatable, Sendable {
-    let affectedMediaIDs: [String]
-    let beforeSummary: MusicReceiptStateSummary?
-    let proposedSummary: MusicReceiptStateSummary?
-    let dryRun: Bool
+public struct MusicAutoOrganizationDryRunResult: Equatable, Sendable {
+    public let affectedMediaIDs: [String]
+    public let beforeSummary: MusicReceiptStateSummary?
+    public let proposedSummary: MusicReceiptStateSummary?
+    public let dryRun: Bool
+
+    public init(
+        affectedMediaIDs: [String],
+        beforeSummary: MusicReceiptStateSummary?,
+        proposedSummary: MusicReceiptStateSummary?,
+        dryRun: Bool
+    ) {
+        self.affectedMediaIDs = affectedMediaIDs
+        self.beforeSummary = beforeSummary
+        self.proposedSummary = proposedSummary
+        self.dryRun = dryRun
+    }
 }
 
 @MainActor
-protocol MusicAutoOrganizationRunning {
+public protocol MusicAutoOrganizationRunning {
     func runDryRun(
         proposal: MusicAutoOrganizationDryRunProposal,
         context: MusicReceiptContext
@@ -36,14 +47,14 @@ protocol MusicAutoOrganizationRunning {
 }
 
 @MainActor
-struct ReceiptBackedMusicAutoOrganizationService: MusicAutoOrganizationRunning {
+public struct MusicAutoOrganizationReceiptService: MusicAutoOrganizationRunning {
     private let receiptLogger: MusicReceiptEventLogger
 
-    init(receiptLogger: MusicReceiptEventLogger) {
+    public init(receiptLogger: MusicReceiptEventLogger) {
         self.receiptLogger = receiptLogger
     }
 
-    func runDryRun(
+    public func runDryRun(
         proposal: MusicAutoOrganizationDryRunProposal,
         context: MusicReceiptContext
     ) async throws -> MusicAutoOrganizationDryRunResult {

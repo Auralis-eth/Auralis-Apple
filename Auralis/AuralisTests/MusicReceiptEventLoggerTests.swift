@@ -1,9 +1,10 @@
+@testable import Auralis
 import CapabilitiesCore
+import Foundation
+import MusicFeature
+import PolicyCore
 import ReceiptsCore
 import ReceiptStorage
-@testable import Auralis
-import Foundation
-import PolicyCore
 import SwiftData
 import Testing
 
@@ -143,7 +144,7 @@ struct MusicReceiptEventLoggerTests {
             sequenceAllocator: ReceiptSequenceAllocator()
         )
         let logger = MusicReceiptEventLogger(receiptStore: receiptStore)
-        let service = ReceiptBackedMusicAutoOrganizationService(receiptLogger: logger)
+        let service = MusicAutoOrganizationReceiptService(receiptLogger: logger)
 
         let result = try await service.runDryRun(
             proposal: MusicAutoOrganizationDryRunProposal(

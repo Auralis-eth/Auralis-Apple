@@ -3,7 +3,7 @@ import ReceiptsCore
 import AuralisPrimaryModels
 import Foundation
 
-enum MusicReceiptActorValue: String, Sendable {
+public enum MusicReceiptActorValue: String, Sendable {
     case user
     case system
     case `operator`
@@ -19,7 +19,7 @@ enum MusicReceiptActorValue: String, Sendable {
     }
 }
 
-enum MusicReceiptTriggerCause: String, Sendable {
+public enum MusicReceiptTriggerCause: String, Sendable {
     case userInitiated = "user_initiated"
     case systemSync = "system_sync"
     case operatorAction = "operator_action"
@@ -44,27 +44,27 @@ enum MusicReceiptTriggerCause: String, Sendable {
     }
 }
 
-enum MusicReceiptPolicyDecision: String, Sendable {
+public enum MusicReceiptPolicyDecision: String, Sendable {
     case allowed
     case blocked
     case dryRun = "dry_run"
 }
 
-enum MusicReceiptRollbackAvailability: String, Sendable {
+public enum MusicReceiptRollbackAvailability: String, Sendable {
     case none
     case deletePlaylist = "delete_playlist"
     case manualReverseChange = "manual_reverse_change"
 }
 
-struct MusicReceiptContext: Sendable {
-    let triggerCause: MusicReceiptTriggerCause
-    let actor: MusicReceiptActorValue
-    let accountAddress: String?
-    let chain: Chain?
-    let correlationID: String?
-    let surface: String?
+public struct MusicReceiptContext: Sendable {
+    public let triggerCause: MusicReceiptTriggerCause
+    public let actor: MusicReceiptActorValue
+    public let accountAddress: String?
+    public let chain: Chain?
+    public let correlationID: String?
+    public let surface: String?
 
-    init(
+    public init(
         triggerCause: MusicReceiptTriggerCause,
         actor: MusicReceiptActorValue = .user,
         accountAddress: String? = nil,
@@ -81,17 +81,33 @@ struct MusicReceiptContext: Sendable {
     }
 }
 
-struct MusicPolicyReceiptContext: Sendable {
-    let action: String
-    let capabilityUsed: CapabilityID
-    let reason: String?
-    let receiptContext: MusicReceiptContext
+public struct MusicPolicyReceiptContext: Sendable {
+    public let action: String
+    public let capabilityUsed: CapabilityID
+    public let reason: String?
+    public let receiptContext: MusicReceiptContext
+
+    public init(
+        action: String,
+        capabilityUsed: CapabilityID,
+        reason: String?,
+        receiptContext: MusicReceiptContext
+    ) {
+        self.action = action
+        self.capabilityUsed = capabilityUsed
+        self.reason = reason
+        self.receiptContext = receiptContext
+    }
 }
 
-struct MusicReceiptStateSummary: Equatable, Sendable {
-    let values: [String: ReceiptJSONValue]
+public struct MusicReceiptStateSummary: Equatable, Sendable {
+    public let values: [String: ReceiptJSONValue]
 
-    static func playlist(
+    public init(values: [String: ReceiptJSONValue]) {
+        self.values = values
+    }
+
+    public static func playlist(
         playlistID: UUID,
         playlistTitle: String,
         itemCount: Int,
@@ -110,7 +126,7 @@ struct MusicReceiptStateSummary: Equatable, Sendable {
         return MusicReceiptStateSummary(values: values)
     }
 
-    static func autoOrganization(candidateCount: Int, collectionCount: Int) -> MusicReceiptStateSummary {
+    public static func autoOrganization(candidateCount: Int, collectionCount: Int) -> MusicReceiptStateSummary {
         MusicReceiptStateSummary(
             values: [
                 "candidateCount": .number(Double(candidateCount)),
@@ -119,7 +135,7 @@ struct MusicReceiptStateSummary: Equatable, Sendable {
         )
     }
 
-    static func classification(
+    public static func classification(
         totalCount: Int,
         playableCount: Int,
         metadataOnlyCount: Int,
@@ -135,7 +151,7 @@ struct MusicReceiptStateSummary: Equatable, Sendable {
         )
     }
 
-    static func task(
+    public static func task(
         name: String,
         inputCount: Int,
         outputCount: Int,
@@ -151,7 +167,7 @@ struct MusicReceiptStateSummary: Equatable, Sendable {
         )
     }
 
-    static func export(
+    public static func export(
         name: String,
         format: String,
         itemCount: Int
