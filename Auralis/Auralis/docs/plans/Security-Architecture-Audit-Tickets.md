@@ -1,222 +1,283 @@
 # Auralis — Security & Architecture Audit Tickets
 
-**Source:** Combined Security and Architecture Project-Wide Audit
-**Open tickets:** 23
-**Phases:** 3 (State & Concurrency) · 4 (Wallet & Agent Safety) · 5 (Testability)
-
----------------------
-
-## Phase 3 — State & Concurrency
-
-### ARCH-009 — Move Long-Running Work Off Main Actor
-
-**Priority:** High  
-**Finding:** 10  
-**Files:** `NFTKit/.../NFTService.swift`, `NFTKit/.../NFTFetcher.swift`, `Auralis/MusicApp/AI/Audio Engine/AudioEngine.swift`, `Auralis/ContextService.swift`
-
-**Problem:** `@MainActor` services own network calls, parsing, persistence orchestration, audio file loading, and task coordination. This serializes non-UI work onto the UI isolation domain.
-
-**Acceptance criteria:**
-- NFT fetch, NFT persist orchestration, and context refresh building run in dedicated worker actors/services.
-- Audio download and file IO run off the main actor.
-- Each `@MainActor` type retains only view state mutation.
-- Worker actor and main-actor observable state are separate types.
-- View-started tasks use structured cancellation tied to view lifecycle.
+**Audit date:** May 17–18, 2026
+**Scope:** App target + 22 local SPM packages
+**Source:** Three independent audits consolidated and deduplicated
 
 ---
 
-### ARCH-010 — Centralize and Limit `Task.detached` Usage
+## Summary
 
-**Priority:** Medium  
-**Finding:** (Phase 3 plan)
-**Files:** All five `Task.detached` sites in `ShellStore` and related types
+| Severity | Count |
+|----------|-------|
+| Critical | 0 |
+| High | 5 |
+| Medium | 14 |
+| Low | 5 |
+| **Total** | **24** |
 
-**Problem:** Five `Task.detached` sites exist. Detached tasks escape structured concurrency and make cancellation harder.
+---
 
-**Acceptance criteria:**
-- `Task.detached` is replaced with structured alternatives (`async let`, `TaskGroup`, lifecycle-scoped tasks) at all five sites, or wrapped in cancellable service types with explicit cancel semantics.
-- Any remaining `Task.detached` has a documented justification comment.
-- No new `Task.detached` without review.
+## Phase 1 — Security Safety Fixes
+------
+---
+
+### SEC-010 · Medium · Security
+**Make external-link audit failures risk-aware**
+
+- **File:** `OperatorCore/Sources/OperatorCore/Flows/ExternalLinkOpenFlow.swift`
+- **Status:** Complete — May 19, 2026
+- **Why:** The previous `catch` path called `openURL` even when receipt append failed. For Web3/phishing-sensitive destinations, a sensitive handoff could occur without a durable provenance record.
+- **Fix:** `ExternalLinkOpenRequest` now carries an explicit audit requirement. `ExternalLinkOpenFlow.confirm(_:)` returns an `ExternalLinkOpenOutcome`, blocks durable-audit links when receipt logging fails, and only opens degraded best-effort links with a warning outcome. NFT marketplace and explorer links opt into durable audit.
+```swift
+public func confirm(_ request: ExternalLinkOpenRequest) async -> ExternalLinkOpenOutcome {
+    do {
+        _ = try await eventLogger.recordConfirmedOpen(request)
+        openURL(request.url)
+        return .opened
+    } catch where request.requiresDurableAudit {
+        return .blockedMissingAudit
+    } catch {
+        openURL(request.url)
+        return .openedWithAuditWarning
+    }
+}
+```
+
+---
+
+## Phase 2 — Architecture Boundaries
+
+### ARCH-001 · High · Architecture
+**Split pure domain types from SwiftData `@Model` types in `AuralisPrimaryModels`**
+
+- **File:** `AuralisPrimaryModels/Sources/AuralisPrimaryModels/NFT.swift`, `Tag.swift`
+- **Why:** `NFT.swift` imports SwiftData (`@Model`) and `Tag.swift` imports UI frameworks. The domain layer is coupled to persistence and UI, blocking clean reuse in tests, extensions, server tools, and future sync engines.
+- **Fix:** Introduce pure `Sendable` value types (`NFTIdentity`, `TagValue`, etc.) in the domain package. Move `@Model` types to a dedicated persistence package. Map at adapter boundaries.
+```swift
+public struct NFTIdentity: Hashable, Sendable {
+    public let account: EthereumAddress
+    public let chain: Chain
+    public let contract: EthereumAddress?
+    public let tokenID: String
+}
+```
+
+---
+
+### ARCH-002 · High · Architecture
+**Decompose `NFTKit` into domain, provider adapter, and presentation layers**
+
+- **File:** `NFTKit/Package.swift`, `NFTKit/Sources/NFTKit/Support/NFTFetcher.swift`
+- **Why:** `NFTKit` depends on `ProviderKit`, `ChainProviders`, `ExplorerAdapter`, `ReceiptsCore`, SwiftData, and SwiftUI. Provider access, persistence, UI-facing observable state, refresh orchestration, and receipt awareness are all in one package. `AudioEngine` also imports `NFTKit`, creating a cross-domain coupling. Weakens dependency direction and makes future sync, WalletConnect, and agent workflows harder to isolate.
+- **Fix:** Create explicit layers: NFT domain/use-case protocols → provider adapters → SwiftData persistence adapters → presentation state/view models → app composition. Remove `AudioEngine` → `NFTKit` import.
+
+---
+
+### ARCH-003 · Medium · Architecture
+**Split `AppServices` into feature-scoped assemblies**
+
+- **File:** `Auralis/AppServices.swift` (~574 lines)
+- **Why:** `AppServices` wires shell, accounts, receipts, providers, music, policy, privacy reset, search, and token holdings in a single composition root. Unrelated feature changes churn app bootstrap and the type is difficult to reason about.
+- **Fix:** Extract `ShellAssembly`, `ProviderAssembly`, `ReceiptAssembly`, `MusicAssembly`, `PrivacyAssembly`. Compose in a thin `AppEnvironment` holding narrow factories per feature.
+```swift
+@MainActor
+struct AppEnvironment {
+    let shellStoreFactory: @MainActor (ModelContext) -> ShellStore
+    let contextServiceFactory: @MainActor (ShellStore) -> ContextService
+}
+```
+
+---
+
+### ARCH-004 · Medium · Architecture
+**Extract ERC-20 sync orchestration from SwiftUI view into a use case**
+
+- **File:** `Auralis/Aura/MainTabERC20Views.swift`
+- **Why:** `syncHoldings()` fetches provider data and writes SwiftData directly from a SwiftUI view. The view is simultaneously a use case, persistence coordinator, error mapper, and renderer. Harder to test and encourages more feature logic migrating into SwiftUI.
+- **Fix:** Extract `SyncERC20HoldingsUseCase` as an actor-isolated type. Inject into the view. View calls use case and renders result state only.
+
+---
+
+### ARCH-005 · Medium · Architecture
+**Move AuraPlay live adapters and receipt logic into `MusicFeature`**
+
+- **File:** `Auralis/MusicApp/`, `MusicFeature/`
+- **Why:** `MusicFeature` only depends on `AuraUI` + `PrimaryModels`. Live `AudioEngine` (~880 lines), AuraPlay services, and receipt logic live in the app target. This blocks clean extension and isolated testing.
+- **Fix:** Move playback boundary behind `MusicFeature` protocols. `AudioEngine` should depend on `AuralisPrimaryModels.NFT` only, not `NFTKit`. Migrate receipt hooks to the feature package.
+
+---
+
+## Phase 3 — State & Concurrency
+
+### CONC-001 · Medium · Architecture
+**Add `@MainActor` isolation to `AppRouter`**
+
+- **File:** `Auralis/Aura/AppRouter.swift`
+- **Why:** `ShellStore`, `ContextService`, and `ModeState` are `@MainActor`. `AppRouter` mutates navigation state relying on SwiftUI convention only, creating a race risk from background callbacks.
+- **Fix:** `@MainActor @Observable final class AppRouter`
+
+---
+
+### CONC-002 · Medium · Architecture
+**Remove broad `@MainActor` from service protocols that perform non-UI work**
+
+- **File:** `NFTKit/Sources/NFTKit/Support/NFTFetcher.swift`, `MusicFeature/Sources/MusicFeature/Services/AuraPlayLibrarySyncing.swift`
+- **Why:** Several service protocols and concrete types are `@MainActor` even when they coordinate sync, mapping, fetching, and persistence. This over-serializes data work onto the UI actor and risks responsiveness issues.
+- **Fix:** Keep SwiftUI state and rendering `@MainActor`. Move data work into dedicated `actor`s, `@ModelActor`s, or `Sendable` services.
+```swift
+actor LibraryProjectionService {
+    func project(_ snapshots: [SourceNFTSnapshot]) -> [AuraPlayMediaItemUpsertRequest] {
+        snapshots.sorted { $0.id < $1.id }.map(makeRequest)
+    }
+}
+```
+
+---
+
+### CONC-003 · Medium · Architecture
+**Replace `Task.detached` usages with actor-isolated workers**
+
+- **Files:** `SwiftDataViewServices.swift`, `NFTImageView.swift`, `PrepareNFTMetadataUseCase.swift`, `AuraPlayLibrarySyncing.swift`
+- **Why:** Detached tasks escape the actor hierarchy, making cancellation and `@MainActor` updates harder to reason about and test.
+- **Fix:** Prefer `Task(priority:)` from a known isolation context, or a dedicated `actor` service. Audit all four sites.
+
+---
+
+### CONC-004 · Medium · Architecture
+**Audit `@Query` view mirrors vs `ShellStore` as single source of truth**
+
+- **File:** Various views using `@Query` alongside `ShellStore`
+- **Why:** `ShellStore` is designed as the shell source of truth. `@Query` mirrors in views can drift from `ShellStore` state, especially across rehydration and privacy reset flows.
+- **Fix:** Ensure any view `@Query` is read-only presentation. All writes and selections must flow through `ShellStore`. Document the invariant or enforce it with an architecture test.
 
 ---
 
 ## Phase 4 — Wallet & Agent Safety
 
-### SEC-013 — Add WalletCapabilityGate
+### WEB3-001 · High · Both
+**Formalize Observe/Assist/Operate capability mode boundaries before any signing ships**
 
-**Priority:** High  
-**Finding:** 9  
-**Files:** `EOAccount.swift`, `PolicyCore/.../AppMode.swift`, `PolicyCore/.../PolicyControlledAction.swift`, `PolicyCore/.../ActionPolicyGate.swift`
-
-**Problem:** The current gate is mode-only. Future signing, WalletConnect, plugins, and agents require a combined check over mode, account access, chain, action risk, confirmation, provenance, and receipt state.
-
-**Acceptance criteria:**
-- `WalletCapabilityGate` protocol is defined in `PolicyCore` or a new `CapabilityCore` seam.
-- Authorization requires app mode, account access type (`readonly` vs `wallet`), chain allowlist membership, action risk classification, provenance, and user confirmation state.
-- Observe mode denies all signing, spending, and dApp-origin high-risk actions.
-- Denials and approvals produce receipts.
-- `account.access.canSign` is enforced inside `ActionPolicyGate`.
-- An architecture test confirms no signing path bypasses the gate.
+- **File:** `PolicyCore`, `AppMode`, `CapabilitiesCore`
+- **Why:** Current Observe mode is hard-locked and safe. Before Assist or Operate modes are added, explicit capability grants, confirmation sheets, provenance checks, and durable receipt requirements must be in place for every high-risk action surface.
+- **Fix:** Extend `AppMode` with `Assist`/`Operate`. Gate by `EthereumAddressAccess.canSign`. Add mandatory confirmation + receipt for `signMessage`, `approveSpending`, `draftTransaction`, `runPlugin`. Document the mode upgrade path in an ADR.
 
 ---
 
-### SEC-014 — Enforce Read-Only Account Invariant and Prevent Silent `.wallet` Assignment
+### WEB3-002 · Medium · Both
+**Add chain allowlists and transaction preview hooks for future signing paths**
 
-**Priority:** Medium  
-**Finding:** 24  
-**Files:** `EOAccount.swift`, `SwiftDataAccountStore.swift`
-
-**Problem:** `EthereumAddressAccess.wallet` exists in the model but is never assigned. Future code could silently flip this without hitting a capability gate.
-
-**Acceptance criteria:**
-- `account.access.canSign` is checked in all signing adapters, WalletConnect handlers, plugin/agent call paths, and `ActionPolicyGate`.
-- A test verifies all Phase 0 persisted accounts have `access == .readonly`.
-- Any assignment of `.wallet` requires an explicit capability grant that goes through `WalletCapabilityGate`.
-- Architecture test fails if `.wallet` assignment occurs outside the authorized upgrade path.
-
----
-
-### SEC-015 — Add ENS Confirmation Gate for Future ENS Entry
-
-**Priority:** Medium  
-**Finding:** 23  
-**Files:** `AccountsCore/.../AccountStore.swift`
-
-**Problem:** ENS names are currently rejected at entry. When ENS entry is enabled, there is no resolve → validate → confirm flow.
-
-**Acceptance criteria:**
-- ENS resolution results in: resolve → validate resolved address → show resolved `0x` address in confirmation dialog → require explicit confirmation → persist both label and resolved address with freshness metadata.
-- Resolved address passes the same checksum/allowlist validation as a directly entered address.
-- Confirmation cannot be bypassed programmatically.
-
----
-
-### SEC-016 — Design dApp/WebView/WalletConnect Boundary Before Implementation
-
-**Priority:** Medium  
-**Finding:** 25  
-**Files:** (none yet — future-readiness)
-
-**Problem:** No WebView or WalletConnect exists today (good). The roadmap likely requires them. Boundaries must be designed before implementation starts.
-
-**Acceptance criteria:**
-- An ADR or design document defines: ephemeral web data policy, navigation allowlist enforcement, no-arbitrary-JavaScript-bridge rule, origin-bound confirmation prompts, normalized domain display in UI, WalletConnect request preview/simulation, receipt-backed approvals, and capability-scoped sessions.
-- Document is reviewed and merged before any dApp/browser/WalletConnect feature branch opens.
-- A stub `SafeNavigationDelegate` with allowlist enforcement exists as the designated extension point.
-
----
-
-### ARCH-011 — Document `AgentIdentityCore` Boundaries Before Expansion
-
-**Priority:** Low now, High before agent work  
-**Finding:** 32  
-**Files:** `AgentIdentityCore` package
-
-**Problem:** `AgentIdentityCore` is a stub. Adding autonomous actions, plugins, or delegated agent capabilities without explicit trust/capability boundaries is high-risk.
-
-**Acceptance criteria:**
-- An ADR or capability design doc defines: what an agent identity is, what actions it may initiate, what capability grants are required, what revocation looks like, and how agent actions are receipted.
-- Document is written and reviewed before any agent execution work begins.
-- Duplicate `AgentIdentityCore` references in `project.pbxproj` are cleaned up.
+- **File:** `PolicyCore`, future signing flows
+- **Why:** `Chain` enum + explorer/OpenSea builders exist but there is no global signing-chain gate. Transaction preview/simulation hooks are absent. These are required before any `draftTransaction` path is wired to a real signer.
+- **Fix:** Add a chain allowlist checked at `PolicyControlledAction` execution. Add a mandatory preview/simulation step before `draftTransaction` that shows gas estimate, target chain, and contract info with explicit user confirmation.
 
 ---
 
 ## Phase 5 — Testability & Long-Term Maintainability
 
-### TEST-001 — Add Package-Level Tests for Critical Modules
+### TEST-001 · Medium · Architecture
+**Extend architecture boundary tests to `MusicFeature` and `NFTLibraryFeature`**
 
-**Priority:** Medium  
-**Finding:** 26  
-**Packages missing `.testTarget`:** `NFTKit`, `PolicyCore`, `OperatorCore`, `AccountsCore`, `ReceiptsCore`, `CapabilitiesCore`, `AuralisPrimaryModels`
-
-**Acceptance criteria:**
-- `NFTKitTests`, `PolicyCoreTests`, `OperatorCoreTests`, `ReceiptsCoreTests`, and `AccountsCoreTests` test targets exist.
-- Each covers: sanitization, policy authorization, address normalization, receipt integrity, provider error mapping, dependency direction, and local persistence migration as applicable.
-- All new targets are green in CI.
-
----
-
-### TEST-002 — Add Smoke UI Tests to `AuralisUITests`
-
-**Priority:** Medium  
-**Finding:** 27  
-**Files:** `AuralisUITests` target (currently empty)
-
-**Acceptance criteria:**
-- Smoke tests exist for: gateway/onboarding, account switching, external link confirmation sheet, privacy reset, receipts browser, observe-mode denial flows.
-- Tests run in CI on simulator.
+- **File:** `AuralisTests/ArchitectureBoundaryTests.swift`
+- **Why:** Boundary tests enforce `@Observable` (not `ObservableObject`) for the app target only. Both feature packages still use `ObservableObject` and can regress without detection.
+- **Fix:** Add test cases scanning `MusicFeature` and `NFTLibraryFeature` Sources for `ObservableObject`. Add forbidden-import checks for the feature packages (SwiftData, UIKit, etc.).
+```swift
+@Test("feature modules do not use ObservableObject")
+func featureModulesUseObservation() throws {
+    // scan MusicFeature + NFTLibraryFeature Sources
+    #expect(source.contains("ObservableObject") == false)
+}
+```
 
 ---
 
-### TEST-003 — Add Architecture Tests for Import Boundaries and Dependency Direction
+### TEST-002 · Medium · Security
+**Register ENS cache, gas cache, receipt heads, and search history in `LocalDataStoragePolicy`**
 
-**Priority:** Medium  
-**Finding:** 9, 11, 12, 13 (recurring)
-
-**Acceptance criteria:**
-- Architecture test confirms app target does not import any SPM module not explicitly declared in Xcode.
-- Architecture test confirms `NFTKit` does not import `ReceiptStorage`.
-- Architecture test confirms `TokenStorage` does not import `NFTKit`.
-- Architecture test confirms no SwiftUI view directly imports a SwiftData adapter module.
-- Tests run in CI and are updated when new modules are added.
+- **File:** `LocalDataClassification.swift`
+- **Why:** ADR-003 requires all persisted identifiers to be classified before new storage is added. ENS cache, receipt integrity heads, gas cache, and search history are missing from the policy table.
+- **Fix:** Add each identifier with its classification tier (`publicPreference`, `walletMetadata`, or `credential`) and note which privacy reset phase clears it.
 
 ---
 
-## Polish / Low Priority
+### TEST-004 · Medium · Security
+**Redact provider error payloads and `error.localizedDescription` in OSLog**
 
-### POLISH-001 — Guard Preview `fatalError` with `#if DEBUG`
-
-**Priority:** Low  
-**Finding:** 28  
-**Files:** `Auralis/PreviewModelContainers.swift`
-
-Return an in-memory fallback container instead of crashing where possible.
-
----
-
-### POLISH-002 — Add Static URL Validity Tests for Explorer and Wallet Probe Constants
-
-**Priority:** Low  
-**Finding:** 29  
-**Files:** `ExplorerCatalog.swift`, `ExternalWalletAppProbe.swift`
-
-Force-unwrapped static URL constants are effectively safe today. Optionally add a unit test to catch future typos at compile/test time.
+- **Files:** `AlchemyNFTService.swift`, `NFTFetcher.swift`, `AuralisApp.swift`
+- **Why:** Some paths log `parseErrorMessage(from:)` and `error.localizedDescription` with `.public` privacy. Provider error bodies can echo URLs, auth context, and backend diagnostic strings.
+- **Fix:** Log status codes and error type names publicly. Mark provider error messages as `.private`. Add a receipt sanitizer fixture for provider error payloads.
+```swift
+logger.error(
+    "Provider error status=\(status, privacy: .public) detail=\(error.localizedDescription, privacy: .private)"
+)
+```
 
 ---
 
-### POLISH-003 — Add Screenshot/Blur Protection Before Sensitive Screens Ship
+### TEST-005 · Medium · Security
+**Truncate or mask wallet addresses in chrome/context inspector UI**
 
-**Priority:** Low now, required before signing/balance screens  
-**Finding:** 33
-
-Revisit before seed phrases, private keys, signing flows, heavy balance displays, or identity-heavy views exist in the app.
+- **File:** `ContextService`, chrome views, `ContextSnapshotTests.swift`
+- **Why:** Receipts redact addresses to opaque tokens, but the chrome/inspector may show full `0x…` addresses. Screenshots and the app switcher expose these.
+- **Fix:** Truncate in chrome to `first6…last4` format. Keep full value only where the user explicitly needs it (e.g. copy with confirmation). Add an app-switcher privacy overlay.
+```swift
+enum RedactedLog {
+    static func address(_ value: String) -> String {
+        guard value.count > 10 else { return "<redacted>" }
+        return "\(value.prefix(6))…\(value.suffix(4))"
+    }
+}
+```
 
 ---
 
-## Summary Table
+### TEST-006 · Low · Architecture
+**Replace force unwraps in `ExplorerCatalog` URL construction**
 
-| ID | Title | Priority | Phase | Finding |
-|---|---|---|---|---|
-| SEC-001 | Remove Provider Secrets from App Bundle | Critical | 1 | 1 |
-| SEC-002 | Stop Putting Provider Keys in URL Paths | Critical | 1 | 2 |
-| SEC-003 | Redact Wallet Addresses in All Logs | Critical | 1 | 3 |
-| SEC-004 | Move Shell Selection Off UserDefaults | Critical | 1 | 4 |
-| SEC-005 | Move ENS Cache Off Standard UserDefaults | High | 1 | 5 |
-| SEC-006 | Replace Keychain Password Store | High | 1 | 6 |
-| SEC-007 | Wire Credential Clear into Privacy Reset | High | 1 | 7 |
-| SEC-009 | Add NSFileProtection to SwiftData Stores | Medium | 1 | 19 |
-| SEC-010 | Harden External Link Policy with Path/Query Rules | Medium | 1 | 20 |
-| SEC-012 | Confirm DEBUG Credential Fallback Excluded from Archive | Low | 1 | 30 |
-| ARCH-009 | Move Long-Running Work Off Main Actor | High | 3 | 10 |
-| ARCH-010 | Centralize and Limit Task.detached Usage | Medium | 3 | — |
-| SEC-013 | Add WalletCapabilityGate | High | 4 | 9 |
-| SEC-014 | Enforce Read-Only Account Invariant | Medium | 4 | 24 |
-| SEC-015 | Add ENS Confirmation Gate | Medium | 4 | 23 |
-| SEC-016 | Design dApp/WebView/WalletConnect Boundary | Medium | 4 | 25 |
-| ARCH-011 | Document AgentIdentityCore Boundaries | Low now | 4 | 32 |
-| TEST-001 | Add Package Tests for Critical Modules | Medium | 5 | 26 |
-| TEST-002 | Add Smoke UI Tests | Medium | 5 | 27 |
-| TEST-003 | Add Architecture Tests for Import/Dependency Boundaries | Medium | 5 | 9/11/12 |
-| POLISH-001 | Guard Preview fatalError | Low | — | 28 |
-| POLISH-002 | Static URL Validity Tests | Low | — | 29 |
-| POLISH-003 | Screenshot/Blur Protection Before Sensitive Screens | Low | — | 33 |
+- **File:** `ExplorerAdapter/Sources/ExplorerAdapter/ExplorerCatalog.swift`
+- **Why:** 26 `URL(string:)!` force unwraps on static HTTPS literals. Low runtime risk but a typo during maintenance silently crashes at load time.
+- **Fix:** Add a non-optional URL construction helper that traps with a targeted message in `DEBUG`. Add a static test that validates all catalog URLs are well-formed.
+
+---
+
+### TEST-007 · Low · Architecture
+**Replace force unwraps in receipt integrity code**
+
+- **Files:** `Auralis/PrivacyResetService.swift`, `ReceiptStorage/Sources/ReceiptStorage/SwiftDataReceiptStore.swift`
+- **Why:** `current!.accountSequenceID` in security/audit paths. Logically guarded, but production code should use explicit optional binding especially in tamper-evidence logic.
+- **Fix:** Replace with `if let current { … }` binding throughout receipt and reset paths.
+
+---
+
+### TEST-008 · Low · Architecture
+**Split oversized files by responsibility**
+
+- **Files:** `AudioEngine.swift` (~880L), `MainTabView.swift` (~616L), `NFT.swift` (~525L), `SwiftDataReceiptStore.swift` (~497L)
+- **Why:** Each file carries multiple distinct responsibilities, increasing review cost and the blast radius of subtle regressions.
+- **Fix:**
+  - `AudioEngine`: split playback loading, queue state, receipt recording
+  - `MainTabView`: extract tab content views
+  - `NFT.swift`: split domain value, `@Model`, and mapping (aligns with ARCH-001)
+  - `SwiftDataReceiptStore`: split integrity, store, and mapper
+
+---
+
+### TEST-009 · Low · Architecture
+**Migrate feature packages from `ObservableObject` to `@Observable`**
+
+- **Files:** `MusicFeature/…/AuraPlayMiniPlayerView.swift`, `NFTLibraryFeature/…/NFTImageView.swift`
+- **Why:** Feature packages still use `ObservableObject`/Combine wrappers. The app target enforces `@Observable` but packages are not yet covered, allowing dual state-model patterns to persist.
+- **Fix:** Migrate `ObservableObject` types in `MusicFeature` and `NFTLibraryFeature` to `@Observable`. Enforce via boundary tests added in TEST-001.
+
+---
+
+### TEST-010 · Low · Security
+**Tighten external-link root-path rules in `ExternalLinkPolicy`**
+
+- **File:** `OperatorCore/Sources/OperatorCore/ExternalLinks/ExternalLinkPolicy.swift`
+- **Why:** Some explorer and Arweave rules allow root-level `/` paths. As future wallet actions arrive, broad root-path rules could widen phishing surface if deep links or generated actions route to external domains too freely.
+- **Fix:** Allow only specific generated explorer/token/address/tx URL patterns. Reserve root paths only for flows that genuinely need homepage links. Show verified host prominently in the confirmation sheet.
+
+---
+
+*24 tickets — 5 high, 14 medium, 5 low. Generated from three independent audit reports, May 2026.*

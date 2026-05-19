@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import AuralisShellCore
 import NFTKit
 import NFTLibraryFeature
 import OperatorCore
@@ -11,6 +12,7 @@ struct SharedNFTDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
     @Query private var nfts: [NFT]
+    @State private var externalLinkRouteError: AppRouteError?
 
     let route: NFTDetailRoute
     let currentAccountAddress: String?
@@ -45,11 +47,16 @@ struct SharedNFTDetailView: View {
             nft: nfts.first,
             dependencies: libraryDependencies
         )
+        .sheet(item: $externalLinkRouteError) { routeError in
+            RouteErrorScreen(routeError: routeError) {
+                externalLinkRouteError = nil
+            }
+        }
     }
 
     private var libraryDependencies: NFTLibraryDependencies {
         NFTLibraryDependencies { request in
-            await ExternalLinkOpenFlow(
+            let outcome = await ExternalLinkOpenFlow(
                 eventLogger: AppExternalLinkEventLogger(
                     receiptEventLogger: ReceiptEventLogger(
                         receiptStore: ReceiptStores.live(modelContext: modelContext)
@@ -59,6 +66,31 @@ struct SharedNFTDetailView: View {
                     openURL(url)
                 }
             ).confirm(request)
+            handleExternalLinkOpenOutcome(outcome, request: request)
+        }
+    }
+
+    private func handleExternalLinkOpenOutcome(
+        _ outcome: ExternalLinkOpenOutcome,
+        request: ExternalLinkOpenRequest
+    ) {
+        switch outcome {
+        case .opened:
+            return
+
+        case .openedWithAuditWarning:
+            externalLinkRouteError = AppRouteError(
+                title: "Link Opened Without Receipt",
+                message: "Auralis opened this destination, but the audit receipt could not be saved. Treat this handoff as unverified.",
+                urlString: request.url.absoluteString
+            )
+
+        case .blockedMissingAudit:
+            externalLinkRouteError = AppRouteError(
+                title: "Link Blocked",
+                message: "Auralis could not save the required audit receipt for this wallet-sensitive link, so the destination was not opened.",
+                urlString: request.url.absoluteString
+            )
         }
     }
 }

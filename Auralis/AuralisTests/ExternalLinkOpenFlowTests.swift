@@ -32,11 +32,12 @@ struct ExternalLinkOpenFlowTests {
             sequence.append("log")
         }
 
-        await flow.confirm(request)
+        let outcome = await flow.confirm(request)
 
         #expect(sequence == ["log", "open"])
         #expect(logger.requests == [request])
         #expect(openedURLs == [request.url])
+        #expect(outcome == .opened)
     }
 
     @Test("confirmed open preserves explicit provenance for non-user initiators")
@@ -52,14 +53,15 @@ struct ExternalLinkOpenFlowTests {
             provenance: .pluginConfirmed
         )
 
-        await flow.confirm(request)
+        let outcome = await flow.confirm(request)
 
         #expect(logger.requests.first?.provenance == .pluginConfirmed)
+        #expect(outcome == .opened)
     }
 
-    @Test("confirmed open still opens when receipt logging fails")
+    @Test("durable confirmed open blocks when receipt logging fails")
     @MainActor
-    func confirmedOpenDoesNotBlockOnLoggingFailure() async {
+    func durableConfirmedOpenBlocksOnLoggingFailure() async {
         let logger = FailingExternalLinkEventLogger()
         var openedURLs: [URL] = []
         let flow = ExternalLinkOpenFlow(
@@ -75,10 +77,37 @@ struct ExternalLinkOpenFlowTests {
             surface: "newsfeed.nft_detail"
         )
 
-        await flow.confirm(request)
+        let outcome = await flow.confirm(request)
+
+        #expect(logger.requests == [request])
+        #expect(openedURLs.isEmpty)
+        #expect(outcome == .blockedMissingAudit)
+    }
+
+    @Test("best-effort confirmed open still opens with warning when receipt logging fails")
+    @MainActor
+    func bestEffortConfirmedOpenWarnsOnLoggingFailure() async {
+        let logger = FailingExternalLinkEventLogger()
+        var openedURLs: [URL] = []
+        let flow = ExternalLinkOpenFlow(
+            eventLogger: logger,
+            openURL: { url in
+                openedURLs.append(url)
+            }
+        )
+
+        let request = ExternalLinkOpenRequest(
+            label: "Docs",
+            url: URL(string: "https://example.com/docs")!,
+            surface: "settings.help",
+            auditRequirement: .bestEffort
+        )
+
+        let outcome = await flow.confirm(request)
 
         #expect(logger.requests == [request])
         #expect(openedURLs == [request.url])
+        #expect(outcome == .openedWithAuditWarning)
     }
 }
 

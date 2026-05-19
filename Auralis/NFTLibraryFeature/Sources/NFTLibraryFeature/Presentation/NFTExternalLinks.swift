@@ -205,7 +205,8 @@ public struct NFTMarketplaceLink: View {
                     url: destination.url,
                     surface: "nft_library.detail",
                     accountAddress: nft.accountAddress,
-                    chain: chain
+                    chain: chain,
+                    auditRequirement: .durable
                 )
             )
         }
@@ -313,7 +314,8 @@ public struct NFTExplorerLink: View {
                     url: destination.url,
                     surface: "nft_library.detail",
                     accountAddress: nft.accountAddress,
-                    chain: chain
+                    chain: chain,
+                    auditRequirement: .durable
                 )
             )
         }

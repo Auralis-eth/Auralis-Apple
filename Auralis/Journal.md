@@ -1,5 +1,13 @@
 # Journal
 
+## 2026-05-19 — External Links Learned When a Receipt Is the Ticket
+
+SEC-010 fixed a quiet but important policy bug in the external-link handoff. Before this pass, receipt logging was treated like a nice-to-have for every destination. If the app failed to append the audit receipt, it still opened the URL. That is acceptable for a harmless help page, but it is the wrong rule for wallet-sensitive links where the receipt is the paper trail proving what the user approved.
+
+`ExternalLinkOpenRequest` now carries an explicit audit requirement: durable or best-effort. The flow returns an outcome instead of disappearing into `Void`, which lets the app distinguish "opened cleanly," "opened but audit degraded," and "blocked because the required receipt could not be saved." NFT marketplace and explorer links are durable by default, so a broken receipt store stops the handoff instead of silently losing provenance.
+
+The lesson is that "best effort" is not a security policy; it is a risk classification. Some receipts are like coat-check tickets. Others are like boarding passes. If the boarding pass printer is down, you do not wave everyone onto the plane and promise to write it down later.
+
 ## 2026-05-19 — The Wallet Password Moved Behind the Real Door
 
 SEC-005 closed a security gap that looked subtle until you squinted at the threat model. The wallet password was already in Keychain, but it was protected only by the normal unlocked-device class. That is like putting a valuable key in the hotel safe but leaving the safe code taped to the front desk monitor: better than a drawer, not the hardware-backed biometric gate the feature implied.

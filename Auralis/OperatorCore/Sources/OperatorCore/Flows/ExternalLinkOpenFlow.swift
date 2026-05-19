@@ -13,13 +13,16 @@ public struct ExternalLinkOpenFlow {
         self.openURL = openURL
     }
 
-    public func confirm(_ request: ExternalLinkOpenRequest) async {
+    public func confirm(_ request: ExternalLinkOpenRequest) async -> ExternalLinkOpenOutcome {
         do {
             _ = try await eventLogger.recordConfirmedOpen(request)
+            openURL(request.url)
+            return .opened
+        } catch where request.requiresDurableAudit {
+            return .blockedMissingAudit
         } catch {
-            // User confirmation is the security gate. Receipt logging is best-effort
-            // and must not block the confirmed handoff to Safari.
+            openURL(request.url)
+            return .openedWithAuditWarning
         }
-        openURL(request.url)
     }
 }

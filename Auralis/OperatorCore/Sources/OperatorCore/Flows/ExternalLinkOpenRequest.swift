@@ -8,6 +8,11 @@ public struct ExternalLinkOpenRequest: Equatable, Sendable {
     public let accountAddress: String?
     public let chain: Chain?
     public let provenance: ExternalLinkOpenProvenance
+    public let auditRequirement: ExternalLinkAuditRequirement
+
+    public var requiresDurableAudit: Bool {
+        auditRequirement.requiresDurableAudit
+    }
 
     public init(
         label: String,
@@ -15,7 +20,8 @@ public struct ExternalLinkOpenRequest: Equatable, Sendable {
         surface: String,
         accountAddress: String? = nil,
         chain: Chain? = nil,
-        provenance: ExternalLinkOpenProvenance = .userConfirmedTap
+        provenance: ExternalLinkOpenProvenance = .userConfirmedTap,
+        auditRequirement: ExternalLinkAuditRequirement = .durable
     ) {
         self.label = label
         self.url = url
@@ -23,5 +29,6 @@ public struct ExternalLinkOpenRequest: Equatable, Sendable {
         self.accountAddress = accountAddress
         self.chain = chain
         self.provenance = provenance
+        self.auditRequirement = auditRequirement
     }
 }
