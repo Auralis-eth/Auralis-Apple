@@ -205,13 +205,21 @@ struct MainTabView: View {
         }
     }
 
-    private func changeCurrentChain(_ chain: Chain) {
-        Task {
-            await shellStore.send(
-                .chainChangeRequested(
-                    chain: chain,
-                    correlationID: UUID().uuidString
-                )
+    private func changeCurrentChain(_ chain: Chain, correlationID: String) async throws {
+        await shellStore.send(.routeErrorDismissed)
+        await shellStore.send(
+            .chainChangeRequested(
+                chain: chain,
+                correlationID: correlationID
+            )
+        )
+
+        guard shellStore.state.routeError == nil,
+              shellStore.state.selection?.chain == chain
+        else {
+            throw AccountSwitcherCurrentChainChangeError(
+                message: shellStore.state.routeError?.message
+                    ?? "Auralis could not save the selected chain."
             )
         }
     }

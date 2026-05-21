@@ -343,6 +343,67 @@ struct ArchitectureBoundaryTests {
         )
     }
 
+    @Test("SwiftUI queries do not own shell selection")
+    func swiftUIQueriesDoNotOwnShellSelection() throws {
+        let projectRoot = try projectRootURL()
+        let scannedRoots = [
+            projectRoot.appending(path: "Auralis"),
+            projectRoot.appending(path: "MusicFeature/Sources")
+        ]
+        let allowedFiles: Set<String> = [
+            "Auralis/Aura/MainAuraView.swift", // read-only activeAccountID resolver
+            "Auralis/Aura/Home/AccountSwitcherSheet.swift" // account-list host plus approved adapters
+        ]
+        let forbiddenSnippets = [
+            ".persistCurrentChain(",
+            ".persistPreferredChain(",
+            ".selectAccount(",
+            ".removeAccount(",
+            ".wrappedValue =",
+            "selectedAccount =",
+            "selectedChain ="
+        ]
+
+        var offenders: [String] = []
+        for root in scannedRoots {
+            for fileURL in try swiftSourceFiles(under: root) {
+                let relativePath = fileURL.path()
+                    .replacingOccurrences(of: projectRoot.path() + "/", with: "")
+                guard !isAllowedPath(relativePath, allowedFiles: allowedFiles) else { continue }
+
+                let source = try String(contentsOf: fileURL, encoding: .utf8)
+                guard source.contains("@Query"), source.contains(": View") else { continue }
+
+                if forbiddenSnippets.contains(where: source.contains) {
+                    offenders.append(relativePath)
+                }
+            }
+        }
+
+        #expect(
+            offenders.isEmpty,
+            "SwiftUI @Query views must not own shell selection writes: \(offenders.sorted())"
+        )
+    }
+
+    @Test("account switcher current chain changes route through shell")
+    func accountSwitcherCurrentChainChangesRouteThroughShell() throws {
+        let projectRoot = try projectRootURL()
+        let accountSwitcherFile = projectRoot
+            .appending(path: "AccountsFeature/Sources/AccountsFeature/Presentation/AddressTextField.swift")
+        let source = try String(contentsOf: accountSwitcherFile, encoding: .utf8)
+        let currentChainCase = try extractSwitchCase(named: "case .current:", from: source)
+
+        #expect(
+            currentChainCase.contains(".persistCurrentChain(") == false,
+            "AccountSwitcherSheet must not persist active current-chain selection before ShellStore coordinates the shell action"
+        )
+        #expect(
+            source.contains("try await onCurrentChainChange(plan.to, correlationID)"),
+            "AccountSwitcherSheet current-chain changes must call the injected shell callback"
+        )
+    }
+
     private func appTargetPackageProductNames(projectRoot: URL) throws -> Set<String> {
         let projectFile = projectRoot
             .appending(path: "Auralis.xcodeproj")
@@ -496,6 +557,29 @@ struct ArchitectureBoundaryTests {
         }
 
         return try balancedSubstring(from: listStart, open: "(", close: ")", in: text)
+    }
+
+    private func extractSwitchCase(named caseName: String, from text: String) throws -> String {
+        guard let caseRange = text.range(of: caseName) else {
+            Issue.record("Unable to find switch case named \(caseName)")
+            throw ArchitectureFixtureError()
+        }
+
+        let remaining = text[caseRange.lowerBound...]
+        if let nextCaseRange = remaining.dropFirst(caseName.count).range(of: "\n                case ") {
+            return String(text[caseRange.lowerBound..<nextCaseRange.lowerBound])
+        }
+
+        if let switchEndRange = remaining.range(of: "\n                }\n") {
+            return String(text[caseRange.lowerBound..<switchEndRange.lowerBound])
+        }
+
+        Issue.record("Unable to extract switch case named \(caseName)")
+        throw ArchitectureFixtureError()
+    }
+
+    private func isAllowedPath(_ path: String, allowedFiles: Set<String>) -> Bool {
+        allowedFiles.contains(path) || allowedFiles.contains { path.hasSuffix($0) }
     }
 
     private func balancedSubstring(

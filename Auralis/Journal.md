@@ -1,5 +1,15 @@
 # Journal
 
+## 2026-05-21 — Query Mirrors Stayed Out Of The Control Room
+
+`CONC-004` closed the loop on a subtle SwiftData/ShellStore boundary. `@Query` is still welcome as the app's live window into SwiftData: account lists, NFT grids, token details, and AuraPlay music rows all use it exactly like a good display case. The important rule is that the display case does not get to choose which wallet is active.
+
+The useful fix was in the account switcher. Preferred-chain edits are account metadata, so the sheet can save them through the account-store adapter. Current-chain edits are different: they change the active shell scope, refresh behavior, route reset, and deep-link readiness. Those now go through the injected shell callback instead of first poking the SwiftData row directly. We also taught the current-chain picker to compare against the same ShellStore-derived selection it displays, so a stale account row cannot trick it into suppressing a real change.
+
+The new architecture tests are the door signs: SwiftUI `@Query` views must not own shell-selection writes, and the account switcher's current-chain path must stay routed through the shell. The follow-up fire drill now presses the actual shell action for account removal too: active removal with fallback, active removal with no fallback, and inactive removal all prove the reducer owns route reset, persisted selection, cleared selection, pending deep links, and correlation cleanup.
+
+Lesson learned: live persistence projections are great mirrors, but the shell still owns the steering wheel. Architecture invariants need tests that press the public button, not just helpers waiting backstage.
+
 ## 2026-05-21 — The Concierge Moved Behind The Front Desk
 
 `CONC-001` tightened the app router's job description. `AppRouter` was already the concierge for tabs, route stacks, auxiliary surfaces, and route errors, but it was relying on SwiftUI habit to keep everyone calling from the main thread. That is fine until a background callback walks into the lobby and starts rearranging navigation signs.
@@ -1897,3 +1907,13 @@ The async NFT refresh refactor taught the fetcher to say whether it really compl
 The fix was to separate "we persisted what we got" from "the refresh is fresh." Partial refreshes can still persist useful data, but they no longer run stale cleanup and no longer update `lastSuccessfulRefreshAt`. Cleanup also now appears after persistence in the service phase order, not before it, so the progress state tells the truth about what work is actually happening.
 
 The lesson: progress flags are contracts, not decoration. If a lower layer tells you the inventory is partial, the cache freshness layer has to believe it.
+
+## Account Switcher: The Waiter Should Wait For The Kitchen
+
+The account switcher had a clean architectural instinct: current-chain changes should go through `ShellStore`, not sneak around the shell and persist from the sheet. But the first version handed the order to the kitchen and immediately cleared the table. If the shell could not save the new chain, the sheet had already dropped its pending state and could not show its own failure path.
+
+The fix made the callback async and throwing. The sheet still does not own current-chain persistence, but it now waits for the shell to confirm the selected chain before clearing the pending picker state. Preferred-chain changes remain local to the account store path; active current-chain changes use the shell path and keep the same visible failure behavior.
+
+We also tightened two accessibility details while we were in the room: visible “Paste” stays the accessible command name for Voice Control, and each remove button now names the account it removes instead of repeating “Remove account” five times in a list.
+
+The lesson: moving ownership up a layer is only half the job. The caller still needs a completion contract, or the UI starts acting like success happened before the owner has actually done the work.

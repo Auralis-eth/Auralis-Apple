@@ -39,7 +39,6 @@ public struct AddressTextField: View {
                 .buttonStyle(.plain)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.accent)
-                .accessibilityLabel("Paste wallet address")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -814,7 +813,7 @@ public struct AccountSwitcherSheet: View {
     private let presenter = AccountSwitcherPresenter()
     private let onSelectAccount: @MainActor (String) -> Void
     private let onRemoveAccount: @MainActor (String) -> Void
-    private let onCurrentChainChange: @MainActor (Chain) -> Void
+    private let onCurrentChainChange: @MainActor (Chain, String) async throws -> Void
 
     @State private var pendingRemovalAccount: EOAccount?
     @State private var feedbackAlert: AccountSwitcherAlert?
@@ -828,7 +827,7 @@ public struct AccountSwitcherSheet: View {
         accountSwitcher: any AccountSwitching,
         onSelectAccount: @escaping @MainActor (String) -> Void,
         onRemoveAccount: @escaping @MainActor (String) -> Void,
-        onCurrentChainChange: @escaping @MainActor (Chain) -> Void
+        onCurrentChainChange: @escaping @MainActor (Chain, String) async throws -> Void
     ) {
         self.persistedAccounts = persistedAccounts
         self.currentAccount = currentAccount
@@ -966,19 +965,15 @@ public struct AccountSwitcherSheet: View {
                         correlationID: correlationID
                     )
                 case .current:
-                    _ = try await accountSwitcher.persistCurrentChain(
-                        address: account.address,
-                        chain: plan.to,
-                        correlationID: correlationID
-                    )
+                    break
+                }
+
+                if plan.shouldRefreshActiveScope {
+                    try await onCurrentChainChange(plan.to, correlationID)
                 }
 
                 clearPendingSelection(kind: plan.kind, address: account.address)
                 haptics.selection()
-
-                if plan.shouldRefreshActiveScope {
-                    onCurrentChainChange(plan.to)
-                }
             } catch {
                 clearPendingSelection(kind: plan.kind, address: account.address)
                 haptics.notification(.error)
@@ -1025,28 +1020,30 @@ public struct AccountSwitcherSheet: View {
 
     private func currentChainBinding(for account: EOAccount) -> Binding<Chain> {
         Binding(
-            get: {
-                if let pendingSelection = pendingCurrentChainSelections[account.address] {
-                    return pendingSelection
-                }
-
-                if activeSelection?.address == account.address {
-                    return activeSelection?.chain ?? account.currentChain
-                }
-
-                return account.currentChain
-            },
+            get: { currentChainSelection(for: account) },
             set: { newValue in
                 applyChainScopeChange(
                     ChainScopeChangePlanner().planCurrentChange(
                         address: account.address,
-                        from: pendingCurrentChainSelections[account.address] ?? account.currentChain,
+                        from: currentChainSelection(for: account),
                         to: newValue
                     ),
                     to: account
                 )
             }
         )
+    }
+
+    private func currentChainSelection(for account: EOAccount) -> Chain {
+        if let pendingSelection = pendingCurrentChainSelections[account.address] {
+            return pendingSelection
+        }
+
+        if activeSelection?.address == account.address {
+            return activeSelection?.chain ?? account.currentChain
+        }
+
+        return account.currentChain
     }
 
     private func setPendingSelection(_ chain: Chain, kind: ChainScopeChangeKind, address: String) {
@@ -1140,7 +1137,7 @@ private struct AccountRow: View {
                     .font(.headline)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Remove account")
+            .accessibilityLabel("Remove account \(account.address.accountFeatureDisplayAddress)")
             .accessibilityIdentifier("accounts.remove.\(account.address)")
         }
         .padding(.vertical, 4)

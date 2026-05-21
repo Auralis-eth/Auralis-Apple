@@ -148,6 +148,166 @@ struct ShellStoreTests {
         ])
     }
 
+    @Test("active account removal falls back to the replacement account and resets routes")
+    @MainActor
+    func activeAccountRemovalFallsBackAndResetsRoutes() async {
+        let activeAccount = makeAccount(
+            address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            currentChain: .ethMainnet
+        )
+        let fallbackAccount = makeAccount(
+            address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            currentChain: .baseMainnet
+        )
+        let mutator = TestShellAccountMutator(
+            removeResult: .success(
+                AccountRemovalResult(
+                    removedAddress: activeAccount.address,
+                    fallbackAccount: fallbackAccount
+                )
+            )
+        )
+        let persistence = TestShellSelectionPersistence()
+        let router = TestShellRouterEffectHandler()
+        let store = makeStore(
+            state: ShellState(
+                selection: ActiveShellSelection(address: activeAccount.address, chain: .ethMainnet),
+                activeAccountID: activeAccount.address,
+                pendingCorrelationID: "old-correlation",
+                hasPresentedAuthenticatedExperience: true,
+                didFinishInitialRestore: true
+            ),
+            selectionPersistence: persistence,
+            accountMutator: mutator,
+            routerEffectHandler: router
+        )
+
+        await store.send(
+            .activeAccountRemovalRequested(
+                address: activeAccount.address,
+                correlationID: "remove-1"
+            )
+        )
+
+        #expect(mutator.removeCalls.count == 1)
+        #expect(mutator.removeCalls.first?.address == activeAccount.address)
+        #expect(mutator.removeCalls.first?.activeAddress == activeAccount.address)
+        #expect(mutator.removeCalls.first?.correlationID == "remove-1")
+        #expect(router.effects == [.resetAllRoutes, .selectTab(.home)])
+        #expect(store.state.selection == ActiveShellSelection(address: fallbackAccount.address, chain: .baseMainnet))
+        #expect(store.state.activeAccountID == fallbackAccount.address)
+        #expect(store.state.pendingCorrelationID == nil)
+        #expect(store.state.hasPresentedAuthenticatedExperience)
+        #expect(persistence.savedSelections == [
+            TestShellSelectionPersistence.SavedSelection(
+                address: fallbackAccount.address,
+                chainID: Chain.baseMainnet.rawValue
+            )
+        ])
+        #expect(persistence.clearSelectionCallCount == 0)
+    }
+
+    @Test("active account removal clears shell state when no fallback account remains")
+    @MainActor
+    func activeAccountRemovalClearsStateWhenNoFallbackRemains() async {
+        let activeAccount = makeAccount(
+            address: "0xcccccccccccccccccccccccccccccccccccccccc",
+            currentChain: .polygonMainnet
+        )
+        let mutator = TestShellAccountMutator(
+            removeResult: .success(
+                AccountRemovalResult(
+                    removedAddress: activeAccount.address,
+                    fallbackAccount: nil
+                )
+            )
+        )
+        let persistence = TestShellSelectionPersistence()
+        let router = TestShellRouterEffectHandler()
+        let store = makeStore(
+            state: ShellState(
+                selection: ActiveShellSelection(address: activeAccount.address, chain: .polygonMainnet),
+                activeAccountID: activeAccount.address,
+                pendingDeepLink: .destination(.receipt(id: "pending-before-removal")),
+                pendingCorrelationID: "old-correlation",
+                hasPresentedAuthenticatedExperience: true,
+                didFinishInitialRestore: true
+            ),
+            selectionPersistence: persistence,
+            accountMutator: mutator,
+            routerEffectHandler: router
+        )
+
+        await store.send(
+            .activeAccountRemovalRequested(
+                address: activeAccount.address,
+                correlationID: "remove-2"
+            )
+        )
+
+        #expect(mutator.removeCalls.count == 1)
+        #expect(mutator.removeCalls.first?.address == activeAccount.address)
+        #expect(mutator.removeCalls.first?.activeAddress == activeAccount.address)
+        #expect(mutator.removeCalls.first?.correlationID == "remove-2")
+        #expect(router.effects == [.resetAllRoutes, .selectTab(.home)])
+        #expect(store.state.selection == nil)
+        #expect(store.state.activeAccountID == nil)
+        #expect(store.state.pendingDeepLink == nil)
+        #expect(store.state.pendingCorrelationID == nil)
+        #expect(store.state.hasPresentedAuthenticatedExperience == false)
+        #expect(persistence.savedSelections.isEmpty)
+        #expect(persistence.clearSelectionCallCount == 1)
+    }
+
+    @Test("inactive account removal does not alter the active shell selection")
+    @MainActor
+    func inactiveAccountRemovalDoesNotAlterActiveSelection() async {
+        let activeAccount = makeAccount(
+            address: "0xdddddddddddddddddddddddddddddddddddddddd",
+            currentChain: .ethMainnet
+        )
+        let inactiveAddress = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        let mutator = TestShellAccountMutator(
+            removeResult: .success(
+                AccountRemovalResult(
+                    removedAddress: inactiveAddress,
+                    fallbackAccount: nil
+                )
+            )
+        )
+        let persistence = TestShellSelectionPersistence()
+        let router = TestShellRouterEffectHandler()
+        let store = makeStore(
+            state: ShellState(
+                selection: ActiveShellSelection(address: activeAccount.address, chain: .ethMainnet),
+                activeAccountID: activeAccount.address,
+                hasPresentedAuthenticatedExperience: true,
+                didFinishInitialRestore: true
+            ),
+            selectionPersistence: persistence,
+            accountMutator: mutator,
+            routerEffectHandler: router
+        )
+
+        await store.send(
+            .activeAccountRemovalRequested(
+                address: inactiveAddress,
+                correlationID: "remove-inactive"
+            )
+        )
+
+        #expect(mutator.removeCalls.count == 1)
+        #expect(mutator.removeCalls.first?.address == inactiveAddress)
+        #expect(mutator.removeCalls.first?.activeAddress == activeAccount.address)
+        #expect(mutator.removeCalls.first?.correlationID == "remove-inactive")
+        #expect(router.effects.isEmpty)
+        #expect(store.state.selection == ActiveShellSelection(address: activeAccount.address, chain: .ethMainnet))
+        #expect(store.state.activeAccountID == activeAccount.address)
+        #expect(store.state.hasPresentedAuthenticatedExperience)
+        #expect(persistence.savedSelections.isEmpty)
+        #expect(persistence.clearSelectionCallCount == 0)
+    }
+
     @Test("deep link replay routes immediately when the shell is ready")
     @MainActor
     func deepLinkReplayRoutesWhenReady() async {

@@ -22,7 +22,7 @@ struct AccountSwitcherHostSheet: View {
     let accountStoreFactory: @MainActor (ModelContext) -> any AccountStoring
     let onSelectAccount: @MainActor (String) -> Void
     let onRemoveAccount: @MainActor (String) -> Void
-    let onCurrentChainChange: @MainActor (Chain) -> Void
+    let onCurrentChainChange: @MainActor (Chain, String) async throws -> Void
 
     var body: some View {
         AccountSwitcherSheet(
@@ -38,6 +38,14 @@ struct AccountSwitcherHostSheet: View {
             onRemoveAccount: onRemoveAccount,
             onCurrentChainChange: onCurrentChainChange
         )
+    }
+}
+
+struct AccountSwitcherCurrentChainChangeError: LocalizedError {
+    let message: String
+
+    var errorDescription: String? {
+        message
     }
 }
 
