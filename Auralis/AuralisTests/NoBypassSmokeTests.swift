@@ -98,6 +98,7 @@ struct NoBypassSmokeTests {
     }
 
     @Test("search-owned routing still hands detail destinations back to their owning tabs")
+    @MainActor
     func searchRoutingStillUsesOwnedTabs() {
         let router = AppRouter()
 

@@ -81,6 +81,7 @@ struct ReceiptRoute: Hashable {
     let id: String
 }
 
+@MainActor
 @Observable
 /// Owns top-level tab selection and per-tab navigation state for the app shell.
 final class AppRouter {

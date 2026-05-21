@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-05-21 — The Concierge Moved Behind The Front Desk
+
+`CONC-001` tightened the app router's job description. `AppRouter` was already the concierge for tabs, route stacks, auxiliary surfaces, and route errors, but it was relying on SwiftUI habit to keep everyone calling from the main thread. That is fine until a background callback walks into the lobby and starts rearranging navigation signs.
+
+The fix was to make the contract explicit: `AppRouter` is now `@MainActor @Observable`. Router-focused tests now run on the main actor too, so the test suite documents the same rule the app depends on. The lesson is simple: UI state should not be protected by vibes. If a type owns navigation state, put the velvet rope where the compiler can see it.
+
 ## 2026-05-21 — Public Identifiers Are Not Secrets
 
 The security review got a useful policy correction: in Auralis, Ethereum addresses and NFT IDs are product-visible public identifiers, not secrets wearing trench coats. They are the street addresses and catalog numbers of the wallet world. The app can show them in UI, logs, and receipts when that helps users or auditability.

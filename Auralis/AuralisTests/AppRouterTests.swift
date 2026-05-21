@@ -3,7 +3,9 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Testing
 
-@Suite struct AppRouterTests {
+@Suite
+@MainActor
+struct AppRouterTests {
     @Test("music detail flow keeps the music tab and unwinds one level at a time")
     func musicDetailFlow() {
         let router = AppRouter()

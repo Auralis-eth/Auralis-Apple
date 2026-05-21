@@ -5,6 +5,7 @@ import AuralisShellCore
 import Testing
 
 @Suite
+@MainActor
 struct RootNavigationContractTests {
     @Test("root router exposes receipts and search as first-class shell destinations")
     func rootRouterSupportsReceiptsAndSearchTabs() {
