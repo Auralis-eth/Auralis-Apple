@@ -7,7 +7,7 @@ import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
 
-struct ReadOnlyProviderFactory {
+struct ReadOnlyProviderFactory: Sendable {
     private let chainProviderFactory: ReadOnlyChainProviderFactory
     private let configurationResolver: any ProviderConfigurationResolving
     private let session: URLSession?

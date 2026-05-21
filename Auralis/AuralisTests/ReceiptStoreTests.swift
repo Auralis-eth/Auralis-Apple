@@ -111,7 +111,7 @@ struct ReceiptStoreTests {
             )
         )
 
-        let latest = try store.latest(limit: 2)
+        let latest = try await store.latest(limit: 2)
 
         #expect(latest.map(\.sequenceID) == [third.sequenceID, second.sequenceID])
         #expect(latest.map(\.kind) == ["refresh.finished", "refresh.progress"])
@@ -150,7 +150,7 @@ struct ReceiptStoreTests {
             )
         )
 
-        let correlated = try store.receipts(forCorrelationID: "refresh-1", limit: 1)
+        let correlated = try await store.receipts(forCorrelationID: "refresh-1", limit: 1)
 
         #expect(correlated.count == 1)
         #expect(correlated.first?.sequenceID == matchingNewest.sequenceID)
@@ -179,7 +179,7 @@ struct ReceiptStoreTests {
             )
         )
 
-        let exportedData = try store.exportAll()
+        let exportedData = try await store.exportAll()
         let records = try JSONDecoder().decode([ReceiptRecord].self, from: exportedData)
 
         #expect(records.map(\.sequenceID) == [first.sequenceID, second.sequenceID])
@@ -209,7 +209,7 @@ struct ReceiptStoreTests {
             )
         )
 
-        let exportedData = try store.exportAll()
+        let exportedData = try await store.exportAll()
         let records = try JSONDecoder().decode([ReceiptRecord].self, from: exportedData)
 
         #expect(records.count == 1)
@@ -241,8 +241,8 @@ struct ReceiptStoreTests {
 
         try await store.resetAll()
 
-        #expect(try store.latest(limit: 10).isEmpty)
-        let exportedData = try store.exportAll()
+        #expect(try await store.latest(limit: 10).isEmpty)
+        let exportedData = try await store.exportAll()
         let records = try JSONDecoder().decode([ReceiptRecord].self, from: exportedData)
         #expect(records.isEmpty)
     }

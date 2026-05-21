@@ -291,7 +291,7 @@ public extension ReceiptRecord {
 }
 
 /// Sanitization must happen before persistence so export can use persisted payloads directly.
-public protocol ReceiptPayloadSanitizing {
+public protocol ReceiptPayloadSanitizing: Sendable {
     func sanitize(_ payload: RawReceiptPayload) -> ReceiptPayload
 }
 
@@ -303,14 +303,13 @@ public protocol ReceiptPayloadSanitizing {
 /// - `exportAll` is the only bulk-read path
 /// - `resetAll` is a separate destructive operation, not a convenience delete helper
 /// - stores must not invent correlation IDs
-@MainActor
-public protocol ReceiptStore {
+public protocol ReceiptStore: Sendable {
     func append(_ receipt: ReceiptDraft) async throws -> ReceiptRecord
-    func latest(limit: Int) throws -> [ReceiptRecord]
+    func latest(limit: Int) async throws -> [ReceiptRecord]
     func receipts(
         forCorrelationID correlationID: String,
         limit: Int
-    ) throws -> [ReceiptRecord]
-    func exportAll() throws -> Data
+    ) async throws -> [ReceiptRecord]
+    func exportAll() async throws -> Data
     func resetAll() async throws
 }

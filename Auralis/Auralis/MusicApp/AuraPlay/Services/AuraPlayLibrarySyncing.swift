@@ -5,12 +5,22 @@ import Foundation
 import MusicFeature
 import SwiftData
 
-@MainActor
+protocol AuraPlayMediaItemReplacing: Sendable {
+    func replaceAll(
+        accountAddress: String,
+        chain: Chain,
+        requests: [AuraPlayMediaItemUpsertRequest],
+        syncedAt: Date
+    ) async throws
+}
+
+extension AuraPlayMediaItemService: AuraPlayMediaItemReplacing { }
+
 struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
     private let sourceSnapshotStore: AuraPlaySourceNFTSnapshotStore
     private let accountSyncStateService: AuraPlayAccountSyncStateService
-    private let mediaItemService: AuraPlayMediaItemService
-    private let requestBuilder: AuraPlayLibrarySyncRequestBuilder
+    private let mediaItemService: any AuraPlayMediaItemReplacing
+    private let projectionService: LibraryProjectionService
     private let musicReceiptLogger: MusicReceiptEventLogger
     private let logger: any AuraPlayLogging
 
@@ -19,12 +29,13 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
         auraPlayModelContainer: ModelContainer,
         musicReceiptLogger: MusicReceiptEventLogger,
         logger: any AuraPlayLogging,
+        mediaItemService: (any AuraPlayMediaItemReplacing)? = nil,
         requestBuilder: AuraPlayLibrarySyncRequestBuilder = .init()
     ) {
         self.sourceSnapshotStore = AuraPlaySourceNFTSnapshotStore(modelContainer: sourceModelContext.container)
         self.accountSyncStateService = AuraPlayAccountSyncStateService(modelContainer: sourceModelContext.container)
-        self.mediaItemService = AuraPlayMediaItemService(modelContainer: auraPlayModelContainer)
-        self.requestBuilder = requestBuilder
+        self.mediaItemService = mediaItemService ?? AuraPlayMediaItemService(modelContainer: auraPlayModelContainer)
+        self.projectionService = LibraryProjectionService(requestBuilder: requestBuilder)
         self.musicReceiptLogger = musicReceiptLogger
         self.logger = logger
     }
@@ -48,17 +59,7 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
             accountAddress: normalizedAccountAddress,
             chain: scope.chain
         )
-        try await accountSyncStateService.markSynced(
-            AuraPlayAccountSyncUpdateRequest(
-                address: normalizedAccountAddress,
-                chain: scope.chain,
-                displayName: accountName,
-                syncedAt: syncedAt
-            )
-        )
-        let requestBundle = await requestBuilder.makeRequestBundle(
-            from: sourceSnapshots
-        )
+        let requestBundle = await projectionService.project(sourceSnapshots)
         let affectedMediaIDs = requestBundle.mediaItemRequests.map(\.sourceNFTID).sorted()
 
         try await mediaItemService.replaceAll(
@@ -66,6 +67,14 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
             chain: scope.chain,
             requests: requestBundle.mediaItemRequests,
             syncedAt: syncedAt
+        )
+        try await accountSyncStateService.markSynced(
+            AuraPlayAccountSyncUpdateRequest(
+                address: normalizedAccountAddress,
+                chain: scope.chain,
+                displayName: accountName,
+                syncedAt: syncedAt
+            )
         )
 
         if !affectedMediaIDs.isEmpty {
@@ -126,6 +135,20 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
                 message: "AuraPlay synced \(requestBundle.mediaItemRequests.count) persisted media items for \(normalizedAccountAddress):\(scope.chain.rawValue)"
             )
         )
+    }
+}
+
+private actor LibraryProjectionService {
+    private let requestBuilder: AuraPlayLibrarySyncRequestBuilder
+
+    init(requestBuilder: AuraPlayLibrarySyncRequestBuilder) {
+        self.requestBuilder = requestBuilder
+    }
+
+    func project(
+        _ snapshots: [AuraPlayLibrarySyncRequestBuilder.SourceNFTSnapshot]
+    ) -> AuraPlayLibrarySyncRequestBuilder.RequestBundle {
+        requestBuilder.makeRequestBundle(from: snapshots)
     }
 }
 
@@ -314,20 +337,18 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
 
     func makeRequestBundle(
         from snapshots: [SourceNFTSnapshot]
-    ) async -> RequestBundle {
-        await Task.detached(priority: .userInitiated) {
-            let dedupedSnapshots = Dictionary(snapshots.map { ($0.id, $0) }) { _, latest in
-                latest
-            }
-                .values
-                .sorted { $0.id < $1.id }
+    ) -> RequestBundle {
+        let dedupedSnapshots = Dictionary(snapshots.map { ($0.id, $0) }) { _, latest in
+            latest
+        }
+            .values
+            .sorted { $0.id < $1.id }
 
-            let mediaItemRequests = dedupedSnapshots.map(makeMediaItemRequest(from:))
+        let mediaItemRequests = dedupedSnapshots.map(makeMediaItemRequest(from:))
 
-            return RequestBundle(
-                mediaItemRequests: mediaItemRequests
-            )
-        }.value
+        return RequestBundle(
+            mediaItemRequests: mediaItemRequests
+        )
     }
 
     private func makeMediaItemRequest(

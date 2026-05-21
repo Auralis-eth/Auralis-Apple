@@ -108,6 +108,59 @@ public actor ReceiptPersistenceStore {
         nextSequenceIDCache = nil
     }
 
+    public func latest(limit: Int) throws -> [ReceiptRecord] {
+        guard limit > 0 else {
+            return []
+        }
+
+        var descriptor = FetchDescriptor<StoredReceipt>(
+            sortBy: [
+                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
+                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
+            ]
+        )
+        descriptor.fetchLimit = limit
+
+        return try modelContext.fetch(descriptor).map { $0.asReceiptRecord() }
+    }
+
+    public func receipts(
+        forCorrelationID correlationID: String,
+        limit: Int
+    ) throws -> [ReceiptRecord] {
+        guard limit > 0 else {
+            return []
+        }
+
+        let correlationValue = correlationID
+        var descriptor = FetchDescriptor<StoredReceipt>(
+            predicate: #Predicate<StoredReceipt> { receipt in
+                receipt.correlationID == correlationValue
+            },
+            sortBy: [
+                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
+                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
+            ]
+        )
+        descriptor.fetchLimit = limit
+
+        return try modelContext.fetch(descriptor).map { $0.asReceiptRecord() }
+    }
+
+    public func exportAll() throws -> Data {
+        let descriptor = FetchDescriptor<StoredReceipt>(
+            sortBy: [
+                SortDescriptor(\StoredReceipt.createdAt),
+                SortDescriptor(\StoredReceipt.sequenceID)
+            ]
+        )
+
+        let records = try modelContext.fetch(descriptor).map { $0.asReceiptRecord() }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(records)
+    }
+
     public func restoreHeads(_ heads: [String: String]) async {
         for (accountKey, chainHash) in heads {
             try? await integrityHeadStore.saveHead(chainHash, for: accountKey)
@@ -246,16 +299,13 @@ public actor ReceiptPersistenceStore {
     }
 }
 
-@MainActor
 public final class SwiftDataReceiptStore: ReceiptStore {
-    private let modelContext: ModelContext
     private let persistenceStore: ReceiptPersistenceStore
 
     public init(
         modelContext: ModelContext,
         persistenceStore: ReceiptPersistenceStore
     ) {
-        self.modelContext = modelContext
         self.persistenceStore = persistenceStore
     }
 
@@ -276,57 +326,22 @@ public final class SwiftDataReceiptStore: ReceiptStore {
         try await persistenceStore.append(receipt)
     }
 
-    public func latest(limit: Int) throws -> [ReceiptRecord] {
-        guard limit > 0 else {
-            return []
-        }
-
-        var descriptor = FetchDescriptor<StoredReceipt>(
-            sortBy: [
-                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
-                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
-            ]
-        )
-        descriptor.fetchLimit = limit
-
-        return try modelContext.fetch(descriptor).map { $0.asReceiptRecord() }
+    public func latest(limit: Int) async throws -> [ReceiptRecord] {
+        try await persistenceStore.latest(limit: limit)
     }
 
     public func receipts(
         forCorrelationID correlationID: String,
         limit: Int
-    ) throws -> [ReceiptRecord] {
-        guard limit > 0 else {
-            return []
-        }
-
-        let correlationValue = correlationID
-        var descriptor = FetchDescriptor<StoredReceipt>(
-            predicate: #Predicate<StoredReceipt> { receipt in
-                receipt.correlationID == correlationValue
-            },
-            sortBy: [
-                SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
-                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
-            ]
+    ) async throws -> [ReceiptRecord] {
+        try await persistenceStore.receipts(
+            forCorrelationID: correlationID,
+            limit: limit
         )
-        descriptor.fetchLimit = limit
-
-        return try modelContext.fetch(descriptor).map { $0.asReceiptRecord() }
     }
 
-    public func exportAll() throws -> Data {
-        let descriptor = FetchDescriptor<StoredReceipt>(
-            sortBy: [
-                SortDescriptor(\StoredReceipt.createdAt),
-                SortDescriptor(\StoredReceipt.sequenceID)
-            ]
-        )
-
-        let records = try modelContext.fetch(descriptor).map { $0.asReceiptRecord() }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        return try encoder.encode(records)
+    public func exportAll() async throws -> Data {
+        try await persistenceStore.exportAll()
     }
 
     public func resetAll() async throws {

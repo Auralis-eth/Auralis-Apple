@@ -34,10 +34,14 @@ public struct NFTRefreshScope: Hashable, Sendable {
     }
 }
 
-@MainActor
-public final class NFTRefreshStateComputer {
+/// Synchronous freshness cache shared by the main-actor service and async refresh pipeline.
+///
+/// Safety invariant: every access to `successfulRefreshTimestamps` is guarded by `lock`;
+/// stored keys and values are value types, and callers never receive mutable references.
+public final class NFTRefreshStateComputer: @unchecked Sendable {
     public let refreshTTL: TimeInterval
 
+    private let lock = NSLock()
     private var successfulRefreshTimestamps: [NFTRefreshScope: Date] = [:]
 
     public init(refreshTTL: TimeInterval) {
@@ -55,7 +59,9 @@ public final class NFTRefreshStateComputer {
             return nil
         }
 
-        return successfulRefreshTimestamps[refreshScope]
+        return withLockedTimestamps { timestamps in
+            timestamps[refreshScope]
+        }
     }
 
     public func markRefreshSucceeded(
@@ -70,7 +76,9 @@ public final class NFTRefreshStateComputer {
             return
         }
 
-        successfulRefreshTimestamps[refreshScope] = date
+        withLockedTimestamps { timestamps in
+            timestamps[refreshScope] = date
+        }
     }
 
     public func isFresh(
@@ -101,6 +109,16 @@ public final class NFTRefreshStateComputer {
     }
 
     public func reset() {
-        successfulRefreshTimestamps.removeAll()
+        withLockedTimestamps { timestamps in
+            timestamps.removeAll()
+        }
+    }
+
+    private func withLockedTimestamps<Result>(
+        _ body: (inout [NFTRefreshScope: Date]) -> Result
+    ) -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return body(&successfulRefreshTimestamps)
     }
 }

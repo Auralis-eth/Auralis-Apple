@@ -17,8 +17,7 @@ private struct NFTMetadataPreparationInput: Sendable {
     let rawMetadata: [String: JSONValue]?
 }
 
-@MainActor
-public protocol PrepareNFTMetadataUsing {
+public protocol PrepareNFTMetadataUsing: Sendable {
     func prepareInventory(
         _ fetchedNFTs: [NFTInventoryItemSnapshot],
         accountAddress: String,
@@ -26,8 +25,7 @@ public protocol PrepareNFTMetadataUsing {
     ) async -> PreparedNFTInventory
 }
 
-@MainActor
-public struct LivePrepareNFTMetadataUseCase: PrepareNFTMetadataUsing {
+public struct LivePrepareNFTMetadataUseCase: PrepareNFTMetadataUsing, Sendable {
     public init() { }
 
     public func prepareInventory(
@@ -77,8 +75,13 @@ public struct LivePrepareNFTMetadataUseCase: PrepareNFTMetadataUsing {
             )
         }
 
+        // Base64 metadata decoding can be CPU-heavy; keep it off any inherited actor.
         return await Task.detached(priority: .userInitiated) {
             inputs.map { input in
+                guard !Task.isCancelled else {
+                    return nil
+                }
+
                 let emptyPatch = NFTMetadataUpdater.MetadataPatch()
                 let tokenURIs = Set([input.tokenURI, input.rawTokenURI].compactMap(\.self))
                 let siftedTokenURIs = tokenURIs.siftTokenURIs()

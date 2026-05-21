@@ -15,10 +15,13 @@ struct FetchNFTInventoryUseCaseTests {
     func returnsInventoryAndCompletionState() async throws {
         let nft = makeRefreshFixtureSnapshot()
         let fetcher = FetchUseCaseFetcherStub(
-            result: .success([nft]),
-            total: 1,
-            itemsLoaded: 1,
-            currentCursor: nil
+            result: .success(
+                NFTFetchInventoryResult(
+                    nfts: [nft],
+                    didCompleteFullRefresh: true,
+                    totalCount: 1
+                )
+            )
         )
         let useCase = LiveFetchNFTInventoryUseCase(nftFetcher: fetcher)
 
@@ -38,10 +41,13 @@ struct FetchNFTInventoryUseCaseTests {
     @MainActor
     func detectsPartialRefresh() async throws {
         let fetcher = FetchUseCaseFetcherStub(
-            result: .success([]),
-            total: 10,
-            itemsLoaded: 3,
-            currentCursor: "next-page"
+            result: .success(
+                NFTFetchInventoryResult(
+                    nfts: [],
+                    didCompleteFullRefresh: false,
+                    totalCount: 10
+                )
+            )
         )
         let useCase = LiveFetchNFTInventoryUseCase(nftFetcher: fetcher)
 
@@ -59,12 +65,7 @@ struct FetchNFTInventoryUseCaseTests {
     @MainActor
     func propagatesFailures() async {
         let expectedError = NFTFetcher.FetcherError.networkError(URLError(.notConnectedToInternet))
-        let fetcher = FetchUseCaseFetcherStub(
-            result: .failure(expectedError),
-            total: 0,
-            itemsLoaded: 0,
-            currentCursor: nil
-        )
+        let fetcher = FetchUseCaseFetcherStub(result: .failure(expectedError))
         let useCase = LiveFetchNFTInventoryUseCase(nftFetcher: fetcher)
 
         await #expect(throws: Error.self) {
@@ -78,42 +79,20 @@ struct FetchNFTInventoryUseCaseTests {
     }
 }
 
-@MainActor
 private final class FetchUseCaseFetcherStub: NFTFetching {
-    var total: Int?
-    var itemsLoaded: Int?
-    var loading = false
-    var error: Error?
-    var currentCursor: String?
+    private let result: Result<NFTFetchInventoryResult, Error>
 
-    private let result: Result<[NFTInventoryItemSnapshot], Error>
-
-    init(
-        result: Result<[NFTInventoryItemSnapshot], Error>,
-        total: Int?,
-        itemsLoaded: Int?,
-        currentCursor: String?
-    ) {
+    init(result: Result<NFTFetchInventoryResult, Error>) {
         self.result = result
-        self.total = total
-        self.itemsLoaded = itemsLoaded
-        self.currentCursor = currentCursor
     }
 
     func fetchAllNFTs(
         for account: String,
         chain: Chain,
         correlationID: String?,
-        eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFTInventoryItemSnapshot] {
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
+    ) async throws -> NFTFetchInventoryResult {
         try result.get()
-    }
-
-    func reset() {
-        total = nil
-        itemsLoaded = nil
-        loading = false
-        error = nil
-        currentCursor = nil
     }
 }

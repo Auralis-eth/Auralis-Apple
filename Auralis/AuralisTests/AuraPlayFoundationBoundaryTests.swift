@@ -211,16 +211,14 @@ private final class MockAuraPlayQueueCoordinator: AuraPlayQueueCoordinating {
     }
 }
 
-@MainActor
-private final class MockAuraPlayArtworkLoader: AuraPlayArtworkLoading {
+private final class MockAuraPlayArtworkLoader: AuraPlayArtworkLoading, @unchecked Sendable {
     func artworkURL(for track: AuraPlayTrack?) throws -> URL? {
         _ = try #require(track?.imageURLString)
         return URL(string: track?.imageURLString ?? "")
     }
 }
 
-@MainActor
-private final class MockAuraPlayLogger: AuraPlayLogging {
+private final class MockAuraPlayLogger: AuraPlayLogging, @unchecked Sendable {
     private(set) var events: [AuraPlayLogEvent] = []
 
     func log(_ event: AuraPlayLogEvent) {

@@ -31,6 +31,7 @@ The shell flow is:
 - Prefer parameterized tests over many near-duplicate individual tests.
 - XCUI tests still use XCTest/XCUIAutomation because that is the platform tool.
 - Keep route logic centralized in the shell/router rather than scattering ad hoc navigation state across views.
+- Treat NFT IDs and Ethereum wallet addresses as public identifiers in this product. They may be shown in UI, logs, and receipts when useful; do not flag their mere presence as a privacy issue. Secrets, API keys, auth tokens, cookies, private keys, seed material, copied sensitive text, and provider internals still require redaction or hashing.
 
 ## Build And Run
 

@@ -32,7 +32,7 @@ struct PersistNFTInventoryUseCaseTests {
             inventory,
             accountAddress: account.address,
             chain: .ethMainnet,
-            modelContext: context
+            modelContainer: container
         )
 
         let persistedNFTs = try context.fetch(FetchDescriptor<NFT>())
@@ -69,7 +69,7 @@ struct PersistNFTInventoryUseCaseTests {
             inventory,
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet,
-            modelContext: context
+            modelContainer: container
         )
 
         let persisted = try #require(
@@ -111,13 +111,13 @@ struct PersistNFTInventoryUseCaseTests {
             inventory,
             accountAddress: account.address,
             chain: .ethMainnet,
-            modelContext: context
+            modelContainer: container
         )
         try await useCase.cleanupStaleInventory(
             currentNFTIDs: inventory.nfts.map(\.id),
             accountAddress: account.address,
             chain: .ethMainnet,
-            modelContext: context
+            modelContainer: container
         )
 
         let persistedNFTs = try context.fetch(FetchDescriptor<NFT>())

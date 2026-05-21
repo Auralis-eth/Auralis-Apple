@@ -27,13 +27,11 @@ public struct AuraPlayLogEvent: Equatable, Sendable {
     }
 }
 
-@MainActor
-public protocol AuraPlayLogging {
+public protocol AuraPlayLogging: Sendable {
     func log(_ event: AuraPlayLogEvent)
 }
 
-@MainActor
-public struct LiveAuraPlayLogger: AuraPlayLogging {
+public struct LiveAuraPlayLogger: AuraPlayLogging, Sendable {
     private let subsystem = "Auralis"
 
     public init() {}

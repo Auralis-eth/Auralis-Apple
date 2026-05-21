@@ -159,12 +159,49 @@ struct AuraPlayPersistenceWave2Tests {
             ),
         ]
 
-        let bundle = await requestBuilder.makeRequestBundle(
+        let bundle = requestBuilder.makeRequestBundle(
             from: snapshots
         )
 
         #expect(bundle.mediaItemRequests.count == 2)
         #expect(bundle.mediaItemRequests.map(\.sourceNFTID) == ["track-1", "track-2"])
+    }
+
+    @Test("library sync does not mark account synced when media persistence fails")
+    func librarySyncDoesNotMarkAccountSyncedWhenMediaWriteFails() async throws {
+        let auraPlayContainer = try AuraPlayModelContainer.make(inMemory: true)
+        let primaryContainer = try TestModelContainers.primary()
+        let primaryContext = ModelContext(primaryContainer)
+        let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
+
+        primaryContext.insert(
+            makeAuraPlaySyncFixtureNFT(
+                tokenId: "failed-sync-track",
+                accountAddress: accountAddress
+            )
+        )
+        try primaryContext.save()
+
+        let service = LiveAuraPlayLibrarySyncService(
+            sourceModelContext: primaryContext,
+            auraPlayModelContainer: auraPlayContainer,
+            musicReceiptLogger: MusicReceiptEventLogger(receiptStore: UnusedReceiptStore()),
+            logger: LiveAuraPlayLogger(),
+            mediaItemService: FailingAuraPlayMediaItemWriter()
+        )
+
+        await #expect(throws: FailingAuraPlayMediaItemWriter.WriteError.self) {
+            try await service.syncLibrary(
+                in: AuraPlayLibraryScope(
+                    accountAddress: accountAddress,
+                    chain: .ethMainnet
+                ),
+                accountName: "Aura Wallet"
+            )
+        }
+
+        let accounts = try primaryContext.fetch(FetchDescriptor<EOAccount>())
+        #expect(accounts.isEmpty)
     }
 
     @Test("AuraPlay reset clears the live container and leaves it reusable in the same launch")
@@ -244,6 +281,57 @@ struct AuraPlayPersistenceWave2Tests {
     }
 }
 
+private actor FailingAuraPlayMediaItemWriter: AuraPlayMediaItemReplacing {
+    enum WriteError: Error, Equatable {
+        case failed
+    }
+
+    func replaceAll(
+        accountAddress: String,
+        chain: Chain,
+        requests: [AuraPlayMediaItemUpsertRequest],
+        syncedAt: Date
+    ) async throws {
+        throw WriteError.failed
+    }
+}
+
+private func makeAuraPlaySyncFixtureNFT(
+    contractAddress: String = "0x495f947276749ce646f68ac8c248420045cb7b5e",
+    tokenId: String,
+    title: String = "Sync Track",
+    artistName: String? = "Aura",
+    network: Chain = .ethMainnet,
+    accountAddress: String,
+    audioURL: String = "https://example.com/sync-track.mp3"
+) -> NFT {
+    let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? "unscoped"
+    let normalizedContractAddress = NFT.normalizedScopeComponent(contractAddress) ?? "unknown"
+
+    return NFT(
+        id: "\(normalizedAccountAddress):\(network.rawValue):\(normalizedContractAddress):\(tokenId)",
+        contract: NFT.Contract(address: contractAddress, chain: network),
+        tokenId: tokenId,
+        name: title,
+        image: nil,
+        raw: nil,
+        collection: NFT.Collection(
+            name: "Fixture Collection",
+            chain: network,
+            contractAddress: contractAddress
+        ),
+        tokenUri: "ipfs://fixture-\(tokenId)",
+        timeLastUpdated: "2025-01-01T00:00:00Z",
+        network: network,
+        accountAddress: accountAddress,
+        contentType: "audio/mpeg",
+        collectionName: "Fixture Collection",
+        artistName: artistName,
+        animationUrl: audioURL,
+        audioUrl: audioURL
+    )
+}
+
 @MainActor
 private final class MockMusicLibraryIndexer: MusicLibraryIndexing {
     func itemCount(accountAddress: String?, chain: Chain) throws -> Int {
@@ -270,18 +358,18 @@ private final class UnusedReceiptStore: ReceiptStore {
         fatalError("Unused in AuraPlayPersistenceWave2Tests")
     }
 
-    func latest(limit: Int) throws -> [ReceiptRecord] {
+    func latest(limit: Int) async throws -> [ReceiptRecord] {
         []
     }
 
     func receipts(
         forCorrelationID correlationID: String,
         limit: Int
-    ) throws -> [ReceiptRecord] {
+    ) async throws -> [ReceiptRecord] {
         []
     }
 
-    func exportAll() throws -> Data {
+    func exportAll() async throws -> Data {
         Data()
     }
 

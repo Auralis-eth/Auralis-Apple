@@ -46,7 +46,7 @@ struct NFTServiceReceiptTests {
             correlationID: correlationID
         )
 
-        let receipts = try receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
+        let receipts = try await receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
 
         #expect(fetcher.receivedCorrelationIDs == [correlationID])
         #expect(receipts.map { $0.kind } == [
@@ -104,7 +104,7 @@ struct NFTServiceReceiptTests {
         )
         #expect(service.error != nil)
         #expect(service.providerFailure?.kind == .offline)
-        let failureReceipts = try receiptStore.receipts(forCorrelationID: "failure-pass", limit: 10)
+        let failureReceipts = try await receiptStore.receipts(forCorrelationID: "failure-pass", limit: 10)
         #expect(failureReceipts.contains(where: { $0.kind == "nft.fetch.failed" }))
         let fetchFailure = try #require(failureReceipts.first(where: { $0.kind == "nft.fetch.failed" }))
         #expect(fetchFailure.details.values["errorKind"] == ReceiptJSONValue.string("<redacted-label>"))
@@ -443,11 +443,20 @@ struct NFTServiceReceiptTests {
 
     @Test("provider failure presentation switches between blocking and degraded modes based on cached-content visibility")
     @MainActor
-    func providerFailurePresentationRespectsCachedContentMode() {
+    func providerFailurePresentationRespectsCachedContentMode() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
         let service = NFTService(
             nftFetcher: FailingStateNFTFetcher(
                 error: NFTFetcher.FetcherError.networkError(URLError(.notConnectedToInternet))
             )
+        )
+
+        await service.fetchAllNFTs(
+            for: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet,
+            modelContext: context,
+            correlationID: "provider-presentation-failure"
         )
 
         let blocking = service.providerFailurePresentation(isShowingCachedContent: false)
@@ -476,8 +485,7 @@ struct NFTServiceReceiptTests {
             correlationID: "terminal-error-reset"
         )
 
-        #expect(fetcher.total == nil)
-        #expect(fetcher.error != nil)
+        #expect(service.itemsLoaded == nil)
         #expect(service.error != nil)
         #expect(service.providerFailure?.kind == .offline)
     }
@@ -536,7 +544,7 @@ struct NFTServiceReceiptTests {
             receiptEventLogger: logger
         )
 
-        let receipts = try receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
+        let receipts = try await receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
 
         #expect(receipts.contains(where: { $0.kind == "nft.refresh.started" }))
         #expect(receipts.contains(where: { $0.kind == "nft.fetch.succeeded" }))
@@ -546,7 +554,7 @@ struct NFTServiceReceiptTests {
     }
 }
 
-private final class StubNFTFetcher: NFTFetching {
+private final class StubNFTFetcher: NFTFetching, @unchecked Sendable {
     var total: Int? = 0
     var itemsLoaded: Int? = 0
     var loading = false
@@ -558,8 +566,9 @@ private final class StubNFTFetcher: NFTFetching {
         for account: String,
         chain: Chain,
         correlationID: String?,
-        eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFTInventoryItemSnapshot] {
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
+    ) async throws -> NFTFetchInventoryResult {
         receivedCorrelationIDs.append(correlationID)
 
         if let correlationID {
@@ -572,7 +581,7 @@ private final class StubNFTFetcher: NFTFetching {
             )
         }
 
-        return []
+        return NFTFetchInventoryResult(nfts: [], didCompleteFullRefresh: true, totalCount: 0)
     }
 
     func reset() {
@@ -584,7 +593,7 @@ private final class StubNFTFetcher: NFTFetching {
     }
 }
 
-private final class FlakyNFTFetcher: NFTFetching {
+private final class FlakyNFTFetcher: NFTFetching, @unchecked Sendable {
     var total: Int? = 0
     var itemsLoaded: Int? = 0
     var loading = false
@@ -596,8 +605,9 @@ private final class FlakyNFTFetcher: NFTFetching {
         for account: String,
         chain: Chain,
         correlationID: String?,
-        eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFTInventoryItemSnapshot] {
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
+    ) async throws -> NFTFetchInventoryResult {
         fetchCallCount += 1
 
         if fetchCallCount == 1 {
@@ -610,7 +620,7 @@ private final class FlakyNFTFetcher: NFTFetching {
                     totalCount: 0
                 )
             }
-            return []
+            return NFTFetchInventoryResult(nfts: [], didCompleteFullRefresh: true, totalCount: 0)
         }
 
         let error = NFTFetcher.FetcherError.networkError(URLError(.notConnectedToInternet))
@@ -635,7 +645,7 @@ private final class FlakyNFTFetcher: NFTFetching {
     }
 }
 
-private final class NFTFixtureFetcher: NFTFetching {
+private final class NFTFixtureFetcher: NFTFetching, @unchecked Sendable {
     var total: Int? = 0
     var itemsLoaded: Int? = 0
     var loading = false
@@ -651,13 +661,18 @@ private final class NFTFixtureFetcher: NFTFetching {
         for account: String,
         chain: Chain,
         correlationID: String?,
-        eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFTInventoryItemSnapshot] {
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
+    ) async throws -> NFTFetchInventoryResult {
         let nfts = nftsByChain[chain] ?? []
         itemsLoaded = nfts.count
         total = nfts.count
         currentCursor = nil
-        return nfts
+        return NFTFetchInventoryResult(
+            nfts: nfts,
+            didCompleteFullRefresh: true,
+            totalCount: nfts.count
+        )
     }
 
     func reset() {
@@ -675,7 +690,7 @@ private struct StubNativeBalanceProvider: NativeBalanceProviding {
     }
 }
 
-private final class SlowStubNFTFetcher: NFTFetching {
+private final class SlowStubNFTFetcher: NFTFetching, @unchecked Sendable {
     var total: Int? = 0
     var itemsLoaded: Int? = 0
     var loading = false
@@ -687,8 +702,9 @@ private final class SlowStubNFTFetcher: NFTFetching {
         for account: String,
         chain: Chain,
         correlationID: String?,
-        eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFTInventoryItemSnapshot] {
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
+    ) async throws -> NFTFetchInventoryResult {
         fetchCallCount += 1
 
         if let correlationID {
@@ -702,7 +718,7 @@ private final class SlowStubNFTFetcher: NFTFetching {
         }
 
         try await Task.sleep(for: .milliseconds(50))
-        return []
+        return NFTFetchInventoryResult(nfts: [], didCompleteFullRefresh: true, totalCount: 0)
     }
 
     func reset() {
@@ -714,7 +730,7 @@ private final class SlowStubNFTFetcher: NFTFetching {
     }
 }
 
-private final class GateControlledNFTFetcher: NFTFetching {
+private final class GateControlledNFTFetcher: NFTFetching, @unchecked Sendable {
     var total: Int? = 0
     var itemsLoaded: Int? = 0
     var loading = false
@@ -729,8 +745,9 @@ private final class GateControlledNFTFetcher: NFTFetching {
         for account: String,
         chain: Chain,
         correlationID: String?,
-        eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFTInventoryItemSnapshot] {
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
+    ) async throws -> NFTFetchInventoryResult {
         itemsLoaded = 0
         total = 0
         didStartFetch = true
@@ -741,7 +758,7 @@ private final class GateControlledNFTFetcher: NFTFetching {
             resumeContinuation = continuation
         }
 
-        return []
+        return NFTFetchInventoryResult(nfts: [], didCompleteFullRefresh: true, totalCount: 0)
     }
 
     func waitUntilFetchStarts() async {
@@ -768,7 +785,7 @@ private final class GateControlledNFTFetcher: NFTFetching {
     }
 }
 
-private final class FailingStateNFTFetcher: NFTFetching {
+private final class FailingStateNFTFetcher: NFTFetching, @unchecked Sendable {
     var total: Int? = 0
     var itemsLoaded: Int? = 0
     var loading = false
@@ -783,8 +800,9 @@ private final class FailingStateNFTFetcher: NFTFetching {
         for account: String,
         chain: Chain,
         correlationID: String?,
-        eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFTInventoryItemSnapshot] {
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
+    ) async throws -> NFTFetchInventoryResult {
         throw error ?? NFTFetcher.FetcherError.networkError(URLError(.unknown))
     }
 

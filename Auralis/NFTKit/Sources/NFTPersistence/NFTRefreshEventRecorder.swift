@@ -4,8 +4,7 @@ import NFTDomain
 import OSLog
 import ReceiptsCore
 
-@MainActor
-public final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording {
+public final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording, Sendable {
     private let receiptStore: any ReceiptStore
     private let payloadSanitizer: any ReceiptPayloadSanitizing
     private let logger = Logger(subsystem: "Auralis", category: "NFTRefreshReceipts")
@@ -125,7 +124,6 @@ public final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecordin
 }
 
 
-@MainActor
 private extension ReceiptBackedNFTRefreshEventRecorder {
     func append(
         kind: String,

@@ -142,7 +142,7 @@ struct MusicLibraryIndexTests {
             receiptEventLogger: receiptLogger
         )
 
-        let receipts = try receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
+        let receipts = try await receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
 
         #expect(receipts.map { $0.kind } == [
             "music.library_index.completed",

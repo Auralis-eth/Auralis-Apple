@@ -63,7 +63,7 @@ struct ENSEventRecorderTests {
             error: StubError.rpcFailure
         )
 
-        let receipts = try store.receipts(forCorrelationID: "ens-flow", limit: 10)
+        let receipts = try await store.receipts(forCorrelationID: "ens-flow", limit: 10)
 
         #expect(receipts.map { $0.trigger } == [
             "ens.forward.failed",

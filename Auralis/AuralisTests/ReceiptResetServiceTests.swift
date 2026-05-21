@@ -52,8 +52,8 @@ struct ReceiptResetServiceTests {
 
         try await resetService.resetReceipts()
 
-        #expect(try store.latest(limit: 20).isEmpty)
-        let exportedData = try store.exportAll()
+        #expect(try await store.latest(limit: 20).isEmpty)
+        let exportedData = try await store.exportAll()
         let exportedReceipts = try JSONDecoder().decode([ReceiptRecord].self, from: exportedData)
         #expect(exportedReceipts.isEmpty)
     }
@@ -84,6 +84,6 @@ struct ReceiptResetServiceTests {
         )
 
         #expect(newReceipt.sequenceID == 1)
-        #expect(try store.latest(limit: 10).map(\.kind) == ["account.selected"])
+        #expect(try await store.latest(limit: 10).map(\.kind) == ["account.selected"])
     }
 }

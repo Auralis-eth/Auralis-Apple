@@ -39,6 +39,7 @@ struct NFTServiceTests {
             "fetch",
             "prepare",
             "persist",
+            "cleanup",
             "persistence.completed"
         ])
         #expect(
@@ -46,6 +47,47 @@ struct NFTServiceTests {
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .ethMainnet
             ) != nil
+        )
+    }
+
+    @Test("partial refresh persists without cleanup or freshness update")
+    @MainActor
+    func partialRefreshDoesNotCleanupOrMarkFresh() async throws {
+        let container = try makeNFTRefreshContainer()
+        let context = ModelContext(container)
+        let trace = ServiceTrace()
+        let fetcher = ServiceFetcherStub()
+        let recorder = ServiceEventRecorder(trace: trace)
+        let service = NFTService(
+            nftFetcher: fetcher,
+            fetchInventoryUseCase: ServiceFetchUseCase(
+                trace: trace,
+                didCompleteFullRefresh: false
+            ),
+            prepareMetadataUseCase: ServicePrepareUseCase(trace: trace),
+            persistInventoryUseCase: ServicePersistUseCase(trace: trace),
+            eventRecorderFactory: { _ in recorder }
+        )
+
+        await service.fetchAllNFTs(
+            for: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet,
+            modelContext: context,
+            correlationID: "service-partial"
+        )
+
+        #expect(trace.events == [
+            "refresh.started",
+            "fetch",
+            "prepare",
+            "persist",
+            "persistence.completed"
+        ])
+        #expect(
+            service.lastSuccessfulRefreshAt(
+                for: "0x1234567890abcdef1234567890abcdef12345678",
+                chain: .ethMainnet
+            ) == nil
         )
     }
 
@@ -126,6 +168,51 @@ struct NFTServiceTests {
         #expect(fetchUseCase.cancellationCount == 1)
     }
 
+    @Test("scope changes do not persist inventory prepared by a cancelled refresh")
+    @MainActor
+    func cancelledRefreshDoesNotPersistPreparedInventory() async throws {
+        let container = try makeNFTRefreshContainer()
+        let context = ModelContext(container)
+        let fetcher = ServiceFetcherStub()
+        let prepareUseCase = CancellablePrepareUseCase()
+        let persistUseCase = RecordingPersistUseCase()
+        let service = NFTService(
+            nftFetcher: fetcher,
+            fetchInventoryUseCase: ScopeSnapshotFetchUseCase(),
+            prepareMetadataUseCase: prepareUseCase,
+            persistInventoryUseCase: persistUseCase,
+            eventRecorderFactory: { _ in NoOpNFTRefreshEventRecorder() }
+        )
+
+        let firstAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
+        let secondAccount = EOAccount(address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
+
+        let first = Task { @MainActor in
+            await service.refreshNFTs(
+                for: firstAccount,
+                chain: .ethMainnet,
+                modelContext: context,
+                correlationID: "cancel-during-prepare-1"
+            )
+        }
+
+        while prepareUseCase.startedScopes.isEmpty {
+            await Task.yield()
+        }
+
+        await service.refreshNFTs(
+            for: secondAccount,
+            chain: .ethMainnet,
+            modelContext: context,
+            correlationID: "cancel-during-prepare-2"
+        )
+        await first.value
+
+        #expect(prepareUseCase.startedScopes == [firstAccount.address, secondAccount.address])
+        #expect(prepareUseCase.cancellationCount == 1)
+        #expect(persistUseCase.persistedScopes == [secondAccount.address])
+    }
+
     @Test("records persistence failure events and preserves the terminal error")
     @MainActor
     func recordsPersistenceFailurePath() async throws {
@@ -197,42 +284,52 @@ private final class ServiceEventRecorder: NFTRefreshEventRecording {
 
 @MainActor
 private final class ServiceFetcherStub: NFTFetching {
-    var total: Int?
-    var itemsLoaded: Int?
-    var loading = false
-    var error: Error?
-    var currentCursor: String?
-
     func fetchAllNFTs(
         for account: String,
         chain: Chain,
         correlationID: String?,
-        eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFTInventoryItemSnapshot] {
-        []
-    }
-
-    func reset() {
-        total = nil
-        itemsLoaded = nil
-        loading = false
-        currentCursor = nil
-        error = nil
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
+    ) async throws -> NFTFetchInventoryResult {
+        NFTFetchInventoryResult(nfts: [], didCompleteFullRefresh: true, totalCount: 0)
     }
 }
 
 @MainActor
 private struct ServiceFetchUseCase: FetchNFTInventoryUsing {
     let trace: ServiceTrace
+    let didCompleteFullRefresh: Bool
+
+    init(trace: ServiceTrace, didCompleteFullRefresh: Bool = true) {
+        self.trace = trace
+        self.didCompleteFullRefresh = didCompleteFullRefresh
+    }
 
     func fetchInventory(
         for accountAddress: String,
         chain: Chain,
         correlationID: String,
-        eventRecorder: any NFTRefreshEventRecording
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
     ) async throws -> FetchedNFTInventory {
         trace.events.append("fetch")
         return FetchedNFTInventory(
+            nfts: [makeRefreshFixtureSnapshot(accountAddress: accountAddress)],
+            didCompleteFullRefresh: didCompleteFullRefresh
+        )
+    }
+}
+
+@MainActor
+private struct ScopeSnapshotFetchUseCase: FetchNFTInventoryUsing {
+    func fetchInventory(
+        for accountAddress: String,
+        chain: Chain,
+        correlationID: String,
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
+    ) async throws -> FetchedNFTInventory {
+        FetchedNFTInventory(
             nfts: [makeRefreshFixtureSnapshot(accountAddress: accountAddress)],
             didCompleteFullRefresh: false
         )
@@ -254,6 +351,29 @@ private struct ServicePrepareUseCase: PrepareNFTMetadataUsing {
 }
 
 @MainActor
+private final class CancellablePrepareUseCase: PrepareNFTMetadataUsing {
+    private(set) var startedScopes: [String] = []
+    private(set) var cancellationCount = 0
+
+    func prepareInventory(
+        _ fetchedNFTs: [NFTInventoryItemSnapshot],
+        accountAddress: String,
+        chain: Chain
+    ) async -> PreparedNFTInventory {
+        startedScopes.append(accountAddress)
+        do {
+            if startedScopes.count == 1 {
+                try await Task.sleep(for: .seconds(5))
+            }
+        } catch is CancellationError {
+            cancellationCount += 1
+        } catch { }
+
+        return PreparedNFTInventory(nfts: fetchedNFTs)
+    }
+}
+
+@MainActor
 private struct ServicePersistUseCase: PersistNFTInventoryUsing {
     let trace: ServiceTrace
 
@@ -261,7 +381,7 @@ private struct ServicePersistUseCase: PersistNFTInventoryUsing {
         _ inventory: PreparedNFTInventory,
         accountAddress: String,
         chain: Chain,
-        modelContext: ModelContext
+        modelContainer: ModelContainer
     ) async throws {
         trace.events.append("persist")
     }
@@ -270,7 +390,30 @@ private struct ServicePersistUseCase: PersistNFTInventoryUsing {
         currentNFTIDs: [String],
         accountAddress: String,
         chain: Chain,
-        modelContext: ModelContext
+        modelContainer: ModelContainer
+    ) async throws {
+        trace.events.append("cleanup")
+    }
+}
+
+@MainActor
+private final class RecordingPersistUseCase: PersistNFTInventoryUsing {
+    private(set) var persistedScopes: [String] = []
+
+    func persist(
+        _ inventory: PreparedNFTInventory,
+        accountAddress: String,
+        chain: Chain,
+        modelContainer: ModelContainer
+    ) async throws {
+        persistedScopes.append(accountAddress)
+    }
+
+    func cleanupStaleInventory(
+        currentNFTIDs: [String],
+        accountAddress: String,
+        chain: Chain,
+        modelContainer: ModelContainer
     ) async throws { }
 }
 
@@ -283,7 +426,7 @@ private struct FailingPersistUseCase: PersistNFTInventoryUsing {
         _ inventory: PreparedNFTInventory,
         accountAddress: String,
         chain: Chain,
-        modelContext: ModelContext
+        modelContainer: ModelContainer
     ) async throws {
         trace.events.append("persist.failed")
         throw error
@@ -293,7 +436,7 @@ private struct FailingPersistUseCase: PersistNFTInventoryUsing {
         currentNFTIDs: [String],
         accountAddress: String,
         chain: Chain,
-        modelContext: ModelContext
+        modelContainer: ModelContainer
     ) async throws { }
 }
 
@@ -305,7 +448,8 @@ private final class SlowSameScopeFetchUseCase: FetchNFTInventoryUsing {
         for accountAddress: String,
         chain: Chain,
         correlationID: String,
-        eventRecorder: any NFTRefreshEventRecording
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
     ) async throws -> FetchedNFTInventory {
         callCount += 1
         try await Task.sleep(for: .milliseconds(50))
@@ -322,7 +466,8 @@ private final class CancellableScopeFetchUseCase: FetchNFTInventoryUsing {
         for accountAddress: String,
         chain: Chain,
         correlationID: String,
-        eventRecorder: any NFTRefreshEventRecording
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
     ) async throws -> FetchedNFTInventory {
         startedScopes.append(accountAddress)
         do {

@@ -1,5 +1,33 @@
 # Journal
 
+## 2026-05-21 — Public Identifiers Are Not Secrets
+
+The security review got a useful policy correction: in Auralis, Ethereum addresses and NFT IDs are product-visible public identifiers, not secrets wearing trench coats. They are the street addresses and catalog numbers of the wallet world. The app can show them in UI, logs, and receipts when that helps users or auditability.
+
+That does not make the receipt sanitizer decorative. API keys, auth tokens, private keys, seed material, cookies, copied sensitive text, provider internals, and freeform error sludge still belong behind redaction or hashing. The lesson is classification beats reflex: public chain identifiers should stay useful, while actual secrets stay out of durable records and public logs.
+
+## 2026-05-20 — AuraPlay Learned Not To Stamp The Passport Early
+
+`CONC-002` had one last practical bug hiding behind the actor cleanup: AuraPlay marked an account as synced before the projected media rows were actually written. That is like stamping a guest's passport while their luggage is still sitting on the sidewalk. If the media write failed, the app could later believe the wallet's music library was fresh when the projection never landed.
+
+The fix was to move the sync stamp after `replaceAll` succeeds and add a regression test with a deliberately failing media writer. Now a failed projection leaves the account unsynced, which is the honest state. The concurrency lesson is that actor boundaries protect data races, but they do not automatically protect workflow truth; ordering still matters.
+
+## 2026-05-20 — Receipt Logging Left The Front Desk Too
+
+The last `CONC-002` wrinkle was not in NFT fetching or music projection; it was the receipt ledger. `MusicReceiptEventLogger` had escaped the main actor only by wearing an `@unchecked Sendable` sticker, while the `ReceiptStore` protocol still required every caller to visit the front desk. That built, but it was not the clean shipping story we wanted.
+
+The fix was to put the ledger where it already wanted to live: behind `ReceiptPersistenceStore`, a SwiftData `@ModelActor`. `ReceiptStore` is now a `Sendable` async contract, `SwiftDataReceiptStore` is a small sendable facade over the model actor, and reads/exports use `await` just like writes and resets. The music logger no longer needs a fake passport because all of its stored collaborators are honestly sendable.
+
+The lesson is sharp: `@unchecked Sendable` is a fire exit, not a lobby. It can help during migration, but ship-ready architecture needs a named owner for mutable state. In this case the owner was already there; the public API just had to stop pretending persistence reads were synchronous UI work.
+
+## 2026-05-19 — CONC-002 Moved Data Work Off The Front Desk
+
+`CONC-002` is closed. The broad `@MainActor` net came off the NFT and AuraPlay service seams that were doing fetch, projection, metadata, persistence, and receipt coordination work. The front desk still stays on the main actor where it belongs: `NFTService` owns observable UI loading state, progress, errors, and refresh phases. The warehouse work no longer has to stand in that same line.
+
+The shape is now explicit. `NFTFetcher` is an actor. AuraPlay library projection has its own actor, and SwiftData reads/writes go through `@ModelActor` stores. Metadata preparation and persistence use cases are `Sendable` service contracts. The tiny refresh timestamp cache became a lock-protected `Sendable` class because the shell needs synchronous freshness reads today; that is a small locked drawer, not a reason to drag the whole refresh pipeline back onto the UI actor.
+
+The gotcha was the receipt recorder. Its backing `ReceiptStore` is still `@MainActor`, so making the recorder itself an actor caused a cross-actor send warning. The practical fix was an immutable `@unchecked Sendable` recorder that funnels actual mutation through the existing receipt-store boundary. Lesson: removing `@MainActor` is not a game of annotation whack-a-mole. Every shared thing still needs a real owner.
+
 ## 2026-05-19 — NFTKit Stopped Mailing Provider Errors Through The Warehouse
 
 The final `ARCH-002` gap was not the manifest diagram. It was a tiny type living in the wrong room. `NFTPersistence` imported `NFTProviderAdapters` only so receipt logging could translate a fetch error into safe public fields. That is like making the warehouse call the delivery driver every time it needs to write a shipping label: convenient, but the dependency points the wrong way.
@@ -1845,3 +1873,21 @@ The ERC-20 holdings cleanup moved provider fetching and SwiftData persistence ou
 The fix was to keep one syncer alive for the ERC-20 root view's lifetime while still leaving the provider and persistence work out of the view. Now overlapping syncs share coordinator state again, so a slow old response is dropped before persistence. We also separated native balance persistence from ERC-20 token support: Solana, Ethereum, and future chains can all have a native balance, even when their token standards differ. Native balance is the wallet's cash drawer; ERC-20 rows are just one kind of shelf next to it.
 
 The lesson: dependency injection is not only about what object you pass, but how long that object lives. If a collaborator protects ordering, cancellation, deduping, or stale-result suppression, its lifetime is part of the correctness contract.
+
+## CONC-002: The Main Actor Is Not A Loading Dock
+
+The CONC-002 cleanup pulled two service paths off the UI actor: NFT fetching and AuraPlay library sync. Both had been wearing `@MainActor` like a high-vis vest because some caller nearby cared about UI state. That made the main actor a loading dock for pagination, retries, deduping, projection, and SwiftData sync work. It worked, but it meant the checkout line and the warehouse forklift were sharing one lane.
+
+NFT fetching now reports progress as explicit `Sendable` values instead of exposing mutable fetcher properties for `NFTService` to read. `NFTFetcher` became an actor, owns its own loading/retry/pagination state, and returns an `NFTFetchInventoryResult` that says whether cleanup is safe. `NFTService` stays `@MainActor` because it is observable UI state; the fetcher does not.
+
+AuraPlay got the same boundary treatment. The public sync protocol is no longer main-actor isolated, the live sync service can coordinate its `@ModelActor` stores off-main, and pure request projection moved behind a tiny `LibraryProjectionService` actor instead of using a detached task. Detached tasks are useful tools, but for this case an actor is a better kitchen station: named, injectable, and easier to reason about.
+
+The lesson: `@MainActor` should describe UI ownership, not general convenience. When a service needs to report progress to a view, send progress across the boundary; do not move the whole warehouse onto the main actor just because the display board lives there.
+
+## NFT Refresh Freshness: Half A Delivery Is Not A Stocked Shelf
+
+The async NFT refresh refactor taught the fetcher to say whether it really completed the full provider walk. That was the right new receipt, but `NFTService` was still treating every persisted batch as a successful full refresh. A partial delivery could update the freshness timestamp, which made the UI think the collection shelf had just been restocked even if the provider only handed us one crate and left the rest on the truck.
+
+The fix was to separate "we persisted what we got" from "the refresh is fresh." Partial refreshes can still persist useful data, but they no longer run stale cleanup and no longer update `lastSuccessfulRefreshAt`. Cleanup also now appears after persistence in the service phase order, not before it, so the progress state tells the truth about what work is actually happening.
+
+The lesson: progress flags are contracts, not decoration. If a lower layer tells you the inventory is partial, the cache freshness layer has to believe it.

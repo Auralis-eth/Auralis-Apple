@@ -36,10 +36,10 @@ public class NFTService {
 
     public let refreshTTL: TimeInterval
 
-    public var isLoading: Bool { nftFetcher.loading }
-    public var itemsLoaded: Int? { nftFetcher.itemsLoaded }
-    public var total: Int? { nftFetcher.total }
-    public var error: Error? { nftFetcher.error }
+    public private(set) var isLoading = false
+    public private(set) var itemsLoaded: Int?
+    public private(set) var total: Int?
+    public private(set) var error: Error?
     public var providerFailure: NFTProviderFailure? { NFTProviderFailure(error: error) }
 
     public private(set) var refreshPhase: NFTServiceRefreshPhase = .idle
@@ -86,8 +86,13 @@ public class NFTService {
         correlationID: String
     ) async {
         refreshPhase = .fetching
+        isLoading = true
+        itemsLoaded = 0
+        total = nil
+        error = nil
         await Task.yield()
         let eventRecorder = eventRecorderFactory(modelContext)
+        let modelContainer = modelContext.container
 
         await eventRecorder.recordRefreshStarted(
             accountAddress: accountAddress,
@@ -100,8 +105,15 @@ public class NFTService {
                 for: accountAddress,
                 chain: chain,
                 correlationID: correlationID,
-                eventRecorder: eventRecorder
+                eventRecorder: eventRecorder,
+                progressHandler: { [weak self] progress in
+                    await MainActor.run {
+                        self?.itemsLoaded = progress.itemsLoaded
+                        self?.total = progress.total
+                    }
+                }
             )
+            try Task.checkCancellation()
 
             refreshPhase = .processingMetadata(itemCount: fetchedInventory.nfts.count)
             let preparedInventory = await prepareMetadataUseCase.prepareInventory(
@@ -109,46 +121,50 @@ public class NFTService {
                 accountAddress: accountAddress,
                 chain: chain
             )
+            try Task.checkCancellation()
 
             do {
                 refreshPhase = .persisting(itemCount: preparedInventory.nfts.count)
                 await Task.yield()
-
-                if fetchedInventory.didCompleteFullRefresh {
-                    refreshPhase = .cleaningUp(itemCount: preparedInventory.nfts.count)
-                    await Task.yield()
-                }
+                try Task.checkCancellation()
 
                 try await persistInventoryUseCase.persist(
                     preparedInventory,
                     accountAddress: accountAddress,
                     chain: chain,
-                    modelContext: modelContext
+                    modelContainer: modelContainer
                 )
+                try Task.checkCancellation()
 
                 if fetchedInventory.didCompleteFullRefresh {
                     refreshPhase = .cleaningUp(itemCount: preparedInventory.nfts.count)
                     await Task.yield()
+                    try Task.checkCancellation()
                     try await persistInventoryUseCase.cleanupStaleInventory(
                         currentNFTIDs: preparedInventory.nfts.map(\.id),
                         accountAddress: accountAddress,
                         chain: chain,
-                        modelContext: modelContext
+                        modelContainer: modelContainer
                     )
+                    try Task.checkCancellation()
                 }
 
-                refreshStateComputer.markRefreshSucceeded(
-                    for: accountAddress,
-                    chain: chain
-                )
+                if fetchedInventory.didCompleteFullRefresh {
+                    refreshStateComputer.markRefreshSucceeded(
+                        for: accountAddress,
+                        chain: chain
+                    )
+                }
                 await eventRecorder.recordPersistenceCompleted(
                     accountAddress: accountAddress,
                     chain: chain,
                     correlationID: correlationID,
                     persistedCount: preparedInventory.nfts.count
                 )
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
-                nftFetcher.error = error
+                self.error = error
                 await eventRecorder.recordPersistenceFailed(
                     accountAddress: accountAddress,
                     chain: chain,
@@ -158,16 +174,18 @@ public class NFTService {
                 throw error
             }
         } catch is CancellationError {
-            nftFetcher.error = nil
+            error = nil
         } catch {
-            nftFetcher.error = error
+            self.error = error
         }
 
-        let terminalError = nftFetcher.error
-        nftFetcher.reset()
+        let terminalError = error
+        isLoading = false
+        itemsLoaded = nil
+        total = nil
         refreshPhase = .idle
         if let terminalError {
-            nftFetcher.error = terminalError
+            error = terminalError
         }
     }
 
@@ -226,8 +244,11 @@ public class NFTService {
         inFlightRefreshTask = nil
         inFlightRefreshScope = nil
         inFlightRefreshToken = nil
+        isLoading = false
+        itemsLoaded = nil
+        total = nil
+        error = nil
         refreshStateComputer.reset()
-        nftFetcher.reset()
     }
 
     public func providerFailurePresentation(

@@ -75,15 +75,15 @@ private final class RecordingReceiptStore: ReceiptStore {
         )
     }
 
-    func latest(limit: Int) throws -> [ReceiptRecord] {
+    func latest(limit: Int) async throws -> [ReceiptRecord] {
         []
     }
 
-    func receipts(forCorrelationID correlationID: String, limit: Int) throws -> [ReceiptRecord] {
+    func receipts(forCorrelationID correlationID: String, limit: Int) async throws -> [ReceiptRecord] {
         []
     }
 
-    func exportAll() throws -> Data {
+    func exportAll() async throws -> Data {
         Data()
     }
 

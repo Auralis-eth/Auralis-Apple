@@ -42,7 +42,7 @@ struct NoBypassSmokeTests {
             receiptStore: receiptStore
         )
 
-        let receipts = try receiptStore.latest(limit: 10)
+        let receipts = try await receiptStore.latest(limit: 10)
 
         #expect(result.isAllowed == false)
         #expect(result.userMessage == "Not available in Observe mode")
@@ -68,7 +68,7 @@ struct NoBypassSmokeTests {
             receiptStore: receiptStore
         )
 
-        let receipts = try receiptStore.latest(limit: 10)
+        let receipts = try await receiptStore.latest(limit: 10)
 
         #expect(result.isAllowed == false)
         #expect(result.userMessage == "Not available in Observe mode")

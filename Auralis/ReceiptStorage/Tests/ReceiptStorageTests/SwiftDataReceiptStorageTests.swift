@@ -43,8 +43,8 @@ struct SwiftDataReceiptStorageTests {
             makeDraft(createdAt: Date(timeIntervalSince1970: 300), kind: "newest")
         )
 
-        let latest = try store.latest(limit: 2)
-        let exportedRecords = try JSONDecoder().decode([ReceiptRecord].self, from: store.exportAll())
+        let latest = try await store.latest(limit: 2)
+        let exportedRecords = try JSONDecoder().decode([ReceiptRecord].self, from: try await store.exportAll())
 
         #expect(latest.map(\.sequenceID) == [newest.sequenceID, second.sequenceID])
         #expect(exportedRecords.map(\.sequenceID) == [first.sequenceID, second.sequenceID, newest.sequenceID])
@@ -102,7 +102,7 @@ struct SwiftDataReceiptStorageTests {
             )
         )
 
-        let receipt = try #require(try store.latest(limit: 1).first)
+        let receipt = try #require(try await store.latest(limit: 1).first)
         #expect(receipt.details.values["url"] == .string("<redacted-url>"))
         #expect(receipt.details.values["error"] == .string("<redacted-error>"))
     }

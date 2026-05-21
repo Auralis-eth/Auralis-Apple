@@ -1,8 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 
-@MainActor
-public protocol NFTRefreshEventRecording {
+public protocol NFTRefreshEventRecording: Sendable {
     func recordRefreshStarted(
         accountAddress: String,
         chain: Chain,

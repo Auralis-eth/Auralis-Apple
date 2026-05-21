@@ -345,7 +345,7 @@ struct ContextServiceTests {
             receiptEventLogger: logger
         )
 
-        let receipts = try receiptStore.receipts(
+        let receipts = try await receiptStore.receipts(
             forCorrelationID: "context-build-1",
             limit: 10
         )
@@ -406,8 +406,8 @@ struct ContextServiceTests {
         resolveGate.releaseFirst()
         let resolvedFirstSnapshot = await firstSnapshot
 
-        let firstReceipts = try receiptStore.receipts(forCorrelationID: "context-race-1", limit: 10)
-        let secondReceipts = try receiptStore.receipts(forCorrelationID: "context-race-2", limit: 10)
+        let firstReceipts = try await receiptStore.receipts(forCorrelationID: "context-race-1", limit: 10)
+        let secondReceipts = try await receiptStore.receipts(forCorrelationID: "context-race-2", limit: 10)
 
         let firstReceipt = try #require(firstReceipts.first)
         let secondReceipt = try #require(secondReceipts.first)

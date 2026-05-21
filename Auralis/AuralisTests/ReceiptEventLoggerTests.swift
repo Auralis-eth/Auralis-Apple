@@ -61,7 +61,7 @@ struct ReceiptEventLoggerTests {
             correlationID: "copy-1"
         )
 
-        let receipts = try store.latest(limit: 10)
+        let receipts = try await store.latest(limit: 10)
 
         #expect(receipts.map { $0.kind } == [
             "copy.performed",
@@ -135,8 +135,8 @@ struct ReceiptEventLoggerTests {
             correlationID: "copy-flow"
         )
 
-        let linkReceipt = try #require(store.receipts(forCorrelationID: "link-flow", limit: 1).first)
-        let copyReceipt = try #require(store.receipts(forCorrelationID: "copy-flow", limit: 1).first)
+        let linkReceipt = try #require(try await store.receipts(forCorrelationID: "link-flow", limit: 1).first)
+        let copyReceipt = try #require(try await store.receipts(forCorrelationID: "copy-flow", limit: 1).first)
 
         #expect(linkReceipt.details.values["label"] == ReceiptJSONValue.string("Explorer"))
         #expect(linkReceipt.details.values["surface"] == ReceiptJSONValue.string("newsfeed.nft_detail"))
@@ -171,7 +171,7 @@ struct ReceiptEventLoggerTests {
             provenance: .pluginConfirmed
         )
 
-        let receipts = try store.latest(limit: 10)
+        let receipts = try await store.latest(limit: 10)
         let operatorReceipt = try #require(receipts.first(where: { $0.details.values["surface"] == .string("operator.console") }))
         let pluginReceipt = try #require(receipts.first(where: { $0.details.values["surface"] == .string("plugin.runtime") }))
 
@@ -194,15 +194,15 @@ private struct FailingReceiptStore: ReceiptStore {
         throw StoreError.appendFailed
     }
 
-    func latest(limit: Int) throws -> [ReceiptRecord] {
+    func latest(limit: Int) async throws -> [ReceiptRecord] {
         []
     }
 
-    func receipts(forCorrelationID correlationID: String, limit: Int) throws -> [ReceiptRecord] {
+    func receipts(forCorrelationID correlationID: String, limit: Int) async throws -> [ReceiptRecord] {
         []
     }
 
-    func exportAll() throws -> Data {
+    func exportAll() async throws -> Data {
         Data()
     }
 

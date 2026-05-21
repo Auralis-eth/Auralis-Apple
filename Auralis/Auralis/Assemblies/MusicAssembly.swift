@@ -35,10 +35,11 @@ struct MusicAssembly {
     }
 
     func makeNFTService() -> NFTService {
-        NFTService(
+        let readOnlyProviderFactory = providerAssembly.readOnlyProviderFactory
+        return NFTService(
             nftFetcher: NFTFetcher(
-                nftProviderFactory: { [providerAssembly] chain in
-                    try providerAssembly.makeNFTInventoryProvider(for: chain)
+                nftProviderFactory: { chain in
+                    try readOnlyProviderFactory.makeNFTInventoryProvider(for: chain)
                 }
             ),
             eventRecorderFactory: { [receiptAssembly] modelContext in

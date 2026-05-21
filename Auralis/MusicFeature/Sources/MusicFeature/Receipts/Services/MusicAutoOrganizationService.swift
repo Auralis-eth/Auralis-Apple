@@ -38,16 +38,14 @@ public struct MusicAutoOrganizationDryRunResult: Equatable, Sendable {
     }
 }
 
-@MainActor
-public protocol MusicAutoOrganizationRunning {
+public protocol MusicAutoOrganizationRunning: Sendable {
     func runDryRun(
         proposal: MusicAutoOrganizationDryRunProposal,
         context: MusicReceiptContext
     ) async throws -> MusicAutoOrganizationDryRunResult
 }
 
-@MainActor
-public struct MusicAutoOrganizationReceiptService: MusicAutoOrganizationRunning {
+public struct MusicAutoOrganizationReceiptService: MusicAutoOrganizationRunning, Sendable {
     private let receiptLogger: MusicReceiptEventLogger
 
     public init(receiptLogger: MusicReceiptEventLogger) {

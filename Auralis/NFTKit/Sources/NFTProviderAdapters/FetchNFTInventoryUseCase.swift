@@ -9,7 +9,7 @@ import AuralisPrimaryModels
 import Foundation
 import NFTDomain
 
-public struct FetchedNFTInventory {
+public struct FetchedNFTInventory: Sendable {
     public let nfts: [NFTInventoryItemSnapshot]
     public let didCompleteFullRefresh: Bool
 
@@ -19,17 +19,16 @@ public struct FetchedNFTInventory {
     }
 }
 
-@MainActor
-public protocol FetchNFTInventoryUsing {
+public protocol FetchNFTInventoryUsing: Sendable {
     func fetchInventory(
         for accountAddress: String,
         chain: Chain,
         correlationID: String,
-        eventRecorder: any NFTRefreshEventRecording
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
     ) async throws -> FetchedNFTInventory
 }
 
-@MainActor
 public struct LiveFetchNFTInventoryUseCase: FetchNFTInventoryUsing {
     private let nftFetcher: any NFTFetching
 
@@ -41,20 +40,20 @@ public struct LiveFetchNFTInventoryUseCase: FetchNFTInventoryUsing {
         for accountAddress: String,
         chain: Chain,
         correlationID: String,
-        eventRecorder: any NFTRefreshEventRecording
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler? = nil
     ) async throws -> FetchedNFTInventory {
-        let nfts = try await nftFetcher.fetchAllNFTs(
+        let result = try await nftFetcher.fetchAllNFTs(
             for: accountAddress,
             chain: chain,
             correlationID: correlationID,
-            eventRecorder: eventRecorder
+            eventRecorder: eventRecorder,
+            progressHandler: progressHandler
         )
-        let didCompleteFullRefresh = nftFetcher.currentCursor == nil &&
-            (nftFetcher.total == nil || (nftFetcher.itemsLoaded ?? 0) >= (nftFetcher.total ?? 0))
 
         return FetchedNFTInventory(
-            nfts: nfts,
-            didCompleteFullRefresh: didCompleteFullRefresh
+            nfts: result.nfts,
+            didCompleteFullRefresh: result.didCompleteFullRefresh
         )
     }
 }

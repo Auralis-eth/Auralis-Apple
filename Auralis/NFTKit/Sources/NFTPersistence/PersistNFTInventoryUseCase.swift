@@ -11,7 +11,7 @@ import Foundation
 import NFTDomain
 import SwiftData
 
-public struct PreparedNFTInventory {
+public struct PreparedNFTInventory: Sendable {
     public let nfts: [NFTInventoryItemSnapshot]
 
     public init(nfts: [NFTInventoryItemSnapshot]) {
@@ -19,34 +19,32 @@ public struct PreparedNFTInventory {
     }
 }
 
-@MainActor
-public protocol PersistNFTInventoryUsing {
+public protocol PersistNFTInventoryUsing: Sendable {
     func persist(
         _ inventory: PreparedNFTInventory,
         accountAddress: String,
         chain: Chain,
-        modelContext: ModelContext
+        modelContainer: ModelContainer
     ) async throws
 
     func cleanupStaleInventory(
         currentNFTIDs: [String],
         accountAddress: String,
         chain: Chain,
-        modelContext: ModelContext
+        modelContainer: ModelContainer
     ) async throws
 }
 
-@MainActor
-public struct LivePersistNFTInventoryUseCase: PersistNFTInventoryUsing {
+public struct LivePersistNFTInventoryUseCase: PersistNFTInventoryUsing, Sendable {
     public init() { }
 
     public func persist(
         _ inventory: PreparedNFTInventory,
         accountAddress: String,
         chain: Chain,
-        modelContext: ModelContext
+        modelContainer: ModelContainer
     ) async throws {
-        let persistenceStore = NFTRefreshPersistenceStore(modelContainer: modelContext.container)
+        let persistenceStore = NFTRefreshPersistenceStore(modelContainer: modelContainer)
         let persistenceSnapshots = inventory.nfts.map {
             makePersistenceSnapshot(from: $0, scopeChain: chain)
         }
@@ -62,9 +60,9 @@ public struct LivePersistNFTInventoryUseCase: PersistNFTInventoryUsing {
         currentNFTIDs: [String],
         accountAddress: String,
         chain: Chain,
-        modelContext: ModelContext
+        modelContainer: ModelContainer
     ) async throws {
-        let persistenceStore = NFTRefreshPersistenceStore(modelContainer: modelContext.container)
+        let persistenceStore = NFTRefreshPersistenceStore(modelContainer: modelContainer)
         try await persistenceStore.cleanupOldNFTs(
             currentNFTIDs: currentNFTIDs,
             accountAddress: accountAddress,

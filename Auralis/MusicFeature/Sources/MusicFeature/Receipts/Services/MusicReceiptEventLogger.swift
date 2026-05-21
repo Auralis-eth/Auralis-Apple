@@ -4,8 +4,7 @@ import AuralisPrimaryModels
 import Foundation
 import OSLog
 
-@MainActor
-public struct MusicReceiptEventLogger {
+public struct MusicReceiptEventLogger: Sendable {
     private let receiptStore: any ReceiptStore
     private let payloadSanitizer: any ReceiptPayloadSanitizing
     private let logger = Logger(subsystem: "Auralis", category: "MusicReceipts")
@@ -312,7 +311,6 @@ public struct MusicReceiptEventLogger {
     }
 }
 
-@MainActor
 private extension MusicReceiptEventLogger {
     func append(
         eventType: MusicReceiptEventType,

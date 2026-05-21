@@ -49,7 +49,7 @@ struct AccountReceiptRecorderTests {
             activeAddress: account.address
         )
 
-        let receipts = try receiptStore.latest(limit: 10)
+        let receipts = try await receiptStore.latest(limit: 10)
 
         #expect(receipts.count == 3)
         #expect(receipts.map { $0.kind } == [
@@ -90,7 +90,7 @@ struct AccountReceiptRecorderTests {
             correlationID: correlationID
         )
 
-        let receipts = try receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
+        let receipts = try await receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
 
         #expect(receipts.map { $0.kind } == [
             "account.selected",
@@ -116,7 +116,7 @@ struct AccountReceiptRecorderTests {
             receiptStore: receiptStore
         )
 
-        let receipts = try receiptStore.latest(limit: 10)
+        let receipts = try await receiptStore.latest(limit: 10)
 
         #expect(result.isAllowed == false)
         #expect(result.userMessage == "Not available in Observe mode")
@@ -146,7 +146,7 @@ struct AccountReceiptRecorderTests {
             receiptStore: receiptStore
         )
 
-        let receipts = try receiptStore.latest(limit: 10)
+        let receipts = try await receiptStore.latest(limit: 10)
 
         #expect(result.isAllowed == false)
         #expect(result.userMessage == "Not available in Observe mode")
@@ -189,7 +189,7 @@ struct AccountReceiptRecorderTests {
             )
         )
 
-        let receipts = try receiptStore.latest(limit: 10)
+        let receipts = try await receiptStore.latest(limit: 10)
 
         #expect(receipts.count == 2)
         #expect(receipts.map { $0.trigger } == [
@@ -225,7 +225,7 @@ struct AccountReceiptRecorderTests {
             correlationID: correlationID
         )
 
-        let receipts = try receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
+        let receipts = try await receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
 
         #expect(receipts.count == 1)
         #expect(receipts.first?.trigger == "account.chain.current.changed")

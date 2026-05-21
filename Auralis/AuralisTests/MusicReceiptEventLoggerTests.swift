@@ -58,7 +58,7 @@ struct MusicReceiptEventLoggerTests {
             )
         )
 
-        let receipts = try receiptStore.receipts(forCorrelationID: "playlist-flow", limit: 10)
+        let receipts = try await receiptStore.receipts(forCorrelationID: "playlist-flow", limit: 10)
 
         #expect(receipts.map(\.trigger) == [
             "music.playlist.modified",
@@ -119,11 +119,11 @@ struct MusicReceiptEventLoggerTests {
             )
         )
 
-        let receipts = try receiptStore.receipts(forCorrelationID: "music-policy", limit: 10)
+        let receipts = try await receiptStore.receipts(forCorrelationID: "music-policy", limit: 10)
 
         #expect(result.isAllowed == false)
         #expect(receipts.map(\.trigger) == ["music.policy.blocked"])
-        let allReceipts = try receiptStore.latest(limit: 10)
+        let allReceipts = try await receiptStore.latest(limit: 10)
         #expect(allReceipts.contains { $0.trigger == "policy.denied" })
         #expect(allReceipts.contains { $0.trigger == "music.policy.blocked" })
         let musicReceipt = try #require(allReceipts.first(where: { $0.trigger == "music.policy.blocked" }))
@@ -161,7 +161,7 @@ struct MusicReceiptEventLoggerTests {
             )
         )
 
-        let receipt = try #require(try receiptStore.receipts(forCorrelationID: "auto-org", limit: 1).first)
+        let receipt = try #require(try await receiptStore.receipts(forCorrelationID: "auto-org", limit: 1).first)
 
         #expect(result.dryRun)
         #expect(result.affectedMediaIDs == ["track-1", "track-2"])

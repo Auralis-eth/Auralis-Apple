@@ -55,7 +55,7 @@ struct ShellDependencyBuilderTests {
             correlationID: "gateway-account-store"
         )
 
-        let receipts = try receiptStore.receipts(forCorrelationID: "gateway-account-store", limit: 10)
+        let receipts = try await receiptStore.receipts(forCorrelationID: "gateway-account-store", limit: 10)
         #expect(receipts.map(\.kind) == ["account.selected", "account.added"])
     }
 
@@ -75,7 +75,7 @@ struct ShellDependencyBuilderTests {
             correlationID: "main-tab-receipt-logger"
         )
 
-        let receipts = try receiptStore.receipts(forCorrelationID: "main-tab-receipt-logger", limit: 10)
+        let receipts = try await receiptStore.receipts(forCorrelationID: "main-tab-receipt-logger", limit: 10)
         #expect(receipts.count == 1)
         #expect(receipts.first?.trigger == "copy.performed")
     }
@@ -134,7 +134,7 @@ struct ShellDependencyBuilderTests {
             correlationID: "assembly-receipt-logger"
         )
 
-        let receipts = try ReceiptStores.live(modelContext: context).receipts(
+        let receipts = try await ReceiptStores.live(modelContext: context).receipts(
             forCorrelationID: "assembly-receipt-logger",
             limit: 10
         )
@@ -159,7 +159,7 @@ struct ShellDependencyBuilderTests {
 
         await store.send(.restoreFromPersistence)
 
-        let receipts = try ReceiptStores.live(modelContext: context).latest(limit: 10)
+        let receipts = try await ReceiptStores.live(modelContext: context).latest(limit: 10)
         #expect(receipts.contains { $0.trigger == "app.launch" })
     }
 
@@ -178,7 +178,7 @@ struct ShellDependencyBuilderTests {
 
         #expect(result.isAllowed == false)
         #expect(result.userMessage == "Not available in Observe mode")
-        let receipts = try ReceiptStores.live(modelContext: context).latest(limit: 10)
+        let receipts = try await ReceiptStores.live(modelContext: context).latest(limit: 10)
         #expect(receipts.contains { $0.trigger == "policy.denied" })
     }
 

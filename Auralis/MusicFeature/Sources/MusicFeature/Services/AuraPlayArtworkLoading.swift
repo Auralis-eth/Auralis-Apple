@@ -1,12 +1,10 @@
 import Foundation
 
-@MainActor
-public protocol AuraPlayArtworkLoading {
+public protocol AuraPlayArtworkLoading: Sendable {
     func artworkURL(for track: AuraPlayTrack?) throws -> URL?
 }
 
-@MainActor
-public struct AuraPlayTrackArtworkLoader: AuraPlayArtworkLoading {
+public struct AuraPlayTrackArtworkLoader: AuraPlayArtworkLoading, Sendable {
     public init() {}
 
     public func artworkURL(for track: AuraPlayTrack?) throws -> URL? {

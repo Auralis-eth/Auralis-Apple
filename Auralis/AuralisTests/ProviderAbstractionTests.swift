@@ -1514,9 +1514,9 @@ struct ProviderAbstractionTests {
         )
 
         #expect(await provider.receivedOwners() == ["0x1234567890abcdef1234567890abcdef12345678"])
-        #expect(response.isEmpty)
-        #expect(fetcher.total == 0)
-        #expect(fetcher.itemsLoaded == 0)
+        #expect(response.nfts.isEmpty)
+        #expect(response.totalCount == 0)
+        #expect(response.didCompleteFullRefresh)
     }
 
     @Test("retry exhaustion throws and records failure instead of success")
@@ -1574,10 +1574,9 @@ struct ProviderAbstractionTests {
             eventRecorder: NoOpNFTRefreshEventRecorder()
         )
 
-        #expect(response.count == 40)
+        #expect(response.nfts.count == 40)
         let requestedPageKeys = await provider.requestedPageKeys()
         #expect(requestedPageKeys.count == 40)
-        #expect(fetcher.error == nil)
     }
 
     @Test("later-page failures throw instead of returning a partial collection")
@@ -1602,7 +1601,6 @@ struct ProviderAbstractionTests {
             Issue.record("Expected later-page failure to throw.")
         } catch {}
 
-        #expect(fetcher.error != nil)
         let partialFailureCount = recorder.fetchFailedCount()
         let partialSuccessCount = recorder.fetchSucceededCount()
         #expect(partialFailureCount == 1)

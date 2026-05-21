@@ -12,34 +12,52 @@ import OSLog
 import ProviderKit
 import RegexBuilder
 
-/// Main-actor contract for NFT refresh state and pagination progress.
-///
-/// Conformers own UI-facing mutable state, so callers must interact with this protocol from the
-/// main actor.
-@MainActor
-public protocol NFTFetching: AnyObject {
-    var total: Int? { get set }
-    var itemsLoaded: Int? { get set }
-    var loading: Bool { get set }
-    var error: Error? { get set }
-    var currentCursor: String? { get set }
+public struct NFTFetchProgress: Sendable {
+    public let itemsLoaded: Int
+    public let total: Int?
+    public let currentCursor: String?
 
+    public init(itemsLoaded: Int, total: Int?, currentCursor: String?) {
+        self.itemsLoaded = itemsLoaded
+        self.total = total
+        self.currentCursor = currentCursor
+    }
+}
+
+public struct NFTFetchInventoryResult: Sendable {
+    public let nfts: [NFTInventoryItemSnapshot]
+    public let didCompleteFullRefresh: Bool
+    public let totalCount: Int?
+
+    public init(
+        nfts: [NFTInventoryItemSnapshot],
+        didCompleteFullRefresh: Bool,
+        totalCount: Int?
+    ) {
+        self.nfts = nfts
+        self.didCompleteFullRefresh = didCompleteFullRefresh
+        self.totalCount = totalCount
+    }
+}
+
+public typealias NFTFetchProgressHandler = @Sendable (NFTFetchProgress) async -> Void
+
+/// Contract for NFT refresh work. UI-facing progress is emitted explicitly instead of being
+/// stored on the fetcher, so implementations can run away from the main actor.
+public protocol NFTFetching: AnyObject, Sendable {
     /// Fetches all NFTs for an account, updating progress properties as pages arrive.
     func fetchAllNFTs(
         for account: String,
         chain: Chain,
         correlationID: String?,
-        eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFTInventoryItemSnapshot]
-
-    /// Resets progress and failure state for a future refresh.
-    func reset()
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler?
+    ) async throws -> NFTFetchInventoryResult
 }
 
-@MainActor
-public class NFTFetcher: NFTFetching {
+public actor NFTFetcher: NFTFetching {
     private let logger = Logger(subsystem: "Auralis", category: "NFTFetcher")
-    public typealias NFTProviderFactory = (Chain) throws -> any NFTInventoryProviding
+    public typealias NFTProviderFactory = @Sendable (Chain) throws -> any NFTInventoryProviding
 
     public enum FetcherError: Error, LocalizedError {
         case missingAPIKey
@@ -79,12 +97,8 @@ public class NFTFetcher: NFTFetching {
         }
     }
 
-    public var total: Int?
-    public var itemsLoaded: Int?
-    public var loading: Bool = false
-    public var error: Error?
-
-    public var currentCursor: String?
+    private var loading: Bool = false
+    private var lastError: Error?
 
     private let maxRetryCount: Int
     private let baseDelayNanoseconds: UInt64
@@ -199,8 +213,9 @@ public class NFTFetcher: NFTFetching {
         for account: String,
         chain: Chain,
         correlationID: String?,
-        eventRecorder: any NFTRefreshEventRecording
-    ) async throws -> [NFTInventoryItemSnapshot] {
+        eventRecorder: any NFTRefreshEventRecording,
+        progressHandler: NFTFetchProgressHandler? = nil
+    ) async throws -> NFTFetchInventoryResult {
         guard !loading else {
             if let correlationID {
                 await eventRecorder.recordFetchFailed(
@@ -231,10 +246,11 @@ public class NFTFetcher: NFTFetching {
 
         loading = true
         defer { loading = false }
-        error = nil
+        lastError = nil
 
         var nftMetaData: [NFTInventoryItemSnapshot] = []
         var seenItems: Int = 0
+        var total: Int?
 
         var attempt = 0
         let service: any NFTInventoryProviding
@@ -267,7 +283,6 @@ public class NFTFetcher: NFTFetching {
                 pageCount += 1
 
                 seenItems += nfts.ownedNfts.count
-                itemsLoaded = seenItems
                 total = nfts.totalCount
 
                 let snapshots = try nfts.ownedNfts.map { providerNFT in
@@ -276,15 +291,23 @@ public class NFTFetcher: NFTFetching {
                 nftMetaData.append(contentsOf: snapshots)
 
                 cursor = nfts.pageKey
-                currentCursor = cursor
+                if let progressHandler {
+                    await progressHandler(
+                        NFTFetchProgress(
+                            itemsLoaded: seenItems,
+                            total: total,
+                            currentCursor: cursor
+                        )
+                    )
+                }
 
                 if nfts.ownedNfts.isEmpty, cursor != nil {
                     stalledPaginationPageCount += 1
 
                     let didRepeatCursor = cursor == requestedPageKey
                     if didRepeatCursor || stalledPaginationPageCount >= maxStalledPaginationPages {
-                        let wrappedError = FetcherError.retryExhausted(lastError: self.error)
-                        self.error = wrappedError
+                        let wrappedError = FetcherError.retryExhausted(lastError: lastError)
+                        lastError = wrappedError
                         if let correlationID {
                             await eventRecorder.recordFetchFailed(
                                 accountAddress: account,
@@ -303,13 +326,12 @@ public class NFTFetcher: NFTFetching {
                 if let totalItems = total {
                     if seenItems >= totalItems {
                         cursor = nil
-                        currentCursor = nil
                         break
                     }
                 }
 
                 attempt = 0
-                self.error = nil
+                lastError = nil
 
             } catch {
                 attempt += 1
@@ -337,7 +359,7 @@ public class NFTFetcher: NFTFetching {
                     }
                 }
 
-                self.error = wrappedError
+                lastError = wrappedError
                 logger.error("Error fetching NFTs attempt=\(attempt, privacy: .public) error=\(wrappedError.localizedDescription, privacy: .public)")
 
                 if let fetcherError = wrappedError as? FetcherError,
@@ -389,15 +411,11 @@ public class NFTFetcher: NFTFetching {
             completedFullRefresh: true
         )
 
-        return nftMetaData
-    }
-
-    public func reset() {
-        itemsLoaded = 0
-        total = nil
-        loading = false
-        currentCursor = nil
-        error = nil
+        return NFTFetchInventoryResult(
+            nfts: nftMetaData,
+            didCompleteFullRefresh: cursor == nil && (total == nil || seenItems >= (total ?? 0)),
+            totalCount: total
+        )
     }
 
     private func logRefreshSummary(

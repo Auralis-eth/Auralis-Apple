@@ -1,11 +1,9 @@
 import Foundation
 
-@MainActor
-public protocol AuraPlayLibrarySyncing {
+public protocol AuraPlayLibrarySyncing: Sendable {
     func syncLibrary(in scope: AuraPlayLibraryScope, accountName: String?) async throws
 }
 
-@MainActor
 public struct NoOpAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
     public init() {}
 
