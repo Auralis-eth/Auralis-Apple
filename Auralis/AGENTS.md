@@ -53,6 +53,7 @@ The shell flow is:
 - `SwiftDataAdapters/` is the local Swift package for shared SwiftData mechanics such as rollback-safe and undoable mutation helpers. It should provide tools, not domain-specific stores.
 - `AccountStorage/` is the local Swift package for SwiftData-backed account persistence. Keep protocol consumers on `AccountsCore.AccountStoring`; only composition and storage tests should import `AccountStorage`.
 - `ReceiptStorage/` is the local Swift package for SwiftData-backed receipt persistence and destructive receipt reset adapters. Keep protocol/logging consumers on `ReceiptsCore`; only concrete builders and storage tests should import `ReceiptStorage`.
+- Receipt integrity is a local tamper-evidence contract. Receipts are hash-chained in SwiftData and checked against Keychain-protected account heads on the same device; externally enforceable proof requires trusted infrastructure or signed receipt-head sync.
 
 ## Quirks And Gotchas
 

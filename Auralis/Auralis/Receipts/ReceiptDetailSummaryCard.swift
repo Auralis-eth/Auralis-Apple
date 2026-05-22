@@ -33,6 +33,7 @@ struct ReceiptDetailSummaryCard: View {
                     ReceiptDetailFact(label: "Mode", value: receipt.mode.rawValue)
                     ReceiptDetailFact(label: "Provenance", value: receipt.provenance)
                     ReceiptDetailFact(label: "Sequence", value: String(receipt.sequenceID))
+                    ReceiptDetailFact(label: "Integrity", value: ReceiptIntegrityCopy.detailValue)
                     ReceiptDetailFact(
                         label: "Created",
                         value: receipt.createdAt.formatted(date: .abbreviated, time: .standard)

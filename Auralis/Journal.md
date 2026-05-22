@@ -263,6 +263,9 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 
 ## The Journey
 
+- Receipt integrity copy contract:
+  The receipt ledger now says what it can prove without puffing itself up. Local receipts are hash-chained, each account has a last-page bookmark protected in Keychain, and verification checks both ledgers against each other. That is strong local tamper evidence, like a notebook whose pages are numbered and whose last page number is locked in a separate drawer. It is not magic courtroom paperwork from a trusted third party. The product copy now says that plainly, the developer docs carry the same boundary, and tests keep the forbidden overclaim wording from sneaking back in.
+
 - Receipt integrity end-state cleanup:
   We briefly had receipt verification acting like a helpful repair shop: if it found rows without integrity metadata, it tried to rebuild the missing chain and protected heads. That sounds friendly, but for an app that has not shipped yet it is the wrong instinct. The right pre-release contract is stricter and simpler: receipts are born with their fingerprint, previous-page link, per-account page number, and protected Keychain bookmark, or they are invalid. Verification is now a bouncer with a clipboard, not a mechanic with a toolbox. It checks the ledger, compares the Keychain heads, and refuses to mutate history while doing it.
 

@@ -38,6 +38,18 @@ struct ReceiptTimelineScopeCard: View {
                 Text(filterSummary)
                     .font(.caption)
                     .foregroundStyle(Color.textSecondary)
+
+                Divider()
+
+                Label {
+                    Text(ReceiptIntegrityCopy.timelineNotice)
+                        .font(.caption)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: "shield.lefthalf.filled")
+                        .foregroundStyle(Color.accent)
+                }
             }
         }
     }

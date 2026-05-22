@@ -477,6 +477,30 @@ struct ReceiptStoreTests {
         #expect(result.failureReason == "Receipt integrity has persisted receipts without protected heads.")
     }
 
+    @Test("receipt integrity verification fails when a protected head does not match persisted receipts")
+    @MainActor
+    func integrityVerificationDetectsProtectedHeadMismatch() async throws {
+        let (store, _, headStore) = try makeStoreWithInspectableIntegrityHeads()
+        let accountAddress = "0x1111111111111111111111111111111111111111"
+
+        _ = try await store.append(
+            ReceiptDraft(
+                createdAt: Date(timeIntervalSince1970: 100),
+                category: "accounts",
+                kind: "account.added",
+                payload: ReceiptPayload(values: ["address": .string(accountAddress)]),
+                timelineAccountAddress: accountAddress
+            )
+        )
+        #expect(try await store.verifyIntegrity().isValid)
+
+        await headStore.saveHead("mismatched-protected-head", for: accountAddress)
+
+        let result = try await store.verifyIntegrity()
+        #expect(result.isValid == false)
+        #expect(result.failureReason == "Receipt chain head mismatch for \(accountAddress).")
+    }
+
     @Test("receipt integrity verification remains valid after an intentional full reset")
     @MainActor
     func integrityVerificationAcceptsIntentionalReset() async throws {
