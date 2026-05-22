@@ -28,7 +28,7 @@ Current mappings:
 | `SearchHistoryRecord` | `walletMetadata` | SwiftData | Cleared with transactional wallet data |
 | `ProviderKit.GasPriceCache.shared` | `publicIdentifierMetadata` | In-memory cache | Cleared with support caches |
 | `AURALIS_ALCHEMY_API_KEY` | `publicPreference` | Info.plist bundle configuration | Not user-local; not cleared by privacy reset |
-| `auralis.shell.selection.v1` | `walletMetadata` | Keychain | Cleared with local preferences |
+| `auralis.shell.selection.v1` | `walletMetadata` | Keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` | Cleared with local preferences |
 | `EOAccount` | `walletMetadata` | SwiftData | Cleared or scoped by account operations/privacy reset |
 | `WalletPasswordService/WalletPasswordAccount` | `credential` | Keychain | Cleared in credential reset phase |
 | Transient navigation/presentation state | `publicPreference` | View state | Not persisted |
@@ -36,5 +36,7 @@ Current mappings:
 ## Consequences
 
 The active shell address and chain selection are no longer mirrored through UserDefaults. Harmless UI preferences can remain in UserDefaults, and ENS/address mappings can remain in UserDefaults because they are public identifier metadata with a short retention TTL. That classification does not make them exempt from reset: privacy reset must clear the ENS cache, search history, receipt integrity heads, gas cache, pinned actions, and saved shell selection according to the policy table.
+
+The shell-selection Keychain item intentionally uses `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`. Active address and chain are wallet metadata rather than signing credentials, but the shell can need the current scope after first unlock for app restoration, refresh coordination, deep-link replay, and other non-interactive work that may run while the device is locked. The `ThisDeviceOnly` suffix keeps that metadata off backups and device migration. This is a narrower threat-model choice than a migratable `AfterFirstUnlock` item and a more available choice than `WhenUnlockedThisDeviceOnly`; credentials still use stricter credential-specific Keychain policy. Privacy reset clears shell selection in the local preferences phase so the next launch returns to the default shell scope instead of restoring the previous active wallet.
 
 Every persisted or durable configuration value must have a classification entry in `LocalDataStoragePolicy` before new storage is introduced. Ethereum addresses and ENS mappings are public identifiers in Auralis, not private secrets, but their retention and reset contract must still be explicit.

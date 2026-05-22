@@ -110,7 +110,7 @@ enum LocalDataStoragePolicy {
             classification: .walletMetadata,
             storage: .keychain,
             resetPhase: .localPreferences,
-            rationale: "The active wallet address and chain selection identify a wallet context and must not be mirrored through UserDefaults."
+            rationale: "The active wallet address and chain selection identify a wallet context and must not be mirrored through UserDefaults. The Keychain item uses kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly so shell restoration and background-safe refresh coordination can read the active scope after first unlock, while the ThisDeviceOnly class prevents backup or device-transfer migration. Privacy reset clears it during the local preferences phase."
         ),
         LocalDataStorageDecision(
             identifier: "EOAccount",

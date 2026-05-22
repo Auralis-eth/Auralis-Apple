@@ -11,6 +11,7 @@ import AuralisShellCore
 import ENS
 import Foundation
 import MusicFeature
+import Security
 import SwiftData
 import Testing
 import TokenStorage
@@ -237,20 +238,78 @@ struct ShellDependencyBuilderTests {
         }
 
         try await persistence.clearSelection()
+        try preseedShellSelection(
+            serviceName: serviceName,
+            data: Data("legacy-selection".utf8),
+            accessibility: kSecAttrAccessibleWhenUnlocked as String
+        )
+
         try await persistence.saveSelection(address: firstAddress, chainID: Chain.ethMainnet.rawValue)
         var restoredSelection = try await persistence.loadSelection()
         #expect(restoredSelection.address == firstAddress)
         #expect(restoredSelection.chainID == Chain.ethMainnet.rawValue)
+        #expect(try shellSelectionAccessibility(serviceName: serviceName) == kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String)
 
         try await persistence.saveSelection(address: secondAddress, chainID: Chain.baseMainnet.rawValue)
         restoredSelection = try await persistence.loadSelection()
         #expect(restoredSelection.address == secondAddress)
         #expect(restoredSelection.chainID == Chain.baseMainnet.rawValue)
+        #expect(try shellSelectionAccessibility(serviceName: serviceName) == kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String)
 
         try await persistence.clearSelection()
         restoredSelection = try await persistence.loadSelection()
         #expect(restoredSelection.address.isEmpty)
         #expect(restoredSelection.chainID == Chain.ethMainnet.rawValue)
+    }
+
+    private func preseedShellSelection(
+        serviceName: String,
+        data: Data,
+        accessibility: String
+    ) throws {
+        let query = shellSelectionBaseQuery(serviceName: serviceName).merging([
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: accessibility
+        ], uniquingKeysWith: { _, new in new })
+        let status = SecItemAdd(query as CFDictionary, nil)
+
+        switch status {
+        case errSecSuccess:
+            return
+        default:
+            throw ShellSelectionPersistenceError.operationFailed(operation: "preseed test selection", status: status)
+        }
+    }
+
+    private func shellSelectionAccessibility(serviceName: String) throws -> String {
+        var result: AnyObject?
+        let query = shellSelectionBaseQuery(serviceName: serviceName).merging([
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ], uniquingKeysWith: { _, new in new })
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        guard status == errSecSuccess else {
+            throw ShellSelectionPersistenceError.operationFailed(operation: "read test selection attributes", status: status)
+        }
+        guard let attributes = result as? [String: Any],
+              let accessibility = attributes[kSecAttrAccessible as String] as? String else {
+            throw ShellSelectionPersistenceError.decodingFailed
+        }
+
+        return accessibility
+    }
+
+    private func shellSelectionBaseQuery(serviceName: String) -> [String: Any] {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: "active-selection"
+        ]
+        #if os(macOS)
+        query[kSecUseDataProtectionKeychain as String] = true
+        #endif
+        return query
     }
 }
 

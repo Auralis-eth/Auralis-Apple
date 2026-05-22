@@ -56,6 +56,9 @@ struct LocalDataStoragePolicyTests {
         #expect(providerClientKey.resetPhase == nil)
         #expect(shellSelection.classification == .walletMetadata)
         #expect(shellSelection.storage == .keychain)
+        #expect(shellSelection.resetPhase == .localPreferences)
+        #expect(shellSelection.rationale.contains("kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly"))
+        #expect(shellSelection.rationale.contains("ThisDeviceOnly"))
         #expect(credentials.classification == .credential)
         #expect(credentials.storage == .keychain)
     }

@@ -13,7 +13,7 @@ import NFTPresentation
 import NFTProviderAdapters
 
 @MainActor
-/// Persists active wallet selection as protected wallet metadata.
+/// Persists active wallet selection as protected, device-bound wallet metadata.
 struct KeychainShellSelectionPersistence: ShellSelectionPersisting {
     private let store: KeychainShellSelectionStore
     private let defaultSelection = KeychainShellSelectionStore.SelectionRecord(
@@ -72,6 +72,8 @@ actor KeychainShellSelectionStore {
 
     private let service: String
     private let account = "active-selection"
+    /// Active wallet selection may be read by shell restoration and refresh work after
+    /// the first unlock, but it must not migrate through backup or device transfer.
     private let accessibility = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String
 
     init(service: String) {
@@ -109,7 +111,10 @@ actor KeychainShellSelectionStore {
         case errSecDuplicateItem:
             let updateStatus = SecItemUpdate(
                 baseQuery as CFDictionary,
-                [kSecValueData as String: data] as CFDictionary
+                [
+                    kSecValueData as String: data,
+                    kSecAttrAccessible as String: accessibility
+                ] as CFDictionary
             )
             guard updateStatus == errSecSuccess else {
                 throw ShellSelectionPersistenceError.operationFailed(operation: "update", status: updateStatus)

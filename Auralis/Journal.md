@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-05-22 — The Active Wallet Key Got Its Label
+
+`A-004` was one of those security tickets where the code was already doing the intended thing, but the paperwork had left future engineers a trapdoor. Shell selection lives in Keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`: available after the user unlocks once, unavailable before first unlock, and pinned to this device so it does not ride along in backups or migrations.
+
+The important distinction is that active wallet address and chain are wallet metadata, not signing credentials. The shell may need them for restoration, refresh coordination, and deep-link replay even when the device is locked after first unlock. Wallet passwords still belong under stricter credential-specific policy. The ADR and local storage policy now say that out loud, including the local-preferences reset phase, so the next audit does not have to read tea leaves from a Keychain constant.
+
 ## 2026-05-22 — Public Identifiers Got Name Tags And Exit Doors
 
 `A-003` was a classification cleanup, not a vault migration. ENS names and Ethereum addresses are public identifiers in Auralis, so the ENS cache did not need to move out of UserDefaults just to look more serious. What it did need was a name tag in `LocalDataStoragePolicy` and a guaranteed exit door during privacy reset.
