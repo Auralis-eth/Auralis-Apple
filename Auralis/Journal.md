@@ -1,5 +1,13 @@
 # Journal
 
+## 2026-05-22 — The Signing Door Got A Lock Before It Got A Handle
+
+`WEB3-002` could not honestly be finished end-to-end because Auralis still has no signer, no transaction draft model, and no signing prototype. Building a full preview flow without a transaction would be stage scenery: it might look like architecture, but nothing real would be holding it up.
+
+So the useful move was to install the lock before anyone adds the handle. `PolicyCore` now has a deny-by-default signing chain allowlist, typed execution evidence, a transaction preview protocol boundary, and a readiness evaluator that refuses `draftTransaction` unless the future caller brings signing access, the exact capability grant, requester provenance, user confirmation, an approved receipt, a preview/simulation result, and an allowed target chain.
+
+Lesson learned: future security work can be real even when the feature is not. The trick is to build the contract that future code must satisfy, not a pretend implementation of a flow that does not exist yet.
+
 ## 2026-05-22 — Observe Mode Kept Its Hands In Its Pockets
 
 `WEB3-001` looked tempting at first: add `Assist`, add `Operate`, wire a few gates, call it architecture. The catch is that a mode enum is not a security model. In the current code, adding a non-Observe mode before capability grants, confirmation sheets, provenance checks, and approved receipts exist would be like giving the restaurant a "kitchen open" sign before installing the stove controls.

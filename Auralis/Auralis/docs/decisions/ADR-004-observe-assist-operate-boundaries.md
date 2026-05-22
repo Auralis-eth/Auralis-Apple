@@ -42,3 +42,9 @@ A future PR that adds `Assist` or `Operate` must include policy tests proving th
 WEB3-001 is not part of the current Observe-only release scope beyond preserving and testing the denial boundary. Adding Assist or Operate is a separate future-mode release decision, not a small enum expansion.
 
 Future signing, custody, WalletConnect, agent execution, or plugin operation remains blocked until policy tests prove that Observe denies all high-risk actions and future modes only allow them when signing access, capability grant, confirmation, provenance, and receipt requirements are satisfied.
+
+## Follow-up: Signing Policy Shell
+
+`WEB3-002` added the policy-only shell for future transaction drafting without adding a signer. `PolicyCore` now has a deny-by-default signing chain allowlist, transaction preview evidence, a `TransactionPreviewing` protocol boundary, and a readiness evaluator for high-risk actions. For `draftTransaction`, readiness requires signing-capable access, exact capability grant, requester provenance, explicit user confirmation, approved receipt evidence, a transaction preview/simulation result, and a target chain present in the signing allowlist.
+
+This is intentionally not an executable signing flow. A future transaction draft model must bind to the preview protocol and call the readiness evaluator before it can construct or hand off any executable transaction.

@@ -7,11 +7,23 @@ public enum ActionPolicyGate {
     public static func attempt(
         _ action: PolicyControlledAction,
         mode: AppMode,
+        executionEvidence: PolicyExecutionEvidence = .none,
+        signingChainAllowlist: SigningChainAllowlist = .denyAll,
         receiptStore: (any ReceiptStore)? = nil,
         payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer(),
         log: @escaping (String) -> Void = { _ in }
     ) async -> PolicyGateResult {
         guard mode == .observe, action.isBlockedInObserveMode else {
+            let executionReadiness = PolicyExecutionReadiness.evaluate(
+                action: action,
+                evidence: executionEvidence,
+                signingChainAllowlist: signingChainAllowlist
+            )
+            guard executionReadiness.isAllowed else {
+                log("Policy denied: \(action.rawValue) \(executionReadiness.userMessage)")
+                return executionReadiness
+            }
+
             if action.requiresHighRiskReceipt, let receiptStore {
                 await appendPolicyReceipt(
                     action: action,

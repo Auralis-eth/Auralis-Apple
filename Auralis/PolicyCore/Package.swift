@@ -14,6 +14,7 @@ let package = Package(
         ),
     ],
     dependencies: [
+        .package(path: "../AuralisPrimaryModels"),
         .package(path: "../CapabilitiesCore"),
         .package(path: "../ReceiptsCore"),
     ],
@@ -21,6 +22,7 @@ let package = Package(
         .target(
             name: "PolicyCore",
             dependencies: [
+                "AuralisPrimaryModels",
                 "CapabilitiesCore",
                 "ReceiptsCore",
             ]

@@ -75,7 +75,7 @@ struct ActionPolicyGateReceiptTests {
         for action in PolicyControlledAction.allCases {
             let contract = contracts[action]
             #expect(contract?.capabilityID == action.capabilityID)
-            #expect(contract?.requiredControls == FutureHighRiskActionControl.requiredControls)
+            #expect(contract?.requiredControls == action.futureExecutionControls)
             #expect(action.isBlockedInObserveMode)
             #expect(action.requiresHighRiskReceipt)
         }
@@ -85,42 +85,107 @@ struct ActionPolicyGateReceiptTests {
     func futureApprovalModesRequireSigningCapableAccountAccess() {
         #expect(EthereumAddressAccess.readonly.canSign == false)
         #expect(EthereumAddressAccess.wallet.canSign == true)
-        #expect(FutureHighRiskActionControl.requiredControls.contains(.signingAccess))
+        #expect(PolicyControlledAction.draftTransaction.futureExecutionControls.contains(.signingAccess))
+    }
+
+    @Test("draft transaction readiness requires preview evidence")
+    func draftTransactionReadinessRequiresPreviewEvidence() {
+        let result = PolicyExecutionReadiness.evaluate(
+            action: .draftTransaction,
+            evidence: completeDraftTransactionEvidence(draftTransactionPreview: nil),
+            signingChainAllowlist: SigningChainAllowlist(allowedChains: [Chain.ethMainnet])
+        )
+
+        #expect(result.isAllowed == false)
+        #expect(result.userMessage == "Transaction preview is required")
+    }
+
+    @Test("draft transaction readiness rejects chains outside the signing allowlist")
+    func draftTransactionReadinessRejectsDisallowedChain() {
+        let result = PolicyExecutionReadiness.evaluate(
+            action: .draftTransaction,
+            evidence: completeDraftTransactionEvidence(
+                draftTransactionPreview: draftTransactionPreview(targetChain: .baseMainnet)
+            ),
+            signingChainAllowlist: SigningChainAllowlist(allowedChains: [Chain.ethMainnet])
+        )
+
+        #expect(result.isAllowed == false)
+        #expect(result.userMessage == "Target chain is not allowed for signing")
+    }
+
+    @Test("draft transaction readiness requires chain allowlist, preview, confirmation, and receipt")
+    func draftTransactionReadinessAllowsOnlyCompleteEvidence() {
+        let result = PolicyExecutionReadiness.evaluate(
+            action: .draftTransaction,
+            evidence: completeDraftTransactionEvidence(
+                draftTransactionPreview: draftTransactionPreview(targetChain: .baseMainnet)
+            ),
+            signingChainAllowlist: SigningChainAllowlist(allowedChains: [Chain.baseMainnet])
+        )
+
+        #expect(result.isAllowed)
+        #expect(result.userMessage.isEmpty)
+        #expect(PolicyControlledAction.draftTransaction.futureExecutionControls.contains(.chainAllowlist))
+        #expect(PolicyControlledAction.draftTransaction.futureExecutionControls.contains(.transactionPreview))
+        #expect(PolicyControlledAction.draftTransaction.futureExecutionControls.contains(.userConfirmation))
+        #expect(PolicyControlledAction.draftTransaction.futureExecutionControls.contains(.approvedReceipt))
     }
 }
 
 private struct FutureHighRiskActionContract: Sendable {
     let capabilityID: CapabilityID
-    let requiredControls: Set<FutureHighRiskActionControl>
+    let requiredControls: Set<PolicyExecutionControl>
 
     static let byAction: [PolicyControlledAction: FutureHighRiskActionContract] = [
         .signMessage: FutureHighRiskActionContract(
             capabilityID: .signMessage,
-            requiredControls: FutureHighRiskActionControl.requiredControls
+            requiredControls: PolicyControlledAction.signMessage.futureExecutionControls
         ),
         .approveSpending: FutureHighRiskActionContract(
             capabilityID: .approveSpending,
-            requiredControls: FutureHighRiskActionControl.requiredControls
+            requiredControls: PolicyControlledAction.approveSpending.futureExecutionControls
         ),
         .draftTransaction: FutureHighRiskActionContract(
             capabilityID: .draftTransaction,
-            requiredControls: FutureHighRiskActionControl.requiredControls
+            requiredControls: PolicyControlledAction.draftTransaction.futureExecutionControls
         ),
         .runPlugin: FutureHighRiskActionContract(
             capabilityID: .runPlugin,
-            requiredControls: FutureHighRiskActionControl.requiredControls
+            requiredControls: PolicyControlledAction.runPlugin.futureExecutionControls
         )
     ]
 }
 
-private enum FutureHighRiskActionControl: CaseIterable, Sendable {
-    case signingAccess
-    case capabilityGrant
-    case userConfirmation
-    case requesterProvenance
-    case receipt
+private func completeDraftTransactionEvidence(
+    draftTransactionPreview: DraftTransactionPreviewEvidence?
+) -> PolicyExecutionEvidence {
+    PolicyExecutionEvidence(
+        signingAccessAvailable: true,
+        capabilityGrant: PolicyCapabilityGrant(
+            capabilityID: PolicyControlledAction.draftTransaction.capabilityID.rawValue
+        ),
+        requesterProvenance: PolicyRequesterProvenance(
+            requesterID: "auralis.test",
+            displayName: "Auralis Test"
+        ),
+        userConfirmation: PolicyUserConfirmation(
+            confirmedSummary: "Draft transaction preview confirmed",
+            confirmationReceiptID: "confirmation-receipt"
+        ),
+        approvedReceiptID: "approved-receipt",
+        draftTransactionPreview: draftTransactionPreview
+    )
+}
 
-    static let requiredControls = Set(allCases)
+private func draftTransactionPreview(targetChain: Chain) -> DraftTransactionPreviewEvidence {
+    DraftTransactionPreviewEvidence(
+        targetChain: targetChain,
+        gasEstimate: "21000",
+        contractInfo: "Native transfer",
+        verifiedDestination: "0x0000000000000000000000000000000000000000",
+        simulationSummary: "No token approval side effects"
+    )
 }
 
 @MainActor

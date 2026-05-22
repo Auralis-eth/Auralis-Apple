@@ -18,6 +18,8 @@ public struct PolicyActionGateService: PolicyActionGating {
         await ActionPolicyGate.attempt(
             action,
             mode: modeProvider(),
+            executionEvidence: .none,
+            signingChainAllowlist: .denyAll,
             receiptStore: receiptStore
         )
     }
