@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-05-21 — The Alchemy Key Stopped Pretending To Be A Vault Key
+
+`A-001` closed the provider-key posture loop. The useful clarification is that Auralis' Alchemy value is a public client key in a URL path, not a wallet password or private provider credential. Treating it like a buried treasure map made the docs sound stricter than the actual Alchemy client-call model, and stricter-but-wrong documentation is how future engineers waste days building defenses against the wrong threat.
+
+The guardrails are now pinned where they matter: provider configuration tests expect both development and production public client keys to remain in the Alchemy URL shape, while app tests make sure Release builds still run `ValidateReleaseSecrets.sh` and reject missing or placeholder values. The remaining risk is operational abuse: quotas, billing, environment mix-ups, and key rotation. That is a traffic-control problem, not a secrecy fairy tale.
+
 ## 2026-05-21 — Query Mirrors Stayed Out Of The Control Room
 
 `CONC-004` closed the loop on a subtle SwiftData/ShellStore boundary. `@Query` is still welcome as the app's live window into SwiftData: account lists, NFT grids, token details, and AuraPlay music rows all use it exactly like a good display case. The important rule is that the display case does not get to choose which wallet is active.
@@ -1917,3 +1923,21 @@ The fix made the callback async and throwing. The sheet still does not own curre
 We also tightened two accessibility details while we were in the room: visible “Paste” stays the accessible command name for Voice Control, and each remove button now names the account it removes instead of repeating “Remove account” five times in a list.
 
 The lesson: moving ownership up a layer is only half the job. The caller still needs a completion contract, or the UI starts acting like success happened before the owner has actually done the work.
+
+## Security Audit Tickets: The Backlog Needed Its Missing Floors
+
+The security and architecture audit ticket plan had a funny structural problem: the elevator opened on Phase 4, the sign at the lobby promised 24 rooms, and only 9 rooms had doors. The underlying audit reports still had the missing blueprint, so the plan now has the whole building again: Phase 1 security safety work, Phase 2 architecture boundaries, Phase 3 concurrency/state cleanup, Phase 4 wallet and agent safety, and Phase 5 testability maintenance.
+
+The important part was not just adding volume. The tickets now keep the summary honest: 24 total, with 5 high, 14 medium, and 5 low items. Provider secrets, redaction, biometric Keychain protection, ENS storage, and future capability modes stay at the top of the pile. The rest of the backlog now has enough acceptance detail that someone can pick up a ticket without rereading three separate audit documents first.
+
+The lesson: an audit backlog is only useful if its map matches the terrain. Counts, phases, severities, and acceptance checks are boring until they disagree; then they become the first bug to fix.
+
+## Phase A: Trust The Code, Not The Victory Lap
+
+The follow-up pass treated Phase 1, Phase 2, and Phase 3 as claims that needed receipts. Some claims held up cleanly: the password store really is biometric-bound in Keychain, the primary model and NFTKit package boundaries have real tests around them, `AppRouter` is main-actor isolated, and the broad front-desk `@MainActor` service problem is mostly gone.
+
+A follow-up correction sharpened the threat model. Alchemy keys in URL paths are expected public client identifiers for this app, not private wallet secrets, and Ethereum addresses are public identifiers too. The remaining provider work is about saying that plainly, keeping Release validation, documenting quota/abuse controls, and making sure raw provider payloads or real secret-like fields do not wander into logs.
+
+The code also pointed at unfinished business beyond that wording fix: ENS cache still needs an explicit policy/reset entry, shell-selection Keychain accessibility is implemented but not documented, receipt integrity still needs clearer guarantee language, and a few `Task.detached` calls remain in production paths.
+
+So the plan now has a Phase A: not a new architecture adventure, just the cleanup shelf for work that survived verification. A readiness pass then split the board into three honest lanes: Phase A blocks the current Observe-only audit-clean ship target, Phase 4 blocks any future signing/custody/agent release, and Phase 5 is hardening unless release ownership promotes a ticket. The lesson is simple: a ticket is not complete because a paragraph says it is complete. It is complete when the code, tests, docs, and ship decision all tell the same story, including what the product deliberately treats as public.

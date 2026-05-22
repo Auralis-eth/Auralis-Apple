@@ -5,17 +5,34 @@ import Testing
 
 @Suite
 struct ProviderConfigurationTests {
-    @Test("Live resolver builds Alchemy endpoints for supported EVM chains")
-    func resolverBuildsEndpoints() throws {
+    @Test(
+        "Live resolver keeps public Alchemy client keys in expected URL paths",
+        arguments: [
+            "development-public-client-key",
+            "production-public-client-key",
+        ]
+    )
+    func resolverKeepsPublicAlchemyClientKeysInURLPaths(alchemyKey: String) throws {
         let resolver = LiveProviderConfigurationResolver { provider in
-            provider == .alchemy ? "test-key" : nil
+            provider == .alchemy ? alchemyKey : nil
         }
 
         let configuration = try resolver.configuration(for: .baseMainnet)
 
-        #expect(configuration.alchemyNFTBaseURL?.absoluteString == "https://base-mainnet.g.alchemy.com/nft/v3/test-key")
-        #expect(configuration.alchemyDataAPIBaseURL?.absoluteString == "https://api.g.alchemy.com/data/v1/test-key")
-        #expect(configuration.alchemyRPCURL?.absoluteString == "https://base-mainnet.g.alchemy.com/v2/test-key")
+        #expect(configuration.alchemyNFTBaseURL?.absoluteString == "https://base-mainnet.g.alchemy.com/nft/v3/\(alchemyKey)")
+        #expect(configuration.alchemyDataAPIBaseURL?.absoluteString == "https://api.g.alchemy.com/data/v1/\(alchemyKey)")
+        #expect(configuration.alchemyRPCURL?.absoluteString == "https://base-mainnet.g.alchemy.com/v2/\(alchemyKey)")
+    }
+
+    @Test("Live resolver omits Alchemy endpoints when the public client key is unavailable")
+    func resolverOmitsAlchemyEndpointsWithoutClientKey() throws {
+        let resolver = LiveProviderConfigurationResolver { _ in nil }
+
+        let configuration = try resolver.configuration(for: .baseMainnet)
+
+        #expect(configuration.alchemyNFTBaseURL == nil)
+        #expect(configuration.alchemyDataAPIBaseURL == nil)
+        #expect(configuration.alchemyRPCURL == nil)
     }
 
     @Test("Live resolver omits RPC endpoints for Solana chains")

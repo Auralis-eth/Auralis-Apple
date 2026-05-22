@@ -52,6 +52,40 @@ struct AuraPlayBundleContractTests {
         #expect(entitlements.isEmpty)
     }
 
+    @Test("Release builds run provider client key validation")
+    func releaseBuildsRunProviderClientKeyValidation() throws {
+        let projectRoot = try projectRootURL()
+        let projectText = try String(
+            contentsOf: projectRoot.appending(path: "Auralis.xcodeproj/project.pbxproj"),
+            encoding: .utf8
+        )
+
+        #expect(projectText.contains("Validate Release Secrets"))
+        #expect(projectText.contains("Auralis/Scripts/ValidateReleaseSecrets.sh"))
+    }
+
+    @Test("Release validation rejects missing and placeholder provider client keys")
+    func releaseValidationRejectsMissingAndPlaceholderProviderClientKeys() throws {
+        let scriptText = try String(
+            contentsOf: try projectRootURL().appending(path: "Auralis/Scripts/ValidateReleaseSecrets.sh"),
+            encoding: .utf8
+        )
+
+        #expect(scriptText.contains("\"${CONFIGURATION:-}\" != \"Release\""))
+        #expect(scriptText.contains("AURALIS_ALCHEMY_API_KEY must be set for Release builds"))
+        #expect(scriptText.contains("AURALIS_ALCHEMY_API_KEY contains a placeholder value"))
+
+        for placeholderPattern in [
+            "placeholder",
+            "changeme",
+            "your[-_]?alchemy",
+            "^\\$\\(.*\\)$",
+            "^api_key$",
+        ] {
+            #expect(scriptText.contains(placeholderPattern))
+        }
+    }
+
     private func loadDictionary(
         atProjectRelativePath relativePath: String
     ) throws -> [String: Any] {
