@@ -498,7 +498,7 @@ public extension AlchemyTokenHoldingsProvider {
         guard (200...299).contains(httpResponse.statusCode) else {
             throw RequestError.badStatus(
                 httpResponse.statusCode,
-                message: parseErrorMessage(from: data),
+                message: sanitizedProviderErrorMessage(from: data),
                 retryAfter: parseRetryAfter(from: httpResponse)
             )
         }
@@ -603,6 +603,12 @@ public extension AlchemyTokenHoldingsProvider {
         }
 
         return String(data: data, encoding: .utf8)
+    }
+
+    private func sanitizedProviderErrorMessage(from data: Data) -> String? {
+        ProviderErrorPayloadSanitizer.sanitizedMessage(from: data) {
+            parseErrorMessage(from: data)
+        }
     }
 
     private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {

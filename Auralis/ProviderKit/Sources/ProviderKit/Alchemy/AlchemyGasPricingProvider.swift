@@ -213,7 +213,7 @@ public struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
             throw GasPricingError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            let message = parseErrorMessage(from: data)
+            let message = sanitizedProviderErrorMessage(from: data)
             if httpResponse.statusCode == 429 {
                 throw GasPricingError.rateLimited(
                     message: message ?? "HTTP 429",
@@ -246,22 +246,23 @@ public struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
 
     private func mapRPCError(_ error: RPCErrorPayload) -> GasPricingError {
         let normalizedMessage = error.message.lowercased()
+        let sanitizedMessage = ProviderErrorPayloadSanitizer.sanitizedProviderMessage(error.message)
 
         if error.code == 429 || normalizedMessage.contains("rate limit") {
-            return .rateLimited(message: error.message, retryAfter: nil)
+            return .rateLimited(message: sanitizedMessage, retryAfter: nil)
         }
 
         if error.code == -32601 || normalizedMessage.contains("method not found") {
-            return .unsupportedMethod(message: error.message)
+            return .unsupportedMethod(message: sanitizedMessage)
         }
 
         if normalizedMessage.contains("unauthorized")
             || normalizedMessage.contains("forbidden")
             || normalizedMessage.contains("api key") {
-            return .unauthorized(message: error.message)
+            return .unauthorized(message: sanitizedMessage)
         }
 
-        return .rpcError(code: error.code, message: error.message)
+        return .rpcError(code: error.code, message: sanitizedMessage)
     }
 
     private func retryDelay(after error: Error, fallbackDelay: UInt64) -> UInt64 {
@@ -286,6 +287,12 @@ public struct AlchemyGasPricingProvider: GasPricingProviding, Sendable {
         let rawMessage = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return rawMessage?.isEmpty == false ? rawMessage : nil
+    }
+
+    private func sanitizedProviderErrorMessage(from data: Data) -> String? {
+        ProviderErrorPayloadSanitizer.sanitizedMessage(from: data) {
+            parseErrorMessage(from: data)
+        }
     }
 }
 

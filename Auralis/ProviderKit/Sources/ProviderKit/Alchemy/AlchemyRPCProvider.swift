@@ -125,11 +125,9 @@ extension AlchemyRPCProvider {
             throw RPCRequestError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            let responseMessage = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
             throw RPCRequestError.badStatus(
                 httpResponse.statusCode,
-                message: responseMessage?.isEmpty == false ? responseMessage : nil,
+                message: sanitizedProviderErrorMessage(from: data),
                 retryAfter: parseRetryAfter(from: httpResponse)
             )
         }
@@ -195,7 +193,7 @@ extension AlchemyRPCProvider {
             return .unauthorized
         }
 
-        return .providerError(error.message)
+        return .providerError(ProviderErrorPayloadSanitizer.sanitizedProviderMessage(error.message))
     }
 
     private func mapTransportError(_ error: Error) -> Error {
@@ -238,6 +236,22 @@ extension AlchemyRPCProvider {
 
     private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {
         RetryAfterSupport.parse(from: response)
+    }
+
+    private func parseErrorMessage(from data: Data) -> String? {
+        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return object["message"] as? String
+                ?? object["detail"] as? String
+                ?? object["error"] as? String
+        }
+
+        return String(data: data, encoding: .utf8)
+    }
+
+    private func sanitizedProviderErrorMessage(from data: Data) -> String? {
+        ProviderErrorPayloadSanitizer.sanitizedMessage(from: data) {
+            parseErrorMessage(from: data)
+        }
     }
 
     static func decimalString(fromHexQuantity hexQuantity: String) -> String? {

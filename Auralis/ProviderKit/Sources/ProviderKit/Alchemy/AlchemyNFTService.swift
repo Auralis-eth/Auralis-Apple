@@ -263,8 +263,9 @@ public final class AlchemyNFTService: NFTInventoryProviding, Sendable {
         }
 
         if !(200...299).contains(httpResponse.statusCode) {
+            let safeErrorMessage = sanitizedProviderErrorMessage(from: data)
             logger.error(
-                "Alchemy response status=\(httpResponse.statusCode, privacy: .public) message=\(self.parseErrorMessage(from: data) ?? "nil", privacy: .public)"
+                "Alchemy response status=\(httpResponse.statusCode, privacy: .public) message=\(safeErrorMessage ?? "nil", privacy: .public)"
             )
         }
 
@@ -274,22 +275,22 @@ public final class AlchemyNFTService: NFTInventoryProviding, Sendable {
             let decoder = JSONDecoder()
             return try decoder.decode(AlchemyNFTResponse.self, from: data)
         case 400:
-            throw APIError.badRequest(message: parseErrorMessage(from: data))
+            throw APIError.badRequest(message: sanitizedProviderErrorMessage(from: data))
         case 401:
-            throw APIError.unauthorized(message: parseErrorMessage(from: data))
+            throw APIError.unauthorized(message: sanitizedProviderErrorMessage(from: data))
         case 403:
-            throw APIError.forbidden(message: parseErrorMessage(from: data))
+            throw APIError.forbidden(message: sanitizedProviderErrorMessage(from: data))
         case 404:
-            throw APIError.notFound(message: parseErrorMessage(from: data))
+            throw APIError.notFound(message: sanitizedProviderErrorMessage(from: data))
         case 408:
-            throw APIError.requestTimeout(message: parseErrorMessage(from: data))
+            throw APIError.requestTimeout(message: sanitizedProviderErrorMessage(from: data))
         case 429:
             let retry = parseRetryAfter(from: httpResponse)
-            throw APIError.rateLimited(retryAfter: retry, message: parseErrorMessage(from: data))
+            throw APIError.rateLimited(retryAfter: retry, message: sanitizedProviderErrorMessage(from: data))
         case 500...599:
-            throw APIError.serverError(status: httpResponse.statusCode, message: parseErrorMessage(from: data))
+            throw APIError.serverError(status: httpResponse.statusCode, message: sanitizedProviderErrorMessage(from: data))
         default:
-            throw APIError.httpError(status: httpResponse.statusCode, message: parseErrorMessage(from: data))
+            throw APIError.httpError(status: httpResponse.statusCode, message: sanitizedProviderErrorMessage(from: data))
         }
     }
 
@@ -365,6 +366,12 @@ public final class AlchemyNFTService: NFTInventoryProviding, Sendable {
             return env2.message ?? env2.detail ?? env2.error ?? env2.code
         }
         return String(data: data, encoding: .utf8)
+    }
+
+    private func sanitizedProviderErrorMessage(from data: Data) -> String? {
+        ProviderErrorPayloadSanitizer.sanitizedMessage(from: data) {
+            parseErrorMessage(from: data)
+        }
     }
 
     private func parseRetryAfter(from response: HTTPURLResponse) -> TimeInterval? {

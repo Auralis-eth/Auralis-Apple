@@ -1,5 +1,19 @@
 # Journal
 
+## 2026-05-22 — The Provider Error Bouncer Got A Guest List
+
+`A-002` needed one more turn of the screw. The first sanitizer pass blocked obvious secrets and raw text bodies, but it still trusted any JSON `message` that did not look like a token, cookie, seed phrase, or private key. That left a sneaky hallway open for operational diagnostics like trace IDs and backend shard names: not secrets exactly, but still not the kind of confetti you want in public logs or error descriptions.
+
+The classifier now works from a guest list instead of a vibe check. Only explicitly public provider messages, such as recognized rate-limit copy with public wallet addresses, can pass through. Unknown JSON messages get the same treatment as unknown raw bodies: a reason-coded SHA-256 fingerprint that lets engineers correlate incidents without publishing the provider's internals. The regression test uses a JSON envelope with trace/backend diagnostics so this exact bug cannot stroll back in wearing a clean `message` field.
+
+Lesson learned: "not obviously secret" is not the same as "public." Audit code should make public classification explicit, especially around provider payloads where the upstream gets to choose the words.
+
+## 2026-05-21 — Provider Errors Got A Bouncer
+
+`A-002` tightened the Alchemy NFT error path. The important distinction stayed intact: wallet addresses and Alchemy URL client keys are public identifiers in this product, but provider response bodies are not automatically public just because they arrived over HTTPS. They can carry auth echoes, cookies, backend diagnostics, private-key shaped accidents, and assorted operational confetti that should not become app copy, route errors, receipts, or log strings.
+
+The fix gives provider errors a small bouncer. Classified JSON envelopes can still surface safe messages, including public wallet addresses when that helps debugging. Secret-looking payloads and unclassified raw bodies get replaced with a reason-coded SHA-256 fingerprint, so engineers can correlate incidents without publishing the payload. The regression tests now check bearer/auth fields, cookies, private keys, raw text bodies, debug/localized descriptions, and the explicit allowance for public identifiers.
+
 ## 2026-05-21 — The Alchemy Key Stopped Pretending To Be A Vault Key
 
 `A-001` closed the provider-key posture loop. The useful clarification is that Auralis' Alchemy value is a public client key in a URL path, not a wallet password or private provider credential. Treating it like a buried treasure map made the docs sound stricter than the actual Alchemy client-call model, and stricter-but-wrong documentation is how future engineers waste days building defenses against the wrong threat.
@@ -1941,3 +1955,11 @@ A follow-up correction sharpened the threat model. Alchemy keys in URL paths are
 The code also pointed at unfinished business beyond that wording fix: ENS cache still needs an explicit policy/reset entry, shell-selection Keychain accessibility is implemented but not documented, receipt integrity still needs clearer guarantee language, and a few `Task.detached` calls remain in production paths.
 
 So the plan now has a Phase A: not a new architecture adventure, just the cleanup shelf for work that survived verification. A readiness pass then split the board into three honest lanes: Phase A blocks the current Observe-only audit-clean ship target, Phase 4 blocks any future signing/custody/agent release, and Phase 5 is hardening unless release ownership promotes a ticket. The lesson is simple: a ticket is not complete because a paragraph says it is complete. It is complete when the code, tests, docs, and ship decision all tell the same story, including what the product deliberately treats as public.
+
+## Provider Errors: Fingerprints Belong On The Evidence Bag
+
+A-002 started as an NFT log hygiene fix, but the audit wording was bigger than one endpoint. The same Alchemy family also feeds ERC-20 holdings, native balances, and gas prices, and all of those paths could carry provider text forward as errors. That is like locking the front door while leaving the side doors with sticky notes that say "probably fine."
+
+The fix moved provider payload classification into a shared `ProviderErrorPayloadSanitizer`. Known public copy, such as rate-limit messages with public wallet addresses, can pass through. Unknown bodies, operational JSON diagnostics, auth-looking fields, cookies, private keys, seed phrases, and unsafe JSON-RPC messages now become reason-coded SHA-256 fingerprints. The fingerprint keeps an evidence tag for debugging without stuffing the evidence itself into logs, route errors, or receipt-adjacent typed failures.
+
+The lesson: public identifiers and provider payloads are different species. Wallet addresses can be useful daylight; raw upstream bodies are sealed envelopes unless the code has explicitly classified them.
