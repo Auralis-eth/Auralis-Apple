@@ -2,6 +2,8 @@ import Foundation
 import OSLog
 
 public actor ENSResolutionCacheStore {
+    public static let storageDecisionIdentifier = "Auralis.ENSResolutionCache.v1"
+
     private let logger = Logger(subsystem: "Auralis", category: "ENSResolutionCacheStore")
     private let userDefaults: UserDefaults
     private let storageKey: String
@@ -12,7 +14,7 @@ public actor ENSResolutionCacheStore {
 
     public init(
         userDefaults: UserDefaults = .standard,
-        storageKey: String = "Auralis.ENSResolutionCache.v1",
+        storageKey: String = ENSResolutionCacheStore.storageDecisionIdentifier,
         retentionTTL: TimeInterval = 60 * 60 * 24 * 7
     ) {
         self.userDefaults = userDefaults

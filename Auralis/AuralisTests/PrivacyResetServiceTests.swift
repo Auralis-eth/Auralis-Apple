@@ -87,6 +87,55 @@ struct PrivacyResetServiceTests {
         #expect(pinnedItemsStore.pinnedActions(for: "0x1111111111111111111111111111111111111111").isEmpty)
     }
 
+    @Test("privacy reset clears persisted ENS public identifier mappings")
+    func resetLocalPrivacyDataClearsENSMappings() async throws {
+        let container = try TestModelContainers.primary()
+        let context = ModelContext(container)
+        let storageKey = "PrivacyResetServiceTests.ens-cache.\(UUID().uuidString)"
+        UserDefaults.standard.removeObject(forKey: storageKey)
+        defer {
+            UserDefaults.standard.removeObject(forKey: storageKey)
+        }
+        let cacheStore = ENSResolutionCacheStore(storageKey: storageKey)
+        let service = PrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+                modelContainer: context.container
+            ),
+            ensCacheResetService: ENSCacheResetService(cacheStore: cacheStore),
+            auraPlayPersistenceResetService: RecordingAuraPlayPersistenceResetService(),
+            credentialResetService: RecordingCredentialPrivacyResetter(),
+            selectionPersistence: RecordingShellSelectionPersistence(),
+            homePinnedItemsStore: makeIsolatedPinnedItemsStore()
+        )
+
+        await cacheStore.storeForwardResolution(
+            ENSForwardCacheEntry(
+                ensName: "vitalik.eth",
+                address: "0x1234567890abcdef1234567890abcdef12345678",
+                fetchedAt: .now
+            )
+        )
+        await cacheStore.storeReverseResolution(
+            ENSReverseCacheEntry(
+                address: "0x1234567890abcdef1234567890abcdef12345678",
+                ensName: "vitalik.eth",
+                isForwardVerified: true,
+                fetchedAt: .now
+            )
+        )
+        #expect(UserDefaults.standard.data(forKey: storageKey) != nil)
+
+        try await service.resetLocalPrivacyData()
+
+        #expect(await cacheStore.cachedForwardResolution(forENS: "vitalik.eth") == nil)
+        #expect(
+            await cacheStore.cachedReverseResolution(
+                forAddress: "0x1234567890abcdef1234567890abcdef12345678"
+            ) == nil
+        )
+        #expect(UserDefaults.standard.data(forKey: storageKey) == nil)
+    }
+
     @Test("removing an account purges only NFTs scoped to that account")
     func accountRemovalPurgesScopedNFTs() async throws {
         let container = try TestModelContainers.primary()

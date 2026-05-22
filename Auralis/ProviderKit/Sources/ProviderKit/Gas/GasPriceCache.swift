@@ -16,6 +16,8 @@ enum CacheResult<T: Sendable>: Sendable {
 
 /// Streamlined actor-based cache optimized for gas price estimates
 public actor GasPriceCache {
+    public static let storageDecisionIdentifier = "ProviderKit.GasPriceCache.shared"
+
     public static let shared = GasPriceCache()
 
     // MARK: - Configuration

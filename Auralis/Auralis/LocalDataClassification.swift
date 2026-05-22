@@ -1,12 +1,18 @@
+import ENS
 import Foundation
+import ProviderKit
+import ReceiptStorage
 
 enum LocalDataClassification: String, CaseIterable, Sendable {
+    case publicIdentifierMetadata
     case publicPreference
     case walletMetadata
     case credential
 
     var storageRule: String {
         switch self {
+        case .publicIdentifierMetadata:
+            return "UserDefaults or memory caches are allowed for public identifiers only when retention and reset behavior are explicit."
         case .publicPreference:
             return "UserDefaults is allowed for non-sensitive UI preferences that are safe to reset."
         case .walletMetadata:
@@ -18,9 +24,11 @@ enum LocalDataClassification: String, CaseIterable, Sendable {
 }
 
 enum LocalDataStorage: String, Sendable {
+    case bundleConfiguration
     case userDefaults
     case keychain
     case swiftData
+    case memoryCache
     case viewState
 }
 
@@ -33,6 +41,20 @@ struct LocalDataStorageDecision: Equatable, Sendable {
 }
 
 enum LocalDataStoragePolicy {
+    static let requiredKnownIdentifiers: Set<String> = [
+        ModeState.storageDecisionIdentifier,
+        HomePinnedItemsStore.storageDecisionIdentifier,
+        ENSResolutionCacheStore.storageDecisionIdentifier,
+        KeychainReceiptIntegrityHeadStore.storageDecisionIdentifier,
+        "SearchHistoryRecord",
+        GasPriceCache.storageDecisionIdentifier,
+        "AURALIS_ALCHEMY_API_KEY",
+        "auralis.shell.selection.v1",
+        "EOAccount",
+        "WalletPasswordService/WalletPasswordAccount",
+        "view navigation and transient UI state"
+    ]
+
     static let decisions: [LocalDataStorageDecision] = [
         LocalDataStorageDecision(
             identifier: "app.mode",
@@ -47,6 +69,41 @@ enum LocalDataStoragePolicy {
             storage: .userDefaults,
             resetPhase: .localPreferences,
             rationale: "Pinned launcher actions are account-scoped UI preferences, not credentials or capability grants."
+        ),
+        LocalDataStorageDecision(
+            identifier: ENSResolutionCacheStore.storageDecisionIdentifier,
+            classification: .publicIdentifierMetadata,
+            storage: .userDefaults,
+            resetPhase: .supportCaches,
+            rationale: "ENS names and Ethereum address mappings are public identifiers. UserDefaults is acceptable for the short-lived cache because privacy reset clears the cache and expired entries self-prune."
+        ),
+        LocalDataStorageDecision(
+            identifier: KeychainReceiptIntegrityHeadStore.storageDecisionIdentifier,
+            classification: .walletMetadata,
+            storage: .keychain,
+            resetPhase: .transactionalStore,
+            rationale: "Receipt integrity heads bind public receipt chain hashes to wallet account keys, so they are wallet metadata cleared with receipt data."
+        ),
+        LocalDataStorageDecision(
+            identifier: "SearchHistoryRecord",
+            classification: .walletMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "Search history can reveal wallet-scoped user intent even when terms include public identifiers, so it is reset with transactional wallet data."
+        ),
+        LocalDataStorageDecision(
+            identifier: GasPriceCache.storageDecisionIdentifier,
+            classification: .publicIdentifierMetadata,
+            storage: .memoryCache,
+            resetPhase: .supportCaches,
+            rationale: "Gas estimates are public chain data and live only in memory, but privacy reset still flushes the support cache."
+        ),
+        LocalDataStorageDecision(
+            identifier: "AURALIS_ALCHEMY_API_KEY",
+            classification: .publicPreference,
+            storage: .bundleConfiguration,
+            resetPhase: nil,
+            rationale: "The Alchemy value is a bundled public provider client key populated at build time, not user-local mutable data and not cleared by privacy reset."
         ),
         LocalDataStorageDecision(
             identifier: "auralis.shell.selection.v1",

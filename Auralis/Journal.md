@@ -1,5 +1,13 @@
 # Journal
 
+## 2026-05-22 — Public Identifiers Got Name Tags And Exit Doors
+
+`A-003` was a classification cleanup, not a vault migration. ENS names and Ethereum addresses are public identifiers in Auralis, so the ENS cache did not need to move out of UserDefaults just to look more serious. What it did need was a name tag in `LocalDataStoragePolicy` and a guaranteed exit door during privacy reset.
+
+The policy table now covers the ENS cache, receipt integrity heads, gas cache, search history, and the bundled Alchemy public client key. The useful distinction is retention, not drama: ENS mappings can sit in a short-lived UserDefaults blob because privacy reset clears them; receipt heads are wallet metadata in Keychain because they tie receipt-chain state to account keys; search history is wallet metadata because public words can still reveal user intent.
+
+The regression tests now act like a clipboard at the door. Known persisted identifiers must appear in the policy table, and a real ENS cache seeded with forward and reverse mappings must be empty after privacy reset. Public does not mean unmanaged. It means managed with the right label.
+
 ## 2026-05-22 — The Provider Error Bouncer Got A Guest List
 
 `A-002` needed one more turn of the screw. The first sanitizer pass blocked obvious secrets and raw text bodies, but it still trusted any JSON `message` that did not look like a token, cookie, seed phrase, or private key. That left a sneaky hallway open for operational diagnostics like trace IDs and backend shard names: not secrets exactly, but still not the kind of confetti you want in public logs or error descriptions.

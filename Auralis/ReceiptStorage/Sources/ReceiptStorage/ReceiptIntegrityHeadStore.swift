@@ -16,7 +16,9 @@ public protocol ReceiptIntegrityHeadStoring: Sendable {
 }
 
 public actor KeychainReceiptIntegrityHeadStore: ReceiptIntegrityHeadStoring {
-    private let service = "AuralisReceiptIntegrityHeadService"
+    public static let storageDecisionIdentifier = "AuralisReceiptIntegrityHeadService"
+
+    private let service = KeychainReceiptIntegrityHeadStore.storageDecisionIdentifier
     private let accessibility = kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String
 
     public init() { }
