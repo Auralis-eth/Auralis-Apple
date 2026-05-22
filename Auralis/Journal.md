@@ -1,5 +1,15 @@
 # Journal
 
+## 2026-05-22 — Observe Mode Kept Its Hands In Its Pockets
+
+`WEB3-001` looked tempting at first: add `Assist`, add `Operate`, wire a few gates, call it architecture. The catch is that a mode enum is not a security model. In the current code, adding a non-Observe mode before capability grants, confirmation sheets, provenance checks, and approved receipts exist would be like giving the restaurant a "kitchen open" sign before installing the stove controls.
+
+So the shippable move is deliberately smaller and sharper. `AppMode` stays Observe-only, the policy tests now walk every high-risk action (`signMessage`, `approveSpending`, `draftTransaction`, and `runPlugin`) and prove Observe blocks them, and the new ADR says future modes are a product/security release gate rather than a casual enum expansion. `runPlugin` stays on the danger list because tool execution should not become the side door around signing policy.
+
+Lesson learned: future safety vocabulary is useful, but future capability is dangerous until the whole approval pipeline exists. A good gate blocks today and explains exactly what must be built before tomorrow.
+
+The follow-up guardrail made that explanation harder to ignore. ADR-004 now carries a little checklist for each future dangerous door: message signing needs exact preview and signing access, approvals need token/spender/amount preview, transaction drafts need chain and simulation proof, and plugins need identity plus provenance. The tests mirror that checklist with a future contract table tied to `PolicyControlledAction.allCases`, so adding a new high-risk action or mode is no longer a casual Tuesday enum edit. It has to bring the stove controls with it.
+
 ## 2026-05-22 — The Active Wallet Key Got Its Label
 
 `A-004` was one of those security tickets where the code was already doing the intended thing, but the paperwork had left future engineers a trapdoor. Shell selection lives in Keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`: available after the user unlocks once, unavailable before first unlock, and pinned to this device so it does not ride along in backups or migrations.

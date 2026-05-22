@@ -6,6 +6,12 @@ import Testing
 @MainActor
 @Suite
 struct ModeStateTests {
+    @Test("shipped app modes remain observe-only until WEB3-001 future gates exist")
+    func appModesRemainObserveOnly() {
+        #expect(AppMode.allCases == [.observe])
+        #expect(AppMode.allCases.map(\.rawValue) == ["Observe"])
+    }
+
     @Test("mode state always restores observe mode and overwrites stale storage")
     func modeStateForcesObserveModeIntoStorage() {
         let suiteName = "ModeStateTests.modeStateForcesObserveModeIntoStorage"
