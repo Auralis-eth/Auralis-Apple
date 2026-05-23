@@ -53,7 +53,11 @@ struct NewsFeedListView: View {
                 } label: {
                     SystemImage("ellipsis")
                         .padding(8)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
+                .accessibilityLabel("Sort NFTs")
+                .accessibilityHint("Changes the news feed sort order")
+                .accessibilityInputLabels(["Sort", "Sort NFTs"])
             }
 
             ToolbarSpacer(.flexible)
@@ -66,6 +70,10 @@ struct NewsFeedListView: View {
                 }, label: {
                     SystemImage("arrow.clockwise")
                 })
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("Refresh NFTs")
+                .accessibilityHint("Fetches the latest NFTs for this wallet")
+                .accessibilityInputLabels(["Refresh", "Refresh NFTs"])
                 .disabled(nftService.isLoading)
             }
         }
