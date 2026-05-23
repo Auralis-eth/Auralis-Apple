@@ -170,6 +170,7 @@ public struct NFTLibraryCardButtons: View {
         UIPasteboard.general.string = nft.id
         #endif
         presentCopyConfirmation()
+        AuraAccessibilityAnnouncer.announce("NFT ID copied")
     }
 
     private func presentCopyConfirmation() {

@@ -112,12 +112,14 @@ struct SettingsView: View {
                 await MainActor.run {
                     isResettingPrivacyData = false
                     resetSuccessMessage = "Local privacy data was cleared for this device."
+                    AuraAccessibilityAnnouncer.announce("Local privacy data was cleared for this device.")
                 }
                 await onPrivacyResetCompleted()
             } catch {
                 await MainActor.run {
                     isResettingPrivacyData = false
                     resetErrorMessage = error.localizedDescription
+                    AuraAccessibilityAnnouncer.announce("Local privacy data reset failed. \(error.localizedDescription)")
                 }
             }
         }
