@@ -2,6 +2,8 @@
 
 This is the manual QA suite for Phase 0 on a real iPhone. The simulator is useful for speed. It is not where audio routing, camera permission prompts, app lifecycle timing, thermal behavior, and "feels broken in the hand" issues tell the truth.
 
+Automated UI/accessibility audit coverage is tracked separately in `P0-UI-Test-QA-Suite.md`. Passing simulator UI tests does not replace this physical-device gate.
+
 ## Test Environment Template
 
 Record this before starting:

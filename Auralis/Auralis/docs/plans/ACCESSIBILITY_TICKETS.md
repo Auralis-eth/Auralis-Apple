@@ -29,7 +29,7 @@ The accessibility work is complete only when all of the following are true:
 - [ ] Every Low / Polish ticket is either implemented, converted into a process artifact, or moved into the post-release backlog.
 - [ ] The project builds successfully with the `Auralis` scheme.
 - [ ] Targeted UI tests or Swift Testing coverage exists for code paths that can regress without visual review.
-- [ ] `performAccessibilityAudit` UI tests cover the critical flows where iOS 17+ is available.
+- [ ] `performAccessibilityAudit` UI tests cover the critical flows where iOS 17+ is available. See `P0-UI-Test-QA-Suite.md`.
 - [ ] Manual testing passes on a physical device for VoiceOver, Voice Control with Show Names, Switch Control scan order, Dynamic Type `.accessibility5`, Increase Contrast, Reduce Motion, Reduce Transparency, Grayscale, Bold Text, hardware keyboard navigation, and the QR scanner path.
 - [ ] Accessibility Nutrition Label claims are reviewed only after the gate above passes.
 
@@ -389,7 +389,7 @@ TextField("Search ENS, wallet, contract, symbol, NFT, collection", text: $query)
 
 ## Phase 2 — Design System Defaults
 
-**Status:** Complete in code. Build verified on 2026-05-23 with the Xcode `Auralis` scheme. Real-device QA still needs to run the accessibility ship gate in `P0-Physical-Device-QA-Suite.md` before release.
+**Status:** Complete in code. Build verified on 2026-05-23 with the Xcode `Auralis` scheme. UI accessibility audit coverage is tracked in `P0-UI-Test-QA-Suite.md`; real-device QA still needs to run the accessibility ship gate in `P0-Physical-Device-QA-Suite.md` before release.
 
 ---
 

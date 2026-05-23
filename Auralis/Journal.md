@@ -1,5 +1,13 @@
 # Journal
 
+## 2026-05-23 — The Robot Inspector Got Its Own Clipboard
+
+The accessibility ship gate had a real-device checklist, but the automated side was still living as a sentence in the backlog: add `performAccessibilityAudit` UI tests. That is too easy to lose during release pressure, so `P0-UI-Test-QA-Suite.md` now gives the UI test gate its own home next to the physical-device suite.
+
+The split is intentional. Simulator UI tests are good at catching missing identifiers, broken screen launches, unlabeled controls, and iOS 17+ accessibility audit failures. They are not good at proving VoiceOver, Voice Control, Switch Control, QR scanning, camera permission recovery, and actual hand-feel on hardware. The release contract now says both jobs out loud instead of pretending one clipboard can inspect the whole building.
+
+Lesson learned: accessibility QA needs two inspectors. One is tireless and automated; the other holds the device and catches the parts automation cannot feel.
+
 ## 2026-05-23 — Phase 2 Made Accessibility The Default Setting
 
 Phase 2 moved the work from emergency repairs into the shared furniture of the app. Section headers now identify themselves as headings, action buttons enforce a real 44pt hit area, status pills stop creating silent VoiceOver stops, and the core Aura color tokens lean on semantic system colors instead of fixed paint swatches that ignore contrast settings.
