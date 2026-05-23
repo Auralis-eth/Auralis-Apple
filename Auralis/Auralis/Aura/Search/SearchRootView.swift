@@ -305,6 +305,7 @@ private struct SearchInputCard: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .focused($isFocused)
+                .submitLabel(.search)
                 .font(.body)
                 .foregroundStyle(Color.textPrimary)
                 .padding(.horizontal, 14)
@@ -313,6 +314,9 @@ private struct SearchInputCard: View {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(Color.white.opacity(0.08))
                 )
+                .accessibilityLabel("Query")
+                .accessibilityHint("Search by ENS name, wallet address, contract, token symbol, NFT, or collection")
+                .accessibilityValue(query.isEmpty ? "Empty" : query)
                 .accessibilityIdentifier("search.queryField")
             }
         }
