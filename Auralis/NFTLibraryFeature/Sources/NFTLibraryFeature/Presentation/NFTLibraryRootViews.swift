@@ -7,6 +7,10 @@ import NFTPresentation
 import NFTProviderAdapters
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
 public struct NFTLibraryTokensRootView: View {
     public let nfts: [NFT]
     public let currentChain: Chain
@@ -135,17 +139,27 @@ public struct NFTLibraryNewsFeedRootView: View {
                         ScrollView(.vertical, showsIndicators: false) {
                             LazyVStack(spacing: 0) {
                                 ForEach(displayNFTs) { nft in
-                                    Button {
-                                        actions.openNFT(nft.id)
-                                    } label: {
-                                        NFTLibraryCardView(nft: nft)
-                                            .frame(width: geometry.size.width)
-                                            .frame(minHeight: geometry.size.height, maxHeight: geometry.size.height)
-                                            .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityLabel(nft.name ?? nft.collection?.name ?? "Open NFT")
-                                    .accessibilityHint("Shows NFT details")
+                                    NFTLibraryCardView(nft: nft)
+                                        .frame(width: geometry.size.width)
+                                        .frame(minHeight: geometry.size.height, maxHeight: geometry.size.height)
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {
+                                            actions.openNFT(nft.id)
+                                        }
+                                        .accessibilityElement(children: .ignore)
+                                        .accessibilityLabel(NFTLibraryPresentation.displayTitle(for: nft))
+                                        .accessibilityValue("Collection: \(nft.collection?.name ?? "Unknown Collection")")
+                                        .accessibilityHint("Shows NFT details")
+                                        .accessibilityAddTraits(.isButton)
+                                        .accessibilityAction {
+                                            actions.openNFT(nft.id)
+                                        }
+                                        .accessibilityAction(named: "Open details") {
+                                            actions.openNFT(nft.id)
+                                        }
+                                        .accessibilityAction(named: "Copy token ID") {
+                                            copyNFTIdentifier(nft.id)
+                                        }
                                 }
                             }
                             .scrollTargetLayout()
@@ -157,5 +171,12 @@ public struct NFTLibraryNewsFeedRootView: View {
                 .ignoresSafeArea(.all)
             }
         }
+    }
+
+    private func copyNFTIdentifier(_ id: String) {
+        #if canImport(UIKit)
+        UIPasteboard.general.string = id
+        #endif
+        AuraAccessibilityAnnouncer.announce("NFT ID copied")
     }
 }
