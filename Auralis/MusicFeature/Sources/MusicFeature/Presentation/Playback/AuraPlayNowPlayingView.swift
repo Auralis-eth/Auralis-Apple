@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
-    @ObservedObject var player: Player
+    let player: Player
     @Environment(\.dismiss) private var dismiss
 
     @State private var seekValue: Double = 0

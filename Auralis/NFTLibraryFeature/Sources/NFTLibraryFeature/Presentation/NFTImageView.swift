@@ -1,6 +1,7 @@
 import AuraUI
 import Foundation
 import ImageIO
+import Observation
 import SwiftUI
 
 #if canImport(UIKit)
@@ -31,7 +32,8 @@ public final class NFTImageCache: @unchecked Sendable {
 }
 
 @MainActor
-public final class NFTImageLoader: ObservableObject {
+@Observable
+public final class NFTImageLoader {
     nonisolated private static let maxPixelDimension = 1_024
     nonisolated static let maxDownloadSizeBytes = 20 * 1_024 * 1_024
     nonisolated static let defaultSession: URLSession = {
@@ -110,9 +112,9 @@ public final class NFTImageLoader: ObservableObject {
         }
     }
 
-    @Published var image: UIImage?
-    @Published var isLoading = false
-    @Published var error: LoadingError?
+    var image: UIImage?
+    var isLoading = false
+    var error: LoadingError?
 
     private var loadingTask: Task<Void, Never>?
     private let url: URL
@@ -261,12 +263,12 @@ public final class NFTImageLoader: ObservableObject {
 }
 
 public struct NFTCachedAsyncImage: View {
-    @StateObject private var loader: NFTImageLoader
+    @State private var loader: NFTImageLoader
     private let url: URL
 
     public init(url: URL) {
         self.url = url
-        _loader = StateObject(wrappedValue: NFTImageLoader(url: url))
+        _loader = State(initialValue: NFTImageLoader(url: url))
     }
 
     public var body: some View {

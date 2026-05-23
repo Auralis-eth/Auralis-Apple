@@ -7,7 +7,7 @@ private enum AuraPlayMiniPlayerAccessoryMode {
 }
 
 public struct AuraPlayMiniPlayerView<Player: AuraPlayPlaybackPresenting>: View {
-    @ObservedObject private var player: Player
+    private let player: Player
 
     @State private var showNowPlaying = false
 
@@ -47,7 +47,7 @@ public struct AuraPlayMiniPlayerView<Player: AuraPlayPlaybackPresenting>: View {
 }
 
 private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>: View {
-    @ObservedObject var player: Player
+    let player: Player
     let accessoryMode: AuraPlayMiniPlayerAccessoryMode
 
     @State private var miniSeekValue: Double = 0

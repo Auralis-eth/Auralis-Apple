@@ -343,6 +343,307 @@ struct ArchitectureBoundaryTests {
         )
     }
 
+    @Test("feature package source boundaries use intended imports and Observation")
+    func featurePackageSourceBoundariesUseIntendedImportsAndObservation() throws {
+        let projectRoot = try projectRootURL()
+        let rules: [PackageSourceBoundaryRule] = [
+            PackageSourceBoundaryRule(
+                rootPath: "MusicFeature/Sources/MusicFeature/Domain",
+                forbiddenImports: [
+                    "AuralisPrimaryPersistence",
+                    "AuraUI",
+                    "CapabilitiesCore",
+                    "ReceiptsCore",
+                    "SwiftData",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "MusicFeature domain values must stay portable and UI/storage-free"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "MusicFeature/Sources/MusicFeature/Core",
+                forbiddenImports: [
+                    "AuralisPrimaryPersistence",
+                    "AuraUI",
+                    "CapabilitiesCore",
+                    "ReceiptsCore",
+                    "SwiftData",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "MusicFeature core configuration must stay independent of UI, persistence, and receipt services"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "MusicFeature/Sources/MusicFeature/Services",
+                forbiddenImports: [
+                    "AuralisPrimaryPersistence",
+                    "AuraUI",
+                    "NFTKit",
+                    "NFTDomain",
+                    "NFTPersistence",
+                    "NFTPresentation",
+                    "NFTProviderAdapters",
+                    "SwiftData",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "MusicFeature service contracts must not depend on UI, SwiftData, or NFT implementation layers"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "MusicFeature/Sources/MusicFeature/Persistence",
+                forbiddenImports: [
+                    "AuraUI",
+                    "NFTKit",
+                    "NFTDomain",
+                    "NFTPersistence",
+                    "NFTPresentation",
+                    "NFTProviderAdapters",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "MusicFeature persistence may use SwiftData but must not reach into UI or NFT layers"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "MusicFeature/Sources/MusicFeature/Receipts",
+                forbiddenImports: [
+                    "AuralisPrimaryPersistence",
+                    "AuraUI",
+                    "NFTKit",
+                    "NFTDomain",
+                    "NFTPersistence",
+                    "NFTPresentation",
+                    "NFTProviderAdapters",
+                    "ReceiptStorage",
+                    "SwiftData",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "MusicFeature receipt logic depends on receipt contracts, not app storage, UI, or NFT layers"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "MusicFeature/Sources/MusicFeature/Presentation",
+                forbiddenImports: [
+                    "NFTKit",
+                    "NFTProviderAdapters",
+                    "ProviderKit",
+                    "ReceiptStorage"
+                ],
+                reason: "MusicFeature presentation may use SwiftUI and SwiftData-facing models but not provider or storage implementation packages"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "MusicFeature/Sources/MusicFeature/App",
+                forbiddenImports: [
+                    "NFTKit",
+                    "NFTProviderAdapters",
+                    "ProviderKit",
+                    "ReceiptStorage"
+                ],
+                reason: "MusicFeature app entry points may compose presentation but not provider or storage implementation packages"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "NFTLibraryFeature/Sources/NFTLibraryFeature/Domain",
+                forbiddenImports: [
+                    "AuraUI",
+                    "ExplorerAdapter",
+                    "NFTKit",
+                    "NFTDomain",
+                    "NFTPersistence",
+                    "NFTPresentation",
+                    "NFTProviderAdapters",
+                    "OperatorCore",
+                    "SwiftData",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "NFTLibraryFeature domain routing and sorting must stay free of UI, provider, and concrete NFTKit layers"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "NFTLibraryFeature/Sources/NFTLibraryFeature/Services",
+                forbiddenImports: [
+                    "AuralisPrimaryPersistence",
+                    "AuraUI",
+                    "ExplorerAdapter",
+                    "NFTKit",
+                    "NFTDomain",
+                    "NFTPersistence",
+                    "NFTPresentation",
+                    "NFTProviderAdapters",
+                    "SwiftData",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "NFTLibraryFeature services must stay domain-facing and avoid UI, persistence, and NFT provider layers"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "NFTLibraryFeature/Sources/NFTLibraryFeature/Support",
+                forbiddenImports: [
+                    "AuraUI",
+                    "ExplorerAdapter",
+                    "NFTKit",
+                    "NFTDomain",
+                    "NFTPersistence",
+                    "NFTPresentation",
+                    "NFTProviderAdapters",
+                    "OperatorCore",
+                    "SwiftData",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "NFTLibraryFeature support mappers must stay presentation-data oriented without UI or provider dependencies"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "NFTLibraryFeature/Sources/NFTLibraryFeature/Presentation",
+                forbiddenImports: [
+                    "NFTKit",
+                    "ProviderKit",
+                    "ReceiptStorage"
+                ],
+                reason: "NFTLibraryFeature presentation may use SwiftUI and explicit NFTKit layer products, but not umbrella/provider/storage implementation imports"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "NFTKit/Sources/NFTDomain",
+                forbiddenImports: [
+                    "AuralisPrimaryPersistence",
+                    "ChainProviders",
+                    "ExplorerAdapter",
+                    "NFTPersistence",
+                    "NFTPresentation",
+                    "NFTProviderAdapters",
+                    "ProviderKit",
+                    "ReceiptsCore",
+                    "SwiftData",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "NFTDomain must stay pure domain"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "NFTKit/Sources/NFTProviderAdapters",
+                forbiddenImports: [
+                    "AuralisPrimaryPersistence",
+                    "NFTPersistence",
+                    "NFTPresentation",
+                    "ReceiptsCore",
+                    "SwiftData",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "NFTProviderAdapters must not own persistence models, UI, SwiftData, receipts, or presentation state"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "NFTKit/Sources/NFTPersistence",
+                forbiddenImports: [
+                    "ChainProviders",
+                    "ExplorerAdapter",
+                    "NFTProviderAdapters",
+                    "ProviderKit",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "NFTPersistence must not depend on provider adapters, provider packages, explorer packages, or UI"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "NFTKit/Sources/NFTPresentation",
+                forbiddenImports: [
+                    "ChainProviders",
+                    "ExplorerAdapter",
+                    "ProviderKit",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "NFTPresentation may orchestrate NFT layers and SwiftData models, but not UI or provider implementation packages"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "NFTKit/Sources/NFTKit",
+                forbiddenImports: [
+                    "ChainProviders",
+                    "ExplorerAdapter",
+                    "ProviderKit",
+                    "SwiftData",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "NFTKit facade must remain a thin export layer"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "AuralisPrimaryModels/Sources/AuralisPrimaryModels",
+                forbiddenImports: [
+                    "AuralisPrimaryPersistence",
+                    "AuraUI",
+                    "MusicFeature",
+                    "NFTKit",
+                    "NFTDomain",
+                    "NFTPersistence",
+                    "NFTPresentation",
+                    "NFTProviderAdapters",
+                    "Observation",
+                    "SwiftData",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "AuralisPrimaryModels must stay pure portable domain values"
+            ),
+            PackageSourceBoundaryRule(
+                rootPath: "AuralisPrimaryModels/Sources/AuralisPrimaryPersistence",
+                forbiddenImports: [
+                    "AuraUI",
+                    "MusicFeature",
+                    "NFTKit",
+                    "NFTDomain",
+                    "NFTPersistence",
+                    "NFTPresentation",
+                    "NFTProviderAdapters",
+                    "Observation",
+                    "ProviderKit",
+                    "SwiftUI",
+                    "UIKit"
+                ],
+                reason: "AuralisPrimaryPersistence may use SwiftData but must not import UI, feature, provider, or observation layers"
+            )
+        ]
+        let legacyObservationTokens = [
+            "ObservableObject",
+            "@Published",
+            "@StateObject",
+            "@ObservedObject",
+            "@EnvironmentObject"
+        ]
+        var importOffenders: [String] = []
+        var observationOffenders: [String] = []
+
+        for rule in rules {
+            let sourceRoot = projectRoot.appending(path: rule.rootPath)
+            for fileURL in try swiftSourceFiles(under: sourceRoot) {
+                let relativePath = fileURL.path()
+                    .replacingOccurrences(of: projectRoot.path() + "/", with: "")
+                let source = try String(contentsOf: fileURL, encoding: .utf8)
+                let forbiddenImports = importedModules(in: source).intersection(rule.forbiddenImports)
+
+                if forbiddenImports.isEmpty == false {
+                    importOffenders.append(
+                        "\(relativePath) imports \(forbiddenImports.sorted()) - \(rule.reason)"
+                    )
+                }
+
+                let forbiddenTokens = legacyObservationTokens.filter(source.contains)
+                if forbiddenTokens.isEmpty == false {
+                    observationOffenders.append(
+                        "\(relativePath) uses \(forbiddenTokens.sorted())"
+                    )
+                }
+            }
+        }
+
+        #expect(
+            importOffenders.isEmpty,
+            "Package source imports must match each target's intended layer: \(importOffenders.sorted())"
+        )
+        #expect(
+            observationOffenders.isEmpty,
+            "Package SwiftUI/observable sources must use Observation instead of ObservableObject wrappers: \(observationOffenders.sorted())"
+        )
+    }
+
     @Test("SwiftUI queries do not own shell selection")
     func swiftUIQueriesDoNotOwnShellSelection() throws {
         let projectRoot = try projectRootURL()
@@ -580,6 +881,12 @@ struct ArchitectureBoundaryTests {
 
     private func isAllowedPath(_ path: String, allowedFiles: Set<String>) -> Bool {
         allowedFiles.contains(path) || allowedFiles.contains { path.hasSuffix($0) }
+    }
+
+    private struct PackageSourceBoundaryRule {
+        let rootPath: String
+        let forbiddenImports: Set<String>
+        let reason: String
     }
 
     private func balancedSubstring(

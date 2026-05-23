@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
-    @ObservedObject var player: Player
+    let player: Player
     private let initialLimit = 20
     @State private var isClearing = false
 

@@ -23,7 +23,7 @@ public struct AuraPlayRecentlyPlayedItem: Identifiable, Equatable, Sendable {
 }
 
 @MainActor
-public protocol AuraPlayPlaybackPresenting: ObservableObject {
+public protocol AuraPlayPlaybackPresenting: AnyObject {
     var auraPlayCurrentTrack: AuraPlayTrack? { get }
     var auraPlayPlaybackState: AuraPlayPlaybackState { get }
     var auraPlayProgress: TimeInterval { get }

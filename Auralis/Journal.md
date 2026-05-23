@@ -1,5 +1,13 @@
 # Journal
 
+## 2026-05-22 — The Feature Packages Got Door Sensors
+
+`TEST-001` turned the architecture boundary tests from a few sharp spot-checks into a package-source patrol. The old tests knew some important doors in `NFTKit`, but feature packages were still mostly protected by good intentions and code review. That is fine until migration work starts moving furniture at speed.
+
+The new guardrail scans `MusicFeature`, `NFTLibraryFeature`, `NFTKit`, and `AuralisPrimaryModels` with rules that match the room each source folder is supposed to be. Presentation folders can import SwiftUI because they are the dining room, not the pantry. Domain and primary-model folders do not get SwiftUI, SwiftData, provider packages, or feature implementation imports. Persistence folders may use SwiftData, but they do not get to reach back into provider adapters or UI.
+
+The sneaky part was Observation. Adding the test honestly meant cleaning up the package code first: AuraPlay playback views stopped using `@ObservedObject`, `AuraPlayPlaybackPresenting` stopped inheriting `ObservableObject`, and `NFTImageLoader` moved to `@Observable` with `@State` ownership in SwiftUI. Lesson learned: a boundary test is a promise, not a poster. If it would fail the current code, either the rule is wrong or the code has to grow up before the rule ships.
+
 ## 2026-05-22 — The Signing Door Got A Lock Before It Got A Handle
 
 `WEB3-002` could not honestly be finished end-to-end because Auralis still has no signer, no transaction draft model, and no signing prototype. Building a full preview flow without a transaction would be stage scenery: it might look like architecture, but nothing real would be holding it up.
