@@ -28,6 +28,8 @@ struct HomeTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceTransparency) private var accessibilityReduceTransparency
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     @Namespace private var namespace
     private let transitionID = "HomeTabView"
@@ -224,18 +226,25 @@ struct HomeTabView: View {
 
     private var backgroundVisual: some View {
         Group {
-            if let firstImage = selectedImage ?? generatedImages?.first {
-                Image(uiImage: firstImage)
-                    .resizable()
-                    .scaledToFill()
+            if accessibilityReduceTransparency || colorSchemeContrast == .increased {
+                Color(.systemBackground)
                     .ignoresSafeArea()
             } else {
-                GatewayBackgroundImage()
-                    .ignoresSafeArea()
-            }
+                Group {
+                    if let firstImage = selectedImage ?? generatedImages?.first {
+                        Image(uiImage: firstImage)
+                            .resizable()
+                            .scaledToFill()
+                            .accessibilityHidden(true)
+                    } else {
+                        GatewayBackgroundImage()
+                            .accessibilityHidden(true)
+                    }
 
-            Color.background.opacity(0.3)
+                    Color.background.opacity(0.45)
+                }
                 .ignoresSafeArea()
+            }
         }
     }
 
@@ -617,6 +626,7 @@ struct HomeTabView: View {
         let generationID = UUID()
         activeImageGenerationID = generationID
         isLoading = true
+        AuraAccessibilityAnnouncer.announce("Generating images")
         selectedImage = nil
         generatedImages = nil
         defer {
@@ -645,16 +655,22 @@ struct HomeTabView: View {
                 newImages.append(UIImage(cgImage: image.cgImage))
                 generatedImages = newImages
             }
+
+            if activeImageGenerationID == generationID {
+                AuraAccessibilityAnnouncer.announce("Image generation complete")
+            }
         } catch ImageCreator.Error.notSupported {
             guard activeImageGenerationID == generationID else {
                 return
             }
             generatedImages = nil
+            AuraAccessibilityAnnouncer.announce("Image generation is not supported on this device")
         } catch {
             guard activeImageGenerationID == generationID else {
                 return
             }
             errorMessage = String(localized: "Failed to generate images. Please try again.\n\(error.localizedDescription)")
+            AuraAccessibilityAnnouncer.announce("Image generation failed")
             showErrorAlert = true
         }
     }
