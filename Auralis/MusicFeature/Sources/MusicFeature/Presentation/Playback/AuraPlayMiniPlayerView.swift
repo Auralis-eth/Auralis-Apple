@@ -24,19 +24,9 @@ public struct AuraPlayMiniPlayerView<Player: AuraPlayPlaybackPresenting>: View {
             if player.auraPlayCurrentTrack != nil {
                 AuraPlayMiniPlayerContentView(
                     player: player,
-                    accessoryMode: accessoryMode
+                    accessoryMode: accessoryMode,
+                    openNowPlaying: openNowPlaying
                 )
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if accessoryMode != .unknown {
-                        showNowPlaying = true
-                    }
-                }
-                .accessibilityAction(named: "Open Now Playing") {
-                    if accessoryMode != .unknown {
-                        showNowPlaying = true
-                    }
-                }
                 .sheet(isPresented: $showNowPlaying) {
                     AuraPlayNowPlayingView(player: player)
                 }
@@ -44,25 +34,61 @@ public struct AuraPlayMiniPlayerView<Player: AuraPlayPlaybackPresenting>: View {
         }
         .accessibilityElement(children: .contain)
     }
+
+    private func openNowPlaying() {
+        if accessoryMode != .unknown {
+            showNowPlaying = true
+        }
+    }
 }
 
 private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>: View {
     let player: Player
     let accessoryMode: AuraPlayMiniPlayerAccessoryMode
+    let openNowPlaying: () -> Void
 
     @State private var miniSeekValue: Double = 0
     @State private var miniIsDragging = false
+
+    private var currentTrackAccessibilityValue: String {
+        let title = player.auraPlayCurrentTrack?.title?.isEmpty == false
+            ? player.auraPlayCurrentTrack?.title ?? "Unknown Title"
+            : "Unknown Title"
+        return "\(title), \(playbackStateAccessibilityValue)"
+    }
+
+    private var playbackStateAccessibilityValue: String {
+        switch player.auraPlayPlaybackState {
+        case .loading:
+            return "loading"
+        case .playing:
+            return "playing"
+        case .paused:
+            return "paused"
+        case .stopped:
+            return "stopped"
+        case .error:
+            return "playback unavailable"
+        }
+    }
 
     var body: some View {
         VStack {
             HStack {
                 if let currentTrack = player.auraPlayCurrentTrack {
-                    AuraPlayMiniPlayerTrackView(
-                        currentTrack: currentTrack,
-                        accessoryMode: accessoryMode
-                    )
-                    .id(currentTrack.id)
-                    Spacer()
+                    Button(action: openNowPlaying) {
+                        AuraPlayMiniPlayerTrackView(
+                            currentTrack: currentTrack,
+                            accessoryMode: accessoryMode
+                        )
+                        .id(currentTrack.id)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel("Now Playing")
+                    .accessibilityValue(currentTrackAccessibilityValue)
+                    .accessibilityHint("Opens the Now Playing screen")
                 }
 
                 HStack(spacing: 8) {
