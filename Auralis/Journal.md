@@ -1,5 +1,13 @@
 # Journal
 
+## 2026-05-22 — Explorer URLs Stopped Wearing Blindfolds
+
+`TEST-006` was a tiny hardening job with a useful lesson: a literal URL is still input, even when the programmer typed it. `ExplorerCatalog` used to force-unwrap every explorer root, which meant a typo would crash with Swift's generic "found nil" shrug instead of telling us which catalog entry broke.
+
+The catalog now uses a small validated constructor that only accepts HTTPS root URLs with a host and no path, query, or fragment. If a future explorer literal is malformed, the trap points at the bad value like a helpful kitchen ticket instead of dumping the whole tray on the floor. The tests now walk every supported explorer case and verify the catalog root plus the address, transaction, token, and NFT route patterns.
+
+`TEST-007` turned into a verification pass rather than a code rewrite: the receipt reset/integrity files no longer contain force unwraps, and the receipt tests already cover the first receipt, chained receipt, rollback after failed head writes, tamper detection, and intentional reset. Good audit work sometimes closes a ticket by proving the scary thing is gone and keeping the tripwires lit.
+
 ## 2026-05-22 — The Feature Packages Got Door Sensors
 
 `TEST-001` turned the architecture boundary tests from a few sharp spot-checks into a package-source patrol. The old tests knew some important doors in `NFTKit`, but feature packages were still mostly protected by good intentions and code review. That is fine until migration work starts moving furniture at speed.

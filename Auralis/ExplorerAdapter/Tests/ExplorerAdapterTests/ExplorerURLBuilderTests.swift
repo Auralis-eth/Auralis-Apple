@@ -54,6 +54,19 @@ struct ExplorerURLBuilderTests {
         #expect(ExplorerCatalog.default.allowedHosts == Set(Self.supportedExplorerCases.map(\.host)))
     }
 
+    @Test("Catalog base URLs are valid HTTPS roots", arguments: Self.supportedExplorerCases)
+    private func catalogBaseURLIsValidHTTPSRoot(testCase: ExplorerCase) throws {
+        let entry = try #require(ExplorerCatalog.default.entry(for: testCase.chain))
+        let url = entry.baseURL
+
+        #expect(url.absoluteString == testCase.baseURL)
+        #expect(url.scheme == "https")
+        #expect(url.host?.isEmpty == false)
+        #expect(url.path.isEmpty)
+        #expect(url.query == nil)
+        #expect(url.fragment == nil)
+    }
+
     @Test("Solana chains fail instead of falling back to mainnet", arguments: [
         Chain.solanaMainnet,
         Chain.solanaDevnetTestnet,
