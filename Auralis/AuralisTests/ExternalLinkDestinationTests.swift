@@ -83,6 +83,9 @@ struct ExternalLinkDestinationTests {
 
         let approvedCandidates = [
             ExternalLinkCandidateDestination(label: "OpenSea", url: URL(string: "https://opensea.io/assets/base/0xabc/1")!),
+            ExternalLinkCandidateDestination(label: "OpenSea Collection", url: URL(string: "https://opensea.io/collection/auralis")!),
+            ExternalLinkCandidateDestination(label: "Explorer Address", url: URL(string: "https://etherscan.io/address/0x1234567890abcdef1234567890abcdef12345678")!),
+            ExternalLinkCandidateDestination(label: "Explorer Transaction", url: URL(string: "https://etherscan.io/tx/0xabc")!),
             ExternalLinkCandidateDestination(label: "IPFS", url: URL(string: "https://ipfs.io/ipfs/QmHash")!),
             ExternalLinkCandidateDestination(label: "IPFS", url: URL(string: "https://cloudflare-ipfs.com/ipfs/QmHash")!),
             ExternalLinkCandidateDestination(label: "IPFS", url: URL(string: "https://gateway.pinata.cloud/ipfs/QmHash")!),
@@ -97,6 +100,26 @@ struct ExternalLinkDestinationTests {
 
             #expect(destination.label == candidate.label)
             #expect(destination.hostDisplay == candidate.url.host())
+        }
+    }
+
+    @Test("external link policy rejects root-level action URLs on approved hosts")
+    func policyRejectsRootLevelActionURLs() {
+        let policy = ExternalLinkPolicy()
+
+        let rootCandidates = [
+            ExternalLinkCandidateDestination(label: "Explorer Root", url: URL(string: "https://etherscan.io")!),
+            ExternalLinkCandidateDestination(label: "OpenSea Root", url: URL(string: "https://opensea.io/")!),
+            ExternalLinkCandidateDestination(label: "Arweave Root", url: URL(string: "https://arweave.net")!)
+        ]
+
+        for candidate in rootCandidates {
+            let host = candidate.url.host() ?? ""
+
+            #expect(
+                policy.validate(candidate) == .failure(.unsupportedPath(host: host, path: "/")),
+                "Expected root path to be rejected for \(candidate.url.absoluteString)"
+            )
         }
     }
 
@@ -131,14 +154,7 @@ struct ExternalLinkDestinationTests {
     func policyBuildsDisplayFields() {
         let policy = ExternalLinkPolicy()
 
-        let emptyPath = ExternalLinkCandidateDestination(label: "Explorer", url: URL(string: "https://etherscan.io")!)
         let tokenPath = ExternalLinkCandidateDestination(label: "OpenSea", url: URL(string: "https://opensea.io/assets/base/0xabc/1?ref=auralis")!)
-
-        guard case .success(let rootDestination) = policy.validate(emptyPath) else {
-            Issue.record("Expected etherscan root URL to validate")
-            return
-        }
-        #expect(rootDestination.pathDisplay == "/")
 
         guard case .success(let tokenDestination) = policy.validate(tokenPath) else {
             Issue.record("Expected OpenSea token URL to validate")

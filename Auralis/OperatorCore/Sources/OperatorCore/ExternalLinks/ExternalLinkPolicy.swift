@@ -58,7 +58,7 @@ public struct ExternalLinkPolicy {
     ]
 
     public static let defaultRules: [ExternalLinkRule] = {
-        let explorerPaths = ["/", "/token/", "/address/", "/tx/"]
+        let explorerPaths = ["/token/", "/address/", "/tx/"]
         let explorerHosts = defaultAllowedHosts.subtracting([
             "opensea.io",
             "ipfs.io",
@@ -69,11 +69,11 @@ public struct ExternalLinkPolicy {
         return explorerHosts.map {
             ExternalLinkRule(host: $0, allowedPathPrefixes: explorerPaths, routeType: "Explorer")
         } + [
-            ExternalLinkRule(host: "opensea.io", allowedPathPrefixes: ["/", "/assets/", "/collection/"], routeType: "Marketplace"),
+            ExternalLinkRule(host: "opensea.io", allowedPathPrefixes: ["/assets/", "/collection/"], routeType: "Marketplace"),
             ExternalLinkRule(host: "ipfs.io", allowedPathPrefixes: ["/ipfs/"], routeType: "IPFS gateway"),
             ExternalLinkRule(host: "cloudflare-ipfs.com", allowedPathPrefixes: ["/ipfs/"], routeType: "IPFS gateway"),
             ExternalLinkRule(host: "gateway.pinata.cloud", allowedPathPrefixes: ["/ipfs/"], routeType: "IPFS gateway"),
-            ExternalLinkRule(host: "arweave.net", allowedPathPrefixes: ["/", "/tx/"], routeType: "Arweave")
+            ExternalLinkRule(host: "arweave.net", allowedPathPrefixes: ["/tx/"], routeType: "Arweave")
         ]
     }()
 

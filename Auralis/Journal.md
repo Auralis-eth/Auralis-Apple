@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-05-23 — External Links Stopped Letting Homepages Sneak In
+
+`TEST-010` tightened the outbound-link bouncer. The host allowlist was already picky, but the default action policy still let approved hosts point at their front doors: explorer roots, OpenSea's homepage, and Arweave's root. That is too broad for generated wallet-context actions, where the app should know exactly whether it is sending someone to a token, address, transaction, collection, IPFS object, or Arweave transaction route.
+
+The policy now rejects those root-level action URLs and keeps the paths Auralis actually generates. The confirmation sheet also puts the verified host in the loudest seat at the table, because the hostname is the part a user can realistically verify before leaving the app. The tests pin both sides of the deal: roots are blocked, while explorer `/token/`, `/address/`, `/tx/`, OpenSea asset/collection, IPFS gateway, and Arweave transaction links still pass.
+
 ## 2026-05-22 — The Storage Policy Got A Complete Seating Chart
 
 `TEST-002` closed the audit gap where the local data policy knew about a few famous guests but not the whole persistent dinner service. The policy table now registers every active SwiftData model from the primary store and the AuraPlay store, plus the nested NFT models that SwiftData persists behind relationships. Each one carries a classification, storage type, reset phase, and a short reason for why it belongs there.

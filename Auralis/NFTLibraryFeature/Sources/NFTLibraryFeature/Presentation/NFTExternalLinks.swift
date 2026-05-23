@@ -37,8 +37,8 @@ public struct NFTExternalLinkConfirmationSheet: View {
                         }
 
                         AuraTrustLabel(kind: .link)
+                        verifiedHostField(destination.hostDisplay)
                         destinationField(title: "Destination", value: destination.label, font: .headline)
-                        destinationField(title: "Host", value: destination.hostDisplay, font: .title3.weight(.semibold))
                         destinationField(title: "Path", value: destination.pathDisplay, font: .body.monospaced())
                         destinationField(title: "Full URL", value: destination.fullURLDisplay, font: .footnote.monospaced())
                     }
@@ -70,6 +70,30 @@ public struct NFTExternalLinkConfirmationSheet: View {
         }
         .presentationDragIndicator(Visibility.visible)
         .presentationDetents([PresentationDetent.medium, PresentationDetent.large])
+    }
+
+    private func verifiedHostField(_ host: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Verified Host")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.textSecondary)
+                .textCase(.uppercase)
+
+            Text(host)
+                .font(.title2.weight(.bold))
+                .foregroundStyle(Color.textPrimary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.accent.opacity(0.14))
+        .clipShape(.rect(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.accent.opacity(0.35), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func destinationField(title: String, value: String, font: Font) -> some View {
