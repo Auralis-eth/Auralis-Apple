@@ -1,4 +1,6 @@
 @testable import Auralis
+import AuralisPrimaryPersistence
+import MusicFeature
 import Testing
 
 @Suite
@@ -19,8 +21,39 @@ struct LocalDataStoragePolicyTests {
     func registersEveryKnownPersistedIdentifier() {
         let registeredIdentifiers = Set(LocalDataStoragePolicy.decisions.map(\.identifier))
         let missingIdentifiers = LocalDataStoragePolicy.requiredKnownIdentifiers.subtracting(registeredIdentifiers)
+        let untrackedIdentifiers = registeredIdentifiers.subtracting(LocalDataStoragePolicy.requiredKnownIdentifiers)
 
-        #expect(missingIdentifiers.isEmpty)
+        #expect(missingIdentifiers.isEmpty, "Missing policy decisions: \(missingIdentifiers.sorted())")
+        #expect(untrackedIdentifiers.isEmpty, "Policy decisions not marked as required: \(untrackedIdentifiers.sorted())")
+    }
+
+    @Test("requires all active SwiftData schema models in the policy table")
+    func requiresAllActiveSwiftDataSchemaModels() {
+        let activeSchemaIdentifiers = Set(
+            PrimaryStoreSchema.models.map { String(describing: $0) }
+        ).union(
+            AuraPlaySchema.models.map { String(describing: $0) }
+        )
+        let missingIdentifiers = activeSchemaIdentifiers.subtracting(LocalDataStoragePolicy.requiredKnownIdentifiers)
+
+        #expect(missingIdentifiers.isEmpty, "SwiftData schema models missing from policy requirements: \(missingIdentifiers.sorted())")
+    }
+
+    @Test("registers every persisted SwiftData model with a reset phase")
+    func registersEveryPersistedSwiftDataModelWithResetPhase() throws {
+        for identifier in LocalDataStoragePolicy.persistedSwiftDataModelIdentifiers {
+            let decision = try #require(LocalDataStoragePolicy.decision(for: identifier))
+
+            #expect(decision.storage == .swiftData, "\(identifier) must be classified as SwiftData storage")
+            #expect(decision.resetPhase != nil, "\(identifier) must declare a privacy reset phase")
+        }
+    }
+
+    @Test("does not duplicate local data policy identifiers")
+    func doesNotDuplicateLocalDataPolicyIdentifiers() {
+        let identifiers = LocalDataStoragePolicy.decisions.map(\.identifier)
+
+        #expect(identifiers.count == Set(identifiers).count)
     }
 
     @Test("maps known persisted values to storage classes")
@@ -34,6 +67,14 @@ struct LocalDataStoragePolicyTests {
         let providerClientKey = try #require(LocalDataStoragePolicy.decision(for: "AURALIS_ALCHEMY_API_KEY"))
         let shellSelection = try #require(LocalDataStoragePolicy.decision(for: "auralis.shell.selection.v1"))
         let credentials = try #require(LocalDataStoragePolicy.decision(for: "WalletPasswordService/WalletPasswordAccount"))
+        let nftInventory = try #require(LocalDataStoragePolicy.decision(for: "NFT"))
+        let nftContract = try #require(LocalDataStoragePolicy.decision(for: String(describing: NFT.Contract.self)))
+        let tags = try #require(LocalDataStoragePolicy.decision(for: "Tag"))
+        let receipts = try #require(LocalDataStoragePolicy.decision(for: "StoredReceipt"))
+        let tokenHoldings = try #require(LocalDataStoragePolicy.decision(for: "TokenHolding"))
+        let playlists = try #require(LocalDataStoragePolicy.decision(for: "Playlist"))
+        let musicLibrary = try #require(LocalDataStoragePolicy.decision(for: "MusicLibraryItem"))
+        let auraPlayMedia = try #require(LocalDataStoragePolicy.decision(for: "AuraPlayMediaItem"))
 
         #expect(appMode.classification == .publicPreference)
         #expect(appMode.storage == .userDefaults)
@@ -48,6 +89,30 @@ struct LocalDataStoragePolicyTests {
         #expect(searchHistory.classification == .walletMetadata)
         #expect(searchHistory.storage == .swiftData)
         #expect(searchHistory.resetPhase == .transactionalStore)
+        #expect(nftInventory.classification == .publicIdentifierMetadata)
+        #expect(nftInventory.storage == .swiftData)
+        #expect(nftInventory.resetPhase == .transactionalStore)
+        #expect(nftContract.classification == .publicIdentifierMetadata)
+        #expect(nftContract.storage == .swiftData)
+        #expect(nftContract.resetPhase == .transactionalStore)
+        #expect(tags.classification == .walletMetadata)
+        #expect(tags.storage == .swiftData)
+        #expect(tags.resetPhase == .transactionalStore)
+        #expect(receipts.classification == .walletMetadata)
+        #expect(receipts.storage == .swiftData)
+        #expect(receipts.resetPhase == .transactionalStore)
+        #expect(tokenHoldings.classification == .walletMetadata)
+        #expect(tokenHoldings.storage == .swiftData)
+        #expect(tokenHoldings.resetPhase == .transactionalStore)
+        #expect(playlists.classification == .walletMetadata)
+        #expect(playlists.storage == .swiftData)
+        #expect(playlists.resetPhase == .transactionalStore)
+        #expect(musicLibrary.classification == .walletMetadata)
+        #expect(musicLibrary.storage == .swiftData)
+        #expect(musicLibrary.resetPhase == .transactionalStore)
+        #expect(auraPlayMedia.classification == .walletMetadata)
+        #expect(auraPlayMedia.storage == .swiftData)
+        #expect(auraPlayMedia.resetPhase == .auraPlayPersistence)
         #expect(gasCache.classification == .publicIdentifierMetadata)
         #expect(gasCache.storage == .memoryCache)
         #expect(gasCache.resetPhase == .supportCaches)

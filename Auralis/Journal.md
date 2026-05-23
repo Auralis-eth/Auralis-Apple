@@ -1,5 +1,13 @@
 # Journal
 
+## 2026-05-22 — The Storage Policy Got A Complete Seating Chart
+
+`TEST-002` closed the audit gap where the local data policy knew about a few famous guests but not the whole persistent dinner service. The policy table now registers every active SwiftData model from the primary store and the AuraPlay store, plus the nested NFT models that SwiftData persists behind relationships. Each one carries a classification, storage type, reset phase, and a short reason for why it belongs there.
+
+The useful catch was `Tag`. It was in the primary schema, but privacy reset was not clearing it. Tags are not secrets, but they are user-authored curation metadata, which can say a lot about a wallet owner's taste and intent. They now leave during the transactional reset phase alongside NFT inventory, music indexes, playlists, receipts, and token holdings.
+
+The new tests are the clipboard at the storage-host stand: if a schema model is added without a policy entry, the test fails; if a policy entry is not marked as required, the test fails; if a persisted SwiftData model lacks a reset phase, the test fails. Audit tables work best when they stop being paperwork and start being executable.
+
 ## 2026-05-22 — Explorer URLs Stopped Wearing Blindfolds
 
 `TEST-006` was a tiny hardening job with a useful lesson: a literal URL is still input, even when the programmer typed it. `ExplorerCatalog` used to force-unwrap every explorer root, which meant a typo would crash with Swift's generic "found nil" shrug instead of telling us which catalog entry broke.

@@ -58,6 +58,7 @@ struct PrivacyResetServiceTests {
         )
         context.insert(makeFixtureNFT(tokenId: "moon-1"))
         context.insert(makeFixtureMusicLibraryItem(id: "track-1", sourceNFTID: "music-source-1"))
+        context.insert(try AuralisPrimaryPersistence.Tag(name: "Local Favorite"))
         try context.save()
         _ = try await receiptStore.append(
             ReceiptDraft(
@@ -81,6 +82,7 @@ struct PrivacyResetServiceTests {
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<NFT>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<MusicLibraryItem>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<AuralisPrimaryPersistence.Tag>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<NFT.Contract>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).isEmpty)
         #expect(selectionPersistence.clearSelectionCallCount == 1)

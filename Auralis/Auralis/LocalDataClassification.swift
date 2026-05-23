@@ -1,5 +1,7 @@
 import ENS
+import AuralisPrimaryPersistence
 import Foundation
+import MusicFeature
 import ProviderKit
 import ReceiptStorage
 
@@ -41,19 +43,31 @@ struct LocalDataStorageDecision: Equatable, Sendable {
 }
 
 enum LocalDataStoragePolicy {
-    static let requiredKnownIdentifiers: Set<String> = [
+    static let persistedSwiftDataModelIdentifiers: Set<String> = Set(
+        PrimaryStoreSchema.models.map { String(describing: $0) }
+    ).union(
+        AuraPlaySchema.models.map { String(describing: $0) }
+    ).union([
+        String(describing: NFT.Contract.self),
+        String(describing: NFT.Image.self),
+        String(describing: NFT.Raw.self),
+        String(describing: NFT.NFTMetadata.self),
+        String(describing: NFT.Attribute.self),
+        String(describing: NFT.Collection.self),
+        String(describing: NFT.AcquiredAt.self),
+    ])
+
+    static let requiredKnownIdentifiers: Set<String> = Set([
         ModeState.storageDecisionIdentifier,
         HomePinnedItemsStore.storageDecisionIdentifier,
         ENSResolutionCacheStore.storageDecisionIdentifier,
         KeychainReceiptIntegrityHeadStore.storageDecisionIdentifier,
-        "SearchHistoryRecord",
         GasPriceCache.storageDecisionIdentifier,
         "AURALIS_ALCHEMY_API_KEY",
         "auralis.shell.selection.v1",
-        "EOAccount",
         "WalletPasswordService/WalletPasswordAccount",
         "view navigation and transient UI state"
-    ]
+    ]).union(persistedSwiftDataModelIdentifiers)
 
     static let decisions: [LocalDataStorageDecision] = [
         LocalDataStorageDecision(
@@ -92,6 +106,104 @@ enum LocalDataStoragePolicy {
             rationale: "Search history can reveal wallet-scoped user intent even when terms include public identifiers, so it is reset with transactional wallet data."
         ),
         LocalDataStorageDecision(
+            identifier: "NFT",
+            classification: .publicIdentifierMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "NFT inventory is composed of public token, contract, collection, media, and wallet-scope identifiers. It is still cleared with transactional wallet data because retaining a local inventory ties this install to a watched wallet."
+        ),
+        LocalDataStorageDecision(
+            identifier: String(describing: NFT.Contract.self),
+            classification: .publicIdentifierMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "NFT contract rows store public contract identifiers shared by locally persisted NFTs and are pruned when NFT inventory is reset."
+        ),
+        LocalDataStorageDecision(
+            identifier: String(describing: NFT.Image.self),
+            classification: .publicIdentifierMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "NFT image rows store public media URLs associated with local NFT inventory and cascade with the owning NFT rows."
+        ),
+        LocalDataStorageDecision(
+            identifier: String(describing: NFT.Raw.self),
+            classification: .publicIdentifierMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "Raw NFT metadata is public provider metadata cached for local inventory and cascades with the owning NFT rows."
+        ),
+        LocalDataStorageDecision(
+            identifier: String(describing: NFT.NFTMetadata.self),
+            classification: .publicIdentifierMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "Decoded NFT metadata is public token metadata and belongs to the local NFT inventory reset boundary."
+        ),
+        LocalDataStorageDecision(
+            identifier: String(describing: NFT.Attribute.self),
+            classification: .publicIdentifierMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "NFT attributes are public token traits stored only to support local inventory browsing and cascade with the owning NFT rows."
+        ),
+        LocalDataStorageDecision(
+            identifier: String(describing: NFT.Collection.self),
+            classification: .publicIdentifierMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "NFT collection rows store public collection identifiers shared by local inventory and are pruned when NFT inventory is reset."
+        ),
+        LocalDataStorageDecision(
+            identifier: String(describing: NFT.AcquiredAt.self),
+            classification: .publicIdentifierMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "NFT acquisition timestamps are public chain metadata cached with local inventory and cascade with the owning NFT rows."
+        ),
+        LocalDataStorageDecision(
+            identifier: "Tag",
+            classification: .walletMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "Tags are user-authored organization metadata that can reveal local wallet curation choices, so privacy reset clears them with transactional wallet data."
+        ),
+        LocalDataStorageDecision(
+            identifier: "StoredReceipt",
+            classification: .walletMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "Receipts are local audit events that can include wallet scope, route context, and action summaries. Privacy reset clears them with their Keychain integrity heads."
+        ),
+        LocalDataStorageDecision(
+            identifier: "Playlist",
+            classification: .walletMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "Playlists are user-authored local music organization records that may reveal wallet-scoped NFT listening intent and are cleared during transactional reset."
+        ),
+        LocalDataStorageDecision(
+            identifier: "MusicLibraryItem",
+            classification: .walletMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "The music library index is derived from wallet-scoped NFT inventory and is cleared with transactional wallet data."
+        ),
+        LocalDataStorageDecision(
+            identifier: "TokenHolding",
+            classification: .walletMetadata,
+            storage: .swiftData,
+            resetPhase: .transactionalStore,
+            rationale: "Token holdings are public chain facts but locally retaining balances ties this install to a watched wallet, so they are cleared with transactional wallet data."
+        ),
+        LocalDataStorageDecision(
+            identifier: "AuraPlayMediaItem",
+            classification: .walletMetadata,
+            storage: .swiftData,
+            resetPhase: .auraPlayPersistence,
+            rationale: "AuraPlay media items are a separate SwiftData store derived from wallet-scoped NFT media and are cleared in the AuraPlay persistence reset phase."
+        ),
+        LocalDataStorageDecision(
             identifier: GasPriceCache.storageDecisionIdentifier,
             classification: .publicIdentifierMetadata,
             storage: .memoryCache,
@@ -117,7 +229,7 @@ enum LocalDataStoragePolicy {
             classification: .walletMetadata,
             storage: .swiftData,
             resetPhase: .transactionalStore,
-            rationale: "Persisted watch accounts are local wallet metadata. They are read-only records and never contain signing credentials."
+            rationale: "Persisted watch accounts are local wallet metadata. Privacy reset preserves the account rows but clears derived transactional fields such as tracked NFT counts and AuraPlay sync state."
         ),
         LocalDataStorageDecision(
             identifier: "WalletPasswordService/WalletPasswordAccount",

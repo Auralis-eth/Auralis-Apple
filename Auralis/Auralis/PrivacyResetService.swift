@@ -57,6 +57,10 @@ actor SwiftDataTransactionalPrivacyResetService: TransactionalPrivacyResetting {
                     where: #Predicate<Playlist> { _ in true }
                 )
                 try modelContext.deleteAllNFTData()
+                try modelContext.delete(
+                    model: Tag.self,
+                    where: #Predicate<Tag> { _ in true }
+                )
 
                 let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
                 for account in accounts {
