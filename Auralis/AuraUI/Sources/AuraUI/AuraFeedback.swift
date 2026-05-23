@@ -88,12 +88,14 @@ public struct AuraEmptyState: View {
                         Text(title)
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(Color.textPrimary)
+                            .accessibilityAddTraits(.isHeader)
 
                         Text(message)
                             .font(.body)
                             .foregroundStyle(Color.textSecondary)
                     }
                 }
+                .accessibilityElement(children: .combine)
 
                 if primaryAction != nil || secondaryAction != nil {
                     HStack(spacing: 10) {
@@ -112,7 +114,7 @@ public struct AuraEmptyState: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .contain)
         }
     }
 }
