@@ -54,6 +54,7 @@ public struct AuraPill: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title ?? accessibilityLabel ?? "")
+        .accessibilityHidden(title == nil && accessibilityLabel == nil)
     }
 
     private var foregroundColor: Color {
