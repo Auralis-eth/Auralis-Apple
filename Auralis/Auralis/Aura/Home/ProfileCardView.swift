@@ -99,6 +99,8 @@ struct ProfileCardView: View {
                     SystemImage("square.and.pencil")
                 }
                 .buttonStyle(.plain)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
                 .accessibilityLabel(String(localized: "Manage accounts"))
                 .accessibilityIdentifier("home.accounts.open")
             }

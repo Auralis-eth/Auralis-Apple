@@ -713,6 +713,8 @@ public struct QRScannerView: View {
                 .foregroundStyle(Color.accent)
                 .font(.system(size: 30, weight: .medium))
         }
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
         .accessibilityLabel("Scan wallet QR code")
         .sheet(isPresented: $isScanning) {
             ZStack(alignment: .top) {
@@ -1154,6 +1156,11 @@ private struct AccountRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+            .accessibilityLabel(account.name ?? account.address.accountFeatureDisplayAddress)
+            .accessibilityValue(isActive ? "Active account" : "Inactive account")
+            .accessibilityAddTraits(isActive ? .isSelected : [])
             .accessibilityIdentifier("accounts.select.\(account.address)")
 
             if isActive {
@@ -1167,6 +1174,7 @@ private struct AccountRow: View {
                             .fill(Color.accent.opacity(0.18))
                     )
                     .foregroundStyle(Color.accent)
+                    .accessibilityHidden(true)
             }
 
             Button(role: .destructive, action: onRemove) {
@@ -1174,6 +1182,8 @@ private struct AccountRow: View {
                     .font(.headline)
             }
             .buttonStyle(.plain)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel("Remove account \(account.address.accountFeatureDisplayAddress)")
             .accessibilityIdentifier("accounts.remove.\(account.address)")
         }

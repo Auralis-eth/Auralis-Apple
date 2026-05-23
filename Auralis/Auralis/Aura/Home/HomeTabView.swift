@@ -490,6 +490,8 @@ struct HomeTabView: View {
                 )
             }
             .buttonStyle(.plain)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel(
                 item.isPinned
                     ? String(localized: "Unpin \(item.title)")
