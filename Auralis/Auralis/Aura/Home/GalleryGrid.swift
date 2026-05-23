@@ -15,6 +15,7 @@ struct GalleryGrid: View {
     let onPick: (UIImage) -> Void
     let onRegenerate: (() async -> Void)?
     @State private var regenerateTask: Task<Void, Never>?
+    @State private var selectedImageID: ObjectIdentifier?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,8 +60,12 @@ struct GalleryGrid: View {
             } else {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
-                        ForEach(images, id: \.auralisObjectIdentifier) { image in
+                        ForEach(Array(images.enumerated()), id: \.element.auralisObjectIdentifier) { index, image in
+                            let imageID = image.auralisObjectIdentifier
+                            let isSelected = selectedImageID == imageID || images.count == 1
+
                             Button {
+                                selectedImageID = imageID
                                 onPick(image)
                             } label: {
                                 Image(uiImage: image)
@@ -70,8 +75,12 @@ struct GalleryGrid: View {
                                     .frame(maxWidth: .infinity)
                                     .clipped()
                                     .clipShape(.rect(cornerRadius: 12))
+                                    .accessibilityHidden(true)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Generated \(selectedScene.label) image, option \(index + 1) of \(images.count)")
+                            .accessibilityHint("Selects this image for the home background")
+                            .accessibilityAddTraits(isSelected ? .isSelected : [])
                         }
                     }
                     .padding()
