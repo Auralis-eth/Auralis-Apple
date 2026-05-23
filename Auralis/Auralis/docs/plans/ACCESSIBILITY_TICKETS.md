@@ -389,6 +389,8 @@ TextField("Search ENS, wallet, contract, symbol, NFT, collection", text: $query)
 
 ## Phase 2 — Design System Defaults
 
+**Status:** Complete in code. Build verified on 2026-05-23 with the Xcode `Auralis` scheme. Real-device QA still needs to run the accessibility ship gate in `P0-Physical-Device-QA-Suite.md` before release.
+
 ---
 
 ### ACCS-010 · AuraSectionHeader does not mark titles as VoiceOver headings
@@ -401,8 +403,8 @@ TextField("Search ENS, wallet, contract, symbol, NFT, collection", text: $query)
 `AuraSectionHeader` is used on Home, Search, Gas, Receipts, NFT, Music, and Settings screens. Without `.accessibilityAddTraits(.isHeader)`, VoiceOver users cannot use the Headings rotor to jump between card sections.
 
 **Acceptance Criteria:**
-- [ ] `AuraSectionHeader.titleView` applies `.accessibilityAddTraits(.isHeader)` once, centrally
-- [ ] All screens that use `AuraSectionHeader` automatically benefit — no per-call changes needed
+- [x] `AuraSectionHeader.titleView` applies `.accessibilityAddTraits(.isHeader)` once, centrally
+- [x] All screens that use `AuraSectionHeader` automatically benefit — no per-call changes needed
 
 ```swift
 private var titleView: some View {
@@ -426,9 +428,9 @@ private var titleView: some View {
 The `.surface` variant uses 8pt vertical padding with no `minHeight` enforced on the label container. Small-text surface buttons can render below the 44×44pt minimum target.
 
 **Acceptance Criteria:**
-- [ ] All `AuraActionButton` variants enforce `minHeight: 44` on the label container
-- [ ] `.hero` retains its existing larger shape
-- [ ] `.contentShape(Rectangle())` is applied so the full 44pt area is hittable
+- [x] All `AuraActionButton` variants enforce `minHeight: 44` on the label container
+- [x] `.hero` retains its existing larger shape
+- [x] `.contentShape(Rectangle())` is applied so the full 44pt area is hittable
 
 ```swift
 HStack(spacing: 8) { /* icon + text */ }
@@ -450,9 +452,9 @@ HStack(spacing: 8) { /* icon + text */ }
 `SystemFontText` takes a fixed point size with no scaling. Several feature views use it for link and button text. Text rendered at fixed sizes does not grow with the user's preferred text size setting.
 
 **Acceptance Criteria:**
-- [ ] `SystemFontText` is deprecated or replaced with a Dynamic Type-safe alternative
-- [ ] Replacement uses `.font(.custom(..., relativeTo:))` or `@ScaledMetric` for any exact sizing requirement
-- [ ] All call sites are migrated or flagged for follow-up
+- [x] `SystemFontText` is deprecated or replaced with a Dynamic Type-safe alternative
+- [x] Replacement uses `.font(.custom(..., relativeTo:))` or `@ScaledMetric` for any exact sizing requirement
+- [x] All call sites are migrated or flagged for follow-up
 
 ```swift
 public struct ScaledSystemFontText: View {
@@ -476,9 +478,9 @@ public struct ScaledSystemFontText: View {
 Icon-only `AuraPill` instances with no title and no caller-supplied `accessibilityLabel` expose a blank label to VoiceOver — a confusing swipe stop with no content.
 
 **Acceptance Criteria:**
-- [ ] When `title == nil && accessibilityLabel == nil`, the pill applies `.accessibilityHidden(true)` automatically
-- [ ] Callers that supply a meaningful label continue to work as before
-- [ ] No manual call-site changes are required for the fix to take effect
+- [x] When `title == nil && accessibilityLabel == nil`, the pill applies `.accessibilityHidden(true)` automatically
+- [x] Callers that supply a meaningful label continue to work as before
+- [x] No manual call-site changes are required for the fix to take effect
 
 ```swift
 .accessibilityElement(children: .ignore)
@@ -498,9 +500,9 @@ Icon-only `AuraPill` instances with no title and no caller-supplied `accessibili
 All palette tokens use fixed `Color(hexString:)` values. The palette does not provide high-contrast variants and does not respond to the system Increase Contrast accessibility setting.
 
 **Acceptance Criteria:**
-- [ ] Primary text, secondary text, error, success, accent, background, and surface tokens are moved to asset catalog named colors with light, dark, and high-contrast variants — **or** are backed by semantic system colors
-- [ ] Text-over-surface contrast meets WCAG AA (4.5:1 normal, 3:1 large) in all four combinations of light/dark × standard/increased contrast
-- [ ] Existing call sites require no changes
+- [x] Primary text, secondary text, error, success, accent, background, and surface tokens are moved to asset catalog named colors with light, dark, and high-contrast variants — **or** are backed by semantic system colors
+- [x] Text-over-surface contrast meets WCAG AA (4.5:1 normal, 3:1 large) in all four combinations of light/dark × standard/increased contrast
+- [x] Existing call sites require no changes
 
 ---
 
@@ -518,9 +520,9 @@ All palette tokens use fixed `Color(hexString:)` values. The palette does not pr
 Trash, pin, QR, and manage-accounts icon buttons are visually small. Without an explicit minimum frame and content shape, the tappable area can fall below Apple's 44×44pt guideline.
 
 **Acceptance Criteria:**
-- [ ] Every icon-only button across the listed files has `.frame(minWidth: 44, minHeight: 44)` and `.contentShape(Rectangle())`
-- [ ] Each button has an `accessibilityLabel` describing the action and the target (e.g., "Remove search history entry vitalik.eth")
-- [ ] Destructive buttons have `role: .destructive`
+- [x] Every icon-only button across the listed files has `.frame(minWidth: 44, minHeight: 44)` and `.contentShape(Rectangle())`
+- [x] Each button has an `accessibilityLabel` describing the action and the target (e.g., "Remove search history entry vitalik.eth")
+- [x] Destructive buttons have `role: .destructive`
 
 ---
 
@@ -538,9 +540,9 @@ Trash, pin, QR, and manage-accounts icon buttons are visually small. Without an 
 The mini-player uses `.onTapGesture` plus a named accessibility action to open Now Playing. A `named` action helps VoiceOver but does not naturally express the element as a button to Voice Control or Switch Control. The named action is a supplementary mechanism, not a substitute for clear primary semantics.
 
 **Acceptance Criteria:**
-- [ ] The tappable mini-player region is a semantic `Button` (or carries `.isButton` trait with label + value + hint)
-- [ ] Playback controls (play/pause, skip) remain as independent elements outside or adjacent to the open-player button
-- [ ] `accessibilityValue` announces the current track title and playback state
+- [x] The tappable mini-player region is a semantic `Button` (or carries `.isButton` trait with label + value + hint)
+- [x] Playback controls (play/pause, skip) remain as independent elements outside or adjacent to the open-player button
+- [x] `accessibilityValue` announces the current track title and playback state
 
 ```swift
 Button { showNowPlaying = true } label: {
@@ -564,9 +566,9 @@ Button { showNowPlaying = true } label: {
 Secondary actions (Start Over, Remove) are only available via context menu long-press. The view also instantiates `UIImpactFeedbackGenerator` directly, bypassing `AuraHaptics` which properly gates haptics for Reduce Motion users.
 
 **Acceptance Criteria:**
-- [ ] Play, Start Over, and Remove are exposed as `.accessibilityAction(named:)` custom actions on each card
-- [ ] Direct `UIImpactFeedbackGenerator` instantiation is replaced with `AuraHaptics`
-- [ ] Context menu is retained as an enhancement — custom actions are the accessible path
+- [x] Play, Start Over, and Remove are exposed as `.accessibilityAction(named:)` custom actions on each card
+- [x] Direct `UIImpactFeedbackGenerator` instantiation is replaced with `AuraHaptics`
+- [x] Context menu is retained as an enhancement — custom actions are the accessible path
 
 ```swift
 AuraPlayRecentlyPlayedMiniCard(item: item) { playTapped(item: item) }
@@ -589,10 +591,10 @@ AuraPlayRecentlyPlayedMiniCard(item: item) { playTapped(item: item) }
 Base fee and congestion cards are always in an `HStack`. Row bodies use `HStack` with `Spacer()` to push values to trailing edge. At accessibility sizes both layouts truncate or create confusing reading order. Trend arrows are color-and-shape-only status indicators.
 
 **Acceptance Criteria:**
-- [ ] Card pair uses `ViewThatFits` or `dynamicTypeSize.isAccessibilitySize` guard to switch to `VStack`
-- [ ] Data rows use Dynamic Type-safe layout (vertical at accessibility sizes)
-- [ ] Each row is combined into one element with a `.accessibilityLabel` + `.accessibilityValue` pair
-- [ ] Trend arrows carry a text alternative (e.g., `.accessibilityLabel("Trending up")`) or are hidden as decorative if nearby text already communicates the trend
+- [x] Card pair uses `ViewThatFits` or `dynamicTypeSize.isAccessibilitySize` guard to switch to `VStack`
+- [x] Data rows use Dynamic Type-safe layout (vertical at accessibility sizes)
+- [x] Each row is combined into one element with a `.accessibilityLabel` + `.accessibilityValue` pair
+- [x] Trend arrows carry a text alternative (e.g., `.accessibilityLabel("Trending up")`) or are hidden as decorative if nearby text already communicates the trend
 
 ---
 
@@ -606,9 +608,9 @@ Base fee and congestion cards are always in an `HStack`. Row bodies use `HStack`
 The active account is shown visually with an "Active" chip, but the underlying button element does not communicate selected/active state semantically. VoiceOver users cannot tell which account is currently active without reading adjacent visual elements.
 
 **Acceptance Criteria:**
-- [ ] Active row carries `.accessibilityAddTraits(.isSelected)`
-- [ ] Row value announces "Active account" or "Inactive account"
-- [ ] The "Active" chip is hidden as decorative (`.accessibilityHidden(true)`) since the row element already communicates this
+- [x] Active row carries `.accessibilityAddTraits(.isSelected)`
+- [x] Row value announces "Active account" or "Inactive account"
+- [x] The "Active" chip is hidden as decorative (`.accessibilityHidden(true)`) since the row element already communicates this
 
 ```swift
 .accessibilityLabel(account.name ?? account.address.accountFeatureDisplayAddress)
@@ -628,9 +630,9 @@ The active account is shown visually with an "Active" chip, but the underlying b
 Search match buttons wrap a multi-line `VStack` but expose only an accessibility identifier — no label, value, or hint. History rows have a small icon-only delete button adjacent to the tap target, risking accidental activation and lacking a 44pt frame.
 
 **Acceptance Criteria:**
-- [ ] Match rows are combined with label `"\(match.kind.title), \(match.title)"`, value `match.subtitle`, and hint "Opens this result"
-- [ ] History rows expose a delete custom action on the row itself
-- [ ] Delete button has `.frame(minWidth: 44, minHeight: 44)` and `.accessibilityLabel("Delete \(entry.query)")`
+- [x] Match rows are combined with label `"\(match.kind.title), \(match.title)"`, value `match.subtitle`, and hint "Opens this result"
+- [x] History rows expose a delete custom action on the row itself
+- [x] Delete button has `.frame(minWidth: 44, minHeight: 44)` and `.accessibilityLabel("Delete \(entry.query)")`
 
 ---
 

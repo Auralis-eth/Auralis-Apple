@@ -1,5 +1,13 @@
 # Journal
 
+## 2026-05-23 — Phase 2 Made Accessibility The Default Setting
+
+Phase 2 moved the work from emergency repairs into the shared furniture of the app. Section headers now identify themselves as headings, action buttons enforce a real 44pt hit area, status pills stop creating silent VoiceOver stops, and the core Aura color tokens lean on semantic system colors instead of fixed paint swatches that ignore contrast settings.
+
+The feature fixes followed the same rule: make the primary action semantic, then give secondary actions an accessible path. The mini-player opens through a real Button instead of a tap gesture wearing a label. Recently Played keeps its context menu, but Play, Start Over, and Remove are now custom accessibility actions, with haptics routed through `AuraHaptics` so Reduce Motion remains part of the contract. Gas rows stack at accessibility sizes and read as label/value pairs instead of scattered text. Account and search rows now announce state, target, and destructive actions clearly.
+
+Lesson learned: design-system accessibility is not glamorous, but it is compound interest. One central heading trait or semantic color token pays rent on every screen that uses it.
+
 ## 2026-05-23 — Phase 1 Accessibility Stopped Blocking The Front Door
 
 Phase 1 was the part of the accessibility backlog that users would feel immediately: can I get through the gateway at huge text sizes, can I operate the NFT feed without nested controls confusing assistive tech, can I tell which generated image I am picking, and does the app speak up when something changes?
