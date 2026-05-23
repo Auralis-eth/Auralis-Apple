@@ -178,7 +178,7 @@ public struct NFTMarketplaceLink: View {
                             .accessibilityHidden(true)
 
                         VStack(alignment: .leading, spacing: 6) {
-                            SystemFontText(text: title, size: 16, weight: .semibold)
+                            ScaledSystemFontText(text: title, size: 16, weight: .semibold)
                             AuraTrustLabel(kind: .link)
                         }
                     }
@@ -287,7 +287,7 @@ public struct NFTExplorerLink: View {
                             .accessibilityHidden(true)
 
                         VStack(alignment: .leading, spacing: 6) {
-                            SystemFontText(text: "View on \(destination.label)", size: 16, weight: .semibold)
+                            ScaledSystemFontText(text: "View on \(destination.label)", size: 16, weight: .semibold)
                             AuraTrustLabel(kind: .link)
                         }
                     }

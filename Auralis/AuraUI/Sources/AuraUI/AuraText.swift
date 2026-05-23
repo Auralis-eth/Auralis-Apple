@@ -188,6 +188,7 @@ public struct CalloutFontText: View {
     }
 }
 
+@available(*, deprecated, message: "Use ScaledSystemFontText or semantic text styles so text follows Dynamic Type.")
 public struct SystemFontText: View {
     private let text: String
     private let size: CGFloat
@@ -199,9 +200,25 @@ public struct SystemFontText: View {
         self.weight = weight
     }
 
+    public var body: some View {
+        ScaledSystemFontText(text: text, size: size, weight: weight)
+    }
+}
+
+public struct ScaledSystemFontText: View {
+    private let text: String
+    private let weight: Font.Weight?
+    @ScaledMetric(relativeTo: .body) private var scaledSize: CGFloat = 17
+
+    public init(text: String, size: CGFloat, weight: Font.Weight? = nil) {
+        self.text = text
+        self.weight = weight
+        self._scaledSize = ScaledMetric(wrappedValue: size, relativeTo: .body)
+    }
+
     public var body: Text {
         Text(text)
-            .font(.system(size: size, weight: weight))
+            .font(.system(size: scaledSize, weight: weight))
             .foregroundStyle(Color.textPrimary)
     }
 }
