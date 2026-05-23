@@ -332,6 +332,7 @@ public struct AddressInputView: View {
         alertTitle = title
         alertMessage = message
         showingAlert = true
+        AuraAccessibilityAnnouncer.announce(message)
         haptics.notification(feedback)
     }
 
@@ -362,6 +363,7 @@ public struct AddressInputView: View {
 
         do {
             isSubmitting = true
+            AuraAccessibilityAnnouncer.announce("Resolving account")
             let activation: AccountActivationResult
 
             if isENSInput {
@@ -500,12 +502,69 @@ private struct AddressEntryContentView: View {
     let selectGuestPass: (String) -> Void
     let accountActivator: any AccountActivating
     let onAccountActivated: @MainActor (EOAccount, String?) -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .center) {
-            AddressEntryHeaderView()
+        ScrollView {
+            VStack(alignment: .center) {
+                AddressEntryHeaderView()
 
-            HStack {
+                inputRow
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 18)
+
+                if let validationMessage {
+                    ErrorText(validationMessage)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let normalizedAddress {
+                    VStack(spacing: 10) {
+                        SubheadlineFontText("canonical form")
+                            .foregroundStyle(Color.textSecondary)
+
+                        Text(normalizedAddress)
+                            .font(.footnote.monospaced())
+                            .foregroundStyle(Color.textPrimary)
+                            .textSelection(.enabled)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(Color.surface.opacity(0.55))
+                            )
+                    }
+                    .padding(.horizontal, 20)
+                }
+
+                AuraActionButton("Enter Auralis", style: .hero, action: handleSubmit)
+                    .disabled(isSubmitting)
+                    .padding(.horizontal, 30)
+
+                if isSubmitting {
+                    ProgressView("Resolving account...")
+                        .tint(Color.textPrimary)
+                        .padding(.top, 8)
+                }
+
+                GuestExploreDividerView()
+                GuestPassesHeaderView()
+                GuestPassCarousel(items: GuestPassAccount.accounts) { account in
+                    selectGuestPass(account.address)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    @ViewBuilder
+    private var inputRow: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 12) {
                 QRScannerView(
                     accountActivator: accountActivator,
                     onAccountActivated: onAccountActivated
@@ -514,50 +573,27 @@ private struct AddressEntryContentView: View {
 
                 AddressTextField(address: $address)
             }
-            .padding(.horizontal, 15)
-            .padding(.vertical, 18)
+        } else {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    QRScannerView(
+                        accountActivator: accountActivator,
+                        onAccountActivated: onAccountActivated
+                    )
+                    .transition(.opacity)
 
-            if let validationMessage {
-                ErrorText(validationMessage)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if let normalizedAddress {
-                VStack(spacing: 10) {
-                    SubheadlineFontText("canonical form")
-                        .foregroundStyle(Color.textSecondary)
-
-                    Text(normalizedAddress)
-                        .font(.footnote.monospaced())
-                        .foregroundStyle(Color.textPrimary)
-                        .textSelection(.enabled)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .frame(maxWidth: .infinity)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color.surface.opacity(0.55))
-                        )
+                    AddressTextField(address: $address)
                 }
-                .padding(.horizontal, 20)
-            }
 
-            AuraActionButton("Enter Auralis", style: .hero, action: handleSubmit)
-                .disabled(isSubmitting)
-                .padding(.horizontal, 30)
+                VStack(alignment: .leading, spacing: 12) {
+                    QRScannerView(
+                        accountActivator: accountActivator,
+                        onAccountActivated: onAccountActivated
+                    )
+                    .transition(.opacity)
 
-            if isSubmitting {
-                ProgressView("Resolving account...")
-                    .tint(Color.textPrimary)
-                    .padding(.top, 8)
-            }
-
-            GuestExploreDividerView()
-            GuestPassesHeaderView()
-            GuestPassCarousel(items: GuestPassAccount.accounts) { account in
-                selectGuestPass(account.address)
+                    AddressTextField(address: $address)
+                }
             }
         }
     }
@@ -758,6 +794,7 @@ public struct QRScannerView: View {
         alertTitle = title
         alertMessage = message
         showingAlert = true
+        AuraAccessibilityAnnouncer.announce(message)
         haptics.notification(feedback)
     }
 }

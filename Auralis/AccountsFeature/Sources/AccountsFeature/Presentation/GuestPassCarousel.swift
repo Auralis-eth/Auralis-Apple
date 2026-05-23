@@ -1,6 +1,8 @@
 import SwiftUI
 
 public struct GuestPassCarousel: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     private let items: [GuestPassAccount]
     private let select: (GuestPassAccount) -> Void
 
@@ -13,23 +15,37 @@ public struct GuestPassCarousel: View {
     }
 
     public var body: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 12) {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: 12) {
                 ForEach(items) { account in
                     GuestPassCard(account: account) {
                         select(account)
                     }
-                    .frame(width: 275)
+                    .frame(maxWidth: .infinity)
                     .accessibilityLabel(Text("Opens Auralis with a guest pass account: " + account.title))
                 }
-                .padding(.vertical)
             }
-            .scrollTargetLayout()
+            .padding(.horizontal, 15)
+            .padding(.vertical, 18)
+        } else {
+            ScrollView(.horizontal) {
+                HStack(spacing: 12) {
+                    ForEach(items) { account in
+                        GuestPassCard(account: account) {
+                            select(account)
+                        }
+                        .frame(width: 275)
+                        .accessibilityLabel(Text("Opens Auralis with a guest pass account: " + account.title))
+                    }
+                    .padding(.vertical)
+                }
+                .scrollTargetLayout()
+            }
+            .scrollIndicators(.hidden)
+            .scrollTargetBehavior(.viewAligned)
+            .contentMargins(.horizontal, 12, for: .scrollContent)
+            .padding(.horizontal, 15)
+            .padding(.vertical, 18)
         }
-        .scrollIndicators(.hidden)
-        .scrollTargetBehavior(.viewAligned)
-        .contentMargins(.horizontal, 12, for: .scrollContent)
-        .padding(.horizontal, 15)
-        .padding(.vertical, 18)
     }
 }
