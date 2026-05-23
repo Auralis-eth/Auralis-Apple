@@ -26,16 +26,40 @@ public struct AuraSurfaceCard<Content: View>: View {
     public var body: some View {
         content()
             .padding(padding)
-            .modifier(AuraSurfaceGlass(style: style, cornerRadius: cornerRadius))
+            .auraSurfaceBackground(style: style, cornerRadius: cornerRadius)
+    }
+}
+
+public extension View {
+    func auraSurfaceBackground(
+        style: AuraSurfaceCardStyle = .regular,
+        cornerRadius: CGFloat = 30
+    ) -> some View {
+        modifier(AuraSurfaceGlass(style: style, cornerRadius: cornerRadius))
     }
 }
 
 private struct AuraSurfaceGlass: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
     let style: AuraSurfaceCardStyle
     let cornerRadius: CGFloat
 
+    private var needsOpaqueSurface: Bool {
+        reduceTransparency || colorSchemeContrast == .increased
+    }
+
     func body(content: Content) -> some View {
-        if #available(iOS 26, macOS 26, *) {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        if needsOpaqueSurface {
+            content
+                .background(Color(.secondarySystemBackground), in: shape)
+                .overlay {
+                    shape.strokeBorder(Color(.separator), lineWidth: 1)
+                }
+        } else if #available(iOS 26, macOS 26, *) {
             switch style {
             case .soft:
                 content
@@ -46,10 +70,9 @@ private struct AuraSurfaceGlass: ViewModifier {
             }
         } else {
             content
-                .background(Color.surface.opacity(style == .soft ? 0.45 : 0.7), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .background(Color.surface.opacity(style == .soft ? 0.45 : 0.7), in: shape)
                 .overlay {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+                    shape.strokeBorder(.white.opacity(0.16), lineWidth: 1)
                 }
         }
     }

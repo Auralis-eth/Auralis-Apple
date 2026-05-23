@@ -1,3 +1,4 @@
+import AuraUI
 import SwiftUI
 
 struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
@@ -187,7 +188,7 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                 }
             }
         }
-        .background(.ultraThinMaterial)
+        .auraSurfaceBackground(style: .soft, cornerRadius: 0)
         .ignoresSafeArea(edges: .bottom)
     }
 

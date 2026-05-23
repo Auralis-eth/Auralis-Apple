@@ -3,6 +3,8 @@ import SwiftUI
 
 public struct GuestPassCard: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var accessibilityReduceTransparency
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     private let account: GuestPassAccount
     private var onTap: (() -> Void)?
@@ -19,6 +21,10 @@ public struct GuestPassCard: View {
         let start = trimmed.prefix(6)
         let end = trimmed.suffix(4)
         return "\(start)...\(end)"
+    }
+
+    private var needsOpaqueSurface: Bool {
+        accessibilityReduceTransparency || colorSchemeContrast == .increased
     }
 
     public var body: some View {
@@ -116,47 +122,47 @@ public struct GuestPassCard: View {
             .padding(.bottom, 30)
             .padding(.horizontal, 24)
         }
-        .background {
-            RoundedRectangle(cornerRadius: 30)
-                .fill(.ultraThinMaterial)
-                .opacity(0.9)
-        }
+        .auraSurfaceBackground(style: .regular, cornerRadius: 30)
         .overlay {
-            GeometryReader { geometry in
-                let maskSide = max(geometry.size.width, geometry.size.height) * 1.6
-                let travel = max(geometry.size.width, geometry.size.height) * 0.35
+            if !needsOpaqueSurface {
+                GeometryReader { geometry in
+                    let maskSide = max(geometry.size.width, geometry.size.height) * 1.6
+                    let travel = max(geometry.size.width, geometry.size.height) * 0.35
 
-                RoundedRectangle(cornerRadius: 30)
-                    .strokeBorder(.white.opacity(0.2), lineWidth: 1)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 30)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [.clear, .accent.opacity(0.8), .white, .accent.opacity(0.8), .clear],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 2
-                            )
-                            .mask(
-                                LinearGradient(
-                                    colors: [.clear, .black, .clear],
-                                    startPoint: isAnimating ? .topLeading : .bottomTrailing,
-                                    endPoint: isAnimating ? .bottomTrailing : .topLeading
+                    RoundedRectangle(cornerRadius: 30)
+                        .strokeBorder(.white.opacity(0.2), lineWidth: 1)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 30)
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [.clear, .accent.opacity(0.8), .white, .accent.opacity(0.8), .clear],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 2
                                 )
-                                .frame(width: maskSide, height: maskSide)
-                                .offset(x: isAnimating ? travel : -travel, y: isAnimating ? travel : -travel)
-                            )
-                    )
+                                .mask(
+                                    LinearGradient(
+                                        colors: [.clear, .black, .clear],
+                                        startPoint: isAnimating ? .topLeading : .bottomTrailing,
+                                        endPoint: isAnimating ? .bottomTrailing : .topLeading
+                                    )
+                                    .frame(width: maskSide, height: maskSide)
+                                    .offset(x: isAnimating ? travel : -travel, y: isAnimating ? travel : -travel)
+                                )
+                        )
+                }
             }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 30)
-                .stroke(.white.opacity(0.5), lineWidth: 1)
-                .blendMode(.overlay)
-                .blur(radius: 1)
+            if !needsOpaqueSurface {
+                RoundedRectangle(cornerRadius: 30)
+                    .stroke(.white.opacity(0.5), lineWidth: 1)
+                    .blendMode(.overlay)
+                    .blur(radius: 1)
+            }
         }
-        .shadow(color: .accent.opacity(0.4), radius: 20, x: 0, y: 10)
+        .shadow(color: needsOpaqueSurface ? .clear : .accent.opacity(0.4), radius: 20, x: 0, y: 10)
         .contentShape(.rect)
     }
 }
