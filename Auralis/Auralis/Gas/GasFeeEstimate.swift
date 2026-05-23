@@ -289,6 +289,7 @@ final class GasPriceEstimateViewModel {
 // MARK: - Main View
 struct GasPriceEstimateView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Binding var chain: Chain
     @State private var viewModel: GasPriceEstimateViewModel
 
@@ -338,9 +339,23 @@ struct GasPriceEstimateView: View {
                 LazyVStack(spacing: 16) {
                     FeeEstimateCardView(estimate: estimate)
 
-                    HStack(spacing: 12) {
-                        BaseFeeCardView(estimate: estimate)
-                        NetworkCongestionView(estimate: estimate)
+                    if dynamicTypeSize.isAccessibilitySize {
+                        VStack(spacing: 12) {
+                            BaseFeeCardView(estimate: estimate)
+                            NetworkCongestionView(estimate: estimate)
+                        }
+                    } else {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 12) {
+                                BaseFeeCardView(estimate: estimate)
+                                NetworkCongestionView(estimate: estimate)
+                            }
+
+                            VStack(spacing: 12) {
+                                BaseFeeCardView(estimate: estimate)
+                                NetworkCongestionView(estimate: estimate)
+                            }
+                        }
                     }
 
                     PriorityFeeCardView(estimate: estimate)
@@ -592,28 +607,48 @@ extension GasPriceEstimateView {
     // MARK: - Network Congestion View
     struct NetworkCongestionView: View {
         let estimate: GasPriceEstimate
+        @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
         var body: some View {
             CardView(title: "Network Status") {
                 VStack(spacing: 12) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            PrimaryText(estimate.congestionLevel.displayName)
-                                .fontWeight(.semibold)
-                            SecondaryText("Congestion")
+                    if dynamicTypeSize.isAccessibilitySize {
+                        VStack(alignment: .leading, spacing: 8) {
+                            congestionSummary
+                            activitySummary
+                        }
+                    } else {
+                        HStack {
+                            congestionSummary
+                            Spacer()
+                            CongestionIndicator(level: estimate.congestionLevel)
                         }
 
-                        Spacer()
-
-                        CongestionIndicator(level: estimate.congestionLevel)
-                    }
-
-                    HStack {
-                        SecondaryText("Activity: \(estimate.networkCongestionDisplay)")
-                        Spacer()
+                        HStack {
+                            activitySummary
+                            Spacer()
+                        }
                     }
                 }
             }
+        }
+
+        private var congestionSummary: some View {
+            VStack(alignment: .leading, spacing: 4) {
+                PrimaryText(estimate.congestionLevel.displayName)
+                    .fontWeight(.semibold)
+                SecondaryText("Congestion")
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Congestion")
+            .accessibilityValue(estimate.congestionLevel.displayName)
+        }
+
+        private var activitySummary: some View {
+            SecondaryText("Activity: \(estimate.networkCongestionDisplay)")
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Activity")
+                .accessibilityValue(estimate.networkCongestionDisplay)
         }
     }
 
@@ -629,6 +664,7 @@ extension GasPriceEstimateView {
                         .frame(width: 8, height: CGFloat(8 + index * 4))
                 }
             }
+            .accessibilityHidden(true)
         }
 
         private func getColor(for index: Int) -> Color {
@@ -649,24 +685,20 @@ extension GasPriceEstimateView {
     struct GasFeeEstimateRow: View {
         let urgency: UrgencyLevel
         let feeDetails: GasPriceEstimate.FeeDetails
+        @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
         var body: some View {
             VStack(spacing: 8) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        PrimaryText(urgency.displayName)
-                            .fontWeight(.semibold)
-                        SecondaryText(urgency.description)
-                            .font(.caption)
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 8) {
+                        labelContent
+                        valueContent
                     }
-
-                    Spacer()
-
-                    VStack(alignment: .trailing, spacing: 2) {
-                        PrimaryText(feeDetails.maxFeeDisplay)
-                            .fontWeight(.medium)
-                        SecondaryText(feeDetails.waitTimeDisplay)
-                            .font(.caption)
+                } else {
+                    HStack {
+                        labelContent
+                        Spacer()
+                        valueContent
                     }
                 }
 
@@ -674,6 +706,27 @@ extension GasPriceEstimateView {
                     Divider()
                         .background(Color.textSecondary.opacity(0.2))
                 }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(urgency.displayName)
+            .accessibilityValue("\(urgency.description). Maximum fee \(feeDetails.maxFeeDisplay). Wait time \(feeDetails.waitTimeDisplay)")
+        }
+
+        private var labelContent: some View {
+            VStack(alignment: .leading, spacing: 2) {
+                PrimaryText(urgency.displayName)
+                    .fontWeight(.semibold)
+                SecondaryText(urgency.description)
+                    .font(.caption)
+            }
+        }
+
+        private var valueContent: some View {
+            VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
+                PrimaryText(feeDetails.maxFeeDisplay)
+                    .fontWeight(.medium)
+                SecondaryText(feeDetails.waitTimeDisplay)
+                    .font(.caption)
             }
         }
     }
@@ -683,23 +736,61 @@ extension GasPriceEstimateView {
         let title: String
         let value: String
         let trend: TrendDirection?
+        @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
         var body: some View {
-            HStack {
-                PrimaryText(title)
-                    .fontWeight(.medium)
-
-                Spacer()
-
-                HStack(spacing: 4) {
-                    PrimaryText(value)
-
-                    if let trend = trend, trend != .stable {
-                        SystemImage(trend.icon)
-                            .foregroundStyle(trend.color)
-                            .font(.caption)
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 6) {
+                        titleText
+                        valueContent
+                    }
+                } else {
+                    HStack {
+                        titleText
+                        Spacer()
+                        valueContent
                     }
                 }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue(accessibilityValue)
+        }
+
+        private var titleText: some View {
+            PrimaryText(title)
+                .fontWeight(.medium)
+        }
+
+        private var valueContent: some View {
+            HStack(spacing: 4) {
+                PrimaryText(value)
+
+                if let trend = trend, trend != .stable {
+                    SystemImage(trend.icon)
+                        .foregroundStyle(trend.color)
+                        .font(.caption)
+                        .accessibilityLabel(trendAccessibilityLabel(for: trend))
+                }
+            }
+        }
+
+        private var accessibilityValue: String {
+            guard let trend, trend != .stable else {
+                return value
+            }
+            return "\(value). \(trendAccessibilityLabel(for: trend))"
+        }
+
+        private func trendAccessibilityLabel(for trend: TrendDirection) -> String {
+            switch trend {
+            case .up:
+                return "Trending up"
+            case .down:
+                return "Trending down"
+            case .stable:
+                return "Stable"
             }
         }
     }
