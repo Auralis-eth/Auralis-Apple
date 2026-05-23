@@ -3,7 +3,7 @@
 Generated: May 23, 2026  
 Source: Project-wide accessibility audit (three passes)  
 Overall Grade: **C**  
-Total Tickets: **39**
+Total Tickets: **36**
 
 ---
 
@@ -12,11 +12,69 @@ Total Tickets: **39**
 | Priority | Count |
 |----------|-------|
 | Critical | 9 |
-| High | 14 |
+| High | 11 |
 | Medium | 10 |
 | Low / Polish | 6 |
 
 Nutrition Label claims are **blocked** for: VoiceOver, Voice Control, Larger Text, Sufficient Contrast, Reduced Motion, and Differentiate Without Color until all Critical and High tickets are resolved and common-task manual testing passes on device.
+
+---
+
+## Completion Gate
+
+The accessibility work is complete only when all of the following are true:
+
+- [ ] Every Critical and High ticket is implemented, verified, and checked off.
+- [ ] Every Medium ticket is either implemented or explicitly deferred with a tracked follow-up and release-risk note.
+- [ ] Every Low / Polish ticket is either implemented, converted into a process artifact, or moved into the post-release backlog.
+- [ ] The project builds successfully with the `Auralis` scheme.
+- [ ] Targeted UI tests or Swift Testing coverage exists for code paths that can regress without visual review.
+- [ ] `performAccessibilityAudit` UI tests cover the critical flows where iOS 17+ is available.
+- [ ] Manual testing passes on a physical device for VoiceOver, Voice Control with Show Names, Switch Control scan order, Dynamic Type `.accessibility5`, Increase Contrast, Reduce Motion, Reduce Transparency, Grayscale, Bold Text, hardware keyboard navigation, and the QR scanner path.
+- [ ] Accessibility Nutrition Label claims are reviewed only after the gate above passes.
+
+---
+
+## Implementation Readiness Map
+
+| Ticket | Type | Readiness |
+|--------|------|-----------|
+| ACCS-001 | Implementation | Ready |
+| ACCS-002 | Implementation | Ready |
+| ACCS-003 | Implementation | Ready |
+| ACCS-004 | Implementation | Ready |
+| ACCS-005 | Implementation | Ready |
+| ACCS-006 | Implementation | Ready |
+| ACCS-007 | Implementation | Ready |
+| ACCS-008 | Implementation | Ready, design-system-first |
+| ACCS-009 | Implementation | Ready |
+| ACCS-010 | Implementation | Ready |
+| ACCS-011 | Implementation | Ready |
+| ACCS-012 | Implementation | Needs call-site inventory before final patch |
+| ACCS-013 | Implementation | Ready |
+| ACCS-014 | Implementation | Needs color-token strategy decision before final patch |
+| ACCS-015 | Implementation | Ready, file-by-file |
+| ACCS-016 | Implementation | Ready |
+| ACCS-017 | Implementation | Ready |
+| ACCS-018 | Implementation | Ready |
+| ACCS-019 | Implementation | Ready |
+| ACCS-020 | Implementation | Ready |
+| ACCS-021 | Implementation | Ready |
+| ACCS-022 | Implementation | Ready after ACCS-008 surface fallback lands |
+| ACCS-023 | Implementation | Ready |
+| ACCS-024 | Implementation | Ready |
+| ACCS-025 | Implementation | Ready |
+| ACCS-026 | Implementation | Ready, file-by-file |
+| ACCS-027 | Investigation | Confirm active product path before changing legacy code |
+| ACCS-028 | Investigation | Requires UIKit scanner audit on device |
+| ACCS-029 | Implementation | Ready with design review for which assets should scale |
+| ACCS-030 | Implementation | Needs animation/haptics inventory before final patch |
+| ACCS-031 | Testing | Ready |
+| ACCS-032 | Testing | Ready |
+| ACCS-033 | Implementation | Needs localization convention decision before broad patch |
+| ACCS-034 | Implementation | Ready |
+| ACCS-035 | Design Review | Needs visual design decision before implementation |
+| ACCS-036 | QA / Process | Ready |
 
 ---
 
@@ -38,12 +96,12 @@ The onboarding gateway has no outer `ScrollView`. The QR scanner and address fie
 **Who is affected:** Large Text users, VoiceOver users, Switch Control users, users on smaller devices.
 
 **Acceptance Criteria:**
-- [ ] Gateway content is wrapped in a `ScrollView`
-- [ ] QR/input row switches to `VStack` when `dynamicTypeSize.isAccessibilitySize` (or uses `ViewThatFits`)
-- [ ] Submit button and validation messages remain in the scrollable region
-- [ ] Guest pass carousel switches to a vertical layout at accessibility sizes
-- [ ] Keyboard dismissal uses `.scrollDismissesKeyboard(.interactively)`
-- [ ] No clipping or unreachable controls at `.accessibility3` through `.accessibility5` on a 375pt-wide device
+- [x] Gateway content is wrapped in a `ScrollView`
+- [x] QR/input row switches to `VStack` when `dynamicTypeSize.isAccessibilitySize` (or uses `ViewThatFits`)
+- [x] Submit button and validation messages remain in the scrollable region
+- [x] Guest pass carousel switches to a vertical layout at accessibility sizes
+- [x] Keyboard dismissal uses `.scrollDismissesKeyboard(.interactively)`
+- [x] No clipping or unreachable controls at `.accessibility3` through `.accessibility5` on a 375pt-wide device
 
 ```swift
 @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -78,10 +136,10 @@ ScrollView {
 **Who is affected:** VoiceOver, Switch Control, Voice Control, and keyboard users.
 
 **Acceptance Criteria:**
-- [ ] No interactive controls nested inside a parent `Button`
-- [ ] Primary open action is the card's primary accessibility action
-- [ ] Secondary actions (Copy ID, More) are exposed as `.accessibilityAction(named:)` custom actions
-- [ ] VoiceOver swipe order reaches all actions without requiring the user to enter the card element
+- [x] No interactive controls nested inside a parent `Button`
+- [x] Primary open action is the card's primary accessibility action
+- [x] Secondary actions (Copy ID, More) are exposed as `.accessibilityAction(named:)` custom actions
+- [x] VoiceOver swipe order reaches all actions without requiring the user to enter the card element
 
 ```swift
 NFTLibraryCardView(nft: nft)
@@ -107,10 +165,10 @@ The sort menu uses an ellipsis icon and the refresh button uses an arrow icon wi
 **Who is affected:** VoiceOver and Voice Control users.
 
 **Acceptance Criteria:**
-- [ ] Sort menu announces "Sort NFTs" and hints "Changes the news feed sort order"
-- [ ] Refresh button announces "Refresh NFTs" and hints "Fetches the latest NFTs for this wallet"
-- [ ] Both controls expose `.accessibilityInputLabels` for Voice Control
-- [ ] Both controls meet the 44×44pt minimum touch target
+- [x] Sort menu announces "Sort NFTs" and hints "Changes the news feed sort order"
+- [x] Refresh button announces "Refresh NFTs" and hints "Fetches the latest NFTs for this wallet"
+- [x] Both controls expose `.accessibilityInputLabels` for Voice Control
+- [x] Both controls meet the 44×44pt minimum touch target
 
 ```swift
 Menu { sortControls } label: { Image(systemName: "ellipsis").padding(8) }
@@ -139,9 +197,9 @@ Generated image buttons have no `accessibilityLabel` or `accessibilityHint`. Voi
 **Who is affected:** VoiceOver users choosing a home background image.
 
 **Acceptance Criteria:**
-- [ ] Each image button has a distinct label describing the scene and its position (e.g., "Generated Aurora image, option 2 of 4")
-- [ ] Each image button has a hint explaining the action ("Selects this image for the home background")
-- [ ] Selection state is reflected via `.accessibilityAddTraits(.isSelected)` on the chosen image
+- [x] Each image button has a distinct label describing the scene and its position (e.g., "Generated Aurora image, option 2 of 4")
+- [x] Each image button has a hint explaining the action ("Selects this image for the home background")
+- [x] Selection state is reflected via `.accessibilityAddTraits(.isSelected)` on the chosen image
 
 ```swift
 Button { onPick(image) } label: {
@@ -171,11 +229,11 @@ Inline validation errors, "Copied" confirmations, image generation progress, and
 **Who is affected:** VoiceOver users and anyone relying on non-visual feedback.
 
 **Acceptance Criteria:**
-- [ ] Validation failure message is announced immediately via `.announcement` notification
-- [ ] "NFT ID copied" confirmation is announced
-- [ ] Settings reset success and failure messages are announced
-- [ ] Image generation start and completion are announced
-- [ ] Account resolution progress is announced on start and on error
+- [x] Validation failure message is announced immediately via `.announcement` notification
+- [x] "NFT ID copied" confirmation is announced
+- [x] Settings reset success and failure messages are announced
+- [x] Image generation start and completion are announced
+- [x] Account resolution progress is announced on start and on error
 
 ```swift
 private func announce(_ message: String) {
@@ -199,10 +257,10 @@ private func announce(_ message: String) {
 **Who is affected:** All assistive technology users encountering empty or error states.
 
 **Acceptance Criteria:**
-- [ ] Descriptive text (icon + title + message) is combined into one element
-- [ ] Action buttons are **not** inside the combined group — they remain independently focusable
-- [ ] Each button is reachable by VoiceOver swipe, Switch Control scan, and Voice Control name
-- [ ] Title text carries `.isHeader` trait
+- [x] Descriptive text (icon + title + message) is combined into one element
+- [x] Action buttons are **not** inside the combined group — they remain independently focusable
+- [x] Each button is reachable by VoiceOver swipe, Switch Control scan, and Voice Control name
+- [x] Title text carries `.isHeader` trait
 
 ```swift
 VStack(alignment: .leading, spacing: 16) {
@@ -234,9 +292,9 @@ The generated or gateway scenic background images are rendered without `.accessi
 **Who is affected:** VoiceOver users, low-vision users.
 
 **Acceptance Criteria:**
-- [ ] Background image is always hidden from the accessibility tree
-- [ ] When `accessibilityReduceTransparency || colorSchemeContrast == .increased`, background is replaced with an opaque semantic color
-- [ ] Text over the home background passes WCAG AA contrast at all Dynamic Type sizes
+- [x] Background image is always hidden from the accessibility tree
+- [x] When `accessibilityReduceTransparency || colorSchemeContrast == .increased`, background is replaced with an opaque semantic color
+- [x] Text over the home background passes WCAG AA contrast at all Dynamic Type sizes
 
 ```swift
 @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -272,10 +330,10 @@ Zero uses of `accessibilityReduceTransparency`, `colorSchemeContrast`, `accessib
 **Who is affected:** Low-vision users, users with contrast sensitivity, users with Reduce Transparency or Increase Contrast enabled.
 
 **Acceptance Criteria:**
-- [ ] `AuraSurfaceCard` and `AuraSurfaceGlass` read `accessibilityReduceTransparency` and `colorSchemeContrast`
-- [ ] When either is active, an opaque `Color(.secondarySystemBackground)` fill and `Color(.separator)` border replace all glass/material/opacity treatments
-- [ ] `GuestPassCard` and `AuraPlayNowPlayingView` use the shared surface modifier or their own fallback
-- [ ] Fix is the single source of truth — not duplicated per screen
+- [x] `AuraSurfaceCard` and `AuraSurfaceGlass` read `accessibilityReduceTransparency` and `colorSchemeContrast`
+- [x] When either is active, an opaque `Color(.secondarySystemBackground)` fill and `Color(.separator)` border replace all glass/material/opacity treatments
+- [x] `GuestPassCard` and `AuraPlayNowPlayingView` use the shared surface modifier or their own fallback
+- [x] Fix is the single source of truth — not duplicated per screen
 
 ```swift
 private struct AuraSurfaceGlass: ViewModifier {
@@ -312,11 +370,11 @@ The search `TextField` uses a long instructional placeholder string as its label
 **Who is affected:** VoiceOver and Voice Control users.
 
 **Acceptance Criteria:**
-- [ ] Field has `.accessibilityLabel("Query")` (or localized equivalent) as the stable label
-- [ ] Long instruction text is moved to `.accessibilityHint`
-- [ ] Field has `.accessibilityValue(query.isEmpty ? "Empty" : query)`
-- [ ] Field uses `.submitLabel(.search)`
-- [ ] Accessibility identifier is `"search.queryField"`
+- [x] Field has `.accessibilityLabel("Query")` (or localized equivalent) as the stable label
+- [x] Long instruction text is moved to `.accessibilityHint`
+- [x] Field has `.accessibilityValue(query.isEmpty ? "Empty" : query)`
+- [x] Field uses `.submitLabel(.search)`
+- [x] Accessibility identifier is `"search.queryField"`
 
 ```swift
 TextField("Search ENS, wallet, contract, symbol, NFT, collection", text: $query)

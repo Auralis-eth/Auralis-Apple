@@ -1,5 +1,31 @@
 # Journal
 
+## 2026-05-23 — Phase 1 Accessibility Stopped Blocking The Front Door
+
+Phase 1 was the part of the accessibility backlog that users would feel immediately: can I get through the gateway at huge text sizes, can I operate the NFT feed without nested controls confusing assistive tech, can I tell which generated image I am picking, and does the app speak up when something changes?
+
+The gateway got the biggest furniture move. Its address entry flow now scrolls, stacks the QR scanner and text field at accessibility sizes, and lets guest passes become a vertical list instead of a sideways hallway. That matters because Dynamic Type bugs are not cosmetic; if the submit button falls off the screen, the app has effectively locked the door.
+
+The rest of the work turned quiet visual cues into usable semantics. Toolbar icons now have names Voice Control can say. Gallery images describe their option number and selection state. Home backgrounds stay decorative and step aside for opaque semantic color when contrast or transparency settings ask for it. Copy, reset, validation, and image-generation events now announce themselves through a shared AuraUI announcer, so VoiceOver users are not left reading smoke signals from changing pixels.
+
+Lesson learned: critical accessibility is usually not one heroic fix. It is a chain of small promises kept everywhere the user touches the app.
+
+## 2026-05-23 — Glass Learned When To Become A Wall
+
+`ACCS-006` and `ACCS-008` kicked off the Phase 1 accessibility work from the design-system end, which is exactly where this kind of fix belongs. Empty states had been wrapping their copy and action buttons into one VoiceOver element, like handing someone a menu where the "retry" button was laminated under the paragraph. The fix keeps the icon/title/message as one readable thought, but lets the primary and secondary buttons stand on their own feet for VoiceOver, Switch Control, and Voice Control.
+
+The surface work had a different flavor. Auralis loves glass, translucency, soft strokes, and image-backed ambience, but users who enable Reduce Transparency or Increase Contrast are asking the app to stop being atmospheric and start being legible. `AuraSurfaceCard` now routes through one shared surface modifier that swaps glass and opacity for an opaque semantic background plus separator border when those settings are active. Guest passes and the Now Playing sheet use that same source of truth, so the fallback behaves like a building code instead of a collection of sticky notes.
+
+Lesson learned: design systems are not just colors and corner radii. They are where accessibility promises become defaults, which means every screen gets better without each feature author remembering the whole checklist.
+
+## 2026-05-23 — The Accessibility Backlog Got A Finish Line
+
+The accessibility audit already had plenty of sharp tickets, but its scoreboard was lying: the header promised 39 tickets while the file actually held 36, and the High-priority count was inflated too. That kind of mismatch is small until someone tries to close the epic and discovers the checklist has phantom chairs at the table.
+
+The plan now tells the truth: 36 tickets, split into 9 Critical, 11 High, 10 Medium, and 6 Low/Polish items. More importantly, it has a completion gate. Accessibility is not done when code compiles or when labels look nicer in review; it is done when the app builds, automated checks cover the flows they can cover, and real-device passes prove VoiceOver, Voice Control, Switch Control, Dynamic Type, contrast, motion, transparency, keyboard navigation, and QR scanning all survive contact with the actual app.
+
+The useful lesson: an accessibility backlog needs two maps. One map says what hurts users. The other says what kind of work each ticket is: implementation, investigation, design review, testing, or process. Without that second map, teams treat a device audit and a one-line label fix like the same species of task, and planning gets mushy fast.
+
 ## 2026-05-23 — External Links Stopped Letting Homepages Sneak In
 
 `TEST-010` tightened the outbound-link bouncer. The host allowlist was already picky, but the default action policy still let approved hosts point at their front doors: explorer roots, OpenSea's homepage, and Arweave's root. That is too broad for generated wallet-context actions, where the app should know exactly whether it is sending someone to a token, address, transaction, collection, IPFS object, or Arweave transaction route.

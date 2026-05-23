@@ -375,6 +375,40 @@ Pass criteria:
 - buttons remain tappable
 - chrome and cards remain readable
 
+## P0-Device-019: Phase 1 accessibility ship gate
+
+Goal:
+
+- verify `ACCS-001` through `ACCS-009` on hardware before treating Phase 1 as ship-ready or using the results for Accessibility Nutrition Label decisions
+
+Setup:
+
+- Run once on a 375pt-wide device class if available, such as iPhone SE or equivalent compact-width iPhone.
+- Use a clean install or a known-good local reset before starting.
+- Have one valid EVM address, one invalid address, one valid wallet QR code, one invalid QR payload, and one wallet with NFTs available.
+
+Steps:
+
+1. Enable Dynamic Type `.accessibility5`, then launch into the gateway.
+2. Verify gateway content scrolls, the QR scanner and address field stack vertically, submit/error/progress controls remain reachable, and guest passes appear in a vertical layout.
+3. With VoiceOver enabled, test manual address entry, invalid validation, ENS rejection, QR scan success/failure, guest pass entry, News Feed card open, NFT ID copy, Home image generation, Settings privacy reset, and Search entry.
+4. With Voice Control enabled and Show Names visible, verify the News Feed sort and refresh controls, search field, gallery image choices, gateway submit/paste/QR controls, and empty-state action buttons can be invoked by visible or announced names.
+5. With Switch Control enabled, scan through gateway controls, empty/error states, News Feed card actions, gallery choices, Search, Settings reset, and the Home launcher sections.
+6. Enable Increase Contrast and Reduce Transparency, then verify Home background imagery is replaced or safely subdued, Aura surfaces become opaque/readable, and text over Home, gateway, News, Search, Music, and Settings remains readable.
+7. Enable Reduce Motion, then exercise image generation, gateway transitions, NFT card expansion/copy confirmation, account switching, tab switching, and Music controls.
+8. Enable Grayscale and Bold Text, then repeat a quick pass through gateway, Home, News Feed, Search, Settings, and Music.
+9. Attach or simulate hardware keyboard input if available; verify Tab/Return/Escape navigation reaches gateway entry, Search, Settings reset confirmation, and detail back/dismiss controls.
+10. Re-run the QR scanner path with VoiceOver enabled and again with Voice Control enabled, including camera permission denial and recovery.
+
+Pass criteria:
+
+- no Phase 1 control is unreachable with VoiceOver, Voice Control, Switch Control, touch, or keyboard where that input method applies
+- no primary task has clipped, hidden, or offscreen required controls at `.accessibility5` on compact width
+- all Phase 1 visual-only state changes also produce understandable non-visual feedback
+- opaque/increased-contrast fallbacks preserve readable text and visible controls
+- QR scanner permission, scan success, scan failure, and dismissal remain coherent with assistive technologies enabled
+- any failure is filed against the matching `ACCS-00x` ticket or a new follow-up before ship/no-go
+
 ## Severity rubric
 
 - `Blocker`: crash, stuck flow, corrupted scope, broken playback, unrecoverable navigation, privacy-reset failure
