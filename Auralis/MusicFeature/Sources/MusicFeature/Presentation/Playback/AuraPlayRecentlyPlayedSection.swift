@@ -1,12 +1,18 @@
+import AuraUI
 import SwiftUI
 
 struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
     let player: Player
     private let initialLimit = 20
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @State private var isClearing = false
 
     private var items: [AuraPlayRecentlyPlayedItem] {
         player.auraPlayRecentlyPlayed(limit: initialLimit)
+    }
+
+    private var haptics: AuraHaptics {
+        AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
     }
 
     var body: some View {
@@ -48,6 +54,15 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
                                 playTapped(item: item)
                             }
                             .frame(width: 160)
+                            .accessibilityAction(named: "Play") {
+                                playTapped(item: item)
+                            }
+                            .accessibilityAction(named: "Start over") {
+                                startOverTapped(item: item)
+                            }
+                            .accessibilityAction(named: "Remove from Recently Played") {
+                                player.auraPlayRemoveRecentlyPlayed(id: item.id)
+                            }
                             .contextMenu {
                                 Button {
                                     playTapped(item: item)
@@ -111,9 +126,7 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
     }
 
     private func impact() {
-        #if canImport(UIKit)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        #endif
+        haptics.impact(.light)
     }
 }
 
