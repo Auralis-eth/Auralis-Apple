@@ -120,6 +120,7 @@ public struct AuraSectionHeader<Trailing: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
             .layoutPriority(1)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
