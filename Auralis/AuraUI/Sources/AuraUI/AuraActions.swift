@@ -39,10 +39,11 @@ public struct AuraActionButton: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundStyle(Color.textPrimary)
-            .frame(maxWidth: style == .hero ? .infinity : nil)
+            .frame(maxWidth: style == .hero ? .infinity : nil, minHeight: 44)
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
             .background(backgroundShape)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .contentShape(.capsule)
