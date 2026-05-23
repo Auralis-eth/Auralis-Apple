@@ -421,6 +421,12 @@ private struct SearchLocalMatchesCard: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.plain)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(match.kind.title), \(match.title)")
+                    .accessibilityValue(match.subtitle)
+                    .accessibilityHint("Opens this result")
                     .accessibilityIdentifier("search.match.\(match.id)")
                 }
             }
@@ -482,14 +488,25 @@ private struct SearchHistoryCard: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .buttonStyle(.plain)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(entry.query)
+                            .accessibilityValue(entry.recordedAt.formatted(date: .abbreviated, time: .shortened))
+                            .accessibilityHint("Runs this recent search")
+                            .accessibilityAction(named: "Delete") {
+                                onDelete(entry)
+                            }
 
-                            Button {
+                            Button(role: .destructive) {
                                 onDelete(entry)
                             } label: {
                                 Image(systemName: "trash")
                                     .foregroundStyle(Color.textSecondary)
                             }
                             .buttonStyle(.plain)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                             .accessibilityLabel("Delete \(entry.query)")
                         }
                     }
