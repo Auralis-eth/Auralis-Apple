@@ -1,6 +1,8 @@
 import SwiftUI
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #endif
 
 public extension Color {
@@ -52,13 +54,34 @@ public extension Color {
 
     static let deepBlue = Color(hexString: "012348")
     static let auraSecondary = Color(hexString: "00C690")
-    static let accent = Color(.systemPurple)
-    static let background = Color(.systemBackground)
-    static let surface = Color(.secondarySystemBackground)
-    static let textPrimary = Color(.label)
-    static let textSecondary = Color(.secondaryLabel)
-    static let error = Color(.systemRed)
-    static let success = Color(.systemGreen)
+    #if canImport(UIKit)
+    static let accent = Color(UIColor.systemPurple)
+    static let background = Color(UIColor.systemBackground)
+    static let surface = Color(UIColor.secondarySystemBackground)
+    static let textPrimary = Color(UIColor.label)
+    static let textSecondary = Color(UIColor.secondaryLabel)
+    static let error = Color(UIColor.systemRed)
+    static let success = Color(UIColor.systemGreen)
+    static let separator = Color(UIColor.separator)
+    #elseif canImport(AppKit)
+    static let accent = Color(NSColor.controlAccentColor)
+    static let background = Color(NSColor.windowBackgroundColor)
+    static let surface = Color(NSColor.controlBackgroundColor)
+    static let textPrimary = Color(NSColor.labelColor)
+    static let textSecondary = Color(NSColor.secondaryLabelColor)
+    static let error = Color(NSColor.systemRed)
+    static let success = Color(NSColor.systemGreen)
+    static let separator = Color(NSColor.separatorColor)
+    #else
+    static let accent = Color(hexString: "7751A9")
+    static let background = Color(hexString: "121212")
+    static let surface = Color(hexString: "1E1E1E")
+    static let textPrimary = Color(hexString: "FFFFFF")
+    static let textSecondary = Color(hexString: "BDBDBD")
+    static let error = Color(hexString: "FF3B30")
+    static let success = Color(hexString: "4CD964")
+    static let separator = Color.white.opacity(0.18)
+    #endif
     static let auroraGreen = Color(hexString: "39FF14")
     static let auroraCyan = Color(hexString: "00FFFF")
     static let auroraPurple = Color(hexString: "BF00FF")

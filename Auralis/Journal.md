@@ -2070,3 +2070,11 @@ A-002 started as an NFT log hygiene fix, but the audit wording was bigger than o
 The fix moved provider payload classification into a shared `ProviderErrorPayloadSanitizer`. Known public copy, such as rate-limit messages with public wallet addresses, can pass through. Unknown bodies, operational JSON diagnostics, auth-looking fields, cookies, private keys, seed phrases, and unsafe JSON-RPC messages now become reason-coded SHA-256 fingerprints. The fingerprint keeps an evidence tag for debugging without stuffing the evidence itself into logs, route errors, or receipt-adjacent typed failures.
 
 The lesson: public identifiers and provider payloads are different species. Wallet addresses can be useful daylight; raw upstream bodies are sealed envelopes unless the code has explicitly classified them.
+
+## Accessibility Fixes: Do Not Board Up The Control Panel
+
+The accessibility ship-readiness review found two sharp edges. First, Aura's surface colors had started using UIKit-flavored dynamic colors in shared package code, which is fine on iOS and a broken doorknob on macOS. The package now routes semantic colors through platform-specific `Color` helpers, so the surface system can ask for "surface" or "separator" without caring which framework owns the paint bucket.
+
+The second bug was subtler: the NFT feed card made the whole page-sized card one accessibility element. That gave VoiceOver a convenient "open details" stop, but it also risked covering the real controls living inside the card, like the More Actions menu and the Show More Info button. The fix changed the card wrapper back into a container. The card still exposes its open action, but the control panel inside is no longer boarded up.
+
+The lesson: accessibility grouping is power equipment. Use it to organize the room, not to drywall over the switches.

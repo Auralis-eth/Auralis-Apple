@@ -1,6 +1,6 @@
 # P0 UI Test QA Suite
 
-Generated: May 23, 2026  
+Generated: May 23, 2026
 Scope: Automated UI and accessibility-audit coverage for Phase 1 and Phase 2 accessibility readiness.
 
 This suite is the automated companion to `P0-Physical-Device-QA-Suite.md`. It does not replace real-device QA. It catches regressions that XCTest can see: missing screens, broken identifiers, unreachable controls, and iOS 17+ accessibility audit failures.

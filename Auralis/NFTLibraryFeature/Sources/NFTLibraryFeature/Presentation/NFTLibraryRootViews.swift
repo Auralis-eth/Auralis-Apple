@@ -139,27 +139,25 @@ public struct NFTLibraryNewsFeedRootView: View {
                         ScrollView(.vertical, showsIndicators: false) {
                             LazyVStack(spacing: 0) {
                                 ForEach(displayNFTs) { nft in
-                                    NFTLibraryCardView(nft: nft)
-                                        .frame(width: geometry.size.width)
-                                        .frame(minHeight: geometry.size.height, maxHeight: geometry.size.height)
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            actions.openNFT(nft.id)
-                                        }
-                                        .accessibilityElement(children: .ignore)
-                                        .accessibilityLabel(NFTLibraryPresentation.displayTitle(for: nft))
-                                        .accessibilityValue("Collection: \(nft.collection?.name ?? "Unknown Collection")")
-                                        .accessibilityHint("Shows NFT details")
-                                        .accessibilityAddTraits(.isButton)
-                                        .accessibilityAction {
-                                            actions.openNFT(nft.id)
-                                        }
-                                        .accessibilityAction(named: "Open details") {
-                                            actions.openNFT(nft.id)
-                                        }
-                                        .accessibilityAction(named: "Copy token ID") {
-                                            copyNFTIdentifier(nft.id)
-                                        }
+                                    Button {
+                                        actions.openNFT(nft.id)
+                                    } label: {
+                                        NFTLibraryCardView(nft: nft)
+                                            .frame(width: geometry.size.width)
+                                            .frame(minHeight: geometry.size.height, maxHeight: geometry.size.height)
+                                            .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityElement(children: .contain)
+                                    .accessibilityLabel(NFTLibraryPresentation.displayTitle(for: nft))
+                                    .accessibilityValue("Collection: \(nft.collection?.name ?? "Unknown Collection")")
+                                    .accessibilityHint("Shows NFT details")
+                                    .accessibilityAction(named: "Open details") {
+                                        actions.openNFT(nft.id)
+                                    }
+                                    .accessibilityAction(named: "Copy token ID") {
+                                        copyNFTIdentifier(nft.id)
+                                    }
                                 }
                             }
                             .scrollTargetLayout()

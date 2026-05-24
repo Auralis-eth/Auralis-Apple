@@ -5,8 +5,8 @@ import PackageDescription
 let package = Package(
     name: "AccountsFeature",
     platforms: [
-        .iOS(.v18),
-        .macOS(.v14),
+        .iOS("26.0"),
+        .macOS("26.0"),
     ],
     products: [
         .library(

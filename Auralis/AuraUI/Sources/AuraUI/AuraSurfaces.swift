@@ -55,11 +55,11 @@ private struct AuraSurfaceGlass: ViewModifier {
 
         if needsOpaqueSurface {
             content
-                .background(Color(.secondarySystemBackground), in: shape)
+                .background(Color.surface, in: shape)
                 .overlay {
-                    shape.strokeBorder(Color(.separator), lineWidth: 1)
+                    shape.strokeBorder(Color.separator, lineWidth: 1)
                 }
-        } else if #available(iOS 26, macOS 26, *) {
+        } else {
             switch style {
             case .soft:
                 content
@@ -68,12 +68,6 @@ private struct AuraSurfaceGlass: ViewModifier {
                 content
                     .glassEffect(.regular.tint(.surface), in: .rect(cornerRadius: cornerRadius, style: .continuous))
             }
-        } else {
-            content
-                .background(Color.surface.opacity(style == .soft ? 0.45 : 0.7), in: shape)
-                .overlay {
-                    shape.strokeBorder(.white.opacity(0.16), lineWidth: 1)
-                }
         }
     }
 }

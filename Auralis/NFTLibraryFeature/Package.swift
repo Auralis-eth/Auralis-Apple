@@ -5,7 +5,8 @@ import PackageDescription
 let package = Package(
     name: "NFTLibraryFeature",
     platforms: [
-        .iOS(.v18),
+        .iOS("26.0"),
+        .macOS("26.0"),
     ],
     products: [
         .library(
