@@ -14,6 +14,9 @@ import SwiftUI
 import AuraUI
 
 struct ProfileCardView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .title) private var avatarSize = 96
+
     @Binding var currentAccount: EOAccount?
     @Binding var currentAddress: String
     let currentChain: Chain
@@ -43,70 +46,7 @@ struct ProfileCardView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            Group {
-                if let avatarImage = avatarImage {
-                    Image(uiImage: avatarImage)
-                        .resizable()
-                        .scaledToFit()
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 2))
-                } else {
-                    Circle()
-                        .fill(Color.textSecondary.opacity(0.3))
-                }
-            }
-            .frame(width: 96, height: 96)
-            .overlay {
-                if isLoadingAvatar {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(1.5)
-                } else if avatarImage == nil {
-                    Image(systemName: "person.crop.circle.fill")
-                        .resizable()
-                        .scaledToFit()
-                        .foregroundColor(.deepBlue)
-                        .padding(18)
-                }
-            }
-            .padding(.bottom, 4)
-
-            VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Title2FontText(summary.title)
-                    if let resolvedENSName {
-                        SecondaryText(resolvedENSName)
-                    }
-                    SecondaryText(summary.addressLine)
-                    SecondaryCaptionFontText(summary.chainTitle)
-                }
-
-                HStack(spacing: 8) {
-                    AuraPill(summary.chainTitle, systemImage: "globe", emphasis: .accent)
-                    AuraPill(summary.trackedNFTLabel, systemImage: "square.stack.3d.up", emphasis: .neutral)
-                }
-
-                if let lastActivityLabel = summary.lastActivityLabel {
-                    SecondaryCaptionFontText(lastActivityLabel)
-                }
-            }
-
-            Spacer()
-
-            VStack(spacing: 12) {
-                Button(action: onOpenAccountSwitcher) {
-                    SystemImage("square.and.pencil")
-                }
-                .buttonStyle(.plain)
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
-                .accessibilityLabel(String(localized: "Manage accounts"))
-                .accessibilityIdentifier("home.accounts.open")
-            }
-            .foregroundStyle(Color.accent)
-            .font(.system(size: 30, weight: .medium))
-        }
+        profileLayout
         .task(id: currentAddress) {
             await refreshAvatar()
             await refreshENSName()
@@ -121,6 +61,98 @@ struct ProfileCardView: View {
             }
         })
         .padding()
+    }
+
+    @ViewBuilder
+    private var profileLayout: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 16) {
+                    avatarView
+                    Spacer()
+                    manageAccountsButton
+                }
+                profileDetails
+            }
+        } else {
+            HStack(alignment: .top, spacing: 16) {
+                avatarView
+                profileDetails
+                Spacer()
+                manageAccountsButton
+            }
+        }
+    }
+
+    private var avatarView: some View {
+        Group {
+            if let avatarImage = avatarImage {
+                Image(uiImage: avatarImage)
+                    .resizable()
+                    .scaledToFit()
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 2))
+            } else {
+                Circle()
+                    .fill(Color.textSecondary.opacity(0.3))
+            }
+        }
+        .frame(width: min(avatarSize, 128), height: min(avatarSize, 128))
+        .overlay {
+            if isLoadingAvatar {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .scaleEffect(1.5)
+                    .accessibilityLabel(String(localized: "Loading avatar"))
+            } else if avatarImage == nil {
+                Image(systemName: "person.crop.circle.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundColor(.deepBlue)
+                    .padding(18)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.bottom, 4)
+        .accessibilityHidden(!isLoadingAvatar)
+    }
+
+    private var profileDetails: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Title2FontText(summary.title)
+                if let resolvedENSName {
+                    SecondaryText(resolvedENSName)
+                }
+                SecondaryText(summary.addressLine)
+                SecondaryCaptionFontText(summary.chainTitle)
+            }
+
+            HStack(spacing: 8) {
+                AuraPill(summary.chainTitle, systemImage: "globe", emphasis: .accent)
+                AuraPill(summary.trackedNFTLabel, systemImage: "square.stack.3d.up", emphasis: .neutral)
+            }
+
+            if let lastActivityLabel = summary.lastActivityLabel {
+                SecondaryCaptionFontText(lastActivityLabel)
+            }
+        }
+    }
+
+    private var manageAccountsButton: some View {
+        VStack(spacing: 12) {
+            Button(action: onOpenAccountSwitcher) {
+                SystemImage("square.and.pencil")
+            }
+            .buttonStyle(.plain)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+            .accessibilityLabel(String(localized: "Manage accounts"))
+            .accessibilityIdentifier("home.accounts.open")
+        }
+        .foregroundStyle(Color.accent)
+        .font(.system(size: 30, weight: .medium))
+        .accessibilityShowsLargeContentViewer()
     }
 
     // MARK: - Avatar Image Generation

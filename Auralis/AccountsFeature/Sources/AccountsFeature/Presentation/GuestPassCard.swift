@@ -5,6 +5,7 @@ public struct GuestPassCard: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.accessibilityReduceTransparency) private var accessibilityReduceTransparency
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private let account: GuestPassAccount
     private var onTap: (() -> Void)?
@@ -38,6 +39,12 @@ public struct GuestPassCard: View {
                 cardContent
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(account.title)
+        .accessibilityValue(
+            String(localized: "\(account.subtitle). Ethereum address \(account.address)")
+        )
+        .accessibilityHint(onTap == nil ? "" : String(localized: "Opens Auralis with this guest pass account."))
         .accessibilityAddTraits(onTap == nil ? [] : .isButton)
         .onChange(of: accessibilityReduceMotion, initial: true) { _, reduceMotion in
             guard reduceMotion else {
@@ -56,6 +63,7 @@ public struct GuestPassCard: View {
             HStack(alignment: .center) {
                 SystemImage(account.roleImage)
                     .font(.system(size: 20))
+                    .accessibilityHidden(true)
                 Spacer()
                 if let ens = account.ens {
                     Caption2FontText(ens.uppercased())
@@ -69,6 +77,7 @@ public struct GuestPassCard: View {
                         SystemImage(metadata.systemImage)
                             .font(.footnote)
                             .foregroundStyle(Color.textPrimary.opacity(0.75))
+                            .accessibilityHidden(true)
                     }
                 }
             }
@@ -83,7 +92,7 @@ public struct GuestPassCard: View {
                     .font(.title3)
                     .fontWeight(.black)
                     .monospaced()
-                    .tracking(2)
+                    .tracking(dynamicTypeSize.isAccessibilitySize ? 0 : 2)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.textPrimary)
@@ -92,7 +101,7 @@ public struct GuestPassCard: View {
                     .font(.subheadline)
                     .fontWeight(.thin)
                     .monospaced()
-                    .tracking(2)
+                    .tracking(dynamicTypeSize.isAccessibilitySize ? 0 : 2)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.textSecondary)
@@ -105,11 +114,10 @@ public struct GuestPassCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ADDRESS")
                         .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(Color.textSecondary)
                     Text(shortAddress)
                         .font(.system(.body, design: .monospaced))
                         .foregroundStyle(Color.textSecondary)
-                        .accessibilityLabel("Ethereum address \(account.address)")
                 }
 
                 Spacer()
@@ -118,6 +126,7 @@ public struct GuestPassCard: View {
                     .font(.system(size: 40, weight: .black))
                     .aspectRatio(contentMode: .fit)
                     .foregroundStyle(.white.opacity(0.7))
+                    .accessibilityHidden(true)
             }
             .padding(.bottom, 30)
             .padding(.horizontal, 24)

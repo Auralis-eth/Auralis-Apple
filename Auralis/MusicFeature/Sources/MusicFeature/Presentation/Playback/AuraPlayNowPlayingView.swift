@@ -7,6 +7,8 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
 
     @State private var seekValue: Double = 0
     @State private var isDraggingSeek = false
+    @ScaledMetric(relativeTo: .title) private var primaryPlaybackIconSize = 56
+    @ScaledMetric(relativeTo: .title) private var artworkMaxSize = 280
 
     private var nextPreviewTrack: AuraPlayTrack? { player.auraPlayNextPreviewTrack }
     private var previousPreviewTrack: AuraPlayTrack? { player.auraPlayPreviousPreviewTrack }
@@ -58,7 +60,7 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                                             }
                                         }
                                     )
-                                    .accessibilityLabel("Playback position")
+                                    .accessibilityLabel(String(localized: "Playback position"))
                                     .onChange(of: player.auraPlayCurrentTrack) { _, _ in
                                         seekValue = 0
                                     }
@@ -88,8 +90,8 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                                             .font(.title3)
                                     }
                                     .frame(minWidth: 44, minHeight: 44)
-                                    .accessibilityLabel("Skip backward 10 seconds")
-                                    .accessibilityHint("Moves playback backward by ten seconds")
+                                    .accessibilityLabel(String(localized: "Skip backward 10 seconds"))
+                                    .accessibilityHint(String(localized: "Moves playback backward by ten seconds"))
 
                                     Button {
                                         Task { await player.auraPlayPrevious() }
@@ -99,8 +101,8 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                                             .foregroundStyle(.primary)
                                     }
                                     .frame(minWidth: 44, minHeight: 44)
-                                    .accessibilityLabel("Previous track")
-                                    .accessibilityHint("Plays the previous track")
+                                    .accessibilityLabel(String(localized: "Previous track"))
+                                    .accessibilityHint(String(localized: "Plays the previous track"))
 
                                     mainPlaybackButton
 
@@ -112,8 +114,8 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                                             .foregroundStyle(.primary)
                                     }
                                     .frame(minWidth: 44, minHeight: 44)
-                                    .accessibilityLabel("Next track")
-                                    .accessibilityHint("Plays the next track")
+                                    .accessibilityLabel(String(localized: "Next track"))
+                                    .accessibilityHint(String(localized: "Plays the next track"))
 
                                     Button {
                                         player.auraPlaySkipForward()
@@ -122,8 +124,8 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                                             .font(.title3)
                                     }
                                     .frame(minWidth: 44, minHeight: 44)
-                                    .accessibilityLabel("Skip forward 10 seconds")
-                                    .accessibilityHint("Moves playback forward by ten seconds")
+                                    .accessibilityLabel(String(localized: "Skip forward 10 seconds"))
+                                    .accessibilityHint(String(localized: "Moves playback forward by ten seconds"))
                                 }
                             }
 
@@ -198,7 +200,7 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
         case .loading:
             Button(action: player.auraPlayPause) {
                 Image(systemName: "pause.fill")
-                    .font(.system(size: 56))
+                    .font(.system(size: primaryPlaybackIconSize))
             }
             .disabled(true)
             .frame(minWidth: 44, minHeight: 44)
@@ -207,46 +209,50 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                     .progressViewStyle(.circular)
                     .scaleEffect(1.2)
             }
-            .accessibilityLabel("Loading playback")
-            .accessibilityHint("Playback is loading")
+            .accessibilityLabel(String(localized: "Loading playback"))
+            .accessibilityHint(String(localized: "Playback is loading"))
+            .accessibilityShowsLargeContentViewer()
 
         case .playing:
             Button(action: player.auraPlayPause) {
                 Image(systemName: "pause.fill")
-                    .font(.system(size: 56))
+                    .font(.system(size: primaryPlaybackIconSize))
             }
             .frame(minWidth: 44, minHeight: 44)
-            .accessibilityLabel("Pause")
-            .accessibilityHint("Pauses the current track")
+            .accessibilityLabel(String(localized: "Pause"))
+            .accessibilityHint(String(localized: "Pauses the current track"))
+            .accessibilityShowsLargeContentViewer()
 
         case .paused:
             Button {
                 try? player.auraPlayResume()
             } label: {
                 Image(systemName: "play.fill")
-                    .font(.system(size: 56))
+                    .font(.system(size: primaryPlaybackIconSize))
             }
             .frame(minWidth: 44, minHeight: 44)
-            .accessibilityLabel("Resume")
-            .accessibilityHint("Resumes the current track")
+            .accessibilityLabel(String(localized: "Resume"))
+            .accessibilityHint(String(localized: "Resumes the current track"))
+            .accessibilityShowsLargeContentViewer()
 
         case .stopped:
             Button {
                 try? player.auraPlayPlay()
             } label: {
                 Image(systemName: "play.fill")
-                    .font(.system(size: 56))
+                    .font(.system(size: primaryPlaybackIconSize))
             }
             .frame(minWidth: 44, minHeight: 44)
-            .accessibilityLabel("Play")
-            .accessibilityHint("Starts playback")
+            .accessibilityLabel(String(localized: "Play"))
+            .accessibilityHint(String(localized: "Starts playback"))
+            .accessibilityShowsLargeContentViewer()
 
         case .error:
             Image(systemName: "exclamationmark.triangle")
                 .font(.title)
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("Playback unavailable")
+                .accessibilityLabel(String(localized: "Playback unavailable"))
         }
     }
 
@@ -254,11 +260,12 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
     private var artworkView: some View {
         if let imageURLString = player.auraPlayCurrentTrack?.imageURLString,
            !imageURLString.isEmpty,
-           let imageURL = URL(string: imageURLString) {
+            let imageURL = URL(string: imageURLString) {
             CachedAsyncImage(url: imageURL)
-                .frame(maxWidth: 280, maxHeight: 280)
+                .frame(maxWidth: min(artworkMaxSize, 320), maxHeight: min(artworkMaxSize, 320))
                 .clipShape(RoundedRectangle(cornerRadius: 20))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                .accessibilityHidden(true)
         } else {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color.gray.opacity(0.25))
@@ -268,8 +275,9 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                         .font(.system(size: 48))
                         .foregroundStyle(.gray)
                 }
-                .frame(maxWidth: 280, maxHeight: 280)
+                .frame(maxWidth: min(artworkMaxSize, 320), maxHeight: min(artworkMaxSize, 320))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                .accessibilityHidden(true)
         }
     }
 
@@ -298,6 +306,7 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                     CachedAsyncImage(url: url)
                         .frame(width: 48, height: 48)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .accessibilityHidden(true)
                 } else {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color.gray.opacity(0.25))
@@ -305,7 +314,9 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                         .overlay {
                             Image(systemName: "music.note")
                                 .foregroundStyle(.gray)
+                                .accessibilityHidden(true)
                         }
+                        .accessibilityHidden(true)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -330,7 +341,11 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
         }
         .buttonStyle(.plain)
         .frame(minHeight: 44)
-        .accessibilityLabel("\(accessibilityPrefix): \(title.isEmpty ? "Unknown Track" : title)\(artist.map { ", by \($0)" } ?? "")")
+        .accessibilityLabel(
+            String(
+                localized: "\(accessibilityPrefix): \(title.isEmpty ? "Unknown Track" : title)\(artist.map { ", by \($0)" } ?? "")"
+            )
+        )
         .opacity(player.auraPlayPlaybackState == .loading ? 0.85 : 1.0)
     }
 }

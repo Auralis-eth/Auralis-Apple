@@ -250,6 +250,7 @@ struct MainTabView: View {
                     pinnedItemCountBinding: $pinnedItemCount
                 )
             }
+            .accessibilityIdentifier("tab.home")
 
             Tab("NewsFeed", systemImage: "bubble.right", value: AppTab.news) {
                 NavigationStack(path: $router.newsPath) {
@@ -279,6 +280,7 @@ struct MainTabView: View {
                     )
                 }
             }
+            .accessibilityIdentifier("tab.gas")
 
             Tab("Music", systemImage: "play.circle", value: AppTab.music) {
                 NavigationStack(path: $router.musicPath) {
@@ -375,11 +377,13 @@ struct MainTabView: View {
                     }
                 }
             }
+            .accessibilityIdentifier("tab.profile")
 
             if router.tabBarVisibility.showsInTabBar(.search) {
                 Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
                     searchRootView
                 }
+                .accessibilityIdentifier("tab.search")
             }
 
             if router.tabBarVisibility.showsInTabBar(.erc20Tokens) {
@@ -590,38 +594,147 @@ private struct ContextLocalRefreshKey: Hashable {
     let pinnedItemCount: Int
 }
 
-#Preview {
-    struct Wrapper: View {
-        @Environment(\.modelContext) private var modelContext
-        @State private var nftService = NFTService()
-        @State private var router = AppRouter()
-        let audioEngine: AudioEngine? = try? AudioEngine()
-        @State private var modeState = ModeState()
-        private let auraPlayModelContainer = PreviewModelContainers.auraPlay()
-        private let shellStore = ShellStore.preview(
-            selection: ActiveShellSelection(
-                address: "0xpreview0000000000000000000000000000000000",
-                chain: .ethMainnet
-            )
+private struct MainTabPreviewWrapper: View {
+    @Environment(\.modelContext) private var modelContext
+    @State private var nftService = NFTService()
+    @State private var router = AppRouter()
+    let initialTab: AppTab
+    let showsSettings: Bool
+    let audioEngine: AudioEngine? = try? AudioEngine()
+    @State private var modeState = ModeState()
+    private let auraPlayModelContainer = PreviewModelContainers.auraPlay()
+    private let shellStore = ShellStore.preview(
+        selection: ActiveShellSelection(
+            address: "0xpreview0000000000000000000000000000000000",
+            chain: .ethMainnet
         )
+    )
 
-        var body: some View {
-            MainTabView(
-                shellStore: shellStore,
-                resolveCurrentAccount: { nil },
-                nftService: $nftService,
-                router: router,
-                audioEngine: audioEngine,
-                musicUnavailableMessage: nil,
-                showsMusicReinstallGuidance: false,
-                retryMusicSetup: {},
-                modeState: modeState,
-                dependencies: AppEnvironment.live.mainTabs.makeMainTabDependencies(modelContext: modelContext),
-                auraPlayModelContainer: auraPlayModelContainer
-            )
-        }
+    init(initialTab: AppTab = .home, showsSettings: Bool = false) {
+        self.initialTab = initialTab
+        self.showsSettings = showsSettings
     }
 
-    return Wrapper()
+    var body: some View {
+        MainTabView(
+            shellStore: shellStore,
+            resolveCurrentAccount: { nil },
+            nftService: $nftService,
+            router: router,
+            audioEngine: audioEngine,
+            musicUnavailableMessage: nil,
+            showsMusicReinstallGuidance: false,
+            retryMusicSetup: {},
+            modeState: modeState,
+            dependencies: AppEnvironment.live.mainTabs.makeMainTabDependencies(modelContext: modelContext),
+            auraPlayModelContainer: auraPlayModelContainer
+        )
+        .onAppear {
+            router.selectedTab = initialTab
+            if showsSettings {
+                router.profilePath = [.settings]
+            }
+        }
+    }
+}
+
+#Preview {
+    MainTabPreviewWrapper()
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Large Text") {
+    MainTabPreviewWrapper()
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Dark Mode") {
+    MainTabPreviewWrapper()
+        .preferredColorScheme(.dark)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Search Large Text") {
+    MainTabPreviewWrapper(initialTab: .search)
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Search Dark Mode") {
+    MainTabPreviewWrapper(initialTab: .search)
+        .preferredColorScheme(.dark)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("NewsFeed Large Text") {
+    MainTabPreviewWrapper(initialTab: .news)
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("NewsFeed Dark Mode") {
+    MainTabPreviewWrapper(initialTab: .news)
+        .preferredColorScheme(.dark)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Gas Large Text") {
+    MainTabPreviewWrapper(initialTab: .gas)
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Gas Dark Mode") {
+    MainTabPreviewWrapper(initialTab: .gas)
+        .preferredColorScheme(.dark)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Music Large Text") {
+    MainTabPreviewWrapper(initialTab: .music)
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Music Dark Mode") {
+    MainTabPreviewWrapper(initialTab: .music)
+        .preferredColorScheme(.dark)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("NFT Detail Large Text") {
+    MainTabPreviewWrapper(initialTab: .nftTokens)
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("NFT Detail Dark Mode") {
+    MainTabPreviewWrapper(initialTab: .nftTokens)
+        .preferredColorScheme(.dark)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Receipts Large Text") {
+    MainTabPreviewWrapper(initialTab: .receipts)
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Receipts Dark Mode") {
+    MainTabPreviewWrapper(initialTab: .receipts)
+        .preferredColorScheme(.dark)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Settings Large Text") {
+    MainTabPreviewWrapper(initialTab: .profile, showsSettings: true)
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Settings Dark Mode") {
+    MainTabPreviewWrapper(initialTab: .profile, showsSettings: true)
+        .preferredColorScheme(.dark)
         .modelContainer(PreviewModelContainers.primary())
 }

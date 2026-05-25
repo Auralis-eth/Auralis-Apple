@@ -110,7 +110,7 @@ public struct AuraSectionHeader<Trailing: View>: View {
     }
 
     private var titleView: some View {
-        SubheadlineFontText(title)
+        HeadlineFontText(title)
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
             .layoutPriority(1)

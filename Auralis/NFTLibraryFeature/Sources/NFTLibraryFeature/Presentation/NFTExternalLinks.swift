@@ -53,14 +53,14 @@ public struct NFTExternalLinkConfirmationSheet: View {
                         onConfirm()
                     }
                     .frame(maxWidth: .infinity)
-                    .accessibilityHint("Opens this approved destination in Safari.")
+                    .accessibilityHint(String(localized: "Opens this approved destination in Safari."))
                     .accessibilityIdentifier("externalLink.confirm")
 
                     AuraActionButton("Cancel", systemImage: "xmark", style: .surface) {
                         dismiss()
                     }
                     .frame(maxWidth: .infinity)
-                    .accessibilityHint("Stays in Auralis and closes this confirmation sheet.")
+                    .accessibilityHint(String(localized: "Stays in Auralis and closes this confirmation sheet."))
                     .accessibilityIdentifier("externalLink.cancel")
                 }
                 .padding(.horizontal, 12)

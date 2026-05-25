@@ -300,7 +300,7 @@ public struct NFTCachedAsyncImage: View {
                 .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
                 .scaleEffect(1.5)
         }
-        .accessibilityLabel("Loading NFT image")
+        .accessibilityLabel(String(localized: "Loading NFT image"))
     }
 
     private var placeholderView: some View {
@@ -312,7 +312,7 @@ public struct NFTCachedAsyncImage: View {
                 .foregroundStyle(Color.textSecondary.opacity(0.3))
                 .accessibilityHidden(true)
         }
-        .accessibilityLabel("NFT image unavailable")
+        .accessibilityLabel(String(localized: "NFT image unavailable"))
     }
 
     private func errorView(_ error: NFTImageLoader.LoadingError) -> some View {

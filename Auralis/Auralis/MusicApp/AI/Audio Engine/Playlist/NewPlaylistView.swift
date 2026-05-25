@@ -163,7 +163,6 @@ struct NewPlaylistView: View {
                     } label: {
                         Text(NSLocalizedString("Cancel", comment: "Cancel button"))
                     }
-                    .accessibilityLabel(NSLocalizedString("Cancel", comment: "Accessibility label for cancel button"))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -172,7 +171,6 @@ struct NewPlaylistView: View {
                         Text(NSLocalizedString("Save", comment: "Save button"))
                     }
                     .disabled(!isTitleValid || isSaving)
-                    .accessibilityLabel(NSLocalizedString("Save Playlist", comment: "Accessibility label for save button"))
                 }
             }
             .alert(NSLocalizedString("Error", comment: "Alert title for error"), isPresented: Binding(get: {

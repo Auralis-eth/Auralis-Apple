@@ -22,7 +22,6 @@ public struct GuestPassCarousel: View {
                         select(account)
                     }
                     .frame(maxWidth: .infinity)
-                    .accessibilityLabel(Text("Opens Auralis with a guest pass account: " + account.title))
                 }
             }
             .padding(.horizontal, 15)
@@ -35,7 +34,6 @@ public struct GuestPassCarousel: View {
                             select(account)
                         }
                         .frame(width: 275)
-                        .accessibilityLabel(Text("Opens Auralis with a guest pass account: " + account.title))
                     }
                     .padding(.vertical)
                 }

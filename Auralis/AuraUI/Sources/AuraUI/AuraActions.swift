@@ -38,7 +38,7 @@ public struct AuraActionButton: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .foregroundStyle(Color.textPrimary)
+            .foregroundStyle(foregroundStyle)
             .frame(maxWidth: style == .hero ? .infinity : nil, minHeight: 44)
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
@@ -47,7 +47,6 @@ public struct AuraActionButton: View {
         }
         .buttonStyle(.plain)
         .contentShape(.capsule)
-        .accessibilityLabel(title)
     }
 
     private var horizontalPadding: CGFloat {
@@ -58,12 +57,21 @@ public struct AuraActionButton: View {
         style == .hero ? 18 : 8
     }
 
+    private var foregroundStyle: Color {
+        switch style {
+        case .hero:
+            return .white
+        case .surface:
+            return Color.textPrimary
+        }
+    }
+
     @ViewBuilder
     private var backgroundShape: some View {
         switch style {
         case .hero:
             Capsule()
-                .fill(Color.accent.gradient)
+                .fill(Color.deepBlue)
         case .surface:
             Capsule()
                 .fill(Color.deepBlue.opacity(0.35))

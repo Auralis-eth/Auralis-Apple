@@ -39,6 +39,8 @@ public struct AddressTextField: View {
                 .buttonStyle(.plain)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.accent)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -172,6 +174,62 @@ public struct AccountsGatewayView: View {
                 onAccountActivated: onAccountActivated
             )
         }
+    }
+}
+
+#Preview("Gateway Large Text") {
+    AccountsGatewayView(
+        dependencies: .preview,
+        onAccountActivated: { _, _ in }
+    )
+    .environment(\.dynamicTypeSize, .accessibility5)
+}
+
+#Preview("Gateway Dark Mode") {
+    AccountsGatewayView(
+        dependencies: .preview,
+        onAccountActivated: { _, _ in }
+    )
+    .preferredColorScheme(.dark)
+}
+
+private extension AccountsGatewayDependencies {
+    static var preview: AccountsGatewayDependencies {
+        AccountsGatewayDependencies(
+            ensResolver: PreviewAccountENSResolver(),
+            accountActivator: PreviewAccountActivator()
+        )
+    }
+}
+
+@MainActor
+private struct PreviewAccountENSResolver: AccountENSResolving {
+    func resolveAddress(forENS ensName: String, correlationID: String) async throws -> AccountENSResolution {
+        AccountENSResolution(
+            address: "0x0000000000000000000000000000000000000000",
+            ensName: ensName,
+            isStale: false
+        )
+    }
+}
+
+@MainActor
+private struct PreviewAccountActivator: AccountActivating {
+    func activateWatchAccount(
+        from rawAddress: String,
+        name: String?,
+        source: EOAccountSource,
+        correlationID: String?
+    ) async throws -> AccountActivationResult {
+        AccountActivationResult(
+            account: EOAccount(
+                address: rawAddress.isEmpty ? "0x0000000000000000000000000000000000000000" : rawAddress,
+                name: name,
+                source: source,
+                lastSelectedAt: .now
+            ),
+            wasCreated: true
+        )
     }
 }
 
@@ -608,11 +666,18 @@ public struct AddressEntryHeaderView: View {
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
 
-            SubheadlineFontText("Paste an EVM wallet address, enter an ENS name, or scan a QR code to get started.")
+            Text("Paste an EVM wallet address, enter an ENS name, or scan a QR code to get started.")
+                .font(.subheadline)
+                .foregroundStyle(Color.textPrimary)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .padding(.horizontal, 20)
+        .padding(.vertical, 12)
         .padding(.top, 10)
+        .background(Color.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .combine)
     }
@@ -622,20 +687,25 @@ public struct GuestExploreDividerView: View {
     public init() {}
 
     public var body: some View {
-        HStack {
+        VStack(spacing: 8) {
             Rectangle()
                 .fill(Color.textSecondary.opacity(0.2))
                 .frame(width: 72, height: 1)
                 .accessibilityHidden(true)
-            SubheadlineFontText("Or explore Auralis as a guest")
-                .lineLimit(2)
+            Text("Or explore Auralis as a guest")
+                .font(.subheadline)
+                .foregroundStyle(Color.textPrimary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.background, in: Capsule())
             Rectangle()
                 .fill(Color.textSecondary.opacity(0.2))
                 .frame(width: 72, height: 1)
                 .accessibilityHidden(true)
         }
+        .frame(maxWidth: .infinity)
         .padding(.vertical)
     }
 }
@@ -649,11 +719,18 @@ public struct GuestPassesHeaderView: View {
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
 
-            SubheadlineFontText("Try Auralis with curated public collections.")
+            Text("Try Auralis with curated public collections.")
+                .font(.subheadline)
+                .foregroundStyle(Color.textPrimary)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .padding(.horizontal, 20)
+        .padding(.vertical, 12)
         .padding(.top, 10)
+        .background(Color.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .combine)
     }
@@ -715,7 +792,8 @@ public struct QRScannerView: View {
         }
         .frame(minWidth: 44, minHeight: 44)
         .contentShape(Rectangle())
-        .accessibilityLabel("Scan wallet QR code")
+        .accessibilityLabel(String(localized: "Scan wallet QR code"))
+        .accessibilityShowsLargeContentViewer()
         .sheet(isPresented: $isScanning) {
             ZStack(alignment: .top) {
                 CodeScannerView(
@@ -823,7 +901,7 @@ private struct AccountTorchToggleButton: View {
             Capsule()
                 .fill(Color.surface.opacity(0.5))
         )
-        .accessibilityLabel("Torch")
+        .accessibilityLabel(String(localized: "Torch"))
         .accessibilityValue(torchOn ? "On" : "Off")
         .accessibilityHint(torchOn ? "Turns the torch off" : "Turns the torch on")
     }
@@ -1184,7 +1262,7 @@ private struct AccountRow: View {
             .buttonStyle(.plain)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
-            .accessibilityLabel("Remove account \(account.address.accountFeatureDisplayAddress)")
+            .accessibilityLabel(String(localized: "Remove account \(account.address.accountFeatureDisplayAddress)"))
             .accessibilityIdentifier("accounts.remove.\(account.address)")
         }
         .padding(.vertical, 4)

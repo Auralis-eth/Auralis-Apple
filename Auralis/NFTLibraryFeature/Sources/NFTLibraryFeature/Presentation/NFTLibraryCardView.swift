@@ -61,14 +61,14 @@ public struct NFTLibraryCardView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
                 .clipped()
-                .accessibilityLabel(NFTLibraryPresentation.displayTitle(for: nft))
+                .accessibilityHidden(true)
             #else
             AsyncImage(url: imageURL) { image in
                 image.resizable().scaledToFit()
             } placeholder: {
                 ProgressView()
             }
-            .accessibilityLabel(NFTLibraryPresentation.displayTitle(for: nft))
+            .accessibilityHidden(true)
             #endif
         } else {
             ZStack {
@@ -86,7 +86,7 @@ public struct NFTLibraryCardView: View {
             }
             .aspectRatio(contentMode: .fit)
             .clipped()
-            .accessibilityLabel("NFT image unavailable")
+            .accessibilityLabel(String(localized: "NFT image unavailable"))
         }
     }
 }
@@ -149,8 +149,8 @@ public struct NFTLibraryCardButtons: View {
                         .foregroundStyle(Color.textPrimary)
                 }
                 .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("More actions")
-                .accessibilityHint("Shows actions for this NFT")
+                .accessibilityLabel(String(localized: "More actions"))
+                .accessibilityHint(String(localized: "Shows actions for this NFT"))
             }
             .font(.title2)
             .padding()
@@ -268,6 +268,7 @@ public struct NFTLibraryCardDetailsView: View {
 
 public struct NFTLibraryExpandedDetailsView: View {
     public let nft: NFT
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     public init(nft: NFT) {
         self.nft = nft
@@ -290,22 +291,22 @@ public struct NFTLibraryExpandedDetailsView: View {
             }
 
             if let attributes = nft.raw?.metadata?.attributes, !attributes.isEmpty {
-                HeadlineFontText("Traits")
+                HeadlineFontText("Traits, \(attributes.count) items")
                     .padding(.top, 8)
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 8) {
+                if dynamicTypeSize.isAccessibilitySize {
+                    LazyVStack(alignment: .leading, spacing: 8) {
                         ForEach(attributes) { attribute in
-                            VStack(alignment: .center) {
-                                if let traitType = attribute.traitType {
-                                    SecondaryCaptionFontText(traitType)
-                                }
-                                Caption2FontText(attribute.value)
+                            attributeChip(attribute)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: 8) {
+                            ForEach(attributes) { attribute in
+                                attributeChip(attribute)
                             }
-                            .padding(8)
-                            .background(Color.surface.opacity(0.1))
-                            .clipShape(.rect(cornerRadius: 8))
-                            .accessibilityElement(children: .combine)
                         }
                     }
                 }
@@ -322,5 +323,18 @@ public struct NFTLibraryExpandedDetailsView: View {
             SubheadlineFontText(value)
                 .truncationMode(.middle)
         }
+    }
+
+    private func attributeChip(_ attribute: NFT.Attribute) -> some View {
+        VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .center) {
+            if let traitType = attribute.traitType {
+                SecondaryCaptionFontText(traitType)
+            }
+            Caption2FontText(attribute.value)
+        }
+        .padding(8)
+        .background(Color.surface.opacity(0.1))
+        .clipShape(.rect(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
     }
 }

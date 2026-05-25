@@ -4,6 +4,7 @@ import SwiftUI
 struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
     let player: Player
     private let initialLimit = 20
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @State private var isClearing = false
 
@@ -28,7 +29,7 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(minHeight: 44)
-                    .accessibilityLabel("Clear all recently played")
+                    .accessibilityLabel(String(localized: "Clear all recently played"))
                 }
             }
 
@@ -45,42 +46,18 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
                 .padding(12)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
+                if dynamicTypeSize.isAccessibilitySize {
+                    LazyVStack(spacing: 12) {
                         ForEach(items, id: \.id) { item in
-                            AuraPlayRecentlyPlayedMiniCard(
-                                item: item
-                            ) {
-                                playTapped(item: item)
-                            }
-                            .frame(width: 160)
-                            .accessibilityAction(named: "Play") {
-                                playTapped(item: item)
-                            }
-                            .accessibilityAction(named: "Start over") {
-                                startOverTapped(item: item)
-                            }
-                            .accessibilityAction(named: "Remove from Recently Played") {
-                                player.auraPlayRemoveRecentlyPlayed(id: item.id)
-                            }
-                            .contextMenu {
-                                Button {
-                                    playTapped(item: item)
-                                } label: {
-                                    Label("Play", systemImage: "play.fill")
-                                }
-
-                                Button {
-                                    startOverTapped(item: item)
-                                } label: {
-                                    Label("Start Over", systemImage: "arrow.counterclockwise")
-                                }
-
-                                Button(role: .destructive) {
-                                    player.auraPlayRemoveRecentlyPlayed(id: item.id)
-                                } label: {
-                                    Label("Remove from Recently Played", systemImage: "trash")
-                                }
+                            recentlyPlayedCard(for: item)
+                        }
+                    }
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(items, id: \.id) { item in
+                                recentlyPlayedCard(for: item)
+                                    .frame(width: 160)
                             }
                         }
                     }
@@ -88,7 +65,7 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Recently Played, \(items.count) items")
+        .accessibilityLabel(String(localized: "Recently Played, \(items.count) items"))
         .confirmationDialog(
             "Clear all recently played items?",
             isPresented: $isClearing,
@@ -128,6 +105,40 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
     private func impact() {
         haptics.impact(.light)
     }
+
+    private func recentlyPlayedCard(for item: AuraPlayRecentlyPlayedItem) -> some View {
+        AuraPlayRecentlyPlayedMiniCard(item: item) {
+            playTapped(item: item)
+        }
+        .accessibilityAction(named: "Play") {
+            playTapped(item: item)
+        }
+        .accessibilityAction(named: "Start over") {
+            startOverTapped(item: item)
+        }
+        .accessibilityAction(named: "Remove from Recently Played") {
+            player.auraPlayRemoveRecentlyPlayed(id: item.id)
+        }
+        .contextMenu {
+            Button {
+                playTapped(item: item)
+            } label: {
+                Label("Play", systemImage: "play.fill")
+            }
+
+            Button {
+                startOverTapped(item: item)
+            } label: {
+                Label("Start Over", systemImage: "arrow.counterclockwise")
+            }
+
+            Button(role: .destructive) {
+                player.auraPlayRemoveRecentlyPlayed(id: item.id)
+            } label: {
+                Label("Remove from Recently Played", systemImage: "trash")
+            }
+        }
+    }
 }
 
 private struct AuraPlayRecentlyPlayedMiniCard: View {
@@ -155,6 +166,7 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
                             .aspectRatio(1, contentMode: .fill)
                             .frame(height: 120)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .accessibilityHidden(true)
                     } else {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.gray.opacity(0.25))
@@ -162,7 +174,9 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
                             .overlay {
                                 Image(systemName: "music.note")
                                     .foregroundStyle(.gray)
+                                    .accessibilityHidden(true)
                             }
+                            .accessibilityHidden(true)
                     }
                     Image(systemName: "play.circle.fill")
                         .symbolRenderingMode(.hierarchical)
@@ -203,7 +217,7 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
         .frame(minWidth: 44, minHeight: 44)
         .contentShape(Rectangle())
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint("Double-tap to play")
+        .accessibilityHint(String(localized: "Double-tap to play"))
     }
 
     private var accessibilityLabel: String {

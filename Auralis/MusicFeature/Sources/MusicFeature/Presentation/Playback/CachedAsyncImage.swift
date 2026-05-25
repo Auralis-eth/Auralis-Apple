@@ -3,6 +3,12 @@ import SwiftUI
 
 struct CachedAsyncImage: View {
     let url: URL
+    var accessibilityLabel: String?
+
+    init(url: URL, accessibilityLabel: String? = nil) {
+        self.url = url
+        self.accessibilityLabel = accessibilityLabel
+    }
 
     var body: some View {
         AsyncImage(url: url) { phase in
@@ -13,11 +19,11 @@ struct CachedAsyncImage: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
                     }
-                    .accessibilityLabel("Loading artwork")
+                    .accessibilityLabel(String(localized: "Loading artwork"))
             case .success(let image):
                 image
                     .resizable()
-                    .accessibilityLabel("Artwork")
+                    .accessibilityLabel(accessibilityLabel ?? String(localized: "Artwork"))
             case .failure:
                 placeholder
                     .overlay {
@@ -26,10 +32,10 @@ struct CachedAsyncImage: View {
                             .foregroundStyle(Color.textSecondary.opacity(0.3))
                             .accessibilityHidden(true)
                     }
-                    .accessibilityLabel("Artwork unavailable")
+                    .accessibilityLabel(String(localized: "Artwork unavailable"))
             @unknown default:
                 placeholder
-                    .accessibilityLabel("Artwork unavailable")
+                    .accessibilityLabel(String(localized: "Artwork unavailable"))
             }
         }
     }

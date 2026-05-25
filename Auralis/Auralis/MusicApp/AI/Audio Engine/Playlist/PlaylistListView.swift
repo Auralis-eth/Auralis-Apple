@@ -86,6 +86,10 @@ struct PlaylistListView: View {
                     }
                     Spacer()
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityAction(named: String(localized: "Delete playlist")) {
+                    delete(pl)
+                }
                 .swipeActions {
                     Button(role: .destructive) {
                         delete(pl)

@@ -81,7 +81,7 @@ public struct AuraPlayMusicItemDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .frame(minHeight: 44)
-                                .accessibilityHint("Opens the collection for this track")
+                                .accessibilityHint(String(localized: "Opens the collection for this track"))
                             }
 
                             if let metadataStatus = presentation.metadataStatus {
@@ -159,6 +159,7 @@ public struct AuraPlayMusicItemDetailView: View {
             .frame(maxWidth: .infinity)
             .frame(height: 320)
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .accessibilityLabel(String(localized: "\(presentation.title) artwork"))
 
             LinearGradient(
                 colors: [.clear, Color.black.opacity(0.7)],

@@ -4,6 +4,8 @@ import SwiftUI
 import AuraUI
 
 struct GlobalChromeView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let snapshot: ContextSnapshot
     let onOpenAccountSwitcher: () -> Void
     let onOpenContextInspector: (() -> Void)?
@@ -54,12 +56,12 @@ struct GlobalChromeView: View {
                         systemImage: "magnifyingglass",
                         emphasis: .accent,
                         imageSize: .title3.weight(.semibold),
-                        accessibilityLabel: "Search"
+                        accessibilityLabel: String(localized: "Search")
                     )
                     .accessibilityHidden(true)
                 }
-                .accessibilityLabel("Search")
-                .accessibilityHint("Opens global search.")
+                .accessibilityLabel(String(localized: "Search"))
+                .accessibilityHint(String(localized: "Opens global search."))
 
             }
         }
@@ -77,21 +79,21 @@ struct GlobalChromeView: View {
                     Text(accountTitle)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.textPrimary)
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
 
                     Text(snapshot.selectedChainDisplayNames)
                         .font(.caption)
                         .foregroundStyle(Color.textSecondary)
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Current account")
-        .accessibilityValue(accountTitle)
-        .accessibilityHint("Opens the account switcher.")
+        .accessibilityLabel(String(localized: "Current account"))
+        .accessibilityValue(String(localized: "\(accountTitle), \(snapshot.selectedChainDisplayNames)"))
+        .accessibilityHint(String(localized: "Opens the account switcher."))
     }
 
     private var accountTitle: String {

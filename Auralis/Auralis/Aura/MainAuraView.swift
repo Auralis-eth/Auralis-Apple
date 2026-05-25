@@ -83,8 +83,8 @@ struct MainAuraView: View {
                     .padding(.top, 12)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Limited local storage warning")
-                .accessibilityHint("Dismisses the local storage warning")
+                .accessibilityLabel(String(localized: "Limited local storage warning"))
+                .accessibilityHint(String(localized: "Dismisses the local storage warning"))
             }
         }
         .task {

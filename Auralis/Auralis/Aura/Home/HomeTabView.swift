@@ -10,6 +10,20 @@ import SwiftData
 import SwiftUI
 import AuraUI
 
+private struct HomeImagePreviewTransitionModifier: ViewModifier {
+    let reduceMotion: Bool
+    let sourceID: String
+    let namespace: Namespace.ID
+
+    func body(content: Content) -> some View {
+        if reduceMotion {
+            content
+        } else {
+            content.navigationTransition(.zoom(sourceID: sourceID, in: namespace))
+        }
+    }
+}
+
 struct HomeTabView: View {
     private let logger = Logger(subsystem: "Auralis", category: "HomeTabView")
     let shellStore: ShellStore
@@ -28,8 +42,10 @@ struct HomeTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.accessibilityReduceTransparency) private var accessibilityReduceTransparency
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @ScaledMetric(relativeTo: .title) private var emptyPreviewIconSize = 60
 
     @Namespace private var namespace
     private let transitionID = "HomeTabView"
@@ -539,9 +555,10 @@ struct HomeTabView: View {
             } else {
                 VStack(spacing: 24) {
                     SystemImage("photo.on.rectangle")
-                        .font(.system(size: 60))
+                        .font(.system(size: min(emptyPreviewIconSize, 88)))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.secondary)
+                        .accessibilityShowsLargeContentViewer()
 
                     Text(String(localized: "No images to select"))
                         .font(.title3)
@@ -550,7 +567,11 @@ struct HomeTabView: View {
                 .padding()
             }
         }
-        .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
+        .modifier(HomeImagePreviewTransitionModifier(
+            reduceMotion: accessibilityReduceMotion,
+            sourceID: transitionID,
+            namespace: namespace
+        ))
     }
 
     private var loadingOverlay: some View {

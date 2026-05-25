@@ -150,8 +150,10 @@ public struct NFTLibraryNewsFeedRootView: View {
                                     .buttonStyle(.plain)
                                     .accessibilityElement(children: .contain)
                                     .accessibilityLabel(NFTLibraryPresentation.displayTitle(for: nft))
-                                    .accessibilityValue("Collection: \(nft.collection?.name ?? "Unknown Collection")")
-                                    .accessibilityHint("Shows NFT details")
+                                    .accessibilityValue(
+                                        String(localized: "Collection: \(nft.collection?.name ?? "Unknown Collection")")
+                                    )
+                                    .accessibilityHint(String(localized: "Shows NFT details"))
                                     .accessibilityAction(named: "Open details") {
                                         actions.openNFT(nft.id)
                                     }

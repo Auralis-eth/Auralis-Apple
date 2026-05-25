@@ -86,9 +86,9 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
                     }
                     .buttonStyle(.plain)
                     .contentShape(Rectangle())
-                    .accessibilityLabel("Now Playing")
+                    .accessibilityLabel(String(localized: "Now Playing"))
                     .accessibilityValue(currentTrackAccessibilityValue)
-                    .accessibilityHint("Opens the Now Playing screen")
+                    .accessibilityHint(String(localized: "Opens the Now Playing screen"))
                 }
 
                 HStack(spacing: 8) {
@@ -99,7 +99,7 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
                             .font(.title3)
                     }
                     .frame(minWidth: 44, minHeight: 44)
-                    .accessibilityLabel("Previous track")
+                    .accessibilityLabel(String(localized: "Previous track"))
 
                     AuraPlayPlaybackStateButton(
                         sourceState: player.auraPlayPlaybackState,
@@ -115,7 +115,7 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
                             .font(.title3)
                     }
                     .frame(minWidth: 44, minHeight: 44)
-                    .accessibilityLabel("Next track")
+                    .accessibilityLabel(String(localized: "Next track"))
                 }
                 .buttonStyle(.borderless)
             }
@@ -132,7 +132,7 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
                         }
                     }
                 )
-                .accessibilityLabel("Playback position")
+                .accessibilityLabel(String(localized: "Playback position"))
                 .onChange(of: player.auraPlayCurrentTrack) { _, _ in
                     miniSeekValue = 0
                 }
@@ -166,6 +166,7 @@ private struct AuraPlayMiniPlayerTrackView: View {
                     .scaledToFill()
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .padding(.trailing)
+                    .accessibilityHidden(true)
             } else {
                 RoundedRectangle(cornerRadius: 6)
                     .frame(
@@ -176,8 +177,10 @@ private struct AuraPlayMiniPlayerTrackView: View {
                         Image(systemName: "music.note")
                             .font(.system(size: accessoryMode == .expanded ? 20 : 16))
                             .padding(6)
+                            .accessibilityHidden(true)
                     }
                     .padding(.trailing)
+                    .accessibilityHidden(true)
             }
         }
 
