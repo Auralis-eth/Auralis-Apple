@@ -1,11 +1,15 @@
 import SwiftUI
 import AuraUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct ReceiptTimelineRow: View {
     let record: ReceiptTimelineRecord
 
+    @ViewBuilder
     var body: some View {
-        AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 18) {
+        let row = AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 18) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -61,5 +65,40 @@ struct ReceiptTimelineRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(record.summary)
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint(String(localized: "Shows receipt details"))
+
+        if hasCopyableCorrelationID {
+            row.accessibilityAction(named: String(localized: "Copy correlation ID")) {
+                copyCorrelationID()
+            }
+        } else {
+            row
+        }
+    }
+
+    private var accessibilityValue: String {
+        "\(record.statusTitle). \(record.trigger). \(record.scope). \(record.provenance)"
+    }
+
+    private var hasCopyableCorrelationID: Bool {
+        guard let correlationID = record.correlationID else {
+            return false
+        }
+
+        return !correlationID.isEmpty
+    }
+
+    private func copyCorrelationID() {
+        guard let correlationID = record.correlationID, !correlationID.isEmpty else {
+            return
+        }
+
+        #if canImport(UIKit)
+        UIPasteboard.general.string = correlationID
+        #endif
+        AuraAccessibilityAnnouncer.announce("Correlation ID copied")
     }
 }

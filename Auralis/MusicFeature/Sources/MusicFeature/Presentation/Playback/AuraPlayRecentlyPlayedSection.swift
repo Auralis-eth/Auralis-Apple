@@ -150,6 +150,7 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
 
     let item: AuraPlayRecentlyPlayedItem
     let onTap: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private func relativeDescription(for date: Date?) -> String {
         guard let date else { return "Recently played" }
@@ -190,13 +191,15 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)
                         .font(.subheadline.weight(.semibold))
-                        .lineLimit(2)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .foregroundStyle(.primary)
                     if let artist = item.artist, !artist.isEmpty {
                         Text(artist)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     if let lastPlayed = item.lastPlayed {
                         Text(lastPlayed, style: .relative)

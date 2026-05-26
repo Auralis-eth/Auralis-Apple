@@ -90,6 +90,7 @@ public struct NFTLibraryNewsFeedRootView: View {
     public let isLoading: Bool
     public let failure: NFTProviderFailurePresentation?
     public let actions: NFTLibraryActions
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     public init(
         nfts: [NFT],
@@ -135,36 +136,35 @@ public struct NFTLibraryNewsFeedRootView: View {
                         NFTLibraryFailureBanner(failure: failure, retry: actions.refresh)
                     }
 
-                    GeometryReader { geometry in
-                        ScrollView(.vertical, showsIndicators: false) {
-                            LazyVStack(spacing: 0) {
+                    if dynamicTypeSize.isAccessibilitySize {
+                        ScrollView(.vertical, showsIndicators: true) {
+                            LazyVStack(spacing: 16) {
                                 ForEach(displayNFTs) { nft in
-                                    Button {
-                                        actions.openNFT(nft.id)
-                                    } label: {
-                                        NFTLibraryCardView(nft: nft)
-                                            .frame(width: geometry.size.width)
-                                            .frame(minHeight: geometry.size.height, maxHeight: geometry.size.height)
+                                    nftButton(for: nft) {
+                                        NFTLibraryCardSummaryView(nft: nft)
                                             .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityElement(children: .contain)
-                                    .accessibilityLabel(NFTLibraryPresentation.displayTitle(for: nft))
-                                    .accessibilityValue(
-                                        String(localized: "Collection: \(nft.collection?.name ?? "Unknown Collection")")
-                                    )
-                                    .accessibilityHint(String(localized: "Shows NFT details"))
-                                    .accessibilityAction(named: "Open details") {
-                                        actions.openNFT(nft.id)
-                                    }
-                                    .accessibilityAction(named: "Copy token ID") {
-                                        copyNFTIdentifier(nft.id)
                                     }
                                 }
                             }
-                            .scrollTargetLayout()
+                            .padding()
                         }
-                        .scrollTargetBehavior(.paging)
+                    } else {
+                        GeometryReader { geometry in
+                            ScrollView(.vertical, showsIndicators: false) {
+                                LazyVStack(spacing: 0) {
+                                    ForEach(displayNFTs) { nft in
+                                        nftButton(for: nft) {
+                                            NFTLibraryCardView(nft: nft)
+                                                .frame(width: geometry.size.width)
+                                                .frame(minHeight: geometry.size.height, maxHeight: geometry.size.height)
+                                                .contentShape(Rectangle())
+                                        }
+                                    }
+                                }
+                                .scrollTargetLayout()
+                            }
+                            .scrollTargetBehavior(.paging)
+                        }
                     }
                 }
                 .background(Color.background)
@@ -178,5 +178,52 @@ public struct NFTLibraryNewsFeedRootView: View {
         UIPasteboard.general.string = id
         #endif
         AuraAccessibilityAnnouncer.announce("NFT ID copied")
+    }
+
+    private func nftButton<Content: View>(
+        for nft: NFT,
+        @ViewBuilder label: () -> Content
+    ) -> some View {
+        Button {
+            actions.openNFT(nft.id)
+        } label: {
+            label()
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(NFTLibraryPresentation.displayTitle(for: nft))
+        .accessibilityValue(
+            String(localized: "Collection: \(nft.collection?.name ?? "Unknown Collection")")
+        )
+        .accessibilityHint(String(localized: "Shows NFT details"))
+        .accessibilityAction(named: "Open details") {
+            actions.openNFT(nft.id)
+        }
+        .accessibilityAction(named: "Copy token ID") {
+            copyNFTIdentifier(nft.id)
+        }
+    }
+}
+
+private struct NFTLibraryCardSummaryView: View {
+    let nft: NFT
+
+    var body: some View {
+        AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(NFTLibraryPresentation.displayTitle(for: nft))
+                    .font(.headline)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(nft.collection?.name ?? String(localized: "Unknown Collection"))
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }

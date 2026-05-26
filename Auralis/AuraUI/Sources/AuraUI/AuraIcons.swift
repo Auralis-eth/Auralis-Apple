@@ -1,20 +1,54 @@
 import SwiftUI
 
+public enum AuraImageAccessibility {
+    case decorative
+    case label(LocalizedStringKey)
+    case control(label: LocalizedStringKey, hint: LocalizedStringKey? = nil)
+}
+
 public struct SystemImage: View {
     private let systemName: String
+    private let accessibility: AuraImageAccessibility
 
-    public init(_ systemName: String) {
+    public init(_ systemName: String, accessibility: AuraImageAccessibility = .decorative) {
         self.systemName = systemName
+        self.accessibility = accessibility
     }
 
     @ViewBuilder
     public var body: some View {
+        accessibleImage
+    }
+
+    @ViewBuilder
+    private var image: some View {
         if #available(iOS 26, macOS 26, *) {
             Image(systemName: systemName)
                 .symbolColorRenderingMode(.gradient)
         } else {
             Image(systemName: systemName)
                 .symbolRenderingMode(.hierarchical)
+        }
+    }
+
+    @ViewBuilder
+    private var accessibleImage: some View {
+        switch accessibility {
+        case .decorative:
+            image
+                .accessibilityHidden(true)
+        case .label(let label):
+            image
+                .accessibilityLabel(label)
+        case .control(let label, let hint):
+            if let hint {
+                image
+                    .accessibilityLabel(label)
+                    .accessibilityHint(hint)
+            } else {
+                image
+                    .accessibilityLabel(label)
+            }
         }
     }
 }

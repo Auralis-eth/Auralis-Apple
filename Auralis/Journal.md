@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-05-26 — Phase 1 Learned To Check Its Own Checkmarks
+
+The Phase 1 accessibility board looked closed, but an independent pass found two little loose screws: receipt rows offered a "Copy correlation ID" action even when there was nothing to copy, and the icon-only control guardrail was promised in the ticket without an actual lint rule at the repo root.
+
+The fix was small but useful. Receipt rows now only expose the custom accessibility action when the row has a real correlation ID, so VoiceOver users do not get a dead menu item. The repo also gained a SwiftLint warning rule for icon-only `SystemImage` control labels, which turns future review from "please remember" into a visible tripwire. Lesson learned: a completed checklist should have artifacts you can point at, not just confidence.
+
 ## 2026-05-25 — The Front Door Got Its Lighting Back
 
 The accessibility pass tried to help the gateway survive rough settings, but it dressed the welcome screen in a raincoat indoors: black text plaques appeared over the scenic image, the primary button lost its purple glow, and the normal-size layout started climbing into the Dynamic Island. Useful accessibility work had accidentally become a redesign.
@@ -2130,3 +2136,13 @@ Phase 5 was mostly about catching regressions before they become release-day arc
 We also swept the high-traffic accessibility strings that were still raw English literals. Icon-only controls and dynamic labels now go through `String(localized:)`, which keeps Voice Control, VoiceOver, and future localization from quietly drifting apart.
 
 The lesson: testing artifacts are product infrastructure. A preview matrix does not make the app accessible by itself, but it makes accessibility regressions visible while the code is still warm.
+
+## Accessibility Phase 1: The Labels Need To Travel With The Controls
+
+Phase 1 turned the most important accessibility fixes from a checklist into behavior. The wallet address field now carries its validation state with it, so VoiceOver hears the problem at the same place a sighted user sees it. Failed submits also send focus back to the field. That is the form equivalent of putting the sticky note on the door that needs fixing, not on a wall three rooms away.
+
+Loading states got the same treatment. Bootstrap now says what it is preparing, image generation becomes the active accessibility status while it blocks the Home screen, and the completion/failure announcements use the shared `AuraAccessibilityAnnouncer`. Receipts became one coherent row instead of a tray of disconnected labels, with the correlation ID still reachable through a custom action.
+
+The music and NFT surfaces taught the Dynamic Type lesson again: big text is not an edge case, it is a different layout contract. Mini-player controls stack under metadata at accessibility sizes, track names get room to breathe, playback sliders speak real time values, and the NFT feed swaps full-screen paging for a normal summary list when page-height cards would trap content.
+
+The lesson: accessibility metadata should live at the point of interaction. If state, validation, or progress changes somewhere else, users have to go hunting for it. Good UI keeps the announcement, focus, and action in the same neighborhood.

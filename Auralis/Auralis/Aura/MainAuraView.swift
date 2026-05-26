@@ -187,6 +187,8 @@ struct MainAuraView: View {
 
             ProgressView()
                 .tint(Color.textPrimary)
+                .accessibilityLabel(String(localized: "Loading Auralis"))
+                .accessibilityValue(String(localized: "Preparing wallet and local data"))
         }
     }
 

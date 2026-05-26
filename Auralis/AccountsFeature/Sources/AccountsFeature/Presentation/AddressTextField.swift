@@ -10,10 +10,17 @@ import UIKit
 
 public struct AddressTextField: View {
     @Binding private var address: String
-    @FocusState private var isFocused: Bool
+    private let validationMessage: String?
+    private let isFocused: FocusState<Bool>.Binding
 
-    public init(address: Binding<String>) {
+    public init(
+        address: Binding<String>,
+        validationMessage: String? = nil,
+        isFocused: FocusState<Bool>.Binding
+    ) {
         self._address = address
+        self.validationMessage = validationMessage
+        self.isFocused = isFocused
     }
 
     public var body: some View {
@@ -29,7 +36,15 @@ public struct AddressTextField: View {
             .textContentType(.URL)
             .font(.body)
             .foregroundStyle(Color.textPrimary)
-            .focused($isFocused)
+            .focused(isFocused)
+            .accessibilityLabel(String(localized: "Ethereum address"))
+            .accessibilityValue(address.isEmpty ? String(localized: "Empty") : address)
+            .accessibilityHint(validationMessage ?? String(localized: "Enter an ENS name or EVM wallet address."))
+            .accessibilityInputLabels([
+                String(localized: "Ethereum address"),
+                String(localized: "Wallet address"),
+                String(localized: "ENS name")
+            ])
 
             Divider()
                 .frame(height: 20)
@@ -61,7 +76,7 @@ public struct AddressTextField: View {
         }
 
         address = value.address
-        isFocused = true
+        isFocused.wrappedValue = true
     }
 }
 
@@ -286,6 +301,7 @@ public struct AddressInputView: View {
     @State private var activeSubmissionTask: Task<Void, Never>?
     @State private var activeSubmissionID = UUID()
     @State private var pendingENSMappingChange: PendingENSMappingChange?
+    @FocusState private var isAddressFieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     private let dependencies: AccountsGatewayDependencies
@@ -322,6 +338,7 @@ public struct AddressInputView: View {
             handleSubmit: handleSubmit,
             selectGuestPass: selectGuestPass,
             accountActivator: dependencies.accountActivator,
+            isAddressFieldFocused: $isAddressFieldFocused,
             onAccountActivated: onAccountActivated
         )
         .background(Color.surface.opacity(0.08))
@@ -391,6 +408,7 @@ public struct AddressInputView: View {
         alertMessage = message
         showingAlert = true
         AuraAccessibilityAnnouncer.announce(message)
+        isAddressFieldFocused = true
         haptics.notification(feedback)
     }
 
@@ -559,6 +577,7 @@ private struct AddressEntryContentView: View {
     let handleSubmit: () -> Void
     let selectGuestPass: (String) -> Void
     let accountActivator: any AccountActivating
+    let isAddressFieldFocused: FocusState<Bool>.Binding
     let onAccountActivated: @MainActor (EOAccount, String?) -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -637,7 +656,11 @@ private struct AddressEntryContentView: View {
                 )
                 .transition(.opacity)
 
-                AddressTextField(address: $address)
+                AddressTextField(
+                    address: $address,
+                    validationMessage: validationMessage,
+                    isFocused: isAddressFieldFocused
+                )
             }
         } else {
             ViewThatFits(in: .horizontal) {
@@ -648,7 +671,11 @@ private struct AddressEntryContentView: View {
                     )
                     .transition(.opacity)
 
-                    AddressTextField(address: $address)
+                    AddressTextField(
+                        address: $address,
+                        validationMessage: validationMessage,
+                        isFocused: isAddressFieldFocused
+                    )
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -658,7 +685,11 @@ private struct AddressEntryContentView: View {
                     )
                     .transition(.opacity)
 
-                    AddressTextField(address: $address)
+                    AddressTextField(
+                        address: $address,
+                        validationMessage: validationMessage,
+                        isFocused: isAddressFieldFocused
+                    )
                 }
             }
         }

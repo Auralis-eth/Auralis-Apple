@@ -38,6 +38,8 @@ struct SearchRootView: View {
     @State private var historyEntries: [SearchHistoryEntry] = []
     @State private var historyErrorMessage: String?
     @State private var localIndex: SearchLocalIndex = .empty
+    @State private var debouncedClassification: SearchQueryClassification?
+    @State private var announcedClassificationTitle: String?
     @FocusState private var isQueryFieldFocused: Bool
 
     private let parser = SearchQueryParser()
@@ -90,7 +92,8 @@ struct SearchRootView: View {
 
                     SearchInputCard(
                         query: $query,
-                        isFocused: _isQueryFieldFocused
+                        isFocused: _isQueryFieldFocused,
+                        classification: debouncedClassification ?? classification
                     )
 
                     if presentation.showsDetection {
@@ -145,6 +148,9 @@ struct SearchRootView: View {
         }
         .task(id: localIndexRefreshKey) {
             await observeModelContextSaves()
+        }
+        .task(id: query) {
+            await updateDebouncedClassificationAnnouncement()
         }
         .onChange(of: scenePhase) { _, newValue in
             guard newValue == .active else {
@@ -215,6 +221,7 @@ struct SearchRootView: View {
             )
             try Task.checkCancellation()
             localIndex = refreshedIndex
+            debouncedClassification = parser.classify(query: query, index: refreshedIndex)
         } catch is CancellationError {
             return
         } catch {
@@ -232,6 +239,31 @@ struct SearchRootView: View {
         logger.error("Failed to \(operation, privacy: .public) search history: \(error.localizedDescription, privacy: .public)")
         historyErrorMessage = "Auralis could not \(operation) recent searches right now. Existing results are still shown."
         reloadHistory()
+    }
+
+    private func updateDebouncedClassificationAnnouncement() async {
+        do {
+            try await Task.sleep(for: .milliseconds(400))
+            try Task.checkCancellation()
+        } catch {
+            return
+        }
+
+        let nextClassification = classification
+        debouncedClassification = nextClassification
+
+        guard !nextClassification.trimmedQuery.isEmpty else {
+            announcedClassificationTitle = nil
+            return
+        }
+
+        let title = nextClassification.kind.title
+        guard announcedClassificationTitle != title else {
+            return
+        }
+
+        announcedClassificationTitle = title
+        AuraAccessibilityAnnouncer.announce("Detected as \(title)")
     }
 
     static func makePresentation(
@@ -290,6 +322,7 @@ struct SearchRootView: View {
 private struct SearchInputCard: View {
     @Binding var query: String
     @FocusState var isFocused: Bool
+    let classification: SearchQueryClassification
 
     var body: some View {
         AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 18) {
@@ -316,10 +349,14 @@ private struct SearchInputCard: View {
                 )
                 .accessibilityLabel("Query")
                 .accessibilityHint("Search by ENS name, wallet address, contract, token symbol, NFT, or collection")
-                .accessibilityValue(query.isEmpty ? "Empty" : query)
+                .accessibilityValue(accessibilityValue)
                 .accessibilityIdentifier("search.queryField")
             }
         }
+    }
+
+    private var accessibilityValue: String {
+        query.isEmpty ? "Empty" : "\(query). Detected as \(classification.kind.title)"
     }
 }
 

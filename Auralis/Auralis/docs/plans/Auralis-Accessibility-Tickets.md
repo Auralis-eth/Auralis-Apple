@@ -19,11 +19,11 @@ Synthesized from three project-wide accessibility audits. Issues are deduplicate
 The `TextField` label is only the constructor title. Validation errors appear as a separate `ErrorText` view below the field; they are not associated with the field element itself. VoiceOver focus on the field does not expose whether the current value is invalid, and submit failures are not announced at the point validation is set.
 
 **Acceptance criteria**
-- [ ] `AddressTextField` accepts a `validationMessage: String?` parameter
-- [ ] `.accessibilityLabel`, `.accessibilityValue`, and `.accessibilityHint` are set on the field; hint surfaces `validationMessage` when present
-- [ ] `.accessibilityInputLabels` includes common synonyms ("Wallet address", "ENS name")
-- [ ] Validation failure calls `AuraAccessibilityAnnouncer.announce(message)`
-- [ ] Focus returns to the field after a failed submit
+- [x] `AddressTextField` accepts a `validationMessage: String?` parameter
+- [x] `.accessibilityLabel`, `.accessibilityValue`, and `.accessibilityHint` are set on the field; hint surfaces `validationMessage` when present
+- [x] `.accessibilityInputLabels` includes common synonyms ("Wallet address", "ENS name")
+- [x] Validation failure calls `AuraAccessibilityAnnouncer.announce(message)`
+- [x] Focus returns to the field after a failed submit
 
 **Reference implementation**
 ```swift
@@ -46,10 +46,10 @@ TextField("Ethereum address", text: $address)
 The bootstrap `ProgressView()` has no label. The image-generation overlay combines a spinner and text visually but does not mark itself as a modal/status element. VoiceOver users may not know the app is busy or why controls are temporarily blocked.
 
 **Acceptance criteria**
-- [ ] Bootstrap `ProgressView` has `.accessibilityLabel("Loading Auralis")` and `.accessibilityValue("Preparing wallet and local data")`
-- [ ] Image-generation overlay uses `.accessibilityElement(children: .combine)`, `.accessibilityLabel("Generating images")`, `.accessibilityValue("In progress")`, and `.accessibilityAddTraits(.updatesFrequently)`
-- [ ] Background controls are hidden from the accessibility tree while the overlay is active (`.accessibilityHidden(true)` on underlying content or `.accessibilitySortPriority` to bring the overlay to front)
-- [ ] An announcement is posted when long-running work completes
+- [x] Bootstrap `ProgressView` has `.accessibilityLabel("Loading Auralis")` and `.accessibilityValue("Preparing wallet and local data")`
+- [x] Image-generation overlay uses `.accessibilityElement(children: .combine)`, `.accessibilityLabel("Generating images")`, `.accessibilityValue("In progress")`, and `.accessibilityAddTraits(.updatesFrequently)`
+- [x] Background controls are hidden from the accessibility tree while the overlay is active (`.accessibilityHidden(true)` on underlying content or `.accessibilitySortPriority` to bring the overlay to front)
+- [x] An announcement is posted when long-running work completes
 
 **Reference implementation**
 ```swift
@@ -78,10 +78,10 @@ loadingOverlay
 Each row exposes summary, trigger, status, relative date, scope, actor, account, chain, correlation ID, and provenance as separate child elements. Inside a `NavigationLink`, SwiftUI traverses these in a noisy order. Switch Control users cannot copy the correlation ID without opening the detail screen.
 
 **Acceptance criteria**
-- [ ] Row (or its `NavigationLink`) uses `.accessibilityElement(children: .ignore)` with a composed label/value
-- [ ] Label is `record.summary`; value includes status, trigger, scope, and provenance
-- [ ] Hint is `"Shows receipt details"`
-- [ ] A custom accessibility action "Copy correlation ID" is added where `record.correlationID` is non-nil
+- [x] Row (or its `NavigationLink`) uses `.accessibilityElement(children: .ignore)` with a composed label/value
+- [x] Label is `record.summary`; value includes status, trigger, scope, and provenance
+- [x] Hint is `"Shows receipt details"`
+- [x] A custom accessibility action "Copy correlation ID" is added where `record.correlationID` is non-nil
 
 **Reference implementation**
 ```swift
@@ -110,10 +110,10 @@ ReceiptTimelineRow(record: record)
 Track title and artist use `.lineLimit(1)` across the mini-player, Now Playing preview rows, and Recently Played. NFT-derived titles are often long. At accessibility text sizes this truncates the exact track being identified or activated.
 
 **Acceptance criteria**
-- [ ] All three files read `@Environment(\.dynamicTypeSize)` and increase `lineLimit` to 2–3 at `.isAccessibilitySize`
-- [ ] `fixedSize(horizontal: false, vertical: true)` is added alongside the relaxed limit
-- [ ] Mini-player layout stacks controls below metadata (VStack) at accessibility sizes instead of HStack
-- [ ] No visible layout regression at standard sizes
+- [x] All three files read `@Environment(\.dynamicTypeSize)` and increase `lineLimit` to 2–3 at `.isAccessibilitySize`
+- [x] `fixedSize(horizontal: false, vertical: true)` is added alongside the relaxed limit
+- [x] Mini-player layout stacks controls below metadata (VStack) at accessibility sizes instead of HStack
+- [x] No visible layout regression at standard sizes
 
 **Reference implementation**
 ```swift
@@ -139,9 +139,9 @@ Text(currentTrack.title ?? "Unknown Title")
 Both sliders expose `.accessibilityLabel("Playback position")` but no value. VoiceOver reads a raw percentage. Users need elapsed time and total duration before adjusting playback.
 
 **Acceptance criteria**
-- [ ] Both sliders add `.accessibilityValue("\(timeString(from: seekValue)) of \(timeString(from: track.duration))")`
-- [ ] Both sliders add `.accessibilityHint("Swipe up or down to seek")`
-- [ ] `timeString` helper formats seconds as `m:ss`
+- [x] Both sliders add `.accessibilityValue("\(timeString(from: seekValue)) of \(timeString(from: track.duration))")`
+- [x] Both sliders add `.accessibilityHint("Swipe up or down to seek")`
+- [x] `timeString` helper formats seconds as `m:ss`
 
 **Reference implementation**
 ```swift
@@ -166,10 +166,10 @@ Slider(value: $seekValue, in: 0...max(1, track.duration), ...)
 Each NFT card is forced to `minHeight/maxHeight = geometry.size.height` with paging scroll behavior. At accessibility text sizes, metadata inside a single page becomes cramped or hidden behind a scroll-within-scroll interaction.
 
 **Acceptance criteria**
-- [ ] View reads `@Environment(\.dynamicTypeSize)`
-- [ ] At `.isAccessibilitySize`, renders a non-paging `LazyVStack` of summary cards instead of the full-screen pager
-- [ ] `.scrollTargetBehavior` is only applied at standard sizes
-- [ ] Card tap action and VoiceOver label/hint are identical in both layouts
+- [x] View reads `@Environment(\.dynamicTypeSize)`
+- [x] At `.isAccessibilitySize`, renders a non-paging `LazyVStack` of summary cards instead of the full-screen pager
+- [x] `.scrollTargetBehavior` is only applied at standard sizes
+- [x] Card tap action and VoiceOver label/hint are identical in both layouts
 
 **Reference implementation**
 ```swift
@@ -202,9 +202,9 @@ if dynamicTypeSize.isAccessibilitySize {
 The detection card updates as the query is typed, but no announcement or accessibility value is tied to the query field. VoiceOver users may not know whether their input was classified as a wallet address, contract, ENS name, or plain text without swiping away from the field.
 
 **Acceptance criteria**
-- [ ] The search field exposes `.accessibilityValue` containing the query and its current classification (updated after debounce, not every keystroke)
-- [ ] A debounced `AuraAccessibilityAnnouncer.announce(...)` fires when classification changes after the user pauses typing
-- [ ] Announcement is suppressed when the query field is empty
+- [x] The search field exposes `.accessibilityValue` containing the query and its current classification (updated after debounce, not every keystroke)
+- [x] A debounced `AuraAccessibilityAnnouncer.announce(...)` fires when classification changes after the user pauses typing
+- [x] Announcement is suppressed when the query field is empty
 
 **Reference implementation**
 ```swift
@@ -226,11 +226,14 @@ The detection card updates as the query is typed, but no announcement or accessi
 `SystemImage` wraps `Image(systemName:)` without requiring a label or decorative intent. Each of the ~44 call sites must independently remember to add `.accessibilityHidden(true)` or an accessibility label. This is brittle and inconsistently applied.
 
 **Acceptance criteria**
-- [ ] `SystemImage` accepts an `AuraImageAccessibility` enum: `.decorative` (default), `.label(LocalizedStringKey)`, `.control(label:, hint:)`
-- [ ] `.decorative` automatically applies `.accessibilityHidden(true)`
-- [ ] `.label(...)` applies `.accessibilityLabel(...)` and removes the hidden flag
-- [ ] Existing call sites are audited; meaningfully interactive ones are migrated to `.label` or `.control`
-- [ ] A lint rule or compile-time warning is added for unlabeled icon-only `Button` content
+- [x] `SystemImage` accepts an `AuraImageAccessibility` enum: `.decorative` (default), `.label(LocalizedStringKey)`, `.control(label:, hint:)`
+- [x] `.decorative` automatically applies `.accessibilityHidden(true)`
+- [x] `.label(...)` applies `.accessibilityLabel(...)` and removes the hidden flag
+- [x] Existing call sites are audited; meaningfully interactive ones are migrated to `.label` or `.control`
+- [x] A lint rule or compile-time warning is added for unlabeled icon-only `Button` content
+
+**Implementation note**
+The repository root `.swiftlint.yml` includes `icon_only_system_image_control_requires_accessibility_label`, a warning-level custom rule that flags icon-only `SystemImage` control labels for accessibility review.
 
 **Reference implementation**
 ```swift

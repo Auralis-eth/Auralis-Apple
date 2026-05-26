@@ -4,6 +4,7 @@ import SwiftUI
 struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
     let player: Player
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var seekValue: Double = 0
     @State private var isDraggingSeek = false
@@ -61,6 +62,10 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                                         }
                                     )
                                     .accessibilityLabel(String(localized: "Playback position"))
+                                    .accessibilityValue(
+                                        String(localized: "\(timeString(from: seekValue)) of \(timeString(from: track.duration))")
+                                    )
+                                    .accessibilityHint(String(localized: "Swipe up or down to seek"))
                                     .onChange(of: player.auraPlayCurrentTrack) { _, _ in
                                         seekValue = 0
                                     }
@@ -322,13 +327,15 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.body.weight(.semibold))
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                        .fixedSize(horizontal: false, vertical: true)
                         .foregroundStyle(.primary)
                     if let artist, !artist.isEmpty {
                         Text(artist)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer()

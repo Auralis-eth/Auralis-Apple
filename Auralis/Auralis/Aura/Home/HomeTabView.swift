@@ -161,6 +161,7 @@ struct HomeTabView: View {
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .accessibilityHidden(isLoading)
         .background {
             backgroundVisual
         }
@@ -591,6 +592,11 @@ struct HomeTabView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "Generating images"))
+        .accessibilityValue(String(localized: "In progress"))
+        .accessibilityAddTraits(.updatesFrequently)
+        .accessibilitySortPriority(10)
     }
 
     private var shouldStackTiles: Bool {

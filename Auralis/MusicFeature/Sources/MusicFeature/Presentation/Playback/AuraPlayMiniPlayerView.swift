@@ -49,6 +49,7 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
 
     @State private var miniSeekValue: Double = 0
     @State private var miniIsDragging = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var currentTrackAccessibilityValue: String {
         let title = player.auraPlayCurrentTrack?.title?.isEmpty == false
@@ -74,50 +75,17 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
 
     var body: some View {
         VStack {
-            HStack {
-                if let currentTrack = player.auraPlayCurrentTrack {
-                    Button(action: openNowPlaying) {
-                        AuraPlayMiniPlayerTrackView(
-                            currentTrack: currentTrack,
-                            accessoryMode: accessoryMode
-                        )
-                        .id(currentTrack.id)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .buttonStyle(.plain)
-                    .contentShape(Rectangle())
-                    .accessibilityLabel(String(localized: "Now Playing"))
-                    .accessibilityValue(currentTrackAccessibilityValue)
-                    .accessibilityHint(String(localized: "Opens the Now Playing screen"))
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    currentTrackButton
+                    transportControls
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
-
-                HStack(spacing: 8) {
-                    Button {
-                        Task { await player.auraPlayPrevious() }
-                    } label: {
-                        Image(systemName: "backward.fill")
-                            .font(.title3)
-                    }
-                    .frame(minWidth: 44, minHeight: 44)
-                    .accessibilityLabel(String(localized: "Previous track"))
-
-                    AuraPlayPlaybackStateButton(
-                        sourceState: player.auraPlayPlaybackState,
-                        play: { try? player.auraPlayPlay() },
-                        pause: player.auraPlayPause,
-                        resume: { try? player.auraPlayResume() }
-                    )
-
-                    Button {
-                        Task { await player.auraPlayNext() }
-                    } label: {
-                        Image(systemName: "forward.fill")
-                            .font(.title3)
-                    }
-                    .frame(minWidth: 44, minHeight: 44)
-                    .accessibilityLabel(String(localized: "Next track"))
+            } else {
+                HStack {
+                    currentTrackButton
+                    transportControls
                 }
-                .buttonStyle(.borderless)
             }
 
             switch (accessoryMode, player.auraPlayCurrentTrack) {
@@ -133,6 +101,10 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
                     }
                 )
                 .accessibilityLabel(String(localized: "Playback position"))
+                .accessibilityValue(
+                    String(localized: "\(timeString(from: miniSeekValue)) of \(timeString(from: track.duration))")
+                )
+                .accessibilityHint(String(localized: "Swipe up or down to seek"))
                 .onChange(of: player.auraPlayCurrentTrack) { _, _ in
                     miniSeekValue = 0
                 }
@@ -151,11 +123,69 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
         .padding(.top)
         .padding(.trailing)
     }
+
+    @ViewBuilder
+    private var currentTrackButton: some View {
+        if let currentTrack = player.auraPlayCurrentTrack {
+            Button(action: openNowPlaying) {
+                AuraPlayMiniPlayerTrackView(
+                    currentTrack: currentTrack,
+                    accessoryMode: accessoryMode
+                )
+                .id(currentTrack.id)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .accessibilityLabel(String(localized: "Now Playing"))
+            .accessibilityValue(currentTrackAccessibilityValue)
+            .accessibilityHint(String(localized: "Opens the Now Playing screen"))
+        }
+    }
+
+    private var transportControls: some View {
+        HStack(spacing: 8) {
+            Button {
+                Task { await player.auraPlayPrevious() }
+            } label: {
+                Image(systemName: "backward.fill")
+                    .font(.title3)
+            }
+            .frame(minWidth: 44, minHeight: 44)
+            .accessibilityLabel(String(localized: "Previous track"))
+
+            AuraPlayPlaybackStateButton(
+                sourceState: player.auraPlayPlaybackState,
+                play: { try? player.auraPlayPlay() },
+                pause: player.auraPlayPause,
+                resume: { try? player.auraPlayResume() }
+            )
+
+            Button {
+                Task { await player.auraPlayNext() }
+            } label: {
+                Image(systemName: "forward.fill")
+                    .font(.title3)
+            }
+            .frame(minWidth: 44, minHeight: 44)
+            .accessibilityLabel(String(localized: "Next track"))
+        }
+        .buttonStyle(.borderless)
+    }
+
+    private func timeString(from seconds: TimeInterval) -> String {
+        guard seconds.isFinite else { return "0:00" }
+        let totalSeconds = Int(seconds)
+        let minutes = totalSeconds / 60
+        let secondsComponent = totalSeconds % 60
+        return String(format: "%d:%02d", minutes, secondsComponent)
+    }
 }
 
 private struct AuraPlayMiniPlayerTrackView: View {
     let currentTrack: AuraPlayTrack
     let accessoryMode: AuraPlayMiniPlayerAccessoryMode
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Group {
@@ -187,12 +217,14 @@ private struct AuraPlayMiniPlayerTrackView: View {
         VStack(alignment: .leading) {
             Text(currentTrack.title ?? "Unknown Title")
                 .font(accessoryMode == .expanded ? .subheadline.bold() : .subheadline)
-                .lineLimit(1)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                .fixedSize(horizontal: false, vertical: true)
             if accessoryMode == .expanded {
                 Text(currentTrack.artist ?? "Unknown Artist")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .combine)

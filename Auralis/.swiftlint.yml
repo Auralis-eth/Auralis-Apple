@@ -43,3 +43,9 @@ custom_rules:
     regex: "TODO(?!\\[[A-Z0-9-]+\\])"
     message: "AuraPlay TODOs must include a ticket reference like TODO[P1-012]."
     severity: warning
+
+  icon_only_system_image_control_requires_accessibility_label:
+    name: "Icon-only SystemImage controls require accessibility review"
+    regex: '(?s)(Button|Menu|NavigationLink)\s*(?:\([^)]*\))?\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)?\}\s*label:\s*\{\s*SystemImage\(|Button\s*\([^)]*label:\s*\{\s*SystemImage\('
+    message: "Icon-only controls using SystemImage must provide an accessible control label or be explicitly reviewed. Add .accessibilityLabel/.accessibilityInputLabels on the control, or document an intentional exception."
+    severity: warning
