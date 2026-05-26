@@ -65,10 +65,11 @@ struct ReceiptTimelineRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(record.summary)
-        .accessibilityValue(accessibilityValue)
-        .accessibilityHint(String(localized: "Shows receipt details"))
+        .auraAccessibleSummary(
+            label: record.summary,
+            value: accessibilityValue,
+            hint: String(localized: "Shows receipt details")
+        )
 
         if hasCopyableCorrelationID {
             row.accessibilityAction(named: String(localized: "Copy correlation ID")) {

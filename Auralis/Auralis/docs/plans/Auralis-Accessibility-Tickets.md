@@ -6,256 +6,6 @@ Synthesized from three project-wide accessibility audits. Issues are deduplicate
 
 ---
 
-## Phase 1 — Critical Usability
-
-### A11Y-001 · Associate validation state with `AddressTextField`
-
-**Severity:** Critical  
-**Area:** VoiceOver · Forms · Validation  
-**File:** `AccountsFeature/Sources/AccountsFeature/Presentation/AddressTextField.swift`  
-**Lines:** 19–33, 585–590, 612–620
-
-**Problem**  
-The `TextField` label is only the constructor title. Validation errors appear as a separate `ErrorText` view below the field; they are not associated with the field element itself. VoiceOver focus on the field does not expose whether the current value is invalid, and submit failures are not announced at the point validation is set.
-
-**Acceptance criteria**
-- [x] `AddressTextField` accepts a `validationMessage: String?` parameter
-- [x] `.accessibilityLabel`, `.accessibilityValue`, and `.accessibilityHint` are set on the field; hint surfaces `validationMessage` when present
-- [x] `.accessibilityInputLabels` includes common synonyms ("Wallet address", "ENS name")
-- [x] Validation failure calls `AuraAccessibilityAnnouncer.announce(message)`
-- [x] Focus returns to the field after a failed submit
-
-**Reference implementation**
-```swift
-TextField("Ethereum address", text: $address)
-    .accessibilityLabel("Ethereum address")
-    .accessibilityValue(address.isEmpty ? "Empty" : address)
-    .accessibilityHint(validationMessage ?? "Enter an ENS name or EVM wallet address.")
-    .accessibilityInputLabels(["Ethereum address", "Wallet address", "ENS name"])
-```
-
----
-
-### A11Y-003 · Label and announce bootstrap and overlay loading states
-
-**Severity:** Critical  
-**Area:** VoiceOver · Loading States · Focus  
-**Files:** `Auralis/Auralis/Aura/MainAuraView.swift` (lines 138–152, 180–190), `Auralis/Auralis/Aura/Home/HomeTabView.swift` (lines 215–219, 577–594)
-
-**Problem**  
-The bootstrap `ProgressView()` has no label. The image-generation overlay combines a spinner and text visually but does not mark itself as a modal/status element. VoiceOver users may not know the app is busy or why controls are temporarily blocked.
-
-**Acceptance criteria**
-- [x] Bootstrap `ProgressView` has `.accessibilityLabel("Loading Auralis")` and `.accessibilityValue("Preparing wallet and local data")`
-- [x] Image-generation overlay uses `.accessibilityElement(children: .combine)`, `.accessibilityLabel("Generating images")`, `.accessibilityValue("In progress")`, and `.accessibilityAddTraits(.updatesFrequently)`
-- [x] Background controls are hidden from the accessibility tree while the overlay is active (`.accessibilityHidden(true)` on underlying content or `.accessibilitySortPriority` to bring the overlay to front)
-- [x] An announcement is posted when long-running work completes
-
-**Reference implementation**
-```swift
-ProgressView("Loading Auralis")
-    .accessibilityLabel("Loading Auralis")
-    .accessibilityValue("Preparing wallet and local data")
-
-loadingOverlay
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel("Generating images")
-    .accessibilityValue("In progress")
-    .accessibilityAddTraits(.updatesFrequently)
-    .accessibilitySortPriority(10)
-```
-
----
-
-### A11Y-004 · Add combined labels and actions to `ReceiptTimelineRow`
-
-**Severity:** High  
-**Area:** VoiceOver · Lists · Navigation  
-**File:** `Auralis/Auralis/Receipts/ReceiptTimelineRow.swift`  
-**Lines:** 7–64
-
-**Problem**  
-Each row exposes summary, trigger, status, relative date, scope, actor, account, chain, correlation ID, and provenance as separate child elements. Inside a `NavigationLink`, SwiftUI traverses these in a noisy order. Switch Control users cannot copy the correlation ID without opening the detail screen.
-
-**Acceptance criteria**
-- [x] Row (or its `NavigationLink`) uses `.accessibilityElement(children: .ignore)` with a composed label/value
-- [x] Label is `record.summary`; value includes status, trigger, scope, and provenance
-- [x] Hint is `"Shows receipt details"`
-- [x] A custom accessibility action "Copy correlation ID" is added where `record.correlationID` is non-nil
-
-**Reference implementation**
-```swift
-ReceiptTimelineRow(record: record)
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(record.summary)
-    .accessibilityValue("\(record.statusTitle). \(record.trigger). \(record.scope). \(record.provenance)")
-    .accessibilityHint("Shows receipt details")
-    .accessibilityAction(named: "Copy correlation ID") {
-        UIPasteboard.general.string = record.correlationID
-    }
-```
-
----
-
-### A11Y-005 · Remove unsafe `lineLimit(1)` from music metadata at accessibility sizes
-
-**Severity:** High  
-**Area:** Dynamic Type · VoiceOver  
-**Files:**
-- `MusicFeature/.../Playback/AuraPlayMiniPlayerView.swift` (lines 187–195)
-- `MusicFeature/.../Playback/AuraPlayNowPlayingView.swift` (lines 322–343)
-- `MusicFeature/.../Playback/AuraPlayRecentlyPlayedSection.swift` (lines 196–210)
-
-**Problem**  
-Track title and artist use `.lineLimit(1)` across the mini-player, Now Playing preview rows, and Recently Played. NFT-derived titles are often long. At accessibility text sizes this truncates the exact track being identified or activated.
-
-**Acceptance criteria**
-- [x] All three files read `@Environment(\.dynamicTypeSize)` and increase `lineLimit` to 2–3 at `.isAccessibilitySize`
-- [x] `fixedSize(horizontal: false, vertical: true)` is added alongside the relaxed limit
-- [x] Mini-player layout stacks controls below metadata (VStack) at accessibility sizes instead of HStack
-- [x] No visible layout regression at standard sizes
-
-**Reference implementation**
-```swift
-@Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-Text(currentTrack.title ?? "Unknown Title")
-    .font(.subheadline.weight(.semibold))
-    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
-    .fixedSize(horizontal: false, vertical: true)
-```
-
----
-
-### A11Y-006 · Add accessibility values to playback sliders
-
-**Severity:** High  
-**Area:** VoiceOver · Media Controls  
-**Files:**
-- `MusicFeature/.../Playback/AuraPlayMiniPlayerView.swift` (lines 125–136)
-- `MusicFeature/.../Playback/AuraPlayNowPlayingView.swift` (lines 53–64)
-
-**Problem**  
-Both sliders expose `.accessibilityLabel("Playback position")` but no value. VoiceOver reads a raw percentage. Users need elapsed time and total duration before adjusting playback.
-
-**Acceptance criteria**
-- [x] Both sliders add `.accessibilityValue("\(timeString(from: seekValue)) of \(timeString(from: track.duration))")`
-- [x] Both sliders add `.accessibilityHint("Swipe up or down to seek")`
-- [x] `timeString` helper formats seconds as `m:ss`
-
-**Reference implementation**
-```swift
-Slider(value: $seekValue, in: 0...max(1, track.duration), ...)
-    .accessibilityLabel(String(localized: "Playback position"))
-    .accessibilityValue(
-        String(localized: "\(timeString(from: seekValue)) of \(timeString(from: track.duration))")
-    )
-    .accessibilityHint(String(localized: "Swipe up or down to adjust playback position."))
-```
-
----
-
-### A11Y-007 · Disable viewport-height NFT paging at accessibility Dynamic Type sizes
-
-**Severity:** High  
-**Area:** Dynamic Type · Navigation · Motor  
-**File:** `NFTLibraryFeature/Sources/NFTLibraryFeature/Presentation/NFTLibraryRootViews.swift`  
-**Lines:** 138–168
-
-**Problem**  
-Each NFT card is forced to `minHeight/maxHeight = geometry.size.height` with paging scroll behavior. At accessibility text sizes, metadata inside a single page becomes cramped or hidden behind a scroll-within-scroll interaction.
-
-**Acceptance criteria**
-- [x] View reads `@Environment(\.dynamicTypeSize)`
-- [x] At `.isAccessibilitySize`, renders a non-paging `LazyVStack` of summary cards instead of the full-screen pager
-- [x] `.scrollTargetBehavior` is only applied at standard sizes
-- [x] Card tap action and VoiceOver label/hint are identical in both layouts
-
-**Reference implementation**
-```swift
-if dynamicTypeSize.isAccessibilitySize {
-    ScrollView {
-        LazyVStack(spacing: 16) {
-            ForEach(displayNFTs) { nft in
-                Button { actions.openNFT(nft.id) } label: {
-                    NFTLibraryCardSummaryView(nft: nft)
-                }
-            }
-        }
-        .padding()
-    }
-} else {
-    pagedCardScrollView
-}
-```
-
----
-
-### A11Y-008 · Announce search query classification to VoiceOver
-
-**Severity:** High  
-**Area:** VoiceOver · Forms · Dynamic Content  
-**File:** `Auralis/Auralis/Aura/Search/SearchRootView.swift`  
-**Lines:** 326–360
-
-**Problem**  
-The detection card updates as the query is typed, but no announcement or accessibility value is tied to the query field. VoiceOver users may not know whether their input was classified as a wallet address, contract, ENS name, or plain text without swiping away from the field.
-
-**Acceptance criteria**
-- [x] The search field exposes `.accessibilityValue` containing the query and its current classification (updated after debounce, not every keystroke)
-- [x] A debounced `AuraAccessibilityAnnouncer.announce(...)` fires when classification changes after the user pauses typing
-- [x] Announcement is suppressed when the query field is empty
-
-**Reference implementation**
-```swift
-.accessibilityValue(
-    query.isEmpty ? "Empty" : "\(query). Detected as \(classification.kind.title)"
-)
-```
-
----
-
-### A11Y-009 · Centralize icon semantics in `SystemImage` / `AuraIcons`
-
-**Severity:** High  
-**Area:** VoiceOver · Images · Design System  
-**File:** `AuraUI/Sources/AuraUI/AuraIcons.swift`  
-**Lines:** 3–19
-
-**Problem**  
-`SystemImage` wraps `Image(systemName:)` without requiring a label or decorative intent. Each of the ~44 call sites must independently remember to add `.accessibilityHidden(true)` or an accessibility label. This is brittle and inconsistently applied.
-
-**Acceptance criteria**
-- [x] `SystemImage` accepts an `AuraImageAccessibility` enum: `.decorative` (default), `.label(LocalizedStringKey)`, `.control(label:, hint:)`
-- [x] `.decorative` automatically applies `.accessibilityHidden(true)`
-- [x] `.label(...)` applies `.accessibilityLabel(...)` and removes the hidden flag
-- [x] Existing call sites are audited; meaningfully interactive ones are migrated to `.label` or `.control`
-- [x] A lint rule or compile-time warning is added for unlabeled icon-only `Button` content
-
-**Implementation note**
-The repository root `.swiftlint.yml` includes `icon_only_system_image_control_requires_accessibility_label`, a warning-level custom rule that flags icon-only `SystemImage` control labels for accessibility review.
-
-**Reference implementation**
-```swift
-public enum AuraImageAccessibility {
-    case decorative
-    case label(LocalizedStringKey)
-    case control(label: LocalizedStringKey, hint: LocalizedStringKey? = nil)
-}
-
-public struct SystemImage: View {
-    private let systemName: String
-    private let accessibility: AuraImageAccessibility
-
-    public init(_ systemName: String, accessibility: AuraImageAccessibility = .decorative) {
-        self.systemName = systemName
-        self.accessibility = accessibility
-    }
-}
-```
-
----
-
 ## Phase 2 — Design System Defaults
 
 ### A11Y-010 · Add scaled padding to `AuraActionButton`
@@ -269,9 +19,9 @@ public struct SystemImage: View {
 Button padding is fixed. At larger Dynamic Type sizes, fixed padding can make the control feel cramped or undermine the minimum touch target.
 
 **Acceptance criteria**
-- [ ] Padding uses `@ScaledMetric` relative to `.body`
-- [ ] Minimum touch target remains ≥ 44 pt at all text sizes
-- [ ] Existing Aura colors, opacity, and border treatment are preserved
+- [x] Padding uses `@ScaledMetric` relative to `.body`
+- [x] Minimum touch target remains ≥ 44 pt at all text sizes
+- [x] Existing Aura colors, opacity, and border treatment are preserved
 
 **Reference implementation**
 ```swift
@@ -292,10 +42,10 @@ Button padding is fixed. At larger Dynamic Type sizes, fixed padding can make th
 Icon-only pills with no `title` and no explicit accessibility label are silently hidden from VoiceOver rather than communicating status. Status semantics (selected, warning, current) are not centralized.
 
 **Acceptance criteria**
-- [ ] Add an `init(systemImage:, emphasis:, accessibilityLabel:)` initializer that requires a label for icon-only usage — the compiler enforces it
-- [ ] Add a `decorative` initializer variant that explicitly hides the pill from VoiceOver
-- [ ] Document which initializer to use at call sites
-- [ ] Existing icon-only usages are audited and migrated
+- [x] Add an `init(systemImage:, emphasis:, accessibilityLabel:)` initializer that requires a label for icon-only usage — the compiler enforces it
+- [x] Add a `decorative` initializer variant that explicitly hides the pill from VoiceOver
+- [x] Document which initializer to use at call sites
+- [x] Existing icon-only usages are audited and migrated
 
 **Reference implementation**
 ```swift
@@ -318,10 +68,10 @@ public init(systemImage: String, emphasis: Emphasis = .neutral, decorative: Bool
 `AuraTrustLabel`, `ErrorText`, and `SuccessText` communicate status primarily through styling. Color-blind users need icon+text+shape structure so status is not dependent on color alone.
 
 **Acceptance criteria**
-- [ ] Existing warning/error/success colors are preserved
-- [ ] `ErrorText` and `SuccessText` each include an SF Symbol icon so status is not communicated by color alone
-- [ ] `AuraTrustLabel` allows `lineLimit(2)` at accessibility sizes (see A11Y-013)
-- [ ] Any color-contrast concerns discovered during implementation are recorded under A11Y-026 instead of changing colors in this ticket
+- [x] Existing warning/error/success colors are preserved
+- [x] `ErrorText` and `SuccessText` each include an SF Symbol icon so status is not communicated by color alone
+- [x] `AuraTrustLabel` allows `lineLimit(2)` at accessibility sizes (see A11Y-013)
+- [x] Any color-contrast concerns discovered during implementation are recorded under A11Y-026 instead of changing colors in this ticket
 
 **Reference implementation**
 ```swift
@@ -351,9 +101,9 @@ public struct AuraStatusMessage: View {
 `AuraTrustLabel` uses `.lineLimit(1)`. The trust label communicates untrusted/provider-backed status; truncating it removes a key non-color cue and leaves only the triangle icon.
 
 **Acceptance criteria**
-- [ ] View reads `@Environment(\.dynamicTypeSize)`
-- [ ] `lineLimit` is `nil` or `2` at `.isAccessibilitySize`, `1` otherwise
-- [ ] `fixedSize(horizontal: false, vertical: true)` is applied
+- [x] View reads `@Environment(\.dynamicTypeSize)`
+- [x] `lineLimit` is `nil` or `2` at `.isAccessibilitySize`, `1` otherwise
+- [x] `fixedSize(horizontal: false, vertical: true)` is applied
 
 ---
 
@@ -367,9 +117,9 @@ public struct AuraStatusMessage: View {
 `AuraSurfaceCard` is purely visual. Grouping behavior is left to each caller, producing inconsistent VoiceOver output across `ERC20HoldingRow`, `ReceiptTimelineRow`, and home cards.
 
 **Acceptance criteria**
-- [ ] A `auraAccessibleSummary(label:value:hint:)` view modifier is added to `AuraUI`
-- [ ] It applies `.accessibilityElement(children: .ignore)`, `.accessibilityLabel`, `.accessibilityValue`, and optionally `.accessibilityHint`
-- [ ] Existing complex card call sites are migrated to the modifier
+- [x] A `auraAccessibleSummary(label:value:hint:)` view modifier is added to `AuraUI`
+- [x] It applies `.accessibilityElement(children: .ignore)`, `.accessibilityLabel`, `.accessibilityValue`, and optionally `.accessibilityHint`
+- [x] Existing complex card call sites are migrated to the modifier
 
 **Reference implementation**
 ```swift
@@ -397,10 +147,10 @@ public extension View {
 `PrimaryTextButton` is currently unused. Keeping an unused button primitive with separate sizing behavior creates future design-system drift and makes accessibility hardening look broader than the active app surface actually is.
 
 **Acceptance criteria**
-- [ ] Re-run a project-wide search for `PrimaryTextButton` outside this ticket file
-- [ ] If there are still no active call sites, remove `PrimaryTextButton` from `AuraText.swift`
-- [ ] If active call sites appear before this ticket is implemented, migrate those call sites to `AuraActionButton` instead of hardening `PrimaryTextButton`
-- [ ] Build verifies no public API consumers still depend on `PrimaryTextButton`
+- [x] Re-run a project-wide search for `PrimaryTextButton` outside this ticket file
+- [x] If there are still no active call sites, remove `PrimaryTextButton` from `AuraText.swift`
+- [x] If active call sites appear before this ticket is implemented, migrate those call sites to `AuraActionButton` instead of hardening `PrimaryTextButton`
+- [x] Build verifies no public API consumers still depend on `PrimaryTextButton`
 
 ---
 
@@ -740,14 +490,6 @@ Some accessibility labels, values, and hints are plain string literals while nea
 
 | ID | Phase | Severity | Title |
 |---|---|---|---|
-| A11Y-001 | 1 | Critical | Associate validation state with `AddressTextField` |
-| A11Y-003 | 1 | Critical | Label and announce bootstrap and overlay loading states |
-| A11Y-004 | 1 | High | Add combined labels and actions to `ReceiptTimelineRow` |
-| A11Y-005 | 1 | High | Remove unsafe `lineLimit(1)` from music metadata at accessibility sizes |
-| A11Y-006 | 1 | High | Add accessibility values to playback sliders |
-| A11Y-007 | 1 | High | Disable viewport-height NFT paging at accessibility Dynamic Type sizes |
-| A11Y-008 | 1 | High | Announce search query classification to VoiceOver |
-| A11Y-009 | 1 | High | Centralize icon semantics in `SystemImage` / `AuraIcons` |
 | A11Y-010 | 2 | Medium | Add scaled padding to `AuraActionButton` |
 | A11Y-011 | 2 | Medium | Split `AuraPill` into decorative, labeled, and icon-only status variants |
 | A11Y-012 | 2 | Medium | Add non-color cues to warning/error/success messages |

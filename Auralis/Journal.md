@@ -1,10 +1,18 @@
 # Journal
 
+## 2026-05-26 — Phase 2 Put The Guardrails In The Furniture
+
+Phase 2 was a design-system pass, which means the interesting part was not one flashy screen. It was making the shared pieces behave well before feature code gets a chance to forget. `AuraActionButton` now scales its padding with Dynamic Type while keeping the 44pt tap floor, `AuraPill` has explicit lanes for visible labels, meaningful icon-only status, and decorative icons, and `AuraTrustLabel` stops chopping off the very warning text it exists to communicate.
+
+The card semantics got a shared handle too. `auraAccessibleSummary(label:value:hint:)` turns dense visual cards into one readable VoiceOver item where that is the right interaction model, and the first migrations cover token holdings, receipt timeline rows, receipt previews, and the energy card. Error and success text now use icon-plus-text status instead of relying on color alone, and the unused `PrimaryTextButton` left the room before it became another primitive to harden forever.
+
+Lesson learned: accessibility defaults are like kitchen prep. If the shared ingredients are washed, labeled, and portioned correctly, every later dish has fewer ways to go wrong.
+
 ## 2026-05-26 — Phase 1 Learned To Check Its Own Checkmarks
 
 The Phase 1 accessibility board looked closed, but an independent pass found two little loose screws: receipt rows offered a "Copy correlation ID" action even when there was nothing to copy, and the icon-only control guardrail was promised in the ticket without an actual lint rule at the repo root.
 
-The fix was small but useful. Receipt rows now only expose the custom accessibility action when the row has a real correlation ID, so VoiceOver users do not get a dead menu item. The repo also gained a SwiftLint warning rule for icon-only `SystemImage` control labels, which turns future review from "please remember" into a visible tripwire. Lesson learned: a completed checklist should have artifacts you can point at, not just confidence.
+The fix was small but useful. Receipt rows now only expose the custom accessibility action when the row has a real correlation ID, so VoiceOver users do not get a dead menu item. The repo also gained a SwiftLint warning rule for icon-only `SystemImage` control labels, which turns future review from "please remember" into a visible tripwire. With those artifacts in place, Phase 1 has been removed from the active accessibility ticket list so the backlog starts at the next real work. Lesson learned: a completed checklist should have artifacts you can point at, then get out of the way.
 
 ## 2026-05-25 — The Front Door Got Its Lighting Back
 

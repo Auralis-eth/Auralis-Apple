@@ -69,7 +69,11 @@ struct ERC20HoldingRow: View {
                 }
             }
         }
-        .accessibilityElement(children: .combine)
+        .auraAccessibleSummary(
+            label: row.title,
+            value: accessibilityValue,
+            hint: row.canOpenDetail ? String(localized: "Shows token details") : nil
+        )
     }
 
     private var tokenMark: some View {
@@ -83,6 +87,29 @@ struct ERC20HoldingRow: View {
                 .foregroundStyle(Color.white.opacity(0.96))
         }
         .accessibilityHidden(true)
+    }
+
+    private var accessibilityValue: String {
+        var parts = [
+            row.subtitle,
+            row.amountDisplay,
+            row.kindTitle,
+            row.updatedLabel
+        ]
+
+        if row.isPlaceholder {
+            parts.append(String(localized: "Metadata pending"))
+        }
+
+        if row.isAmountHidden {
+            parts.append(String(localized: "Amount hidden"))
+        }
+
+        if row.isMetadataStale {
+            parts.append(String(localized: "Metadata stale"))
+        }
+
+        return parts.joined(separator: ". ")
     }
 
     @ViewBuilder

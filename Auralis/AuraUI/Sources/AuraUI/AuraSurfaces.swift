@@ -37,6 +37,31 @@ public extension View {
     ) -> some View {
         modifier(AuraSurfaceGlass(style: style, cornerRadius: cornerRadius))
     }
+
+    func auraAccessibleSummary(label: String, value: String? = nil, hint: String? = nil) -> some View {
+        modifier(AuraAccessibleSummary(label: label, value: value, hint: hint))
+    }
+}
+
+private struct AuraAccessibleSummary: ViewModifier {
+    let label: String
+    let value: String?
+    let hint: String?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        let summarizedContent = content
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityValue(value ?? "")
+
+        if let hint, !hint.isEmpty {
+            summarizedContent
+                .accessibilityHint(hint)
+        } else {
+            summarizedContent
+        }
+    }
 }
 
 private struct AuraSurfaceGlass: ViewModifier {

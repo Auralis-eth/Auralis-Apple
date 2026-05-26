@@ -39,5 +39,18 @@ struct HomeReceiptPreviewRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+        .auraAccessibleSummary(
+            label: item.title,
+            value: accessibilityValue,
+            hint: String(localized: "Shows receipt details")
+        )
+    }
+
+    private var accessibilityValue: String {
+        [
+            item.statusTitle,
+            item.detailLine,
+            item.contextLine
+        ].joined(separator: ". ")
     }
 }

@@ -61,7 +61,7 @@ struct EnergyCardView: View {
                     .font(.footnote)
             }
         }
-        .accessibilityElement(children: .combine)
+        .auraAccessibleSummary(label: title, value: accessibilityValue)
     }
 
     @ViewBuilder
@@ -82,6 +82,20 @@ struct EnergyCardView: View {
                 .accessibilityHidden(true)
                 .accessibilityElement(children: .ignore)
         }
+    }
+
+    private var accessibilityValue: String {
+        var parts = [
+            timeString,
+            statusTitle,
+            statusSubtitle
+        ]
+
+        if let placeholderMessage {
+            parts.append(placeholderMessage)
+        }
+
+        return parts.joined(separator: ". ")
     }
 }
 #Preview("Energy Card") {

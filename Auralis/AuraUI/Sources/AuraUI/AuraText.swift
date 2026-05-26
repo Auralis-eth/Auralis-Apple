@@ -141,8 +141,11 @@ public struct ErrorText: View {
     }
 
     public var body: some View {
-        CaptionFontText(text: text)
+        Label(text, systemImage: "exclamationmark.triangle.fill")
+            .font(.caption)
             .foregroundStyle(Color.error)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(String(localized: "Error: \(text)"))
     }
 }
 
@@ -154,8 +157,11 @@ public struct SuccessText: View {
     }
 
     public var body: some View {
-        CaptionFontText(text: text)
+        Label(text, systemImage: "checkmark.circle.fill")
+            .font(.caption)
             .foregroundStyle(Color.success)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(String(localized: "Success: \(text)"))
     }
 }
 
@@ -220,25 +226,5 @@ public struct ScaledSystemFontText: View {
         Text(text)
             .font(.system(size: scaledSize, weight: weight))
             .foregroundStyle(Color.textPrimary)
-    }
-}
-
-public struct PrimaryTextButton: View {
-    private let text: String
-    private let action: () -> Void
-
-    public init(_ text: String, action: @escaping () -> Void) {
-        self.text = text
-        self.action = action
-    }
-
-    public var body: some View {
-        Button(action: action) {
-            PrimaryText(text)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.deepBlue)
-                .clipShape(.rect(cornerRadius: 8))
-        }
     }
 }

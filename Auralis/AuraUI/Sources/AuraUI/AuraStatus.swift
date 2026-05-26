@@ -11,10 +11,12 @@ public struct AuraPill: View {
     private let systemImage: String?
     private let emphasis: Emphasis
     private let imageSize: Font
-    private let accessibilityLabel: String?
+    private let label: String?
+    private let isAccessibilityHidden: Bool
 
+    /// Use for pills with visible text. Pass `accessibilityLabel` only when the visible text needs more context.
     public init(
-        _ title: String? = nil,
+        _ title: String,
         systemImage: String? = nil,
         emphasis: Emphasis = .neutral,
         imageSize: Font = .caption,
@@ -24,7 +26,38 @@ public struct AuraPill: View {
         self.systemImage = systemImage
         self.emphasis = emphasis
         self.imageSize = imageSize
-        self.accessibilityLabel = accessibilityLabel
+        self.label = accessibilityLabel ?? title
+        self.isAccessibilityHidden = false
+    }
+
+    /// Use for icon-only pills that communicate meaningful status.
+    public init(
+        systemImage: String,
+        emphasis: Emphasis = .neutral,
+        imageSize: Font = .caption,
+        accessibilityLabel: String
+    ) {
+        self.title = nil
+        self.systemImage = systemImage
+        self.emphasis = emphasis
+        self.imageSize = imageSize
+        self.label = accessibilityLabel
+        self.isAccessibilityHidden = false
+    }
+
+    /// Use only when the icon-only pill is decorative and repeated elsewhere in accessible text.
+    public init(
+        systemImage: String,
+        emphasis: Emphasis = .neutral,
+        imageSize: Font = .caption,
+        decorative: Bool
+    ) {
+        self.title = nil
+        self.systemImage = systemImage
+        self.emphasis = emphasis
+        self.imageSize = imageSize
+        self.label = nil
+        self.isAccessibilityHidden = true
     }
 
     public var body: some View {
@@ -53,8 +86,8 @@ public struct AuraPill: View {
                 .strokeBorder(borderColor, lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title ?? accessibilityLabel ?? "")
-        .accessibilityHidden(title == nil && accessibilityLabel == nil)
+        .accessibilityLabel(label ?? "")
+        .accessibilityHidden(isAccessibilityHidden)
     }
 
     private var foregroundColor: Color {
@@ -118,6 +151,7 @@ public enum AuraUntrustedValueKind: String, Equatable, Sendable {
 
 public struct AuraTrustLabel: View {
     private let kind: AuraUntrustedValueKind
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .caption) private var iconSize = 10.0
 
     public init(kind: AuraUntrustedValueKind) {
@@ -132,7 +166,8 @@ public struct AuraTrustLabel: View {
 
             Text(kind.title)
                 .font(.caption.weight(.semibold))
-                .lineLimit(1)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(Color(red: 0.97, green: 0.8, blue: 0.38))
         .padding(.horizontal, 10)

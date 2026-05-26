@@ -10,6 +10,10 @@ public struct AuraActionButton: View {
     private let systemImage: String?
     private let style: Style
     private let action: () -> Void
+    @ScaledMetric(relativeTo: .body) private var heroHorizontalPadding: CGFloat = 20
+    @ScaledMetric(relativeTo: .body) private var heroVerticalPadding: CGFloat = 18
+    @ScaledMetric(relativeTo: .body) private var surfaceHorizontalPadding: CGFloat = 16
+    @ScaledMetric(relativeTo: .body) private var surfaceVerticalPadding: CGFloat = 8
 
     public init(
         _ title: String,
@@ -50,11 +54,11 @@ public struct AuraActionButton: View {
     }
 
     private var horizontalPadding: CGFloat {
-        style == .hero ? 20 : 16
+        style == .hero ? heroHorizontalPadding : surfaceHorizontalPadding
     }
 
     private var verticalPadding: CGFloat {
-        style == .hero ? 18 : 8
+        style == .hero ? heroVerticalPadding : surfaceVerticalPadding
     }
 
     @ViewBuilder
