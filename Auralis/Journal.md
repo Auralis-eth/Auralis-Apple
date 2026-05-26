@@ -1,5 +1,49 @@
 # Journal
 
+## 2026-05-25 — The Front Door Got Its Lighting Back
+
+The accessibility pass tried to help the gateway survive rough settings, but it dressed the welcome screen in a raincoat indoors: black text plaques appeared over the scenic image, the primary button lost its purple glow, and the normal-size layout started climbing into the Dynamic Island. Useful accessibility work had accidentally become a redesign.
+
+The fix was not to throw the whole pass away. The gateway now keeps the helpful parts, like larger tap targets, announcements, and scroll/adaptive layout when text sizes actually need it, while normal text sizes return to the intended image-backed composition. Lesson learned: accessibility fixes should make the existing room usable before they start moving walls.
+
+## 2026-05-24 — The Accessibility Gate Needed A Real Door
+
+The accessibility audit suite briefly became too strict in the wrong place: it failed tab audits when the app was still at onboarding, before those audits could reach any tab. That is like failing a fire-drill route because the building key was not issued yet. The tests now skip unreachable tabs in that launch state again, while the gateway audit still runs as the onboarding contract.
+
+The gateway audit then found real UI work. The Paste control had a too-small hit region, the hero button's light-mode gradient did not guarantee text contrast, and several gateway labels were trying to sit directly on scenic artwork. Those labels now get stable opaque text surfaces, and the guest divider no longer squeezes large text between decorative lines.
+
+The lesson: test harness strictness has to point at product behavior, not setup accidents. Once the harness stopped blocking itself, the actual accessibility bugs were small and concrete.
+
+## 2026-05-24 — The Audit Tests Stopped Taking Quiet Detours
+
+A small review found three places where the accessibility finish line needed sharper wording. The UI audit tests now fail when an expected tab is missing instead of quietly skipping the flow, because a release gate should not be able to walk around its own checklist. The chrome search and account controls also moved their accessibility copy onto the localization path, so VoiceOver strings do not become a separate English-only side channel.
+
+The preview story got more honest rather than more theatrical. SwiftUI lets us preview Dark Mode, but Apple documents `colorSchemeContrast` as a read-only value that follows the user's setting, so we cannot force Increase Contrast with a preview modifier. The ticket now says that plainly and leaves Increase Contrast where it belongs: the physical-device release checklist.
+
+## 2026-05-24 — The Last Accessibility Tickets Learned The Difference Between Code And Sign-Off
+
+The final backlog pass was a good reminder that "ready to ship" has two halves. The code half got tighter: fixed avatar and artwork sizes now scale with Dynamic Type caps, the empty image-preview icon can use the Large Content Viewer path, visible-text buttons stopped overriding their own labels, and the automated accessibility audit suite now names the actual critical flows instead of hiding behind one generic launch test.
+
+The preview bench grew up too. `MainTabView` can now preview specific tabs at the largest accessibility text size, and AuraUI has a small component matrix for `AuraSectionHeader`, `AuraActionButton`, `AuraSurfaceCard`, and `AuraEmptyState`. That is the difference between hoping shared components wrap nicely and giving reviewers a standing place to look.
+
+The important caution: some checkboxes are still real-world gates, not code checkboxes. `colorSchemeContrast` and Reduce Transparency are read-only user settings in SwiftUI previews, so the honest path is a physical-device checklist, not a fake preview override. Shipping accessibility needs both the compiler's receipts and a human holding the device.
+
+## 2026-05-24 — The Accessibility Backlog Met The Shipping Gate
+
+The last accessibility pass was less about dramatic UI surgery and more about closing the tiny doors people actually trip over. The legacy playlist row still had a swipe-only delete path, so it now exposes a custom "Delete playlist" action for VoiceOver and Switch Control. The QR scanner got names and hints on its UIKit buttons, moves focus to a sensible control when it opens, and announces scanner failures instead of leaving the error trapped in app logic.
+
+Motion and visual hierarchy got their final tightening too. The home image-preview zoom transition now steps aside when Reduce Motion is enabled, the remaining `withAnimation` call sites were checked for motion gating, and `AuraSectionHeader` graduated from a subtle subheadline to a real headline while keeping the VoiceOver heading trait. Music artwork also learned the difference between decorative album art beside a title and primary artwork that needs to identify itself.
+
+The important release lesson: a checklist is only honest if the device-only boxes stay device-only. Code can make the scanner accessible, previews can catch layout drift, and UI tests can call `performAccessibilityAudit`; but VoiceOver, Voice Control, Switch Control, camera permission recovery, and the Nutrition Label still need a real hand on a real device before anyone calls the release gate closed.
+
+## 2026-05-23 — Phase 3 Put The Labels Where People Actually Look
+
+Phase 3/4 accessibility work moved from the emergency exits into the everyday surfaces. The chrome account button now gives VoiceOver the whole orientation sentence: account plus selected chains, and it lets those labels wrap when the user asks for larger text. The home profile card also stops trying to keep avatar, account copy, and account-management controls in one tight row at accessibility sizes; it stacks like a sensible counter when the room gets crowded.
+
+Guest passes got a similar cleanup. The old card was visually rich but semantically noisy: role icons, metadata icons, barcode decoration, tight tracking, and a low-contrast address label were all competing for attention. Now the card reads as one guest-pass choice, decorative flourishes stay quiet, and the typography relaxes when Dynamic Type gets large.
+
+The small but important lesson: accessibility tickets work best when they stay ticket-sized. Chrome orientation, guest-card semantics, profile layout, artwork noise, and carousel fallbacks are separate jobs. Treating them separately keeps the work shippable and keeps design-review questions from blocking plain fixes.
+
 ## 2026-05-23 — The Robot Inspector Got Its Own Clipboard
 
 The accessibility ship gate had a real-device checklist, but the automated side was still living as a sentence in the backlog: add `performAccessibilityAudit` UI tests. That is too easy to lose during release pressure, so `P0-UI-Test-QA-Suite.md` now gives the UI test gate its own home next to the physical-device suite.
@@ -2078,3 +2122,11 @@ The accessibility ship-readiness review found two sharp edges. First, Aura's sur
 The second bug was subtler: the NFT feed card made the whole page-sized card one accessibility element. That gave VoiceOver a convenient "open details" stop, but it also risked covering the real controls living inside the card, like the More Actions menu and the Show More Info button. The fix changed the card wrapper back into a container. The card still exposes its open action, but the control panel inside is no longer boarded up.
 
 The lesson: accessibility grouping is power equipment. Use it to organize the room, not to drywall over the switches.
+
+## Accessibility Phase 5: Give The Future Reviewer A Flashlight
+
+Phase 5 was mostly about catching regressions before they become release-day archaeology. The preview shelf now covers the Gateway and the main app surfaces in large text and dark mode, including Settings through the profile route. These previews are not a substitute for a real device, but they are the flashlight a reviewer can grab before spelunking through VoiceOver, contrast, and layout checks.
+
+We also swept the high-traffic accessibility strings that were still raw English literals. Icon-only controls and dynamic labels now go through `String(localized:)`, which keeps Voice Control, VoiceOver, and future localization from quietly drifting apart.
+
+The lesson: testing artifacts are product infrastructure. A preview matrix does not make the app accessible by itself, but it makes accessibility regressions visible while the code is still warm.

@@ -563,60 +563,68 @@ private struct AddressEntryContentView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .center) {
-                AddressEntryHeaderView()
-
-                inputRow
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 18)
-
-                if let validationMessage {
-                    ErrorText(validationMessage)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 20)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                if let normalizedAddress {
-                    VStack(spacing: 10) {
-                        SubheadlineFontText("canonical form")
-                            .foregroundStyle(Color.textSecondary)
-
-                        Text(normalizedAddress)
-                            .font(.footnote.monospaced())
-                            .foregroundStyle(Color.textPrimary)
-                            .textSelection(.enabled)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(Color.surface.opacity(0.55))
-                            )
-                    }
-                    .padding(.horizontal, 20)
-                }
-
-                AuraActionButton("Enter Auralis", style: .hero, action: handleSubmit)
-                    .disabled(isSubmitting)
-                    .padding(.horizontal, 30)
-
-                if isSubmitting {
-                    ProgressView("Resolving account...")
-                        .tint(Color.textPrimary)
-                        .padding(.top, 8)
-                }
-
-                GuestExploreDividerView()
-                GuestPassesHeaderView()
-                GuestPassCarousel(items: GuestPassAccount.accounts) { account in
-                    selectGuestPass(account.address)
-                }
+        if dynamicTypeSize.isAccessibilitySize {
+            ScrollView {
+                content
+                    .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
+            .scrollDismissesKeyboard(.interactively)
+        } else {
+            content
         }
-        .scrollDismissesKeyboard(.interactively)
+    }
+
+    private var content: some View {
+        VStack(alignment: .center) {
+            AddressEntryHeaderView()
+
+            inputRow
+                .padding(.horizontal, 15)
+                .padding(.vertical, 18)
+
+            if let validationMessage {
+                ErrorText(validationMessage)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let normalizedAddress {
+                VStack(spacing: 10) {
+                    SubheadlineFontText("canonical form")
+                        .foregroundStyle(Color.textSecondary)
+
+                    Text(normalizedAddress)
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(Color.textPrimary)
+                        .textSelection(.enabled)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color.surface.opacity(0.55))
+                        )
+                }
+                .padding(.horizontal, 20)
+            }
+
+            AuraActionButton("Enter Auralis", style: .hero, action: handleSubmit)
+                .disabled(isSubmitting)
+                .padding(.horizontal, 30)
+
+            if isSubmitting {
+                ProgressView("Resolving account...")
+                    .tint(Color.textPrimary)
+                    .padding(.top, 8)
+            }
+
+            GuestExploreDividerView()
+            GuestPassesHeaderView()
+            GuestPassCarousel(items: GuestPassAccount.accounts) { account in
+                selectGuestPass(account.address)
+            }
+        }
     }
 
     @ViewBuilder
@@ -666,18 +674,11 @@ public struct AddressEntryHeaderView: View {
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
 
-            Text("Paste an EVM wallet address, enter an ENS name, or scan a QR code to get started.")
-                .font(.subheadline)
-                .foregroundStyle(Color.textPrimary)
+            SubheadlineFontText("Paste an EVM wallet address, enter an ENS name, or scan a QR code to get started.")
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
         .padding(.top, 10)
-        .background(Color.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .combine)
     }
@@ -687,25 +688,20 @@ public struct GuestExploreDividerView: View {
     public init() {}
 
     public var body: some View {
-        VStack(spacing: 8) {
+        HStack {
             Rectangle()
                 .fill(Color.textSecondary.opacity(0.2))
                 .frame(width: 72, height: 1)
                 .accessibilityHidden(true)
-            Text("Or explore Auralis as a guest")
-                .font(.subheadline)
-                .foregroundStyle(Color.textPrimary)
+            SubheadlineFontText("Or explore Auralis as a guest")
+                .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Color.background, in: Capsule())
             Rectangle()
                 .fill(Color.textSecondary.opacity(0.2))
                 .frame(width: 72, height: 1)
                 .accessibilityHidden(true)
         }
-        .frame(maxWidth: .infinity)
         .padding(.vertical)
     }
 }
@@ -719,18 +715,11 @@ public struct GuestPassesHeaderView: View {
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
 
-            Text("Try Auralis with curated public collections.")
-                .font(.subheadline)
-                .foregroundStyle(Color.textPrimary)
+            SubheadlineFontText("Try Auralis with curated public collections.")
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
         .padding(.top, 10)
-        .background(Color.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .combine)
     }
@@ -787,10 +776,10 @@ public struct QRScannerView: View {
             isScanning = true
         } label: {
             SystemImage("qrcode.viewfinder")
-                .foregroundStyle(Color.accent)
+                .foregroundStyle(Color.textPrimary.opacity(0.55))
                 .font(.system(size: 30, weight: .medium))
         }
-        .frame(minWidth: 44, minHeight: 44)
+        .frame(width: 44, height: 44)
         .contentShape(Rectangle())
         .accessibilityLabel(String(localized: "Scan wallet QR code"))
         .accessibilityShowsLargeContentViewer()
