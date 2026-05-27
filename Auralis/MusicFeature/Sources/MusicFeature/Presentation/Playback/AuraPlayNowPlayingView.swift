@@ -176,9 +176,11 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                             Image(systemName: "music.note")
                                 .font(.system(size: 64))
                                 .foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
                             Text("No track loaded")
                                 .font(.title3)
                                 .foregroundStyle(.secondary)
+                                .accessibilityAddTraits(.isHeader)
                         }
                         .padding(.top, 100)
                         .frame(maxWidth: .infinity)

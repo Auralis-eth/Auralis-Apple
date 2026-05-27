@@ -8,6 +8,8 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.accessibilityReduceTransparency) private var accessibilityReduceTransparency
     @State private var isClearing = false
+    @ScaledMetric(relativeTo: .body) private var emptyStateIconSize: CGFloat = 36
+    @ScaledMetric(relativeTo: .body) private var miniCardWidth: CGFloat = 160
 
     private var items: [AuraPlayRecentlyPlayedItem] {
         player.auraPlayRecentlyPlayed(limit: initialLimit)
@@ -41,11 +43,13 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
             if items.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 36))
+                        .font(.system(size: min(emptyStateIconSize, 56)))
                         .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                     Text("Nothing here yet. Play something and it will show up.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .accessibilityAddTraits(.isHeader)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(12)
@@ -62,7 +66,7 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
                         HStack(spacing: 12) {
                             ForEach(items, id: \.id) { item in
                                 recentlyPlayedCard(for: item)
-                                    .frame(width: 160)
+                                    .frame(width: min(miniCardWidth, 220))
                             }
                         }
                     }
@@ -156,6 +160,7 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
     let item: AuraPlayRecentlyPlayedItem
     let onTap: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .body) private var artworkHeight: CGFloat = 120
 
     private func relativeDescription(for date: Date?) -> String {
         guard let date else { return "Recently played" }
@@ -170,13 +175,13 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
                        let url = URL(string: source) {
                         CachedAsyncImage(url: url)
                             .aspectRatio(1, contentMode: .fill)
-                            .frame(height: 120)
+                            .frame(height: min(artworkHeight, 180))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .accessibilityHidden(true)
                     } else {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.gray.opacity(0.25))
-                            .frame(height: 120)
+                            .frame(height: min(artworkHeight, 180))
                             .overlay {
                                 Image(systemName: "music.note")
                                     .foregroundStyle(.gray)

@@ -559,11 +559,12 @@ struct HomeTabView: View {
                         .font(.system(size: min(emptyPreviewIconSize, 88)))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.secondary)
-                        .accessibilityShowsLargeContentViewer()
+                        .accessibilityHidden(true)
 
                     Text(String(localized: "No images to select"))
                         .font(.title3)
                         .foregroundStyle(.secondary)
+                        .accessibilityAddTraits(.isHeader)
                 }
                 .padding()
             }

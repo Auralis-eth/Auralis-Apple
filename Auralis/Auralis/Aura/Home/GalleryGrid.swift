@@ -16,6 +16,7 @@ struct GalleryGrid: View {
     let onRegenerate: (() async -> Void)?
     @State private var regenerateTask: Task<Void, Never>?
     @State private var selectedImageID: ObjectIdentifier?
+    @ScaledMetric(relativeTo: .body) private var thumbnailSize: CGFloat = 110
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,14 +53,17 @@ struct GalleryGrid: View {
                         .font(.system(size: 60))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.secondary)
-                    Text("No images to select")
+                        .accessibilityHidden(true)
+                    Text(String(localized: "No images to select"))
                         .font(.title3)
                         .foregroundStyle(.secondary)
+                        .accessibilityAddTraits(.isHeader)
                 }
                 .padding()
             } else {
                 ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
+                    let scaledThumbnailSize = min(thumbnailSize, 180)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: scaledThumbnailSize), spacing: 8)], spacing: 8) {
                         ForEach(Array(images.enumerated()), id: \.element.auralisObjectIdentifier) { index, image in
                             let imageID = image.auralisObjectIdentifier
                             let isSelected = selectedImageID == imageID || images.count == 1
@@ -71,7 +75,7 @@ struct GalleryGrid: View {
                                 Image(uiImage: image)
                                     .resizable()
                                     .scaledToFill()
-                                    .frame(height: 110)
+                                    .frame(height: scaledThumbnailSize)
                                     .frame(maxWidth: .infinity)
                                     .clipped()
                                     .clipShape(.rect(cornerRadius: 12))

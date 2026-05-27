@@ -4,42 +4,7 @@ Synthesized from three project-wide accessibility audits. Issues are deduplicate
 
 **Color scope:** This plan preserves the current Aura color palette. Tickets may add labels, values, focus handling, touch targets, Dynamic Type behavior, motion/transparency accommodations, and non-color cues. Color contrast is tracked only by A11Y-026 as an audit-and-ticketing pass; any actual palette, token, foreground, background, border, opacity, or asset-catalog change requires a separate follow-up ticket with product/design approval.
 
-------
-
-## Phase 4 — Visual Accessibility
-
----
-
-### A11Y-027 · Hide decorative empty-state icons from VoiceOver
-
-**Severity:** Medium  
-**Area:** Images · Empty States  
-**Files:** `Auralis/Auralis/Aura/Home/GalleryGrid.swift` (lines 49–58), `MusicFeature` Now Playing empty state
-
-**Problem**  
-`photo.on.rectangle` and music note empty-state icons are decorative but not hidden, causing VoiceOver to announce implementation-flavored symbol names before the useful text.
-
-**Acceptance criteria**
-- [ ] Both icons have `.accessibilityHidden(true)`
-- [ ] Empty-state descriptive text has `.accessibilityAddTraits(.isHeader)` where appropriate
-
----
-
-### A11Y-028 · Use `@ScaledMetric` for fixed artwork and thumbnail dimensions
-
-**Severity:** Low  
-**Area:** Dynamic Type · Layout  
-**Files:** `Auralis/Auralis/Aura/Home/GalleryGrid.swift` (lines 62–77), `MusicFeature/.../Library/AuraPlayMusicItemDetailView.swift` (line 160), `MusicFeature/.../Playback/AuraPlayRecentlyPlayedSection.swift` (lines 60, 167, 173)
-
-**Problem**  
-Fixed image/card dimensions cause surrounding text to clip at large text sizes rather than the layout adapting.
-
-**Acceptance criteria**
-- [ ] Thumbnail/artwork sizes that sit beside text use `@ScaledMetric(relativeTo: .body)`
-- [ ] Purely decorative background images may remain fixed
-- [ ] Layout branches to stacked VStack at `.isAccessibilitySize` where needed
-
----
+---------
 
 ## Phase 5 — Accessibility Testing
 

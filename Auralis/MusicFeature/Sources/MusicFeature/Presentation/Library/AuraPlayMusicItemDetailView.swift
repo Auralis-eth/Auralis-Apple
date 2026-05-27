@@ -12,6 +12,7 @@ public struct AuraPlayMusicItemDetailView: View {
 
     @Query private var nfts: [NFT]
     @Query private var libraryItems: [MusicLibraryItem]
+    @ScaledMetric(relativeTo: .body) private var artworkHeight: CGFloat = 320
 
     public init(
         itemID: String,
@@ -157,7 +158,7 @@ public struct AuraPlayMusicItemDetailView: View {
                     }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 320)
+            .frame(height: min(artworkHeight, 460))
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .accessibilityLabel(String(localized: "\(presentation.title) artwork"))
 

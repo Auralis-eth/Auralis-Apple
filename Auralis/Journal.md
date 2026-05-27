@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-05-27 — Phase 4 Taught The Quiet Pictures To Step Aside
+
+Phase 4 was the visual-accessibility cleanup: not a repaint, more like making sure the stage props stop introducing themselves during the performance. The empty-state icons in gallery, Home image preview, Now Playing, and Recently Played are decorative, so VoiceOver now walks past them and lands on the actual message. Those messages also get heading semantics, which gives screen-reader users a useful landmark instead of a symbol-name speed bump.
+
+The Dynamic Type work was the other half. Gallery thumbnails, AuraPlay detail artwork, and Recently Played cards now scale from `.body` with caps instead of pretending one pixel size fits every reader. Recently Played already had the right escape hatch: when text gets large, it stops being a sideways carousel and becomes a vertical stack. Lesson learned: visual accessibility is often restraint. Keep the approved palette, scale the furniture, and let decorative art be decorative.
+
 ## 2026-05-27 — Phase 3 Had To Prove Its Checkmarks
 
 Phase 3 looked finished on paper, but the proof was too thin around the places users actually get interrupted: validation errors, sheets, and destructive confirmations. The UI test harness now has two deliberate launch doors: one clean gateway and one in-memory authenticated account. That lets the accessibility audit walk into gateway validation, the simulator scanner fallback, account removal confirmation, and the settings reset confirmation without borrowing whatever state happened to live in the simulator.
