@@ -28,6 +28,10 @@ public struct GuestPassCard: View {
         accessibilityReduceTransparency || colorSchemeContrast == .increased
     }
 
+    private var shouldAnimateBorder: Bool {
+        !accessibilityReduceMotion && !accessibilityReduceTransparency
+    }
+
     public var body: some View {
         Group {
             if let onTap {
@@ -44,17 +48,22 @@ public struct GuestPassCard: View {
         .accessibilityValue(
             String(localized: "\(account.subtitle). Ethereum address \(account.address)")
         )
-        .accessibilityHint(onTap == nil ? "" : String(localized: "Opens Auralis with this guest pass account."))
+        .accessibilityHint(
+            String(localized: "Opens Auralis with this guest pass account."),
+            isEnabled: onTap != nil
+        )
         .accessibilityAddTraits(onTap == nil ? [] : .isButton)
-        .onChange(of: accessibilityReduceMotion, initial: true) { _, reduceMotion in
-            guard reduceMotion else {
-                withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
-                    isAnimating = true
-                }
+        .onChange(of: shouldAnimateBorder, initial: true) { _, shouldAnimate in
+            guard shouldAnimate else {
+                isAnimating = false
                 return
             }
 
-            isAnimating = false
+            if !isAnimating {
+                withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
+                    isAnimating = true
+                }
+            }
         }
     }
 
@@ -133,7 +142,7 @@ public struct GuestPassCard: View {
         }
         .auraSurfaceBackground(style: .regular, cornerRadius: 30)
         .overlay {
-            if !needsOpaqueSurface {
+            if shouldAnimateBorder && !needsOpaqueSurface {
                 GeometryReader { geometry in
                     let maskSide = max(geometry.size.width, geometry.size.height) * 1.6
                     let travel = max(geometry.size.width, geometry.size.height) * 0.35

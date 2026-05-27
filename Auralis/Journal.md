@@ -1,5 +1,19 @@
 # Journal
 
+## 2026-05-27 — Phase 3 Had To Prove Its Checkmarks
+
+Phase 3 looked finished on paper, but the proof was too thin around the places users actually get interrupted: validation errors, sheets, and destructive confirmations. The UI test harness now has two deliberate launch doors: one clean gateway and one in-memory authenticated account. That lets the accessibility audit walk into gateway validation, the simulator scanner fallback, account removal confirmation, and the settings reset confirmation without borrowing whatever state happened to live in the simulator.
+
+The gateway validation path also stopped pretending a string was a focus target. The address field already participates in SwiftUI accessibility focus, so validation failure now sets that focus and posts a layout-change notification instead of sending a screen-change event with only the words "Ethereum address" attached. Lesson learned: a checked box is not evidence. A checked box plus the artifact you can grep, build, and operate is evidence.
+
+## 2026-05-26 — Phase 3 Made Forms Speak Up
+
+Phase 3 was the accessibility pass for the spots where users make choices, fix mistakes, and move through small bits of navigation. The gateway stopped doing scale transitions when Reduce Motion is on, destructive account removal now tells VoiceOver that confirmation comes next, and the simulator QR scanner finally has a real "Use simulated code" button instead of asking everyone to understand a tap-anywhere gesture.
+
+The useful center of gravity was announcements. Search history deletion and clear-all actions now confirm themselves, playlist title validation points focus back to the title field and says what failed, and `AuraAccessibilityAnnouncer` grew `screenChanged` and `layoutChanged` APIs so future screens have a proper front desk instead of one announcement-only megaphone.
+
+The visual accommodations stayed intentionally narrow. Local one-off materials now fall back to the existing Aura surface color when Reduce Transparency is enabled, and guest-pass shimmer only appears when motion and transparency settings both allow it. Lesson learned: form accessibility is not just labels. It is the whole conversation: what changed, what needs attention, and which control can fix it.
+
 ## 2026-05-26 — Phase 2 Put The Guardrails In The Furniture
 
 Phase 2 was a design-system pass, which means the interesting part was not one flashy screen. It was making the shared pieces behave well before feature code gets a chance to forget. `AuraActionButton` now scales its padding with Dynamic Type while keeping the 44pt tap floor, `AuraPill` has explicit lanes for visible labels, meaningful icon-only status, and decorative icons, and `AuraTrustLabel` stops chopping off the very warning text it exists to communicate.

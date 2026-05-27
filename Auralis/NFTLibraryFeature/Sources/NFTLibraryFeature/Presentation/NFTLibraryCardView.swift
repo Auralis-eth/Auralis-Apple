@@ -142,7 +142,7 @@ public struct NFTLibraryCardButtons: View {
                     Button {
                         copyNFTIdentifier()
                     } label: {
-                        Label("Copy ID", systemImage: "doc.on.doc")
+                        Label("Copy token ID", systemImage: "doc.on.doc")
                     }
                 } label: {
                     SystemImage("ellipsis")
@@ -150,6 +150,10 @@ public struct NFTLibraryCardButtons: View {
                 }
                 .frame(minWidth: 44, minHeight: 44)
                 .accessibilityLabel(String(localized: "More actions"))
+                .accessibilityInputLabels([
+                    String(localized: "More actions"),
+                    String(localized: "Copy token ID")
+                ])
                 .accessibilityHint(String(localized: "Shows actions for this NFT"))
             }
             .font(.title2)

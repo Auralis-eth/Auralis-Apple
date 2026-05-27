@@ -12,15 +12,18 @@ public struct AddressTextField: View {
     @Binding private var address: String
     private let validationMessage: String?
     private let isFocused: FocusState<Bool>.Binding
+    private let isAccessibilityFocused: AccessibilityFocusState<Bool>.Binding
 
     public init(
         address: Binding<String>,
         validationMessage: String? = nil,
-        isFocused: FocusState<Bool>.Binding
+        isFocused: FocusState<Bool>.Binding,
+        isAccessibilityFocused: AccessibilityFocusState<Bool>.Binding
     ) {
         self._address = address
         self.validationMessage = validationMessage
         self.isFocused = isFocused
+        self.isAccessibilityFocused = isAccessibilityFocused
     }
 
     public var body: some View {
@@ -37,6 +40,7 @@ public struct AddressTextField: View {
             .font(.body)
             .foregroundStyle(Color.textPrimary)
             .focused(isFocused)
+            .accessibilityFocused(isAccessibilityFocused)
             .accessibilityLabel(String(localized: "Ethereum address"))
             .accessibilityValue(address.isEmpty ? String(localized: "Empty") : address)
             .accessibilityHint(validationMessage ?? String(localized: "Enter an ENS name or EVM wallet address."))
@@ -302,6 +306,7 @@ public struct AddressInputView: View {
     @State private var activeSubmissionID = UUID()
     @State private var pendingENSMappingChange: PendingENSMappingChange?
     @FocusState private var isAddressFieldFocused: Bool
+    @AccessibilityFocusState private var isAddressFieldAccessibilityFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     private let dependencies: AccountsGatewayDependencies
@@ -339,10 +344,11 @@ public struct AddressInputView: View {
             selectGuestPass: selectGuestPass,
             accountActivator: dependencies.accountActivator,
             isAddressFieldFocused: $isAddressFieldFocused,
+            isAddressFieldAccessibilityFocused: $isAddressFieldAccessibilityFocused,
             onAccountActivated: onAccountActivated
         )
         .background(Color.surface.opacity(0.08))
-        .transition(.scale.combined(with: .opacity))
+        .transition(accessibilityReduceMotion ? .opacity : .scale.combined(with: .opacity))
         .alert(alertTitle, isPresented: $showingAlert) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -407,8 +413,10 @@ public struct AddressInputView: View {
         alertTitle = title
         alertMessage = message
         showingAlert = true
-        AuraAccessibilityAnnouncer.announce(message)
         isAddressFieldFocused = true
+        isAddressFieldAccessibilityFocused = true
+        AuraAccessibilityAnnouncer.announce(message)
+        AuraAccessibilityAnnouncer.layoutChanged(nil)
         haptics.notification(feedback)
     }
 
@@ -578,6 +586,7 @@ private struct AddressEntryContentView: View {
     let selectGuestPass: (String) -> Void
     let accountActivator: any AccountActivating
     let isAddressFieldFocused: FocusState<Bool>.Binding
+    let isAddressFieldAccessibilityFocused: AccessibilityFocusState<Bool>.Binding
     let onAccountActivated: @MainActor (EOAccount, String?) -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -659,7 +668,8 @@ private struct AddressEntryContentView: View {
                 AddressTextField(
                     address: $address,
                     validationMessage: validationMessage,
-                    isFocused: isAddressFieldFocused
+                    isFocused: isAddressFieldFocused,
+                    isAccessibilityFocused: isAddressFieldAccessibilityFocused
                 )
             }
         } else {
@@ -674,7 +684,8 @@ private struct AddressEntryContentView: View {
                     AddressTextField(
                         address: $address,
                         validationMessage: validationMessage,
-                        isFocused: isAddressFieldFocused
+                        isFocused: isAddressFieldFocused,
+                        isAccessibilityFocused: isAddressFieldAccessibilityFocused
                     )
                 }
 
@@ -688,7 +699,8 @@ private struct AddressEntryContentView: View {
                     AddressTextField(
                         address: $address,
                         validationMessage: validationMessage,
-                        isFocused: isAddressFieldFocused
+                        isFocused: isAddressFieldFocused,
+                        isAccessibilityFocused: isAddressFieldAccessibilityFocused
                     )
                 }
             }
@@ -1283,6 +1295,7 @@ private struct AccountRow: View {
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
             .accessibilityLabel(String(localized: "Remove account \(account.address.accountFeatureDisplayAddress)"))
+            .accessibilityHint(String(localized: "Asks for confirmation before removing this saved account from the device."))
             .accessibilityIdentifier("accounts.remove.\(account.address)")
         }
         .padding(.vertical, 4)

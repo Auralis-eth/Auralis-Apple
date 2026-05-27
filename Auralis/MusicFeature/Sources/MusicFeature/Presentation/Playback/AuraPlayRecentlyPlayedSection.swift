@@ -6,6 +6,7 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
     private let initialLimit = 20
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var accessibilityReduceTransparency
     @State private var isClearing = false
 
     private var items: [AuraPlayRecentlyPlayedItem] {
@@ -14,6 +15,10 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
 
     private var haptics: AuraHaptics {
         AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
+    }
+
+    private var emptyStateBackground: AnyShapeStyle {
+        accessibilityReduceTransparency ? AnyShapeStyle(Color.surface) : AnyShapeStyle(.ultraThinMaterial)
     }
 
     var body: some View {
@@ -44,7 +49,7 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(12)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .background(emptyStateBackground, in: RoundedRectangle(cornerRadius: 12))
             } else {
                 if dynamicTypeSize.isAccessibilitySize {
                     LazyVStack(spacing: 12) {

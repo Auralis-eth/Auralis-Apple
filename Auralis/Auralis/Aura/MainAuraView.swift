@@ -19,7 +19,7 @@ struct MainAuraView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var accounts: [EOAccount]
 
-    @State private var router = AppRouter()
+    @State private var router: AppRouter
     @State private var nftService: NFTService
     @State private var modeState: ModeState
     @State private var audioEngine: AudioEngine?
@@ -41,6 +41,7 @@ struct MainAuraView: View {
     init() {
         self.init(
             dependencies: .live,
+            tabBarVisibility: .live,
             primaryStoreInitializationErrorMessage: nil
         )
     }
@@ -48,10 +49,12 @@ struct MainAuraView: View {
     @MainActor
     init(
         dependencies: ShellBootstrapDependencies,
+        tabBarVisibility: AppTabBarVisibility = .live,
         primaryStoreInitializationErrorMessage: String? = nil
     ) {
         self.dependencies = dependencies
         self.primaryStoreInitializationErrorMessage = primaryStoreInitializationErrorMessage
+        _router = State(initialValue: AppRouter(tabBarVisibility: tabBarVisibility))
         _nftService = State(initialValue: dependencies.nftServiceFactory())
         _modeState = State(initialValue: dependencies.modeStateFactory())
         let musicRuntime = dependencies.makeMusicRuntime()
@@ -84,6 +87,7 @@ struct MainAuraView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "Limited local storage warning"))
+                .accessibilityValue(primaryStoreInitializationErrorMessage)
                 .accessibilityHint(String(localized: "Dismisses the local storage warning"))
             }
         }

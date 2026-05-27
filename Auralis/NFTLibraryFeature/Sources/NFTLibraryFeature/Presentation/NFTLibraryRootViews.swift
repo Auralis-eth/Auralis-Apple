@@ -199,7 +199,7 @@ public struct NFTLibraryNewsFeedRootView: View {
         .accessibilityAction(named: "Open details") {
             actions.openNFT(nft.id)
         }
-        .accessibilityAction(named: "Copy token ID") {
+        .accessibilityAction(named: String(localized: "Copy token ID")) {
             copyNFTIdentifier(nft.id)
         }
     }

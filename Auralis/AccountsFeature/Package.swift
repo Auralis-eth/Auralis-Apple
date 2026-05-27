@@ -18,7 +18,7 @@ let package = Package(
         .package(path: "../AccountsCore"),
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../AuraUI"),
-        .package(url: "https://github.com/twoStraws/CodeScanner", from: "2.5.2"),
+        .package(path: "../CodeScanner"),
     ],
     targets: [
         .target(

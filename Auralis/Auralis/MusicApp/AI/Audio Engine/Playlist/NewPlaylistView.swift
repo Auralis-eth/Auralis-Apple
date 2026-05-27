@@ -11,9 +11,16 @@ import UIKit
 
 struct NewPlaylistView: View {
     private static let logger = Logger(subsystem: "Auralis", category: "NewPlaylistView")
+
+    private enum PlaylistField: Hashable {
+        case title
+        case description
+    }
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.supportsImagePlayground) private var supportsImagePlayground
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @State private var title: String = ""
     @State private var descriptionText: String = ""
@@ -32,7 +39,7 @@ struct NewPlaylistView: View {
 
     let onSuccess: (String) -> Void
 
-    @FocusState private var titleFieldFocused: Bool
+    @FocusState private var focusedField: PlaylistField?
 
     private var trimmedTitle: String {
         title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -40,6 +47,10 @@ struct NewPlaylistView: View {
 
     private var isTitleValid: Bool {
         !trimmedTitle.isEmpty
+    }
+
+    private var processingBackground: AnyShapeStyle {
+        reduceTransparency ? AnyShapeStyle(Color.surface) : AnyShapeStyle(.ultraThinMaterial)
     }
 
     var body: some View {
@@ -53,7 +64,7 @@ struct NewPlaylistView: View {
                                 .scaledToFill()
                                 .frame(width: 150, height: 150)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .accessibilityLabel(NSLocalizedString("Selected Cover Image", comment: "Accessibility label for selected cover image"))
+                                .accessibilityLabel(String(localized: "Selected Cover Image"))
                         } else {
                             Button {
                                 sourceMenuPresented = true
@@ -65,24 +76,27 @@ struct NewPlaylistView: View {
                                         SystemImage("camera")
                                             .font(.system(size: 50))
                                             .foregroundColor(.secondary)
+                                            .accessibilityHidden(true)
                                     )
-                                    .accessibilityLabel(NSLocalizedString("No Cover Image Selected", comment: "Accessibility label for no cover image"))
                             }
+                            .accessibilityLabel(String(localized: "Choose playlist cover"))
+                            .accessibilityValue(String(localized: "No cover selected"))
+                            .accessibilityHint(String(localized: "Opens cover source options"))
                             .contextMenu {
                                 Button {
                                     startFromCamera()
                                 } label: {
-                                    Label(NSLocalizedString("Start from Camera", comment: "Context menu option to start from camera"), systemImage: "camera")
+                                    Label(String(localized: "Start from Camera"), systemImage: "camera")
                                 }
                                 Button {
                                     startFromPhoto()
                                 } label: {
-                                    Label(NSLocalizedString("Start from Photo", comment: "Context menu option to start from photo"), systemImage: "photo")
+                                    Label(String(localized: "Start from Photo"), systemImage: "photo")
                                 }
                                 Button {
                                     startFromBlank()
                                 } label: {
-                                    Label(NSLocalizedString("Start from Blank", comment: "Context menu option to start from blank"), systemImage: "sparkles")
+                                    Label(String(localized: "Start from Blank"), systemImage: "sparkles")
                                 }
                             }
                         }
@@ -98,15 +112,21 @@ struct NewPlaylistView: View {
                                     .padding()
                                     .background(Color.surface)
                             }
+                            .accessibilityLabel(String(localized: "Generate cover art"))
+                            .accessibilityHint(String(localized: "Opens Image Playground for this playlist cover"))
+                            .accessibilityInputLabels([
+                                String(localized: "Generate cover art"),
+                                String(localized: "Create cover")
+                            ])
 
                         } else {
                             PhotosPicker(
                                 selection: $photoItem,
                                 matching: .images,
                                 photoLibrary: .shared()) {
-                                    Text(NSLocalizedString("Choose Cover", comment: "Button label to choose cover image"))
+                                    Text(String(localized: "Choose Cover"))
                                 }
-                                .accessibilityLabel(NSLocalizedString("Choose Cover Image", comment: "Accessibility label for choose cover image button"))
+                                .accessibilityLabel(String(localized: "Choose Cover Image"))
                         }
                         Spacer()
                     }
@@ -114,73 +134,74 @@ struct NewPlaylistView: View {
 
                 Section {
                     VStack(alignment: .leading, spacing: 2) {
-                        TextField(NSLocalizedString("Title", comment: "Title field placeholder"), text: $title)
-                            .focused($titleFieldFocused)
+                        TextField(String(localized: "Title"), text: $title)
+                            .focused($focusedField, equals: .title)
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.sentences)
-                            .accessibilityLabel(NSLocalizedString("Title", comment: "Accessibility label for title field"))
+                            .accessibilityLabel(String(localized: "Title"))
                             .onSubmit {
                                 if isTitleValid {
-                                    descriptionFieldFocus = true
+                                    focusedField = .description
                                 }
                             }
 
                         if !isTitleValid && !title.isEmpty {
-                            Text(NSLocalizedString("Title is required", comment: "Error message for empty title"))
+                            Text(String(localized: "Title is required"))
                                 .foregroundColor(.red)
                                 .font(.caption)
-                                .accessibilityLabel(NSLocalizedString("Title is required", comment: "Accessibility label for title error message"))
+                                .accessibilityLabel(String(localized: "Title is required"))
                         }
                     }
 
                     TextEditor(text: $descriptionText)
+                        .focused($focusedField, equals: .description)
                         .frame(minHeight: 80, maxHeight: 150)
-                        .accessibilityLabel(NSLocalizedString("Description", comment: "Accessibility label for description field"))
+                        .accessibilityLabel(String(localized: "Description"))
                 }
             }
             .overlay(alignment: .center) {
                 if isProcessingImage {
-                    ProgressView(NSLocalizedString("Processing…", comment: "Progress while processing image"))
+                    ProgressView(String(localized: "Processing..."))
                         .padding(16)
-                        .background(.ultraThinMaterial)
+                        .background(processingBackground)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .accessibilityLabel(NSLocalizedString("Processing", comment: "Accessibility label for processing indicator"))
+                        .accessibilityLabel(String(localized: "Processing"))
                 }
             }
             .disabled(isProcessingImage)
-            .navigationTitle(NSLocalizedString("New Playlist", comment: "Navigation title for new playlist view"))
+            .navigationTitle(String(localized: "New Playlist"))
             .navigationBarTitleDisplayMode(.inline)
-            .confirmationDialog(NSLocalizedString("Start From", comment: "Title for source selection dialog"), isPresented: $sourceMenuPresented, titleVisibility: .visible) {
-                Button(NSLocalizedString("Start from Camera", comment: "Dialog option")) { startFromCamera() }
-                Button(NSLocalizedString("Start from Photo", comment: "Dialog option")) { startFromPhoto() }
-                Button(NSLocalizedString("Start from Blank", comment: "Dialog option")) { startFromBlank() }
-                Button(NSLocalizedString("Cancel", comment: "Cancel button"), role: .cancel) { }
+            .confirmationDialog(String(localized: "Start From"), isPresented: $sourceMenuPresented, titleVisibility: .visible) {
+                Button(String(localized: "Start from Camera")) { startFromCamera() }
+                Button(String(localized: "Start from Photo")) { startFromPhoto() }
+                Button(String(localized: "Start from Blank")) { startFromBlank() }
+                Button(String(localized: "Cancel"), role: .cancel) { }
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button {
                         dismiss()
                     } label: {
-                        Text(NSLocalizedString("Cancel", comment: "Cancel button"))
+                        Text(String(localized: "Cancel"))
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
                         saveTapped()
                     } label: {
-                        Text(NSLocalizedString("Save", comment: "Save button"))
+                        Text(String(localized: "Save"))
                     }
-                    .disabled(!isTitleValid || isSaving)
+                    .disabled(isSaving)
                 }
             }
-            .alert(NSLocalizedString("Error", comment: "Alert title for error"), isPresented: Binding(get: {
+            .alert(String(localized: "Error"), isPresented: Binding(get: {
                 errorMessage != nil
             }, set: { newValue in
                 if !newValue {
                     errorMessage = nil
                 }
             })) {
-                Button(NSLocalizedString("OK", comment: "OK button")) {
+                Button(String(localized: "OK")) {
                     errorMessage = nil
                 }
             } message: {
@@ -236,8 +257,6 @@ struct NewPlaylistView: View {
         return Image(uiImage: image)
     }
 
-    @FocusState private var descriptionFieldFocus: Bool
-
     private func startFromCamera() {
         showCameraSheet = true
     }
@@ -254,7 +273,10 @@ struct NewPlaylistView: View {
     private func saveTapped() {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            errorMessage = NSLocalizedString("Title is required", comment: "Error message for empty title")
+            let message = String(localized: "Title is required")
+            errorMessage = message
+            focusedField = .title
+            AuraAccessibilityAnnouncer.announce(message)
             return
         }
 

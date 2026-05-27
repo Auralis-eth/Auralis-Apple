@@ -195,6 +195,7 @@ struct SearchRootView: View {
                 try await historyStore.removeEntry(id: entry.id)
                 historyErrorMessage = nil
                 reloadHistory()
+                AuraAccessibilityAnnouncer.announce(String(localized: "Search deleted"))
             } catch {
                 handleHistoryWriteFailure(error, operation: "delete")
             }
@@ -207,6 +208,7 @@ struct SearchRootView: View {
                 try await historyStore.clear(accountAddress: currentAccountAddress)
                 historyErrorMessage = nil
                 reloadHistory()
+                AuraAccessibilityAnnouncer.announce(String(localized: "Search history cleared"))
             } catch {
                 handleHistoryWriteFailure(error, operation: "clear")
             }
