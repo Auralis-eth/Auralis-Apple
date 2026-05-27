@@ -358,3 +358,83 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
         .opacity(player.auraPlayPlaybackState == .loading ? 0.85 : 1.0)
     }
 }
+
+#Preview("Now Playing Large Text") {
+    AuraPlayNowPlayingView(player: AuraPlayPreviewPlayer())
+        .environment(\.dynamicTypeSize, .accessibility5)
+}
+
+#Preview("Now Playing Dark Mode") {
+    AuraPlayNowPlayingView(player: AuraPlayPreviewPlayer())
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Now Playing High Contrast Large Text") {
+    AuraPlayNowPlayingView(player: AuraPlayPreviewPlayer())
+        .environment(\.dynamicTypeSize, .accessibility5)
+}
+
+#Preview("Now Playing Reduce Transparency") {
+    AuraPlayNowPlayingView(player: AuraPlayPreviewPlayer())
+}
+
+#Preview("Now Playing Reduce Motion and Transparency") {
+    AuraPlayNowPlayingView(player: AuraPlayPreviewPlayer())
+}
+
+#Preview("Now Playing Light Increased Contrast") {
+    AuraPlayNowPlayingView(player: AuraPlayPreviewPlayer())
+        .preferredColorScheme(.light)
+}
+
+@MainActor
+private final class AuraPlayPreviewPlayer: AuraPlayPlaybackPresenting {
+    let auraPlayCurrentTrack: AuraPlayTrack? = AuraPlayTrack(
+        id: "preview-current",
+        title: "Preview Signal",
+        artist: "Auralis QA",
+        duration: 245,
+        imageURLString: nil
+    )
+    let auraPlayPlaybackState: AuraPlayPlaybackState = .playing
+    let auraPlayProgress: TimeInterval = 72
+    let auraPlayNextPreviewTrack: AuraPlayTrack? = AuraPlayTrack(
+        id: "preview-next",
+        title: "Next Fixture",
+        artist: "Auralis QA",
+        duration: 198,
+        imageURLString: nil
+    )
+    let auraPlayPreviousPreviewTrack: AuraPlayTrack? = AuraPlayTrack(
+        id: "preview-previous",
+        title: "Previous Fixture",
+        artist: "Auralis QA",
+        duration: 211,
+        imageURLString: nil
+    )
+
+    func auraPlayPlay() throws {}
+    func auraPlayPause() {}
+    func auraPlayResume() throws {}
+    func auraPlaySeek(to time: TimeInterval) throws {}
+    func auraPlaySkipForward() {}
+    func auraPlaySkipBackward() {}
+    func auraPlayNext() async {}
+    func auraPlayPrevious() async {}
+
+    func auraPlayRecentlyPlayed(limit: Int) -> [AuraPlayRecentlyPlayedItem] {
+        [
+            AuraPlayRecentlyPlayedItem(
+                id: "recent-preview",
+                title: "Recently Played Fixture",
+                artist: "Auralis QA",
+                imageURLString: nil,
+                lastPlayed: Date(timeIntervalSince1970: 1_800_000_000)
+            )
+        ]
+    }
+
+    func auraPlayPlayRecentlyPlayed(id: String) async throws {}
+    func auraPlayRemoveRecentlyPlayed(id: String) {}
+    func auraPlayClearRecentlyPlayed() {}
+}

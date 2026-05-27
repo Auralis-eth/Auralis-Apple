@@ -55,9 +55,12 @@ struct NewsFeedListView: View {
                         .padding(8)
                         .frame(minWidth: 44, minHeight: 44)
                 }
-                .accessibilityLabel("Sort NFTs")
-                .accessibilityHint("Changes the news feed sort order")
-                .accessibilityInputLabels(["Sort", "Sort NFTs"])
+                .accessibilityLabel(String(localized: "Sort NFTs"))
+                .accessibilityHint(String(localized: "Changes the news feed sort order"))
+                .accessibilityInputLabels([
+                    String(localized: "Sort"),
+                    String(localized: "Sort NFTs")
+                ])
             }
 
             ToolbarSpacer(.flexible)
@@ -71,9 +74,12 @@ struct NewsFeedListView: View {
                     SystemImage("arrow.clockwise")
                 })
                 .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("Refresh NFTs")
-                .accessibilityHint("Fetches the latest NFTs for this wallet")
-                .accessibilityInputLabels(["Refresh", "Refresh NFTs"])
+                .accessibilityLabel(String(localized: "Refresh NFTs"))
+                .accessibilityHint(String(localized: "Fetches the latest NFTs for this wallet"))
+                .accessibilityInputLabels([
+                    String(localized: "Refresh"),
+                    String(localized: "Refresh NFTs")
+                ])
                 .disabled(nftService.isLoading)
             }
         }

@@ -402,7 +402,7 @@ extension GasPriceEstimateView {
             }
             .padding(.top, 8)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(chainName) gas tracker")
+            .accessibilityLabel(String(localized: "\(chainName) gas tracker"))
             .accessibilityValue(accessibilityValue)
         }
 
@@ -640,15 +640,15 @@ extension GasPriceEstimateView {
                 SecondaryText("Congestion")
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Congestion")
-            .accessibilityValue(estimate.congestionLevel.displayName)
+            .accessibilityLabel(String(localized: "Congestion"))
+            .accessibilityValue(String(localized: "\(estimate.congestionLevel.displayName)"))
         }
 
         private var activitySummary: some View {
             SecondaryText("Activity: \(estimate.networkCongestionDisplay)")
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Activity")
-                .accessibilityValue(estimate.networkCongestionDisplay)
+                .accessibilityLabel(String(localized: "Activity"))
+                .accessibilityValue(String(localized: "\(estimate.networkCongestionDisplay)"))
         }
     }
 
@@ -708,8 +708,8 @@ extension GasPriceEstimateView {
                 }
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(urgency.displayName)
-            .accessibilityValue("\(urgency.description). Maximum fee \(feeDetails.maxFeeDisplay). Wait time \(feeDetails.waitTimeDisplay)")
+            .accessibilityLabel(String(localized: "\(urgency.displayName)"))
+            .accessibilityValue(String(localized: "\(urgency.description). Maximum fee \(feeDetails.maxFeeDisplay). Wait time \(feeDetails.waitTimeDisplay)"))
         }
 
         private var labelContent: some View {
@@ -754,7 +754,7 @@ extension GasPriceEstimateView {
                 }
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(title)
+            .accessibilityLabel(String(localized: "\(title)"))
             .accessibilityValue(accessibilityValue)
         }
 
@@ -771,7 +771,7 @@ extension GasPriceEstimateView {
                     SystemImage(trend.icon)
                         .foregroundStyle(trend.color)
                         .font(.caption)
-                        .accessibilityLabel(trendAccessibilityLabel(for: trend))
+                        .accessibilityLabel(String(localized: "\(trendAccessibilityLabel(for: trend))"))
                 }
             }
         }

@@ -23,11 +23,15 @@ public struct NFTLibrarySortButton: View {
                 Label(title, systemImage: "arrow.up.arrow.down")
             }
         }
-        .accessibilityValue(sortOrder.keyPath == field.descriptor().keyPath ? selectedAccessibilityValue : "Not selected")
+        .accessibilityValue(
+            sortOrder.keyPath == field.descriptor().keyPath
+                ? selectedAccessibilityValue
+                : String(localized: "Not selected")
+        )
     }
 
     private var selectedAccessibilityValue: String {
-        sortOrder.order == .forward ? "Ascending" : "Descending"
+        sortOrder.order == .forward ? String(localized: "Ascending") : String(localized: "Descending")
     }
 
     private func updateSortOrder() {

@@ -212,6 +212,36 @@ public struct AccountsGatewayView: View {
     .preferredColorScheme(.dark)
 }
 
+#Preview("Gateway Large Text (Canvas Increase Contrast)") {
+    AccountsGatewayView(
+        dependencies: .preview,
+        onAccountActivated: { _, _ in }
+    )
+    .environment(\.dynamicTypeSize, .accessibility5)
+}
+
+#Preview("Gateway (Canvas Reduce Transparency)") {
+    AccountsGatewayView(
+        dependencies: .preview,
+        onAccountActivated: { _, _ in }
+    )
+}
+
+#Preview("Gateway (Canvas Reduce Motion + Transparency)") {
+    AccountsGatewayView(
+        dependencies: .preview,
+        onAccountActivated: { _, _ in }
+    )
+}
+
+#Preview("Gateway Light (Canvas Increase Contrast)") {
+    AccountsGatewayView(
+        dependencies: .preview,
+        onAccountActivated: { _, _ in }
+    )
+    .preferredColorScheme(.light)
+}
+
 private extension AccountsGatewayDependencies {
     static var preview: AccountsGatewayDependencies {
         AccountsGatewayDependencies(
@@ -447,7 +477,7 @@ public struct AddressInputView: View {
 
         do {
             isSubmitting = true
-            AuraAccessibilityAnnouncer.announce("Resolving account")
+            AuraAccessibilityAnnouncer.announce(String(localized: "Resolving account"))
             let activation: AccountActivationResult
 
             if isENSInput {
@@ -934,8 +964,8 @@ private struct AccountTorchToggleButton: View {
                 .fill(Color.surface.opacity(0.5))
         )
         .accessibilityLabel(String(localized: "Torch"))
-        .accessibilityValue(torchOn ? "On" : "Off")
-        .accessibilityHint(torchOn ? "Turns the torch off" : "Turns the torch on")
+        .accessibilityValue(torchOn ? String(localized: "On") : String(localized: "Off"))
+        .accessibilityHint(torchOn ? String(localized: "Turns the torch off") : String(localized: "Turns the torch on"))
     }
 }
 
@@ -1268,8 +1298,8 @@ private struct AccountRow: View {
             .buttonStyle(.plain)
             .frame(minHeight: 44)
             .contentShape(Rectangle())
-            .accessibilityLabel(account.name ?? account.address.accountFeatureDisplayAddress)
-            .accessibilityValue(isActive ? "Active account" : "Inactive account")
+            .accessibilityLabel(String(localized: "\(account.name ?? account.address.accountFeatureDisplayAddress)"))
+            .accessibilityValue(isActive ? String(localized: "Active account") : String(localized: "Inactive account"))
             .accessibilityAddTraits(isActive ? .isSelected : [])
             .accessibilityIdentifier("accounts.select.\(account.address)")
 

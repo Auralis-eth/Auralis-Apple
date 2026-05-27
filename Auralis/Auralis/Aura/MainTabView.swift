@@ -667,6 +667,50 @@ private struct MainTabPreviewWrapper: View {
         .modelContainer(PreviewModelContainers.primary())
 }
 
+#Preview("Home Large Text (Canvas Increase Contrast)") {
+    MainTabPreviewWrapper(initialTab: .home)
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Home (Canvas Reduce Motion + Transparency)") {
+    MainTabPreviewWrapper(initialTab: .home)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Home (Canvas Reduce Transparency)") {
+    MainTabPreviewWrapper(initialTab: .home)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Home Light (Canvas Increase Contrast)") {
+    MainTabPreviewWrapper(initialTab: .home)
+        .preferredColorScheme(.light)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Search Large Text (Canvas Increase Contrast)") {
+    MainTabPreviewWrapper(initialTab: .search)
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Search (Canvas Reduce Motion + Transparency)") {
+    MainTabPreviewWrapper(initialTab: .search)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Search (Canvas Reduce Transparency)") {
+    MainTabPreviewWrapper(initialTab: .search)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Search Light (Canvas Increase Contrast)") {
+    MainTabPreviewWrapper(initialTab: .search)
+        .preferredColorScheme(.light)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
 #Preview("NewsFeed Large Text") {
     MainTabPreviewWrapper(initialTab: .news)
         .environment(\.dynamicTypeSize, .accessibility5)
@@ -691,6 +735,28 @@ private struct MainTabPreviewWrapper: View {
         .modelContainer(PreviewModelContainers.primary())
 }
 
+#Preview("Gas Large Text (Canvas Increase Contrast)") {
+    MainTabPreviewWrapper(initialTab: .gas)
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Gas (Canvas Reduce Motion + Transparency)") {
+    MainTabPreviewWrapper(initialTab: .gas)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Gas (Canvas Reduce Transparency)") {
+    MainTabPreviewWrapper(initialTab: .gas)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Gas Light (Canvas Increase Contrast)") {
+    MainTabPreviewWrapper(initialTab: .gas)
+        .preferredColorScheme(.light)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
 #Preview("Music Large Text") {
     MainTabPreviewWrapper(initialTab: .music)
         .environment(\.dynamicTypeSize, .accessibility5)
@@ -700,6 +766,28 @@ private struct MainTabPreviewWrapper: View {
 #Preview("Music Dark Mode") {
     MainTabPreviewWrapper(initialTab: .music)
         .preferredColorScheme(.dark)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Music Large Text (Canvas Increase Contrast)") {
+    MainTabPreviewWrapper(initialTab: .music)
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Music (Canvas Reduce Motion + Transparency)") {
+    MainTabPreviewWrapper(initialTab: .music)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Music (Canvas Reduce Transparency)") {
+    MainTabPreviewWrapper(initialTab: .music)
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("Music Light (Canvas Increase Contrast)") {
+    MainTabPreviewWrapper(initialTab: .music)
+        .preferredColorScheme(.light)
         .modelContainer(PreviewModelContainers.primary())
 }
 

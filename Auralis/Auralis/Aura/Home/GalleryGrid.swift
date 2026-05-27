@@ -82,8 +82,10 @@ struct GalleryGrid: View {
                                     .accessibilityHidden(true)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("Generated \(selectedScene.label) image, option \(index + 1) of \(images.count)")
-                            .accessibilityHint("Selects this image for the home background")
+                            .accessibilityLabel(
+                                String(localized: "Generated \(selectedScene.label) image, option \(index + 1) of \(images.count)")
+                            )
+                            .accessibilityHint(String(localized: "Selects this image for the home background"))
                             .accessibilityAddTraits(isSelected ? .isSelected : [])
                         }
                     }

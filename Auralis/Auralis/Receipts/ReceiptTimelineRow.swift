@@ -54,7 +54,7 @@ struct ReceiptTimelineRow: View {
                             String(correlationID.prefix(8)),
                             systemImage: "link",
                             emphasis: .accent,
-                            accessibilityLabel: "Correlation \(correlationID)"
+                            accessibilityLabel: String(localized: "Correlation \(correlationID)")
                         )
                     }
                 }
@@ -81,7 +81,7 @@ struct ReceiptTimelineRow: View {
     }
 
     private var accessibilityValue: String {
-        "\(record.statusTitle). \(record.trigger). \(record.scope). \(record.provenance)"
+        String(localized: "\(record.statusTitle). \(record.trigger). \(record.scope). \(record.provenance)")
     }
 
     private var hasCopyableCorrelationID: Bool {
@@ -100,6 +100,6 @@ struct ReceiptTimelineRow: View {
         #if canImport(UIKit)
         UIPasteboard.general.string = correlationID
         #endif
-        AuraAccessibilityAnnouncer.announce("Correlation ID copied")
+        AuraAccessibilityAnnouncer.announce(String(localized: "Correlation ID copied"))
     }
 }

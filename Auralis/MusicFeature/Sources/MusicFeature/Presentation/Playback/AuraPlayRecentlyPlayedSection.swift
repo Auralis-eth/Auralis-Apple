@@ -119,13 +119,13 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
         AuraPlayRecentlyPlayedMiniCard(item: item) {
             playTapped(item: item)
         }
-        .accessibilityAction(named: "Play") {
+        .accessibilityAction(named: String(localized: "Play")) {
             playTapped(item: item)
         }
-        .accessibilityAction(named: "Start over") {
+        .accessibilityAction(named: String(localized: "Start over")) {
             startOverTapped(item: item)
         }
-        .accessibilityAction(named: "Remove from Recently Played") {
+        .accessibilityAction(named: String(localized: "Remove from Recently Played")) {
             player.auraPlayRemoveRecentlyPlayed(id: item.id)
         }
         .contextMenu {
@@ -237,8 +237,8 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
         let title = item.title
         let played = relativeDescription(for: item.lastPlayed)
         if let artist = item.artist, !artist.isEmpty {
-            return "\(title), \(artist), \(played)"
+            return String(localized: "\(title), \(artist), \(played)")
         }
-        return "\(title), \(played)"
+        return String(localized: "\(title), \(played)")
     }
 }

@@ -106,6 +106,7 @@ This checklist audits whether Phase 0 looks and feels like a coherent product. I
 - [ ] Text remains readable at larger Dynamic Type sizes
 - [ ] Contrast is acceptable for primary content and controls
 - [ ] Important controls have accessible labels
+- [ ] Pre-ship grep catches bare accessibility copy: `grep -R "accessibility\\(Label\\|Value\\|Hint\\|InputLabels\\)(\\\"" Auralis AccountsFeature MusicFeature NFTLibraryFeature AuraUI`
 - [ ] Information is not conveyed by color alone
 - [ ] Long addresses, token values, and NFT names truncate gracefully
 

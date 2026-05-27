@@ -13,59 +13,98 @@ struct GlobalChromeView: View {
 
     var body: some View {
         AuraSurfaceCard(style: .soft, cornerRadius: 26, padding: 16) {
-            HStack {
-                accountButton
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 12) {
+                    accountButton
 
-                Spacer(minLength: 8)
-
-                AuraPill(
-                    snapshot.modeDisplay,
-                    systemImage: "eye",
-                    emphasis: .accent,
-                    imageSize: .title3.weight(.semibold),
-                    accessibilityLabel: snapshot.modeDisplay
-                )
-                .accessibilityHint(
-                    String(
-                        localized: "Shows the current viewing mode for this wallet."
-                    )
-                )
-
-                if let onOpenContextInspector {
-                    Button(action: onOpenContextInspector) {
-                        AuraPill(
-                            snapshot.freshnessLabel,
-                            systemImage: "clock.arrow.circlepath",
-                            emphasis: .accent,
-                            imageSize: .title3.weight(.semibold),
-                            accessibilityLabel: String(localized: "Wallet status")
-                        )
-                        .accessibilityHidden(true)
+                    HStack(alignment: .top, spacing: 8) {
+                        modePill
+                        contextInspectorButton
+                        searchButton
+                        Spacer(minLength: 0)
                     }
-                    .accessibilityLabel(String(localized: "Wallet status"))
-                    .accessibilityValue(snapshot.freshnessLabel)
-                    .accessibilityHint(
-                        String(
-                            localized: "Shows wallet details, sync status, and recent updates for \(snapshot.scopeSummary)."
-                        )
-                    )
                 }
+            } else {
+                HStack {
+                    accountButton
 
-                Button(action: onOpenSearch) {
-                    AuraPill(
-                        systemImage: "magnifyingglass",
-                        emphasis: .accent,
-                        imageSize: .title3.weight(.semibold),
-                        accessibilityLabel: String(localized: "Search")
-                    )
-                    .accessibilityHidden(true)
+                    Spacer(minLength: 8)
+
+                    modePill
+                    contextInspectorButton
+                    searchButton
                 }
-                .accessibilityLabel(String(localized: "Search"))
-                .accessibilityHint(String(localized: "Opens global search."))
-
             }
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private var modePill: some View {
+        AuraPill(
+            snapshot.modeDisplay,
+            systemImage: "eye",
+            emphasis: .accent,
+            imageSize: .title3.weight(.semibold),
+            accessibilityLabel: snapshot.modeDisplay
+        )
+        .accessibilityHint(
+            String(
+                localized: "Shows the current viewing mode for this wallet."
+            )
+        )
+    }
+
+    @ViewBuilder
+    private var contextInspectorButton: some View {
+        if let onOpenContextInspector {
+            Button(action: onOpenContextInspector) {
+                if dynamicTypeSize.isAccessibilitySize {
+                    Label(snapshot.freshnessLabel, systemImage: "clock.arrow.circlepath")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.primary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color(.systemBackground), in: Capsule())
+                        .overlay {
+                            Capsule()
+                                .strokeBorder(Color.primary.opacity(0.35), lineWidth: 1)
+                        }
+                        .accessibilityHidden(true)
+                } else {
+                    AuraPill(
+                        snapshot.freshnessLabel,
+                        systemImage: "clock.arrow.circlepath",
+                        emphasis: .accent,
+                        imageSize: .title3.weight(.semibold),
+                        accessibilityLabel: String(localized: "Wallet status")
+                    )
+                    .accessibilityHidden(true)
+                }
+            }
+            .accessibilityLabel(String(localized: "Wallet status"))
+            .accessibilityValue(snapshot.freshnessLabel)
+            .accessibilityHint(
+                String(
+                    localized: "Shows wallet details, sync status, and recent updates for \(snapshot.scopeSummary)."
+                )
+            )
+        }
+    }
+
+    private var searchButton: some View {
+        Button(action: onOpenSearch) {
+            AuraPill(
+                systemImage: "magnifyingglass",
+                emphasis: .accent,
+                imageSize: .title3.weight(.semibold),
+                accessibilityLabel: String(localized: "Search")
+            )
+            .accessibilityHidden(true)
+        }
+        .accessibilityLabel(String(localized: "Search"))
+        .accessibilityHint(String(localized: "Opens global search."))
     }
 
     private var accountButton: some View {

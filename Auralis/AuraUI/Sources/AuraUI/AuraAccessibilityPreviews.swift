@@ -44,3 +44,21 @@ private struct AuraComponentPreviewMatrix: View {
     AuraComponentPreviewMatrix()
         .preferredColorScheme(.dark)
 }
+
+#Preview("Aura Components Large Text (Canvas Increase Contrast)") {
+    AuraComponentPreviewMatrix()
+        .environment(\.dynamicTypeSize, .accessibility5)
+}
+
+#Preview("Aura Components (Canvas Reduce Transparency)") {
+    AuraComponentPreviewMatrix()
+}
+
+#Preview("Aura Components (Canvas Reduce Motion + Transparency)") {
+    AuraComponentPreviewMatrix()
+}
+
+#Preview("Aura Components Light (Canvas Increase Contrast)") {
+    AuraComponentPreviewMatrix()
+        .preferredColorScheme(.light)
+}

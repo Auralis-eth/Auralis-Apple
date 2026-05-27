@@ -78,6 +78,10 @@ struct SearchRootView: View {
         )
     }
 
+    private var shouldAutofocusQuery: Bool {
+        !ProcessInfo.processInfo.arguments.contains("-accessibility-audit")
+    }
+
     var body: some View {
         AuraScenicScreen(horizontalPadding: 12, verticalPadding: 12) {
             ScrollView {
@@ -132,7 +136,7 @@ struct SearchRootView: View {
         .navigationBarTitleDisplayMode(.large)
         .accessibilityIdentifier("search.root")
         .onAppear {
-            if query.isEmpty {
+            if shouldAutofocusQuery && query.isEmpty {
                 isQueryFieldFocused = true
             }
             reloadHistory()
@@ -265,7 +269,7 @@ struct SearchRootView: View {
         }
 
         announcedClassificationTitle = title
-        AuraAccessibilityAnnouncer.announce("Detected as \(title)")
+        AuraAccessibilityAnnouncer.announce(String(localized: "Detected as \(title)"))
     }
 
     static func makePresentation(
@@ -349,8 +353,8 @@ private struct SearchInputCard: View {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(Color.white.opacity(0.08))
                 )
-                .accessibilityLabel("Query")
-                .accessibilityHint("Search by ENS name, wallet address, contract, token symbol, NFT, or collection")
+                .accessibilityLabel(String(localized: "Query"))
+                .accessibilityHint(String(localized: "Search by ENS name, wallet address, contract, token symbol, NFT, or collection"))
                 .accessibilityValue(accessibilityValue)
                 .accessibilityIdentifier("search.queryField")
             }
@@ -358,7 +362,9 @@ private struct SearchInputCard: View {
     }
 
     private var accessibilityValue: String {
-        query.isEmpty ? "Empty" : "\(query). Detected as \(classification.kind.title)"
+        query.isEmpty
+            ? String(localized: "Empty")
+            : String(localized: "\(query). Detected as \(classification.kind.title)")
     }
 }
 
@@ -463,9 +469,9 @@ private struct SearchLocalMatchesCard: View {
                     .frame(minHeight: 44)
                     .contentShape(Rectangle())
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(match.kind.title), \(match.title)")
-                    .accessibilityValue(match.subtitle)
-                    .accessibilityHint("Opens this result")
+                    .accessibilityLabel(String(localized: "\(match.kind.title), \(match.title)"))
+                    .accessibilityValue(String(localized: "\(match.subtitle)"))
+                    .accessibilityHint(String(localized: "Opens this result"))
                     .accessibilityIdentifier("search.match.\(match.id)")
                 }
             }
@@ -506,8 +512,16 @@ private struct SearchHistoryCard: View {
 
                         Spacer(minLength: 12)
 
-                        Button("Clear All", action: onClearAll)
-                            .font(.caption.weight(.semibold))
+                        Button(action: onClearAll) {
+                            Text("Clear All")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.primary)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .padding(.horizontal, 8)
+                                .background(Color(.systemBackground), in: Capsule())
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     ForEach(historyEntries) { entry in
@@ -530,12 +544,13 @@ private struct SearchHistoryCard: View {
                             .frame(minHeight: 44)
                             .contentShape(Rectangle())
                             .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(entry.query)
-                            .accessibilityValue(entry.recordedAt.formatted(date: .abbreviated, time: .shortened))
-                            .accessibilityHint("Runs this recent search")
-                            .accessibilityAction(named: "Delete") {
+                            .accessibilityLabel(String(localized: "Recent search \(entry.query.accessibilitySpokenQuery)"))
+                            .accessibilityValue(String(localized: "\(entry.recordedAt.formatted(date: .abbreviated, time: .shortened))"))
+                            .accessibilityHint(String(localized: "Runs this recent search"))
+                            .accessibilityAction(named: String(localized: "Delete")) {
                                 onDelete(entry)
                             }
+                            .accessibilityIdentifier("search.history.\(entry.normalizedQuery)")
 
                             Button(role: .destructive) {
                                 onDelete(entry)
@@ -546,12 +561,18 @@ private struct SearchHistoryCard: View {
                             .buttonStyle(.plain)
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
-                            .accessibilityLabel("Delete \(entry.query)")
+                            .accessibilityLabel(String(localized: "Delete \(entry.query)"))
                         }
                     }
                 }
             }
         }
+    }
+}
+
+private extension String {
+    var accessibilitySpokenQuery: String {
+        replacingOccurrences(of: ".", with: " dot ")
     }
 }
 

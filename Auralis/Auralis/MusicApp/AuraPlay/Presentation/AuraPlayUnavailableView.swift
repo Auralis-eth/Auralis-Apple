@@ -38,7 +38,7 @@ struct AuraPlayUnavailableView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .frame(minHeight: 44)
-                    .accessibilityHint("Attempts to reopen AuraPlay storage and restart music services")
+                    .accessibilityHint(String(localized: "Attempts to reopen AuraPlay storage and restart music services"))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

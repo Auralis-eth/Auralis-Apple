@@ -53,23 +53,23 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
 
     private var currentTrackAccessibilityValue: String {
         let title = player.auraPlayCurrentTrack?.title?.isEmpty == false
-            ? player.auraPlayCurrentTrack?.title ?? "Unknown Title"
-            : "Unknown Title"
-        return "\(title), \(playbackStateAccessibilityValue)"
+            ? player.auraPlayCurrentTrack?.title ?? String(localized: "Unknown Title")
+            : String(localized: "Unknown Title")
+        return String(localized: "\(title), \(playbackStateAccessibilityValue)")
     }
 
     private var playbackStateAccessibilityValue: String {
         switch player.auraPlayPlaybackState {
         case .loading:
-            return "loading"
+            return String(localized: "loading")
         case .playing:
-            return "playing"
+            return String(localized: "playing")
         case .paused:
-            return "paused"
+            return String(localized: "paused")
         case .stopped:
-            return "stopped"
+            return String(localized: "stopped")
         case .error:
-            return "playback unavailable"
+            return String(localized: "playback unavailable")
         }
     }
 
@@ -280,28 +280,28 @@ private struct AuraPlayPlaybackStateButton: View {
     private var accessibilityLabel: String {
         switch sourceState {
         case .loading:
-            return "Loading playback"
+            return String(localized: "Loading playback")
         case .playing:
-            return "Pause"
+            return String(localized: "Pause")
         case .paused, .stopped:
-            return "Play"
+            return String(localized: "Play")
         case .error:
-            return "Playback unavailable"
+            return String(localized: "Playback unavailable")
         }
     }
 
     private var accessibilityHint: String {
         switch sourceState {
         case .loading:
-            return "Playback is loading"
+            return String(localized: "Playback is loading")
         case .playing:
-            return "Pauses the current track"
+            return String(localized: "Pauses the current track")
         case .paused:
-            return "Resumes the current track"
+            return String(localized: "Resumes the current track")
         case .stopped:
-            return "Starts playback"
+            return String(localized: "Starts playback")
         case .error:
-            return "Playback controls are unavailable"
+            return String(localized: "Playback controls are unavailable")
         }
     }
 }

@@ -177,7 +177,7 @@ public struct NFTLibraryNewsFeedRootView: View {
         #if canImport(UIKit)
         UIPasteboard.general.string = id
         #endif
-        AuraAccessibilityAnnouncer.announce("NFT ID copied")
+        AuraAccessibilityAnnouncer.announce(String(localized: "NFT ID copied"))
     }
 
     private func nftButton<Content: View>(
@@ -196,7 +196,7 @@ public struct NFTLibraryNewsFeedRootView: View {
             String(localized: "Collection: \(nft.collection?.name ?? "Unknown Collection")")
         )
         .accessibilityHint(String(localized: "Shows NFT details"))
-        .accessibilityAction(named: "Open details") {
+        .accessibilityAction(named: String(localized: "Open details")) {
             actions.openNFT(nft.id)
         }
         .accessibilityAction(named: String(localized: "Copy token ID")) {

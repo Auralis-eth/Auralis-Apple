@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-05-27 — Phase 5 Put The Audit On Rails
+
+Phase 5 was the testing and process pass: less stagecraft, more making sure the inspector can keep walking the same route tomorrow. The UI-test authenticated fixture now brings its own tiny suitcase: a wallet, a recent search, a receipt, and an NFT. That lets the accessibility audit open populated search history, receipt detail, NFT detail, and external-link confirmation without depending on whatever the simulator happened to remember from yesterday.
+
+The preview bench grew too. Gateway, Home, Search, Gas, Music, AuraUI components, and Now Playing now have named accessibility preview slots while keeping the old large-text and dark-mode checks. The important SDK lesson is that SwiftUI lets us read Increase Contrast, Reduce Motion, and Reduce Transparency, but not force them through `.environment`; those remain real-device settings, not fakeable preview switches. The checklist now carries a grep step for bare accessibility copy, because user-facing VoiceOver strings deserve the same localization discipline as visible text.
+
 ## 2026-05-27 — Phase 4 Taught The Quiet Pictures To Step Aside
 
 Phase 4 was the visual-accessibility cleanup: not a repaint, more like making sure the stage props stop introducing themselves during the performance. The empty-state icons in gallery, Home image preview, Now Playing, and Recently Played are decorative, so VoiceOver now walks past them and lands on the actual message. Those messages also get heading semantics, which gives screen-reader users a useful landmark instead of a symbol-name speed bump.
@@ -2174,3 +2180,11 @@ Loading states got the same treatment. Bootstrap now says what it is preparing, 
 The music and NFT surfaces taught the Dynamic Type lesson again: big text is not an edge case, it is a different layout contract. Mini-player controls stack under metadata at accessibility sizes, track names get room to breathe, playback sliders speak real time values, and the NFT feed swaps full-screen paging for a normal summary list when page-height cards would trap content.
 
 The lesson: accessibility metadata should live at the point of interaction. If state, validation, or progress changes somewhere else, users have to go hunting for it. Good UI keeps the announcement, focus, and action in the same neighborhood.
+
+## Accessibility Phase 5 Follow-Up: A Preview Name Is Not A Simulator Switch
+
+The Phase 5 checklist had two kinds of loose bolts. The first was straightforward: a few accessibility labels, hints, values, actions, and announcements were still raw English literals. Those strings are not backstage notes; they are user-facing copy for VoiceOver and Voice Control, so they now travel through `String(localized:)` like the visible text around them.
+
+The second bolt looked like a preview feature but was really a documentation trap. SwiftUI lets previews set Dynamic Type and preferred color scheme, but the active SDK exposes Increase Contrast, Reduce Motion, and Reduce Transparency as read-only environment values. Naming a preview "Reduce Transparency" does not flip the system setting any more than writing "raincoat" on a sweater makes it waterproof.
+
+So the preview names now say the quiet part out loud: use Canvas or device accessibility settings for those variants. The ticket also keeps manual evidence unchecked until someone actually runs those checks. The lesson: test scaffolding should never impersonate test evidence. A good checklist tells the next reviewer which switches the code can flip and which switches belong to the device.

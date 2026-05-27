@@ -43,6 +43,18 @@ final class AccessibilityAuditUITests: XCTestCase {
         try performAudit(in: app)
     }
 
+    func testHomeLargeTextAccessibilityAudit() throws {
+        let app = launchApp(
+            arguments: [
+                "-ui-testing-authenticated",
+                "-UIPreferredContentSizeCategoryName",
+                "UICTContentSizeCategoryAccessibilityXXXL"
+            ]
+        )
+        try selectTab("Home", in: app)
+        try performAudit(in: app)
+    }
+
     func testAccountSwitcherRemovalConfirmationAccessibilityAudit() throws {
         let app = launchApp(arguments: ["-ui-testing-authenticated"])
         try selectTab("Home", in: app)
@@ -71,6 +83,14 @@ final class AccessibilityAuditUITests: XCTestCase {
         try performAudit(in: app)
     }
 
+    func testPopulatedSearchHistoryAccessibilityAudit() throws {
+        let app = launchApp(arguments: ["-ui-testing-authenticated", "-ui-testing-search-tabs"])
+        try selectTab("Search", in: app)
+
+        XCTAssertTrue(app.descendants(matching: .any)["search.history.vitalik.eth"].waitForExistence(timeout: 5))
+        try performAudit(in: app)
+    }
+
     func testGasAccessibilityAudit() throws {
         let app = launchApp()
         try selectTab("Gas", in: app)
@@ -83,15 +103,67 @@ final class AccessibilityAuditUITests: XCTestCase {
         try performAudit(in: app)
     }
 
+    func testNowPlayingSheetAccessibilityAudit() throws {
+        let app = launchApp(arguments: ["-ui-testing-authenticated"])
+        try selectTab("Music", in: app)
+
+        let nowPlayingButton = app.buttons["Now Playing"]
+        guard nowPlayingButton.waitForExistence(timeout: 5) else {
+            throw XCTSkip("The current AuraPlay root does not expose a Now Playing control in this fixture.")
+        }
+
+        nowPlayingButton.tap()
+        XCTAssertTrue(app.navigationBars["Now Playing"].waitForExistence(timeout: 5))
+        try performAudit(in: app)
+    }
+
     func testNFTAccessibilityAudit() throws {
         let app = launchApp()
         try selectTab("NFTs", in: app)
         try performAudit(in: app)
     }
 
+    func testNFTActionMenuAccessibilityAudit() throws {
+        let app = launchApp(arguments: ["-ui-testing-authenticated"])
+        try selectTab("NewsFeed", in: app)
+
+        let moreActionsButton = app.buttons["More actions"]
+        guard moreActionsButton.waitForExistence(timeout: 5) else {
+            throw XCTSkip("The NFT action menu is not visible in this fixture.")
+        }
+
+        moreActionsButton.tap()
+        XCTAssertTrue(app.buttons["Copy token ID"].waitForExistence(timeout: 5))
+        try performAudit(in: app)
+    }
+
+    func testExternalLinkConfirmationAccessibilityAudit() throws {
+        let app = launchApp(arguments: ["-ui-testing-authenticated", "-ui-testing-nft-tabs"])
+        try openSeededNFTDetail(in: app)
+
+        let openSeaButton = app.buttons["externalLink.openSea"]
+        XCTAssertTrue(openSeaButton.waitForExistence(timeout: 5))
+        openSeaButton.tap()
+
+        XCTAssertTrue(app.otherElements["externalLink.confirmationSheet"].waitForExistence(timeout: 5))
+        try performAudit(in: app)
+    }
+
     func testReceiptsAccessibilityAudit() throws {
         let app = launchApp()
         try selectTab("Receipts", in: app)
+        try performAudit(in: app)
+    }
+
+    func testReceiptDetailAccessibilityAudit() throws {
+        let app = launchApp(arguments: ["-ui-testing-authenticated", "-ui-testing-receipts-tabs"])
+        try selectTab("Receipts", in: app)
+
+        let receiptRow = app.buttons["Seeded accessibility audit receipt"]
+        XCTAssertTrue(receiptRow.waitForExistence(timeout: 5))
+        receiptRow.tap()
+
+        XCTAssertTrue(app.navigationBars["Receipt"].waitForExistence(timeout: 5))
         try performAudit(in: app)
     }
 
@@ -119,6 +191,13 @@ final class AccessibilityAuditUITests: XCTestCase {
     }
 
     private func selectTab(_ title: String, in app: XCUIApplication) throws {
+        let tabIdentifier = tabAccessibilityIdentifier(for: title)
+        let identifiedTabButton = app.tabBars.buttons[tabIdentifier]
+        if identifiedTabButton.waitForExistence(timeout: 2) {
+            identifiedTabButton.tap()
+            return
+        }
+
         let tabButton = app.tabBars.buttons[title]
         if tabButton.waitForExistence(timeout: 5) {
             tabButton.tap()
@@ -131,11 +210,88 @@ final class AccessibilityAuditUITests: XCTestCase {
         }
 
         moreButton.tap()
-        let moreListButton = app.buttons[title]
-        guard moreListButton.waitForExistence(timeout: 5) else {
-            throw XCTSkip("The \(title) tab is not visible in the More tab list.")
+        let identifiedMoreListButton = app.buttons[tabIdentifier]
+        if identifiedMoreListButton.waitForExistence(timeout: 2) {
+            identifiedMoreListButton.tap()
+            return
         }
-        moreListButton.tap()
+
+        let identifiedMoreListElement = app.descendants(matching: .any)[tabIdentifier]
+        if identifiedMoreListElement.waitForExistence(timeout: 2) {
+            identifiedMoreListElement.tap()
+            return
+        }
+
+        let moreListButton = app.buttons[title]
+        if moreListButton.waitForExistence(timeout: 5) {
+            moreListButton.tap()
+            return
+        }
+
+        if openTabViaHomeLauncher(title, in: app) {
+            return
+        }
+
+        throw XCTSkip("The \(title) tab is not visible in the More tab list.")
+    }
+
+    private func openTabViaHomeLauncher(_ title: String, in app: XCUIApplication) -> Bool {
+        let launcherIdentifier: String
+        switch title {
+        case "Search":
+            launcherIdentifier = "home.openSearch"
+        case "Receipts":
+            launcherIdentifier = "home.openReceipts"
+        case "NFTs":
+            launcherIdentifier = "home.openNFTTokens"
+        default:
+            return false
+        }
+
+        if app.tabBars.buttons["Home"].waitForExistence(timeout: 2) {
+            app.tabBars.buttons["Home"].tap()
+        }
+
+        let launcher = app.buttons.matching(identifier: launcherIdentifier).element(boundBy: 0)
+        guard launcher.waitForExistence(timeout: 5) else {
+            return false
+        }
+
+        launcher.tap()
+        return true
+    }
+
+    private func tabAccessibilityIdentifier(for title: String) -> String {
+        switch title {
+        case "Home":
+            return "tab.home"
+        case "NewsFeed":
+            return "tab.news"
+        case "Gas":
+            return "tab.gas"
+        case "Music":
+            return "tab.music"
+        case "Receipts":
+            return "tab.receipts"
+        case "Profile":
+            return "tab.profile"
+        case "Search":
+            return "tab.search"
+        case "NFTs":
+            return "tab.nftTokens"
+        default:
+            return title
+        }
+    }
+
+    private func openSeededNFTDetail(in app: XCUIApplication) throws {
+        try selectTab("NFTs", in: app)
+
+        let seededNFTRow = app.buttons["nftTokens.row.a11y-seeded-nft"]
+        XCTAssertTrue(seededNFTRow.waitForExistence(timeout: 5))
+        seededNFTRow.tap()
+
+        XCTAssertTrue(app.otherElements["nft.detail.screen"].waitForExistence(timeout: 5))
     }
 
     private func performAudit(in app: XCUIApplication) throws {

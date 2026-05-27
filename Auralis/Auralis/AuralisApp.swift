@@ -8,6 +8,7 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
+import ReceiptStorage
 
 @main
 struct AuralisApp: App {
@@ -88,11 +89,25 @@ private extension AuralisApp {
 private enum UITestFixture: Equatable {
     case none
     case cleanGateway
-    case authenticatedAccount
+    case authenticatedAccount(tabBarVisibility: AppTabBarVisibility)
 
     init(arguments: [String]) {
         if arguments.contains("-ui-testing-authenticated") {
-            self = .authenticatedAccount
+            if arguments.contains("-ui-testing-search-tabs") {
+                self = .authenticatedAccount(
+                    tabBarVisibility: AppTabBarVisibility(tabBarTabs: [.home, .search])
+                )
+            } else if arguments.contains("-ui-testing-receipts-tabs") {
+                self = .authenticatedAccount(
+                    tabBarVisibility: AppTabBarVisibility(tabBarTabs: [.home, .receipts])
+                )
+            } else if arguments.contains("-ui-testing-nft-tabs") {
+                self = .authenticatedAccount(
+                    tabBarVisibility: AppTabBarVisibility(tabBarTabs: [.home, .nftTokens])
+                )
+            } else {
+                self = .authenticatedAccount(tabBarVisibility: .release)
+            }
         } else if arguments.contains("-reset-onboarding") {
             self = .cleanGateway
         } else {
@@ -105,7 +120,7 @@ private enum UITestFixture: Equatable {
     }
 
     var seededAccount: EOAccount? {
-        guard self == .authenticatedAccount else {
+        guard case .authenticatedAccount = self else {
             return nil
         }
 
@@ -121,8 +136,10 @@ private enum UITestFixture: Equatable {
         switch self {
         case .none:
             return .live
-        case .cleanGateway, .authenticatedAccount:
+        case .cleanGateway:
             return .release
+        case .authenticatedAccount(let tabBarVisibility):
+            return tabBarVisibility
         }
     }
 }
@@ -170,9 +187,116 @@ private struct UITestSeededRoot: View {
                 modelContext.insert(account)
             }
 
+            seedSearchHistory(accountAddress: address)
+            try seedReceipts(accountAddress: address)
+            seedNFT(accountAddress: address)
+
             try modelContext.save()
         } catch {
             assertionFailure("Failed to seed UI test account: \(error.localizedDescription)")
         }
+    }
+
+    private func seedSearchHistory(accountAddress: String) {
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress)
+        insertSearchHistoryRecordIfNeeded(accountAddressRawValue: normalizedAccountAddress)
+        insertSearchHistoryRecordIfNeeded(accountAddressRawValue: nil)
+        insertSearchHistoryRecordIfNeeded(accountAddressRawValue: "")
+    }
+
+    private func insertSearchHistoryRecordIfNeeded(accountAddressRawValue: String?) {
+        let normalizedQuery = "vitalik.eth"
+        let descriptor = FetchDescriptor<SearchHistoryRecord>(
+            predicate: #Predicate<SearchHistoryRecord> { record in
+                record.accountAddressRawValue == accountAddressRawValue &&
+                record.normalizedQuery == normalizedQuery
+            }
+        )
+
+        if (try? modelContext.fetch(descriptor))?.isEmpty == false {
+            return
+        }
+
+        modelContext.insert(
+            SearchHistoryRecord(
+                accountAddressRawValue: accountAddressRawValue,
+                normalizedQuery: normalizedQuery,
+                query: "vitalik.eth",
+                recordedAt: Date(timeIntervalSince1970: 1_800_000_000)
+            )
+        )
+    }
+
+    private func seedReceipts(accountAddress: String) throws {
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress)
+        let correlationID = "a11y-ui-test-correlation"
+        let descriptor = FetchDescriptor<StoredReceipt>(
+            predicate: #Predicate<StoredReceipt> { receipt in
+                receipt.correlationID == correlationID
+            }
+        )
+
+        if try !modelContext.fetch(descriptor).isEmpty {
+            return
+        }
+
+        modelContext.insert(
+            try StoredReceipt(
+                sequenceID: 1,
+                createdAt: Date(timeIntervalSince1970: 1_800_000_100),
+                actor: .system,
+                mode: .observe,
+                trigger: "ui_test.seed",
+                scope: "Accessibility fixture",
+                summary: "Seeded accessibility audit receipt",
+                provenance: "ui-tests",
+                isSuccess: true,
+                correlationID: correlationID,
+                timelineAccountAddress: normalizedAccountAddress,
+                timelineChainRawValue: Chain.ethMainnet.rawValue,
+                accountSequenceID: 1,
+                payloadHash: "a11y-payload-hash",
+                previousReceiptHash: "a11y-previous-hash",
+                chainHash: "a11y-chain-hash",
+                details: ReceiptPayload(values: [
+                    "accountAddress": .string(accountAddress),
+                    "chain": .string(Chain.ethMainnet.rawValue)
+                ])
+            )
+        )
+    }
+
+    private func seedNFT(accountAddress: String) {
+        let nftID = "a11y-seeded-nft"
+        let descriptor = FetchDescriptor<NFT>(
+            predicate: #Predicate<NFT> { nft in
+                nft.id == nftID
+            }
+        )
+
+        if (try? modelContext.fetch(descriptor))?.isEmpty == false {
+            return
+        }
+
+        modelContext.insert(
+            NFT(
+                id: nftID,
+                contract: NFT.Contract(address: "0x0000000000000000000000000000000000000001"),
+                tokenId: "1",
+                tokenType: "ERC721",
+                name: "Accessibility Seed NFT",
+                nftDescription: "Deterministic fixture used by accessibility UI audits.",
+                collection: NFT.Collection(
+                    name: "Accessibility Fixtures",
+                    contractAddress: "0x0000000000000000000000000000000000000001"
+                ),
+                network: .ethMainnet,
+                accountAddress: accountAddress,
+                contentType: "audio/mpeg",
+                collectionName: "Accessibility Fixtures",
+                artistName: "Auralis QA",
+                audioUrl: "https://example.com/a11y.mp3"
+            )
+        )
     }
 }

@@ -656,7 +656,7 @@ struct HomeTabView: View {
         let generationID = UUID()
         activeImageGenerationID = generationID
         isLoading = true
-        AuraAccessibilityAnnouncer.announce("Generating images")
+        AuraAccessibilityAnnouncer.announce(String(localized: "Generating images"))
         selectedImage = nil
         generatedImages = nil
         defer {
@@ -687,20 +687,20 @@ struct HomeTabView: View {
             }
 
             if activeImageGenerationID == generationID {
-                AuraAccessibilityAnnouncer.announce("Image generation complete")
+                AuraAccessibilityAnnouncer.announce(String(localized: "Image generation complete"))
             }
         } catch ImageCreator.Error.notSupported {
             guard activeImageGenerationID == generationID else {
                 return
             }
             generatedImages = nil
-            AuraAccessibilityAnnouncer.announce("Image generation is not supported on this device")
+            AuraAccessibilityAnnouncer.announce(String(localized: "Image generation is not supported on this device"))
         } catch {
             guard activeImageGenerationID == generationID else {
                 return
             }
             errorMessage = String(localized: "Failed to generate images. Please try again.\n\(error.localizedDescription)")
-            AuraAccessibilityAnnouncer.announce("Image generation failed")
+            AuraAccessibilityAnnouncer.announce(String(localized: "Image generation failed"))
             showErrorAlert = true
         }
     }
