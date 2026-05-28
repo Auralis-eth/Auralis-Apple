@@ -691,6 +691,8 @@ private struct AddressEntryContentView: View {
             VStack(alignment: .leading, spacing: 12) {
                 QRScannerView(
                     accountActivator: accountActivator,
+                    isAddressFieldFocused: isAddressFieldFocused,
+                    isAddressFieldAccessibilityFocused: isAddressFieldAccessibilityFocused,
                     onAccountActivated: onAccountActivated
                 )
                 .transition(.opacity)
@@ -707,6 +709,8 @@ private struct AddressEntryContentView: View {
                 HStack(spacing: 12) {
                     QRScannerView(
                         accountActivator: accountActivator,
+                        isAddressFieldFocused: isAddressFieldFocused,
+                        isAddressFieldAccessibilityFocused: isAddressFieldAccessibilityFocused,
                         onAccountActivated: onAccountActivated
                     )
                     .transition(.opacity)
@@ -722,6 +726,8 @@ private struct AddressEntryContentView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     QRScannerView(
                         accountActivator: accountActivator,
+                        isAddressFieldFocused: isAddressFieldFocused,
+                        isAddressFieldAccessibilityFocused: isAddressFieldAccessibilityFocused,
                         onAccountActivated: onAccountActivated
                     )
                     .transition(.opacity)
@@ -746,6 +752,7 @@ public struct AddressEntryHeaderView: View {
             Title2FontText("Check in with your Ethereum address")
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
 
             SubheadlineFontText("Paste an EVM wallet address, enter an ENS name, or scan a QR code to get started.")
                 .multilineTextAlignment(.center)
@@ -787,6 +794,7 @@ public struct GuestPassesHeaderView: View {
             Title2FontText("Guest passes")
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
 
             SubheadlineFontText("Try Auralis with curated public collections.")
                 .multilineTextAlignment(.center)
@@ -824,19 +832,26 @@ public struct QRScannerView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @State private var isScanning = false
     @State private var torchOn = false
+    @State private var scannerErrorMessage: String?
     @State private var alertTitle = ""
     @State private var alertMessage = ""
     @State private var showingAlert = false
 
     private let accountActivator: any AccountActivating
+    private let isAddressFieldFocused: FocusState<Bool>.Binding
+    private let isAddressFieldAccessibilityFocused: AccessibilityFocusState<Bool>.Binding
     private let onAccountActivated: @MainActor (EOAccount, String?) -> Void
     private let activationErrorPresenter = AccountActivationErrorPresenter()
 
     public init(
         accountActivator: any AccountActivating,
+        isAddressFieldFocused: FocusState<Bool>.Binding,
+        isAddressFieldAccessibilityFocused: AccessibilityFocusState<Bool>.Binding,
         onAccountActivated: @escaping @MainActor (EOAccount, String?) -> Void
     ) {
         self.accountActivator = accountActivator
+        self.isAddressFieldFocused = isAddressFieldFocused
+        self.isAddressFieldAccessibilityFocused = isAddressFieldAccessibilityFocused
         self.onAccountActivated = onAccountActivated
     }
 
@@ -857,20 +872,47 @@ public struct QRScannerView: View {
         .accessibilityLabel(String(localized: "Scan wallet QR code"))
         .accessibilityShowsLargeContentViewer()
         .sheet(isPresented: $isScanning) {
-            ZStack(alignment: .top) {
-                CodeScannerView(
-                    codeTypes: [.qr],
-                    requiresPhotoOutput: false,
-                    isTorchOn: torchOn,
-                    completion: handleScan
-                )
-                .ignoresSafeArea()
+            NavigationStack {
+                ZStack(alignment: .top) {
+                    CodeScannerView(
+                        codeTypes: [.qr],
+                        requiresPhotoOutput: false,
+                        isTorchOn: torchOn,
+                        completion: handleScan
+                    )
+                    .ignoresSafeArea()
+                    .accessibilityHidden(scannerErrorMessage != nil)
 
-                VStack(spacing: 12) {
-                    AuraTrustLabel(kind: .scan)
-                    AccountTorchToggleButton(torchOn: $torchOn)
+                    VStack(spacing: 12) {
+                        AuraTrustLabel(kind: .scan)
+                        AccountTorchToggleButton(torchOn: $torchOn)
+                    }
+                    .padding(.top)
+
+                    if let scannerErrorMessage {
+                        QRScannerPermissionErrorView(message: scannerErrorMessage) {
+                            returnToManualEntry()
+                        }
+                        .padding()
+                        .frame(maxHeight: .infinity, alignment: .center)
+                    }
                 }
-                .padding(.top)
+                .navigationTitle(String(localized: "Scan wallet QR code"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(String(localized: "Enter Manually")) {
+                            returnToManualEntry()
+                        }
+                    }
+                }
+                .accessibilityElement(children: .contain)
+            }
+            .onAppear {
+                scannerErrorMessage = nil
+                AuraAccessibilityAnnouncer.announce(
+                    String(localized: "QR scanner open. Point camera at a wallet QR code.")
+                )
             }
         }
         .alert(alertTitle, isPresented: $showingAlert) {
@@ -881,10 +923,9 @@ public struct QRScannerView: View {
     }
 
     private func handleScan(_ result: Result<ScanResult, ScanError>) {
-        defer { isScanning = false }
-
         switch result {
         case .success(let code):
+            isScanning = false
             switch QRScanValidationOutcome.classify(code.string) {
             case .valid:
                 break
@@ -921,11 +962,33 @@ public struct QRScannerView: View {
                 }
             }
         case .failure(let error):
+            if case .permissionDenied = error {
+                showScannerError(
+                    String(localized: "Camera access is off. Enter the wallet address manually, or allow camera access in Settings to scan a QR code.")
+                )
+                return
+            }
+
+            isScanning = false
             showAlert(
                 title: "Scan Failed",
                 message: error.localizedDescription
             )
         }
+    }
+
+    private func showScannerError(_ message: String) {
+        scannerErrorMessage = message
+        AuraAccessibilityAnnouncer.announce(message)
+        haptics.notification(.error)
+    }
+
+    private func returnToManualEntry() {
+        isScanning = false
+        scannerErrorMessage = nil
+        isAddressFieldFocused.wrappedValue = true
+        isAddressFieldAccessibilityFocused.wrappedValue = true
+        AuraAccessibilityAnnouncer.layoutChanged(nil)
     }
 
     private func showAlert(
@@ -938,6 +1001,40 @@ public struct QRScannerView: View {
         showingAlert = true
         AuraAccessibilityAnnouncer.announce(message)
         haptics.notification(feedback)
+    }
+}
+
+private struct QRScannerPermissionErrorView: View {
+    let message: String
+    let enterManually: () -> Void
+
+    var body: some View {
+        VStack(spacing: 12) {
+            SystemImage("camera.fill")
+                .font(.title)
+                .foregroundStyle(Color.textSecondary)
+                .accessibilityHidden(true)
+
+            Text("Camera access needed")
+                .font(.headline)
+                .foregroundStyle(Color.textPrimary)
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
+
+            Text(message)
+                .font(.body)
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(String(localized: "Enter Manually"), action: enterManually)
+                .buttonStyle(.borderedProminent)
+                .frame(minHeight: 44)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity)
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .accessibilityElement(children: .contain)
     }
 }
 

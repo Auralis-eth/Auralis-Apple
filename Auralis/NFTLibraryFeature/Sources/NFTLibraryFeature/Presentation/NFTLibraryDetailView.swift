@@ -55,6 +55,7 @@ public struct NFTLibraryDetailView: View {
 
                         HeadlineFontText(titleText)
                             .fontWeight(.semibold)
+                            .accessibilityAddTraits(.isHeader)
                             .accessibilityIdentifier("nft.detail.title")
 
                         if let collectionName {
@@ -97,7 +98,7 @@ public struct NFTLibraryDetailView: View {
         .frame(maxWidth: .infinity)
         .frame(height: 280)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .accessibilityLabel(titleText)
+        .accessibilityLabel(String(localized: "NFT artwork for \(titleText)"))
     }
 
     private var imagePlaceholder: some View {

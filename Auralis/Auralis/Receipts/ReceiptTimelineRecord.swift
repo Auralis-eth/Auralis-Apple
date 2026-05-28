@@ -81,6 +81,28 @@ struct ReceiptTimelineRecord: Identifiable, Equatable, Sendable {
         actor.rawValue.capitalized
     }
 
+    var triggerTitle: String {
+        let normalizedTrigger = trigger
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: ".", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !normalizedTrigger.isEmpty else {
+            return "Unknown event"
+        }
+
+        let words = normalizedTrigger.split(separator: " ").map(String.init)
+        return words.enumerated()
+            .map { index, word in
+                if word.localizedCaseInsensitiveCompare("ui") == .orderedSame {
+                    return "UI"
+                }
+
+                return index == 0 ? word.capitalized : word.lowercased()
+            }
+            .joined(separator: " ")
+    }
+
     var accountTitle: String? {
         guard let accountAddress, !accountAddress.isEmpty else {
             return nil

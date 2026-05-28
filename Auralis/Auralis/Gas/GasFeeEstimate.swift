@@ -388,18 +388,30 @@ extension GasPriceEstimateView {
         let isShowingCachedEstimate: Bool
 
         var body: some View {
-            VStack(spacing: 8) {
-                AuraSectionHeader(
-                    title: "\(chainName) Gas Tracker",
-                    subtitle: lastUpdatedText
-                ) {
-                    AuraPill(
-                        statusTitle,
-                        systemImage: statusSystemImage,
-                        emphasis: statusEmphasis
-                    )
+            VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(chainName) Gas Tracker")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let lastUpdatedText {
+                        Text(lastUpdatedText)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
+
+                AuraPill(
+                    statusTitle,
+                    systemImage: statusSystemImage,
+                    emphasis: statusEmphasis
+                )
+                .accessibilityHidden(true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 8)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(String(localized: "\(chainName) gas tracker"))
@@ -523,7 +535,10 @@ extension GasPriceEstimateView {
         var body: some View {
             AuraSurfaceCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    AuraSectionHeader(title: title)
+                    Text(title)
+                        .font(.body)
+                        .foregroundStyle(Color.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     Divider()
                         .background(Color.textSecondary.opacity(0.3))

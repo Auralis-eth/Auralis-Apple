@@ -336,6 +336,7 @@ private struct SearchInputCard: View {
                 Text("Query")
                     .font(.headline)
                     .foregroundStyle(Color.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
 
                 TextField(
                     "Search ENS, wallet, contract, symbol, NFT, collection",
@@ -379,6 +380,7 @@ private struct SearchDetectionCard: View {
                         Text("Detection")
                             .font(.headline)
                             .foregroundStyle(Color.textPrimary)
+                            .accessibilityAddTraits(.isHeader)
 
                         Text(classification.kind.feedbackMessage)
                             .font(.subheadline)
@@ -441,6 +443,7 @@ private struct SearchLocalMatchesCard: View {
                     Text("Local Matches")
                         .font(.headline)
                         .foregroundStyle(Color.textPrimary)
+                        .accessibilityAddTraits(.isHeader)
 
                     Spacer(minLength: 12)
 
@@ -509,6 +512,7 @@ private struct SearchHistoryCard: View {
                         Text("Recent Searches")
                             .font(.headline)
                             .foregroundStyle(Color.textPrimary)
+                            .accessibilityAddTraits(.isHeader)
 
                         Spacer(minLength: 12)
 

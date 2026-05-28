@@ -37,6 +37,7 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                                             .fontWeight(.bold)
                                             .multilineTextAlignment(.center)
                                             .lineLimit(3)
+                                            .accessibilityAddTraits(.isHeader)
                                     }
 
                                     if let artist = track.artist, !artist.isEmpty {
@@ -268,11 +269,10 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
         if let imageURLString = player.auraPlayCurrentTrack?.imageURLString,
            !imageURLString.isEmpty,
             let imageURL = URL(string: imageURLString) {
-            CachedAsyncImage(url: imageURL)
+            CachedAsyncImage(url: imageURL, accessibilityLabel: currentArtworkAccessibilityLabel)
                 .frame(maxWidth: min(artworkMaxSize, 320), maxHeight: min(artworkMaxSize, 320))
                 .clipShape(RoundedRectangle(cornerRadius: 20))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-                .accessibilityHidden(true)
         } else {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color.gray.opacity(0.25))
@@ -310,7 +310,7 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                 if let urlString = imageURLString,
                    !urlString.isEmpty,
                    let url = URL(string: urlString) {
-                    CachedAsyncImage(url: url)
+                    CachedAsyncImage(url: url, accessibilityLabel: String(localized: "\(title) artwork"))
                         .frame(width: 48, height: 48)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .accessibilityHidden(true)
@@ -356,6 +356,18 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
             )
         )
         .opacity(player.auraPlayPlaybackState == .loading ? 0.85 : 1.0)
+    }
+
+    private var currentArtworkAccessibilityLabel: String {
+        guard let track = player.auraPlayCurrentTrack else {
+            return String(localized: "Track artwork")
+        }
+
+        let title = track.title ?? String(localized: "Unknown Track")
+        if let artist = track.artist, !artist.isEmpty {
+            return String(localized: "\(title) artwork by \(artist)")
+        }
+        return String(localized: "\(title) artwork")
     }
 }
 

@@ -334,6 +334,10 @@ struct ChromeContextInspectorSheet: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(latestContextReceipt.summary)
+                        .accessibilityValue(receiptDetailSummary(for: latestContextReceipt))
+                        .accessibilityHint(String(localized: "Shows receipt details"))
                         .accessibilityIdentifier("contextInspector.receipt.latest")
                     } else {
                         Text(

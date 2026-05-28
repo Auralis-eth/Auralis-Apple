@@ -186,7 +186,12 @@ struct ReceiptsRootView: View {
         } else {
             LazyVStack(spacing: 12) {
                 ForEach(snapshot.visibleRecords) { record in
-                    NavigationLink(value: ReceiptRoute(id: record.id.uuidString)) {
+                    NavigationLink {
+                        ReceiptDetailView(
+                            route: ReceiptRoute(id: record.id.uuidString),
+                            scope: timelineState.scope
+                        )
+                    } label: {
                         ReceiptTimelineRow(record: record)
                     }
                     .buttonStyle(.plain)

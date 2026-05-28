@@ -15,10 +15,11 @@ struct ReceiptRelatedReceiptsCard: View {
                     NavigationLink(value: ReceiptRoute(id: receipt.id.uuidString)) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(receipt.summary)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
                                 .foregroundStyle(Color.textPrimary)
 
-                            Text("\(receipt.trigger) • \(receipt.createdAt.formatted(date: .omitted, time: .shortened))")
+                            Text("\(receipt.triggerTitle) • \(receipt.createdAt.formatted(date: .omitted, time: .shortened))")
                                 .font(.caption)
                                 .foregroundStyle(Color.textSecondary)
                         }

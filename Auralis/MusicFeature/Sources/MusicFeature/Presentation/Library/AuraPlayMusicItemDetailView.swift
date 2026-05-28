@@ -62,6 +62,7 @@ public struct AuraPlayMusicItemDetailView: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             Title2FontText(presentation.title)
+                                .accessibilityAddTraits(.isHeader)
                                 .accessibilityIdentifier("auraplay.detail.title")
 
                             if let artist = presentation.artist {
@@ -96,6 +97,7 @@ public struct AuraPlayMusicItemDetailView: View {
                             AuraSurfaceCard(style: .soft, cornerRadius: 24, padding: 16) {
                                 VStack(alignment: .leading, spacing: 8) {
                                     HeadlineFontText(playback.title)
+                                        .accessibilityAddTraits(.isHeader)
                                     SecondaryText(playback.message)
                                 }
                             }
@@ -105,6 +107,7 @@ public struct AuraPlayMusicItemDetailView: View {
                         AuraSurfaceCard(style: .soft, cornerRadius: 24, padding: 16) {
                             VStack(alignment: .leading, spacing: 12) {
                                 HeadlineFontText("Track Info")
+                                    .accessibilityAddTraits(.isHeader)
 
                                 musicDetailRow(title: "Track", value: presentation.title)
                                 musicDetailRow(title: "Artist", value: presentation.artist)
@@ -118,6 +121,7 @@ public struct AuraPlayMusicItemDetailView: View {
                             AuraSurfaceCard(style: .soft, cornerRadius: 24, padding: 16) {
                                 VStack(alignment: .leading, spacing: 12) {
                                     HeadlineFontText("About")
+                                        .accessibilityAddTraits(.isHeader)
                                     SecondaryText(description)
                                 }
                             }
@@ -183,6 +187,7 @@ public struct AuraPlayMusicItemDetailView: View {
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(.white)
                         .lineLimit(2)
+                        .accessibilityAddTraits(.isHeader)
                 }
             }
             .padding(18)

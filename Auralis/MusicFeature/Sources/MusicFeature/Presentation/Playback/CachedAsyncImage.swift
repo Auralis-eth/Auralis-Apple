@@ -3,9 +3,9 @@ import SwiftUI
 
 struct CachedAsyncImage: View {
     let url: URL
-    var accessibilityLabel: String?
+    let accessibilityLabel: String
 
-    init(url: URL, accessibilityLabel: String? = nil) {
+    init(url: URL, accessibilityLabel: String) {
         self.url = url
         self.accessibilityLabel = accessibilityLabel
     }
@@ -23,7 +23,7 @@ struct CachedAsyncImage: View {
             case .success(let image):
                 image
                     .resizable()
-                    .accessibilityLabel(accessibilityLabel ?? String(localized: "Artwork"))
+                    .accessibilityLabel(accessibilityLabel)
             case .failure:
                 placeholder
                     .overlay {

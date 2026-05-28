@@ -17,7 +17,7 @@ struct ReceiptTimelineRow: View {
                             .font(.headline)
                             .foregroundStyle(Color.textPrimary)
 
-                        Text(record.trigger)
+                        Text(record.triggerTitle)
                             .font(.subheadline)
                             .foregroundStyle(Color.textSecondary)
                     }
@@ -81,7 +81,7 @@ struct ReceiptTimelineRow: View {
     }
 
     private var accessibilityValue: String {
-        String(localized: "\(record.statusTitle). \(record.trigger). \(record.scope). \(record.provenance)")
+        String(localized: "\(record.statusTitle). \(record.triggerTitle). \(record.scope). \(record.provenance)")
     }
 
     private var hasCopyableCorrelationID: Bool {

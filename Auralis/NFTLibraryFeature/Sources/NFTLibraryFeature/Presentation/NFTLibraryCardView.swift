@@ -61,14 +61,14 @@ public struct NFTLibraryCardView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
                 .clipped()
-                .accessibilityHidden(true)
+                .accessibilityLabel(String(localized: "NFT artwork for \(NFTLibraryPresentation.displayTitle(for: nft))"))
             #else
             AsyncImage(url: imageURL) { image in
                 image.resizable().scaledToFit()
             } placeholder: {
                 ProgressView()
             }
-            .accessibilityHidden(true)
+            .accessibilityLabel(String(localized: "NFT artwork for \(NFTLibraryPresentation.displayTitle(for: nft))"))
             #endif
         } else {
             ZStack {

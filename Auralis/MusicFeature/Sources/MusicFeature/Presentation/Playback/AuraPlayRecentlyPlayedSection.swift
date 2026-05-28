@@ -173,7 +173,7 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
                 ZStack(alignment: .bottomTrailing) {
                     if let source = item.imageURLString,
                        let url = URL(string: source) {
-                        CachedAsyncImage(url: url)
+                        CachedAsyncImage(url: url, accessibilityLabel: String(localized: "\(item.title) artwork"))
                             .aspectRatio(1, contentMode: .fill)
                             .frame(height: min(artworkHeight, 180))
                             .clipShape(RoundedRectangle(cornerRadius: 12))

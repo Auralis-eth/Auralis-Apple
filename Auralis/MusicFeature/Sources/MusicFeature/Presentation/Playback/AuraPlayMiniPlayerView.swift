@@ -52,10 +52,17 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var currentTrackAccessibilityValue: String {
-        let title = player.auraPlayCurrentTrack?.title?.isEmpty == false
-            ? player.auraPlayCurrentTrack?.title ?? String(localized: "Unknown Title")
+        guard let track = player.auraPlayCurrentTrack else {
+            return playbackStateAccessibilityValue
+        }
+
+        let title = track.title?.isEmpty == false
+            ? track.title ?? String(localized: "Unknown Title")
             : String(localized: "Unknown Title")
-        return String(localized: "\(title), \(playbackStateAccessibilityValue)")
+        let artist = track.artist?.isEmpty == false
+            ? track.artist ?? String(localized: "Unknown Artist")
+            : String(localized: "Unknown Artist")
+        return String(localized: "\(title), by \(artist). Artwork for \(title) by \(artist). \(playbackStateAccessibilityValue)")
     }
 
     private var playbackStateAccessibilityValue: String {
@@ -192,10 +199,11 @@ private struct AuraPlayMiniPlayerTrackView: View {
             if let imageURLString = currentTrack.imageURLString,
                !imageURLString.isEmpty,
                let imageURL = URL(string: imageURLString) {
-                CachedAsyncImage(url: imageURL)
+                CachedAsyncImage(url: imageURL, accessibilityLabel: artworkAccessibilityLabel)
                     .scaledToFill()
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .padding(.trailing)
+                    .accessibilityHidden(true)
                     .accessibilityHidden(true)
             } else {
                 RoundedRectangle(cornerRadius: 6)
@@ -228,6 +236,14 @@ private struct AuraPlayMiniPlayerTrackView: View {
             }
         }
         .accessibilityElement(children: .combine)
+    }
+
+    private var artworkAccessibilityLabel: String {
+        let title = currentTrack.title ?? String(localized: "Unknown Title")
+        if let artist = currentTrack.artist, !artist.isEmpty {
+            return String(localized: "\(title) artwork by \(artist)")
+        }
+        return String(localized: "\(title) artwork")
     }
 }
 

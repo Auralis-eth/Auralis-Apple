@@ -10,10 +10,11 @@ struct ReceiptDetailSummaryCard: View {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(receipt.summary)
-                            .font(.title3.weight(.semibold))
+                            .font(.title3)
+                            .fontWeight(.semibold)
                             .foregroundStyle(Color.textPrimary)
 
-                        Text(receipt.trigger)
+                        Text(receipt.triggerTitle)
                             .font(.subheadline)
                             .foregroundStyle(Color.textSecondary)
                     }

@@ -73,6 +73,10 @@ public struct NFTLibraryTokensRootView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(NFTLibraryPresentation.displayTitle(for: nft))
+                        .accessibilityValue(nftTokenAccessibilityValue(for: nft))
+                        .accessibilityHint(String(localized: "Shows NFT details"))
                         .accessibilityIdentifier("nftTokens.row.\(nft.id)")
                     }
                 }
@@ -80,6 +84,11 @@ public struct NFTLibraryTokensRootView: View {
         }
         .navigationTitle("NFT Tokens")
         .accessibilityIdentifier("nftTokens.root")
+    }
+
+    private func nftTokenAccessibilityValue(for nft: NFT) -> String {
+        let collection = nft.collection?.name ?? nft.collectionName ?? String(localized: "Unknown Collection")
+        return String(localized: "\(collection) - \(currentChain.routingDisplayName)")
     }
 }
 
@@ -193,7 +202,7 @@ public struct NFTLibraryNewsFeedRootView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(NFTLibraryPresentation.displayTitle(for: nft))
         .accessibilityValue(
-            String(localized: "Collection: \(nft.collection?.name ?? "Unknown Collection")")
+            String(localized: "\(nft.collection?.name ?? nft.collectionName ?? "Unknown Collection")")
         )
         .accessibilityHint(String(localized: "Shows NFT details"))
         .accessibilityAction(named: String(localized: "Open details")) {

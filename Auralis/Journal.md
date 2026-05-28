@@ -1,5 +1,17 @@
 # Journal
 
+## 2026-05-28 — The Audit Started Reading The Receipts
+
+This accessibility fix was less about adding labels and more about making the robot inspector prove the same journey a person would take. The mini-player now speaks the track, artist, artwork context, and playback state from one reachable button instead of hiding useful context behind child artwork that VoiceOver may never land on.
+
+The receipt detail test also stopped looking for a brittle navigation-bar landmark and now opens the seeded receipt from Home recent activity, the way the fixture actually exposes it. Once the test reached the screen, it found the real furniture problems: receipt facts needed a vertical Dynamic Type layout, machine trigger keys like `ui_test.seed` needed human presentation copy, and the gas header needed to stop squeezing a long chain title beside a status pill. Lesson learned: an audit failure is most useful when the route is honest, the copy is human, and the layout can breathe before anyone debates color.
+
+## 2026-05-27 — The Accessibility Audit Became A Map
+
+The project-wide accessibility audit now has a durable home at `Auralis/docs/plans/Accessibility-Project-Wide-Audit.md`. The interesting part is that the app is no longer starting from zero: it already has native controls, named icon buttons, large-text previews, Reduce Motion-aware pieces, and iOS 17 accessibility audit UI tests. The new report is less a panic list and more a map of the last rough terrain.
+
+The big lesson is that accessibility maturity moves from obvious blockers into judgment calls. Is artwork meaningful or decorative? Does a text field value help editing, or does it smuggle in extra status copy? Are preview names proving a setting, or just reminding a human to verify it on real hardware? Those are senior-engineer questions, not checkbox questions, and the audit now names them plainly.
+
 ## 2026-05-27 — Phase 5 Put The Audit On Rails
 
 Phase 5 was the testing and process pass: less stagecraft, more making sure the inspector can keep walking the same route tomorrow. The UI-test authenticated fixture now brings its own tiny suitcase: a wallet, a recent search, a receipt, and an NFT. That lets the accessibility audit open populated search history, receipt detail, NFT detail, and external-link confirmation without depending on whatever the simulator happened to remember from yesterday.
@@ -2188,3 +2200,13 @@ The Phase 5 checklist had two kinds of loose bolts. The first was straightforwar
 The second bolt looked like a preview feature but was really a documentation trap. SwiftUI lets previews set Dynamic Type and preferred color scheme, but the active SDK exposes Increase Contrast, Reduce Motion, and Reduce Transparency as read-only environment values. Naming a preview "Reduce Transparency" does not flip the system setting any more than writing "raincoat" on a sweater makes it waterproof.
 
 So the preview names now say the quiet part out loud: use Canvas or device accessibility settings for those variants. The ticket also keeps manual evidence unchecked until someone actually runs those checks. The lesson: test scaffolding should never impersonate test evidence. A good checklist tells the next reviewer which switches the code can flip and which switches belong to the device.
+
+## Accessibility Phase 1 Completion: The Tour Guide Gets A Microphone
+
+The last Phase 1 pass focused on VoiceOver's first-mile experience. The QR scanner used to drop users into a camera room with no narrator and no side door. Now the sheet has a real title, an opening announcement, an Enter Manually escape hatch that returns focus to the wallet field, and a permission-denied message that says what happened instead of letting the camera fail like a silent locked door.
+
+Artwork also got promoted from wallpaper to content. NFT hero cards, NFT details, Now Playing art, mini-player art, and music detail images now carry labels that travel with the track or token. The reusable music image helper no longer accepts a vague default; callers must say what the image is. That is the right pressure: if artwork matters enough to show, the code should know enough to describe it.
+
+The rest of the pass made dense information easier to skim. Receipt facts, context receipts, and NFT token rows now read as coherent label/value summaries, while search, NFT detail, music detail, account entry, and Now Playing headings feed the VoiceOver rotor. Playlist creation now announces the async failures that used to appear only visually, and successful cover selection gets spoken as soon as processing finishes.
+
+The lesson: accessibility is not a sprinkle at the end of a view. It is the tour guide, the signage, and the emergency exit. If any one of those is missing, the room may look beautiful and still be hard to use.

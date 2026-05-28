@@ -217,6 +217,7 @@ struct NewPlaylistView: View {
                 defer { isProcessingImage = false }
                 if let uiImage = newImage, let data = uiImage.jpegData(compressionQuality: 0.9) {
                     selectedImageData = data
+                    AuraAccessibilityAnnouncer.announce(String(localized: "Playlist cover selected"))
                     isShowingPlayground = true
                 }
             }
@@ -228,6 +229,7 @@ struct NewPlaylistView: View {
                         do {
                             if let data = try await item.loadTransferable(type: Data.self) {
                                 selectedImageData = data
+                                AuraAccessibilityAnnouncer.announce(String(localized: "Playlist cover selected"))
                                 if shouldLaunchPlaygroundAfterPick {
                                     isShowingPlayground = true
                                     shouldLaunchPlaygroundAfterPick = false
@@ -235,7 +237,9 @@ struct NewPlaylistView: View {
                             }
                         } catch {
                             Self.logger.error("Failed to load selected image data: \(error.localizedDescription, privacy: .public)")
-                            errorMessage = "Auralis could not load the selected image."
+                            let message = String(localized: "Auralis could not load the selected image.")
+                            errorMessage = message
+                            AuraAccessibilityAnnouncer.announce(message)
                         }
                     } else {
                         selectedImageData = nil
@@ -303,7 +307,9 @@ struct NewPlaylistView: View {
                 onSuccess(trimmed)
                 dismiss()
             } catch {
-                errorMessage = error.localizedDescription
+                let message = error.localizedDescription
+                errorMessage = message
+                AuraAccessibilityAnnouncer.announce(message)
             }
 
             isSaving = false
@@ -320,9 +326,12 @@ struct NewPlaylistView: View {
                 try Data(contentsOf: url)
             }.value
             selectedImageData = data
+            AuraAccessibilityAnnouncer.announce(String(localized: "Playlist cover selected"))
         } catch {
             Self.logger.error("Failed to load generated playlist image: \(error.localizedDescription, privacy: .public)")
-            errorMessage = "Auralis could not load the generated image."
+            let message = String(localized: "Auralis could not load the generated image.")
+            errorMessage = message
+            AuraAccessibilityAnnouncer.announce(message)
         }
     }
 }
