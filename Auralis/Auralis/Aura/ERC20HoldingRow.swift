@@ -72,7 +72,8 @@ struct ERC20HoldingRow: View {
         .auraAccessibleSummary(
             label: row.title,
             value: accessibilityValue,
-            hint: row.canOpenDetail ? String(localized: "Shows token details") : nil
+            hint: row.canOpenDetail ? String(localized: "Shows token details") : nil,
+            traits: row.canOpenDetail ? .isButton : []
         )
     }
 

@@ -3,39 +3,47 @@ import SwiftUI
 
 struct CachedAsyncImage: View {
     let url: URL
-    let accessibilityLabel: String
+    let mediaAccessibility: MediaAccessibility
 
     init(url: URL, accessibilityLabel: String) {
         self.url = url
-        self.accessibilityLabel = accessibilityLabel
+        mediaAccessibility = .meaningful(accessibilityLabel)
+    }
+
+    init(url: URL, mediaAccessibility: MediaAccessibility) {
+        self.url = url
+        self.mediaAccessibility = mediaAccessibility
     }
 
     var body: some View {
         AsyncImage(url: url) { phase in
             switch phase {
             case .empty:
-                placeholder
-                    .overlay {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
-                    }
-                    .accessibilityLabel(String(localized: "Loading artwork"))
+                phaseView(label: String(localized: "Loading artwork")) {
+                    placeholder
+                        .overlay {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
+                        }
+                }
             case .success(let image):
                 image
                     .resizable()
-                    .accessibilityLabel(accessibilityLabel)
+                    .mediaAccessibility(mediaAccessibility)
             case .failure:
-                placeholder
-                    .overlay {
-                        SystemImage("photo")
-                            .font(.largeTitle)
-                            .foregroundStyle(Color.textSecondary.opacity(0.3))
-                            .accessibilityHidden(true)
-                    }
-                    .accessibilityLabel(String(localized: "Artwork unavailable"))
+                phaseView(label: String(localized: "Artwork unavailable")) {
+                    placeholder
+                        .overlay {
+                            SystemImage("photo")
+                                .font(.largeTitle)
+                                .foregroundStyle(Color.textSecondary.opacity(0.3))
+                                .accessibilityHidden(true)
+                        }
+                }
             @unknown default:
-                placeholder
-                    .accessibilityLabel(String(localized: "Artwork unavailable"))
+                phaseView(label: String(localized: "Artwork unavailable")) {
+                    placeholder
+                }
             }
         }
     }
@@ -43,5 +51,20 @@ struct CachedAsyncImage: View {
     private var placeholder: some View {
         Color.surface
             .aspectRatio(1, contentMode: .fit)
+    }
+
+    @ViewBuilder
+    private func phaseView<Content: View>(
+        label: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        switch mediaAccessibility {
+        case .decorative:
+            content()
+                .mediaAccessibility(.decorative)
+        case .meaningful:
+            content()
+                .mediaAccessibility(.meaningful(label))
+        }
     }
 }

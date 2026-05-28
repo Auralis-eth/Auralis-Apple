@@ -269,7 +269,10 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
         if let imageURLString = player.auraPlayCurrentTrack?.imageURLString,
            !imageURLString.isEmpty,
             let imageURL = URL(string: imageURLString) {
-            CachedAsyncImage(url: imageURL, accessibilityLabel: currentArtworkAccessibilityLabel)
+            CachedAsyncImage(
+                url: imageURL,
+                mediaAccessibility: .meaningful(currentArtworkAccessibilityLabel)
+            )
                 .frame(maxWidth: min(artworkMaxSize, 320), maxHeight: min(artworkMaxSize, 320))
                 .clipShape(RoundedRectangle(cornerRadius: 20))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
@@ -310,10 +313,9 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                 if let urlString = imageURLString,
                    !urlString.isEmpty,
                    let url = URL(string: urlString) {
-                    CachedAsyncImage(url: url, accessibilityLabel: String(localized: "\(title) artwork"))
+                    CachedAsyncImage(url: url, mediaAccessibility: .decorative)
                         .frame(width: 48, height: 48)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .accessibilityHidden(true)
                 } else {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color.gray.opacity(0.25))

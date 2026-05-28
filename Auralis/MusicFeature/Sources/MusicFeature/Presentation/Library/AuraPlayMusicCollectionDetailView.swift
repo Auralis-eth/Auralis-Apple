@@ -161,6 +161,7 @@ public struct AuraPlayMusicCollectionDetailView: View {
             }
             .frame(width: 64, height: 64)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .mediaAccessibility(.decorative)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(item.title)

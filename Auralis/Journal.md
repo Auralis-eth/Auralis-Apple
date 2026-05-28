@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-05-28 — Phase 2 Got Its Shared Contracts
+
+This Phase 2 pass was the design-system equivalent of labeling the circuit breaker panel. The card summary helper no longer whispers an empty value into every VoiceOver node, and it can now say what kind of thing a summarized card really is. Receipt previews, receipt timeline rows, and openable token rows get button traits from the shared helper instead of each call site inventing its own little workaround.
+
+The image story also grew a proper contract. `MediaAccessibility` gives feature code two clear doors: decorative images step out of the accessibility tree, while meaningful artwork provides the label people need. NFT gallery images, AuraPlay artwork, and small decorative playback thumbnails now use that same door instead of hand-rolled labels and hides scattered through the app. Lesson learned: accessibility APIs are strongest when the easy path is also the correct path.
+
 ## 2026-05-28 — The Audit Started Reading The Receipts
 
 This accessibility fix was less about adding labels and more about making the robot inspector prove the same journey a person would take. The mini-player now speaks the track, artist, artwork context, and playback state from one reachable button instead of hiding useful context behind child artwork that VoiceOver may never land on.

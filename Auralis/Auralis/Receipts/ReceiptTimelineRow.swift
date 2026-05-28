@@ -68,7 +68,8 @@ struct ReceiptTimelineRow: View {
         .auraAccessibleSummary(
             label: record.summary,
             value: accessibilityValue,
-            hint: String(localized: "Shows receipt details")
+            hint: String(localized: "Shows receipt details"),
+            traits: .isButton
         )
 
         if hasCopyableCorrelationID {

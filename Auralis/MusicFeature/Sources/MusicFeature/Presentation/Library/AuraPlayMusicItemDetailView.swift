@@ -164,7 +164,7 @@ public struct AuraPlayMusicItemDetailView: View {
             .frame(maxWidth: .infinity)
             .frame(height: min(artworkHeight, 460))
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .accessibilityLabel(String(localized: "\(presentation.title) artwork"))
+            .mediaAccessibility(.meaningful(String(localized: "\(presentation.title) artwork")))
 
             LinearGradient(
                 colors: [.clear, Color.black.opacity(0.7)],

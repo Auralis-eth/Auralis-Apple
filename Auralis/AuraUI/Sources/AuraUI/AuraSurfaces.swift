@@ -38,8 +38,13 @@ public extension View {
         modifier(AuraSurfaceGlass(style: style, cornerRadius: cornerRadius))
     }
 
-    func auraAccessibleSummary(label: String, value: String? = nil, hint: String? = nil) -> some View {
-        modifier(AuraAccessibleSummary(label: label, value: value, hint: hint))
+    func auraAccessibleSummary(
+        label: String,
+        value: String? = nil,
+        hint: String? = nil,
+        traits: AccessibilityTraits = []
+    ) -> some View {
+        modifier(AuraAccessibleSummary(label: label, value: value, hint: hint, traits: traits))
     }
 }
 
@@ -47,15 +52,25 @@ private struct AuraAccessibleSummary: ViewModifier {
     let label: String
     let value: String?
     let hint: String?
+    let traits: AccessibilityTraits
 
     @ViewBuilder
     func body(content: Content) -> some View {
         let summarizedContent = content
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(label)
-            .accessibilityValue(value ?? "")
+            .accessibilityAddTraits(traits)
 
-        if let hint, !hint.isEmpty {
+        if let value, !value.isEmpty {
+            if let hint, !hint.isEmpty {
+                summarizedContent
+                    .accessibilityValue(value)
+                    .accessibilityHint(hint)
+            } else {
+                summarizedContent
+                    .accessibilityValue(value)
+            }
+        } else if let hint, !hint.isEmpty {
             summarizedContent
                 .accessibilityHint(hint)
         } else {

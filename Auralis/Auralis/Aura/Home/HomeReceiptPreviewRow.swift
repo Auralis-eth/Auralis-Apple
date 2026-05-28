@@ -42,7 +42,8 @@ struct HomeReceiptPreviewRow: View {
         .auraAccessibleSummary(
             label: item.title,
             value: accessibilityValue,
-            hint: String(localized: "Shows receipt details")
+            hint: String(localized: "Shows receipt details"),
+            traits: .isButton
         )
     }
 

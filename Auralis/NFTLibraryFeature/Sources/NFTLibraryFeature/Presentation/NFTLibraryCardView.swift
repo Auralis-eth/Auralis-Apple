@@ -56,19 +56,21 @@ public struct NFTLibraryCardView: View {
     private var imageView: some View {
         if let imageURL = NFTLibraryPresentation.imageURL(for: nft) {
             #if canImport(UIKit)
-            NFTCachedAsyncImage(url: imageURL)
+            NFTCachedAsyncImage(
+                url: imageURL,
+                mediaAccessibility: .meaningful(String(localized: "NFT artwork for \(NFTLibraryPresentation.displayTitle(for: nft))"))
+            )
                 .scaledToFit()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
                 .clipped()
-                .accessibilityLabel(String(localized: "NFT artwork for \(NFTLibraryPresentation.displayTitle(for: nft))"))
             #else
             AsyncImage(url: imageURL) { image in
                 image.resizable().scaledToFit()
             } placeholder: {
                 ProgressView()
             }
-            .accessibilityLabel(String(localized: "NFT artwork for \(NFTLibraryPresentation.displayTitle(for: nft))"))
+            .mediaAccessibility(.meaningful(String(localized: "NFT artwork for \(NFTLibraryPresentation.displayTitle(for: nft))")))
             #endif
         } else {
             ZStack {
@@ -86,7 +88,7 @@ public struct NFTLibraryCardView: View {
             }
             .aspectRatio(contentMode: .fit)
             .clipped()
-            .accessibilityLabel(String(localized: "NFT image unavailable"))
+            .mediaAccessibility(.meaningful(String(localized: "NFT image unavailable")))
         }
     }
 }

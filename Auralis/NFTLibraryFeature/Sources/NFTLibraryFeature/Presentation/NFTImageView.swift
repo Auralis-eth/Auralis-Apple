@@ -265,9 +265,11 @@ public final class NFTImageLoader {
 public struct NFTCachedAsyncImage: View {
     @State private var loader: NFTImageLoader
     private let url: URL
+    private let mediaAccessibility: MediaAccessibility
 
-    public init(url: URL) {
+    public init(url: URL, mediaAccessibility: MediaAccessibility = .decorative) {
         self.url = url
+        self.mediaAccessibility = mediaAccessibility
         _loader = State(initialValue: NFTImageLoader(url: url))
     }
 
@@ -276,6 +278,7 @@ public struct NFTCachedAsyncImage: View {
             if let image = loader.image {
                 Image(uiImage: image)
                     .resizable()
+                    .mediaAccessibility(mediaAccessibility)
             } else if loader.isLoading {
                 loadingView
             } else if let error = loader.error {
@@ -300,7 +303,7 @@ public struct NFTCachedAsyncImage: View {
                 .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
                 .scaleEffect(1.5)
         }
-        .accessibilityLabel(String(localized: "Loading NFT image"))
+        .phaseAccessibility(label: String(localized: "Loading NFT image"), mode: mediaAccessibility)
     }
 
     private var placeholderView: some View {
@@ -312,11 +315,12 @@ public struct NFTCachedAsyncImage: View {
                 .foregroundStyle(Color.textSecondary.opacity(0.3))
                 .accessibilityHidden(true)
         }
-        .accessibilityLabel(String(localized: "NFT image unavailable"))
+        .phaseAccessibility(label: String(localized: "NFT image unavailable"), mode: mediaAccessibility)
     }
 
+    @ViewBuilder
     private func errorView(_ error: NFTImageLoader.LoadingError) -> some View {
-        ZStack {
+        let content = ZStack {
             Color.surface
                 .aspectRatio(1, contentMode: .fit)
             VStack {
@@ -336,10 +340,29 @@ public struct NFTCachedAsyncImage: View {
             .foregroundStyle(Color.error)
             .padding()
         }
-        .accessibilityElement(children: .combine)
+
+        if error.allowsRetry {
+            content
+                .accessibilityElement(children: .contain)
+        } else {
+            content
+                .phaseAccessibility(label: error.userMessage, mode: mediaAccessibility)
+        }
     }
 }
 #endif
+
+private extension View {
+    @ViewBuilder
+    func phaseAccessibility(label: String, mode: MediaAccessibility) -> some View {
+        switch mode {
+        case .decorative:
+            mediaAccessibility(.decorative)
+        case .meaningful:
+            mediaAccessibility(.meaningful(label))
+        }
+    }
+}
 
 private enum NFTLibrarySVGDetectionError: Error {
     case fileTooLarge

@@ -199,12 +199,10 @@ private struct AuraPlayMiniPlayerTrackView: View {
             if let imageURLString = currentTrack.imageURLString,
                !imageURLString.isEmpty,
                let imageURL = URL(string: imageURLString) {
-                CachedAsyncImage(url: imageURL, accessibilityLabel: artworkAccessibilityLabel)
+                CachedAsyncImage(url: imageURL, mediaAccessibility: .decorative)
                     .scaledToFill()
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .padding(.trailing)
-                    .accessibilityHidden(true)
-                    .accessibilityHidden(true)
             } else {
                 RoundedRectangle(cornerRadius: 6)
                     .frame(
@@ -236,14 +234,6 @@ private struct AuraPlayMiniPlayerTrackView: View {
             }
         }
         .accessibilityElement(children: .combine)
-    }
-
-    private var artworkAccessibilityLabel: String {
-        let title = currentTrack.title ?? String(localized: "Unknown Title")
-        if let artist = currentTrack.artist, !artist.isEmpty {
-            return String(localized: "\(title) artwork by \(artist)")
-        }
-        return String(localized: "\(title) artwork")
     }
 }
 
