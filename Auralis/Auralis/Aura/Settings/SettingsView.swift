@@ -104,6 +104,9 @@ struct SettingsView: View {
         isResettingPrivacyData = true
         resetErrorMessage = nil
         resetSuccessMessage = nil
+        AuraAccessibilityAnnouncer.announce(
+            String(localized: "Clearing local privacy data")
+        )
 
         Task {
             do {

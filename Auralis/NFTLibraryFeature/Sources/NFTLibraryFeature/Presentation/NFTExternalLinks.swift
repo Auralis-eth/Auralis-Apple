@@ -199,6 +199,7 @@ public struct NFTMarketplaceLink: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityHint(String(localized: "Opens confirmation before leaving Auralis"))
                 .accessibilityIdentifier(accessibilityIdentifier)
             }
         }
@@ -308,6 +309,7 @@ public struct NFTExplorerLink: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityHint(String(localized: "Opens confirmation before leaving Auralis"))
                 .accessibilityIdentifier("externalLink.explorer")
             }
         }

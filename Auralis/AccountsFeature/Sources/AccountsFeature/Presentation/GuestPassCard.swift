@@ -1,5 +1,8 @@
 import AuraUI
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 public struct GuestPassCard: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -46,13 +49,16 @@ public struct GuestPassCard: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(account.title)
         .accessibilityValue(
-            String(localized: "\(account.subtitle). Ethereum address \(account.address)")
+            String(localized: "\(account.subtitle). Ethereum address \(account.address.auraGroupedForSpeech)")
         )
         .accessibilityHint(
             String(localized: "Opens Auralis with this guest pass account."),
             isEnabled: onTap != nil
         )
         .accessibilityAddTraits(onTap == nil ? [] : .isButton)
+        .accessibilityAction(named: String(localized: "Copy address")) {
+            copyAddress()
+        }
         .onChange(of: shouldAnimateBorder, initial: true) { _, shouldAnimate in
             guard shouldAnimate else {
                 isAnimating = false
@@ -65,6 +71,13 @@ public struct GuestPassCard: View {
                 }
             }
         }
+    }
+
+    private func copyAddress() {
+        #if canImport(UIKit)
+        UIPasteboard.general.string = account.address
+        #endif
+        AuraAccessibilityAnnouncer.announce(String(localized: "Address copied"))
     }
 
     private var cardContent: some View {

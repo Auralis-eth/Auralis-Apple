@@ -219,6 +219,7 @@ struct ERC20TokensRootView: View {
         let viewSyncID = UUID()
         activeTokenSyncViewID = viewSyncID
         isSyncingTokenHoldings = true
+        AuraAccessibilityAnnouncer.announce(String(localized: "Syncing token holdings"))
         defer {
             if activeTokenSyncViewID == viewSyncID {
                 isSyncingTokenHoldings = false
@@ -241,6 +242,13 @@ struct ERC20TokensRootView: View {
         providerWarningMessage = result.providerWarningMessage
         providerErrorMessage = result.providerErrorMessage
         persistenceErrorMessage = result.persistenceErrorMessage
+        if result.providerErrorMessage != nil || result.persistenceErrorMessage != nil {
+            AuraAccessibilityAnnouncer.announce(String(localized: "Token holdings sync failed"))
+        } else if result.providerWarningMessage != nil {
+            AuraAccessibilityAnnouncer.announce(String(localized: "Token holdings synced with warnings"))
+        } else {
+            AuraAccessibilityAnnouncer.announce(String(localized: "Token holdings updated"))
+        }
     }
 
     private func currentHoldingsSyncer() -> any ERC20HoldingsSyncing {

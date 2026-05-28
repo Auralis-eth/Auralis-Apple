@@ -183,6 +183,7 @@ final class GasPriceEstimateViewModel {
     private(set) var lastUpdated: Date?
     private(set) var phase: Phase = .initial
     private(set) var isShowingCachedEstimate = false
+    private(set) var lastCompletedPhase: Phase?
 
     private let provider: any GasPricingProviding
     private var currentTask: Task<Void, Never>?
@@ -258,6 +259,7 @@ final class GasPriceEstimateViewModel {
         isLoading = true
         error = nil
         phase = .loading
+        lastCompletedPhase = nil
 
         defer {
             isLoading = false
@@ -273,6 +275,7 @@ final class GasPriceEstimateViewModel {
                 self.lastUpdated = result.fetchedAt
                 self.isShowingCachedEstimate = result.source != .live
                 self.phase = .loaded
+                self.lastCompletedPhase = .loaded
             }
         } catch {
             if !Task.isCancelled && currentChain?.chainId == chain.chainId {
@@ -281,6 +284,7 @@ final class GasPriceEstimateViewModel {
                 self.lastUpdated = nil
                 self.isShowingCachedEstimate = false
                 self.phase = .failed
+                self.lastCompletedPhase = .failed
             }
         }
     }
@@ -329,6 +333,21 @@ struct GasPriceEstimateView: View {
         .padding()
         .task(id: chain.chainId) {
             viewModel.setChain(chain)
+        }
+        .onChange(of: viewModel.phase) { _, phase in
+            if phase == .loading {
+                AuraAccessibilityAnnouncer.announce(String(localized: "Fetching gas prices"))
+            }
+        }
+        .onChange(of: viewModel.lastCompletedPhase) { _, phase in
+            switch phase {
+            case .loaded:
+                AuraAccessibilityAnnouncer.announce(String(localized: "Gas prices updated"))
+            case .failed:
+                AuraAccessibilityAnnouncer.announce(String(localized: "Gas prices unavailable"))
+            case .initial, .loading, .none:
+                break
+            }
         }
     }
 
@@ -471,6 +490,8 @@ extension GasPriceEstimateView {
                 }
                 .frame(maxWidth: .infinity, minHeight: 200)
                 .accessibilityElement(children: .combine)
+                .accessibilityLabel(String(localized: "Fetching gas prices"))
+                .accessibilityAddTraits(.updatesFrequently)
             }
         }
     }

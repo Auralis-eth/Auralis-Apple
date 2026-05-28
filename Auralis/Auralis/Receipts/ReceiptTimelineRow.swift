@@ -54,7 +54,7 @@ struct ReceiptTimelineRow: View {
                             String(correlationID.prefix(8)),
                             systemImage: "link",
                             emphasis: .accent,
-                            accessibilityLabel: String(localized: "Correlation \(correlationID)")
+                            accessibilityLabel: String(localized: "Correlation ID \(correlationID.auraGroupedForSpeech)")
                         )
                     }
                 }
@@ -82,7 +82,11 @@ struct ReceiptTimelineRow: View {
     }
 
     private var accessibilityValue: String {
-        String(localized: "\(record.statusTitle). \(record.triggerTitle). \(record.scope). \(record.provenance)")
+        if let correlationID = record.correlationID, !correlationID.isEmpty {
+            return String(localized: "\(record.statusTitle). \(record.triggerTitle). \(record.scope). \(record.provenance). Correlation ID \(correlationID.auraGroupedForSpeech)")
+        }
+
+        return String(localized: "\(record.statusTitle). \(record.triggerTitle). \(record.scope). \(record.provenance)")
     }
 
     private var hasCopyableCorrelationID: Bool {

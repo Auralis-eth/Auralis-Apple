@@ -96,8 +96,7 @@ struct SearchRootView: View {
 
                     SearchInputCard(
                         query: $query,
-                        isFocused: _isQueryFieldFocused,
-                        classification: debouncedClassification ?? classification
+                        isFocused: _isQueryFieldFocused
                     )
 
                     if presentation.showsDetection {
@@ -328,7 +327,6 @@ struct SearchRootView: View {
 private struct SearchInputCard: View {
     @Binding var query: String
     @FocusState var isFocused: Bool
-    let classification: SearchQueryClassification
 
     var body: some View {
         AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 18) {
@@ -356,16 +354,9 @@ private struct SearchInputCard: View {
                 )
                 .accessibilityLabel(String(localized: "Query"))
                 .accessibilityHint(String(localized: "Search by ENS name, wallet address, contract, token symbol, NFT, or collection"))
-                .accessibilityValue(accessibilityValue)
                 .accessibilityIdentifier("search.queryField")
             }
         }
-    }
-
-    private var accessibilityValue: String {
-        query.isEmpty
-            ? String(localized: "Empty")
-            : String(localized: "\(query). Detected as \(classification.kind.title)")
     }
 }
 
@@ -403,6 +394,7 @@ private struct SearchDetectionCard: View {
                         .textSelection(.enabled)
                 }
             }
+            .accessibilityElement(children: .combine)
         }
     }
 
@@ -576,7 +568,8 @@ private struct SearchHistoryCard: View {
 
 private extension String {
     var accessibilitySpokenQuery: String {
-        replacingOccurrences(of: ".", with: " dot ")
+        auraGroupedForSpeech
+            .replacingOccurrences(of: ".", with: " dot ")
     }
 }
 

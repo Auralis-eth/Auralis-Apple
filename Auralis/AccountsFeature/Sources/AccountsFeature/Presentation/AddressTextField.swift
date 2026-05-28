@@ -42,7 +42,7 @@ public struct AddressTextField: View {
             .focused(isFocused)
             .accessibilityFocused(isAccessibilityFocused)
             .accessibilityLabel(String(localized: "Ethereum address"))
-            .accessibilityValue(address.isEmpty ? String(localized: "Empty") : address)
+            .accessibilityValue(address.isEmpty ? String(localized: "Empty") : address.auraGroupedForSpeech)
             .accessibilityHint(validationMessage ?? String(localized: "Enter an ENS name or EVM wallet address."))
             .accessibilityInputLabels([
                 String(localized: "Ethereum address"),

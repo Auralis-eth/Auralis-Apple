@@ -31,6 +31,8 @@ struct ERC20HoldingsOverviewCard: View {
                         Text(walletAddress.displayAddress)
                             .font(.title3.weight(.bold))
                             .foregroundStyle(Color.textPrimary)
+                            .accessibilityLabel(String(localized: "Wallet address"))
+                            .accessibilityValue(walletAddress.auraGroupedForSpeech)
 
                         Text("\(chainTitle) wallet scope")
                             .font(.subheadline)

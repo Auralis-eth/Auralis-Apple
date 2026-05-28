@@ -21,6 +21,7 @@ struct NewPlaylistView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.supportsImagePlayground) private var supportsImagePlayground
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var title: String = ""
     @State private var descriptionText: String = ""
@@ -30,6 +31,7 @@ struct NewPlaylistView: View {
     @State private var errorMessage: String?
     @State private var isShowingPlayground = false
     @State private var isProcessingImage: Bool = false
+    @State private var coverSource: PlaylistCoverSource?
 
     @State private var sourceMenuPresented: Bool = false
     @State private var showCameraSheet: Bool = false
@@ -40,6 +42,24 @@ struct NewPlaylistView: View {
     let onSuccess: (String) -> Void
 
     @FocusState private var focusedField: PlaylistField?
+    @AccessibilityFocusState private var focusedTitleError: Bool
+
+    private enum PlaylistCoverSource {
+        case camera
+        case photoLibrary
+        case generated
+
+        var accessibilityDescription: String {
+            switch self {
+            case .camera:
+                return String(localized: "From camera")
+            case .photoLibrary:
+                return String(localized: "From photo library")
+            case .generated:
+                return String(localized: "Generated")
+            }
+        }
+    }
 
     private var trimmedTitle: String {
         title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -64,7 +84,8 @@ struct NewPlaylistView: View {
                                 .scaledToFill()
                                 .frame(width: 150, height: 150)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .accessibilityLabel(String(localized: "Selected Cover Image"))
+                                .accessibilityLabel(String(localized: "Selected cover image"))
+                                .accessibilityValue(coverSource?.accessibilityDescription ?? String(localized: "Source unknown"))
                         } else {
                             Button {
                                 sourceMenuPresented = true
@@ -150,12 +171,16 @@ struct NewPlaylistView: View {
                                 .foregroundColor(.red)
                                 .font(.caption)
                                 .accessibilityLabel(String(localized: "Title is required"))
+                                .accessibilityFocused($focusedTitleError)
                         }
                     }
 
                     TextEditor(text: $descriptionText)
                         .focused($focusedField, equals: .description)
-                        .frame(minHeight: 80, maxHeight: 150)
+                        .frame(
+                            minHeight: dynamicTypeSize.isAccessibilitySize ? 160 : 80,
+                            maxHeight: dynamicTypeSize.isAccessibilitySize ? nil : 150
+                        )
                         .accessibilityLabel(String(localized: "Description"))
                 }
             }
@@ -217,6 +242,7 @@ struct NewPlaylistView: View {
                 defer { isProcessingImage = false }
                 if let uiImage = newImage, let data = uiImage.jpegData(compressionQuality: 0.9) {
                     selectedImageData = data
+                    coverSource = .camera
                     AuraAccessibilityAnnouncer.announce(String(localized: "Playlist cover selected"))
                     isShowingPlayground = true
                 }
@@ -229,6 +255,7 @@ struct NewPlaylistView: View {
                         do {
                             if let data = try await item.loadTransferable(type: Data.self) {
                                 selectedImageData = data
+                                coverSource = .photoLibrary
                                 AuraAccessibilityAnnouncer.announce(String(localized: "Playlist cover selected"))
                                 if shouldLaunchPlaygroundAfterPick {
                                     isShowingPlayground = true
@@ -243,6 +270,7 @@ struct NewPlaylistView: View {
                         }
                     } else {
                         selectedImageData = nil
+                        coverSource = nil
                     }
                 }
             }
@@ -280,6 +308,7 @@ struct NewPlaylistView: View {
             let message = String(localized: "Title is required")
             errorMessage = message
             focusedField = .title
+            focusedTitleError = true
             AuraAccessibilityAnnouncer.announce(message)
             return
         }
@@ -326,6 +355,7 @@ struct NewPlaylistView: View {
                 try Data(contentsOf: url)
             }.value
             selectedImageData = data
+            coverSource = .generated
             AuraAccessibilityAnnouncer.announce(String(localized: "Playlist cover selected"))
         } catch {
             Self.logger.error("Failed to load generated playlist image: \(error.localizedDescription, privacy: .public)")

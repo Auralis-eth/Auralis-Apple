@@ -21,6 +21,8 @@ struct ERC20HoldingsLoadingView: View {
         }
         .padding(24)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "Syncing token holdings"))
+        .accessibilityAddTraits(.updatesFrequently)
         .accessibilityIdentifier("erc20.loading")
     }
 }
