@@ -212,7 +212,13 @@ public struct AccountsGatewayView: View {
     .preferredColorScheme(.dark)
 }
 
-#Preview("Gateway Large Text (Canvas Increase Contrast)") {
+// NOTE: `accessibilityReduceMotion`, `accessibilityReduceTransparency`, and
+// `colorSchemeContrast` are read-only environment values in SwiftUI; they
+// cannot be forced via `.environment(...)`. The previews below cover the
+// dynamic type / color scheme axes only. Verify Reduce Motion, Reduce
+// Transparency, and Increase Contrast on a physical device via
+// Settings > Accessibility.
+#Preview("Gateway Large Text (verify Increase Contrast on device)") {
     AccountsGatewayView(
         dependencies: .preview,
         onAccountActivated: { _, _ in }
@@ -220,21 +226,21 @@ public struct AccountsGatewayView: View {
     .environment(\.dynamicTypeSize, .accessibility5)
 }
 
-#Preview("Gateway (Canvas Reduce Transparency)") {
+#Preview("Gateway (verify Reduce Transparency on device)") {
     AccountsGatewayView(
         dependencies: .preview,
         onAccountActivated: { _, _ in }
     )
 }
 
-#Preview("Gateway (Canvas Reduce Motion + Transparency)") {
+#Preview("Gateway (verify Reduce Motion + Transparency on device)") {
     AccountsGatewayView(
         dependencies: .preview,
         onAccountActivated: { _, _ in }
     )
 }
 
-#Preview("Gateway Light (Canvas Increase Contrast)") {
+#Preview("Gateway Light (verify Increase Contrast on device)") {
     AccountsGatewayView(
         dependencies: .preview,
         onAccountActivated: { _, _ in }

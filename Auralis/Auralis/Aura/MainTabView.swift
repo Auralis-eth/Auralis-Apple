@@ -667,45 +667,51 @@ private struct MainTabPreviewWrapper: View {
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Home Large Text (Canvas Increase Contrast)") {
+// NOTE: `accessibilityReduceMotion`, `accessibilityReduceTransparency`, and
+// `colorSchemeContrast` are read-only environment values in SwiftUI; they
+// cannot be forced via `.environment(...)`. The previews below cover the
+// dynamic type / color scheme axes only. Verify Reduce Motion, Reduce
+// Transparency, and Increase Contrast on a physical device via
+// Settings > Accessibility.
+#Preview("Home Large Text (verify Increase Contrast on device)") {
     MainTabPreviewWrapper(initialTab: .home)
         .environment(\.dynamicTypeSize, .accessibility5)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Home (Canvas Reduce Motion + Transparency)") {
+#Preview("Home (verify Reduce Motion + Transparency on device)") {
     MainTabPreviewWrapper(initialTab: .home)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Home (Canvas Reduce Transparency)") {
+#Preview("Home (verify Reduce Transparency on device)") {
     MainTabPreviewWrapper(initialTab: .home)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Home Light (Canvas Increase Contrast)") {
+#Preview("Home Light (verify Increase Contrast on device)") {
     MainTabPreviewWrapper(initialTab: .home)
         .preferredColorScheme(.light)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Search Large Text (Canvas Increase Contrast)") {
+#Preview("Search Large Text (verify Increase Contrast on device)") {
     MainTabPreviewWrapper(initialTab: .search)
         .environment(\.dynamicTypeSize, .accessibility5)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Search (Canvas Reduce Motion + Transparency)") {
+#Preview("Search (verify Reduce Motion + Transparency on device)") {
     MainTabPreviewWrapper(initialTab: .search)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Search (Canvas Reduce Transparency)") {
+#Preview("Search (verify Reduce Transparency on device)") {
     MainTabPreviewWrapper(initialTab: .search)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Search Light (Canvas Increase Contrast)") {
+#Preview("Search Light (verify Increase Contrast on device)") {
     MainTabPreviewWrapper(initialTab: .search)
         .preferredColorScheme(.light)
         .modelContainer(PreviewModelContainers.primary())
@@ -735,23 +741,23 @@ private struct MainTabPreviewWrapper: View {
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Gas Large Text (Canvas Increase Contrast)") {
+#Preview("Gas Large Text (verify Increase Contrast on device)") {
     MainTabPreviewWrapper(initialTab: .gas)
         .environment(\.dynamicTypeSize, .accessibility5)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Gas (Canvas Reduce Motion + Transparency)") {
+#Preview("Gas (verify Reduce Motion + Transparency on device)") {
     MainTabPreviewWrapper(initialTab: .gas)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Gas (Canvas Reduce Transparency)") {
+#Preview("Gas (verify Reduce Transparency on device)") {
     MainTabPreviewWrapper(initialTab: .gas)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Gas Light (Canvas Increase Contrast)") {
+#Preview("Gas Light (verify Increase Contrast on device)") {
     MainTabPreviewWrapper(initialTab: .gas)
         .preferredColorScheme(.light)
         .modelContainer(PreviewModelContainers.primary())
@@ -769,23 +775,23 @@ private struct MainTabPreviewWrapper: View {
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Music Large Text (Canvas Increase Contrast)") {
+#Preview("Music Large Text (verify Increase Contrast on device)") {
     MainTabPreviewWrapper(initialTab: .music)
         .environment(\.dynamicTypeSize, .accessibility5)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Music (Canvas Reduce Motion + Transparency)") {
+#Preview("Music (verify Reduce Motion + Transparency on device)") {
     MainTabPreviewWrapper(initialTab: .music)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Music (Canvas Reduce Transparency)") {
+#Preview("Music (verify Reduce Transparency on device)") {
     MainTabPreviewWrapper(initialTab: .music)
         .modelContainer(PreviewModelContainers.primary())
 }
 
-#Preview("Music Light (Canvas Increase Contrast)") {
+#Preview("Music Light (verify Increase Contrast on device)") {
     MainTabPreviewWrapper(initialTab: .music)
         .preferredColorScheme(.light)
         .modelContainer(PreviewModelContainers.primary())

@@ -45,20 +45,26 @@ private struct AuraComponentPreviewMatrix: View {
         .preferredColorScheme(.dark)
 }
 
-#Preview("Aura Components Large Text (Canvas Increase Contrast)") {
+// NOTE: `accessibilityReduceMotion`, `accessibilityReduceTransparency`, and
+// `colorSchemeContrast` are read-only environment values in SwiftUI; they
+// cannot be forced via `.environment(...)`. The previews below cover the
+// dynamic type / color scheme axes only. Verify Reduce Motion, Reduce
+// Transparency, and Increase Contrast on a physical device via
+// Settings > Accessibility.
+#Preview("Aura Components Large Text (verify Increase Contrast on device)") {
     AuraComponentPreviewMatrix()
         .environment(\.dynamicTypeSize, .accessibility5)
 }
 
-#Preview("Aura Components (Canvas Reduce Transparency)") {
+#Preview("Aura Components (verify Reduce Transparency on device)") {
     AuraComponentPreviewMatrix()
 }
 
-#Preview("Aura Components (Canvas Reduce Motion + Transparency)") {
+#Preview("Aura Components (verify Reduce Motion + Transparency on device)") {
     AuraComponentPreviewMatrix()
 }
 
-#Preview("Aura Components Light (Canvas Increase Contrast)") {
+#Preview("Aura Components Light (verify Increase Contrast on device)") {
     AuraComponentPreviewMatrix()
         .preferredColorScheme(.light)
 }

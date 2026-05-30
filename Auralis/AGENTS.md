@@ -33,6 +33,7 @@ The shell flow is:
 - Keep route logic centralized in the shell/router rather than scattering ad hoc navigation state across views.
 - `@Query` may project shell-scoped SwiftData data for presentation, detail lookup, and the single `MainAuraView` account resolver bridge. It must not become a shell coordinator: active account, active chain, logout/privacy reset, account removal, route reset, refresh, and deep-link readiness changes flow through `ShellStore.send(_:)` or collaborators invoked by `ShellStore`.
 - Treat NFT IDs and Ethereum wallet addresses as public identifiers in this product. They may be shown in UI, logs, and receipts when useful; do not flag their mere presence as a privacy issue. Secrets, API keys, auth tokens, cookies, private keys, seed material, copied sensitive text, and provider internals still require redaction or hashing.
+- Accessibility identifiers used by UI tests, VoiceOver automation, or Voice Control labels must be registered in `AuraUI/Sources/AuraUI/A11yID.swift`. Conventions: lowercased dot-namespaced strings of the form `area.control` (e.g. `tab.home`, `search.queryField`, `nftTokens.row.{id}`). Per-instance identifiers expose a static helper that interpolates the instance ID. New flows must list their primary controls, empty states, errors, and destructive confirmations in the registry before merge.
 
 ## Build And Run
 
