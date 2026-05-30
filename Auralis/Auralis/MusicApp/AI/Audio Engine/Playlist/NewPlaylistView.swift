@@ -73,6 +73,10 @@ struct NewPlaylistView: View {
         reduceTransparency ? AnyShapeStyle(Color.surface) : AnyShapeStyle(.ultraThinMaterial)
     }
 
+    private var coverArtworkSize: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 96 : 150
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -82,7 +86,7 @@ struct NewPlaylistView: View {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: 150, height: 150)
+                                .frame(width: coverArtworkSize, height: coverArtworkSize)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .accessibilityLabel(String(localized: "Selected cover image"))
                                 .accessibilityValue(coverSource?.accessibilityDescription ?? String(localized: "Source unknown"))
@@ -92,7 +96,7 @@ struct NewPlaylistView: View {
                             } label: {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.secondary.opacity(0.1))
-                                    .frame(width: 150, height: 150)
+                                    .frame(width: coverArtworkSize, height: coverArtworkSize)
                                     .overlay(
                                         SystemImage("camera")
                                             .font(.system(size: 50))
@@ -368,6 +372,12 @@ struct NewPlaylistView: View {
 
 #Preview {
     NewPlaylistView { _ in }
+        .modelContainer(PreviewModelContainers.primary())
+}
+
+#Preview("New Playlist Large Text") {
+    NewPlaylistView { _ in }
+        .environment(\.dynamicTypeSize, .accessibility5)
         .modelContainer(PreviewModelContainers.primary())
 }
 

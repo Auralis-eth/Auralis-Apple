@@ -6,6 +6,7 @@ import SwiftUI
 public struct NFTLibraryDetailView: View {
     public let nft: NFT?
     public let dependencies: NFTLibraryDependencies
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     public init(nft: NFT?, dependencies: NFTLibraryDependencies) {
         self.nft = nft
@@ -26,6 +27,10 @@ public struct NFTLibraryDetailView: View {
         }
 
         return description
+    }
+
+    private var artworkHeight: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 180 : 280
     }
 
     public var body: some View {
@@ -96,7 +101,7 @@ public struct NFTLibraryDetailView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 280)
+        .frame(height: artworkHeight)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .mediaAccessibility(.meaningful(String(localized: "NFT artwork for \(titleText)")))
     }
@@ -124,4 +129,14 @@ public struct NFTLibraryDetailView: View {
             }
         }
     }
+}
+
+#Preview("NFT Detail Large Text") {
+    NavigationStack {
+        NFTLibraryDetailView(
+            nft: nil,
+            dependencies: NFTLibraryDependencies(openExternalLink: { _ in })
+        )
+    }
+    .environment(\.dynamicTypeSize, .accessibility5)
 }

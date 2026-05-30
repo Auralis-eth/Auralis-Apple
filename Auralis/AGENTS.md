@@ -66,3 +66,5 @@ The shell flow is:
 - The shipping music UI now lives under `MusicApp/AuraPlay/`, while `MusicApp/AI/Audio Engine/` still provides the playback bridge.
 - Provider-facing UI expects typed failures. Prefer mapping transport/provider errors into `ProviderAbstractionError` or `NFTProviderFailure` instead of leaking raw `URLError`s upward.
 - Reuse the shared `RetryAfterSupport` helper for backoff parsing. The stack now supports both numeric and HTTP-date `Retry-After` headers.
+- Shared SwiftUI motion should flow through `AuraMotionPolicy` from AuraUI. Build it from `@Environment(\.accessibilityReduceMotion)` so decorative loops and state-change animations honor Reduce Motion consistently.
+- `AuraHaptics` intentionally remains tied to Reduce Motion for 0.1.0. A separate haptics preference is a future product/settings decision, not a Phase 4 behavior change.

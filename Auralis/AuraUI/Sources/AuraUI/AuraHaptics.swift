@@ -5,6 +5,7 @@ public struct AuraHaptics {
     private let isEnabled: Bool
 
     public init(accessibilityReduceMotion: Bool) {
+        // 0.1.0 keeps haptics conservative with Reduce Motion; a dedicated haptics setting is deferred.
         self.isEnabled = !accessibilityReduceMotion
     }
 

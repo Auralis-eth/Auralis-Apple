@@ -162,6 +162,10 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var artworkHeight: CGFloat = 120
 
+    private var boundedArtworkHeight: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 96 : min(artworkHeight, 180)
+    }
+
     private func relativeDescription(for date: Date?) -> String {
         guard let date else { return "Recently played" }
         return Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
@@ -175,12 +179,12 @@ private struct AuraPlayRecentlyPlayedMiniCard: View {
                        let url = URL(string: source) {
                         CachedAsyncImage(url: url, mediaAccessibility: .decorative)
                             .aspectRatio(1, contentMode: .fill)
-                            .frame(height: min(artworkHeight, 180))
+                            .frame(height: boundedArtworkHeight)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     } else {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.gray.opacity(0.25))
-                            .frame(height: min(artworkHeight, 180))
+                            .frame(height: boundedArtworkHeight)
                             .overlay {
                                 Image(systemName: "music.note")
                                     .foregroundStyle(.gray)

@@ -55,6 +55,14 @@ enum CongestionLevel: String, CaseIterable {
         case .high: return .red
         }
     }
+
+    var symbolName: String {
+        switch self {
+        case .low: return "1.circle.fill"
+        case .medium: return "2.circle.fill"
+        case .high: return "3.circle.fill"
+        }
+    }
 }
 
 enum TrendDirection {
@@ -691,13 +699,22 @@ extension GasPriceEstimateView {
     // MARK: - Congestion Indicator
     struct CongestionIndicator: View {
         let level: CongestionLevel
+        @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
         var body: some View {
-            HStack(spacing: 2) {
-                ForEach(0..<3, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(getColor(for: index))
-                        .frame(width: 8, height: CGFloat(8 + index * 4))
+            HStack(spacing: 6) {
+                HStack(spacing: 2) {
+                    ForEach(0..<3, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(getColor(for: index))
+                            .frame(width: 8, height: CGFloat(8 + index * 4))
+                    }
+                }
+
+                if differentiateWithoutColor {
+                    Label(level.displayName, systemImage: level.symbolName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(level.color)
                 }
             }
             .accessibilityHidden(true)
@@ -773,6 +790,7 @@ extension GasPriceEstimateView {
         let value: String
         let trend: TrendDirection?
         @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+        @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
         var body: some View {
             Group {
@@ -804,10 +822,19 @@ extension GasPriceEstimateView {
                 PrimaryText(value)
 
                 if let trend = trend, trend != .stable {
-                    SystemImage(trend.icon)
-                        .foregroundStyle(trend.color)
-                        .font(.caption)
-                        .accessibilityLabel(String(localized: "\(trendAccessibilityLabel(for: trend))"))
+                    if differentiateWithoutColor {
+                        Label(trendShortLabel(for: trend), systemImage: trend.icon)
+                            .labelStyle(.titleAndIcon)
+                            .foregroundStyle(trend.color)
+                            .font(.caption)
+                            .accessibilityLabel(String(localized: "\(trendAccessibilityLabel(for: trend))"))
+                    } else {
+                        Label(trendShortLabel(for: trend), systemImage: trend.icon)
+                            .labelStyle(.iconOnly)
+                            .foregroundStyle(trend.color)
+                            .font(.caption)
+                            .accessibilityLabel(String(localized: "\(trendAccessibilityLabel(for: trend))"))
+                    }
                 }
             }
         }
@@ -827,6 +854,17 @@ extension GasPriceEstimateView {
                 return "Trending down"
             case .stable:
                 return "Stable"
+            }
+        }
+
+        private func trendShortLabel(for trend: TrendDirection) -> String {
+            switch trend {
+            case .up:
+                return String(localized: "Up")
+            case .down:
+                return String(localized: "Down")
+            case .stable:
+                return String(localized: "Stable")
             }
         }
     }

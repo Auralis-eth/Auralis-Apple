@@ -3,6 +3,7 @@ import AuraUI
 
 struct ERC20HoldingRow: View {
     let row: TokenHoldingRowModel
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
         AuraSurfaceCard(style: .soft, cornerRadius: 26, padding: 16) {
@@ -86,6 +87,16 @@ struct ERC20HoldingRow: View {
             Text(row.symbolGlyph)
                 .font(.subheadline.weight(.black))
                 .foregroundStyle(Color.white.opacity(0.96))
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if differentiateWithoutColor {
+                Image(systemName: row.statusGlyph)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(Color.textPrimary)
+                    .padding(4)
+                    .background(Color.surface, in: Circle())
+                    .accessibilityHidden(true)
+            }
         }
         .accessibilityHidden(true)
     }
@@ -171,5 +182,20 @@ extension TokenHoldingRowModel {
 
     var updatedLabel: String {
         "Updated \(updatedAt.formatted(date: .abbreviated, time: .shortened))"
+    }
+
+    var statusGlyph: String {
+        if isMetadataStale {
+            return "clock.arrow.circlepath"
+        }
+        if isPlaceholder {
+            return "sparkles"
+        }
+        switch kind {
+        case .native:
+            return "bolt.fill"
+        case .erc20:
+            return "bitcoinsign.circle"
+        }
     }
 }

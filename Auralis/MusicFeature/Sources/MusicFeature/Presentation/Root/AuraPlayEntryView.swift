@@ -167,6 +167,7 @@ public final class AuraPlayRootModel {
 
 struct AuraPlayEntryView: View {
     @Bindable var model: AuraPlayRootModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ScrollView {
@@ -229,17 +230,33 @@ struct AuraPlayEntryView: View {
     }
 
     private func infoRow(title: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(Color.textSecondary)
-                .frame(width: 124, alignment: .leading)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                infoRowTitle(title)
+                    .frame(width: dynamicTypeSize.isAccessibilitySize ? 96 : 124, alignment: .leading)
 
-            Text(value)
-                .font(.subheadline)
-                .foregroundStyle(Color.textPrimary)
+                infoRowValue(value)
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                infoRowTitle(title)
+                infoRowValue(value)
+            }
         }
+    }
+
+    private func infoRowTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(Color.textSecondary)
+    }
+
+    private func infoRowValue(_ value: String) -> some View {
+        Text(value)
+            .font(.subheadline)
+            .foregroundStyle(Color.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

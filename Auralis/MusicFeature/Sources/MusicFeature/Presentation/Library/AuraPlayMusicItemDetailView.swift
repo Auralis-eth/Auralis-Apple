@@ -12,6 +12,7 @@ public struct AuraPlayMusicItemDetailView: View {
 
     @Query private var nfts: [NFT]
     @Query private var libraryItems: [MusicLibraryItem]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var artworkHeight: CGFloat = 320
 
     public init(
@@ -162,7 +163,7 @@ public struct AuraPlayMusicItemDetailView: View {
                     }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: min(artworkHeight, 460))
+            .frame(height: boundedArtworkHeight)
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .mediaAccessibility(.meaningful(String(localized: "\(presentation.title) artwork")))
 
@@ -174,11 +175,13 @@ public struct AuraPlayMusicItemDetailView: View {
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
 
             VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    musicDetailChip(title: presentation.chainTitle, systemImage: "link")
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        artworkMetaChips(for: presentation)
+                    }
 
-                    if let format = presentation.contentType {
-                        musicDetailChip(title: format, systemImage: "waveform")
+                    VStack(alignment: .leading, spacing: 8) {
+                        artworkMetaChips(for: presentation)
                     }
                 }
 
@@ -192,6 +195,19 @@ public struct AuraPlayMusicItemDetailView: View {
             }
             .padding(18)
         }
+    }
+
+    @ViewBuilder
+    private func artworkMetaChips(for presentation: AuraPlayMusicItemDetailPresentation) -> some View {
+        musicDetailChip(title: presentation.chainTitle, systemImage: "link")
+
+        if let format = presentation.contentType {
+            musicDetailChip(title: format, systemImage: "waveform")
+        }
+    }
+
+    private var boundedArtworkHeight: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 220 : min(artworkHeight, 460)
     }
 
     private func musicDetailRow(title: String, value: String?) -> some View {
@@ -333,4 +349,17 @@ public struct AuraPlayMusicItemDetailPresentation: Equatable {
         }
         return URL(string: cleaned)
     }
+}
+
+#Preview("Music Item Detail Large Text") {
+    NavigationStack {
+        AuraPlayMusicItemDetailView(
+            itemID: "preview",
+            currentAccountAddress: nil,
+            currentChain: .ethMainnet,
+            onOpenCollection: { _, _ in }
+        )
+    }
+    .environment(\.dynamicTypeSize, .accessibility5)
+    .modelContainer(for: [MusicLibraryItem.self, NFT.self], inMemory: true)
 }

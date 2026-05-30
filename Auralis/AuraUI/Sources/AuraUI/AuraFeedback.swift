@@ -48,6 +48,7 @@ public struct AuraEmptyState: View {
     public let tone: AuraFeedbackTone
     public let primaryAction: AuraFeedbackAction?
     public let secondaryAction: AuraFeedbackAction?
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     public init(
         eyebrow: String? = nil,
@@ -81,6 +82,12 @@ public struct AuraEmptyState: View {
                     VStack(alignment: .leading, spacing: 8) {
                         if let eyebrow, !eyebrow.isEmpty {
                             Text(eyebrow.uppercased())
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(tone.secondaryTintColor)
+                        }
+
+                        if differentiateWithoutColor && tone != .neutral {
+                            Text(tone.displayName)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(tone.secondaryTintColor)
                         }
@@ -125,6 +132,7 @@ public struct AuraErrorBanner: View {
     public let systemImage: String
     public let tone: AuraFeedbackTone
     public let action: AuraFeedbackAction?
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     public init(
         title: String,
@@ -148,6 +156,12 @@ public struct AuraErrorBanner: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
+                if differentiateWithoutColor && tone != .neutral {
+                    Text(tone.displayName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(tone.secondaryTintColor)
+                }
+
                 Text(title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.textPrimary)
@@ -176,5 +190,18 @@ public struct AuraErrorBanner: View {
                 .strokeBorder(tone.tintColor.opacity(0.18), lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
+    }
+}
+
+private extension AuraFeedbackTone {
+    var displayName: String {
+        switch self {
+        case .neutral:
+            return String(localized: "Status")
+        case .warning:
+            return String(localized: "Warning")
+        case .critical:
+            return String(localized: "Critical")
+        }
     }
 }

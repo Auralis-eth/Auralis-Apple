@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-05-28 — Phase 3 Made Forms Stop Talking Over The User
+
+This Phase 3 accessibility pass was mostly about timing and manners. The search field had been trying to be both an editable field and a status announcer, which is like a cashier reading the menu while you are typing your card PIN. The field now lets SwiftUI expose the actual query text, while the detection card owns the classification context and the existing debounced announcer handles meaningful changes.
+
+The second lesson was that long identifiers need a speaking format, not a bigger megaphone. `AuraAccessibleSpeech` groups hex strings into short chunks so wallet addresses and correlation IDs are still public and useful without becoming one exhausting spoken rope. Loading states also learned to announce starts and finishes, playlist validation can move VoiceOver focus to the inline error, and selected playlist covers now remember whether they came from camera, photo library, or generation.
+
 ## 2026-05-28 — Phase 2 Got Its Shared Contracts
 
 This Phase 2 pass was the design-system equivalent of labeling the circuit breaker panel. The card summary helper no longer whispers an empty value into every VoiceOver node, and it can now say what kind of thing a summarized card really is. Receipt previews, receipt timeline rows, and openable token rows get button traits from the shared helper instead of each call site inventing its own little workaround.
@@ -2216,3 +2222,13 @@ Artwork also got promoted from wallpaper to content. NFT hero cards, NFT details
 The rest of the pass made dense information easier to skim. Receipt facts, context receipts, and NFT token rows now read as coherent label/value summaries, while search, NFT detail, music detail, account entry, and Now Playing headings feed the VoiceOver rotor. Playlist creation now announces the async failures that used to appear only visually, and successful cover selection gets spoken as soon as processing finishes.
 
 The lesson: accessibility is not a sprinkle at the end of a view. It is the tour guide, the signage, and the emergency exit. If any one of those is missing, the room may look beautiful and still be hard to use.
+
+## Accessibility Phase 4: Big Text And Quiet Motion Get A House Style
+
+Phase 4 was the accessibility pass where the furniture had to move, not just get better labels. Media-heavy screens love fixed artwork boxes because they look composed at normal sizes, but accessibility text sizes turn those boxes into reserved parking spaces for pixels. The fix was to let artwork shrink where the words need the room: NFT detail art, playlist covers, music detail art, collection rows, and Recently Played cards now choose smaller bounds when Dynamic Type gets large. Nearby label/value rows use `ViewThatFits`, which is basically the layout asking, "Can I sit side by side, or should I stack before someone gets elbowed?"
+
+Color got the same treatment. Status still uses Aura's colors, but Differentiate Without Color now adds visible words or glyphs on gas, token, shell feedback, and trust-label surfaces. The point is not to make the UI louder for everyone; it is to make sure the warning survives when color stops being the primary channel.
+
+The motion work pulled a loose convention into a reusable contract. `AuraMotionPolicy` now owns decorative loops and state-change animation choices, so new components have a paved path for honoring Reduce Motion. Haptics stay conservative for 0.1.0: they remain suppressed with Reduce Motion until the product has a dedicated setting. That decision is now documented instead of living as folklore in a tiny wrapper.
+
+The lesson: accessibility settings are not edge-case flags. They are alternate operating conditions. Good components should have a house style for those conditions before the next feature arrives.

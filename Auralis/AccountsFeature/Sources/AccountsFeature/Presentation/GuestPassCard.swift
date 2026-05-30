@@ -35,6 +35,10 @@ public struct GuestPassCard: View {
         !accessibilityReduceMotion && !accessibilityReduceTransparency
     }
 
+    private var motionPolicy: AuraMotionPolicy {
+        AuraMotionPolicy(reduceMotion: accessibilityReduceMotion)
+    }
+
     public var body: some View {
         Group {
             if let onTap {
@@ -66,7 +70,7 @@ public struct GuestPassCard: View {
             }
 
             if !isAnimating {
-                withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
+                withAnimation(motionPolicy.decorativeLoop) {
                     isAnimating = true
                 }
             }

@@ -10,7 +10,6 @@ import UIKit
 public struct NFTLibraryCardView: View {
     public let nft: NFT
     @State private var isExpanded = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var actionRailWidth = 70
 
@@ -104,6 +103,10 @@ public struct NFTLibraryCardButtons: View {
         self.nft = nft
     }
 
+    private var motionPolicy: AuraMotionPolicy {
+        AuraMotionPolicy(reduceMotion: reduceMotion)
+    }
+
     public var body: some View {
         cardButtons
             .onDisappear {
@@ -168,7 +171,7 @@ public struct NFTLibraryCardButtons: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .animation(reduceMotion ? nil : .snappy, value: isShowingCopyConfirmation)
+            .animation(motionPolicy.stateChange, value: isShowingCopyConfirmation)
     }
 
     private func copyNFTIdentifier() {
@@ -202,6 +205,10 @@ public struct NFTLibraryCardDetailsView: View {
         _isExpanded = isExpanded
     }
 
+    private var motionPolicy: AuraMotionPolicy {
+        AuraMotionPolicy(reduceMotion: reduceMotion)
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             VStack(alignment: .leading) {
@@ -225,7 +232,7 @@ public struct NFTLibraryCardDetailsView: View {
             }
 
             Button {
-                withAnimation(reduceMotion ? nil : .snappy) {
+                withAnimation(motionPolicy.stateChange) {
                     isExpanded.toggle()
                 }
             } label: {

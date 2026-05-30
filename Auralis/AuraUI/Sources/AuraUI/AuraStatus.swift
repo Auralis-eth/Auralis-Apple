@@ -152,6 +152,7 @@ public enum AuraUntrustedValueKind: String, Equatable, Sendable {
 public struct AuraTrustLabel: View {
     private let kind: AuraUntrustedValueKind
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @ScaledMetric(relativeTo: .caption) private var iconSize = 10.0
 
     public init(kind: AuraUntrustedValueKind) {
@@ -168,6 +169,12 @@ public struct AuraTrustLabel: View {
                 .font(.caption.weight(.semibold))
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if differentiateWithoutColor {
+                Text(String(localized: "Warning"))
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+            }
         }
         .foregroundStyle(Color(red: 0.97, green: 0.8, blue: 0.38))
         .padding(.horizontal, 10)

@@ -12,6 +12,7 @@ public struct AuraPlayMusicCollectionDetailView: View {
     public let onOpenItem: (String) -> Void
 
     @Query private var libraryItems: [MusicLibraryItem]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     public init(
         collectionKey: String,
@@ -93,20 +94,13 @@ public struct AuraPlayMusicCollectionDetailView: View {
                                 .foregroundStyle(Color.textSecondary)
                         }
 
-                        HStack(spacing: 10) {
-                            collectionMetaChip(
-                                title: presentation.trackCountLabel,
-                                systemImage: "music.note.list"
-                            )
-                            collectionMetaChip(
-                                title: presentation.chainTitle,
-                                systemImage: "link"
-                            )
-                            if presentation.hasUnavailableTracks {
-                                collectionMetaChip(
-                                    title: "Partial",
-                                    systemImage: "exclamationmark.triangle"
-                                )
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 10) {
+                                collectionMetaChips(for: presentation)
+                            }
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                collectionMetaChips(for: presentation)
                             }
                         }
 
@@ -159,7 +153,7 @@ public struct AuraPlayMusicCollectionDetailView: View {
                             .foregroundStyle(.gray)
                     }
             }
-            .frame(width: 64, height: 64)
+            .frame(width: trackArtworkSize, height: trackArtworkSize)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .mediaAccessibility(.decorative)
 
@@ -185,6 +179,28 @@ public struct AuraPlayMusicCollectionDetailView: View {
         }
         .padding(12)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    @ViewBuilder
+    private func collectionMetaChips(for presentation: AuraPlayMusicCollectionDetailPresentation) -> some View {
+        collectionMetaChip(
+            title: presentation.trackCountLabel,
+            systemImage: "music.note.list"
+        )
+        collectionMetaChip(
+            title: presentation.chainTitle,
+            systemImage: "link"
+        )
+        if presentation.hasUnavailableTracks {
+            collectionMetaChip(
+                title: "Partial",
+                systemImage: "exclamationmark.triangle"
+            )
+        }
+    }
+
+    private var trackArtworkSize: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 52 : 64
     }
 
     private func collectionMetaChip(title: String, systemImage: String) -> some View {
@@ -297,4 +313,18 @@ public struct AuraPlayMusicCollectionDetailPresentation: Equatable {
         self.hasUnavailableTracks = hasUnavailableTracks
         self.metadataStatus = metadataStatus
     }
+}
+
+#Preview("Collection Detail Large Text") {
+    NavigationStack {
+        AuraPlayMusicCollectionDetailView(
+            collectionKey: "preview",
+            collectionTitle: "Preview Collection",
+            currentAccountAddress: nil,
+            currentChain: .ethMainnet,
+            onOpenItem: { _ in }
+        )
+    }
+    .environment(\.dynamicTypeSize, .accessibility5)
+    .modelContainer(for: [MusicLibraryItem.self, NFT.self], inMemory: true)
 }
