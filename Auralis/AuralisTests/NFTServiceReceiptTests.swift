@@ -137,6 +137,7 @@ struct NFTServiceReceiptTests {
                 correlationID: "coalesce-1"
             )
         }
+        await fetcher.waitUntilFetchStarts()
         let second = Task { @MainActor in
             await service.refreshNFTs(
                 for: account,
@@ -145,6 +146,7 @@ struct NFTServiceReceiptTests {
                 correlationID: "coalesce-2"
             )
         }
+        fetcher.resume()
 
         _ = await (first.value, second.value)
 
@@ -697,6 +699,8 @@ private final class SlowStubNFTFetcher: NFTFetching, @unchecked Sendable {
     var error: Error?
     var currentCursor: String?
     private(set) var fetchCallCount = 0
+    private var fetchStartedContinuation: CheckedContinuation<Void, Never>?
+    private var resumeContinuation: CheckedContinuation<Void, Never>?
 
     func fetchAllNFTs(
         for account: String,
@@ -717,8 +721,27 @@ private final class SlowStubNFTFetcher: NFTFetching, @unchecked Sendable {
             )
         }
 
-        try await Task.sleep(for: .milliseconds(50))
+        fetchStartedContinuation?.resume()
+        fetchStartedContinuation = nil
+        await withCheckedContinuation { continuation in
+            resumeContinuation = continuation
+        }
         return NFTFetchInventoryResult(nfts: [], didCompleteFullRefresh: true, totalCount: 0)
+    }
+
+    func waitUntilFetchStarts() async {
+        if fetchCallCount > 0 {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            fetchStartedContinuation = continuation
+        }
+    }
+
+    func resume() {
+        resumeContinuation?.resume()
+        resumeContinuation = nil
     }
 
     func reset() {

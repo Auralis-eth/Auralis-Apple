@@ -1,10 +1,11 @@
 import AuralisPrimaryModels
+import AuralisTestSupport
 import ChainProviders
 import Foundation
 import ProviderKit
 import Testing
 
-@Suite(.serialized)
+@Suite
 struct ChainProviderCapabilitiesTests {
     @Test("Every current chain has an explicit capability decision")
     func everyChainHasExplicitCapabilities() {
@@ -36,7 +37,7 @@ struct ChainProviderCapabilitiesTests {
     @Test("Read-only factory injects native balance configuration and session")
     func readOnlyFactoryInjectsNativeBalanceDependencies() async throws {
         let requestedURL = LockedValue<URL?>(nil)
-        StubURLProtocol.handler = { request in
+        let session = URLSession.mocked { request in
             requestedURL.set(request.url)
             let response = HTTPURLResponse(
                 url: request.url!,
@@ -47,14 +48,11 @@ struct ChainProviderCapabilitiesTests {
             let data = Data(#"{"jsonrpc":"2.0","id":1,"result":"0x2a"}"#.utf8)
             return (response, data)
         }
-        defer {
-            StubURLProtocol.handler = nil
-        }
 
         let expectedURL = URL(string: "https://example.test/rpc")!
         let factory = ReadOnlyChainProviderFactory(
             configurationResolver: StubProviderConfigurationResolver(rpcURL: expectedURL),
-            session: makeStubSession()
+            session: session
         )
 
         let balance = try await factory.makeNativeBalanceProvider().nativeBalance(
@@ -99,12 +97,6 @@ struct ChainProviderCapabilitiesTests {
         .solanaMainnet,
         .solanaDevnetTestnet,
     ]
-
-    private func makeStubSession() -> URLSession {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [StubURLProtocol.self]
-        return URLSession(configuration: configuration)
-    }
 }
 
 private struct StubProviderConfigurationResolver: ProviderConfigurationResolving {
@@ -118,57 +110,4 @@ private struct StubProviderConfigurationResolver: ProviderConfigurationResolving
             alchemyRPCURL: rpcURL
         )
     }
-}
-
-private final class LockedValue<Value>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var storage: Value
-
-    init(_ storage: Value) {
-        self.storage = storage
-    }
-
-    var value: Value {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
-    }
-
-    func set(_ value: Value) {
-        lock.lock()
-        storage = value
-        lock.unlock()
-    }
-}
-
-private final class StubURLProtocol: URLProtocol {
-    typealias Handler = @Sendable (URLRequest) throws -> (URLResponse, Data)
-
-    nonisolated(unsafe) static var handler: Handler?
-
-    override static func canInit(with request: URLRequest) -> Bool {
-        true
-    }
-
-    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
-        request
-    }
-
-    override func startLoading() {
-        guard let handler = Self.handler else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
-            return
-        }
-
-        do {
-            let (response, data) = try handler(request)
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data)
-            client?.urlProtocolDidFinishLoading(self)
-        } catch {
-            client?.urlProtocol(self, didFailWithError: error)
-        }
-    }
-
-    override func stopLoading() {}
 }

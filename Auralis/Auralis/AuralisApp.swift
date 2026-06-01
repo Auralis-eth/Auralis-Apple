@@ -1,9 +1,11 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisShellCore
 import OSLog
 import SwiftData
 import SwiftUI
 import NFTDomain
+import NFTLibraryFeature
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
@@ -46,6 +48,7 @@ private extension AuralisApp {
         WindowGroup {
             UITestSeededRoot(
                 fixture: uiTestFixture,
+                dependencies: uiTestFixture.shellBootstrapDependencies,
                 primaryStoreInitializationErrorMessage: primaryStoreInitializationErrorMessage
             )
             .task {
@@ -89,7 +92,7 @@ private extension AuralisApp {
 private enum UITestFixture: Equatable {
     case none
     case cleanGateway
-    case authenticatedAccount(tabBarVisibility: AppTabBarVisibility)
+    case authenticatedAccount(tabBarVisibility: AppTabBarVisibility, presentsSeededNFTDetail: Bool = false)
 
     init(arguments: [String]) {
         if arguments.contains("-ui-testing-authenticated") {
@@ -103,7 +106,8 @@ private enum UITestFixture: Equatable {
                 )
             } else if arguments.contains("-ui-testing-nft-tabs") {
                 self = .authenticatedAccount(
-                    tabBarVisibility: AppTabBarVisibility(tabBarTabs: [.home, .nftTokens])
+                    tabBarVisibility: AppTabBarVisibility(tabBarTabs: [.home, .nftTokens]),
+                    presentsSeededNFTDetail: arguments.contains("-ui-testing-seeded-nft-detail")
                 )
             } else {
                 self = .authenticatedAccount(tabBarVisibility: .release)
@@ -138,9 +142,32 @@ private enum UITestFixture: Equatable {
             return .live
         case .cleanGateway:
             return .release
-        case .authenticatedAccount(let tabBarVisibility):
+        case .authenticatedAccount(let tabBarVisibility, _):
             return tabBarVisibility
         }
+    }
+
+    var presentsSeededNFTDetail: Bool {
+        switch self {
+        case .authenticatedAccount(_, let presentsSeededNFTDetail):
+            return presentsSeededNFTDetail
+        case .none, .cleanGateway:
+            return false
+        }
+    }
+
+    @MainActor
+    var shellBootstrapDependencies: ShellBootstrapDependencies {
+        guard let seededAccount else {
+            return .live
+        }
+
+        return ShellBootstrapDependencies.live(
+            selectionPersistence: UITestShellSelectionPersistence(
+                address: seededAccount.address,
+                chainID: Chain.ethMainnet.rawValue
+            )
+        )
     }
 }
 
@@ -149,16 +176,23 @@ private struct UITestSeededRoot: View {
     @State private var isReady = false
 
     let fixture: UITestFixture
+    let dependencies: ShellBootstrapDependencies
     let primaryStoreInitializationErrorMessage: String?
 
     var body: some View {
         Group {
             if isReady {
-                MainAuraView(
-                    dependencies: .live,
-                    tabBarVisibility: fixture.tabBarVisibility,
-                    primaryStoreInitializationErrorMessage: primaryStoreInitializationErrorMessage
-                )
+                if fixture.presentsSeededNFTDetail, let account = fixture.seededAccount {
+                    NavigationStack {
+                        UITestNFTDetailHarnessView(accountAddress: account.address)
+                    }
+                } else {
+                    MainAuraView(
+                        dependencies: dependencies,
+                        tabBarVisibility: fixture.tabBarVisibility,
+                        primaryStoreInitializationErrorMessage: primaryStoreInitializationErrorMessage
+                    )
+                }
             } else {
                 ProgressView()
                     .accessibilityLabel(String(localized: "Preparing test data"))
@@ -299,4 +333,51 @@ private struct UITestSeededRoot: View {
             )
         )
     }
+}
+
+private struct UITestNFTDetailHarnessView: View {
+    let accountAddress: String
+
+    var body: some View {
+        NFTLibraryDetailView(
+            nft: NFT(
+                id: "a11y-seeded-nft",
+                contract: NFT.Contract(address: "0x0000000000000000000000000000000000000001"),
+                tokenId: "1",
+                tokenType: "ERC721",
+                name: "Accessibility Seed NFT",
+                nftDescription: "Deterministic fixture used by accessibility UI audits.",
+                collection: NFT.Collection(
+                    name: "Accessibility Fixtures",
+                    contractAddress: "0x0000000000000000000000000000000000000001"
+                ),
+                network: .ethMainnet,
+                accountAddress: accountAddress,
+                contentType: "audio/mpeg",
+                collectionName: "Accessibility Fixtures",
+                artistName: "Auralis QA",
+                audioUrl: "https://example.com/a11y.mp3"
+            ),
+            dependencies: NFTLibraryDependencies { _ in }
+        )
+    }
+}
+
+@MainActor
+private final class UITestShellSelectionPersistence: ShellSelectionPersisting {
+    private let address: String
+    private let chainID: String
+
+    init(address: String, chainID: String) {
+        self.address = address
+        self.chainID = chainID
+    }
+
+    func loadSelection() async throws -> (address: String, chainID: String) {
+        (address, chainID)
+    }
+
+    func saveSelection(address: String, chainID: String) async throws {}
+
+    func clearSelection() async throws {}
 }

@@ -6,6 +6,7 @@ let package = Package(
     name: "ProviderKit",
     platforms: [
         .iOS(.v18),
+        .macOS(.v15),
     ],
     products: [
         .library(
@@ -15,6 +16,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
+        .package(path: "../AuralisTestSupport"),
     ],
     targets: [
         .target(
@@ -26,7 +28,10 @@ let package = Package(
         ),
         .testTarget(
             name: "ProviderKitTests",
-            dependencies: ["ProviderKit"]
+            dependencies: [
+                "ProviderKit",
+                "AuralisTestSupport",
+            ]
         ),
     ]
 )

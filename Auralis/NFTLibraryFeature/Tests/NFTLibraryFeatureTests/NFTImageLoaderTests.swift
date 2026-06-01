@@ -1,9 +1,10 @@
 @testable import NFTLibraryFeature
+import AuralisTestSupport
 import Foundation
 import Testing
 import UIKit
 
-@Suite(.serialized)
+@Suite
 @MainActor
 struct NFTImageLoaderTests {
     @Test("default loaders share the reusable session")
@@ -21,11 +22,9 @@ struct NFTImageLoaderTests {
     }
 
     @Test("mp4 URL extension rejects immediately and clears loading state")
-    func mp4ExtensionRejectClearsLoading() async {
+    func mp4ExtensionRejectClearsLoading() {
         let loader = NFTImageLoader(url: URL(string: "https://example.com/clip.mp4")!)
         loader.loadIfNeeded()
-
-        await Task.yield()
 
         #expect(loader.isLoading == false)
         #expect(loader.image == nil)
@@ -37,7 +36,7 @@ struct NFTImageLoaderTests {
 
     @Test("mp4 content type rejects and clears loading state")
     func mp4ContentTypeRejectClearsLoading() async throws {
-        MockURLProtocol.handler = { request in
+        let session = URLSession.mocked { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 200,
@@ -46,25 +45,13 @@ struct NFTImageLoaderTests {
             )!
             return (response, Data())
         }
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let session = URLSession(configuration: configuration)
-        defer {
-            MockURLProtocol.handler = nil
-        }
 
         let loader = NFTImageLoader(
             url: URL(string: "https://example.com/not-an-image")!,
             session: session
         )
-        loader.loadIfNeeded()
-
-        for _ in 0..<20 {
-            if loader.isLoading == false {
-                break
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        let loadingTask = try #require(loader.loadIfNeeded())
+        await loadingTask.value
 
         #expect(loader.isLoading == false)
         #expect(loader.image == nil)
@@ -76,7 +63,7 @@ struct NFTImageLoaderTests {
 
     @Test("HTTP 404 image responses surface a not-found style failure instead of decode noise")
     func notFoundStatusSurfacesSpecificFailure() async throws {
-        MockURLProtocol.handler = { request in
+        let session = URLSession.mocked { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 404,
@@ -85,20 +72,12 @@ struct NFTImageLoaderTests {
             )!
             return (response, Data())
         }
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let session = URLSession(configuration: configuration)
-        defer {
-            MockURLProtocol.handler = nil
-        }
 
         let loader = NFTImageLoader(
             url: URL(string: "https://example.com/missing.png")!,
             session: session
         )
-        loader.loadIfNeeded()
-
-        try await waitForLoaderToFinish(loader)
+        try await waitForLoaderToFinish(loader.loadIfNeeded())
 
         #expect(loader.image == nil)
         if case .badStatus(404) = loader.error {
@@ -120,7 +99,7 @@ struct NFTImageLoaderTests {
         )
         var requestCount = 0
         var shouldSucceed = false
-        MockURLProtocol.handler = { request in
+        let session = URLSession.mocked { request in
             requestCount += 1
             if shouldSucceed == false {
                 throw URLError(.notConnectedToInternet)
@@ -134,20 +113,12 @@ struct NFTImageLoaderTests {
             )!
             return (response, pngData)
         }
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let session = URLSession(configuration: configuration)
-        defer {
-            MockURLProtocol.handler = nil
-        }
 
         let loader = NFTImageLoader(
             url: URL(string: "https://example.com/transient.png")!,
             session: session
         )
-        loader.loadIfNeeded()
-
-        try await waitForLoaderToFinish(loader)
+        try await waitForLoaderToFinish(loader.loadIfNeeded())
 
         #expect(loader.image == nil)
         if case .offline = loader.error {
@@ -156,9 +127,7 @@ struct NFTImageLoaderTests {
         }
 
         shouldSucceed = true
-        loader.retry()
-
-        try await waitForLoaderToFinish(loader)
+        try await waitForLoaderToFinish(loader.retry())
 
         #expect(loader.isLoading == false)
         #expect(loader.error == nil)
@@ -169,23 +138,15 @@ struct NFTImageLoaderTests {
     @Test("offline transport failures surface an offline-specific image error")
     func offlineTransportFailureUsesOfflineError() async throws {
         NFTImageCache.shared.clear()
-        MockURLProtocol.handler = { _ in
+        let session = URLSession.mocked { _ in
             throw URLError(.notConnectedToInternet)
-        }
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let session = URLSession(configuration: configuration)
-        defer {
-            MockURLProtocol.handler = nil
         }
 
         let loader = NFTImageLoader(
             url: URL(string: "https://example.com/offline.png")!,
             session: session
         )
-        loader.loadIfNeeded()
-
-        try await waitForLoaderToFinish(loader)
+        try await waitForLoaderToFinish(loader.loadIfNeeded())
 
         if case .offline = loader.error {
         } else {
@@ -197,23 +158,15 @@ struct NFTImageLoaderTests {
     @Test("timed out transport failures surface a timeout-specific image error")
     func timedOutTransportFailureUsesTimedOutError() async throws {
         NFTImageCache.shared.clear()
-        MockURLProtocol.handler = { _ in
+        let session = URLSession.mocked { _ in
             throw URLError(.timedOut)
-        }
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let session = URLSession(configuration: configuration)
-        defer {
-            MockURLProtocol.handler = nil
         }
 
         let loader = NFTImageLoader(
             url: URL(string: "https://example.com/timeout.png")!,
             session: session
         )
-        loader.loadIfNeeded()
-
-        try await waitForLoaderToFinish(loader)
+        try await waitForLoaderToFinish(loader.loadIfNeeded())
 
         if case .timedOut = loader.error {
         } else {
@@ -229,7 +182,7 @@ struct NFTImageLoaderTests {
             repeating: 0x61,
             count: NFTImageLoader.maxDownloadSizeBytes + 1
         )
-        MockURLProtocol.handler = { request in
+        let session = URLSession.mocked { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 200,
@@ -241,20 +194,12 @@ struct NFTImageLoaderTests {
             )!
             return (response, oversizedData)
         }
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let session = URLSession(configuration: configuration)
-        defer {
-            MockURLProtocol.handler = nil
-        }
 
         let loader = NFTImageLoader(
             url: URL(string: "https://example.com/oversized.svg")!,
             session: session
         )
-        loader.loadIfNeeded()
-
-        try await waitForLoaderToFinish(loader)
+        try await waitForLoaderToFinish(loader.loadIfNeeded())
 
         #expect(loader.image == nil)
         if case .fileTooLarge = loader.error {
@@ -265,47 +210,7 @@ struct NFTImageLoaderTests {
 }
 
 @MainActor
-private func waitForLoaderToFinish(_ loader: NFTImageLoader) async throws {
-    for _ in 0..<40 {
-        if loader.isLoading == false, loader.image != nil || loader.error != nil {
-            return
-        }
-        try await Task.sleep(for: .milliseconds(10))
-    }
-
-    Issue.record("Timed out waiting for image loader to finish.")
-}
-
-// URLProtocol requires these overridden type methods even on a final class.
-private final class MockURLProtocol: URLProtocol {
-    typealias Handler = (URLRequest) throws -> (URLResponse, Data)
-
-    // Safety invariant: tests install and clear the handler around a single request flow.
-    nonisolated(unsafe) static var handler: Handler?
-
-    override static func canInit(with request: URLRequest) -> Bool {
-        request.url?.host == "example.com"
-    }
-
-    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
-        request
-    }
-
-    override func startLoading() {
-        guard let handler = Self.handler else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
-            return
-        }
-
-        do {
-            let (response, data) = try handler(request)
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data)
-            client?.urlProtocolDidFinishLoading(self)
-        } catch {
-            client?.urlProtocol(self, didFailWithError: error)
-        }
-    }
-
-    override func stopLoading() {}
+private func waitForLoaderToFinish(_ loadingTask: Task<Void, Never>?) async throws {
+    let loadingTask = try #require(loadingTask)
+    await loadingTask.value
 }

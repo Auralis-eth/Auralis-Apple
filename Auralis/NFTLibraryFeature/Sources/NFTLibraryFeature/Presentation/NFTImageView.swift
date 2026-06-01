@@ -128,9 +128,10 @@ public final class NFTImageLoader {
         image = NFTImageCache.shared.get(for: cacheKey)
     }
 
-    func loadIfNeeded() {
-        guard image == nil, !isLoading else { return }
-        loadImage()
+    @discardableResult
+    func loadIfNeeded() -> Task<Void, Never>? {
+        guard image == nil, !isLoading else { return nil }
+        return loadImage()
     }
 
     func cancel() {
@@ -139,11 +140,13 @@ public final class NFTImageLoader {
         isLoading = false
     }
 
-    func retry() {
+    @discardableResult
+    func retry() -> Task<Void, Never>? {
         loadImage()
     }
 
-    private func loadImage() {
+    @discardableResult
+    private func loadImage() -> Task<Void, Never>? {
         loadingTask?.cancel()
         isLoading = true
         image = nil
@@ -152,13 +155,13 @@ public final class NFTImageLoader {
         guard url.isSupportedRemoteMediaURL else {
             error = .unsupportedURL
             isLoading = false
-            return
+            return nil
         }
 
         guard url.pathExtension.lowercased() != "mp4" else {
             error = .videoData
             isLoading = false
-            return
+            return nil
         }
 
         let currentURL = url
@@ -175,6 +178,7 @@ public final class NFTImageLoader {
                 self.error = error
             }
         }
+        return loadingTask
     }
 
     nonisolated private static func fetchImage(

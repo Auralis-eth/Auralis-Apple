@@ -1,5 +1,17 @@
 # Journal
 
+## 2026-05-31 — The Test Backlog Learned To Say "Start Here"
+
+The unit-test refactor tickets were a good map, but maps are not work orders. `Auralis/docs/plans/Auralis-Unit-Test-Refactor-Implementation-Brief.md` now acts like the kitchen ticket clipped above the pass: Phase 1 only, clear boundaries, explicit acceptance criteria, and the validation steps needed before anyone claims the test suite is steadier.
+
+The important judgment call was to keep the first implementation slice narrow. The tempting version says "fix all 22 tickets" and then turns into a wandering expedition through every test target. The better version starts with the shaky foundations: sleep polling, global URLProtocol handlers, duplicated support code, real Keychain access, and the privacy reset mega-test. Once those are handled, the remaining cleanup can happen without the floor moving under each assertion.
+
+## 2026-05-31 — The Unit Tests Got A Flight Plan
+
+The unit-test refactor backlog now has a proper map at `Auralis/docs/plans/Auralis-Unit-Test-Refactor-Tickets.md`. The audits all pointed at the same lesson: the suite is not weak because it lacks tests; it is wobbly because a few shared foundations behave like everyone in the kitchen grabbing the same timer, sink, and spice jar at once. `Task.sleep`, static `URLProtocol` handlers, real Keychain access, and `UserDefaults.standard` are the places where parallel Swift Testing can turn a good assertion into a coin toss.
+
+The plan deliberately starts with the plumbing: deterministic async signals, per-session network mocks, and a shared `AuralisTestSupport` package. Once those are in place, the rest of the work becomes much less dramatic: split mega-tests, inject clocks, tighten assertions, tag suites, and give untested packages their own small contracts. Lesson learned: a test suite earns trust less by having more checks and more by making each check independent enough to tell the truth.
+
 ## 2026-05-28 — Phase 3 Made Forms Stop Talking Over The User
 
 This Phase 3 accessibility pass was mostly about timing and manners. The search field had been trying to be both an editable field and a status announcer, which is like a cashier reading the menu while you are typing your card PIN. The field now lets SwiftUI expose the actual query text, while the detection card owns the classification context and the existing debounced announcer handles meaningful changes.
@@ -2232,3 +2244,35 @@ Color got the same treatment. Status still uses Aura's colors, but Differentiate
 The motion work pulled a loose convention into a reusable contract. `AuraMotionPolicy` now owns decorative loops and state-change animation choices, so new components have a paved path for honoring Reduce Motion. Haptics stay conservative for 0.1.0: they remain suppressed with Reduce Motion until the product has a dedicated setting. That decision is now documented instead of living as folklore in a tiny wrapper.
 
 The lesson: accessibility settings are not edge-case flags. They are alternate operating conditions. Good components should have a house style for those conditions before the next feature arrives.
+
+## Unit Test Audit: The Safety Net Has A Few Loose Knots
+
+The GPT-306 unit test audit looked at the tests as code, not as a trophy case of green checkmarks. The suite is in good shape where it matters most: Swift Testing is the house style, SwiftData usually runs in isolated in-memory containers, and a lot of assertions check exact behavior instead of waving at "not nil" and hoping for the best.
+
+The loose knots are mostly about time and shared state. A few async tests still wait by sleeping, which is like checking whether dinner is ready by staring at the oven for ten seconds. It works until the kitchen gets busy. URLProtocol fakes also carry static handlers, which are convenient but process-wide; Swift Testing likes parallel work, and global mutable test hooks are where flakiness likes to hide.
+
+The audit is saved as `Auralis/docs/GPT-306-Unit-Test-Code-Audit.md`. The lesson: a unit test suite is refactoring infrastructure. It does not just need coverage; it needs determinism, isolation, and assertions sharp enough to catch the bug before the bug learns to look normal.
+
+## Unit Test Phase 1: Stop Watching The Oven
+
+Phase 1 turned the audit's trust-and-safety warnings into code. The sleepy tests were the first target. Gas pricing and NFT refresh tests no longer stand around asking "are we there yet?" in 10 millisecond loops; they now wait on the actual task or a continuation gate. That changes the test from a nervous hallway monitor into a doorbell: when the work starts or finishes, the test hears the signal directly.
+
+The URL loading fakes got the same treatment. Image-loader and provider tests moved away from one shared `URLProtocol.handler` slot, because that slot is a hotel key left under the mat for every parallel test in the process. The new support helper builds mocked sessions with isolated handlers, and app-side tests have a filesystem-synced copy because Xcode project-file edits are not something to do while the IDE is open.
+
+Privacy reset was the other big cleanup. The old mega-test checked a whole pantry of side effects at once: search history, receipts, holdings, NFTs, music rows, tags, shell selection, pinned actions, and reset collaborators. It now reads like a checklist where each item gets its own test. When one breaks, the failure points at the shelf that fell down instead of yelling that "the kitchen is wrong."
+
+The lesson: deterministic tests are not just faster or prettier. They are more honest. A reliable test should wait for the thing it cares about, isolate the fake it owns, and fail with a label specific enough that the next engineer knows where to look.
+
+One last validation pass caught a subtle version of the same bug wearing a nicer jacket. The new URLProtocol helper no longer had one global handler slot, but app-side registration initially read the handler dictionary and wrote it back in two separate lock operations. Parallel test startup could still drop a sibling session's handler, which looked like a mysterious `NSURLErrorBadServerResponse`. The fix was to mutate the registry under one lock.
+
+The lesson inside the lesson: "thread-safe pieces" do not automatically make a thread-safe operation. If the operation is read-modify-write, the whole sandwich needs to stay under the lock.
+
+## Phase 1 Follow-Up: The Fake Network Gets Its Own Booth
+
+The first Phase 1 pass removed the obvious shared URL handler, but the stricter review caught the fine print: a dictionary keyed by session is still a process-wide coat rack. It is tidier than one hook, but parallel tests can still bump shoulders around it. The mock loader now creates a tiny `URLProtocol` subclass per mocked session and attaches the handler to that runtime class. Each test gets its own booth instead of a labeled hanger in the same hallway.
+
+Privacy reset had a similar hidden wire. The test used a recording shell selection and fake credential resetter, but appending a receipt still walked through the live receipt store, which protects integrity heads with Keychain. That is a good production contract and a bad unit-test roommate. The fixture now uses the in-memory receipt integrity head store, so the test checks privacy reset instead of the simulator keychain's mood.
+
+The UI audit failure turned into two lessons. First, launch fixtures should not depend on a live refresh leaving a seeded row alone; refresh cleanup is allowed to replace stale local NFTs. The external-link audit now opens a deterministic fixture harness. Second, XCTest's accessibility audit can report clipped child text inside a scrollable medium-detent sheet even when the sheet is reachable and scrollable, so the test documents that scoped false positive while keeping the rest of the audit blocking.
+
+The lesson: isolation is not a slogan. If a test names a thing as local, its network, keychain, persistence, and route setup all need to be local too.

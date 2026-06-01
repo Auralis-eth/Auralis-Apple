@@ -12,6 +12,7 @@
 		6F1947362FBD15A900A811F4 /* NFTPresentation in Frameworks */ = {isa = PBXBuildFile; productRef = 6F1947352FBD15A900A811F4 /* NFTPresentation */; };
 		6F1947382FBD15A900A811F4 /* NFTProviderAdapters in Frameworks */ = {isa = PBXBuildFile; productRef = 6F1947372FBD15A900A811F4 /* NFTProviderAdapters */; };
 		6F4179322DA96363002A78F5 /* web3.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 6F4179312DA96363002A78F5 /* web3.swift */; };
+		6F467D9B2FCD0E7E0062CE28 /* AuralisTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6F467D9A2FCD0E7E0062CE28 /* AuralisTestSupport */; };
 		6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */; };
 		6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */ = {isa = PBXBuildFile; productRef = 6F6A10052F90000100BEEF01 /* AuralisPrimaryModels */; };
 		6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = 6F7B76032D962FE800DF0AD7 /* CodeScanner */; };
@@ -140,6 +141,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6F467D9B2FCD0E7E0062CE28 /* AuralisTestSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -267,6 +269,7 @@
 			);
 			name = AuralisTests;
 			packageProductDependencies = (
+				6F467D9A2FCD0E7E0062CE28 /* AuralisTestSupport */,
 			);
 			productName = AuralisTests;
 			productReference = 6FB455EF2CC5BEBD009A055C /* AuralisTests.xctest */;
@@ -352,6 +355,7 @@
 				6FDB39822FBA7B7200075FCE /* XCLocalSwiftPackageReference "ReceiptStorage" */,
 				6FDB39852FBA7B8F00075FCE /* XCLocalSwiftPackageReference "ChainProviders" */,
 				6FDB398A2FBA7CB800075FCE /* XCLocalSwiftPackageReference "CapabilitiesCore" */,
+				6F467D992FCD0E7E0062CE28 /* XCLocalSwiftPackageReference "AuralisTestSupport" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -772,6 +776,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		6F467D992FCD0E7E0062CE28 /* XCLocalSwiftPackageReference "AuralisTestSupport" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = AuralisTestSupport;
+		};
 		6F6A10042F90000100BEEF01 /* XCLocalSwiftPackageReference "AuralisPrimaryModels" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = AuralisPrimaryModels;
@@ -910,6 +918,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6F4179302DA96363002A78F5 /* XCRemoteSwiftPackageReference "web3" */;
 			productName = web3.swift;
+		};
+		6F467D9A2FCD0E7E0062CE28 /* AuralisTestSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AuralisTestSupport;
 		};
 		6F6A10052F90000100BEEF01 /* AuralisPrimaryModels */ = {
 			isa = XCSwiftPackageProductDependency;

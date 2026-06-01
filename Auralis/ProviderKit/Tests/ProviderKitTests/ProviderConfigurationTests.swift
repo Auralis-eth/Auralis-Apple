@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import AuralisTestSupport
 import Foundation
 import Testing
 @testable import ProviderKit
@@ -177,7 +178,15 @@ struct ProviderConfigurationTests {
 
         for mappingCase in mappingCases {
             let data = try #require(mappingCase.payload.data(using: .utf8))
-            let session = StubURLProtocol.makeSession(statusCode: 200, data: data)
+            let session = URLSession.mocked { request in
+                let response = HTTPURLResponse(
+                    url: try #require(request.url),
+                    statusCode: 200,
+                    httpVersion: "HTTP/1.1",
+                    headerFields: nil
+                )!
+                return (response, data)
+            }
             let provider = AlchemyRPCProvider(
                 configurationResolver: StubProviderConfigurationResolver(
                     configuration: ProviderEndpointConfiguration(
@@ -234,45 +243,4 @@ struct RPCErrorMappingCase: Sendable {
     let expectedCode: Int
     let expectedMessage: String
     let expectedError: ProviderAbstractionError
-}
-
-private final class StubURLProtocol: URLProtocol, @unchecked Sendable {
-    private nonisolated(unsafe) static var statusCode = 200
-    private nonisolated(unsafe) static var responseData = Data()
-
-    static func makeSession(statusCode: Int, data: Data) -> URLSession {
-        self.statusCode = statusCode
-        self.responseData = data
-
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [StubURLProtocol.self]
-        return URLSession(configuration: configuration)
-    }
-
-    override class func canInit(with request: URLRequest) -> Bool {
-        true
-    }
-
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-        request
-    }
-
-    override func startLoading() {
-        guard let url = request.url,
-              let response = HTTPURLResponse(
-                url: url,
-                statusCode: Self.statusCode,
-                httpVersion: "HTTP/1.1",
-                headerFields: nil
-              ) else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
-            return
-        }
-
-        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Self.responseData)
-        client?.urlProtocolDidFinishLoading(self)
-    }
-
-    override func stopLoading() { }
 }

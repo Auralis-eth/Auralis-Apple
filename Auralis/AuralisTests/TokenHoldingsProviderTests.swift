@@ -1,5 +1,6 @@
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisTestSupport
 import Foundation
 import NFTDomain
 import NFTPersistence
@@ -8,7 +9,7 @@ import NFTProviderAdapters
 import ProviderKit
 import Testing
 
-@Suite(.serialized)
+@Suite
 struct TokenHoldingsPaginationTests {
     @Test("pagination guard rejects repeated cursors")
     func paginationGuardRejectsRepeatedCursors() {
@@ -69,11 +70,11 @@ struct TokenHoldingsPaginationTests {
     }
 }
 
-@Suite(.serialized)
+@Suite
 struct AlchemyTokenHoldingsProviderWarningTests {
     @Test("provider returns holdings plus warning when enrichment fails")
     func providerReturnsWarningForEnrichmentFailure() async throws {
-        MockURLProtocol.handler = { request in
+        let session = URLSession.mocked { request in
             let url = try #require(request.url)
 
             if url.path.contains("assets/tokens/balances/by-address") {
@@ -110,18 +111,11 @@ struct AlchemyTokenHoldingsProviderWarningTests {
             return (response, Data("{}".utf8))
         }
 
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let session = URLSession(configuration: configuration)
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: MockProviderConfigurationResolver(),
             session: session,
             nowProvider: { Date(timeIntervalSince1970: 123) }
         )
-        defer {
-            MockURLProtocol.handler = nil
-        }
-
         let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet
@@ -134,7 +128,7 @@ struct AlchemyTokenHoldingsProviderWarningTests {
 
     @Test("unauthorized enrichment failures surface instead of degrading into a generic warning")
     func unauthorizedEnrichmentFailureThrows() async throws {
-        MockURLProtocol.handler = { request in
+        let session = URLSession.mocked { request in
             let url = try #require(request.url)
 
             if url.path.contains("assets/tokens/balances/by-address") {
@@ -164,25 +158,18 @@ struct AlchemyTokenHoldingsProviderWarningTests {
 
             let response = HTTPURLResponse(
                 url: url,
-                statusCode: 401,
+                statusCode: 403,
                 httpVersion: nil,
                 headerFields: ["Content-Type": "application/json"]
             )!
             return (response, Data(#"{"message":"unauthorized"}"#.utf8))
         }
 
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let session = URLSession(configuration: configuration)
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: MockProviderConfigurationResolver(),
             session: session,
             nowProvider: { Date(timeIntervalSince1970: 123) }
         )
-        defer {
-            MockURLProtocol.handler = nil
-        }
-
         await #expect(throws: ProviderAbstractionError.unauthorized) {
             _ = try await provider.tokenHoldings(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
@@ -190,38 +177,6 @@ struct AlchemyTokenHoldingsProviderWarningTests {
             )
         }
     }
-}
-
-private final class MockURLProtocol: URLProtocol {
-    typealias Handler = (URLRequest) throws -> (URLResponse, Data)
-
-    nonisolated(unsafe) static var handler: Handler?
-
-    override static func canInit(with request: URLRequest) -> Bool {
-        request.url?.host == "example.com"
-    }
-
-    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
-        request
-    }
-
-    override func startLoading() {
-        guard let handler = Self.handler else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
-            return
-        }
-
-        do {
-            let (response, data) = try handler(request)
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data)
-            client?.urlProtocolDidFinishLoading(self)
-        } catch {
-            client?.urlProtocol(self, didFailWithError: error)
-        }
-    }
-
-    override func stopLoading() {}
 }
 
 private struct MockProviderConfigurationResolver: ProviderConfigurationResolving {

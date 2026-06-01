@@ -6,6 +6,7 @@ let package = Package(
     name: "ReceiptsCore",
     platforms: [
         .iOS(.v18),
+        .macOS(.v15),
     ],
     products: [
         .library(

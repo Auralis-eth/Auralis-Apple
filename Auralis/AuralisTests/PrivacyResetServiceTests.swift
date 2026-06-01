@@ -22,83 +22,83 @@ import TokenStorage
 struct PrivacyResetServiceTests {
     @Test("resetLocalPrivacyData clears persisted search history rows")
     func resetLocalPrivacyDataClearsSearchHistory() async throws {
-        let container = try TestModelContainers.primary()
-        let context = ModelContext(container)
-        let ensCacheResetService = RecordingENSCacheResetService()
-        let transactionalResetService = SwiftDataTransactionalPrivacyResetService(
-            modelContainer: context.container
-        )
-        let auraPlayPersistenceResetService = RecordingAuraPlayPersistenceResetService()
-        let credentialResetService = RecordingCredentialPrivacyResetter()
-        let selectionPersistence = RecordingShellSelectionPersistence()
-        let pinnedItemsStore = makeIsolatedPinnedItemsStore()
-        let service = PrivacyResetService(
-            transactionalResetService: transactionalResetService,
-            ensCacheResetService: ensCacheResetService,
-            auraPlayPersistenceResetService: auraPlayPersistenceResetService,
-            credentialResetService: credentialResetService,
-            selectionPersistence: selectionPersistence,
-            homePinnedItemsStore: pinnedItemsStore
-        )
-        let searchHistoryStore = SearchHistoryStore(modelContext: context)
-        let tokenHoldingsStore = SwiftDataTokenHoldingsStore(modelContext: context)
-        let receiptStore = ReceiptStores.live(modelContext: context)
+        let fixture = try await makeResetFixture()
 
-        try await searchHistoryStore.recordCommittedQuery("Moonpunks", accountAddress: nil)
-        try await searchHistoryStore.recordCommittedQuery("USDC", accountAddress: "0x1111111111111111111111111111111111111111")
-        try await tokenHoldingsStore.upsertNativeHolding(
-            accountAddress: "0x1111111111111111111111111111111111111111",
-            chain: .ethMainnet,
-            amountDisplay: "1.25",
-            updatedAt: .now
-        )
-        try pinnedItemsStore.togglePin(
-            .openNews,
-            accountAddress: "0x1111111111111111111111111111111111111111"
-        )
-        context.insert(makeFixtureNFT(tokenId: "moon-1"))
-        context.insert(makeFixtureMusicLibraryItem(id: "track-1", sourceNFTID: "music-source-1"))
-        context.insert(try AuralisPrimaryPersistence.Tag(name: "Local Favorite"))
-        try context.save()
-        _ = try await receiptStore.append(
-            ReceiptDraft(
-                trigger: "fixture-reset",
-                scope: "tests",
-                summary: "fixture",
-                provenance: "local",
-                isSuccess: true,
-                details: ReceiptPayload(values: [:])
-            )
-        )
+        #expect(fixture.searchHistoryStore.entries(for: nil).isEmpty)
+        #expect(fixture.searchHistoryStore.entries(for: fixture.accountAddress).isEmpty)
+    }
 
-        try await service.resetLocalPrivacyData()
+    @Test("resetLocalPrivacyData resets ENS cache collaborator once")
+    func resetLocalPrivacyDataResetsENSCache() async throws {
+        let fixture = try await makeResetFixture()
 
-        #expect(searchHistoryStore.entries(for: nil).isEmpty)
-        #expect(searchHistoryStore.entries(for: "0x1111111111111111111111111111111111111111").isEmpty)
-        #expect(await ensCacheResetService.resetCount() == 1)
-        #expect(await auraPlayPersistenceResetService.resetCount() == 1)
-        #expect(await credentialResetService.clearCount() == 1)
-        #expect(try context.fetch(FetchDescriptor<StoredReceipt>()).isEmpty)
-        #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
-        #expect(try context.fetch(FetchDescriptor<NFT>()).isEmpty)
-        #expect(try context.fetch(FetchDescriptor<MusicLibraryItem>()).isEmpty)
-        #expect(try context.fetch(FetchDescriptor<AuralisPrimaryPersistence.Tag>()).isEmpty)
-        #expect(try context.fetch(FetchDescriptor<NFT.Contract>()).isEmpty)
-        #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).isEmpty)
-        #expect(selectionPersistence.clearSelectionCallCount == 1)
-        #expect(pinnedItemsStore.pinnedActions(for: "0x1111111111111111111111111111111111111111").isEmpty)
+        #expect(await fixture.ensCacheResetService.resetCount() == 1)
+    }
+
+    @Test("resetLocalPrivacyData resets AuraPlay persistence once")
+    func resetLocalPrivacyDataResetsAuraPlayPersistence() async throws {
+        let fixture = try await makeResetFixture()
+
+        #expect(await fixture.auraPlayPersistenceResetService.resetCount() == 1)
+    }
+
+    @Test("resetLocalPrivacyData clears stored credentials once")
+    func resetLocalPrivacyDataClearsCredentials() async throws {
+        let fixture = try await makeResetFixture()
+
+        #expect(await fixture.credentialResetService.clearCount() == 1)
+    }
+
+    @Test("resetLocalPrivacyData clears receipt rows")
+    func resetLocalPrivacyDataClearsReceipts() async throws {
+        let fixture = try await makeResetFixture()
+
+        #expect(try fixture.context.fetch(FetchDescriptor<StoredReceipt>()).isEmpty)
+    }
+
+    @Test("resetLocalPrivacyData clears token holdings")
+    func resetLocalPrivacyDataClearsTokenHoldings() async throws {
+        let fixture = try await makeResetFixture()
+
+        #expect(try fixture.context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
+    }
+
+    @Test("resetLocalPrivacyData clears NFT and AuraPlay rows")
+    func resetLocalPrivacyDataClearsNFTAndAuraPlayRows() async throws {
+        let fixture = try await makeResetFixture()
+
+        #expect(try fixture.context.fetch(FetchDescriptor<NFT>()).isEmpty)
+        #expect(try fixture.context.fetch(FetchDescriptor<MusicLibraryItem>()).isEmpty)
+        #expect(try fixture.context.fetch(FetchDescriptor<AuralisPrimaryPersistence.Tag>()).isEmpty)
+        #expect(try fixture.context.fetch(FetchDescriptor<NFT.Contract>()).isEmpty)
+        #expect(try fixture.context.fetch(FetchDescriptor<NFT.Collection>()).isEmpty)
+    }
+
+    @Test("resetLocalPrivacyData clears shell selection")
+    func resetLocalPrivacyDataClearsShellSelection() async throws {
+        let fixture = try await makeResetFixture()
+
+        #expect(fixture.selectionPersistence.clearSelectionCallCount == 1)
+    }
+
+    @Test("resetLocalPrivacyData clears home pinned items")
+    func resetLocalPrivacyDataClearsHomePinnedItems() async throws {
+        let fixture = try await makeResetFixture()
+
+        #expect(fixture.pinnedItemsStore.pinnedActions(for: fixture.accountAddress).isEmpty)
     }
 
     @Test("privacy reset clears persisted ENS public identifier mappings")
     func resetLocalPrivacyDataClearsENSMappings() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let storageKey = "PrivacyResetServiceTests.ens-cache.\(UUID().uuidString)"
-        UserDefaults.standard.removeObject(forKey: storageKey)
+        let defaultsSuiteName = "PrivacyResetServiceTests.ens-cache.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: defaultsSuiteName))
+        let storageKey = "ens-cache"
         defer {
-            UserDefaults.standard.removeObject(forKey: storageKey)
+            defaults.removePersistentDomain(forName: defaultsSuiteName)
         }
-        let cacheStore = ENSResolutionCacheStore(storageKey: storageKey)
+        let cacheStore = ENSResolutionCacheStore(userDefaults: defaults, storageKey: storageKey)
         let service = PrivacyResetService(
             transactionalResetService: SwiftDataTransactionalPrivacyResetService(
                 modelContainer: context.container
@@ -125,7 +125,7 @@ struct PrivacyResetServiceTests {
                 fetchedAt: .now
             )
         )
-        #expect(UserDefaults.standard.data(forKey: storageKey) != nil)
+        #expect(defaults.data(forKey: storageKey) != nil)
 
         try await service.resetLocalPrivacyData()
 
@@ -135,7 +135,71 @@ struct PrivacyResetServiceTests {
                 forAddress: "0x1234567890abcdef1234567890abcdef12345678"
             ) == nil
         )
-        #expect(UserDefaults.standard.data(forKey: storageKey) == nil)
+        #expect(defaults.data(forKey: storageKey) == nil)
+    }
+
+    private func makeResetFixture() async throws -> PrivacyResetFixture {
+        let container = try TestModelContainers.primary()
+        let context = ModelContext(container)
+        let ensCacheResetService = RecordingENSCacheResetService()
+        let auraPlayPersistenceResetService = RecordingAuraPlayPersistenceResetService()
+        let credentialResetService = RecordingCredentialPrivacyResetter()
+        let selectionPersistence = RecordingShellSelectionPersistence()
+        let pinnedItemsStore = makeIsolatedPinnedItemsStore()
+        let service = PrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+                modelContainer: context.container
+            ),
+            ensCacheResetService: ensCacheResetService,
+            auraPlayPersistenceResetService: auraPlayPersistenceResetService,
+            credentialResetService: credentialResetService,
+            selectionPersistence: selectionPersistence,
+            homePinnedItemsStore: pinnedItemsStore
+        )
+        let searchHistoryStore = SearchHistoryStore(modelContext: context)
+        let tokenHoldingsStore = SwiftDataTokenHoldingsStore(modelContext: context)
+        let receiptStore = SwiftDataReceiptStore(
+            modelContext: context,
+            sequenceAllocator: ReceiptSequenceAllocator()
+        )
+        let accountAddress = "0x1111111111111111111111111111111111111111"
+
+        try await searchHistoryStore.recordCommittedQuery("Moonpunks", accountAddress: nil)
+        try await searchHistoryStore.recordCommittedQuery("USDC", accountAddress: accountAddress)
+        try await tokenHoldingsStore.upsertNativeHolding(
+            accountAddress: accountAddress,
+            chain: .ethMainnet,
+            amountDisplay: "1.25",
+            updatedAt: .now
+        )
+        try pinnedItemsStore.togglePin(.openNews, accountAddress: accountAddress)
+        context.insert(makeFixtureNFT(tokenId: "moon-1"))
+        context.insert(makeFixtureMusicLibraryItem(id: "track-1", sourceNFTID: "music-source-1"))
+        context.insert(try AuralisPrimaryPersistence.Tag(name: "Local Favorite"))
+        try context.save()
+        _ = try await receiptStore.append(
+            ReceiptDraft(
+                trigger: "fixture-reset",
+                scope: "tests",
+                summary: "fixture",
+                provenance: "local",
+                isSuccess: true,
+                details: ReceiptPayload(values: [:])
+            )
+        )
+
+        try await service.resetLocalPrivacyData()
+
+        return PrivacyResetFixture(
+            context: context,
+            searchHistoryStore: searchHistoryStore,
+            ensCacheResetService: ensCacheResetService,
+            auraPlayPersistenceResetService: auraPlayPersistenceResetService,
+            credentialResetService: credentialResetService,
+            selectionPersistence: selectionPersistence,
+            pinnedItemsStore: pinnedItemsStore,
+            accountAddress: accountAddress
+        )
     }
 
     @Test("removing an account purges only NFTs scoped to that account")
@@ -525,6 +589,18 @@ struct PrivacyResetServiceTests {
 
         #expect(pinnedItemsStore.pinnedCount(for: "0x1111111111111111111111111111111111111111") == 1)
     }
+}
+
+@MainActor
+private struct PrivacyResetFixture {
+    let context: ModelContext
+    let searchHistoryStore: SearchHistoryStore
+    let ensCacheResetService: RecordingENSCacheResetService
+    let auraPlayPersistenceResetService: RecordingAuraPlayPersistenceResetService
+    let credentialResetService: RecordingCredentialPrivacyResetter
+    let selectionPersistence: RecordingShellSelectionPersistence
+    let pinnedItemsStore: HomePinnedItemsStore
+    let accountAddress: String
 }
 
 private func makeIsolatedPinnedItemsStore() -> HomePinnedItemsStore {

@@ -38,7 +38,6 @@ public struct AuraActionButton: View {
 
                 Text(title)
                     .fontWeight(.semibold)
-                    .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -51,6 +50,8 @@ public struct AuraActionButton: View {
         }
         .buttonStyle(.plain)
         .contentShape(.capsule)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
     }
 
     private var horizontalPadding: CGFloat {

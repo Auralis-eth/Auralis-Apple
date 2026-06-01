@@ -194,11 +194,13 @@ final class GasPriceEstimateViewModel {
     private(set) var lastCompletedPhase: Phase?
 
     private let provider: any GasPricingProviding
+    private let chainChangeDebounce: Duration
     private var currentTask: Task<Void, Never>?
     private var refreshTimer: Timer?
 
-    init(provider: any GasPricingProviding) {
+    init(provider: any GasPricingProviding, chainChangeDebounce: Duration = .milliseconds(300)) {
         self.provider = provider
+        self.chainChangeDebounce = chainChangeDebounce
     }
 
     isolated deinit {
@@ -227,12 +229,16 @@ final class GasPriceEstimateViewModel {
         // Start new fetch with slight debounce for chain changes
         currentTask = Task {
             defer { currentTask = nil }
-            try? await Task.sleep(for: .milliseconds(300))
+            try? await Task.sleep(for: chainChangeDebounce)
             if !Task.isCancelled {
                 await performFetch(for: chain)
                 startAutoRefresh()
             }
         }
+    }
+
+    func waitForCurrentTask() async {
+        await currentTask?.value
     }
 
     func fetchGasPrice() async {

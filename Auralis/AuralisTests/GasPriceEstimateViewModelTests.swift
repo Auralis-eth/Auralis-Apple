@@ -9,7 +9,7 @@ import Testing
 struct GasPriceEstimateViewModelTests {
     @Test("setting the first chain immediately enters a non-error loading phase")
     func initialChainSelectionStartsInLoadingPhase() {
-        let viewModel = GasPriceEstimateViewModel(provider: SlowGasPricingProvider())
+        let viewModel = GasPriceEstimateViewModel(provider: FailingGasPricingProvider())
 
         viewModel.setChain(.ethMainnet)
 
@@ -19,20 +19,18 @@ struct GasPriceEstimateViewModelTests {
         #expect(viewModel.estimate == nil)
     }
 
-    @Test("failed fetches transition into the failed phase after the initial loading state")
+    @Test("failed fetches transition into the failed phase after the initial loading state", .timeLimit(.minutes(1)))
     func failedFetchTransitionsToFailedPhase() async throws {
-        let viewModel = GasPriceEstimateViewModel(provider: FailingGasPricingProvider())
+        let viewModel = GasPriceEstimateViewModel(
+            provider: FailingGasPricingProvider(),
+            chainChangeDebounce: .zero
+        )
 
         viewModel.setChain(.ethMainnet)
 
         #expect(viewModel.phase == .loading)
 
-        for _ in 0..<80 {
-            if viewModel.phase == .failed {
-                break
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        await viewModel.waitForCurrentTask()
 
         #expect(viewModel.phase == .failed)
         #expect(viewModel.isLoading == false)
@@ -44,17 +42,13 @@ struct GasPriceEstimateViewModelTests {
     func staleCacheFetchPreservesTimestampAndCachedState() async throws {
         let staleDate = Date(timeIntervalSince1970: 1_704_067_200)
         let viewModel = GasPriceEstimateViewModel(
-            provider: StaleCachedGasPricingProvider(staleDate: staleDate)
+            provider: StaleCachedGasPricingProvider(staleDate: staleDate),
+            chainChangeDebounce: .zero
         )
 
         viewModel.setChain(.ethMainnet)
 
-        for _ in 0..<80 {
-            if viewModel.phase == .loaded {
-                break
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        await viewModel.waitForCurrentTask()
 
         #expect(viewModel.phase == .loaded)
         #expect(viewModel.isLoading == false)
@@ -73,17 +67,13 @@ struct GasPriceEstimateViewModelTests {
     func freshCacheHitMarksEstimateAsCached() async throws {
         let cachedDate = Date(timeIntervalSince1970: 1_704_067_200)
         let viewModel = GasPriceEstimateViewModel(
-            provider: FreshCachedGasPricingProvider(cachedDate: cachedDate)
+            provider: FreshCachedGasPricingProvider(cachedDate: cachedDate),
+            chainChangeDebounce: .zero
         )
 
         viewModel.setChain(.ethMainnet)
 
-        for _ in 0..<80 {
-            if viewModel.phase == .loaded {
-                break
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        await viewModel.waitForCurrentTask()
 
         #expect(viewModel.phase == .loaded)
         #expect(viewModel.isLoading == false)
@@ -119,17 +109,6 @@ struct GasPriceEstimateViewModelTests {
         #expect(
             rpcError.userFacingMessage ==
                 "Auralis could not load gas prices because the provider reported an error."
-        )
-    }
-}
-
-private struct SlowGasPricingProvider: GasPricingProviding {
-    func gasPriceEstimate(for chain: Chain) async throws -> GasPriceEstimateResult {
-        try await Task.sleep(for: .seconds(5))
-        return GasPriceEstimateResult(
-            estimate: .example,
-            fetchedAt: .now,
-            source: .live
         )
     }
 }

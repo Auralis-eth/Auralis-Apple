@@ -7,33 +7,13 @@
 
 @testable import Auralis
 import Foundation
-import Security
 import Testing
 
-// Helper to clean up Keychain before/after tests
-
-@Suite class PasswordExtensionTests {
+@Suite
+struct PasswordExtensionTests {
     struct TestCase: Sendable {
         let password: String
         let expected: PasswordStrength
-    }
-    func cleanKeychain() {
-        let keychainQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: "WalletPasswordAccount",
-            kSecAttrService as String: "WalletPasswordService"
-        ]
-        SecItemDelete(keychainQuery as CFDictionary)
-        UserDefaults.standard.removeObject(forKey: "WalletPasswordTestFallback")
-    }
-
-    // Clean up Keychain before and after each test
-    init() {
-        cleanKeychain()
-    }
-
-    deinit {
-        cleanKeychain()
     }
 
     // Test password strength

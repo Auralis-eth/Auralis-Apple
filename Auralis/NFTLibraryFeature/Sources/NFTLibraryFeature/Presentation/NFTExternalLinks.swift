@@ -31,9 +31,12 @@ public struct NFTExternalLinkConfirmationSheet: View {
                                 .font(.title2.weight(.bold))
                                 .foregroundStyle(Color.textPrimary)
 
-                            Text("You are leaving Auralis and opening Safari. Review the destination before continuing.")
+                            Text("Review destination before continuing.")
                                 .font(.body)
                                 .foregroundStyle(Color.textSecondary)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .layoutPriority(1)
                         }
 
                         AuraTrustLabel(kind: .link)
@@ -75,9 +78,10 @@ public struct NFTExternalLinkConfirmationSheet: View {
     private func verifiedHostField(_ host: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Verified Host")
-                .font(.caption.weight(.semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(Color.textSecondary)
                 .textCase(.uppercase)
+                .fixedSize(horizontal: false, vertical: true)
 
             Text(host)
                 .font(.title2.weight(.bold))
@@ -99,9 +103,10 @@ public struct NFTExternalLinkConfirmationSheet: View {
     private func destinationField(title: String, value: String, font: Font) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.caption.weight(.semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(Color.textSecondary)
                 .textCase(.uppercase)
+                .fixedSize(horizontal: false, vertical: true)
 
             Text(value)
                 .font(font)

@@ -6,13 +6,13 @@ let package = Package(
     name: "AuralisPrimaryModels",
     platforms: [
         .iOS(.v18),
+        .macOS(.v15),
     ],
     products: [
         .library(
             name: "AuralisPrimaryModels",
             targets: [
                 "AuralisPrimaryModels",
-                "AuralisPrimaryPersistence",
             ]
         ),
         .library(

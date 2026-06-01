@@ -166,14 +166,13 @@ public struct AuraTrustLabel: View {
                 .accessibilityHidden(true)
 
             Text(kind.title)
-                .font(.caption.weight(.semibold))
-                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                .font(.footnote.weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
 
             if differentiateWithoutColor {
                 Text(String(localized: "Warning"))
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
+                    .font(.footnote.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .foregroundStyle(Color(red: 0.97, green: 0.8, blue: 0.38))

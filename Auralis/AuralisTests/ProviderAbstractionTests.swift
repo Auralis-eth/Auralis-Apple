@@ -1,6 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import Foundation
 import ProviderKit
 import Testing
@@ -9,7 +10,7 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 
-@Suite(.serialized)
+@Suite
 struct ProviderAbstractionTests {
     @Test("provider configuration resolves centralized Alchemy endpoints for an EVM chain")
     func resolverBuildsExpectedEndpoints() throws {
@@ -94,7 +95,8 @@ struct ProviderAbstractionTests {
     @Test("Alchemy NFT service throws DecodingError when a success response body is malformed")
     @MainActor
     func alchemyNFTServiceSurfacesMalformedSuccessBody() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let service = try AlchemyNFTService(
             chain: .ethMainnet,
             configurationResolver: LiveProviderConfigurationResolver { provider in
@@ -103,7 +105,7 @@ struct ProviderAbstractionTests {
             session: session
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             #expect(request.url?.absoluteString == "https://eth-mainnet.g.alchemy.com/nft/v3/alchemy-key/getNFTsForOwner?owner=0x1234567890abcdef1234567890abcdef12345678&withMetadata=true&pageSize=100")
             #expect(request.httpMethod == "GET")
 
@@ -115,9 +117,6 @@ struct ProviderAbstractionTests {
             )!
             let data = Data(#"{"ownedNfts":"definitely-not-an-array","totalCount":1}"#.utf8)
             return (response, data)
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -135,7 +134,8 @@ struct ProviderAbstractionTests {
     @Test("Alchemy NFT service tolerates missing optional envelope fields when NFT rows still decode")
     @MainActor
     func alchemyNFTServiceAllowsMissingOptionalEnvelopeFields() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let service = try AlchemyNFTService(
             chain: .ethMainnet,
             configurationResolver: LiveProviderConfigurationResolver { provider in
@@ -144,7 +144,7 @@ struct ProviderAbstractionTests {
             session: session
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 200,
@@ -161,9 +161,6 @@ struct ProviderAbstractionTests {
             )
             return (response, payload)
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let response = try await service.nftsForOwner(
             owner: "0x1234567890abcdef1234567890abcdef12345678",
@@ -179,7 +176,8 @@ struct ProviderAbstractionTests {
     @Test("Alchemy NFT service redacts secret-like provider error payloads")
     @MainActor
     func alchemyNFTServiceRedactsSecretLikeProviderErrorPayloads() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let service = try AlchemyNFTService(
             chain: .ethMainnet,
             configurationResolver: LiveProviderConfigurationResolver { provider in
@@ -189,7 +187,7 @@ struct ProviderAbstractionTests {
         )
         let publicOwner = "0x1234567890abcdef1234567890abcdef12345678"
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 401,
@@ -207,9 +205,6 @@ struct ProviderAbstractionTests {
                 """.utf8
             )
             return (response, payload)
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -232,7 +227,8 @@ struct ProviderAbstractionTests {
     @Test("Alchemy NFT service hashes unclassified raw provider error bodies")
     @MainActor
     func alchemyNFTServiceHashesUnclassifiedRawProviderErrorBodies() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let service = try AlchemyNFTService(
             chain: .ethMainnet,
             configurationResolver: LiveProviderConfigurationResolver { provider in
@@ -242,7 +238,7 @@ struct ProviderAbstractionTests {
         )
         let rawBody = "upstream trace id trace-12345 with internal backend shard alpha"
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 503,
@@ -250,9 +246,6 @@ struct ProviderAbstractionTests {
                 headerFields: ["Content-Type": "text/plain"]
             )!
             return (response, Data(rawBody.utf8))
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -276,7 +269,8 @@ struct ProviderAbstractionTests {
     @Test("Alchemy NFT service hashes unclassified JSON provider messages")
     @MainActor
     func alchemyNFTServiceHashesUnclassifiedJSONProviderMessages() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let service = try AlchemyNFTService(
             chain: .ethMainnet,
             configurationResolver: LiveProviderConfigurationResolver { provider in
@@ -286,7 +280,7 @@ struct ProviderAbstractionTests {
         )
         let operationalMessage = "upstream trace id trace-12345 with internal backend shard alpha"
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 503,
@@ -294,9 +288,6 @@ struct ProviderAbstractionTests {
                 headerFields: ["Content-Type": "application/json"]
             )!
             return (response, Data(#"{"message":"\#(operationalMessage)"}"#.utf8))
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -320,7 +311,8 @@ struct ProviderAbstractionTests {
     @Test("Alchemy NFT service preserves classified safe provider messages and public identifiers")
     @MainActor
     func alchemyNFTServicePreservesClassifiedSafeProviderMessages() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let service = try AlchemyNFTService(
             chain: .ethMainnet,
             configurationResolver: LiveProviderConfigurationResolver { provider in
@@ -331,7 +323,7 @@ struct ProviderAbstractionTests {
         let publicOwner = "0x1234567890abcdef1234567890abcdef12345678"
         let safeMessage = "rate limit exceeded for \(publicOwner)"
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 429,
@@ -339,9 +331,6 @@ struct ProviderAbstractionTests {
                 headerFields: ["Content-Type": "application/json", "Retry-After": "2"]
             )!
             return (response, Data(#"{"message":"\#(safeMessage)"}"#.utf8))
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -363,7 +352,8 @@ struct ProviderAbstractionTests {
     @Test("Alchemy NFT service retries a single request in degraded mode without latching future calls")
     @MainActor
     func alchemyNFTServiceDoesNotLatchDegradedModeAcrossRequests() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let service = try AlchemyNFTService(
             chain: .ethMainnet,
             configurationResolver: LiveProviderConfigurationResolver { provider in
@@ -373,7 +363,7 @@ struct ProviderAbstractionTests {
         )
         let requestedURLs = ArrayRecorder<String>()
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let requestURL = try #require(request.url?.absoluteString)
             requestedURLs.append(requestURL)
             let attempt = requestedURLs.values().count
@@ -410,9 +400,6 @@ struct ProviderAbstractionTests {
             )
             return (response, payload)
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         _ = try await service.nftsForOwner(
             owner: "0x1234567890abcdef1234567890abcdef12345678",
@@ -434,13 +421,14 @@ struct ProviderAbstractionTests {
     @Test("token balances provider calls the exact Alchemy balances endpoint and preserves pagination state")
     @MainActor
     func tokenBalancesProviderCallsExactEndpoint() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { _ in "alchemy-key" },
             session: session
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             #expect(request.url?.absoluteString == "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address")
             #expect(request.httpMethod == "POST")
 
@@ -487,9 +475,6 @@ struct ProviderAbstractionTests {
             )
             return (response, data)
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let page = try await provider.tokenBalances(
             for: TokenBalancesRequest(
@@ -528,7 +513,8 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider uses the shared Alchemy data API and formats ERC-20 balances for persistence")
     @MainActor
     func tokenHoldingsProviderLoadsFormattedERC20Rows() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let fixedNow = Date(timeIntervalSince1970: 1_756_240_247)
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { _ in "alchemy-key" },
@@ -537,7 +523,7 @@ struct ProviderAbstractionTests {
         )
 
         let requestedURLs = ArrayRecorder<String>()
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let requestURL = try #require(request.url?.absoluteString)
             requestedURLs.append(requestURL)
             #expect(request.httpMethod == "POST")
@@ -610,9 +596,6 @@ struct ProviderAbstractionTests {
             }
             return (response, data)
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
@@ -637,7 +620,8 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider preserves HTTP status and redacts unclassified API messages")
     @MainActor
     func tokenHoldingsProviderRedactsHTTPFailureContext() async {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -646,7 +630,7 @@ struct ProviderAbstractionTests {
             maxRetryCount: 1
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 400,
@@ -657,9 +641,6 @@ struct ProviderAbstractionTests {
                 response,
                 Data(#"{"message":"invalid wallet scope"}"#.utf8)
             )
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -687,7 +668,8 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider redacts secret-like API fields")
     @MainActor
     func tokenHoldingsProviderRedactsSecretLikePayloads() async {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -696,7 +678,7 @@ struct ProviderAbstractionTests {
             maxRetryCount: 1
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 400,
@@ -707,9 +689,6 @@ struct ProviderAbstractionTests {
                 response,
                 Data(#"{"message":"invalid wallet scope","authorization":"Bearer should-never-appear","cookie":"secret-cookie"}"#.utf8)
             )
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -738,7 +717,8 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider skips malformed rows instead of failing the whole balances page")
     @MainActor
     func tokenHoldingsProviderSkipsMalformedRows() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -746,7 +726,7 @@ struct ProviderAbstractionTests {
             session: session
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let requestURL = try #require(request.url?.absoluteString)
             let response = HTTPURLResponse(
                 url: try #require(request.url),
@@ -815,9 +795,6 @@ struct ProviderAbstractionTests {
                 return (response, Data())
             }
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
@@ -832,7 +809,8 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider maps offline transport failures into provider abstraction errors")
     @MainActor
     func tokenHoldingsProviderMapsOfflineTransportFailures() async {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -841,11 +819,8 @@ struct ProviderAbstractionTests {
             maxRetryCount: 1
         )
 
-        ProviderMockURLProtocol.handler = { _ in
+        mockSession.setHandler { _ in
             throw URLError(.notConnectedToInternet)
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -864,13 +839,14 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider hides ERC-20 amounts when decimals are unavailable instead of showing raw base units")
     @MainActor
     func tokenHoldingsProviderHidesAmountWhenEnrichmentFails() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { _ in "alchemy-key" },
             session: session
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let requestURL = try #require(request.url?.absoluteString)
             let response = HTTPURLResponse(
                 url: try #require(request.url),
@@ -907,9 +883,6 @@ struct ProviderAbstractionTests {
                 return (response, Data())
             }
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
@@ -928,7 +901,8 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider treats balances-by-address as the quantity authority even when enrichment disagrees")
     @MainActor
     func tokenHoldingsProviderUsesBalanceEndpointAsAmountAuthority() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -936,7 +910,7 @@ struct ProviderAbstractionTests {
             session: session
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let requestURL = try #require(request.url?.absoluteString)
             let response = HTTPURLResponse(
                 url: try #require(request.url),
@@ -997,9 +971,6 @@ struct ProviderAbstractionTests {
                 return (response, Data())
             }
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
@@ -1014,7 +985,8 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider merges every balances page and every enrichment page into one scoped result set")
     @MainActor
     func tokenHoldingsProviderPaginatesBalancesAndEnrichments() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1025,7 +997,7 @@ struct ProviderAbstractionTests {
         let balancePageKeys = ArrayRecorder<String?>()
         let enrichmentPageKeys = ArrayRecorder<String?>()
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let requestURL = try #require(request.url?.absoluteString)
             let body = try #require(request.bodyData)
             let payload = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
@@ -1144,9 +1116,6 @@ struct ProviderAbstractionTests {
                 return (response, Data())
             }
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
@@ -1166,7 +1135,8 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider ignores enrichment rows that do not belong to the balances set")
     @MainActor
     func tokenHoldingsProviderDiscardsMismatchedEnrichmentRows() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1174,7 +1144,7 @@ struct ProviderAbstractionTests {
             session: session
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let requestURL = try #require(request.url?.absoluteString)
             let response = HTTPURLResponse(
                 url: try #require(request.url),
@@ -1247,9 +1217,6 @@ struct ProviderAbstractionTests {
                 return (response, Data())
             }
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
@@ -1264,7 +1231,8 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider skips enrichment entirely when balances are empty")
     @MainActor
     func tokenHoldingsProviderSkipsEnrichmentForEmptyWallets() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1273,7 +1241,7 @@ struct ProviderAbstractionTests {
         )
 
         let requestedURLs = ArrayRecorder<String>()
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let requestURL = try #require(request.url?.absoluteString)
             requestedURLs.append(requestURL)
             let response = HTTPURLResponse(
@@ -1296,9 +1264,6 @@ struct ProviderAbstractionTests {
                 )
             )
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
@@ -1315,7 +1280,8 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider formats tiny high-decimal balances without collapsing them to zero")
     @MainActor
     func tokenHoldingsProviderFormatsTinyHighDecimalBalances() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1323,7 +1289,7 @@ struct ProviderAbstractionTests {
             session: session
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let requestURL = try #require(request.url?.absoluteString)
             let response = HTTPURLResponse(
                 url: try #require(request.url),
@@ -1384,9 +1350,6 @@ struct ProviderAbstractionTests {
                 return (response, Data())
             }
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
@@ -1401,7 +1364,8 @@ struct ProviderAbstractionTests {
     @Test("token holdings provider retries transient balance endpoint timeouts before succeeding")
     @MainActor
     func tokenHoldingsProviderRetriesTransientTimeouts() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1413,7 +1377,7 @@ struct ProviderAbstractionTests {
         )
         let balanceAttempts = ArrayRecorder<Int>()
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let requestURL = try #require(request.url?.absoluteString)
             let response = HTTPURLResponse(
                 url: try #require(request.url),
@@ -1479,9 +1443,6 @@ struct ProviderAbstractionTests {
                 return (response, Data())
             }
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let result = try await provider.tokenHoldings(
             for: "0x1234567890abcdef1234567890abcdef12345678",
@@ -1497,7 +1458,8 @@ struct ProviderAbstractionTests {
     @Test("native balance provider retries transient RPC timeouts before succeeding")
     @MainActor
     func nativeBalanceProviderRetriesTransientTimeouts() async throws {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyRPCProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1509,7 +1471,7 @@ struct ProviderAbstractionTests {
         )
         let requestCount = ArrayRecorder<Int>()
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let requestURL = try #require(request.url?.absoluteString)
             #expect(requestURL == "https://eth-mainnet.g.alchemy.com/v2/alchemy-key")
             requestCount.append(1)
@@ -1538,9 +1500,6 @@ struct ProviderAbstractionTests {
                 )
             )
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         let balance = try await provider.nativeBalance(
             for: "0x1234567890abcdef1234567890abcdef12345678",
@@ -1554,7 +1513,8 @@ struct ProviderAbstractionTests {
     @Test("native balance provider maps JSON-RPC method errors from HTTP 200 envelopes")
     @MainActor
     func nativeBalanceProviderMapsRPCErrorEnvelope() async {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyRPCProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1563,7 +1523,7 @@ struct ProviderAbstractionTests {
             maxRetryCount: 1
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 200,
@@ -1586,9 +1546,6 @@ struct ProviderAbstractionTests {
                 )
             )
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         do {
             _ = try await provider.nativeBalance(
@@ -1606,7 +1563,8 @@ struct ProviderAbstractionTests {
     @Test("native balance provider preserves HTTP status and redacts API messages for non-retryable failures")
     @MainActor
     func nativeBalanceProviderRedactsHTTPFailureContext() async {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyRPCProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1615,7 +1573,7 @@ struct ProviderAbstractionTests {
             maxRetryCount: 1
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 400,
@@ -1626,9 +1584,6 @@ struct ProviderAbstractionTests {
                 response,
                 Data(#"{"message":"wallet scope mismatch"}"#.utf8)
             )
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -1656,7 +1611,8 @@ struct ProviderAbstractionTests {
     @Test("native balance provider redacts unclassified JSON-RPC provider errors")
     @MainActor
     func nativeBalanceProviderRedactsRPCProviderErrors() async {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyRPCProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1665,7 +1621,7 @@ struct ProviderAbstractionTests {
             maxRetryCount: 1
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 200,
@@ -1687,9 +1643,6 @@ struct ProviderAbstractionTests {
                     """.utf8
                 )
             )
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -1717,7 +1670,8 @@ struct ProviderAbstractionTests {
     @Test("gas pricing provider maps JSON-RPC rate limits from HTTP 200 envelopes")
     @MainActor
     func gasPricingProviderMapsRPCErrorEnvelope() async {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyGasPricingProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1725,7 +1679,7 @@ struct ProviderAbstractionTests {
             session: session
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 200,
@@ -1748,9 +1702,6 @@ struct ProviderAbstractionTests {
                 )
             )
         }
-        defer {
-            ProviderMockURLProtocol.handler = nil
-        }
 
         do {
             _ = try await provider.gasPriceEstimate(for: .ethMainnet)
@@ -1770,7 +1721,8 @@ struct ProviderAbstractionTests {
     @Test("gas pricing provider redacts unclassified JSON-RPC diagnostics")
     @MainActor
     func gasPricingProviderRedactsRPCDiagnostics() async {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyGasPricingProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1778,7 +1730,7 @@ struct ProviderAbstractionTests {
             session: session
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 200,
@@ -1800,9 +1752,6 @@ struct ProviderAbstractionTests {
                     """.utf8
                 )
             )
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -1827,7 +1776,8 @@ struct ProviderAbstractionTests {
     @Test("gas pricing provider maps HTTP unauthorized responses to an auth-specific error")
     @MainActor
     func gasPricingProviderMapsUnauthorizedHTTPFailures() async {
-        let session = makeMockSession()
+        let mockSession = makeMockSession()
+        let session = mockSession.session
         let provider = AlchemyGasPricingProvider(
             configurationResolver: LiveProviderConfigurationResolver { provider in
                 provider == .alchemy ? "alchemy-key" : nil
@@ -1835,7 +1785,7 @@ struct ProviderAbstractionTests {
             session: session
         )
 
-        ProviderMockURLProtocol.handler = { request in
+        mockSession.setHandler { request in
             let response = HTTPURLResponse(
                 url: try #require(request.url),
                 statusCode: 401,
@@ -1846,9 +1796,6 @@ struct ProviderAbstractionTests {
                 response,
                 Data(#"{"message":"invalid api key"}"#.utf8)
             )
-        }
-        defer {
-            ProviderMockURLProtocol.handler = nil
         }
 
         do {
@@ -2218,10 +2165,27 @@ private final class PartiallyFailingNFTInventoryProvider: NFTInventoryProviding 
 
 private extension ProviderAbstractionTests {
     @MainActor
-    func makeMockSession() -> URLSession {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [ProviderMockURLProtocol.self]
-        return URLSession(configuration: configuration)
+    func makeMockSession() -> MockProviderURLSession {
+        let handler = LockedValue<ProviderMockURLProtocol.Handler?>(nil)
+        return MockProviderURLSession(
+            session: URLSession.mocked { request in
+                guard let currentHandler = handler.value else {
+                    throw URLError(.badServerResponse)
+                }
+
+                return try currentHandler(request)
+            },
+            handler: handler
+        )
+    }
+}
+
+private struct MockProviderURLSession {
+    let session: URLSession
+    let handler: LockedValue<ProviderMockURLProtocol.Handler?>
+
+    func setHandler(_ handler: @escaping ProviderMockURLProtocol.Handler) {
+        self.handler.set(handler)
     }
 }
 
@@ -2274,38 +2238,8 @@ private struct ThrowingProviderConfigurationResolver: ProviderConfigurationResol
     }
 }
 
-// URLProtocol requires these overridden type methods even on a final class.
-private final class ProviderMockURLProtocol: URLProtocol {
-    typealias Handler = (URLRequest) throws -> (URLResponse, Data)
-
-    // Safety invariant: tests install and clear the handler around a single request flow.
-    nonisolated(unsafe) static var handler: Handler?
-
-    override static func canInit(with request: URLRequest) -> Bool {
-        true
-    }
-
-    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
-        request
-    }
-
-    override func startLoading() {
-        guard let handler = Self.handler else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
-            return
-        }
-
-        do {
-            let (response, data) = try handler(request)
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data)
-            client?.urlProtocolDidFinishLoading(self)
-        } catch {
-            client?.urlProtocol(self, didFailWithError: error)
-        }
-    }
-
-    override func stopLoading() {}
+private enum ProviderMockURLProtocol {
+    typealias Handler = @Sendable (URLRequest) throws -> (URLResponse, Data)
 }
 
 @MainActor

@@ -15,7 +15,11 @@ struct ShellBootstrapDependencies {
     let makeGatewayDependencies: @MainActor (ModelContext) -> GatewayDependencies
     let makeMainTabDependencies: @MainActor (ModelContext) -> MainTabDependencies
 
-    static let live: ShellBootstrapDependencies = {
+    static let live = live()
+
+    static func live(
+        selectionPersistence: (any ShellSelectionPersisting)? = nil
+    ) -> ShellBootstrapDependencies {
         let environment = AppEnvironment.live
         return ShellBootstrapDependencies(
             modeStateFactory: environment.modeStateFactory,
@@ -26,7 +30,8 @@ struct ShellBootstrapDependencies {
                 environment.shell.makeShellStore(
                     modelContext: modelContext,
                     nftService: nftService,
-                    router: router
+                    router: router,
+                    selectionPersistence: selectionPersistence
                 )
             },
             makeGatewayDependencies: { modelContext in
@@ -36,7 +41,7 @@ struct ShellBootstrapDependencies {
                 environment.mainTabs.makeMainTabDependencies(modelContext: modelContext)
             }
         )
-    }()
+    }
 }
 
 @MainActor

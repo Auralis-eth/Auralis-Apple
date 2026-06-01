@@ -20,6 +20,7 @@ let package = Package(
         .package(path: "../NFTKit"),
         .package(path: "../OperatorCore"),
         .package(path: "../ExplorerAdapter"),
+        .package(path: "../AuralisTestSupport"),
     ],
     targets: [
         .target(
@@ -35,7 +36,10 @@ let package = Package(
         ),
         .testTarget(
             name: "NFTLibraryFeatureTests",
-            dependencies: ["NFTLibraryFeature"]
+            dependencies: [
+                "NFTLibraryFeature",
+                "AuralisTestSupport",
+            ]
         ),
     ]
 )

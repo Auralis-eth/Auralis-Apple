@@ -113,6 +113,7 @@ struct NFTServiceTests {
                 correlationID: "same-scope-1"
             )
         }
+        await fetchUseCase.waitUntilFetchStarts()
         let second = Task { @MainActor in
             await service.refreshNFTs(
                 for: account,
@@ -121,6 +122,7 @@ struct NFTServiceTests {
                 correlationID: "same-scope-2"
             )
         }
+        fetchUseCase.resume()
 
         _ = await (first.value, second.value)
 
@@ -152,9 +154,7 @@ struct NFTServiceTests {
             )
         }
 
-        while fetchUseCase.startedScopes.isEmpty {
-            await Task.yield()
-        }
+        await fetchUseCase.waitUntilFetchStarts()
 
         await service.refreshNFTs(
             for: secondAccount,
@@ -196,9 +196,7 @@ struct NFTServiceTests {
             )
         }
 
-        while prepareUseCase.startedScopes.isEmpty {
-            await Task.yield()
-        }
+        await prepareUseCase.waitUntilPrepareStarts()
 
         await service.refreshNFTs(
             for: secondAccount,
@@ -354,6 +352,8 @@ private struct ServicePrepareUseCase: PrepareNFTMetadataUsing {
 private final class CancellablePrepareUseCase: PrepareNFTMetadataUsing {
     private(set) var startedScopes: [String] = []
     private(set) var cancellationCount = 0
+    private var prepareStartedContinuation: CheckedContinuation<Void, Never>?
+    private var resumeContinuation: CheckedContinuation<Void, Never>?
 
     func prepareInventory(
         _ fetchedNFTs: [NFTInventoryItemSnapshot],
@@ -361,15 +361,38 @@ private final class CancellablePrepareUseCase: PrepareNFTMetadataUsing {
         chain: Chain
     ) async -> PreparedNFTInventory {
         startedScopes.append(accountAddress)
-        do {
-            if startedScopes.count == 1 {
-                try await Task.sleep(for: .seconds(5))
+        prepareStartedContinuation?.resume()
+        prepareStartedContinuation = nil
+
+        if startedScopes.count == 1 {
+            await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation in
+                    resumeContinuation = continuation
+                }
+            } onCancel: {
+                Task { @MainActor in
+                    self.cancellationCount += 1
+                    self.resume()
+                }
             }
-        } catch is CancellationError {
-            cancellationCount += 1
-        } catch { }
+        }
 
         return PreparedNFTInventory(nfts: fetchedNFTs)
+    }
+
+    func waitUntilPrepareStarts() async {
+        if startedScopes.isEmpty == false {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            prepareStartedContinuation = continuation
+        }
+    }
+
+    func resume() {
+        resumeContinuation?.resume()
+        resumeContinuation = nil
     }
 }
 
@@ -443,6 +466,8 @@ private struct FailingPersistUseCase: PersistNFTInventoryUsing {
 @MainActor
 private final class SlowSameScopeFetchUseCase: FetchNFTInventoryUsing {
     private(set) var callCount = 0
+    private var fetchStartedContinuation: CheckedContinuation<Void, Never>?
+    private var resumeContinuation: CheckedContinuation<Void, Never>?
 
     func fetchInventory(
         for accountAddress: String,
@@ -452,8 +477,27 @@ private final class SlowSameScopeFetchUseCase: FetchNFTInventoryUsing {
         progressHandler: NFTFetchProgressHandler?
     ) async throws -> FetchedNFTInventory {
         callCount += 1
-        try await Task.sleep(for: .milliseconds(50))
+        fetchStartedContinuation?.resume()
+        fetchStartedContinuation = nil
+        await withCheckedContinuation { continuation in
+            resumeContinuation = continuation
+        }
         return FetchedNFTInventory(nfts: [], didCompleteFullRefresh: false)
+    }
+
+    func waitUntilFetchStarts() async {
+        if callCount > 0 {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            fetchStartedContinuation = continuation
+        }
+    }
+
+    func resume() {
+        resumeContinuation?.resume()
+        resumeContinuation = nil
     }
 }
 
@@ -461,6 +505,8 @@ private final class SlowSameScopeFetchUseCase: FetchNFTInventoryUsing {
 private final class CancellableScopeFetchUseCase: FetchNFTInventoryUsing {
     private(set) var startedScopes: [String] = []
     private(set) var cancellationCount = 0
+    private var fetchStartedContinuation: CheckedContinuation<Void, Never>?
+    private var resumeContinuation: CheckedContinuation<Void, Never>?
 
     func fetchInventory(
         for accountAddress: String,
@@ -470,15 +516,41 @@ private final class CancellableScopeFetchUseCase: FetchNFTInventoryUsing {
         progressHandler: NFTFetchProgressHandler?
     ) async throws -> FetchedNFTInventory {
         startedScopes.append(accountAddress)
-        do {
-            if startedScopes.count == 1 {
-                try await Task.sleep(for: .seconds(5))
+        fetchStartedContinuation?.resume()
+        fetchStartedContinuation = nil
+
+        if startedScopes.count == 1 {
+            await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation in
+                    resumeContinuation = continuation
+                }
+            } onCancel: {
+                Task { @MainActor in
+                    self.cancellationCount += 1
+                    self.resume()
+                }
             }
-        } catch is CancellationError {
-            cancellationCount += 1
-            throw CancellationError()
+
+            if Task.isCancelled {
+                throw CancellationError()
+            }
         }
 
         return FetchedNFTInventory(nfts: [], didCompleteFullRefresh: false)
+    }
+
+    func waitUntilFetchStarts() async {
+        if startedScopes.isEmpty == false {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            fetchStartedContinuation = continuation
+        }
+    }
+
+    func resume() {
+        resumeContinuation?.resume()
+        resumeContinuation = nil
     }
 }
