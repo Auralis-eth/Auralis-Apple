@@ -9,6 +9,10 @@ public extension TokenHolding {
     }
 
     var hasStaleMetadata: Bool {
-        balanceKind == .erc20 && TokenHoldingsMetadataFreshnessPolicy.isStale(updatedAt: updatedAt)
+        hasStaleMetadata(referenceDate: .now)
+    }
+
+    func hasStaleMetadata(referenceDate: Date) -> Bool {
+        balanceKind == .erc20 && TokenHoldingsMetadataFreshnessPolicy.isStale(updatedAt: updatedAt, now: referenceDate)
     }
 }

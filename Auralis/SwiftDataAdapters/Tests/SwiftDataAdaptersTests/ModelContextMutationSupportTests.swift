@@ -1,3 +1,4 @@
+import Foundation
 import SwiftData
 import SwiftDataAdapters
 import Testing
@@ -41,6 +42,23 @@ struct ModelContextMutationSupportTests {
 
         let fixtures = try context.fetch(FetchDescriptor<SwiftDataAdapterFixture>())
         #expect(fixtures.map(\.name) == ["fallback"])
+    }
+
+    @Test("undoable mutation rolls back failed work and closes the undo group")
+    func undoableMutationRollsBackFailedWorkWithUndoManager() throws {
+        let context = try makeContext()
+        let undoManager = UndoManager()
+        context.undoManager = undoManager
+
+        #expect(throws: FixtureError.failed) {
+            try context.performUndoableMutation(named: "Insert Fixture") {
+                context.insert(SwiftDataAdapterFixture(name: "rolled-back"))
+                throw FixtureError.failed
+            }
+        }
+
+        #expect(try context.fetch(FetchDescriptor<SwiftDataAdapterFixture>()).isEmpty)
+        #expect(undoManager.groupingLevel == 0)
     }
 }
 

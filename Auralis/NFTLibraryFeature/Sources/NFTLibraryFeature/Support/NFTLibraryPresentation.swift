@@ -43,10 +43,14 @@ public enum NFTLibraryPresentation {
             title = "Collection"
             filteredNFTs = []
             contractAddressLine = nil
-        case .collection(let contractAddress, let collectionTitle, _):
+        case .collection(let contractAddress, let collectionTitle, let routeChain):
             title = collectionTitle
             let normalizedContractAddress = contractAddress.flatMap(NFT.normalizedScopeComponent)
             filteredNFTs = nfts.filter { nft in
+                guard nft.network == routeChain else {
+                    return false
+                }
+
                 if let normalizedContractAddress {
                     return normalizedContractAddresses(for: nft).contains(normalizedContractAddress)
                 }

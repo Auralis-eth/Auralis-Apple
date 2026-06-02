@@ -58,7 +58,7 @@ struct FetchNFTInventoryUseCaseTests {
             eventRecorder: NoOpNFTRefreshEventRecorder()
         )
 
-        #expect(!inventory.didCompleteFullRefresh)
+        #expect(inventory.didCompleteFullRefresh == false)
     }
 
     @Test("propagates provider failures")
@@ -68,13 +68,18 @@ struct FetchNFTInventoryUseCaseTests {
         let fetcher = FetchUseCaseFetcherStub(result: .failure(expectedError))
         let useCase = LiveFetchNFTInventoryUseCase(nftFetcher: fetcher)
 
-        await #expect(throws: Error.self) {
+        do {
             _ = try await useCase.fetchInventory(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .ethMainnet,
                 correlationID: "fetch-error",
                 eventRecorder: NoOpNFTRefreshEventRecorder()
             )
+            Issue.record("Expected NFTFetcher.FetcherError.networkError.")
+        } catch NFTFetcher.FetcherError.networkError(let error as URLError) {
+            #expect(error.code == .notConnectedToInternet)
+        } catch {
+            Issue.record("Expected NFTFetcher.FetcherError.networkError, got \(error).")
         }
     }
 }

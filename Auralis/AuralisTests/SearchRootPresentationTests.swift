@@ -20,12 +20,12 @@ struct SearchRootPresentationTests {
                     accountAddress: "0x1111111111111111111111111111111111111111",
                     normalizedQuery: "moonpunks",
                     query: "Moonpunks",
-                    recordedAt: .now
+                    recordedAt: Date(timeIntervalSince1970: 1_700_000_000)
                 )
             ]
         )
 
-        #expect(!presentation.showsDetection)
+        #expect(presentation.showsDetection == false)
         #expect(presentation.content == .history)
     }
 

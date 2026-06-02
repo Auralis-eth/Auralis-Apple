@@ -6,10 +6,12 @@ import Testing
 
 @Suite
 struct ENSResolutionServiceTests {
+    private let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+
     private func makeTestDate(
         offsetFromNow: TimeInterval = 0
     ) -> Date {
-        Date().addingTimeInterval(offsetFromNow)
+        referenceDate.addingTimeInterval(offsetFromNow)
     }
 
     @Test("live ENS client preserves missing provider configuration instead of flattening it to provider unavailable")
@@ -56,12 +58,13 @@ struct ENSResolutionServiceTests {
         )
 
         let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.cache.\(UUID().uuidString)")!
+        let clock = MutableDateBox(makeTestDate())
         let cacheStore = ENSResolutionCacheStore(
             userDefaults: defaults,
             storageKey: "forwardResolutionUsesFreshCache",
-            retentionTTL: 60 * 60 * 24
+            retentionTTL: 60 * 60 * 24,
+            nowProvider: { clock.value }
         )
-        let clock = MutableDateBox(makeTestDate())
 
         let resolver = Web3EthereumNameServiceResolver(
             client: client,
@@ -90,12 +93,13 @@ struct ENSResolutionServiceTests {
         )
 
         let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.stale.\(UUID().uuidString)")!
+        let clock = MutableDateBox(makeTestDate())
         let cacheStore = ENSResolutionCacheStore(
             userDefaults: defaults,
             storageKey: "forwardResolutionFallsBackToStaleCache",
-            retentionTTL: 60 * 60 * 24
+            retentionTTL: 60 * 60 * 24,
+            nowProvider: { clock.value }
         )
-        let clock = MutableDateBox(makeTestDate())
 
         let resolver = Web3EthereumNameServiceResolver(
             client: client,
@@ -176,12 +180,13 @@ struct ENSResolutionServiceTests {
         )
 
         let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.mapping.\(UUID().uuidString)")!
+        let clock = MutableDateBox(makeTestDate())
         let cacheStore = ENSResolutionCacheStore(
             userDefaults: defaults,
             storageKey: "forwardResolutionSurfacesMappingChanges",
-            retentionTTL: 60 * 60 * 24
+            retentionTTL: 60 * 60 * 24,
+            nowProvider: { clock.value }
         )
-        let clock = MutableDateBox(makeTestDate())
         let resolver = Web3EthereumNameServiceResolver(
             client: client,
             cacheStore: cacheStore,
@@ -238,9 +243,11 @@ struct ENSResolutionServiceTests {
         let defaults = UserDefaults(
             suiteName: "ENSResolutionServiceTests.shared-reset.\(UUID().uuidString)"
         )!
+        let clock = MutableDateBox(makeTestDate())
         let cacheStore = ENSResolutionCacheStore(
             userDefaults: defaults,
-            storageKey: "shared-reset"
+            storageKey: "shared-reset",
+            nowProvider: { clock.value }
         )
 
         let resolver = ENSResolvers.live(

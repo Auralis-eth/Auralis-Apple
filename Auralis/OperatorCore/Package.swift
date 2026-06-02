@@ -26,5 +26,9 @@ let package = Package(
                 "ReceiptsCore",
             ]
         ),
+        .testTarget(
+            name: "OperatorCoreTests",
+            dependencies: ["OperatorCore"]
+        ),
     ]
 )

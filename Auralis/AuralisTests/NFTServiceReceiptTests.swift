@@ -102,7 +102,11 @@ struct NFTServiceReceiptTests {
                 chain: .ethMainnet
             ) == firstSuccessTimestamp
         )
-        #expect(service.error != nil)
+        guard case NFTFetcher.FetcherError.networkError(let error as URLError)? = service.error else {
+            Issue.record("Expected offline network error, got \(String(describing: service.error)).")
+            return
+        }
+        #expect(error.code == .notConnectedToInternet)
         #expect(service.providerFailure?.kind == .offline)
         let failureReceipts = try await receiptStore.receipts(forCorrelationID: "failure-pass", limit: 10)
         #expect(failureReceipts.contains(where: { $0.kind == "nft.fetch.failed" }))
@@ -488,7 +492,11 @@ struct NFTServiceReceiptTests {
         )
 
         #expect(service.itemsLoaded == nil)
-        #expect(service.error != nil)
+        guard case NFTFetcher.FetcherError.networkError(let error as URLError)? = service.error else {
+            Issue.record("Expected offline network error, got \(String(describing: service.error)).")
+            return
+        }
+        #expect(error.code == .notConnectedToInternet)
         #expect(service.providerFailure?.kind == .offline)
     }
 

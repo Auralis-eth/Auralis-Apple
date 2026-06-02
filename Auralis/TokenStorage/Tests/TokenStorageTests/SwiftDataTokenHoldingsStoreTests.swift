@@ -137,7 +137,8 @@ struct SwiftDataTokenHoldingsStoreTests {
     func metadataFreshnessFieldsArePersisted() async throws {
         let context = try makeContext()
         let store = SwiftDataTokenHoldingsStore(modelContext: context)
-        let updatedAt = Date(timeIntervalSinceNow: -60)
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let updatedAt = referenceDate.addingTimeInterval(-60)
 
         try await store.replaceERC20Holdings(
             accountAddress: "0x3333333333333333333333333333333333333333",
@@ -160,7 +161,7 @@ struct SwiftDataTokenHoldingsStoreTests {
         #expect(holding.updatedAt == updatedAt)
         #expect(holding.isPlaceholder)
         #expect(holding.hidesAmountUntilMetadataLoads)
-        #expect(!holding.hasStaleMetadata)
+        #expect(!holding.hasStaleMetadata(referenceDate: referenceDate))
     }
 
     @Test("clear all token holdings")
@@ -172,7 +173,7 @@ struct SwiftDataTokenHoldingsStoreTests {
             accountAddress: "0x4444444444444444444444444444444444444444",
             chain: .ethMainnet,
             amountDisplay: "2 ETH",
-            updatedAt: .now
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
         try await store.replaceERC20Holdings(
             accountAddress: "0x4444444444444444444444444444444444444444",
@@ -197,7 +198,7 @@ struct SwiftDataTokenHoldingsStoreTests {
                 accountAddress: "   ",
                 chain: .ethMainnet,
                 amountDisplay: "1 ETH",
-                updatedAt: .now
+                updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
             )
         }
     }

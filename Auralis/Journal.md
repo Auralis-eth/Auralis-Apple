@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-06-01 — The Test Suite Got A Real Clock
+
+Phase 1 and Phase 2 of the unit-test refactor moved from plan language into shippable artifacts. The big win is that tests now behave less like someone checking the oven by glancing at the sun: freshness, profile fallback dates, token metadata staleness, ENS cache age, and shell refresh timing all have deterministic clocks where the assertions need them.
+
+The coverage pass was more like putting labels on the pantry shelves. The package targets that used to be indirect passengers now have their own smoke or domain contracts, undercovered presentation tests gained empty and partial-data cases, and the image-loader test stopped peeking through a private `Mirror` keyhole. It now proves the useful behavior instead: once an image is cached, asking again does not hit the network. Lesson learned: a test that watches behavior can survive a refactor; a test that spies on private storage usually becomes tomorrow's cleanup ticket.
+
 ## 2026-05-31 — The Test Backlog Learned To Say "Start Here"
 
 The unit-test refactor tickets were a good map, but maps are not work orders. `Auralis/docs/plans/Auralis-Unit-Test-Refactor-Implementation-Brief.md` now acts like the kitchen ticket clipped above the pass: Phase 1 only, clear boundaries, explicit acceptance criteria, and the validation steps needed before anyone claims the test suite is steadier.
@@ -2276,3 +2282,13 @@ Privacy reset had a similar hidden wire. The test used a recording shell selecti
 The UI audit failure turned into two lessons. First, launch fixtures should not depend on a live refresh leaving a seeded row alone; refresh cleanup is allowed to replace stale local NFTs. The external-link audit now opens a deterministic fixture harness. Second, XCTest's accessibility audit can report clipped child text inside a scrollable medium-detent sheet even when the sheet is reachable and scrollable, so the test documents that scoped false positive while keeping the rest of the audit blocking.
 
 The lesson: isolation is not a slogan. If a test names a thing as local, its network, keychain, persistence, and route setup all need to be local too.
+
+## Phase 1 Follow-Up: The Clock Moves Into The Fixture
+
+The next determinism pass chased a quieter source of flakiness: tests that asked the wall clock what time it was and then tried to prove something about freshness, staleness, or creation dates. That is like measuring a shelf while someone is still carrying it across the room. Most days it works; on a loaded machine, the numbers can drift just enough to make a precise test look guilty.
+
+Freshness now carries its reference date through `ContextFreshness`, `LiveContextSource`, `ContextSnapshot`, and `AppContext`, so labels like "2 min ago" and TTL checks can be tested against a frozen moment. Token metadata freshness got the same escape hatch, and search history can now record committed queries with a supplied timestamp. The production default is still "now", but tests get to bring their own clock.
+
+We also tightened a couple of broad failure checks. A test that says "throws any Error" is a smoke alarm that goes off for burnt toast and a real fire with the same confidence. The NFT inventory path now expects the network failure shape it actually cares about, and malformed provider payloads assert `DecodingError` directly.
+
+The lesson: time and errors are part of the contract. If the code means "older than this reference instant" or "this specific failure shape", the test should say that plainly.

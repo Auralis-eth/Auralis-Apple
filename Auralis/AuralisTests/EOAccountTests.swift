@@ -7,8 +7,12 @@ import Testing
 @Suite struct EOAccountTests {
     @Test("phase 0 defaults preserve the current address behavior while filling metadata")
     func defaultsPreserveCurrentBehavior() {
-        let beforeCreation = Date()
-        let account = EOAccount(address: "0xABCDEF1234567890ABCDEF1234567890ABCDEF12", access: .readonly)
+        let addedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let account = EOAccount(
+            address: "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
+            access: .readonly,
+            addedAt: addedAt
+        )
 
         #expect(account.address == "0xABCDEF1234567890ABCDEF1234567890ABCDEF12")
         #expect(account.access?.canSign == false)
@@ -16,7 +20,7 @@ import Testing
         #expect(account.source == .manualEntry)
         #expect(account.lastSelectedAt == nil)
         #expect(account.trackedNFTCount == 0)
-        #expect(account.addedAt >= beforeCreation)
+        #expect(account.addedAt == addedAt)
         #expect(account.mostRecentActivityAt == account.addedAt)
         #expect(account.normalizedName == "account 0xab")
     }

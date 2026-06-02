@@ -111,8 +111,8 @@ import Testing
 
         #expect(result.currentAddress == newAccount.address)
         #expect(result.currentChain == .baseSepoliaTestnet)
-        #expect(!result.shouldResetRoutes)
-        #expect(!result.shouldRefreshNFTs)
+        #expect(result.shouldResetRoutes == false)
+        #expect(result.shouldRefreshNFTs == false)
         #expect(result.shouldProcessPendingDeepLink)
     }
 
@@ -125,8 +125,8 @@ import Testing
 
         #expect(result.currentAddress.isEmpty)
         #expect(result.currentChain == .ethMainnet)
-        #expect(!result.shouldResetRoutes)
-        #expect(!result.shouldRefreshNFTs)
+        #expect(result.shouldResetRoutes == false)
+        #expect(result.shouldRefreshNFTs == false)
         #expect(result.shouldProcessPendingDeepLink)
     }
 

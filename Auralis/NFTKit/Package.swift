@@ -79,5 +79,12 @@ let package = Package(
                 "NFTPresentation",
             ]
         ),
+        .testTarget(
+            name: "NFTKitTests",
+            dependencies: [
+                "NFTDomain",
+                "NFTKit",
+            ]
+        ),
     ]
 )

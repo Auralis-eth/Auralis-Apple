@@ -5,13 +5,28 @@ struct ContextFreshness: Equatable, Sendable {
     let lastSuccessfulRefreshAt: Date?
     let lastSuccessfulRefreshProvenance: ContextProvenance
     let ttl: TimeInterval?
+    let referenceDate: Date
+
+    init(
+        refreshState: ContextRefreshState,
+        lastSuccessfulRefreshAt: Date?,
+        lastSuccessfulRefreshProvenance: ContextProvenance,
+        ttl: TimeInterval?,
+        referenceDate: Date = .now
+    ) {
+        self.refreshState = refreshState
+        self.lastSuccessfulRefreshAt = lastSuccessfulRefreshAt
+        self.lastSuccessfulRefreshProvenance = lastSuccessfulRefreshProvenance
+        self.ttl = ttl
+        self.referenceDate = referenceDate
+    }
 
     var age: TimeInterval? {
         guard let lastSuccessfulRefreshAt else {
             return nil
         }
 
-        return max(0, Date().timeIntervalSince(lastSuccessfulRefreshAt))
+        return max(0, referenceDate.timeIntervalSince(lastSuccessfulRefreshAt))
     }
 
     var isStale: Bool {

@@ -119,15 +119,11 @@ struct ProviderAbstractionTests {
             return (response, data)
         }
 
-        do {
+        await #expect(throws: DecodingError.self) {
             _ = try await service.nftsForOwner(
                 owner: "0x1234567890abcdef1234567890abcdef12345678",
                 pageKey: nil
             )
-            Issue.record("Expected malformed success payload to throw DecodingError.")
-        } catch is DecodingError {
-        } catch {
-            Issue.record("Expected DecodingError, got \(error)")
         }
     }
 

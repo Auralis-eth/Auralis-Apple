@@ -4,21 +4,77 @@ import Foundation
 import Testing
 import UIKit
 
+private final class RequestCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    func increment() {
+        lock.lock()
+        value += 1
+        lock.unlock()
+    }
+
+    var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+}
+
+private final class FailureGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var allowsSuccess = false
+
+    func allowSuccess() {
+        lock.lock()
+        allowsSuccess = true
+        lock.unlock()
+    }
+
+    func shouldSucceed() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return allowsSuccess
+    }
+}
+
 @Suite
 @MainActor
 struct NFTImageLoaderTests {
-    @Test("default loaders share the reusable session")
-    func defaultLoadersReuseSharedSession() {
-        let firstLoader = NFTImageLoader(url: URL(string: "https://example.com/first.png")!)
-        let secondLoader = NFTImageLoader(url: URL(string: "https://example.com/second.png")!)
+    @Test("cached image load does not issue a second network request")
+    func cachedImageLoadDoesNotIssueSecondNetworkRequest() async throws {
+        NFTImageCache.shared.clear()
+        let imageURL = try #require(URL(string: "https://example.com/cached.png"))
+        let pngData = try #require(
+            UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2))
+                .image { context in
+                    UIColor.systemTeal.setFill()
+                    context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+                }
+                .pngData()
+        )
+        let counter = RequestCounter()
+        let session = URLSession.mocked { request in
+            counter.increment()
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "image/png"]
+            )!
+            return (response, pngData)
+        }
 
-        let firstSession = Mirror(reflecting: firstLoader).descendant("session") as? URLSession
-        let secondSession = Mirror(reflecting: secondLoader).descendant("session") as? URLSession
+        let firstLoader = NFTImageLoader(url: imageURL, session: session)
+        try await waitForLoaderToFinish(firstLoader.loadIfNeeded())
 
-        #expect(firstSession != nil)
-        #expect(secondSession != nil)
-        #expect(firstSession === secondSession)
-        #expect(firstSession === NFTImageLoader.defaultSession)
+        let secondLoader = NFTImageLoader(url: imageURL, session: session)
+        let secondLoad = secondLoader.loadIfNeeded()
+
+        _ = try #require(firstLoader.image)
+        _ = try #require(secondLoader.image)
+        #expect(secondLoad == nil)
+        #expect(counter.count == 1)
     }
 
     @Test("mp4 URL extension rejects immediately and clears loading state")
@@ -97,11 +153,11 @@ struct NFTImageLoaderTests {
                 }
                 .pngData()
         )
-        var requestCount = 0
-        var shouldSucceed = false
+        let counter = RequestCounter()
+        let gate = FailureGate()
         let session = URLSession.mocked { request in
-            requestCount += 1
-            if shouldSucceed == false {
+            counter.increment()
+            if gate.shouldSucceed() == false {
                 throw URLError(.notConnectedToInternet)
             }
 
@@ -126,13 +182,13 @@ struct NFTImageLoaderTests {
             Issue.record("Expected offline error after the first failed request.")
         }
 
-        shouldSucceed = true
+        gate.allowSuccess()
         try await waitForLoaderToFinish(loader.retry())
 
         #expect(loader.isLoading == false)
         #expect(loader.error == nil)
-        #expect(loader.image != nil)
-        #expect(requestCount == 2)
+        _ = try #require(loader.image)
+        #expect(counter.count == 2)
     }
 
     @Test("offline transport failures surface an offline-specific image error")

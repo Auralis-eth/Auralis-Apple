@@ -20,7 +20,10 @@ struct NFTProviderFailurePresentationTests {
 
         #expect(presentation.mode == .degraded)
         #expect(presentation.title == "Refresh Paused")
-        #expect(presentation.message.contains("last synced collection is still visible"))
+        #expect(
+            presentation.message ==
+                "Auralis is offline right now. Your last synced collection is still visible so you can keep browsing safely."
+        )
         #expect(presentation.systemImage == "bolt.horizontal.circle")
         #expect(presentation.isRetryable)
     }
@@ -33,7 +36,10 @@ struct NFTProviderFailurePresentationTests {
 
         #expect(presentation.mode == .blocking)
         #expect(presentation.title == "Refresh Delayed")
-        #expect(presentation.message.contains("rate-limiting refreshes"))
+        #expect(
+            presentation.message ==
+                "The collection provider is rate-limiting refreshes right now. Wait a moment and try again."
+        )
         #expect(presentation.systemImage == "hourglass")
         #expect(presentation.isRetryable)
     }
@@ -45,7 +51,10 @@ struct NFTProviderFailurePresentationTests {
         )
 
         #expect(failure.kind == .offline)
-        #expect(failure.message.contains("offline"))
+        #expect(
+            failure.message ==
+                "Auralis could not reach the collection provider because this device appears to be offline."
+        )
         #expect(failure.isRetryable)
     }
 
@@ -56,7 +65,10 @@ struct NFTProviderFailurePresentationTests {
         )
 
         #expect(failure.kind == .misconfigured)
-        #expect(failure.message.contains("authenticate with the collection provider"))
+        #expect(
+            failure.message ==
+                "Auralis could not authenticate with the collection provider for this build."
+        )
         #expect(failure.isRetryable == false)
     }
 }

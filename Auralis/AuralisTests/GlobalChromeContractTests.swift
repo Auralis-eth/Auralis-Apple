@@ -8,6 +8,7 @@ import Testing
 struct GlobalChromeContractTests {
     @Test("chrome-facing snapshot fields expose account scope freshness and preference context")
     func chromeSnapshotFieldsStayReadable() {
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
         let snapshot = LiveContextSource(
             accountProvider: {
                 EOAccount(
@@ -20,10 +21,11 @@ struct GlobalChromeContractTests {
             chainProvider: { .baseMainnet },
             modeProvider: { .observe },
             loadingProvider: { false },
-            refreshedAtProvider: { Date().addingTimeInterval(-120) },
+            refreshedAtProvider: { referenceDate.addingTimeInterval(-120) },
             freshnessTTLProvider: { 300 },
             prefersDemoDataProvider: { false },
-            pinnedItemCountProvider: { 2 }
+            pinnedItemCountProvider: { 2 },
+            nowProvider: { referenceDate }
         ).snapshot()
 
         #expect(snapshot.modeDisplay == "Observe")

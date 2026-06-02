@@ -24,5 +24,12 @@ let package = Package(
                 "AuralisPrimaryModels",
             ]
         ),
+        .testTarget(
+            name: "ReceiptsCoreTests",
+            dependencies: [
+                "ReceiptsCore",
+                .product(name: "AuralisPrimaryModels", package: "AuralisPrimaryModels"),
+            ]
+        ),
     ]
 )

@@ -119,14 +119,16 @@ import Testing
 
     @Test("freshness becomes stale after the configured TTL expires")
     func contextSnapshotUsesTTLBackedStaleEvaluation() {
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
         let source = LiveContextSource(
             accountProvider: { nil },
             addressProvider: { "" },
             chainProvider: { .ethMainnet },
             modeProvider: { .observe },
             loadingProvider: { false },
-            refreshedAtProvider: { Date().addingTimeInterval(-600) },
-            freshnessTTLProvider: { 300 }
+            refreshedAtProvider: { referenceDate.addingTimeInterval(-600) },
+            freshnessTTLProvider: { 300 },
+            nowProvider: { referenceDate }
         )
 
         let snapshot = source.snapshot()
@@ -137,7 +139,8 @@ import Testing
 
     @Test("freshness stays relative while inside TTL and uses the shared label contract")
     func contextSnapshotUsesSharedFreshnessLabelContract() {
-        let refreshedAt = Date().addingTimeInterval(-120)
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let refreshedAt = referenceDate.addingTimeInterval(-120)
         let source = LiveContextSource(
             accountProvider: { nil },
             addressProvider: { "" },
@@ -145,7 +148,8 @@ import Testing
             modeProvider: { .observe },
             loadingProvider: { false },
             refreshedAtProvider: { refreshedAt },
-            freshnessTTLProvider: { 300 }
+            freshnessTTLProvider: { 300 },
+            nowProvider: { referenceDate }
         )
 
         let snapshot = source.snapshot()
@@ -159,14 +163,16 @@ import Testing
 
     @Test("future refresh timestamps clamp to a non-negative age instead of looking stale")
     func contextSnapshotClampsFutureRefreshTimestamps() {
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
         let source = LiveContextSource(
             accountProvider: { nil },
             addressProvider: { "" },
             chainProvider: { .ethMainnet },
             modeProvider: { .observe },
             loadingProvider: { false },
-            refreshedAtProvider: { Date().addingTimeInterval(600) },
-            freshnessTTLProvider: { 300 }
+            refreshedAtProvider: { referenceDate.addingTimeInterval(600) },
+            freshnessTTLProvider: { 300 },
+            nowProvider: { referenceDate }
         )
 
         let snapshot = source.snapshot()
@@ -178,14 +184,16 @@ import Testing
 
     @Test("refreshing freshness does not show stale even when the last success is older than TTL")
     func refreshingFreshnessOverridesStaleLabel() {
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
         let source = LiveContextSource(
             accountProvider: { nil },
             addressProvider: { "" },
             chainProvider: { .ethMainnet },
             modeProvider: { .observe },
             loadingProvider: { true },
-            refreshedAtProvider: { Date().addingTimeInterval(-600) },
-            freshnessTTLProvider: { 300 }
+            refreshedAtProvider: { referenceDate.addingTimeInterval(-600) },
+            freshnessTTLProvider: { 300 },
+            nowProvider: { referenceDate }
         )
 
         let snapshot = source.snapshot()

@@ -45,7 +45,8 @@ struct NFTLibraryPresentationTests {
             contractAddress: nil,
             tokenID: "8",
             name: nil,
-            collectionName: "Everydays"
+            collectionName: "Everydays",
+            network: .baseMainnet
         )
         let presentation = NFTLibraryPresentation.collectionDetail(
             route: .collection(contractAddress: nil, title: "everydays", chain: .baseMainnet),

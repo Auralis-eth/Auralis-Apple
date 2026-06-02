@@ -15,7 +15,7 @@ struct AccountSummaryPresenterTests {
                 address: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .baseMainnet,
                 scopedNFTCount: 3,
-                mostRecentActivityAt: Date(timeIntervalSince1970: 200)
+                mostRecentActivityAt: Date(timeIntervalSince1970: 1_700_000_000)
             )
         )
 
@@ -23,7 +23,7 @@ struct AccountSummaryPresenterTests {
         #expect(summary.addressLine == "0x1234...5678")
         #expect(summary.chainTitle == "Base scope")
         #expect(summary.trackedNFTLabel == "3 scoped NFTs")
-        #expect(summary.lastActivityLabel != nil)
+        #expect(summary.lastActivityLabel == "Last active Nov 14, 2023")
     }
 
     @Test("account summary presentation falls back cleanly when optional values are absent")

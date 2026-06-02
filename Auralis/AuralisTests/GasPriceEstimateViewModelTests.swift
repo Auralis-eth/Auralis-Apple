@@ -35,7 +35,7 @@ struct GasPriceEstimateViewModelTests {
         #expect(viewModel.phase == .failed)
         #expect(viewModel.isLoading == false)
         #expect(viewModel.estimate == nil)
-        #expect(viewModel.error != nil)
+        _ = try #require(viewModel.error as? FailingGasPricingProvider.StubError)
     }
 
     @Test("stale cache fetches preserve the live timestamp and mark the estimate as cached")

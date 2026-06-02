@@ -22,6 +22,7 @@ struct LiveContextSource: ContextSource {
     let pinnedActionsProvider: () -> [HomeLauncherAction]
     let prefersDemoDataProvider: () -> Bool?
     let pinnedItemCountProvider: () -> Int?
+    let nowProvider: () -> Date
 
     init(
         accountProvider: @escaping () -> EOAccount?,
@@ -40,7 +41,8 @@ struct LiveContextSource: ContextSource {
         receiptCountProvider: @escaping () -> Int? = { nil },
         pinnedActionsProvider: @escaping () -> [HomeLauncherAction] = { [] },
         prefersDemoDataProvider: @escaping () -> Bool? = { nil },
-        pinnedItemCountProvider: @escaping () -> Int? = { nil }
+        pinnedItemCountProvider: @escaping () -> Int? = { nil },
+        nowProvider: @escaping () -> Date = Date.init
     ) {
         self.accountProvider = accountProvider
         self.addressProvider = addressProvider
@@ -59,6 +61,7 @@ struct LiveContextSource: ContextSource {
         self.pinnedActionsProvider = pinnedActionsProvider
         self.prefersDemoDataProvider = prefersDemoDataProvider
         self.pinnedItemCountProvider = pinnedItemCountProvider
+        self.nowProvider = nowProvider
     }
 
     func snapshot() -> ContextSnapshot {
@@ -144,7 +147,8 @@ struct LiveContextSource: ContextSource {
                 refreshState: loadingProvider() ? .refreshing : .idle,
                 lastSuccessfulRefreshAt: refreshTimestamp,
                 lastSuccessfulRefreshProvenance: .localCache,
-                ttl: freshnessTTLProvider()
+                ttl: freshnessTTLProvider(),
+                referenceDate: nowProvider()
             )
         )
     }

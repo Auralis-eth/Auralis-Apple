@@ -11,6 +11,7 @@ struct AppContext: Equatable {
     let isLoading: Bool
     let lastSuccessfulRefreshAt: Date?
     let freshnessTTL: TimeInterval?
+    let freshnessReferenceDate: Date
 }
 extension AppContext {
     init(snapshot: ContextSnapshot) {
@@ -42,7 +43,8 @@ extension AppContext {
             refreshState: isLoading ? .refreshing : .idle,
             lastSuccessfulRefreshAt: lastSuccessfulRefreshAt,
             lastSuccessfulRefreshProvenance: .localCache,
-            ttl: freshnessTTL
+            ttl: freshnessTTL,
+            referenceDate: freshnessReferenceDate
         ).label
     }
 

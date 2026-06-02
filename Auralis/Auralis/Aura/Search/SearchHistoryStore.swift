@@ -9,7 +9,8 @@ private actor SearchHistoryPersistenceStore {
     func recordCommittedQuery(
         _ query: String,
         accountAddress: String?,
-        maxEntriesPerAccount: Int
+        maxEntriesPerAccount: Int,
+        recordedAt: Date
     ) throws {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else {
@@ -23,14 +24,14 @@ private actor SearchHistoryPersistenceStore {
             normalizedQuery: normalizedQuery
         ) {
             existingRecord.query = trimmedQuery
-            existingRecord.recordedAt = .now
+            existingRecord.recordedAt = recordedAt
         } else {
             modelContext.insert(
                 SearchHistoryRecord(
                     accountAddressRawValue: accountAddress,
                     normalizedQuery: normalizedQuery,
                     query: trimmedQuery,
-                    recordedAt: .now
+                    recordedAt: recordedAt
                 )
             )
         }
@@ -151,14 +152,17 @@ struct SearchHistoryStore {
     private let modelContext: ModelContext
     private let maxEntriesPerAccount: Int
     private let persistenceStore: SearchHistoryPersistenceStore
+    private let nowProvider: () -> Date
 
     init(
         modelContext: ModelContext,
-        maxEntriesPerAccount: Int = 12
+        maxEntriesPerAccount: Int = 12,
+        nowProvider: @escaping () -> Date = Date.init
     ) {
         self.modelContext = modelContext
         self.maxEntriesPerAccount = maxEntriesPerAccount
         self.persistenceStore = SearchHistoryPersistenceStore(modelContainer: modelContext.container)
+        self.nowProvider = nowProvider
     }
 
     func entries(for accountAddress: String?) -> [SearchHistoryEntry] {
@@ -176,7 +180,8 @@ struct SearchHistoryStore {
         try await persistenceStore.recordCommittedQuery(
             query,
             accountAddress: normalizedAccount(accountAddress),
-            maxEntriesPerAccount: maxEntriesPerAccount
+            maxEntriesPerAccount: maxEntriesPerAccount,
+            recordedAt: nowProvider()
         )
     }
 

@@ -10,6 +10,8 @@ import TokenStorage
 
 @Suite
 struct ERC20TokenDetailPresentationTests {
+    private let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+
     @Test("token detail uses scoped holding metadata when it is available")
     func presentationUsesHoldingMetadata() {
         let route = ERC20TokenRoute(
@@ -25,11 +27,11 @@ struct ERC20TokenDetailPresentationTests {
             displayName: "USD Coin",
             amountDisplay: "125.00",
             balanceKind: .erc20,
-            updatedAt: .now,
+            updatedAt: referenceDate,
             isPlaceholder: false
         )
 
-        let presentation = ERC20TokenDetailPresentation(route: route, holding: holding)
+        let presentation = ERC20TokenDetailPresentation(route: route, holding: holding, nowProvider: { referenceDate })
 
         #expect(presentation.title == "USD Coin")
         #expect(presentation.navigationTitle == "USD Coin")
@@ -56,11 +58,11 @@ struct ERC20TokenDetailPresentationTests {
             displayName: "Unknown Token",
             amountDisplay: "Balance unavailable",
             balanceKind: .erc20,
-            updatedAt: .now,
+            updatedAt: referenceDate,
             isPlaceholder: true
         )
 
-        let presentation = ERC20TokenDetailPresentation(route: route, holding: holding)
+        let presentation = ERC20TokenDetailPresentation(route: route, holding: holding, nowProvider: { referenceDate })
 
         #expect(presentation.title == "Unknown Token")
         #expect(presentation.symbol == "???")
@@ -77,7 +79,7 @@ struct ERC20TokenDetailPresentationTests {
             symbol: "USDC"
         )
 
-        let presentation = ERC20TokenDetailPresentation(route: route, holding: nil)
+        let presentation = ERC20TokenDetailPresentation(route: route, holding: nil, nowProvider: { referenceDate })
 
         #expect(presentation.title == "USDC")
         #expect(presentation.amountDisplay == "Balance unavailable")
@@ -100,11 +102,11 @@ struct ERC20TokenDetailPresentationTests {
             displayName: "Ethereum Native",
             amountDisplay: "1.25",
             balanceKind: .native,
-            updatedAt: .now,
+            updatedAt: referenceDate,
             isPlaceholder: false
         )
 
-        let presentation = ERC20TokenDetailPresentation(route: route, holding: holding)
+        let presentation = ERC20TokenDetailPresentation(route: route, holding: holding, nowProvider: { referenceDate })
 
         #expect(presentation.title == "Ethereum Native")
         #expect(presentation.symbol == "ETH")
@@ -127,11 +129,11 @@ struct ERC20TokenDetailPresentationTests {
             displayName: "USD Coin",
             amountDisplay: "Amount hidden",
             balanceKind: .erc20,
-            updatedAt: .now,
+            updatedAt: referenceDate,
             isPlaceholder: true
         )
 
-        let presentation = ERC20TokenDetailPresentation(route: route, holding: holding)
+        let presentation = ERC20TokenDetailPresentation(route: route, holding: holding, nowProvider: { referenceDate })
 
         #expect(presentation.isAmountHidden)
         #expect(presentation.amountDisplay == "Amount hidden")
@@ -153,11 +155,11 @@ struct ERC20TokenDetailPresentationTests {
             displayName: "Token Name",
             amountDisplay: "42.00",
             balanceKind: .erc20,
-            updatedAt: .now,
+            updatedAt: referenceDate,
             isPlaceholder: false
         )
 
-        let presentation = ERC20TokenDetailPresentation(route: route, holding: holding)
+        let presentation = ERC20TokenDetailPresentation(route: route, holding: holding, nowProvider: { referenceDate })
 
         #expect(presentation.title == "Token Name")
         #expect(presentation.symbol == "TOK")
@@ -181,11 +183,11 @@ struct ERC20TokenDetailPresentationTests {
             displayName: "USD Coin",
             amountDisplay: "50 USDC",
             balanceKind: .erc20,
-            updatedAt: Date(timeIntervalSinceNow: -(TokenHoldingsMetadataFreshnessPolicy.ttl + 60)),
+            updatedAt: referenceDate.addingTimeInterval(-(TokenHoldingsMetadataFreshnessPolicy.ttl + 60)),
             isPlaceholder: false
         )
 
-        let presentation = ERC20TokenDetailPresentation(route: route, holding: staleHolding)
+        let presentation = ERC20TokenDetailPresentation(route: route, holding: staleHolding, nowProvider: { referenceDate })
 
         #expect(presentation.isMetadataStale)
         #expect(presentation.metadataStatus == "Cached token metadata is older than the ERC-20 freshness window, so Auralis is refreshing it in the background.")

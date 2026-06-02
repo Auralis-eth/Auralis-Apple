@@ -27,5 +27,9 @@ let package = Package(
                 "ReceiptsCore",
             ]
         ),
+        .testTarget(
+            name: "PolicyCoreTests",
+            dependencies: ["PolicyCore"]
+        ),
     ]
 )

@@ -17,7 +17,11 @@ struct ERC20TokenDetailPresentation: Equatable {
     let isNativeStyleFallback: Bool
     let metadataStatus: String?
 
-    init(route: ERC20TokenRoute, holding: TokenHolding?) {
+    init(
+        route: ERC20TokenRoute,
+        holding: TokenHolding?,
+        nowProvider: () -> Date = Date.init
+    ) {
         let resolvedTitle = Self.cleanedText(holding?.displayName)
             ?? Self.cleanedText(route.symbol)
             ?? "Token Detail"
@@ -38,7 +42,7 @@ struct ERC20TokenDetailPresentation: Equatable {
         self.updatedLabel = holding?.updatedAt.formatted(date: .abbreviated, time: .shortened)
         self.isPlaceholder = holding?.isPlaceholder ?? false
         self.isAmountHidden = holding?.hidesAmountUntilMetadataLoads ?? false
-        self.isMetadataStale = holding?.hasStaleMetadata ?? false
+        self.isMetadataStale = holding?.hasStaleMetadata(referenceDate: nowProvider()) ?? false
         self.isNativeStyleFallback = holding?.balanceKind == .native
 
         if holding == nil {

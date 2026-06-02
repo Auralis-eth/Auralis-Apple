@@ -95,6 +95,7 @@ struct PrivacyResetServiceTests {
         let defaultsSuiteName = "PrivacyResetServiceTests.ens-cache.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: defaultsSuiteName))
         let storageKey = "ens-cache"
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
         defer {
             defaults.removePersistentDomain(forName: defaultsSuiteName)
         }
@@ -114,7 +115,7 @@ struct PrivacyResetServiceTests {
             ENSForwardCacheEntry(
                 ensName: "vitalik.eth",
                 address: "0x1234567890abcdef1234567890abcdef12345678",
-                fetchedAt: .now
+                fetchedAt: referenceDate
             )
         )
         await cacheStore.storeReverseResolution(
@@ -122,7 +123,7 @@ struct PrivacyResetServiceTests {
                 address: "0x1234567890abcdef1234567890abcdef12345678",
                 ensName: "vitalik.eth",
                 isForwardVerified: true,
-                fetchedAt: .now
+                fetchedAt: referenceDate
             )
         )
         #expect(defaults.data(forKey: storageKey) != nil)
@@ -162,6 +163,7 @@ struct PrivacyResetServiceTests {
             modelContext: context,
             sequenceAllocator: ReceiptSequenceAllocator()
         )
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
         let accountAddress = "0x1111111111111111111111111111111111111111"
 
         try await searchHistoryStore.recordCommittedQuery("Moonpunks", accountAddress: nil)
@@ -170,7 +172,7 @@ struct PrivacyResetServiceTests {
             accountAddress: accountAddress,
             chain: .ethMainnet,
             amountDisplay: "1.25",
-            updatedAt: .now
+            updatedAt: referenceDate
         )
         try pinnedItemsStore.togglePin(.openNews, accountAddress: accountAddress)
         context.insert(makeFixtureNFT(tokenId: "moon-1"))
@@ -223,14 +225,14 @@ struct PrivacyResetServiceTests {
             sourceNFTID: "removed-source-1",
             accountAddressRawValue: removed.address
         ))
-        removed.markAuraPlaySynced(on: .ethMainnet, at: .now)
+        removed.markAuraPlaySynced(on: .ethMainnet, at: Date(timeIntervalSince1970: 1_700_000_000))
         context.insert(try makeFixtureStoredReceipt(accountAddress: removed.address))
         try await SearchHistoryStore(modelContext: context).recordCommittedQuery("Removed Scope", accountAddress: removed.address)
         try await SwiftDataTokenHoldingsStore(modelContext: context).upsertNativeHolding(
             accountAddress: removed.address,
             chain: .ethMainnet,
             amountDisplay: "4.2",
-            updatedAt: .now
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
         context.insert(makeFixtureNFT(
             tokenId: "preserved-1",
@@ -242,7 +244,7 @@ struct PrivacyResetServiceTests {
             sourceNFTID: "preserved-source-1",
             accountAddressRawValue: preserved.address
         ))
-        preserved.markAuraPlaySynced(on: .ethMainnet, at: .now)
+        preserved.markAuraPlaySynced(on: .ethMainnet, at: Date(timeIntervalSince1970: 1_700_000_000))
         context.insert(try makeFixtureStoredReceipt(accountAddress: preserved.address))
         try context.save()
 
@@ -290,14 +292,14 @@ struct PrivacyResetServiceTests {
             sourceNFTID: "overwrite-source-1",
             accountAddressRawValue: overwritten.address
         ))
-        overwritten.markAuraPlaySynced(on: .ethMainnet, at: .now)
+        overwritten.markAuraPlaySynced(on: .ethMainnet, at: Date(timeIntervalSince1970: 1_700_000_000))
         context.insert(try makeFixtureStoredReceipt(accountAddress: overwritten.address))
         try await SearchHistoryStore(modelContext: context).recordCommittedQuery("Overwrite Scope", accountAddress: overwritten.address)
         try await SwiftDataTokenHoldingsStore(modelContext: context).upsertNativeHolding(
             accountAddress: overwritten.address,
             chain: .ethMainnet,
             amountDisplay: "9.9",
-            updatedAt: .now
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
         context.insert(makeFixtureNFT(
             tokenId: "keep-other",
@@ -309,7 +311,7 @@ struct PrivacyResetServiceTests {
             sourceNFTID: "keep-other-source-1",
             accountAddressRawValue: other.address
         ))
-        other.markAuraPlaySynced(on: .ethMainnet, at: .now)
+        other.markAuraPlaySynced(on: .ethMainnet, at: Date(timeIntervalSince1970: 1_700_000_000))
         context.insert(try makeFixtureStoredReceipt(accountAddress: other.address))
         try context.save()
 
@@ -356,7 +358,7 @@ struct PrivacyResetServiceTests {
             sourceNFTID: "logout-source-1",
             accountAddressRawValue: preservedAccount.address
         ))
-        preservedAccount.markAuraPlaySynced(on: .ethMainnet, at: .now)
+        preservedAccount.markAuraPlaySynced(on: .ethMainnet, at: Date(timeIntervalSince1970: 1_700_000_000))
         context.insert(try makeFixtureStoredReceipt(accountAddress: preservedAccount.address))
         try await SearchHistoryStore(modelContext: context).recordCommittedQuery(
             "Logout Scope",
@@ -366,7 +368,7 @@ struct PrivacyResetServiceTests {
             accountAddress: preservedAccount.address,
             chain: .ethMainnet,
             amountDisplay: "1.0",
-            updatedAt: .now
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
         let cleanupService = LogoutCleanupService(modelContext: context)
 
@@ -432,7 +434,7 @@ struct PrivacyResetServiceTests {
                 accountAddress: "   ",
                 chain: .ethMainnet,
                 amountDisplay: "1.25",
-                updatedAt: .now
+                updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
             )
         }
 
@@ -504,7 +506,7 @@ struct PrivacyResetServiceTests {
             accountAddress: "0x1111111111111111111111111111111111111111",
             chain: .ethMainnet,
             amountDisplay: "2.5",
-            updatedAt: .now
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
         try pinnedItemsStore.togglePin(
             .openNews,

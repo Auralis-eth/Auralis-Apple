@@ -26,16 +26,18 @@ struct ReceiptEventLoggerTests {
             sequenceAllocator: ReceiptSequenceAllocator()
         )
         let logger = ReceiptEventLogger(receiptStore: store)
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
         let snapshot = LiveContextSource(
             accountProvider: { nil },
             addressProvider: { "0x1234567890abcdef1234567890abcdef12345678" },
             chainProvider: { .baseMainnet },
             modeProvider: { .observe },
             loadingProvider: { false },
-            refreshedAtProvider: { Date() },
+            refreshedAtProvider: { referenceDate },
             freshnessTTLProvider: { 300 },
             trackedNFTCountProvider: { 12 },
-            prefersDemoDataProvider: { false }
+            prefersDemoDataProvider: { false },
+            nowProvider: { referenceDate }
         ).snapshot()
 
         _ = try await logger.recordAppLaunch(

@@ -33,4 +33,77 @@ struct ProfileDetailPresentationTests {
         #expect(presentation.scopedTokenLabel == "2 tokens")
         #expect(presentation.isCurrentAccount)
     }
+
+    @Test("presentation falls back when account data is unavailable")
+    func presentationFallsBackWhenAccountDataIsUnavailable() {
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let presentation = ProfileDetailView.makePresentation(
+            account: nil,
+            accountAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+            currentChain: .baseMainnet,
+            scopedNFTCount: 0,
+            scopedTokenCount: 1,
+            isCurrentAccount: false,
+            nowProvider: { referenceDate }
+        )
+
+        #expect(presentation.title == "Account 0xab")
+        #expect(presentation.addressLine == "0xabcd...abcd")
+        #expect(presentation.chainTitle == "Base scope")
+        #expect(presentation.sourceTitle == "Imported")
+        #expect(presentation.scopedNFTLabel == "0 NFTs")
+        #expect(presentation.scopedTokenLabel == "1 token")
+        #expect(presentation.activityLabel == "Last active Nov 14, 2023")
+        #expect(presentation.isCurrentAccount == false)
+    }
+
+    @Test("presentation trims blank account names before defaulting to address")
+    func presentationTrimsBlankAccountNamesBeforeDefaulting() {
+        let account = EOAccount(
+            address: "0x1111111111111111111111111111111111111111",
+            name: "   ",
+            source: .manualEntry,
+            addedAt: Date(timeIntervalSince1970: 100),
+            lastSelectedAt: nil,
+            trackedNFTCount: 0
+        )
+
+        let presentation = ProfileDetailView.makePresentation(
+            account: account,
+            accountAddress: account.address,
+            currentChain: .polygonMainnet,
+            scopedNFTCount: 1,
+            scopedTokenCount: 0,
+            isCurrentAccount: true
+        )
+
+        #expect(presentation.title == "Account 0x11")
+        #expect(presentation.sourceTitle == "Manual")
+        #expect(presentation.scopedNFTLabel == "1 NFT")
+        #expect(presentation.scopedTokenLabel == "0 tokens")
+    }
+
+    @Test("presentation prefers most recent activity over the imported date")
+    func presentationPrefersMostRecentActivity() {
+        let account = EOAccount(
+            address: "0x1111111111111111111111111111111111111111",
+            name: "Collector",
+            source: .guestPass,
+            addedAt: Date(timeIntervalSince1970: 100),
+            lastSelectedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            trackedNFTCount: 0
+        )
+
+        let presentation = ProfileDetailView.makePresentation(
+            account: account,
+            accountAddress: account.address,
+            currentChain: .ethMainnet,
+            scopedNFTCount: 0,
+            scopedTokenCount: 0,
+            isCurrentAccount: false
+        )
+
+        #expect(presentation.sourceTitle == "Guest Pass")
+        #expect(presentation.activityLabel == "Last active Nov 14, 2023")
+    }
 }

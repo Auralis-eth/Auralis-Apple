@@ -24,5 +24,9 @@ let package = Package(
                 "ENS",
             ]
         ),
+        .testTarget(
+            name: "AgentIdentityCoreTests",
+            dependencies: ["AgentIdentityCore"]
+        ),
     ]
 )

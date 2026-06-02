@@ -24,5 +24,9 @@ let package = Package(
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
             ]
         ),
+        .testTarget(
+            name: "AccountsCoreTests",
+            dependencies: ["AccountsCore"]
+        ),
     ]
 )

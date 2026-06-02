@@ -219,11 +219,12 @@ struct ProfileDetailView: View {
         currentChain: Chain,
         scopedNFTCount: Int,
         scopedTokenCount: Int,
-        isCurrentAccount: Bool
+        isCurrentAccount: Bool,
+        nowProvider: () -> Date = Date.init
     ) -> ProfileDetailPresentation {
         let resolvedTitle = account?.name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let sourceTitle = account?.source.profileTitle ?? "Imported"
-        let activityDate = account?.mostRecentActivityAt ?? account?.addedAt ?? .now
+        let activityDate = account?.mostRecentActivityAt ?? account?.addedAt ?? nowProvider()
 
         return ProfileDetailPresentation(
             title: (resolvedTitle?.isEmpty == false ? resolvedTitle : nil) ?? EOAccount.defaultName(for: accountAddress),

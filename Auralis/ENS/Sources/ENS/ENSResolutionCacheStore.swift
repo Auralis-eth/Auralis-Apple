@@ -8,6 +8,7 @@ public actor ENSResolutionCacheStore {
     private let userDefaults: UserDefaults
     private let storageKey: String
     private let retentionTTL: TimeInterval
+    private let nowProvider: @Sendable () -> Date
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private var state: ENSCacheState
@@ -15,17 +16,20 @@ public actor ENSResolutionCacheStore {
     public init(
         userDefaults: UserDefaults = .standard,
         storageKey: String = ENSResolutionCacheStore.storageDecisionIdentifier,
-        retentionTTL: TimeInterval = 60 * 60 * 24 * 7
+        retentionTTL: TimeInterval = 60 * 60 * 24 * 7,
+        nowProvider: @escaping @Sendable () -> Date = { .now }
     ) {
         self.userDefaults = userDefaults
         self.storageKey = storageKey
         self.retentionTTL = retentionTTL
+        self.nowProvider = nowProvider
         if let data = userDefaults.data(forKey: storageKey) {
             do {
                 let decodedState = try decoder.decode(ENSCacheState.self, from: data)
                 let prunedState = Self.prunedState(
                     from: decodedState,
-                    retentionTTL: retentionTTL
+                    retentionTTL: retentionTTL,
+                    referenceDate: nowProvider()
                 )
                 self.state = prunedState
                 if prunedState != decodedState {
@@ -46,17 +50,17 @@ public actor ENSResolutionCacheStore {
     }
 
     public func cachedForwardResolution(forENS name: String) -> ENSForwardCacheEntry? {
-        pruneExpiredEntriesAndPersistIfNeeded()
+        pruneExpiredEntriesAndPersistIfNeeded(referenceDate: nowProvider())
         return state.forward[name]
     }
 
     public func cachedReverseResolution(forAddress address: String) -> ENSReverseCacheEntry? {
-        pruneExpiredEntriesAndPersistIfNeeded()
+        pruneExpiredEntriesAndPersistIfNeeded(referenceDate: nowProvider())
         return state.reverse[address]
     }
 
     public func storeForwardResolution(_ entry: ENSForwardCacheEntry) {
-        pruneExpiredEntriesAndPersistIfNeeded()
+        pruneExpiredEntriesAndPersistIfNeeded(referenceDate: nowProvider())
         state.forward[entry.ensName] = entry
         persist()
     }
@@ -67,7 +71,7 @@ public actor ENSResolutionCacheStore {
     }
 
     public func storeReverseResolution(_ entry: ENSReverseCacheEntry) {
-        pruneExpiredEntriesAndPersistIfNeeded()
+        pruneExpiredEntriesAndPersistIfNeeded(referenceDate: nowProvider())
         state.reverse[entry.address] = entry
         persist()
     }
@@ -80,7 +84,7 @@ public actor ENSResolutionCacheStore {
     private static func prunedState(
         from state: ENSCacheState,
         retentionTTL: TimeInterval,
-        referenceDate: Date = .now
+        referenceDate: Date
     ) -> ENSCacheState {
         guard retentionTTL > 0 else {
             return .empty
@@ -97,7 +101,7 @@ public actor ENSResolutionCacheStore {
         )
     }
 
-    private func pruneExpiredEntriesAndPersistIfNeeded(referenceDate: Date = .now) {
+    private func pruneExpiredEntriesAndPersistIfNeeded(referenceDate: Date) {
         let originalState = state
         state = Self.prunedState(
             from: state,

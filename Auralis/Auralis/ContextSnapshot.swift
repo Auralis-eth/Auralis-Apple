@@ -33,7 +33,8 @@ extension ContextSnapshot {
             mode: mode.value ?? "",
             isLoading: freshness.refreshState == .refreshing,
             lastSuccessfulRefreshAt: freshness.lastSuccessfulRefreshAt,
-            freshnessTTL: freshness.ttl
+            freshnessTTL: freshness.ttl,
+            freshnessReferenceDate: freshness.referenceDate
         )
     }
 
