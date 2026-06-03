@@ -20,7 +20,7 @@ struct ExternalWalletAppProbeTests {
         let application = MockApplication(openableSchemes: [])
         let probe = ExternalWalletAppProbe(application: application)
 
-        #expect(!probe.canOpen(.ledgerLive))
+        #expect(probe.canOpen(.ledgerLive) == false)
         #expect(application.queriedURLs == [URL(string: "ledgerlive://")!])
     }
 }

@@ -6,7 +6,7 @@ import Foundation
 import SwiftData
 import Testing
 
-@Suite
+@Suite(.tags(.swiftdata))
 struct ReceiptStoreTests {
     @MainActor
     private func makeContainer() throws -> ModelContainer {
@@ -75,9 +75,9 @@ struct ReceiptStoreTests {
         #expect(second.correlationID == "flow-1")
         #expect(first.accountSequenceID == 1)
         #expect(second.accountSequenceID == 2)
-        #expect(!first.payloadHash.isEmpty)
+        #expect(first.payloadHash.isEmpty == false)
         #expect(first.previousReceiptHash == "GENESIS")
-        #expect(!first.chainHash.isEmpty)
+        #expect(first.chainHash.isEmpty == false)
         #expect(second.previousReceiptHash == first.chainHash)
     }
 

@@ -6,7 +6,7 @@ import SwiftData
 import Testing
 import TokenStorage
 
-@Suite
+@Suite(.tags(.architecture))
 struct PrimaryModelBoundaryTests {
     @Test("primary models do not import UI frameworks")
     func primaryModelsDoNotImportUIFrameworks() throws {
@@ -14,10 +14,10 @@ struct PrimaryModelBoundaryTests {
 
         for file in sourceFiles {
             let source = try String(contentsOf: file, encoding: .utf8)
-            #expect(!source.contains("import SwiftData"), "\(file.path) imports SwiftData")
-            #expect(!source.contains("import SwiftUI"), "\(file.path) imports SwiftUI")
-            #expect(!source.contains("import UIKit"), "\(file.path) imports UIKit")
-            #expect(!source.contains("@Model"), "\(file.path) declares a SwiftData model")
+            #expect(source.contains("import SwiftData") == false, "\(file.path) imports SwiftData")
+            #expect(source.contains("import SwiftUI") == false, "\(file.path) imports SwiftUI")
+            #expect(source.contains("import UIKit") == false, "\(file.path) imports UIKit")
+            #expect(source.contains("@Model") == false, "\(file.path) declares a SwiftData model")
         }
     }
 
@@ -36,7 +36,7 @@ struct PrimaryModelBoundaryTests {
         for file in pureSourceFiles {
             let source = try String(contentsOf: file, encoding: .utf8)
             for modelName in persistedModelNames {
-                #expect(!source.contains("final class \(modelName)"), "\(file.path) declares \(modelName)")
+                #expect(source.contains("final class \(modelName)") == false, "\(file.path) declares \(modelName)")
             }
         }
 
@@ -58,9 +58,9 @@ struct PrimaryModelBoundaryTests {
 
         for file in primarySourceFiles {
             let source = try String(contentsOf: file, encoding: .utf8)
-            #expect(!source.contains("final class StoredReceipt"), "\(file.path) declares StoredReceipt")
-            #expect(!source.contains("final class TokenHolding"), "\(file.path) declares TokenHolding")
-            #expect(!source.contains("final class AuraPlayMediaItem"), "\(file.path) declares AuraPlayMediaItem")
+            #expect(source.contains("final class StoredReceipt") == false, "\(file.path) declares StoredReceipt")
+            #expect(source.contains("final class TokenHolding") == false, "\(file.path) declares TokenHolding")
+            #expect(source.contains("final class AuraPlayMediaItem") == false, "\(file.path) declares AuraPlayMediaItem")
         }
 
         let storageModels: [any PersistentModel.Type] = [

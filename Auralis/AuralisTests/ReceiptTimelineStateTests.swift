@@ -124,7 +124,7 @@ struct ReceiptTimelineStateTests {
         state.loadNextPage()
         let secondSnapshot = state.snapshot(records: records)
         #expect(secondSnapshot.visibleRecords.count == 30)
-        #expect(!secondSnapshot.hasMore)
+        #expect(secondSnapshot.hasMore == false)
         #expect(secondSnapshot.visibleRecords.map(\.sequenceID) == Array(1...30))
     }
 

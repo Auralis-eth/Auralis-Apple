@@ -18,7 +18,7 @@ import Testing
 import TokenStorage
 
 @MainActor
-@Suite
+@Suite(.tags(.privacy, .swiftdata))
 struct PrivacyResetServiceTests {
     @Test("resetLocalPrivacyData clears persisted search history rows")
     func resetLocalPrivacyDataClearsSearchHistory() async throws {
@@ -258,10 +258,10 @@ struct PrivacyResetServiceTests {
         let remainingMusicItems = try context.fetch(FetchDescriptor<MusicLibraryItem>())
         let remainingReceipts = try context.fetch(FetchDescriptor<StoredReceipt>())
         let remainingAccounts = try context.fetch(FetchDescriptor<EOAccount>())
-        #expect(!remainingNFTs.contains(where: { $0.accountAddressRawValue == removed.address }))
+        #expect(remainingNFTs.contains(where: { $0.accountAddressRawValue == removed.address }) == false)
         #expect(remainingNFTs.contains(where: { $0.accountAddressRawValue == preserved.address }))
-        #expect(!remainingHoldings.contains(where: { $0.accountAddressRawValue == removed.address }))
-        #expect(!remainingMusicItems.contains(where: { $0.accountAddressRawValue == removed.address }))
+        #expect(remainingHoldings.contains(where: { $0.accountAddressRawValue == removed.address }) == false)
+        #expect(remainingMusicItems.contains(where: { $0.accountAddressRawValue == removed.address }) == false)
         #expect(remainingMusicItems.contains(where: { $0.accountAddressRawValue == preserved.address }))
         #expect(remainingReceipts.contains(where: { $0.accountAddress == removed.address }))
         #expect(remainingReceipts.contains(where: { $0.accountAddress == preserved.address }))
@@ -327,10 +327,10 @@ struct PrivacyResetServiceTests {
         let persistedMusicItems = try context.fetch(FetchDescriptor<MusicLibraryItem>())
         let persistedReceipts = try context.fetch(FetchDescriptor<StoredReceipt>())
         let persistedAccounts = try context.fetch(FetchDescriptor<EOAccount>())
-        #expect(!persistedNFTs.contains(where: { $0.accountAddressRawValue == overwritten.address }))
+        #expect(persistedNFTs.contains(where: { $0.accountAddressRawValue == overwritten.address }) == false)
         #expect(persistedNFTs.contains(where: { $0.accountAddressRawValue == other.address }))
-        #expect(!persistedHoldings.contains(where: { $0.accountAddressRawValue == overwritten.address }))
-        #expect(!persistedMusicItems.contains(where: { $0.accountAddressRawValue == overwritten.address }))
+        #expect(persistedHoldings.contains(where: { $0.accountAddressRawValue == overwritten.address }) == false)
+        #expect(persistedMusicItems.contains(where: { $0.accountAddressRawValue == overwritten.address }) == false)
         #expect(persistedMusicItems.contains(where: { $0.accountAddressRawValue == other.address }))
         #expect(persistedReceipts.contains(where: { $0.accountAddress == overwritten.address }))
         #expect(persistedReceipts.contains(where: { $0.accountAddress == other.address }))

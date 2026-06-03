@@ -34,8 +34,17 @@ struct SearchQueryParserTests {
         #expect(invalid.kind == .invalidENSLike)
     }
 
-    @Test("distinguishes wallet, contract, ambiguous, and invalid address input")
-    func classifiesAddressInputs() {
+    @Test(
+        "distinguishes wallet, contract, ambiguous, and invalid address input",
+        arguments: [
+            ("0x1111111111111111111111111111111111111111", SearchQueryKind.walletAddress),
+            ("0x2222222222222222222222222222222222222222", .contractAddress),
+            ("0x3333333333333333333333333333333333333333", .ambiguousAddress),
+            ("0x1234", .invalidAddress),
+            ("0xnotactuallyhex", .invalidAddress)
+        ]
+    )
+    func classifiesAddressInputs(query: String, expectedKind: SearchQueryKind) {
         let index = SearchLocalIndex(
             accounts: [
                 .init(
@@ -56,36 +65,7 @@ struct SearchQueryParserTests {
             collections: []
         )
 
-        #expect(
-            parser.classify(
-                query: "0x1111111111111111111111111111111111111111",
-                index: index
-            ).kind == .walletAddress
-        )
-        #expect(
-            parser.classify(
-                query: "0x2222222222222222222222222222222222222222",
-                index: index
-            ).kind == .contractAddress
-        )
-        #expect(
-            parser.classify(
-                query: "0x3333333333333333333333333333333333333333",
-                index: index
-            ).kind == .ambiguousAddress
-        )
-        #expect(
-            parser.classify(
-                query: "0x1234",
-                index: index
-            ).kind == .invalidAddress
-        )
-        #expect(
-            parser.classify(
-                query: "0xnotactuallyhex",
-                index: index
-            ).kind == .invalidAddress
-        )
+        #expect(parser.classify(query: query, index: index).kind == expectedKind)
     }
 
     @Test("detects exact local symbol, NFT name, and collection matches deterministically")

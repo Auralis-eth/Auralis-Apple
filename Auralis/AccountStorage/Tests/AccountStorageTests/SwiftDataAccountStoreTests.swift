@@ -11,8 +11,8 @@ import TokenStorage
 @MainActor
 @Suite
 struct SwiftDataAccountStoreTests {
-    @Test("save new account")
-    func saveNewAccount() async throws {
+    @Test("creating a watch account normalizes and persists the canonical address")
+    func creatingWatchAccountNormalizesAndPersistsCanonicalAddress() async throws {
         let store = try makeStore()
 
         let account = try await store.createWatchAccount(
@@ -25,7 +25,7 @@ struct SwiftDataAccountStoreTests {
         #expect(try store.listAccounts().map(\.address) == [account.address])
     }
 
-    @Test("fetch account by canonical address")
+    @Test("fetching by canonical address matches case- and prefix-variant lookups while rejecting non-addresses")
     func fetchAccountByCanonicalAddress() async throws {
         let store = try makeStore()
         let account = try await store.createWatchAccount(
@@ -42,7 +42,7 @@ struct SwiftDataAccountStoreTests {
         #expect(invalidLookup == nil)
     }
 
-    @Test("update existing account without duplicate rows")
+    @Test("overwriting an existing watch account replaces metadata without creating duplicate rows")
     func updateExistingAccountWithoutDuplicateRows() async throws {
         let store = try makeStore()
         let original = try await store.createWatchAccount(
@@ -68,8 +68,8 @@ struct SwiftDataAccountStoreTests {
         #expect(replaced.addedAt == Date(timeIntervalSince1970: 200))
     }
 
-    @Test("delete account")
-    func deleteAccount() async throws {
+    @Test("removing the active account falls back to the newest remaining account")
+    func removingActiveAccountFallsBackToNewestRemainingAccount() async throws {
         let store = try makeStore()
         let active = try await store.createWatchAccount(
             from: "0x4444444444444444444444444444444444444444",
@@ -91,8 +91,8 @@ struct SwiftDataAccountStoreTests {
         #expect(try store.account(for: active.address) == nil)
     }
 
-    @Test("account list orders by selection, added date, then address")
-    func accountListOrdering() async throws {
+    @Test("listing accounts orders by selection, then newest added date, then address")
+    func listingAccountsOrdersBySelectionNewestDateThenAddress() async throws {
         let store = try makeStore()
         let oldestSelected = try await store.createWatchAccount(
             from: "0x8888888888888888888888888888888888888888",
@@ -119,8 +119,8 @@ struct SwiftDataAccountStoreTests {
         ])
     }
 
-    @Test("invalid and corrupt address handling")
-    func invalidAndCorruptAddressHandling() async throws {
+    @Test("invalid addresses are rejected and unknown selections throw without creating account rows")
+    func invalidAddressesAreRejectedWithoutCreatingAccountRows() async throws {
         let store = try makeStore()
 
         await #expect(throws: AccountStoreError.invalidAddress) {

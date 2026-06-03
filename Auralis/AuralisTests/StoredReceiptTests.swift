@@ -174,9 +174,9 @@ struct StoredReceiptTests {
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .baseMainnet
         )))
-        #expect(!record.matches(ReceiptTimelineScope(
+        #expect(record.matches(ReceiptTimelineScope(
             accountAddress: "0x9999999999999999999999999999999999999999",
             chain: .baseMainnet
-        )))
+        )) == false)
     }
 }

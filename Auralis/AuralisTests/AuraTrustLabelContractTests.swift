@@ -5,7 +5,7 @@ import AuralisShellCore
 import AuraUI
 import Testing
 
-@Suite
+@Suite(.tags(.architecture))
 struct AuraTrustLabelContractTests {
     @Test("untrusted value kinds use specific trust-forward titles")
     func trustKindsUseSpecificTitles() {

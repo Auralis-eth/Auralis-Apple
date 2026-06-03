@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-06-02 — The Test Suite Learned To Name The Broken Plate
+
+Phase 3 and Phase 4 of the unit-test refactor were not about adding a mountain of new assertions. They were about making failures point to the right shelf. Parameterized Swift Testing cases now give table-driven checks their own case names in the navigator, so a policy regression says which identifier broke instead of handing you a mystery red light from the whole pantry.
+
+The cleanup pass also trimmed the paperwork around the suite. Generic account-store test identifiers now read like contracts, the old smoke-test duplication is gone, tags give CI a way to separate slow architecture checks from fast feedback, and initializer-assignment tests have been replaced by round-trip behavior where that actually buys confidence. The one intentional leftover is `@MainActor`: some suites still belong there because SwiftData, UIKit, and SwiftUI are main-actor customers. Lesson learned: maintainable tests are not just fewer tests. They are tests that fail with enough context that the next engineer can fix dinner without reopening every cabinet.
+
 ## 2026-06-01 — The Test Suite Got A Real Clock
 
 Phase 1 and Phase 2 of the unit-test refactor moved from plan language into shippable artifacts. The big win is that tests now behave less like someone checking the oven by glancing at the sun: freshness, profile fallback dates, token metadata staleness, ENS cache age, and shell refresh timing all have deterministic clocks where the assertions need them.

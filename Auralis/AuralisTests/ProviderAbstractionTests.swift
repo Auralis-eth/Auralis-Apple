@@ -10,7 +10,7 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 
-@Suite
+@Suite(.tags(.networking, .slow))
 struct ProviderAbstractionTests {
     @Test("provider configuration resolves centralized Alchemy endpoints for an EVM chain")
     func resolverBuildsExpectedEndpoints() throws {
@@ -211,10 +211,10 @@ struct ProviderAbstractionTests {
             #expect(description.contains("provider_error_payload_redacted"))
             #expect(description.contains("reason=secret_like"))
             #expect(description.contains("sha256="))
-            #expect(!description.contains("should-never-appear"))
-            #expect(!description.contains("secret-cookie"))
-            #expect(!description.contains("PRIVATE KEY"))
-            #expect(!description.contains(publicOwner))
+            #expect(description.contains("should-never-appear") == false)
+            #expect(description.contains("secret-cookie") == false)
+            #expect(description.contains("PRIVATE KEY") == false)
+            #expect(description.contains(publicOwner) == false)
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
@@ -254,9 +254,9 @@ struct ProviderAbstractionTests {
             #expect(description.contains("provider_error_payload_redacted"))
             #expect(description.contains("reason=unclassified_body"))
             #expect(description.contains("sha256="))
-            #expect(!description.contains(rawBody))
-            #expect(!description.contains("trace-12345"))
-            #expect(!description.contains("backend shard"))
+            #expect(description.contains(rawBody) == false)
+            #expect(description.contains("trace-12345") == false)
+            #expect(description.contains("backend shard") == false)
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
@@ -296,9 +296,9 @@ struct ProviderAbstractionTests {
             #expect(description.contains("provider_error_payload_redacted"))
             #expect(description.contains("reason=unclassified_message"))
             #expect(description.contains("sha256="))
-            #expect(!description.contains(operationalMessage))
-            #expect(!description.contains("trace-12345"))
-            #expect(!description.contains("backend shard"))
+            #expect(description.contains(operationalMessage) == false)
+            #expect(description.contains("trace-12345") == false)
+            #expect(description.contains("backend shard") == false)
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
@@ -1653,8 +1653,8 @@ struct ProviderAbstractionTests {
                 #expect(message.contains("provider_error_payload_redacted"))
                 #expect(message.contains("reason=unsafe_message"))
                 #expect(message.contains("sha256="))
-                #expect(!message.contains("should-never-appear"))
-                #expect(!message.contains("rpc.example"))
+                #expect(message.contains("should-never-appear") == false)
+                #expect(message.contains("rpc.example") == false)
             default:
                 Issue.record("Unexpected provider abstraction error: \(error)")
             }
@@ -1759,8 +1759,8 @@ struct ProviderAbstractionTests {
                 #expect(message.contains("provider_error_payload_redacted"))
                 #expect(message.contains("reason=unsafe_message"))
                 #expect(message.contains("sha256="))
-                #expect(!message.contains("should-never-appear"))
-                #expect(!message.contains("rpc.example"))
+                #expect(message.contains("should-never-appear") == false)
+                #expect(message.contains("rpc.example") == false)
             default:
                 Issue.record("Unexpected gas pricing error: \(error)")
             }
@@ -1803,7 +1803,7 @@ struct ProviderAbstractionTests {
                 #expect(message.contains("provider_error_payload_redacted"))
                 #expect(message.contains("reason=unclassified_message"))
                 #expect(message.contains("sha256="))
-                #expect(!message.contains("invalid api key"))
+                #expect(message.contains("invalid api key") == false)
             default:
                 Issue.record("Unexpected gas pricing error: \(error)")
             }

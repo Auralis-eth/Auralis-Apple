@@ -5,21 +5,39 @@ import Testing
 
 @Suite
 struct EthereumAddressTests {
-    @Test("normalizes supported wallet address input to lowercase 0x form")
-    func normalizesWalletAddressInput() {
-        #expect(AuralisEthereumAddress.normalized("  0xABCDEF1234567890ABCDEF1234567890ABCDEF12  ") == "0xabcdef1234567890abcdef1234567890abcdef12")
-        #expect(AuralisEthereumAddress.normalized("ABCDEF1234567890ABCDEF1234567890ABCDEF12") == "0xabcdef1234567890abcdef1234567890abcdef12")
-        #expect(AuralisEthereumAddress(rawValue: "0XABCDEF1234567890ABCDEF1234567890ABCDEF12")?.rawValue == "0xabcdef1234567890abcdef1234567890abcdef12")
+    @Test(
+        "normalizes supported wallet address input to lowercase 0x form",
+        arguments: [
+            "  0xABCDEF1234567890ABCDEF1234567890ABCDEF12  ",
+            "ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+            "0XABCDEF1234567890ABCDEF1234567890ABCDEF12"
+        ]
+    )
+    func normalizesWalletAddressInput(input: String) {
+        #expect(AuralisEthereumAddress.normalized(input) == "0xabcdef1234567890abcdef1234567890abcdef12")
     }
 
-    @Test("rejects non-address input without partial extraction")
-    func rejectsInvalidWalletAddressInput() {
-        #expect(AuralisEthereumAddress.normalized(nil) == nil)
-        #expect(AuralisEthereumAddress.normalized("") == nil)
-        #expect(AuralisEthereumAddress.normalized("wallet: 0xabcdef1234567890abcdef1234567890abcdef12") == nil)
-        #expect(AuralisEthereumAddress.normalized("0xabcdef1234567890abcdef1234567890abcdef1") == nil)
-        #expect(AuralisEthereumAddress.normalized("0xabcdef1234567890abcdef1234567890abcdef1z") == nil)
-        #expect(AuralisEthereumAddress.normalized("vitalik.eth") == nil)
+    @Test("AuralisEthereumAddress rawValue initializer normalizes the canonical form")
+    func rawValueInitializerNormalizesCanonicalForm() {
+        #expect(
+            AuralisEthereumAddress(rawValue: "0XABCDEF1234567890ABCDEF1234567890ABCDEF12")?.rawValue
+                == "0xabcdef1234567890abcdef1234567890abcdef12"
+        )
+    }
+
+    @Test(
+        "rejects non-address input without partial extraction",
+        arguments: [
+            nil,
+            "",
+            "wallet: 0xabcdef1234567890abcdef1234567890abcdef12",
+            "0xabcdef1234567890abcdef1234567890abcdef1",
+            "0xabcdef1234567890abcdef1234567890abcdef1z",
+            "vitalik.eth"
+        ] as [String?]
+    )
+    func rejectsInvalidWalletAddressInput(input: String?) {
+        #expect(AuralisEthereumAddress.normalized(input) == nil)
     }
 
     @Test("account store delegates address normalization to canonical model")

@@ -3,7 +3,7 @@ import AuralisPrimaryPersistence
 import MusicFeature
 import Testing
 
-@Suite
+@Suite(.tags(.architecture, .privacy))
 struct LocalDataStoragePolicyTests {
     @Test("declares required local data classifications")
     func declaresRequiredLocalDataClassifications() {
@@ -39,14 +39,15 @@ struct LocalDataStoragePolicyTests {
         #expect(missingIdentifiers.isEmpty, "SwiftData schema models missing from policy requirements: \(missingIdentifiers.sorted())")
     }
 
-    @Test("registers every persisted SwiftData model with a reset phase")
-    func registersEveryPersistedSwiftDataModelWithResetPhase() throws {
-        for identifier in LocalDataStoragePolicy.persistedSwiftDataModelIdentifiers {
-            let decision = try #require(LocalDataStoragePolicy.decision(for: identifier))
+    @Test(
+        "registers every persisted SwiftData model with a reset phase",
+        arguments: LocalDataStoragePolicy.persistedSwiftDataModelIdentifiers
+    )
+    func registersEveryPersistedSwiftDataModelWithResetPhase(identifier: String) throws {
+        let decision = try #require(LocalDataStoragePolicy.decision(for: identifier))
 
-            #expect(decision.storage == .swiftData, "\(identifier) must be classified as SwiftData storage")
-            #expect(decision.resetPhase != nil, "\(identifier) must declare a privacy reset phase")
-        }
+        #expect(decision.storage == .swiftData, "\(identifier) must be classified as SwiftData storage")
+        #expect(decision.resetPhase != nil, "\(identifier) must declare a privacy reset phase")
     }
 
     @Test("does not duplicate local data policy identifiers")
@@ -56,76 +57,56 @@ struct LocalDataStoragePolicyTests {
         #expect(identifiers.count == Set(identifiers).count)
     }
 
-    @Test("maps known persisted values to storage classes")
-    func mapsKnownPersistedValuesToStorageClasses() throws {
-        let appMode = try #require(LocalDataStoragePolicy.decision(for: ModeState.storageDecisionIdentifier))
-        let pinnedItems = try #require(LocalDataStoragePolicy.decision(for: HomePinnedItemsStore.storageDecisionIdentifier))
-        let ensCache = try #require(LocalDataStoragePolicy.decision(for: "Auralis.ENSResolutionCache.v1"))
-        let receiptIntegrityHeads = try #require(LocalDataStoragePolicy.decision(for: "AuralisReceiptIntegrityHeadService"))
-        let searchHistory = try #require(LocalDataStoragePolicy.decision(for: "SearchHistoryRecord"))
-        let gasCache = try #require(LocalDataStoragePolicy.decision(for: "ProviderKit.GasPriceCache.shared"))
-        let providerClientKey = try #require(LocalDataStoragePolicy.decision(for: "AURALIS_ALCHEMY_API_KEY"))
-        let shellSelection = try #require(LocalDataStoragePolicy.decision(for: "auralis.shell.selection.v1"))
-        let credentials = try #require(LocalDataStoragePolicy.decision(for: "WalletPasswordService/WalletPasswordAccount"))
-        let nftInventory = try #require(LocalDataStoragePolicy.decision(for: "NFT"))
-        let nftContract = try #require(LocalDataStoragePolicy.decision(for: String(describing: NFT.Contract.self)))
-        let tags = try #require(LocalDataStoragePolicy.decision(for: "Tag"))
-        let receipts = try #require(LocalDataStoragePolicy.decision(for: "StoredReceipt"))
-        let tokenHoldings = try #require(LocalDataStoragePolicy.decision(for: "TokenHolding"))
-        let playlists = try #require(LocalDataStoragePolicy.decision(for: "Playlist"))
-        let musicLibrary = try #require(LocalDataStoragePolicy.decision(for: "MusicLibraryItem"))
-        let auraPlayMedia = try #require(LocalDataStoragePolicy.decision(for: "AuraPlayMediaItem"))
+    struct PolicyExpectation: Sendable, CustomStringConvertible {
+        let identifier: String
+        let classification: LocalDataClassification
+        let storage: LocalDataStorage
+        let resetPhase: PrivacyResetPhase?
 
-        #expect(appMode.classification == .publicPreference)
-        #expect(appMode.storage == .userDefaults)
-        #expect(pinnedItems.classification == .publicPreference)
-        #expect(pinnedItems.storage == .userDefaults)
-        #expect(ensCache.classification == .publicIdentifierMetadata)
-        #expect(ensCache.storage == .userDefaults)
-        #expect(ensCache.resetPhase == .supportCaches)
-        #expect(receiptIntegrityHeads.classification == .walletMetadata)
-        #expect(receiptIntegrityHeads.storage == .keychain)
-        #expect(receiptIntegrityHeads.resetPhase == .transactionalStore)
-        #expect(searchHistory.classification == .walletMetadata)
-        #expect(searchHistory.storage == .swiftData)
-        #expect(searchHistory.resetPhase == .transactionalStore)
-        #expect(nftInventory.classification == .publicIdentifierMetadata)
-        #expect(nftInventory.storage == .swiftData)
-        #expect(nftInventory.resetPhase == .transactionalStore)
-        #expect(nftContract.classification == .publicIdentifierMetadata)
-        #expect(nftContract.storage == .swiftData)
-        #expect(nftContract.resetPhase == .transactionalStore)
-        #expect(tags.classification == .walletMetadata)
-        #expect(tags.storage == .swiftData)
-        #expect(tags.resetPhase == .transactionalStore)
-        #expect(receipts.classification == .walletMetadata)
-        #expect(receipts.storage == .swiftData)
-        #expect(receipts.resetPhase == .transactionalStore)
-        #expect(tokenHoldings.classification == .walletMetadata)
-        #expect(tokenHoldings.storage == .swiftData)
-        #expect(tokenHoldings.resetPhase == .transactionalStore)
-        #expect(playlists.classification == .walletMetadata)
-        #expect(playlists.storage == .swiftData)
-        #expect(playlists.resetPhase == .transactionalStore)
-        #expect(musicLibrary.classification == .walletMetadata)
-        #expect(musicLibrary.storage == .swiftData)
-        #expect(musicLibrary.resetPhase == .transactionalStore)
-        #expect(auraPlayMedia.classification == .walletMetadata)
-        #expect(auraPlayMedia.storage == .swiftData)
-        #expect(auraPlayMedia.resetPhase == .auraPlayPersistence)
-        #expect(gasCache.classification == .publicIdentifierMetadata)
-        #expect(gasCache.storage == .memoryCache)
-        #expect(gasCache.resetPhase == .supportCaches)
-        #expect(providerClientKey.classification == .publicPreference)
-        #expect(providerClientKey.storage == .bundleConfiguration)
-        #expect(providerClientKey.resetPhase == nil)
-        #expect(shellSelection.classification == .walletMetadata)
-        #expect(shellSelection.storage == .keychain)
-        #expect(shellSelection.resetPhase == .localPreferences)
+        var description: String { identifier }
+    }
+
+    static let policyExpectations: [PolicyExpectation] = [
+        .init(identifier: ModeState.storageDecisionIdentifier, classification: .publicPreference, storage: .userDefaults, resetPhase: .localPreferences),
+        .init(identifier: HomePinnedItemsStore.storageDecisionIdentifier, classification: .publicPreference, storage: .userDefaults, resetPhase: .localPreferences),
+        .init(identifier: "Auralis.ENSResolutionCache.v1", classification: .publicIdentifierMetadata, storage: .userDefaults, resetPhase: .supportCaches),
+        .init(identifier: "AuralisReceiptIntegrityHeadService", classification: .walletMetadata, storage: .keychain, resetPhase: .transactionalStore),
+        .init(identifier: "SearchHistoryRecord", classification: .walletMetadata, storage: .swiftData, resetPhase: .transactionalStore),
+        .init(identifier: "ProviderKit.GasPriceCache.shared", classification: .publicIdentifierMetadata, storage: .memoryCache, resetPhase: .supportCaches),
+        .init(identifier: "AURALIS_ALCHEMY_API_KEY", classification: .publicPreference, storage: .bundleConfiguration, resetPhase: nil),
+        .init(identifier: "WalletPasswordService/WalletPasswordAccount", classification: .credential, storage: .keychain, resetPhase: .credentialStore),
+        .init(identifier: "NFT", classification: .publicIdentifierMetadata, storage: .swiftData, resetPhase: .transactionalStore),
+        .init(identifier: String(describing: NFT.Contract.self), classification: .publicIdentifierMetadata, storage: .swiftData, resetPhase: .transactionalStore),
+        .init(identifier: "Tag", classification: .walletMetadata, storage: .swiftData, resetPhase: .transactionalStore),
+        .init(identifier: "StoredReceipt", classification: .walletMetadata, storage: .swiftData, resetPhase: .transactionalStore),
+        .init(identifier: "TokenHolding", classification: .walletMetadata, storage: .swiftData, resetPhase: .transactionalStore),
+        .init(identifier: "Playlist", classification: .walletMetadata, storage: .swiftData, resetPhase: .transactionalStore),
+        .init(identifier: "MusicLibraryItem", classification: .walletMetadata, storage: .swiftData, resetPhase: .transactionalStore),
+        .init(identifier: "AuraPlayMediaItem", classification: .walletMetadata, storage: .swiftData, resetPhase: .auraPlayPersistence),
+        .init(identifier: "auralis.shell.selection.v1", classification: .walletMetadata, storage: .keychain, resetPhase: .localPreferences)
+    ]
+
+    @Test(
+        "known persisted identifiers map to expected storage class and reset phase",
+        arguments: LocalDataStoragePolicyTests.policyExpectations
+    )
+    func knownPersistedIdentifierMatchesExpectedDecision(expectation: PolicyExpectation) throws {
+        let decision = try #require(
+            LocalDataStoragePolicy.decision(for: expectation.identifier),
+            "Missing policy decision for \(expectation.identifier)"
+        )
+
+        #expect(decision.classification == expectation.classification)
+        #expect(decision.storage == expectation.storage)
+        #expect(decision.resetPhase == expectation.resetPhase)
+    }
+
+    @Test("shell selection rationale documents the keychain accessibility class")
+    func shellSelectionRationaleDocumentsKeychainAccessibility() throws {
+        let shellSelection = try #require(LocalDataStoragePolicy.decision(for: "auralis.shell.selection.v1"))
+
         #expect(shellSelection.rationale.contains("kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly"))
         #expect(shellSelection.rationale.contains("ThisDeviceOnly"))
-        #expect(credentials.classification == .credential)
-        #expect(credentials.storage == .keychain)
     }
 
     @Test("does not allow shell selection to fall back to UserDefaults")

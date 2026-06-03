@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@Suite
+@Suite(.tags(.architecture))
 struct ArchitectureBoundaryTests {
     @Test("app target direct package imports are declared explicitly in Xcode")
     func appDirectPackageImportsAreDeclaredExplicitly() throws {

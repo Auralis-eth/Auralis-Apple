@@ -147,11 +147,10 @@ struct ERC20HoldingsSyncUseCaseTests {
         #expect(result.persistenceErrorMessage == nil)
     }
 
-    @Test("provider failures map to existing user-facing messages")
-    func providerFailuresMapToExistingMessages() {
-        let presenter = ERC20HoldingsSyncResultPresenter()
-        let cases: [(ProviderAbstractionError, Bool, String)] = [
-            (.unauthorized, true, "Auralis could not refresh token holdings because the provider rejected this build's credentials for this request scope."),
+    @Test(
+        "provider failures map to existing user-facing messages",
+        arguments: [
+            (ProviderAbstractionError.unauthorized, true, "Auralis could not refresh token holdings because the provider rejected this build's credentials for this request scope."),
             (.rateLimited, true, "The token holdings provider is rate-limiting requests right now. Try again in a moment."),
             (.offline, false, "Auralis kept your last saved ERC-20 holdings because this device appears to be offline."),
             (.unavailable, true, "Auralis could not load token holdings because the provider is temporarily unavailable for this wallet and chain."),
@@ -165,14 +164,18 @@ struct ERC20HoldingsSyncUseCaseTests {
             (.invalidBalancePayload, true, "Auralis could not load token holdings because the provider returned an invalid balance payload."),
             (.paginationStalled, false, "Auralis kept your last saved ERC-20 holdings because the provider stopped paginating cleanly for this wallet and chain."),
             (.unsupportedMethod, true, "Auralis could not refresh token holdings because the provider does not support the required method.")
-        ]
-
-        for (error, hadNoHoldings, expectedMessage) in cases {
-            let result = presenter.present(.fetchFailed(error), hadNoHoldings: hadNoHoldings)
-            #expect(result.providerErrorMessage == expectedMessage)
-            #expect(result.providerWarningMessage == nil)
-            #expect(result.persistenceErrorMessage == nil)
-        }
+        ] as [(ProviderAbstractionError, Bool, String)]
+    )
+    func providerFailureMapsToExpectedMessage(
+        error: ProviderAbstractionError,
+        hadNoHoldings: Bool,
+        expectedMessage: String
+    ) {
+        let presenter = ERC20HoldingsSyncResultPresenter()
+        let result = presenter.present(.fetchFailed(error), hadNoHoldings: hadNoHoldings)
+        #expect(result.providerErrorMessage == expectedMessage)
+        #expect(result.providerWarningMessage == nil)
+        #expect(result.persistenceErrorMessage == nil)
     }
 
     @Test("persistence failure maps to the existing local-storage message")
@@ -216,9 +219,9 @@ struct ERC20HoldingsSyncUseCaseTests {
             .appendingPathComponent("Auralis/Aura/MainTabERC20Views.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        #expect(!source.contains("tokenHoldingsProviderFactory().tokenHoldings"))
-        #expect(!source.contains("replaceERC20Holdings("))
-        #expect(!source.contains("holdingsSyncerFactory(modelContext).sync"))
+        #expect(source.contains("tokenHoldingsProviderFactory().tokenHoldings") == false)
+        #expect(source.contains("replaceERC20Holdings(") == false)
+        #expect(source.contains("holdingsSyncerFactory(modelContext).sync") == false)
         #expect(source.contains("currentHoldingsSyncer().sync"))
     }
 

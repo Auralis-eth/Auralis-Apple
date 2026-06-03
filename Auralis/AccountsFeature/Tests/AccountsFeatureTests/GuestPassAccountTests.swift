@@ -9,7 +9,7 @@ struct GuestPassAccountTests {
 
         #expect(accounts.count == 4)
         #expect(accounts.map(\.address).contains("0x9266f125fb2ecb730d9953b46de9c32e2fa83e4a"))
-        #expect(accounts.allSatisfy { !$0.title.isEmpty })
+        #expect(accounts.allSatisfy { $0.title.isEmpty == false })
         #expect(accounts.allSatisfy { $0.metadata.count == 3 })
     }
 

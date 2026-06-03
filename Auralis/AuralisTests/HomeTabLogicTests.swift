@@ -5,7 +5,6 @@ import Foundation
 import Testing
 
 @Suite
-@MainActor
 struct HomeTabLogicTests {
     private let logic = HomeTabLogic()
 

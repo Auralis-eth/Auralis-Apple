@@ -325,7 +325,7 @@ struct NFTServiceReceiptTests {
         let persisted = try context.fetch(FetchDescriptor<NFT>())
         #expect(persisted.contains(where: { $0.tokenId == "fresh" && $0.accountAddressRawValue == activeAccount.address }))
         #expect(persisted.contains(where: { $0.tokenId == "other-account" && $0.accountAddressRawValue == otherAccountAddress }))
-        #expect(!persisted.contains(where: { $0.tokenId == "stale" && $0.accountAddressRawValue == activeAccount.address }))
+        #expect(persisted.contains(where: { $0.tokenId == "stale" && $0.accountAddressRawValue == activeAccount.address }) == false)
     }
 
     @Test("refresh cleanup only removes NFTs from the active chain scope")
@@ -377,7 +377,7 @@ struct NFTServiceReceiptTests {
         let persisted = try context.fetch(FetchDescriptor<NFT>())
         #expect(persisted.contains(where: { $0.tokenId == "fresh-eth" && $0.networkRawValue == Chain.ethMainnet.rawValue }))
         #expect(persisted.contains(where: { $0.tokenId == "base-keep" && $0.networkRawValue == Chain.baseMainnet.rawValue }))
-        #expect(!persisted.contains(where: { $0.tokenId == "stale-eth" && $0.networkRawValue == Chain.ethMainnet.rawValue }))
+        #expect(persisted.contains(where: { $0.tokenId == "stale-eth" && $0.networkRawValue == Chain.ethMainnet.rawValue }) == false)
     }
 
     @Test("multiple NFTs from the same contract persist in one refresh without conflicting child identities")

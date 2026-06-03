@@ -84,22 +84,7 @@ struct AlchemyTokenHoldingsProviderWarningTests {
                     httpVersion: nil,
                     headerFields: ["Content-Type": "application/json"]
                 )!
-                let data = Data("""
-                {
-                  "data": {
-                    "tokens": [
-                      {
-                        "network": "eth-mainnet",
-                        "address": "0x1234567890abcdef1234567890abcdef12345678",
-                        "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-                        "tokenBalance": "1230000"
-                      }
-                    ],
-                    "pageKey": null
-                  }
-                }
-                """.utf8)
-                return (response, data)
+                return (response, Data(AlchemyTokenHoldingsFixtures.singleTokenBalancesPayload.utf8))
             }
 
             let response = HTTPURLResponse(
@@ -138,22 +123,7 @@ struct AlchemyTokenHoldingsProviderWarningTests {
                     httpVersion: nil,
                     headerFields: ["Content-Type": "application/json"]
                 )!
-                let data = Data("""
-                {
-                  "data": {
-                    "tokens": [
-                      {
-                        "network": "eth-mainnet",
-                        "address": "0x1234567890abcdef1234567890abcdef12345678",
-                        "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-                        "tokenBalance": "1230000"
-                      }
-                    ],
-                    "pageKey": null
-                  }
-                }
-                """.utf8)
-                return (response, data)
+                return (response, Data(AlchemyTokenHoldingsFixtures.singleTokenBalancesPayload.utf8))
             }
 
             let response = HTTPURLResponse(
@@ -188,4 +158,22 @@ private struct MockProviderConfigurationResolver: ProviderConfigurationResolving
             alchemyRPCURL: nil
         )
     }
+}
+
+private enum AlchemyTokenHoldingsFixtures {
+    static let singleTokenBalancesPayload = """
+    {
+      "data": {
+        "tokens": [
+          {
+            "network": "eth-mainnet",
+            "address": "0x1234567890abcdef1234567890abcdef12345678",
+            "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "tokenBalance": "1230000"
+          }
+        ],
+        "pageKey": null
+      }
+    }
+    """
 }

@@ -364,7 +364,7 @@ final class AccessibilityAuditUITests: XCTestCase {
     // unreachable controls, and Dynamic Type launch arguments not propagating.
     private func performLegacyAudit(in app: XCUIApplication) throws {
         XCTAssertTrue(app.exists, "App must be launched for legacy accessibility audit.")
-        XCTAssertTrue(app.isAccessibilityElement || app.descendants(matching: .any).count > 0,
+        XCTAssertTrue(app.isAccessibilityElement || app.descendants(matching: .any).firstMatch.exists,
                       "App must expose an accessibility element hierarchy.")
 
         let preferredCategory = app.launchArguments
@@ -379,7 +379,7 @@ final class AccessibilityAuditUITests: XCTestCase {
         }
 
         let tabBars = app.tabBars
-        if tabBars.count > 0 {
+        if tabBars.firstMatch.exists {
             let tabBar = tabBars.firstMatch
             for index in 0..<tabBar.buttons.count {
                 let button = tabBar.buttons.element(boundBy: index)

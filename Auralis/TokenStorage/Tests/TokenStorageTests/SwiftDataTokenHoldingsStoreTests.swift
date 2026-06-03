@@ -161,7 +161,7 @@ struct SwiftDataTokenHoldingsStoreTests {
         #expect(holding.updatedAt == updatedAt)
         #expect(holding.isPlaceholder)
         #expect(holding.hidesAmountUntilMetadataLoads)
-        #expect(!holding.hasStaleMetadata(referenceDate: referenceDate))
+        #expect(holding.hasStaleMetadata(referenceDate: referenceDate) == false)
     }
 
     @Test("clear all token holdings")

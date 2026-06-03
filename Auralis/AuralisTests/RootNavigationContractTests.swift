@@ -4,7 +4,7 @@ import AuralisPrimaryPersistence
 import AuralisShellCore
 import Testing
 
-@Suite
+@Suite(.tags(.architecture))
 @MainActor
 struct RootNavigationContractTests {
     @Test("root router exposes receipts and search as first-class shell destinations")
