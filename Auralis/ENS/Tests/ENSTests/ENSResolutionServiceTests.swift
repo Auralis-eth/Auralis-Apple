@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import AuralisTestSupport
 import ENS
 import Foundation
 import ProviderKit
@@ -57,10 +58,11 @@ struct ENSResolutionServiceTests {
             for: "vitalik.eth"
         )
 
-        let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.cache.\(UUID().uuidString)")!
+        let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "ENSResolutionServiceTests.cache")
+        defer { cleanup() }
         let clock = MutableDateBox(makeTestDate())
         let cacheStore = ENSResolutionCacheStore(
-            userDefaults: defaults,
+            userDefaultsStore: ENSCacheUserDefaults(defaults),
             storageKey: "forwardResolutionUsesFreshCache",
             retentionTTL: 60 * 60 * 24,
             nowProvider: { clock.value }
@@ -92,10 +94,11 @@ struct ENSResolutionServiceTests {
             for: "vitalik.eth"
         )
 
-        let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.stale.\(UUID().uuidString)")!
+        let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "ENSResolutionServiceTests.stale")
+        defer { cleanup() }
         let clock = MutableDateBox(makeTestDate())
         let cacheStore = ENSResolutionCacheStore(
-            userDefaults: defaults,
+            userDefaultsStore: ENSCacheUserDefaults(defaults),
             storageKey: "forwardResolutionFallsBackToStaleCache",
             retentionTTL: 60 * 60 * 24,
             nowProvider: { clock.value }
@@ -120,7 +123,7 @@ struct ENSResolutionServiceTests {
     }
 
     @Test("reverse lookup returns verified names only")
-    func reverseLookupRequiresForwardVerification() async {
+    func reverseLookupRequiresForwardVerification() async throws {
         let verifiedClient = StubEthereumNameServiceClient()
         await verifiedClient.setReverseResult(
             .success("vitalik.eth"),
@@ -130,11 +133,15 @@ struct ENSResolutionServiceTests {
             .success("0x1234567890abcdef1234567890abcdef12345678"),
             for: "vitalik.eth"
         )
+        let (verifiedDefaults, verifiedCleanup) = try TestSupport.temporaryUserDefaults(
+            prefix: "ENSResolutionServiceTests.reverse.verified"
+        )
+        defer { verifiedCleanup() }
 
         let verifiedResolver = Web3EthereumNameServiceResolver(
             client: verifiedClient,
             cacheStore: ENSResolutionCacheStore(
-                userDefaults: UserDefaults(suiteName: "ENSResolutionServiceTests.reverse.verified.\(UUID().uuidString)")!,
+                userDefaultsStore: ENSCacheUserDefaults(verifiedDefaults),
                 storageKey: "verified"
             )
         )
@@ -143,8 +150,9 @@ struct ENSResolutionServiceTests {
             correlationID: "verified"
         )
 
-        #expect(verified?.ensName == "vitalik.eth")
-        #expect(verified?.isForwardVerified == true)
+        let verified = try #require(verified)
+        #expect(verified.ensName == "vitalik.eth")
+        #expect(verified.isForwardVerified)
 
         let mismatchedClient = StubEthereumNameServiceClient()
         await mismatchedClient.setReverseResult(
@@ -155,11 +163,15 @@ struct ENSResolutionServiceTests {
             .success("0x9999999999999999999999999999999999999999"),
             for: "vitalik.eth"
         )
+        let (mismatchedDefaults, mismatchedCleanup) = try TestSupport.temporaryUserDefaults(
+            prefix: "ENSResolutionServiceTests.reverse.mismatched"
+        )
+        defer { mismatchedCleanup() }
 
         let mismatchedResolver = Web3EthereumNameServiceResolver(
             client: mismatchedClient,
             cacheStore: ENSResolutionCacheStore(
-                userDefaults: UserDefaults(suiteName: "ENSResolutionServiceTests.reverse.mismatched.\(UUID().uuidString)")!,
+                userDefaultsStore: ENSCacheUserDefaults(mismatchedDefaults),
                 storageKey: "mismatched"
             )
         )
@@ -179,10 +191,11 @@ struct ENSResolutionServiceTests {
             for: "vitalik.eth"
         )
 
-        let defaults = UserDefaults(suiteName: "ENSResolutionServiceTests.mapping.\(UUID().uuidString)")!
+        let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "ENSResolutionServiceTests.mapping")
+        defer { cleanup() }
         let clock = MutableDateBox(makeTestDate())
         let cacheStore = ENSResolutionCacheStore(
-            userDefaults: defaults,
+            userDefaultsStore: ENSCacheUserDefaults(defaults),
             storageKey: "forwardResolutionSurfacesMappingChanges",
             retentionTTL: 60 * 60 * 24,
             nowProvider: { clock.value }
@@ -222,12 +235,14 @@ struct ENSResolutionServiceTests {
             for: "vitalik.eth"
         )
 
+        let (offchainDefaults, offchainCleanup) = try TestSupport.temporaryUserDefaults(
+            prefix: "ENSResolutionServiceTests.offchain"
+        )
+        defer { offchainCleanup() }
         let resolver = Web3EthereumNameServiceResolver(
             client: client,
             cacheStore: ENSResolutionCacheStore(
-                userDefaults: UserDefaults(
-                    suiteName: "ENSResolutionServiceTests.offchain.\(UUID().uuidString)"
-                )!,
+                userDefaultsStore: ENSCacheUserDefaults(offchainDefaults),
                 storageKey: "offchain",
                 retentionTTL: 60 * 60 * 24
             )
@@ -240,12 +255,13 @@ struct ENSResolutionServiceTests {
     @Test("live ENS resolver and cache reset service share one cache store instance")
     @MainActor
     func liveResolverAndResetServiceShareCacheStore() async throws {
-        let defaults = UserDefaults(
-            suiteName: "ENSResolutionServiceTests.shared-reset.\(UUID().uuidString)"
-        )!
+        let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(
+            prefix: "ENSResolutionServiceTests.shared-reset"
+        )
+        defer { cleanup() }
         let clock = MutableDateBox(makeTestDate())
         let cacheStore = ENSResolutionCacheStore(
-            userDefaults: defaults,
+            userDefaultsStore: ENSCacheUserDefaults(defaults),
             storageKey: "shared-reset",
             nowProvider: { clock.value }
         )
@@ -267,7 +283,7 @@ struct ENSResolutionServiceTests {
         )
 
         let cachedBeforeReset = await resolver.cachedForwardResolution(forENS: "vitalik.eth")
-        #expect(cachedBeforeReset?.address == "0x1234567890abcdef1234567890abcdef12345678")
+        #expect(try #require(cachedBeforeReset).address == "0x1234567890abcdef1234567890abcdef12345678")
 
         await resetService.resetCache()
 
@@ -353,8 +369,10 @@ private struct StubProviderConfigurationResolver: ProviderConfigurationResolving
     }
 }
 
-private final class MutableDateBox: @unchecked Sendable {
-    var value: Date
+// Synchronous `nowProvider: () -> Date` seam used to drive deterministic time
+// in tests. Cannot be an actor without forcing the provider to become async.
+private final class MutableDateBox: Sendable {
+    nonisolated(unsafe) var value: Date
 
     init(_ value: Date) {
         self.value = value

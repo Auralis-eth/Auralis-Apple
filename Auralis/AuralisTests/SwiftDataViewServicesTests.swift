@@ -108,7 +108,7 @@ struct SwiftDataViewServicesTests {
             chain: .ethMainnet
         )
 
-        #expect(summary.account?.name == "Profile Wallet")
+        #expect(try #require(summary.account).name == "Profile Wallet")
         #expect(summary.scopedNFTCount == 1)
         #expect(summary.scopedTokenCount == 1)
     }
@@ -143,16 +143,12 @@ struct SwiftDataViewServicesTests {
             scope: ReceiptTimelineScope(accountAddress: accountAddress, chain: .ethMainnet)
         )
 
-        #expect(receipts.latest?.summary == "Context built")
+        #expect(try #require(receipts.latest).summary == "Context built")
         #expect(receipts.related.map(\.summary) == ["Related refresh"])
     }
 
     private func makeContext() throws -> ModelContext {
-        let container = try ModelContainer(
-            for: Schema([EOAccount.self, NFT.self, Tag.self, StoredReceipt.self, TokenHolding.self]),
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
-        return ModelContext(container)
+        ModelContext(try TestModelContainers.primary())
     }
 
     private func makeReceipt(

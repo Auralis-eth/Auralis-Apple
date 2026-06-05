@@ -2,6 +2,7 @@ import OperatorCore
 import ReceiptsCore
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisTestSupport
 import Foundation
 import Testing
 
@@ -9,7 +10,7 @@ import Testing
 struct ExternalLinkOpenFlowTests {
     @Test("confirmed open logs first and then opens the destination")
     @MainActor
-    func confirmedOpenLogsBeforeOpen() async {
+    func confirmedOpenLogsBeforeOpen() async throws {
         let logger = RecordingExternalLinkEventLogger()
         var openedURLs: [URL] = []
         var sequence: [String] = []
@@ -24,7 +25,7 @@ struct ExternalLinkOpenFlowTests {
 
         let request = ExternalLinkOpenRequest(
             label: "OpenSea",
-            url: URL(string: "https://opensea.io/assets/base/0xabc/1")!,
+            url: try #require(URL(string: "https://opensea.io/assets/base/0xabc/1")),
             surface: "newsfeed.nft_detail"
         )
 
@@ -42,26 +43,26 @@ struct ExternalLinkOpenFlowTests {
 
     @Test("confirmed open preserves explicit provenance for non-user initiators")
     @MainActor
-    func confirmedOpenPreservesProvenance() async {
+    func confirmedOpenPreservesProvenance() async throws {
         let logger = RecordingExternalLinkEventLogger()
         let flow = ExternalLinkOpenFlow(eventLogger: logger, openURL: { _ in })
 
         let request = ExternalLinkOpenRequest(
             label: "Plugin",
-            url: URL(string: "https://ipfs.io/ipfs/QmHash")!,
+            url: try #require(URL(string: "https://ipfs.io/ipfs/QmHash")),
             surface: "plugin.runtime",
             provenance: .pluginConfirmed
         )
 
         let outcome = await flow.confirm(request)
 
-        #expect(logger.requests.first?.provenance == .pluginConfirmed)
+        #expect(try #require(logger.requests.first).provenance == .pluginConfirmed)
         #expect(outcome == .opened)
     }
 
     @Test("durable confirmed open blocks when receipt logging fails")
     @MainActor
-    func durableConfirmedOpenBlocksOnLoggingFailure() async {
+    func durableConfirmedOpenBlocksOnLoggingFailure() async throws {
         let logger = FailingExternalLinkEventLogger()
         var openedURLs: [URL] = []
         let flow = ExternalLinkOpenFlow(
@@ -73,7 +74,7 @@ struct ExternalLinkOpenFlowTests {
 
         let request = ExternalLinkOpenRequest(
             label: "Explorer",
-            url: URL(string: "https://etherscan.io/token/0xabc?a=1")!,
+            url: try #require(URL(string: "https://etherscan.io/token/0xabc?a=1")),
             surface: "newsfeed.nft_detail"
         )
 
@@ -86,7 +87,7 @@ struct ExternalLinkOpenFlowTests {
 
     @Test("best-effort confirmed open still opens with warning when receipt logging fails")
     @MainActor
-    func bestEffortConfirmedOpenWarnsOnLoggingFailure() async {
+    func bestEffortConfirmedOpenWarnsOnLoggingFailure() async throws {
         let logger = FailingExternalLinkEventLogger()
         var openedURLs: [URL] = []
         let flow = ExternalLinkOpenFlow(
@@ -98,7 +99,7 @@ struct ExternalLinkOpenFlowTests {
 
         let request = ExternalLinkOpenRequest(
             label: "Docs",
-            url: URL(string: "https://example.com/docs")!,
+            url: try #require(URL(string: "https://example.com/docs")),
             surface: "settings.help",
             auditRequirement: .bestEffort
         )
@@ -122,7 +123,7 @@ private final class RecordingExternalLinkEventLogger: ExternalLinkEventLogging {
         return ReceiptRecord(
             id: UUID(),
             sequenceID: requests.count,
-            createdAt: .now,
+            createdAt: Fixture.referenceDate,
             actor: request.provenance.receiptActor,
             mode: .observe,
             trigger: "external_link.opened",

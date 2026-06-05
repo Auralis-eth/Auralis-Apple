@@ -320,9 +320,7 @@ struct ContextServiceTests {
     @Test("context service refresh emits a context-built receipt when a logger is provided")
     func contextServiceRefreshEmitsReceipt() async throws {
         let builder = CountingContextSourceBuilder()
-        let schema = Schema([StoredReceipt.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let modelContext = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
             modelContext: modelContext,
@@ -367,9 +365,7 @@ struct ContextServiceTests {
     func contextServiceRaceKeepsReceiptScopeBoundToResolvedSnapshot() async throws {
         let builder = CountingContextSourceBuilder()
         let resolveGate = ControlledResolveGate()
-        let schema = Schema([StoredReceipt.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let modelContext = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
             modelContext: modelContext,

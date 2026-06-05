@@ -12,19 +12,10 @@ import Testing
 
 @Suite
 struct AccountReceiptRecorderTests {
-    @MainActor
-    private func makeContainer() throws -> ModelContainer {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(
-            for: PrimaryStoreSchema.schema,
-            configurations: [configuration]
-        )
-    }
-
     @Test("receipt-backed account recorder emits real receipts for account add select and remove flows")
     @MainActor
     func accountStoreWritesReceiptsThroughRecorderSeam() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
             modelContext: context,
@@ -70,7 +61,7 @@ struct AccountReceiptRecorderTests {
     @Test("account activation receipts share one correlation ID across chained account events")
     @MainActor
     func accountActivationReceiptsShareCorrelationID() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
             modelContext: context,
@@ -102,7 +93,7 @@ struct AccountReceiptRecorderTests {
     @Test("policy gate denies blocked observe actions and records a denial receipt")
     @MainActor
     func observeModePolicyGateWritesReceipt() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
             modelContext: context,
@@ -121,18 +112,19 @@ struct AccountReceiptRecorderTests {
         #expect(result.isAllowed == false)
         #expect(result.userMessage == "Not available in Observe mode")
         #expect(receipts.count == 1)
-        #expect(receipts.first?.trigger == "policy.denied")
-        #expect(receipts.first?.scope == "policy")
-        #expect(receipts.first?.mode == .observe)
-        #expect(receipts.first?.isSuccess == false)
-        #expect(receipts.first?.details.values["action"] == ReceiptJSONValue.string("draft_transaction"))
-        #expect(receipts.first?.details.values["policy_denied"] == ReceiptJSONValue.bool(true))
+        let receipt = try #require(receipts.first)
+        #expect(receipt.trigger == "policy.denied")
+        #expect(receipt.scope == "policy")
+        #expect(receipt.mode == .observe)
+        #expect(receipt.isSuccess == false)
+        #expect(receipt.details.values["action"] == ReceiptJSONValue.string("draft_transaction"))
+        #expect(receipt.details.values["policy_denied"] == ReceiptJSONValue.bool(true))
     }
 
     @Test("policy gate denies plugin actions in Observe mode and records a denial receipt")
     @MainActor
     func observeModePolicyGateDeniesPluginActions() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
             modelContext: context,
@@ -151,19 +143,20 @@ struct AccountReceiptRecorderTests {
         #expect(result.isAllowed == false)
         #expect(result.userMessage == "Not available in Observe mode")
         #expect(receipts.count == 1)
-        #expect(receipts.first?.trigger == "policy.denied")
-        #expect(receipts.first?.scope == "policy")
-        #expect(receipts.first?.mode == .observe)
-        #expect(receipts.first?.isSuccess == false)
-        #expect(receipts.first?.details.values["action"] == ReceiptJSONValue.string("run_plugin"))
-        #expect(receipts.first?.details.values["policy_denied"] == ReceiptJSONValue.bool(true))
-        #expect(receipts.first?.details.values["policy_approved"] == ReceiptJSONValue.bool(false))
+        let receipt = try #require(receipts.first)
+        #expect(receipt.trigger == "policy.denied")
+        #expect(receipt.scope == "policy")
+        #expect(receipt.mode == .observe)
+        #expect(receipt.isSuccess == false)
+        #expect(receipt.details.values["action"] == ReceiptJSONValue.string("run_plugin"))
+        #expect(receipt.details.values["policy_denied"] == ReceiptJSONValue.bool(true))
+        #expect(receipt.details.values["policy_approved"] == ReceiptJSONValue.bool(false))
     }
 
     @Test("chain-scope account events emit one receipt per real preferred and current change")
     @MainActor
     func chainScopeEventsWriteReceipts() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
             modelContext: context,
@@ -197,14 +190,15 @@ struct AccountReceiptRecorderTests {
             "account.chain.preferred.changed"
         ])
         #expect(receipts.allSatisfy { $0.scope == "accounts.chain_scope" })
-        #expect(receipts.first?.details.values["from_chain"] == ReceiptJSONValue.string(Chain.baseMainnet.rawValue))
-        #expect(receipts.first?.details.values["to_chain"] == ReceiptJSONValue.string(Chain.baseSepoliaTestnet.rawValue))
+        let receipt = try #require(receipts.first)
+        #expect(receipt.details.values["from_chain"] == ReceiptJSONValue.string(Chain.baseMainnet.rawValue))
+        #expect(receipt.details.values["to_chain"] == ReceiptJSONValue.string(Chain.baseSepoliaTestnet.rawValue))
     }
 
     @Test("chain-scope account receipts preserve caller correlation IDs for follow-on refresh chaining")
     @MainActor
     func chainScopeReceiptsPreserveCorrelationID() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
             modelContext: context,
@@ -228,8 +222,9 @@ struct AccountReceiptRecorderTests {
         let receipts = try await receiptStore.receipts(forCorrelationID: correlationID, limit: 10)
 
         #expect(receipts.count == 1)
-        #expect(receipts.first?.trigger == "account.chain.current.changed")
-        #expect(receipts.first?.correlationID == correlationID)
+        let receipt = try #require(receipts.first)
+        #expect(receipt.trigger == "account.chain.current.changed")
+        #expect(receipt.correlationID == correlationID)
     }
 
     @Test("chain-scope planner suppresses redundant writes and only refreshes the active scope")

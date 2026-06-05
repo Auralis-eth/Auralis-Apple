@@ -14,6 +14,7 @@ let package = Package(
         ),
     ],
     dependencies: [
+        .package(path: "../AuralisTestSupport"),
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../ProviderKit"),
         .package(url: "https://github.com/argentlabs/web3.swift", from: "1.6.1"),
@@ -30,7 +31,10 @@ let package = Package(
         ),
         .testTarget(
             name: "ENSTests",
-            dependencies: ["ENS"]
+            dependencies: [
+                "ENS",
+                "AuralisTestSupport",
+            ]
         ),
     ]
 )

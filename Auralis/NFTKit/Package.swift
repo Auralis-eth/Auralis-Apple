@@ -35,6 +35,7 @@ let package = Package(
         .package(path: "../ChainProviders"),
         .package(path: "../ExplorerAdapter"),
         .package(path: "../ProviderKit"),
+        .package(path: "../ReceiptStorage"),
         .package(path: "../ReceiptsCore"),
     ],
     targets: [
@@ -82,8 +83,13 @@ let package = Package(
         .testTarget(
             name: "NFTKitTests",
             dependencies: [
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "NFTDomain",
                 "NFTKit",
+                "NFTPersistence",
+                "NFTPresentation",
+                "NFTProviderAdapters",
+                "ReceiptStorage",
             ]
         ),
     ]

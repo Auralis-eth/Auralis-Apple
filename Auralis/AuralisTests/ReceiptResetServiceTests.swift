@@ -9,15 +9,8 @@ import Testing
 @Suite
 struct ReceiptResetServiceTests {
     @MainActor
-    private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([StoredReceipt.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
-    }
-
-    @MainActor
     private func makeStoreAndResetService() throws -> (SwiftDataReceiptStore, SwiftDataReceiptResetService) {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
             modelContext: context,

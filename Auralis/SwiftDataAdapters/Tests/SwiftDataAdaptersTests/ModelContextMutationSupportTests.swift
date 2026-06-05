@@ -32,6 +32,25 @@ struct ModelContextMutationSupportTests {
         #expect(try context.fetch(FetchDescriptor<SwiftDataAdapterFixture>()).isEmpty)
     }
 
+    @Test("rollback-safe mutation restores existing objects after thrown work")
+    func rollbackSafeMutationRestoresExistingObjectsAfterThrownWork() throws {
+        let context = try makeContext()
+        let fixture = SwiftDataAdapterFixture(name: "original")
+        context.insert(fixture)
+        try context.save()
+
+        #expect(throws: FixtureError.failed) {
+            try context.performRollbackSafeMutation {
+                fixture.name = "mutated"
+                context.insert(SwiftDataAdapterFixture(name: "inserted"))
+                throw FixtureError.failed
+            }
+        }
+
+        let fixtures = try context.fetch(FetchDescriptor<SwiftDataAdapterFixture>())
+        #expect(fixtures.map(\.name) == ["original"])
+    }
+
     @Test("undoable mutation falls back to rollback-safe save without undo manager")
     func undoableMutationFallsBackWithoutUndoManager() throws {
         let context = try makeContext()
@@ -63,7 +82,7 @@ struct ModelContextMutationSupportTests {
 }
 
 @Model
-private final class SwiftDataAdapterFixture {
+final class SwiftDataAdapterFixture {
     var name: String
 
     init(name: String) {
@@ -76,9 +95,5 @@ private enum FixtureError: Error {
 }
 
 private func makeContext() throws -> ModelContext {
-    let container = try ModelContainer(
-        for: Schema([SwiftDataAdapterFixture.self]),
-        configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-    )
-    return ModelContext(container)
+    try SwiftDataAdaptersTestModelContainers.context()
 }

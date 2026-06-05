@@ -1,4 +1,5 @@
 @testable import Auralis
+import AuralisTestSupport
 import Foundation
 import PolicyCore
 import Testing
@@ -13,10 +14,9 @@ struct ModeStateTests {
     }
 
     @Test("mode state always restores observe mode and overwrites stale storage")
-    func modeStateForcesObserveModeIntoStorage() {
-        let suiteName = "ModeStateTests.modeStateForcesObserveModeIntoStorage"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
+    func modeStateForcesObserveModeIntoStorage() throws {
+        let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "ModeStateTests")
+        defer { cleanup() }
         defaults.set("Execute", forKey: "app.mode")
 
         let state = ModeState(userDefaults: defaults, storageKey: "app.mode")
@@ -26,9 +26,9 @@ struct ModeStateTests {
     }
 
     @Test("mode receipt augmentor always stamps the active observe mode")
-    func modeReceiptAugmentorAttachesModeField() {
-        let defaults = UserDefaults(suiteName: "ModeStateTests.modeReceiptAugmentorAttachesModeField")!
-        defaults.removePersistentDomain(forName: "ModeStateTests.modeReceiptAugmentorAttachesModeField")
+    func modeReceiptAugmentorAttachesModeField() throws {
+        let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "ModeStateTests")
+        defer { cleanup() }
         let state = ModeState(userDefaults: defaults, storageKey: "mode")
 
         let payload = ModeReceiptAugmentor.attachMode(to: ["scope": "test"], modeState: state)

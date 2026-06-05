@@ -20,9 +20,9 @@ struct ProviderConfigurationTests {
 
         let configuration = try resolver.configuration(for: .baseMainnet)
 
-        #expect(configuration.alchemyNFTBaseURL?.absoluteString == "https://base-mainnet.g.alchemy.com/nft/v3/\(alchemyKey)")
-        #expect(configuration.alchemyDataAPIBaseURL?.absoluteString == "https://api.g.alchemy.com/data/v1/\(alchemyKey)")
-        #expect(configuration.alchemyRPCURL?.absoluteString == "https://base-mainnet.g.alchemy.com/v2/\(alchemyKey)")
+        #expect(try #require(configuration.alchemyNFTBaseURL).absoluteString == "https://base-mainnet.g.alchemy.com/nft/v3/\(alchemyKey)")
+        #expect(try #require(configuration.alchemyDataAPIBaseURL).absoluteString == "https://api.g.alchemy.com/data/v1/\(alchemyKey)")
+        #expect(try #require(configuration.alchemyRPCURL).absoluteString == "https://base-mainnet.g.alchemy.com/v2/\(alchemyKey)")
     }
 
     @Test("Live resolver omits Alchemy endpoints when the public client key is unavailable")

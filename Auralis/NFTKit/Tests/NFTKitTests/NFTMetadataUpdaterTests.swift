@@ -1,4 +1,3 @@
-@testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Testing
@@ -10,7 +9,7 @@ import NFTProviderAdapters
 @Suite
 struct NFTMetadataUpdaterTests {
     @Test("metadata image updates create a missing image submodel")
-    func metadataImageUpdatesCreateImageModel() {
+    func metadataImageUpdatesCreateImageModel() throws {
         let nft = NFT(
             id: "0x1234567890abcdef1234567890abcdef12345678:eth-mainnet:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1",
             contract: NFT.Contract(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", chain: .ethMainnet),
@@ -35,13 +34,13 @@ struct NFTMetadataUpdaterTests {
             ]
         )
 
-        #expect(nft.image != nil)
-        #expect(nft.image?.originalUrl == "https://example.com/image.png")
-        #expect(nft.image?.secureUrl == "https://example.com/image.png")
+        let image = try #require(nft.image)
+        #expect(image.originalUrl == "https://example.com/image.png")
+        #expect(image.secureUrl == "https://example.com/image.png")
     }
 
     @Test("nil metadata leaves cached NFT fields unchanged")
-    func nilMetadataLeavesCachedFieldsUnchanged() {
+    func nilMetadataLeavesCachedFieldsUnchanged() throws {
         let nft = makeNFT(
             name: "Cached Name",
             image: makeImage(url: "https://example.com/cached.png")
@@ -50,12 +49,12 @@ struct NFTMetadataUpdaterTests {
         NFTMetadataUpdater.updateNFTFromMetadata(nft: nft, metadata: nil)
 
         #expect(nft.name == "Cached Name")
-        #expect(nft.image?.originalUrl == "https://example.com/cached.png")
-        #expect(nft.image?.secureUrl == "https://example.com/cached.png")
+        #expect(try #require(nft.image).originalUrl == "https://example.com/cached.png")
+        #expect(try #require(nft.image).secureUrl == "https://example.com/cached.png")
     }
 
     @Test("partial metadata updates known fields and preserves cached image URLs")
-    func partialMetadataUpdatesKnownFieldsAndPreservesImageURLs() {
+    func partialMetadataUpdatesKnownFieldsAndPreservesImageURLs() throws {
         let nft = makeNFT(
             name: "Old Name",
             image: makeImage(url: "https://example.com/cached.png")
@@ -73,11 +72,11 @@ struct NFTMetadataUpdaterTests {
         #expect(nft.name == "New Name")
         #expect(nft.collectionName == "New Collection")
         #expect(nft.artistName == "New Artist")
-        #expect(nft.image?.originalUrl == "https://example.com/cached.png")
+        #expect(try #require(nft.image).originalUrl == "https://example.com/cached.png")
     }
 
     @Test("empty metadata object preserves cached fields")
-    func emptyMetadataObjectPreservesCachedFields() {
+    func emptyMetadataObjectPreservesCachedFields() throws {
         let nft = makeNFT(
             name: "Cached Name",
             image: makeImage(url: "https://example.com/cached.png")
@@ -86,12 +85,12 @@ struct NFTMetadataUpdaterTests {
         NFTMetadataUpdater.updateNFTFromMetadata(nft: nft, metadata: [:])
 
         #expect(nft.name == "Cached Name")
-        #expect(nft.image?.originalUrl == "https://example.com/cached.png")
-        #expect(nft.image?.secureUrl == "https://example.com/cached.png")
+        #expect(try #require(nft.image).originalUrl == "https://example.com/cached.png")
+        #expect(try #require(nft.image).secureUrl == "https://example.com/cached.png")
     }
 
     @Test("metadata image replacement updates both original and secure URLs")
-    func metadataImageReplacementUpdatesImageURLs() {
+    func metadataImageReplacementUpdatesImageURLs() throws {
         let nft = makeNFT(
             name: "Cached Name",
             image: makeImage(url: "https://example.com/old.png")
@@ -104,8 +103,8 @@ struct NFTMetadataUpdaterTests {
             ]
         )
 
-        #expect(nft.image?.originalUrl == "https://gateway.pinata.cloud/ipfs/new-image")
-        #expect(nft.image?.secureUrl == "https://gateway.pinata.cloud/ipfs/new-image")
+        #expect(try #require(nft.image).originalUrl == "https://gateway.pinata.cloud/ipfs/new-image")
+        #expect(try #require(nft.image).secureUrl == "https://gateway.pinata.cloud/ipfs/new-image")
     }
 }
 

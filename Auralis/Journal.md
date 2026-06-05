@@ -1,5 +1,61 @@
 # Journal
 
+## 2026-06-05 — Phase 3 Finally Got Its Receipt
+
+Phase 3 was functionally done, but the ticket board still looked like a kitchen where every completed prep bowl had a sticky note saying "maybe." The last cleanup removed the little per-file `makeContainer()` wrappers that were mostly hiding the real schema choice. Tests now call `TestModelContainers.inMemory(TestSchemas.receipts)`, `TestModelContainers.primary()`, `MusicFeatureTestModelContainers.libraryIndex()`, or `NFTKitTestModelContainers.refresh()` directly, so the reader can see which pantry a test is using without following a tiny detour.
+
+The useful lesson is that completion is not just code passing. A refactor phase earns its closeout when the validation commands, the ticket checkboxes, and the code all tell the same story. For Phase 3, that story is now clean: package tests live with their packages, SwiftData schemas live behind shared helpers, storage edge cases have coverage, and marker tests are gone.
+
+## 2026-06-04 — Phase 3 Closed The Last Loose Shelf
+
+Phase 3 had one final loose shelf after the package moves: NFTKit still had a `makeNFTRefreshContainer()` helper hand-building the refresh schema. That was better than every test doing it, but it still violated the new rule: test containers should have named homes, not mystery pop-up kitchens.
+
+The helper is now `NFTKitTestModelContainers.refresh()`, matching the pattern already used by the storage packages and MusicFeature. The old ad-hoc function is gone, every NFT refresh/service/persistence test now asks the package test container by name, and the remaining direct schema literals are confined to package-level `*TestModelContainers` helpers. That is the Phase 3 shape we wanted: tests live with their packages, schemas live behind shared helpers, and marker tests have been replaced with behavior or removed.
+
+## 2026-06-04 — The Last Test-Refactor Checkmarks Had To Prove It
+
+The phase-status question found three checkmarks that were more optimistic than the code. One NFT service test still asked only "did a date exist?" which is like checking whether a receipt has paper instead of reading the total. It now unwraps the refresh timestamp with `#require` and asserts it is a real persisted timestamp.
+
+The music tests had a different kind of pantry problem: two files were still hand-building SwiftData schemas. Those model lists now live behind one `MusicFeatureTestModelContainers` helper, so the tests ask for the kitchen they need instead of rebuilding the shelf labels every time. The shared `LockedValue` helper also left `AuralisTestSupport`; the remaining URL mock seam keeps its synchronous handler local to the one app test file that needs it.
+
+Validation had its own lesson. Xcode built the app cleanly and the provider suite passed, but command-line `swift test` still cannot load SwiftData macros from this environment's CommandLineTools. For SwiftData-heavy package tests, Xcode remains the grown-up stove; SwiftPM is still trying to cook with the demo burner.
+
+## 2026-06-04 — Phase 2 And 3 Moved The Tests To Their Real Homes
+
+The unit-test refactor finally stopped treating the app test target like a storage closet for every package's furniture. NFT refresh, metadata, persistence, and receipt tests moved into `NFTKit`; music presentation, receipt logging, and the SwiftData music index moved into `MusicFeature`. That is the architectural equivalent of putting the frying pans back in the kitchen station that actually uses them: local package changes now have local tests watching the contract.
+
+The Phase 2 cleanup was quieter but just as important. The retry-after provider test no longer times the wall clock with a stopwatch, and the last project-owned `@unchecked Sendable` test seams became checked sendable or explicitly synchronous unsafe seams where the production protocol cannot await an actor. Lesson learned: a test suite becomes trustworthy when it owns its clocks, its shared state, and its package boundaries instead of borrowing all three from the room next door.
+
+## 2026-06-04 — Test Safety Found The Real Sendable Door
+
+The unit-test refactor review found one last shortcut hiding in plain sight: the app test target had taught `UserDefaults` to pretend it was safely sendable everywhere. That is like handing one backstage pass to every door in the theater. It made tests compile, but it also blurred the real boundary: an actor that owns `UserDefaults` needs to say so explicitly.
+
+The fix moved that truth into the ENS cache seam with `ENSCacheUserDefaults`, a tiny boxed wrapper used only where the actor needs to carry a suite-scoped defaults store. The image-loader and provider tests got a similar cleanup: synchronous URL mocks still need synchronous recorders, so their old `NSLock + @unchecked Sendable` helpers became checked `Mutex` helpers instead of actors they cannot await.
+
+The coverage lesson was about ownership. NFTKit, MusicFeature, and CodeScanner gained package-local behavior tests so package contracts do not depend solely on app-target integration tests. SwiftPM command-line validation still stumbles on SwiftData macro loading in this environment, so Xcode remains the source of truth for SwiftData-heavy targets.
+
+## 2026-06-03 — Phase 2 Replaced Guesswork With Doorbells
+
+The second unit-test refactor pass was about making async tests stop reading tea leaves. `ShellStoreTests` used to wait for background refresh work by yielding to the scheduler three times, which is basically knocking on a door and hoping someone answers by the third knock. The refresh coordinator test double now rings a proper doorbell: tests wait for an observed refresh count, and no-refresh tests assert immediately.
+
+Time got the same treatment. ERC-20 and AuraPlay fixture dates now use the shared reference date instead of "whatever time the runner happens to be in." The token row model also accepts an explicit `now`, so stale metadata tests can pin the clock instead of racing the wall clock.
+
+The lesson: a deterministic test should wait on the thing it actually cares about. Scheduler hops and wall-clock freshness are fine for production systems, but tests need handles, not vibes.
+
+## 2026-06-03 — Phase 1 Took the Shared Toys Off the Table
+
+Phase 1 of the unit-test refactor started with the test-suite equivalent of labeling the spice rack: shared Swift Testing tags now live in `AuralisTestSupport`, so app and package tests speak the same filtering language. The old app-only tag extension was like a menu only one kitchen station could read.
+
+The bigger bug story was `NFTImageCache.shared`. Image loader tests were clearing one global cache while Swift Testing was free to run neighbors in parallel, which is how a test suite turns into a group project with one eraser. `NFTImageLoader` now accepts an `NFTImageCaching` dependency, and the tests use fresh caches, so cached-image behavior is still tested without borrowing state from the whole process.
+
+The lesson: parallel tests are honest only when their dependencies are private or intentionally coordinated. If a test needs a cache or `UserDefaults` suite, give it its own lunchbox and clean it up afterward.
+
+## 2026-06-03 — The Test Tickets Got Their Prep List
+
+The unit-test refactor ticket list already knew where the cracks were, but it still asked the next engineer to do too much cooking by instinct. `Auralis/docs/plans/Unit-Test-Refactor-Implementation-Runbook.md` now turns the backlog into a prep list: dependency order, exact search patterns, helper shapes, package boundaries, tag rules, and validation gates.
+
+The useful lesson is that a good implementation plan does not just say "fix flaky tests." It names the shared timer, the dirty cutting board, and the shelf each cleaned tool belongs on. Once the work is that explicit, review can focus on whether the code meets the contract instead of debating what the contract was supposed to mean.
+
 ## 2026-06-02 — The Test Suite Learned To Name The Broken Plate
 
 Phase 3 and Phase 4 of the unit-test refactor were not about adding a mountain of new assertions. They were about making failures point to the right shelf. Parameterized Swift Testing cases now give table-driven checks their own case names in the navigator, so a policy regression says which identifier broke instead of handing you a mystery red light from the whole pantry.
@@ -2298,3 +2354,21 @@ Freshness now carries its reference date through `ContextFreshness`, `LiveContex
 We also tightened a couple of broad failure checks. A test that says "throws any Error" is a smoke alarm that goes off for burnt toast and a real fire with the same confidence. The NFT inventory path now expects the network failure shape it actually cares about, and malformed provider payloads assert `DecodingError` directly.
 
 The lesson: time and errors are part of the contract. If the code means "older than this reference instant" or "this specific failure shape", the test should say that plainly.
+
+## Unit Test Phase 3: One Kitchen, One Pantry Map
+
+Phase 3 moved the SwiftData tests away from everyone sketching their own pantry map. App tests now route in-memory containers through `TestModelContainers` and named `TestSchemas`, so primary-store, receipt, token, search-history, and AuraPlay fixtures all point at a shared schema source. The one test that still builds a URL-backed container says so by construction: it needs a real persistent store boundary, not a second opinion about which models exist.
+
+The persistence packages got sharper edge checks too. Account storage now proves duplicate inserts fail deterministically and overwrites sweep away stale account-scoped NFTs and tags. Receipt storage simulates an integrity-head write failure and then verifies the next successful receipt keeps sequence IDs monotonic. Token holdings pin the failure path that must leave existing rows untouched, and SwiftData adapter rollback now protects both inserted and mutated objects.
+
+One marker test was retired instead of dressed up. `AgentIdentityCore` is currently a namespace-only package, so a test proving `String(describing:)` returns its type name was just a green sticker on an empty box. The package manifest no longer advertises an empty test target.
+
+The lesson: schema drift is sneaky because it usually looks like harmless fixture setup. Good persistence tests should share the same map as production, then spend their energy on the weird cases where data can disappear, duplicate, or half-save.
+
+## Unit Test Ship Readiness: The Test Lanes Get Road Signs
+
+The last hardening pass cleaned up the boring-looking assertions that make debugging expensive. Optional chains inside `#expect` are now unwrapped with `#require` before the field checks, so a missing prerequisite fails like a missing prerequisite instead of pretending to be an ordinary equality mismatch.
+
+Package SwiftData tests also got local schema authorities. The account, receipt, token, and SwiftData adapter packages each have one in-memory container helper for their test target. That keeps package tests honest about their dependency boundaries: they share a pantry map inside the package, but they do not reach back into the app target just because the app has a bigger map.
+
+Finally, the Xcode scheme now has checked-in test-plan artifacts. Fast, architecture, and full regression lanes are visible as files instead of tribal memory, with explicit suite filters for the expensive architecture and slow checks. The lesson: a shipping test suite needs two things at once: sharp assertions inside the tests, and obvious road signs for how engineers are supposed to run them.

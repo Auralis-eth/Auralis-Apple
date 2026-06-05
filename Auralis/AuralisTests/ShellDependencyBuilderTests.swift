@@ -7,6 +7,7 @@ import NFTProviderAdapters
 import ProviderKit
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisTestSupport
 import AuralisShellCore
 import ENS
 import Foundation
@@ -18,32 +19,19 @@ import TokenStorage
 @Suite
 struct ShellDependencyBuilderTests {
     @MainActor
-    private func makePrimaryContainer() throws -> ModelContainer {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: PrimaryStoreSchema.schema, configurations: [configuration])
-    }
-
-    @MainActor
-    private func makeAuraPlayContainer() throws -> ModelContainer {
-        try AuraPlayModelContainer.make(inMemory: true)
-    }
-
-    @MainActor
-    private func makeIsolatedPinnedItemsStore(
-        suiteName: String = "ShellDependencyBuilderTests.\(UUID().uuidString)"
-    ) -> HomePinnedItemsStore {
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        return HomePinnedItemsStore(
+    private func makeIsolatedPinnedItemsStore() throws -> (store: HomePinnedItemsStore, cleanup: () -> Void) {
+        let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "ShellDependencyBuilderTests")
+        let store = HomePinnedItemsStore(
             userDefaults: defaults,
-            storageKey: "\(HomePinnedItemsStore.storageDecisionIdentifier).\(suiteName)"
+            storageKey: "\(HomePinnedItemsStore.storageDecisionIdentifier).tests"
         )
+        return (store, cleanup)
     }
 
     @Test("gateway dependencies build account stores through the shared recorder seam")
     @MainActor
     func gatewayDependenciesUseSharedRecorderSeam() async throws {
-        let container = try makePrimaryContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let dependencies = AppEnvironment.live.accounts.makeGatewayDependencies(modelContext: context)
         let receiptStore = ReceiptStores.live(modelContext: context)
@@ -62,7 +50,7 @@ struct ShellDependencyBuilderTests {
     @Test("main tab dependencies wire receipt logging through the shared receipt store")
     @MainActor
     func mainTabDependenciesUseSharedReceiptStore() async throws {
-        let container = try makePrimaryContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let dependencies = AppEnvironment.live.mainTabs.makeMainTabDependencies(modelContext: context)
         let receiptLogger = dependencies.receiptEventLoggerFactory(context)
@@ -77,15 +65,16 @@ struct ShellDependencyBuilderTests {
 
         let receipts = try await receiptStore.receipts(forCorrelationID: "main-tab-receipt-logger", limit: 10)
         #expect(receipts.count == 1)
-        #expect(receipts.first?.trigger == "copy.performed")
+        #expect(try #require(receipts.first).trigger == "copy.performed")
     }
 
     @Test("main tab dependencies keep token holdings and pinned items on their intended seams")
     @MainActor
     func mainTabDependenciesExposeStableFeatureStores() async throws {
-        let container = try makePrimaryContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let pinnedItemsStore = makeIsolatedPinnedItemsStore()
+        let (pinnedItemsStore, pinnedItemsCleanup) = try makeIsolatedPinnedItemsStore()
+        defer { pinnedItemsCleanup() }
         let dependencies = AppEnvironment.live.mainTabs.makeMainTabDependencies(
             modelContext: context,
             homePinnedItemsStore: pinnedItemsStore
@@ -100,8 +89,8 @@ struct ShellDependencyBuilderTests {
 
         let holdings = try context.fetch(FetchDescriptor<TokenHolding>())
         #expect(holdings.count == 1)
-        #expect(holdings.first?.balanceKind == .native)
-        #expect(holdings.first?.amountDisplay == "1.25 ETH")
+        #expect(try #require(holdings.first).balanceKind == .native)
+        #expect(try #require(holdings.first).amountDisplay == "1.25 ETH")
 
         let accountAddress = "0x\(UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(40))"
         let isPinned = try dependencies.homePinnedItemsStore.togglePin(.openSearch, accountAddress: accountAddress)
@@ -113,7 +102,7 @@ struct ShellDependencyBuilderTests {
     @Test("feature assemblies build smoke-testable live collaborators")
     @MainActor
     func featureAssembliesBuildLiveCollaborators() async throws {
-        let container = try makePrimaryContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let environment = AppEnvironment.live
 
@@ -144,7 +133,7 @@ struct ShellDependencyBuilderTests {
     @Test("shell bootstrap dependencies construct a live shell store that records app launch")
     @MainActor
     func shellBootstrapDependenciesConstructLiveShellStore() async throws {
-        let container = try makePrimaryContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let router = AppRouter()
         let selectionPersistence = RecordingShellSelectionPersistence()
@@ -166,13 +155,12 @@ struct ShellDependencyBuilderTests {
     @Test("main tab dependencies wire policy gates through shared receipts and observe mode")
     @MainActor
     func mainTabDependenciesWirePolicyGate() async throws {
-        let container = try makePrimaryContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let dependencies = AppEnvironment.live.mainTabs.makeMainTabDependencies(modelContext: context)
-        let modeState = ModeState(
-            userDefaults: UserDefaults(suiteName: "ShellDependencyBuilderTests.ModeState")!,
-            storageKey: "app.mode.tests"
-        )
+        let (modeDefaults, modeDefaultsCleanup) = try TestSupport.temporaryUserDefaults(prefix: "ShellDependencyBuilderTests.ModeState")
+        defer { modeDefaultsCleanup() }
+        let modeState = ModeState(userDefaults: modeDefaults, storageKey: "app.mode.tests")
 
         let result = await dependencies.policyActionHandlerFactory(context, modeState).attempt(.signMessage)
 
@@ -185,10 +173,11 @@ struct ShellDependencyBuilderTests {
     @Test("main tab dependencies wire privacy reset through shell preferences and pinned items")
     @MainActor
     func mainTabDependenciesWirePrivacyReset() async throws {
-        let container = try makePrimaryContainer()
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let auraPlayContainer = try makeAuraPlayContainer()
-        let pinnedItemsStore = makeIsolatedPinnedItemsStore()
+        let auraPlayContainer = try AuraPlayModelContainer.make(inMemory: true)
+        let (pinnedItemsStore, pinnedItemsCleanup) = try makeIsolatedPinnedItemsStore()
+        defer { pinnedItemsCleanup() }
         let selectionPersistence = RecordingShellSelectionPersistence()
         let dependencies = AppEnvironment.live.mainTabs.makeMainTabDependencies(
             modelContext: context,

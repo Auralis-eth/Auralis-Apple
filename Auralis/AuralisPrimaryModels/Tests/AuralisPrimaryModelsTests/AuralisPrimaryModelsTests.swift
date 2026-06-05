@@ -49,8 +49,8 @@ struct AuralisPrimaryModelsTests {
         #expect(decoded.tokenType == "ERC721")
         #expect(decoded.name == "Fixture Token")
         #expect(decoded.nftDescription == "A deterministic fixture")
-        #expect(decoded.image?.originalUrl == "https://example.com/image.png")
-        #expect(decoded.collection?.name == "Fixtures")
+        #expect(try #require(decoded.image).originalUrl == "https://example.com/image.png")
+        #expect(try #require(decoded.collection).name == "Fixtures")
         #expect(decoded.network == .ethMainnet)
     }
 
@@ -73,7 +73,7 @@ struct AuralisPrimaryModelsTests {
 
         #expect(nft.id == "0x1234567890abcdef1234567890abcdef12345678:base-mainnet:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:7")
         #expect(nft.contract.id == "base-mainnet:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-        #expect(nft.collection?.id == "base-mainnet:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        #expect(try #require(nft.collection).id == "base-mainnet:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
         #expect(nft.matchesScope(accountAddress: "0x1234567890abcdef1234567890abcdef12345678", chain: .baseMainnet))
     }
 }

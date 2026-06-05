@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import Foundation
 import MusicFeature
 import Testing
 
@@ -40,6 +41,43 @@ struct AuraPlayDomainTests {
             imageURLString: "https://example.com/cover.png"
         )
 
-        #expect(try loader.artworkURL(for: track)?.absoluteString == "https://example.com/cover.png")
+        #expect(try #require(loader.artworkURL(for: track)).absoluteString == "https://example.com/cover.png")
+    }
+
+    @Test("media item stores scope, search flags, and chain identity")
+    func mediaItemStoresScopeAndPlaybackFlags() {
+        let createdAt = Date(timeIntervalSince1970: 1_704_067_200)
+        let item = AuraPlayMediaItem(
+            sourceNFTID: "nft-1",
+            accountAddressRawValue: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .baseMainnet,
+            contractAddressRawValue: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            tokenID: "42",
+            tokenType: "ERC721",
+            title: "Aurora Echo",
+            artistName: "Indexed Nimbus",
+            collectionName: "Sky Archive",
+            normalizedTitleKey: "aurora echo",
+            normalizedArtistKey: "indexed nimbus",
+            normalizedCollectionKey: "sky archive",
+            artworkURLString: "https://example.com/cover.png",
+            playbackURLString: "https://example.com/audio.mp3",
+            contentType: "audio/mpeg",
+            sourceUpdatedAtRawValue: "2026-06-01T00:00:00Z",
+            hasArtwork: true,
+            hasAudio: true,
+            isPlayable: true,
+            isSearchable: true,
+            createdAt: createdAt,
+            updatedAt: createdAt
+        )
+
+        #expect(item.id == "nft-1")
+        #expect(item.chain == .baseMainnet)
+        #expect(item.hasArtwork)
+        #expect(item.hasAudio)
+        #expect(item.isPlayable)
+        #expect(item.isSearchable)
+        #expect(item.updatedAt == createdAt)
     }
 }

@@ -21,8 +21,9 @@ struct SwiftDataReceiptStorageTests {
 
         #expect(record.sequenceID == 1)
         #expect(storedReceipts.count == 1)
-        #expect(storedReceipts.first?.trigger == "account.added")
-        #expect(storedReceipts.first?.correlationID == "flow-1")
+        let storedReceipt = try #require(storedReceipts.first)
+        #expect(storedReceipt.trigger == "account.added")
+        #expect(storedReceipt.correlationID == "flow-1")
     }
 
     @Test("fetch and export ordering match receipt timeline behavior")
@@ -69,6 +70,31 @@ struct SwiftDataReceiptStorageTests {
         #expect(replacement.sequenceID == 1)
     }
 
+    @Test("append sequence remains monotonic after integrity-head rollback")
+    func appendSequenceRemainsMonotonicAfterIntegrityHeadRollback() async throws {
+        let context = try makeContext()
+        let headStore = FailingOnceReceiptIntegrityHeadStore()
+        let store = SwiftDataReceiptStore(
+            modelContext: context,
+            persistenceStore: ReceiptPersistenceStore(
+                modelContainer: context.container,
+                integrityHeadStore: headStore
+            )
+        )
+
+        let first = try await store.append(makeDraft(kind: "first"))
+        await headStore.failNextSave()
+
+        await #expect(throws: FailingReceiptHeadStoreError.saveFailed) {
+            _ = try await store.append(makeDraft(kind: "rolled-back"))
+        }
+        let second = try await store.append(makeDraft(kind: "second"))
+
+        #expect(first.sequenceID == 1)
+        #expect(second.sequenceID == 2)
+        #expect(try context.fetch(FetchDescriptor<StoredReceipt>()).map(\.trigger) == ["first", "second"])
+    }
+
     @Test("reset handles inserted unsaved receipts in the main context")
     func resetHandlesInsertedUnsavedReceipts() async throws {
         let context = try makeContext()
@@ -109,11 +135,7 @@ struct SwiftDataReceiptStorageTests {
 }
 
 private func makeContext() throws -> ModelContext {
-    let container = try ModelContainer(
-        for: Schema([StoredReceipt.self]),
-        configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-    )
-    return ModelContext(container)
+    try ReceiptStorageTestModelContainers.context()
 }
 
 private func makeDraft(
@@ -153,4 +175,41 @@ private func makeStoredReceipt(
         chainHash: "chain-hash-\(sequenceID)",
         details: ReceiptPayload(values: [:])
     )
+}
+
+private enum FailingReceiptHeadStoreError: Error {
+    case saveFailed
+}
+
+private actor FailingOnceReceiptIntegrityHeadStore: ReceiptIntegrityHeadStoring {
+    private var heads: [String: String] = [:]
+    private var shouldFailNextSave = false
+
+    func failNextSave() {
+        shouldFailNextSave = true
+    }
+
+    func loadHead(for accountKey: String) -> String? {
+        heads[accountKey]
+    }
+
+    func loadAllHeads() -> [String: String] {
+        heads
+    }
+
+    func saveHead(_ hash: String, for accountKey: String) throws {
+        if shouldFailNextSave {
+            shouldFailNextSave = false
+            throw FailingReceiptHeadStoreError.saveFailed
+        }
+        heads[accountKey] = hash
+    }
+
+    func clearHead(for accountKey: String) {
+        heads.removeValue(forKey: accountKey)
+    }
+
+    func clearAllHeads() {
+        heads.removeAll()
+    }
 }

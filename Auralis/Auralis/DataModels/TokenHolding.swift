@@ -20,7 +20,7 @@ struct TokenHoldingRowModel: Identifiable, Equatable {
     let isAmountHidden: Bool
     let isMetadataStale: Bool
 
-    init(holding: TokenHolding) {
+    init(holding: TokenHolding, now: Date = Date()) {
         self.id = holding.id
         self.kind = holding.balanceKind
         self.title = holding.displayName
@@ -30,7 +30,7 @@ struct TokenHoldingRowModel: Identifiable, Equatable {
         self.updatedAt = holding.updatedAt
         self.isPlaceholder = holding.isPlaceholder
         self.isAmountHidden = holding.hidesAmountUntilMetadataLoads
-        self.isMetadataStale = holding.hasStaleMetadata
+        self.isMetadataStale = holding.hasStaleMetadata(referenceDate: now)
 
         switch holding.balanceKind {
         case .native:

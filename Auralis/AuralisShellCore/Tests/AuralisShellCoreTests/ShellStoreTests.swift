@@ -33,8 +33,8 @@ struct ShellStoreTests {
         #expect(store.state.hasPresentedAuthenticatedExperience)
         #expect(persistence.savedSelections.map(\.chainID) == [Chain.baseMainnet.rawValue, Chain.baseMainnet.rawValue])
         #expect(receiptLogger.appLaunches.count == 1)
-        #expect(receiptLogger.appLaunches.first?.address == account.address)
-        #expect(receiptLogger.appLaunches.first?.chain == .baseMainnet)
+        #expect(try #require(receiptLogger.appLaunches.first).address == account.address)
+        #expect(try #require(receiptLogger.appLaunches.first).chain == .baseMainnet)
     }
 
     @Test("restore from persistence falls back to the first available account when the saved one is gone")
@@ -59,13 +59,16 @@ struct ShellStoreTests {
 
         #expect(store.state.selection == ActiveShellSelection(address: fallbackAccount.address, chain: .polygonMainnet))
         #expect(store.state.activeAccountID == fallbackAccount.address)
-        #expect(persistence.savedSelections.last?.address == fallbackAccount.address)
-        #expect(persistence.savedSelections.last?.chainID == Chain.polygonMainnet.rawValue)
+        #expect(try #require(persistence.savedSelections.last).address == fallbackAccount.address)
+        #expect(try #require(persistence.savedSelections.last).chainID == Chain.polygonMainnet.rawValue)
     }
 
-    @Test("account selection request resets routes and refreshes when switching to another account")
+    @Test(
+        "account selection request resets routes and refreshes when switching to another account",
+        .timeLimit(.minutes(1))
+    )
     @MainActor
-    func accountSelectionRequestResetsRoutesAndRefreshesWhenAddressChanges() async {
+    func accountSelectionRequestResetsRoutesAndRefreshesWhenAddressChanges() async throws {
         let previousAccount = makeAccount(
             address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             currentChain: .ethMainnet
@@ -95,11 +98,12 @@ struct ShellStoreTests {
                 chainOverride: nil
             )
         )
-        await settleAsyncWork()
+        await refreshCoordinator.waitForRefreshCount(1)
 
         #expect(mutator.selectCalls.count == 1)
-        #expect(mutator.selectCalls.first?.address == nextAccount.address)
-        #expect(mutator.selectCalls.first?.correlationID == "select-1")
+        let selectCall = try #require(mutator.selectCalls.first)
+        #expect(selectCall.address == nextAccount.address)
+        #expect(selectCall.correlationID == "select-1")
         #expect(router.effects == [.resetAllRoutes])
         #expect(store.state.selection == ActiveShellSelection(address: nextAccount.address, chain: .baseMainnet))
         #expect(store.state.hasPresentedAuthenticatedExperience)
@@ -111,9 +115,12 @@ struct ShellStoreTests {
         ])
     }
 
-    @Test("chain change persists the new chain and refreshes the active selection")
+    @Test(
+        "chain change persists the new chain and refreshes the active selection",
+        .timeLimit(.minutes(1))
+    )
     @MainActor
-    func chainChangePersistsAndRefreshes() async {
+    func chainChangePersistsAndRefreshes() async throws {
         let account = makeAccount(
             address: "0xcccccccccccccccccccccccccccccccccccccccc",
             currentChain: .polygonMainnet
@@ -132,14 +139,15 @@ struct ShellStoreTests {
         )
 
         await store.send(.chainChangeRequested(chain: .polygonMainnet, correlationID: "chain-1"))
-        await settleAsyncWork()
+        await refreshCoordinator.waitForRefreshCount(1)
 
         #expect(mutator.persistChainCalls.count == 1)
-        #expect(mutator.persistChainCalls.first?.address == account.address)
-        #expect(mutator.persistChainCalls.first?.chain == .polygonMainnet)
-        #expect(mutator.persistChainCalls.first?.correlationID == "chain-1")
+        let persistChainCall = try #require(mutator.persistChainCalls.first)
+        #expect(persistChainCall.address == account.address)
+        #expect(persistChainCall.chain == .polygonMainnet)
+        #expect(persistChainCall.correlationID == "chain-1")
         #expect(store.state.selection == ActiveShellSelection(address: account.address, chain: .polygonMainnet))
-        #expect(persistence.savedSelections.last?.chainID == Chain.polygonMainnet.rawValue)
+        #expect(try #require(persistence.savedSelections.last).chainID == Chain.polygonMainnet.rawValue)
         #expect(refreshCoordinator.refreshCalls == [
             TestShellRefreshCoordinator.RefreshCall(
                 selection: ActiveShellSelection(address: account.address, chain: .polygonMainnet),
@@ -150,7 +158,7 @@ struct ShellStoreTests {
 
     @Test("active account removal falls back to the replacement account and resets routes")
     @MainActor
-    func activeAccountRemovalFallsBackAndResetsRoutes() async {
+    func activeAccountRemovalFallsBackAndResetsRoutes() async throws {
         let activeAccount = makeAccount(
             address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             currentChain: .ethMainnet
@@ -190,9 +198,10 @@ struct ShellStoreTests {
         )
 
         #expect(mutator.removeCalls.count == 1)
-        #expect(mutator.removeCalls.first?.address == activeAccount.address)
-        #expect(mutator.removeCalls.first?.activeAddress == activeAccount.address)
-        #expect(mutator.removeCalls.first?.correlationID == "remove-1")
+        let removeCall = try #require(mutator.removeCalls.first)
+        #expect(removeCall.address == activeAccount.address)
+        #expect(removeCall.activeAddress == activeAccount.address)
+        #expect(removeCall.correlationID == "remove-1")
         #expect(router.effects == [.resetAllRoutes, .selectTab(.home)])
         #expect(store.state.selection == ActiveShellSelection(address: fallbackAccount.address, chain: .baseMainnet))
         #expect(store.state.activeAccountID == fallbackAccount.address)
@@ -209,7 +218,7 @@ struct ShellStoreTests {
 
     @Test("active account removal clears shell state when no fallback account remains")
     @MainActor
-    func activeAccountRemovalClearsStateWhenNoFallbackRemains() async {
+    func activeAccountRemovalClearsStateWhenNoFallbackRemains() async throws {
         let activeAccount = makeAccount(
             address: "0xcccccccccccccccccccccccccccccccccccccccc",
             currentChain: .polygonMainnet
@@ -246,9 +255,10 @@ struct ShellStoreTests {
         )
 
         #expect(mutator.removeCalls.count == 1)
-        #expect(mutator.removeCalls.first?.address == activeAccount.address)
-        #expect(mutator.removeCalls.first?.activeAddress == activeAccount.address)
-        #expect(mutator.removeCalls.first?.correlationID == "remove-2")
+        let removeCall = try #require(mutator.removeCalls.first)
+        #expect(removeCall.address == activeAccount.address)
+        #expect(removeCall.activeAddress == activeAccount.address)
+        #expect(removeCall.correlationID == "remove-2")
         #expect(router.effects == [.resetAllRoutes, .selectTab(.home)])
         #expect(store.state.selection == nil)
         #expect(store.state.activeAccountID == nil)
@@ -261,7 +271,7 @@ struct ShellStoreTests {
 
     @Test("inactive account removal does not alter the active shell selection")
     @MainActor
-    func inactiveAccountRemovalDoesNotAlterActiveSelection() async {
+    func inactiveAccountRemovalDoesNotAlterActiveSelection() async throws {
         let activeAccount = makeAccount(
             address: "0xdddddddddddddddddddddddddddddddddddddddd",
             currentChain: .ethMainnet
@@ -297,9 +307,10 @@ struct ShellStoreTests {
         )
 
         #expect(mutator.removeCalls.count == 1)
-        #expect(mutator.removeCalls.first?.address == inactiveAddress)
-        #expect(mutator.removeCalls.first?.activeAddress == activeAccount.address)
-        #expect(mutator.removeCalls.first?.correlationID == "remove-inactive")
+        let removeCall = try #require(mutator.removeCalls.first)
+        #expect(removeCall.address == inactiveAddress)
+        #expect(removeCall.activeAddress == activeAccount.address)
+        #expect(removeCall.correlationID == "remove-inactive")
         #expect(router.effects.isEmpty)
         #expect(store.state.selection == ActiveShellSelection(address: activeAccount.address, chain: .ethMainnet))
         #expect(store.state.activeAccountID == activeAccount.address)
@@ -364,7 +375,7 @@ struct ShellStoreTests {
             )
         ])
         #expect(replayer.resolvedContexts.count == 1)
-        #expect(replayer.resolvedContexts.first?.canResolveDeferredLink == true)
+        #expect(try #require(replayer.resolvedContexts.first).canResolveDeferredLink == true)
     }
 
     @Test("deep link replay waits when dependencies are not ready yet")
@@ -390,11 +401,14 @@ struct ShellStoreTests {
 
         #expect(store.state.pendingDeepLink == pendingLink)
         #expect(replayer.resolvedContexts.count == 1)
-        #expect(replayer.resolvedContexts.first?.canResolveDeferredLink == false)
-        #expect(replayer.resolvedContexts.first?.shouldFailDeferredLink == false)
+        #expect(try #require(replayer.resolvedContexts.first).canResolveDeferredLink == false)
+        #expect(try #require(replayer.resolvedContexts.first).shouldFailDeferredLink == false)
     }
 
-    @Test("scene became active refreshes when the active selection is stale")
+    @Test(
+        "scene became active refreshes when the active selection is stale",
+        .timeLimit(.minutes(1))
+    )
     @MainActor
     func sceneBecameActiveRefreshesWhenStale() async {
         let account = makeAccount(
@@ -415,7 +429,7 @@ struct ShellStoreTests {
         )
 
         await store.send(.sceneBecameActive)
-        await settleAsyncWork()
+        await refreshCoordinator.waitForRefreshCount(1)
 
         #expect(refreshCoordinator.refreshCalls.count == 1)
         #expect(store.state.hasPresentedAuthenticatedExperience)
@@ -442,7 +456,6 @@ struct ShellStoreTests {
         )
 
         await store.send(.sceneBecameActive)
-        await settleAsyncWork()
 
         #expect(refreshCoordinator.refreshCalls.isEmpty)
         #expect(store.state.isRefreshingSelection == false)
@@ -524,11 +537,6 @@ struct ShellStoreTests {
         return account
     }
 
-    private func settleAsyncWork() async {
-        await Task.yield()
-        await Task.yield()
-        await Task.yield()
-    }
 }
 
 @MainActor
@@ -645,6 +653,7 @@ private final class TestShellRefreshCoordinator: ShellRefreshing {
     var refreshTTL: TimeInterval = 60
     var lastSuccessfulRefreshAtValue: Date?
     private(set) var refreshCalls: [RefreshCall] = []
+    private var refreshWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
 
     init(lastSuccessfulRefreshAt: Date? = nil) {
         self.lastSuccessfulRefreshAtValue = lastSuccessfulRefreshAt
@@ -656,6 +665,29 @@ private final class TestShellRefreshCoordinator: ShellRefreshing {
 
     func refresh(selection: ActiveShellSelection, correlationID: String?) async {
         refreshCalls.append(RefreshCall(selection: selection, correlationID: correlationID))
+        resumeSatisfiedRefreshWaiters()
+    }
+
+    func waitForRefreshCount(_ count: Int) async {
+        if refreshCalls.count >= count {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            refreshWaiters.append((count, continuation))
+        }
+    }
+
+    private func resumeSatisfiedRefreshWaiters() {
+        var pending: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+        for waiter in refreshWaiters {
+            if refreshCalls.count >= waiter.count {
+                waiter.continuation.resume()
+            } else {
+                pending.append(waiter)
+            }
+        }
+        refreshWaiters = pending
     }
 }
 

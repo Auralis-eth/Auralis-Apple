@@ -1,7 +1,8 @@
+import AuralisTestSupport
 import Foundation
 import Testing
 
-@Suite(.tags(.architecture))
+@Suite(.tags(.architecture, .slow))
 struct ArchitectureBoundaryTests {
     @Test("app target direct package imports are declared explicitly in Xcode")
     func appDirectPackageImportsAreDeclaredExplicitly() throws {
@@ -19,8 +20,8 @@ struct ArchitectureBoundaryTests {
         )
     }
 
-    @Test("NFTKit depends on ReceiptsCore and never ReceiptStorage")
-    func nftKitDoesNotDependOnReceiptStorage() throws {
+    @Test("NFTKit production depends on ReceiptsCore and keeps ReceiptStorage test-only")
+    func nftKitKeepsReceiptStorageTestOnly() throws {
         let projectRoot = try projectRootURL()
         let packageFile = projectRoot
             .appending(path: "NFTKit")
@@ -33,7 +34,7 @@ struct ArchitectureBoundaryTests {
         )
 
         #expect(packageText.contains("../ReceiptsCore"))
-        #expect(packageText.contains("../ReceiptStorage") == false)
+        #expect(packageText.contains("../ReceiptStorage"))
         #expect(sourceImports.contains("ReceiptsCore"))
         #expect(sourceImports.contains("ReceiptStorage") == false)
     }

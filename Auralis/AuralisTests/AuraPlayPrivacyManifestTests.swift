@@ -1,7 +1,8 @@
+import AuralisTestSupport
 import Foundation
 import Testing
 
-@Suite
+@Suite(.tags(.architecture, .slow))
 struct AuraPlayPrivacyManifestTests {
     @Test("privacy manifest covers the current AuraPlay rebuild contract without extra required-reason APIs")
     func privacyManifestMatchesCurrentAuraPlayContract() throws {

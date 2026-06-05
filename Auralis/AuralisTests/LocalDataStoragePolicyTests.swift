@@ -1,5 +1,6 @@
 @testable import Auralis
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import MusicFeature
 import Testing
 
@@ -47,7 +48,7 @@ struct LocalDataStoragePolicyTests {
         let decision = try #require(LocalDataStoragePolicy.decision(for: identifier))
 
         #expect(decision.storage == .swiftData, "\(identifier) must be classified as SwiftData storage")
-        #expect(decision.resetPhase != nil, "\(identifier) must declare a privacy reset phase")
+        _ = try #require(decision.resetPhase, "\(identifier) must declare a privacy reset phase")
     }
 
     @Test("does not duplicate local data policy identifiers")
@@ -110,10 +111,10 @@ struct LocalDataStoragePolicyTests {
     }
 
     @Test("does not allow shell selection to fall back to UserDefaults")
-    func shellSelectionIsProtectedWalletMetadata() {
+    func shellSelectionIsProtectedWalletMetadata() throws {
         let shellSelection = LocalDataStoragePolicy.decision(for: "auralis.shell.selection.v1")
 
-        #expect(shellSelection?.classification == .walletMetadata)
-        #expect(shellSelection?.storage == .keychain)
+        #expect(try #require(shellSelection).classification == .walletMetadata)
+        #expect(try #require(shellSelection).storage == .keychain)
     }
 }

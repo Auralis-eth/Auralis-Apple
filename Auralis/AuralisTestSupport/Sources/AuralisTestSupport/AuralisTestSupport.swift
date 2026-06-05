@@ -1,5 +1,6 @@
 import Foundation
 import ObjectiveC
+import Testing
 
 public enum Fixture {
     public static let referenceDate = Date(timeIntervalSince1970: 1_704_067_200)
@@ -9,32 +10,42 @@ public enum Fixture {
     }
 }
 
-public final class LockedValue<Value>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var storage: Value
-
-    public init(_ storage: Value) {
-        self.storage = storage
+public extension Fixture {
+    static func referenceDatePlus(seconds: TimeInterval) -> Date {
+        referenceDate.addingTimeInterval(seconds)
     }
+}
 
-    public var value: Value {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
-    }
+public struct UserDefaultsBox: @unchecked Sendable {
+    public let defaults: UserDefaults
 
-    public func set(_ value: Value) {
-        lock.lock()
-        storage = value
-        lock.unlock()
+    public init(_ defaults: UserDefaults) {
+        self.defaults = defaults
     }
+}
 
-    @discardableResult
-    public func update<Result>(_ transform: (inout Value) throws -> Result) rethrows -> Result {
-        lock.lock()
-        defer { lock.unlock() }
-        return try transform(&storage)
+public enum TestSupport {
+    public static func temporaryUserDefaults(
+        prefix: String,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws -> (defaults: UserDefaults, cleanup: () -> Void) {
+        let suiteName = "\(prefix).\(UUID().uuidString)"
+        let defaults = try #require(
+            UserDefaults(suiteName: suiteName),
+            sourceLocation: sourceLocation
+        )
+        defaults.removePersistentDomain(forName: suiteName)
+        return (defaults, { defaults.removePersistentDomain(forName: suiteName) })
     }
+}
+
+public extension Tag {
+    @Tag static var smoke: Self
+    @Tag static var slow: Self
+    @Tag static var networking: Self
+    @Tag static var swiftdata: Self
+    @Tag static var architecture: Self
+    @Tag static var privacy: Self
 }
 
 public class URLProtocolMock: URLProtocol {

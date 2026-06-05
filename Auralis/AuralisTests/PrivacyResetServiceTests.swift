@@ -7,6 +7,7 @@ import NFTProviderAdapters
 @testable import Auralis
 import AccountStorage
 import AccountsCore
+import AuralisTestSupport
 import ENS
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
@@ -92,14 +93,14 @@ struct PrivacyResetServiceTests {
     func resetLocalPrivacyDataClearsENSMappings() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let defaultsSuiteName = "PrivacyResetServiceTests.ens-cache.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: defaultsSuiteName))
+        let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "PrivacyResetServiceTests.ens-cache")
+        defer { cleanup() }
         let storageKey = "ens-cache"
         let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
-        defer {
-            defaults.removePersistentDomain(forName: defaultsSuiteName)
-        }
-        let cacheStore = ENSResolutionCacheStore(userDefaults: defaults, storageKey: storageKey)
+        let cacheStore = ENSResolutionCacheStore(
+            userDefaultsStore: ENSCacheUserDefaults(defaults),
+            storageKey: storageKey
+        )
         let service = PrivacyResetService(
             transactionalResetService: SwiftDataTransactionalPrivacyResetService(
                 modelContainer: context.container
@@ -126,7 +127,9 @@ struct PrivacyResetServiceTests {
                 fetchedAt: referenceDate
             )
         )
-        #expect(defaults.data(forKey: storageKey) != nil)
+        let payload = try #require(defaults.data(forKey: storageKey))
+        let decodedPayload = try #require(try JSONSerialization.jsonObject(with: payload) as? [String: Any])
+        #expect(decodedPayload.isEmpty == false)
 
         try await service.resetLocalPrivacyData()
 
@@ -265,7 +268,10 @@ struct PrivacyResetServiceTests {
         #expect(remainingMusicItems.contains(where: { $0.accountAddressRawValue == preserved.address }))
         #expect(remainingReceipts.contains(where: { $0.accountAddress == removed.address }))
         #expect(remainingReceipts.contains(where: { $0.accountAddress == preserved.address }))
-        #expect(remainingAccounts.contains(where: { $0.address == preserved.address && $0.auraPlayLastSyncedAt(for: .ethMainnet) != nil }))
+        let remainingPreservedAccount = try #require(
+            remainingAccounts.first { $0.address == preserved.address }
+        )
+        _ = try #require(remainingPreservedAccount.auraPlayLastSyncedAt(for: .ethMainnet))
         #expect(SearchHistoryStore(modelContext: context).entries(for: removed.address).isEmpty)
         #expect(try context.fetch(FetchDescriptor<NFT.Contract>()).count == 1)
         #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).count == 1)
@@ -335,7 +341,10 @@ struct PrivacyResetServiceTests {
         #expect(persistedReceipts.contains(where: { $0.accountAddress == overwritten.address }))
         #expect(persistedReceipts.contains(where: { $0.accountAddress == other.address }))
         #expect(persistedAccounts.contains(where: { $0.address == overwritten.address && $0.auraPlayLastSyncedAt(for: .ethMainnet) == nil }))
-        #expect(persistedAccounts.contains(where: { $0.address == other.address && $0.auraPlayLastSyncedAt(for: .ethMainnet) != nil }))
+        let persistedOtherAccount = try #require(
+            persistedAccounts.first { $0.address == other.address }
+        )
+        _ = try #require(persistedOtherAccount.auraPlayLastSyncedAt(for: .ethMainnet))
         #expect(SearchHistoryStore(modelContext: context).entries(for: overwritten.address).isEmpty)
         #expect(try context.fetch(FetchDescriptor<NFT.Contract>()).count == 1)
         #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).count == 1)
@@ -607,7 +616,7 @@ private struct PrivacyResetFixture {
 
 private func makeIsolatedPinnedItemsStore() -> HomePinnedItemsStore {
     let suiteName = "PrivacyResetServiceTests.pins.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suiteName)!
+    let defaults = UserDefaults(suiteName: suiteName) ?? UserDefaults()
     defaults.removePersistentDomain(forName: suiteName)
     return HomePinnedItemsStore(userDefaults: defaults)
 }

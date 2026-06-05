@@ -1,3 +1,4 @@
+import AuralisTestSupport
 import Foundation
 import Testing
 import UserDefaultsAdapters
@@ -11,7 +12,8 @@ struct UserDefaultsCodableStoreTests {
 
     @Test("codable store saves and loads records")
     func saveAndLoadRecords() throws {
-        let defaults = try makeDefaults()
+        let (defaults, cleanup) = try makeDefaults()
+        defer { cleanup() }
         let store = UserDefaultsCodableStore<Record>(
             userDefaults: defaults,
             key: "records"
@@ -29,7 +31,8 @@ struct UserDefaultsCodableStoreTests {
 
     @Test("codable store returns an empty array for a missing key")
     func missingKeyReturnsEmptyArray() throws {
-        let defaults = try makeDefaults()
+        let (defaults, cleanup) = try makeDefaults()
+        defer { cleanup() }
         let store = UserDefaultsCodableStore<Record>(
             userDefaults: defaults,
             key: "records"
@@ -40,7 +43,8 @@ struct UserDefaultsCodableStoreTests {
 
     @Test("codable store clear removes stored data")
     func clearRemovesStoredData() throws {
-        let defaults = try makeDefaults()
+        let (defaults, cleanup) = try makeDefaults()
+        defer { cleanup() }
         let store = UserDefaultsCodableStore<Record>(
             userDefaults: defaults,
             key: "records"
@@ -55,7 +59,8 @@ struct UserDefaultsCodableStoreTests {
 
     @Test("codable store throws for corrupt payloads when configured")
     func corruptPayloadThrowsWhenConfigured() throws {
-        let defaults = try makeDefaults()
+        let (defaults, cleanup) = try makeDefaults()
+        defer { cleanup() }
         defaults.set(Data("not-json".utf8), forKey: "records")
 
         let store = UserDefaultsCodableStore<Record>(
@@ -72,7 +77,8 @@ struct UserDefaultsCodableStoreTests {
 
     @Test("codable store clears corrupt payloads when configured")
     func corruptPayloadReturnsEmptyAndClearsWhenConfigured() throws {
-        let defaults = try makeDefaults()
+        let (defaults, cleanup) = try makeDefaults()
+        defer { cleanup() }
         defaults.set(Data("not-json".utf8), forKey: "records")
 
         let store = UserDefaultsCodableStore<Record>(
@@ -85,10 +91,7 @@ struct UserDefaultsCodableStoreTests {
         #expect(defaults.data(forKey: "records") == nil)
     }
 
-    private func makeDefaults() throws -> UserDefaults {
-        let suiteName = "UserDefaultsCodableStoreTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
-        defaults.removePersistentDomain(forName: suiteName)
-        return defaults
+    private func makeDefaults() throws -> (defaults: UserDefaults, cleanup: () -> Void) {
+        try TestSupport.temporaryUserDefaults(prefix: "UserDefaultsCodableStoreTests")
     }
 }

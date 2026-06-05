@@ -9,12 +9,16 @@ struct HomeTabLogicTests {
     private let logic = HomeTabLogic()
 
     @Test("avatar fallback picks one of the bundled deterministic asset names")
-    func avatarFallbackUsesBundledAssetRange() {
+    func avatarFallbackUsesBundledAssetRange() throws {
         let support = ProfileAvatarArtworkSupport()
-        let assetName = support.fallbackAvatarAssetName(for: "0x1234567890abcdef1234567890abcdef12345678")
+        let assetName = try #require(
+            support.fallbackAvatarAssetName(for: "0x1234567890abcdef1234567890abcdef12345678")
+        )
 
-        #expect(assetName != nil)
-        #expect(assetName?.hasPrefix("testProfile-") == true)
+        #expect(assetName.hasPrefix("testProfile-"))
+        let suffix = assetName.replacingOccurrences(of: "testProfile-", with: "")
+        let assetIndex = try #require(Int(suffix))
+        #expect((1...4).contains(assetIndex))
     }
 
     @Test("avatar prompt atoms stay deterministic for the same input")
@@ -118,7 +122,7 @@ struct HomeTabLogicTests {
     }
 
     @Test("first-run Home presentation is deterministic and clears once local data exists")
-    func sparseStatePresentationClearsOnceDashboardHasData() {
+    func sparseStatePresentationClearsOnceDashboardHasData() throws {
         let firstRunPresentation = logic.sparseStatePresentation(
             scopedNFTCount: 0,
             recentActivityCount: 0,
@@ -126,9 +130,9 @@ struct HomeTabLogicTests {
             isShowingFailure: false
         )
 
-        #expect(firstRunPresentation?.state == .firstRun)
-        #expect(firstRunPresentation?.primaryAction == .openSearch)
-        #expect(firstRunPresentation?.secondaryAction == .switchAccount)
+        #expect(try #require(firstRunPresentation).state == .firstRun)
+        #expect(try #require(firstRunPresentation).primaryAction == .openSearch)
+        #expect(try #require(firstRunPresentation).secondaryAction == .switchAccount)
 
         let clearedPresentation = logic.sparseStatePresentation(
             scopedNFTCount: 2,
@@ -141,7 +145,7 @@ struct HomeTabLogicTests {
     }
 
     @Test("account summary presentation uses trustworthy account and scope fields and degrades cleanly")
-    func accountSummaryPresentationUsesOwnedFields() {
+    func accountSummaryPresentationUsesOwnedFields() throws {
         let summary = logic.accountSummaryPresentation(
             inputs: HomeAccountSummaryInputs(
                 accountName: "Primary Wallet",
@@ -156,7 +160,8 @@ struct HomeTabLogicTests {
         #expect(summary.addressLine == "0x1234...5678")
         #expect(summary.chainTitle == "Base scope")
         #expect(summary.trackedNFTLabel == "3 scoped NFTs")
-        #expect(summary.lastActivityLabel != nil)
+        let lastActivityLabel = try #require(summary.lastActivityLabel)
+        #expect(lastActivityLabel.isEmpty == false)
     }
 
     @Test("account summary presentation falls back cleanly when optional values are absent")
@@ -226,16 +231,16 @@ struct HomeTabLogicTests {
     }
 
     @Test("modules presentation keeps primary modules and shell shortcuts in intentional order")
-    func modulesPresentationUsesIntentionalOrdering() {
+    func modulesPresentationUsesIntentionalOrdering() throws {
         let presentation = logic.modulesPresentation(trackCount: 3)
 
         #expect(presentation.primary.map(\.action) == [.openMusic, .openNFTTokens])
         #expect(presentation.shortcuts.map(\.action) == [.openSearch, .openNews, .openReceipts])
-        #expect(presentation.primary.first?.badgeTitle == "3 local")
+        #expect(try #require(presentation.primary.first).badgeTitle == "3 local")
     }
 
     @Test("modules presentation promotes pinned items without inventing new destinations")
-    func modulesPresentationPromotesPinnedItemsFirst() {
+    func modulesPresentationPromotesPinnedItemsFirst() throws {
         let presentation = logic.modulesPresentation(
             trackCount: 3,
             pinnedActions: [.openReceipts, .openNFTTokens]
@@ -243,17 +248,17 @@ struct HomeTabLogicTests {
 
         #expect(presentation.primary.map(\.action) == [.openNFTTokens, .openMusic])
         #expect(presentation.shortcuts.map(\.action) == [.openReceipts, .openSearch, .openNews])
-        #expect(presentation.primary.first?.isPinned == true)
-        #expect(presentation.shortcuts.first?.isPinned == true)
+        #expect(try #require(presentation.primary.first).isPinned == true)
+        #expect(try #require(presentation.shortcuts.first).isPinned == true)
     }
 
     @Test("modules presentation stays honest when local music is still empty")
-    func modulesPresentationDegradesCleanlyForSparseMusic() {
+    func modulesPresentationDegradesCleanlyForSparseMusic() throws {
         let presentation = logic.modulesPresentation(trackCount: 0)
 
-        #expect(presentation.primary.first?.title == "Music")
-        #expect(presentation.primary.first?.subtitle == "No local music tracks yet")
-        #expect(presentation.primary.first?.badgeTitle == "Quiet")
+        #expect(try #require(presentation.primary.first).title == "Music")
+        #expect(try #require(presentation.primary.first).subtitle == "No local music tracks yet")
+        #expect(try #require(presentation.primary.first).badgeTitle == "Quiet")
         #expect(presentation.shortcuts.count == 3)
     }
 
@@ -307,7 +312,7 @@ struct HomeTabLogicTests {
     }
 
     @Test("recent activity preview rows remain readable when receipt summary data is sparse")
-    func recentActivityPreviewItemsFallbackCleanly() {
+    func recentActivityPreviewItemsFallbackCleanly() throws {
         let preview = logic.recentActivityPreviewItems(records: [
             ReceiptTimelineRecord(
                 id: UUID(),
@@ -326,9 +331,10 @@ struct HomeTabLogicTests {
         ])
 
         #expect(preview.count == 1)
-        #expect(preview.first?.title == "wallet.connected")
-        #expect(preview.first?.contextLine == "0x1234...5678 • Ethereum • User")
-        #expect(preview.first?.statusTitle == "Success")
+        let item = try #require(preview.first)
+        #expect(item.title == "wallet.connected")
+        #expect(item.contextLine == "0x1234...5678 • Ethereum • User")
+        #expect(item.statusTitle == "Success")
     }
 
     @Test("recent activity preview stays empty when there is no scoped history")
@@ -339,7 +345,7 @@ struct HomeTabLogicTests {
     }
 
     @Test("recent activity preview falls back to scope when both summary and trigger are empty")
-    func recentActivityPreviewItemsSupportsPartialReceiptData() {
+    func recentActivityPreviewItemsSupportsPartialReceiptData() throws {
         let preview = logic.recentActivityPreviewItems(records: [
             ReceiptTimelineRecord(
                 id: UUID(),
@@ -358,8 +364,9 @@ struct HomeTabLogicTests {
         ])
 
         #expect(preview.count == 1)
-        #expect(preview.first?.title == "0xabcd...1234 • Base")
-        #expect(preview.first?.contextLine == "0xabcd...1234 • Base • System")
-        #expect(preview.first?.statusTitle == "Failed")
+        let item = try #require(preview.first)
+        #expect(item.title == "0xabcd...1234 • Base")
+        #expect(item.contextLine == "0xabcd...1234 • Base • System")
+        #expect(item.statusTitle == "Failed")
     }
 }

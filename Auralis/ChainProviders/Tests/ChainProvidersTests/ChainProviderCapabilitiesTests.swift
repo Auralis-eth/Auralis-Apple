@@ -39,17 +39,18 @@ struct ChainProviderCapabilitiesTests {
         let requestedURL = LockedValue<URL?>(nil)
         let session = URLSession.mocked { request in
             requestedURL.set(request.url)
-            let response = HTTPURLResponse(
-                url: request.url!,
+            let url = try #require(request.url)
+            let response = try #require(HTTPURLResponse(
+                url: url,
                 statusCode: 200,
                 httpVersion: nil,
                 headerFields: ["Content-Type": "application/json"]
-            )!
+            ))
             let data = Data(#"{"jsonrpc":"2.0","id":1,"result":"0x2a"}"#.utf8)
             return (response, data)
         }
 
-        let expectedURL = URL(string: "https://example.test/rpc")!
+        let expectedURL = try #require(URL(string: "https://example.test/rpc"))
         let factory = ReadOnlyChainProviderFactory(
             configurationResolver: StubProviderConfigurationResolver(rpcURL: expectedURL),
             session: session

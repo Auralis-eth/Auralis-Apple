@@ -10,17 +10,10 @@ import Testing
 
 @Suite
 struct P0201FlowValidationTests {
-    @MainActor
-    private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([EOAccount.self, NFT.self, Tag.self, StoredReceipt.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
-    }
-
     @Test("end-to-end flow covers add switch duplicate delete-active and relaunch persistence")
     @MainActor
     func validatesPrimaryWatchAccountFlow() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.primary)
         let context = ModelContext(container)
         let store = SwiftDataAccountStore(modelContext: context)
         let shellLogic = MainAuraShellLogic()
@@ -59,16 +52,16 @@ struct P0201FlowValidationTests {
         #expect(duplicateSelection.wasCreated == false)
         #expect(duplicateSelection.account.address == firstAccount.account.address)
         #expect(deletion.removedAddress == firstAccount.account.address)
-        #expect(deletion.fallbackAccount?.address == secondAccount.account.address)
+        #expect(try #require(deletion.fallbackAccount).address == secondAccount.account.address)
         #expect(remainingAccounts.map(\.address) == [secondAccount.account.address])
         #expect(restore.currentAddress == secondAccount.account.address)
-        #expect(restore.currentAccount?.address == secondAccount.account.address)
+        #expect(try #require(restore.currentAccount).address == secondAccount.account.address)
     }
 
     @Test("logout preserves the roster and restore safely returns to onboarding without an active selection")
     @MainActor
     func validatesLogoutAndRelaunchBehavior() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.primary)
         let context = ModelContext(container)
         let store = SwiftDataAccountStore(modelContext: context)
         let shellLogic = MainAuraShellLogic()

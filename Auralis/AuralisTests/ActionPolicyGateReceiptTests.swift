@@ -67,15 +67,15 @@ struct ActionPolicyGateReceiptTests {
     }
 
     @Test("every high-risk action has a future capability contract")
-    func highRiskActionsHaveFutureCapabilityContracts() {
+    func highRiskActionsHaveFutureCapabilityContracts() throws {
         let contracts = FutureHighRiskActionContract.byAction
 
         #expect(Set(contracts.keys) == Set(PolicyControlledAction.allCases))
 
         for action in PolicyControlledAction.allCases {
             let contract = contracts[action]
-            #expect(contract?.capabilityID == action.capabilityID)
-            #expect(contract?.requiredControls == action.futureExecutionControls)
+            #expect(try #require(contract).capabilityID == action.capabilityID)
+            #expect(try #require(contract).requiredControls == action.futureExecutionControls)
             #expect(action.isBlockedInObserveMode)
             #expect(action.requiresHighRiskReceipt)
         }

@@ -1,40 +1,31 @@
 @testable import NFTLibraryFeature
 import AuralisTestSupport
 import Foundation
+import Synchronization
 import Testing
 import UIKit
 
-private final class RequestCounter: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value = 0
+private final class RequestCounter: Sendable {
+    private let value = Mutex(0)
 
     func increment() {
-        lock.lock()
-        value += 1
-        lock.unlock()
+        value.withLock { $0 += 1 }
     }
 
     var count: Int {
-        lock.lock()
-        defer { lock.unlock() }
-        return value
+        value.withLock { $0 }
     }
 }
 
-private final class FailureGate: @unchecked Sendable {
-    private let lock = NSLock()
-    private var allowsSuccess = false
+private final class FailureGate: Sendable {
+    private let allowsSuccess = Mutex(false)
 
     func allowSuccess() {
-        lock.lock()
-        allowsSuccess = true
-        lock.unlock()
+        allowsSuccess.withLock { $0 = true }
     }
 
     func shouldSucceed() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return allowsSuccess
+        allowsSuccess.withLock { $0 }
     }
 }
 
@@ -43,7 +34,7 @@ private final class FailureGate: @unchecked Sendable {
 struct NFTImageLoaderTests {
     @Test("cached image load does not issue a second network request")
     func cachedImageLoadDoesNotIssueSecondNetworkRequest() async throws {
-        NFTImageCache.shared.clear()
+        let cache = NFTImageCache()
         let imageURL = try #require(URL(string: "https://example.com/cached.png"))
         let pngData = try #require(
             UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2))
@@ -61,14 +52,15 @@ struct NFTImageLoaderTests {
                 statusCode: 200,
                 httpVersion: nil,
                 headerFields: ["Content-Type": "image/png"]
-            )!
+            )
+            let response = try #require(response)
             return (response, pngData)
         }
 
-        let firstLoader = NFTImageLoader(url: imageURL, session: session)
+        let firstLoader = NFTImageLoader(url: imageURL, session: session, cache: cache)
         try await waitForLoaderToFinish(firstLoader.loadIfNeeded())
 
-        let secondLoader = NFTImageLoader(url: imageURL, session: session)
+        let secondLoader = NFTImageLoader(url: imageURL, session: session, cache: cache)
         let secondLoad = secondLoader.loadIfNeeded()
 
         _ = try #require(firstLoader.image)
@@ -78,8 +70,8 @@ struct NFTImageLoaderTests {
     }
 
     @Test("mp4 URL extension rejects immediately and clears loading state")
-    func mp4ExtensionRejectClearsLoading() {
-        let loader = NFTImageLoader(url: URL(string: "https://example.com/clip.mp4")!)
+    func mp4ExtensionRejectClearsLoading() throws {
+        let loader = NFTImageLoader(url: try #require(URL(string: "https://example.com/clip.mp4")))
         loader.loadIfNeeded()
 
         #expect(loader.isLoading == false)
@@ -98,12 +90,13 @@ struct NFTImageLoaderTests {
                 statusCode: 200,
                 httpVersion: nil,
                 headerFields: ["Content-Type": "video/mp4"]
-            )!
+            )
+            let response = try #require(response)
             return (response, Data())
         }
 
         let loader = NFTImageLoader(
-            url: URL(string: "https://example.com/not-an-image")!,
+            url: try #require(URL(string: "https://example.com/not-an-image")),
             session: session
         )
         let loadingTask = try #require(loader.loadIfNeeded())
@@ -125,12 +118,13 @@ struct NFTImageLoaderTests {
                 statusCode: 404,
                 httpVersion: nil,
                 headerFields: ["Content-Type": "image/png"]
-            )!
+            )
+            let response = try #require(response)
             return (response, Data())
         }
 
         let loader = NFTImageLoader(
-            url: URL(string: "https://example.com/missing.png")!,
+            url: try #require(URL(string: "https://example.com/missing.png")),
             session: session
         )
         try await waitForLoaderToFinish(loader.loadIfNeeded())
@@ -144,7 +138,7 @@ struct NFTImageLoaderTests {
 
     @Test("retry succeeds after a transient network failure")
     func retryRecoversAfterNetworkFailure() async throws {
-        NFTImageCache.shared.clear()
+        let cache = NFTImageCache()
         let pngData = try #require(
             UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2))
                 .image { context in
@@ -166,13 +160,15 @@ struct NFTImageLoaderTests {
                 statusCode: 200,
                 httpVersion: nil,
                 headerFields: ["Content-Type": "image/png"]
-            )!
+            )
+            let response = try #require(response)
             return (response, pngData)
         }
 
         let loader = NFTImageLoader(
-            url: URL(string: "https://example.com/transient.png")!,
-            session: session
+            url: try #require(URL(string: "https://example.com/transient.png")),
+            session: session,
+            cache: cache
         )
         try await waitForLoaderToFinish(loader.loadIfNeeded())
 
@@ -193,47 +189,51 @@ struct NFTImageLoaderTests {
 
     @Test("offline transport failures surface an offline-specific image error")
     func offlineTransportFailureUsesOfflineError() async throws {
-        NFTImageCache.shared.clear()
+        let cache = NFTImageCache()
         let session = URLSession.mocked { _ in
             throw URLError(.notConnectedToInternet)
         }
 
         let loader = NFTImageLoader(
-            url: URL(string: "https://example.com/offline.png")!,
-            session: session
+            url: try #require(URL(string: "https://example.com/offline.png")),
+            session: session,
+            cache: cache
         )
         try await waitForLoaderToFinish(loader.loadIfNeeded())
 
-        if case .offline = loader.error {
+        let error = try #require(loader.error)
+        if case .offline = error {
         } else {
             Issue.record("Expected offline image error for not-connected transport failure.")
         }
-        #expect(loader.error?.allowsRetry == true)
+        #expect(error.allowsRetry)
     }
 
     @Test("timed out transport failures surface a timeout-specific image error")
     func timedOutTransportFailureUsesTimedOutError() async throws {
-        NFTImageCache.shared.clear()
+        let cache = NFTImageCache()
         let session = URLSession.mocked { _ in
             throw URLError(.timedOut)
         }
 
         let loader = NFTImageLoader(
-            url: URL(string: "https://example.com/timeout.png")!,
-            session: session
+            url: try #require(URL(string: "https://example.com/timeout.png")),
+            session: session,
+            cache: cache
         )
         try await waitForLoaderToFinish(loader.loadIfNeeded())
 
-        if case .timedOut = loader.error {
+        let error = try #require(loader.error)
+        if case .timedOut = error {
         } else {
             Issue.record("Expected timedOut image error for timed-out transport failure.")
         }
-        #expect(loader.error?.allowsRetry == true)
+        #expect(error.allowsRetry)
     }
 
     @Test("oversized payload reports file-too-large instead of generic invalid data")
     func oversizedPayloadReportsFileTooLarge() async throws {
-        NFTImageCache.shared.clear()
+        let cache = NFTImageCache()
         let oversizedData = Data(
             repeating: 0x61,
             count: NFTImageLoader.maxDownloadSizeBytes + 1
@@ -247,13 +247,15 @@ struct NFTImageLoaderTests {
                     "Content-Type": "image/svg+xml",
                     "Content-Length": String(oversizedData.count)
                 ]
-            )!
+            )
+            let response = try #require(response)
             return (response, oversizedData)
         }
 
         let loader = NFTImageLoader(
-            url: URL(string: "https://example.com/oversized.svg")!,
-            session: session
+            url: try #require(URL(string: "https://example.com/oversized.svg")),
+            session: session,
+            cache: cache
         )
         try await waitForLoaderToFinish(loader.loadIfNeeded())
 

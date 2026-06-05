@@ -60,12 +60,16 @@ import Testing
             expected: "https://gateway.pinata.cloud/ipfs/QmHash?query=param#fragment"
         )
     ])
-    func testIpfsHTML(testCase: TestCase<String?>) {
+    func testIpfsHTML(testCase: TestCase<String?>) throws {
         let result = testCase.json.ipfsGatewayURL() // "https://gateway.pinata.cloud/ipfs/QmHash"
-        #expect(
-            result?.absoluteString == testCase.expected,
-            "\(testCase.json) should produce \(testCase.expected), got \(result?.absoluteString ?? "nil")"
-        )
+        if let expected = testCase.expected {
+            #expect(
+                try #require(result).absoluteString == expected,
+                "\(testCase.json) should produce \(expected), got \(result?.absoluteString ?? "nil")"
+            )
+        } else {
+            #expect(result == nil, "\(testCase.json) should produce nil, got \(result?.absoluteString ?? "nil")")
+        }
 
     }
 

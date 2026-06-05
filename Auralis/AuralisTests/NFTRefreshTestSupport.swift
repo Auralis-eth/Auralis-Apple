@@ -8,9 +8,7 @@ import SwiftData
 
 @MainActor
 func makeNFTRefreshContainer() throws -> ModelContainer {
-    let schema = Schema([EOAccount.self, NFT.self, Tag.self, StoredReceipt.self])
-    let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-    return try ModelContainer(for: schema, configurations: [configuration])
+    try TestModelContainers.primary()
 }
 
 func makeRefreshFixtureNFT(

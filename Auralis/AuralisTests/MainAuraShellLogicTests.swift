@@ -23,7 +23,7 @@ import Testing
     }
 
     @Test("initial restore reuses the persisted account when it is available")
-    func restoreInitialStateUsesPersistedAccount() {
+    func restoreInitialStateUsesPersistedAccount() throws {
         let savedAccount = EOAccount(
             address: "0x1234567890abcdef1234567890abcdef12345678",
             access: .readonly,
@@ -39,7 +39,7 @@ import Testing
 
         #expect(result.currentAddress == savedAccount.address)
         #expect(result.currentChain == .baseMainnet)
-        #expect(result.currentAccount?.address == savedAccount.address)
+        #expect(try #require(result.currentAccount).address == savedAccount.address)
         #expect(result.currentAccount === savedAccount)
     }
 
@@ -131,7 +131,7 @@ import Testing
     }
 
     @Test("account refresh request captures the new account and chain snapshot")
-    func accountRefreshRequestUsesDerivedSnapshot() {
+    func accountRefreshRequestUsesDerivedSnapshot() throws {
         let oldAccount = EOAccount(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
         oldAccount.currentChain = .ethMainnet
         let newAccount = EOAccount(address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
@@ -141,16 +141,17 @@ import Testing
             newAccount: newAccount,
             persistedAddress: oldAccount.address
         )
-        let request = logic.makeAccountRefreshRequest(
+        let refreshRequest = logic.makeAccountRefreshRequest(
             newAccount: newAccount,
             result: result,
             correlationID: "account-switch-1"
         )
 
-        #expect(request?.account === newAccount)
-        #expect(request?.chain == .baseMainnet)
-        #expect(request?.currentAddress == newAccount.address)
-        #expect(request?.correlationID == "account-switch-1")
+        let request = try #require(refreshRequest)
+        #expect(request.account === newAccount)
+        #expect(request.chain == .baseMainnet)
+        #expect(request.currentAddress == newAccount.address)
+        #expect(request.correlationID == "account-switch-1")
     }
 
     @Test("only the latest account refresh request is allowed to write back")

@@ -1,4 +1,3 @@
-@testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
@@ -33,7 +32,7 @@ struct FetchNFTInventoryUseCaseTests {
         )
 
         #expect(inventory.nfts.count == 1)
-        #expect(inventory.nfts.first?.id == nft.id)
+        #expect(try #require(inventory.nfts.first).id == nft.id)
         #expect(inventory.didCompleteFullRefresh)
     }
 

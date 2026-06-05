@@ -8,14 +8,8 @@ import Testing
 @MainActor
 @Suite
 struct SearchHistoryStoreTests {
-    private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([SearchHistoryRecord.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
-    }
-
     private func makeStore(maxEntriesPerAccount: Int = 12) throws -> SearchHistoryStore {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.searchHistory)
         let context = ModelContext(container)
         return SearchHistoryStore(
             modelContext: context,
@@ -35,7 +29,7 @@ struct SearchHistoryStoreTests {
         let secondAccountEntries = store.entries(for: "0x2222222222222222222222222222222222222222")
 
         #expect(firstAccountEntries.count == 1)
-        #expect(firstAccountEntries.first?.query == "moonpunks")
+        #expect(try #require(firstAccountEntries.first).query == "moonpunks")
         #expect(secondAccountEntries.map(\.query) == ["USDC"])
     }
 
@@ -62,8 +56,8 @@ struct SearchHistoryStoreTests {
         let entries = store.entries(for: account)
 
         #expect(entries.count == 12)
-        #expect(entries.first?.query == "query-13")
-        #expect(entries.last?.query == "query-2")
+        #expect(try #require(entries.first).query == "query-13")
+        #expect(try #require(entries.last).query == "query-2")
     }
 
     @Test("clearing one account leaves other account history intact")

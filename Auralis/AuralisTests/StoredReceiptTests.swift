@@ -9,23 +9,15 @@ import Testing
 @Suite
 struct StoredReceiptTests {
     @MainActor
-    private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([StoredReceipt.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
-    }
-
-    @MainActor
     private func makePersistentContainer(at storeURL: URL) throws -> ModelContainer {
-        let schema = Schema([StoredReceipt.self])
         let configuration = ModelConfiguration(url: storeURL)
-        return try ModelContainer(for: schema, configurations: [configuration])
+        return try ModelContainer(for: TestSchemas.receipts, configurations: [configuration])
     }
 
     @Test("stored receipt persists contract fields and sanitized payload bytes")
     @MainActor
     func storedReceiptPersistsPayload() throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let payload = ReceiptPayload(
             values: [

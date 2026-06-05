@@ -24,14 +24,14 @@ struct SwiftDataTokenHoldingsStoreTests {
         let holdings = try fetchHoldings(context)
 
         #expect(holdings.count == 1)
-        #expect(holdings.first?.accountAddressRawValue == "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
-        #expect(holdings.first?.chain == .ethMainnet)
-        #expect(holdings.first?.balanceKind == .native)
-        #expect(holdings.first?.contractAddress == nil)
-        #expect(holdings.first?.symbol == "ETH")
-        #expect(holdings.first?.displayName == "Ethereum Native")
-        #expect(holdings.first?.amountDisplay == "1.25 ETH")
-        #expect(holdings.first?.updatedAt == updatedAt)
+        #expect(try #require(holdings.first).accountAddressRawValue == "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
+        #expect(try #require(holdings.first).chain == .ethMainnet)
+        #expect(try #require(holdings.first).balanceKind == .native)
+        #expect(try #require(holdings.first).contractAddress == nil)
+        #expect(try #require(holdings.first).symbol == "ETH")
+        #expect(try #require(holdings.first).displayName == "Ethereum Native")
+        #expect(try #require(holdings.first).amountDisplay == "1.25 ETH")
+        #expect(try #require(holdings.first).updatedAt == updatedAt)
     }
 
     @Test("fetch token holdings by account and chain scope")
@@ -202,14 +202,44 @@ struct SwiftDataTokenHoldingsStoreTests {
             )
         }
     }
+
+    @Test("failed ERC-20 replacement leaves existing holdings unchanged")
+    func failedERC20ReplacementLeavesExistingHoldingsUnchanged() async throws {
+        let context = try makeContext()
+        let store = SwiftDataTokenHoldingsStore(modelContext: context)
+        let accountAddress = "0x5555555555555555555555555555555555555555"
+
+        try await store.replaceERC20Holdings(
+            accountAddress: accountAddress,
+            chain: .ethMainnet,
+            holdings: [
+                makeProviderHolding(contractAddress: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", symbol: "AAA"),
+            ]
+        )
+
+        await #expect(throws: TokenHoldingsStoreError.invalidAccountAddress("   ")) {
+            try await store.replaceERC20Holdings(
+                accountAddress: "   ",
+                chain: .ethMainnet,
+                holdings: [
+                    makeProviderHolding(contractAddress: "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", symbol: "BBB"),
+                ]
+            )
+        }
+
+        let holdings = try fetchHoldings(
+            context,
+            accountAddress: accountAddress,
+            chain: .ethMainnet,
+            balanceKind: .erc20
+        )
+        #expect(holdings.map(\.contractAddressRawValue) == ["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"])
+        #expect(holdings.map(\.symbol) == ["AAA"])
+    }
 }
 
 private func makeContext() throws -> ModelContext {
-    let container = try ModelContainer(
-        for: Schema([TokenHolding.self]),
-        configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-    )
-    return ModelContext(container)
+    try TokenStorageTestModelContainers.context()
 }
 
 private func fetchHoldings(

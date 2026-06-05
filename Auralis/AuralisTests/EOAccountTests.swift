@@ -6,7 +6,7 @@ import Testing
 
 @Suite struct EOAccountTests {
     @Test("phase 0 defaults preserve the current address behavior while filling metadata")
-    func defaultsPreserveCurrentBehavior() {
+    func defaultsPreserveCurrentBehavior() throws {
         let addedAt = Date(timeIntervalSince1970: 1_700_000_000)
         let account = EOAccount(
             address: "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -15,7 +15,7 @@ import Testing
         )
 
         #expect(account.address == "0xABCDEF1234567890ABCDEF1234567890ABCDEF12")
-        #expect(account.access?.canSign == false)
+        #expect(try #require(account.access).canSign == false)
         #expect(account.name == "Account 0xAB")
         #expect(account.source == .manualEntry)
         #expect(account.lastSelectedAt == nil)

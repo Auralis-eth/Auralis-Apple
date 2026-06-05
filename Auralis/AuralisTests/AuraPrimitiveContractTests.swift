@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct AuraPrimitiveContractTests {
     @Test("empty-state primitive preserves the configured shell feedback contract")
-    func emptyStatePrimitiveStoresConfiguredContract() {
+    func emptyStatePrimitiveStoresConfiguredContract() throws {
         let action = AuraFeedbackAction(title: "Retry", systemImage: "arrow.clockwise", handler: { })
         let view = AuraEmptyState(
             eyebrow: "Library",
@@ -23,7 +23,7 @@ struct AuraPrimitiveContractTests {
         #expect(view.message == "This is the shell empty state contract.")
         #expect(view.systemImage == "square.stack.3d.up")
         #expect(view.tone == .warning)
-        #expect(view.primaryAction?.title == "Retry")
+        #expect(try #require(view.primaryAction).title == "Retry")
         #expect(view.secondaryAction == nil)
     }
 

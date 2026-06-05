@@ -9,20 +9,26 @@ import UIKit
 #endif
 
 #if canImport(UIKit)
-public final class NFTImageCache: @unchecked Sendable {
+public protocol NFTImageCaching: AnyObject, Sendable {
+    func image(for key: String) -> UIImage?
+    func setImage(_ image: UIImage, for key: String)
+    func clear()
+}
+
+public final class NFTImageCache: NFTImageCaching, @unchecked Sendable {
     public static let shared = NFTImageCache()
     private let cache = NSCache<NSString, UIImage>()
 
-    private init() {
+    public init() {
         cache.countLimit = 100
         cache.totalCostLimit = 50 * 1_024 * 1_024
     }
 
-    func set(_ image: UIImage, for key: String) {
+    public func setImage(_ image: UIImage, for key: String) {
         cache.setObject(image, forKey: key as NSString)
     }
 
-    func get(for key: String) -> UIImage? {
+    public func image(for key: String) -> UIImage? {
         cache.object(forKey: key as NSString)
     }
 
@@ -36,7 +42,7 @@ public final class NFTImageCache: @unchecked Sendable {
 public final class NFTImageLoader {
     nonisolated private static let maxPixelDimension = 1_024
     nonisolated static let maxDownloadSizeBytes = 20 * 1_024 * 1_024
-    nonisolated static let defaultSession: URLSession = {
+    nonisolated public static let defaultSession: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 15
         configuration.timeoutIntervalForResource = 30
@@ -120,12 +126,18 @@ public final class NFTImageLoader {
     private let url: URL
     private let cacheKey: String
     private let session: URLSession
+    private let cache: any NFTImageCaching
 
-    init(url: URL, session: URLSession = NFTImageLoader.defaultSession) {
+    public init(
+        url: URL,
+        session: URLSession = NFTImageLoader.defaultSession,
+        cache: any NFTImageCaching = NFTImageCache.shared
+    ) {
         self.url = url
         self.cacheKey = url.absoluteString
         self.session = session
-        image = NFTImageCache.shared.get(for: cacheKey)
+        self.cache = cache
+        image = cache.image(for: cacheKey)
     }
 
     @discardableResult
@@ -166,8 +178,14 @@ public final class NFTImageLoader {
 
         let currentURL = url
         let currentCacheKey = cacheKey
+        let currentCache = cache
         loadingTask = Task {
-            let result = await Self.fetchImage(url: currentURL, cacheKey: currentCacheKey, session: session)
+            let result = await Self.fetchImage(
+                url: currentURL,
+                cacheKey: currentCacheKey,
+                session: session,
+                cache: currentCache
+            )
             guard !Task.isCancelled else { return }
             isLoading = false
 
@@ -184,9 +202,10 @@ public final class NFTImageLoader {
     nonisolated private static func fetchImage(
         url: URL,
         cacheKey: String,
-        session: URLSession
+        session: URLSession,
+        cache: any NFTImageCaching
     ) async -> Result<UIImage, LoadingError> {
-        if let cachedImage = NFTImageCache.shared.get(for: cacheKey) {
+        if let cachedImage = cache.image(for: cacheKey) {
             return .success(cachedImage)
         }
 
@@ -215,7 +234,7 @@ public final class NFTImageLoader {
 
             return await Task.detached(priority: .userInitiated) {
                 if let downloadedImage = downsampledImage(from: data, maxPixelDimension: maxPixelDimension) {
-                    NFTImageCache.shared.set(downloadedImage, for: cacheKey)
+                    cache.setImage(downloadedImage, for: cacheKey)
                     return .success(downloadedImage)
                 }
 
@@ -271,10 +290,14 @@ public struct NFTCachedAsyncImage: View {
     private let url: URL
     private let mediaAccessibility: MediaAccessibility
 
-    public init(url: URL, mediaAccessibility: MediaAccessibility = .decorative) {
+    public init(
+        url: URL,
+        mediaAccessibility: MediaAccessibility = .decorative,
+        cache: any NFTImageCaching = NFTImageCache.shared
+    ) {
         self.url = url
         self.mediaAccessibility = mediaAccessibility
-        _loader = State(initialValue: NFTImageLoader(url: url))
+        _loader = State(initialValue: NFTImageLoader(url: url, cache: cache))
     }
 
     public var body: some View {

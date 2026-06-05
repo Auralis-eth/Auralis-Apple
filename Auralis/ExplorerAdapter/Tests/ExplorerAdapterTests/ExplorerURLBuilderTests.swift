@@ -61,7 +61,7 @@ struct ExplorerURLBuilderTests {
 
         #expect(url.absoluteString == testCase.baseURL)
         #expect(url.scheme == "https")
-        #expect(url.host?.isEmpty == false)
+        #expect(try #require(url.host).isEmpty == false)
         #expect(url.path.isEmpty)
         #expect(url.query == nil)
         #expect(url.fragment == nil)

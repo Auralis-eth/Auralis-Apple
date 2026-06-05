@@ -1,6 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import SwiftData
 import SwiftUI
 import AuraUI
@@ -31,7 +32,7 @@ struct HelperConsistencyTests {
     @Test("playlist creation persists the trimmed title")
     @MainActor
     func playlistCreationPersistsTrimmedTitle() throws {
-        let container = try makePlaylistContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.auraPlay)
         let context = ModelContext(container)
 
         let playlist = try context.createPlaylist(title: "  Chill Mix  ")
@@ -42,7 +43,7 @@ struct HelperConsistencyTests {
     @Test("playlist persistence coalesces duplicate identifiers into one stored row")
     @MainActor
     func playlistPersistenceCoalescesDuplicateIdentifiers() throws {
-        let container = try makePlaylistContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.auraPlay)
         let context = ModelContext(container)
         let sharedID = UUID()
 
@@ -54,14 +55,15 @@ struct HelperConsistencyTests {
         let playlists = try context.fetch(FetchDescriptor<Playlist>())
 
         #expect(playlists.count == 1)
-        #expect(playlists.first?.id == sharedID)
-        #expect(playlists.first?.title == "Second")
+        let playlist = try #require(playlists.first)
+        #expect(playlist.id == sharedID)
+        #expect(playlist.title == "Second")
     }
 
     @Test("playlist tracks relationship survives a save and refetch")
     @MainActor
     func playlistTracksRelationshipPersistsAcrossFetch() throws {
-        let container = try makePlaylistContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.auraPlay)
         let context = ModelContext(container)
         let nft = makeFixtureNFT(tokenId: "playlist-track")
         let playlist = Playlist(title: "Scoped Tracks", tracks: [nft])
@@ -73,13 +75,14 @@ struct HelperConsistencyTests {
         let persistedPlaylist = try #require(persistedPlaylists.first)
 
         #expect(persistedPlaylist.tracks.count == 1)
-        #expect(persistedPlaylist.tracks.first?.id == nft.id)
+        let track = try #require(persistedPlaylist.tracks.first)
+        #expect(track.id == nft.id)
     }
 
     @Test("deleting an NFT cascades its owned child models")
     @MainActor
     func deletingNFTCascadesOwnedChildModels() throws {
-        let container = try makePlaylistContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.auraPlay)
         let context = ModelContext(container)
         let nft = makeFixtureNFT(
             tokenId: "cascade-child-models",
@@ -105,11 +108,7 @@ struct HelperConsistencyTests {
     @Test("duplicate EOAccount addresses coalesce into one stored row")
     @MainActor
     func duplicateAccountsCoalesceToSingleRow() throws {
-        let schema = Schema([EOAccount.self])
-        let container = try ModelContainer(
-            for: schema,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
+        let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let sharedAddress = "0x1234567890abcdef1234567890abcdef12345678"
 
@@ -121,14 +120,15 @@ struct HelperConsistencyTests {
         let accounts = try context.fetch(FetchDescriptor<EOAccount>())
 
         #expect(accounts.count == 1)
-        #expect(accounts.first?.address == sharedAddress)
-        #expect(accounts.first?.name == "Second")
+        let account = try #require(accounts.first)
+        #expect(account.address == sharedAddress)
+        #expect(account.name == "Second")
     }
 
     @Test("native holdings persist by account and chain scope")
     @MainActor
     func nativeHoldingsPersistByScope() async throws {
-        let container = try makeTokenHoldingContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.tokens)
         let context = ModelContext(container)
         let store = SwiftDataTokenHoldingsStore(modelContext: context)
 
@@ -172,7 +172,7 @@ struct HelperConsistencyTests {
     @Test("upserting the same native scope updates one persisted row instead of duplicating it")
     @MainActor
     func nativeHoldingUpsertReusesScopedRow() async throws {
-        let container = try makeTokenHoldingContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.tokens)
         let context = ModelContext(container)
         let store = SwiftDataTokenHoldingsStore(modelContext: context)
 
@@ -199,7 +199,7 @@ struct HelperConsistencyTests {
     @Test("token holding persistence stays isolated across account and chain boundaries")
     @MainActor
     func tokenHoldingsStayScopedAcrossAccountAndChain() async throws {
-        let container = try makeTokenHoldingContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.tokens)
         let context = ModelContext(container)
         let store = SwiftDataTokenHoldingsStore(modelContext: context)
 
@@ -293,6 +293,7 @@ struct HelperConsistencyTests {
 
     @Test("token holding row model marks stale ERC-20 metadata after the freshness window expires")
     func tokenHoldingRowModelMarksStaleMetadata() {
+        let now = Fixture.referenceDate
         let staleHolding = TokenHolding(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .baseMainnet,
@@ -301,11 +302,11 @@ struct HelperConsistencyTests {
             displayName: "USD Coin",
             amountDisplay: "15 USDC",
             balanceKind: .erc20,
-            updatedAt: Date(timeIntervalSinceNow: -(TokenHoldingsMetadataFreshnessPolicy.ttl + 60)),
+            updatedAt: now.addingTimeInterval(-(TokenHoldingsMetadataFreshnessPolicy.ttl + 60)),
             isPlaceholder: false
         )
 
-        let row = TokenHoldingRowModel(holding: staleHolding)
+        let row = TokenHoldingRowModel(holding: staleHolding, now: now)
 
         #expect(row.isMetadataStale)
         #expect(row.subtitle == "0xa0b8...eb48")
@@ -314,7 +315,7 @@ struct HelperConsistencyTests {
     @Test("provider-backed ERC-20 replacement updates the active scope and removes stale token rows")
     @MainActor
     func replacingScopedERC20HoldingsReconcilesRows() async throws {
-        let container = try makeTokenHoldingContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.tokens)
         let context = ModelContext(container)
         let store = SwiftDataTokenHoldingsStore(modelContext: context)
 
@@ -367,20 +368,6 @@ struct HelperConsistencyTests {
         #expect(holdings[0].contractAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
         #expect(holdings[0].amountDisplay == "20 USDC")
         #expect(holdings[0].updatedAt == Date(timeIntervalSince1970: 200))
-    }
-
-    @MainActor
-    private func makePlaylistContainer() throws -> ModelContainer {
-        let schema = Schema([Playlist.self, NFT.self, Tag.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
-    }
-
-    @MainActor
-    private func makeTokenHoldingContainer() throws -> ModelContainer {
-        let schema = Schema([TokenHolding.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
     }
 
     private func makeFixtureNFT(

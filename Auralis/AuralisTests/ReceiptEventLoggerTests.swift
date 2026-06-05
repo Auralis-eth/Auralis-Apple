@@ -9,17 +9,10 @@ import Testing
 
 @Suite
 struct ReceiptEventLoggerTests {
-    @MainActor
-    private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([StoredReceipt.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
-    }
-
     @Test("receipt event logger records app launch, context build, link open, and copy actions")
     @MainActor
     func loggerRecordsPhaseFourActions() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
             modelContext: context,
@@ -48,7 +41,7 @@ struct ReceiptEventLoggerTests {
         _ = try await logger.recordContextBuilt(snapshot: snapshot, correlationID: "context-1")
         _ = try await logger.recordExternalLinkOpened(
             label: "OpenSea",
-            url: URL(string: "https://opensea.io/assets/ethereum/0xabc/1")!,
+            url: try #require(URL(string: "https://opensea.io/assets/ethereum/0xabc/1")),
             surface: "newsfeed.nft_detail",
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: Chain.baseMainnet,
@@ -112,7 +105,7 @@ struct ReceiptEventLoggerTests {
     @Test("receipt event logger preserves correlation and non-sensitive provenance while redacting mounted sensitive payloads")
     @MainActor
     func loggerRedactsSensitivePayloadsWithoutDroppingFlowContext() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
             modelContext: context,
@@ -122,7 +115,7 @@ struct ReceiptEventLoggerTests {
 
         _ = try await logger.recordExternalLinkOpened(
             label: "Explorer",
-            url: URL(string: "https://basescan.org/token/0xabc?a=123")!,
+            url: try #require(URL(string: "https://basescan.org/token/0xabc?a=123")),
             surface: "newsfeed.nft_detail",
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: Chain.baseMainnet,
@@ -152,7 +145,7 @@ struct ReceiptEventLoggerTests {
     @Test("receipt event logger preserves explicit provenance for confirmed operator and plugin opens")
     @MainActor
     func loggerPreservesExternalLinkProvenance() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
             modelContext: context,
@@ -162,13 +155,13 @@ struct ReceiptEventLoggerTests {
 
         _ = try await logger.recordExternalLinkOpened(
             label: "Operator",
-            url: URL(string: "https://etherscan.io/token/0xabc?a=1")!,
+            url: try #require(URL(string: "https://etherscan.io/token/0xabc?a=1")),
             surface: "operator.console",
             provenance: .operatorConfirmed
         )
         _ = try await logger.recordExternalLinkOpened(
             label: "Plugin",
-            url: URL(string: "https://ipfs.io/ipfs/QmHash")!,
+            url: try #require(URL(string: "https://ipfs.io/ipfs/QmHash")),
             surface: "plugin.runtime",
             provenance: .pluginConfirmed
         )

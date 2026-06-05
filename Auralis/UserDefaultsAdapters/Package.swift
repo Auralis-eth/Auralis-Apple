@@ -13,11 +13,17 @@ let package = Package(
             targets: ["UserDefaultsAdapters"]
         ),
     ],
+    dependencies: [
+        .package(path: "../AuralisTestSupport"),
+    ],
     targets: [
         .target(name: "UserDefaultsAdapters"),
         .testTarget(
             name: "UserDefaultsAdaptersTests",
-            dependencies: ["UserDefaultsAdapters"]
+            dependencies: [
+                "UserDefaultsAdapters",
+                "AuralisTestSupport",
+            ]
         ),
     ]
 )

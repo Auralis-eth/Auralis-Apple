@@ -1,6 +1,6 @@
 import ReceiptsCore
 import ReceiptStorage
-@testable import Auralis
+@testable import MusicFeature
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
@@ -9,17 +9,10 @@ import Testing
 
 @Suite
 struct MusicLibraryIndexTests {
-    @MainActor
-    private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([NFT.self, Tag.self, StoredReceipt.self, MusicLibraryItem.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
-    }
-
     @Test("music library index rebuild loads from scoped local NFTs and ignores non-music records")
     @MainActor
     func rebuildLoadsScopedMusicNFTs() async throws {
-        let container = try makeContainer()
+        let container = try MusicFeatureTestModelContainers.libraryIndex()
         let context = ModelContext(container)
 
         context.insert(
@@ -72,7 +65,7 @@ struct MusicLibraryIndexTests {
     @Test("music library index rebuild removes stale rows when source NFTs disappear from the active scope")
     @MainActor
     func rebuildRemovesStaleRows() async throws {
-        let container = try makeContainer()
+        let container = try MusicFeatureTestModelContainers.libraryIndex()
         let context = ModelContext(container)
         let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
 
@@ -115,7 +108,7 @@ struct MusicLibraryIndexTests {
     @Test("music library index rebuild emits started and completed receipts with one shared correlation ID")
     @MainActor
     func rebuildEmitsReceipts() async throws {
-        let container = try makeContainer()
+        let container = try MusicFeatureTestModelContainers.libraryIndex()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
             modelContext: context,
@@ -158,7 +151,7 @@ struct MusicLibraryIndexTests {
     @Test("saved music library rows remain readable from a fresh model context after rebuild")
     @MainActor
     func rebuiltRowsRemainReadableFromFreshContext() async throws {
-        let container = try makeContainer()
+        let container = try MusicFeatureTestModelContainers.libraryIndex()
         let writeContext = ModelContext(container)
 
         writeContext.insert(

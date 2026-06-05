@@ -1,8 +1,9 @@
 @testable import Auralis
+import AuralisTestSupport
 import Foundation
 import Testing
 
-@Suite
+@Suite(.tags(.architecture, .slow))
 struct AuraPlayBundleContractTests {
     @Test("music bundle contract keeps the required background audio and wallet URL coverage")
     func musicBundleContractKeepsRequiredCapabilities() throws {

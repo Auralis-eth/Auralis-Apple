@@ -73,7 +73,7 @@ struct AuraPlayFoundationBoundaryTests {
     }
 
     @Test("root model updates wallet scope when the shell selection changes")
-    func rootModelUpdatesWalletScope() async {
+    func rootModelUpdatesWalletScope() async throws {
         let repository = MockAuraPlayLibraryRepository(itemCount: 3)
         let librarySyncService = NoOpAuraPlayLibrarySyncService()
         let playbackController = MockAuraPlayPlaybackController()
@@ -103,7 +103,7 @@ struct AuraPlayFoundationBoundaryTests {
         model.updateContext(currentAccount: nextAccount, currentChain: .baseMainnet)
         await model.refreshLibrarySummary()
 
-        #expect(model.currentAccount?.address == nextAccount.address)
+        #expect(try #require(model.currentAccount).address == nextAccount.address)
         #expect(model.currentChain == .baseMainnet)
         #expect(
             repository.requestedScopes.last == AuraPlayLibraryScope(
@@ -211,15 +211,17 @@ private final class MockAuraPlayQueueCoordinator: AuraPlayQueueCoordinating {
     }
 }
 
-private final class MockAuraPlayArtworkLoader: AuraPlayArtworkLoading, @unchecked Sendable {
+private final class MockAuraPlayArtworkLoader: AuraPlayArtworkLoading {
     func artworkURL(for track: AuraPlayTrack?) throws -> URL? {
         _ = try #require(track?.imageURLString)
         return URL(string: track?.imageURLString ?? "")
     }
 }
 
-private final class MockAuraPlayLogger: AuraPlayLogging, @unchecked Sendable {
-    private(set) var events: [AuraPlayLogEvent] = []
+// `AuraPlayLogging` is synchronous, so this recorder cannot be an actor.
+// Tests drive it serially through the synchronous logging protocol.
+private final class MockAuraPlayLogger: AuraPlayLogging, Sendable {
+    nonisolated(unsafe) private(set) var events: [AuraPlayLogEvent] = []
 
     func log(_ event: AuraPlayLogEvent) {
         events.append(event)

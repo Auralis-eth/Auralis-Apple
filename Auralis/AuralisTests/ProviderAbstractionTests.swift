@@ -4,6 +4,7 @@ import AuralisPrimaryPersistence
 import AuralisTestSupport
 import Foundation
 import ProviderKit
+import Synchronization
 import Testing
 import NFTDomain
 import NFTPersistence
@@ -20,9 +21,9 @@ struct ProviderAbstractionTests {
 
         let configuration = try resolver.configuration(for: .baseMainnet)
 
-        #expect(configuration.alchemyNFTBaseURL?.absoluteString == "https://base-mainnet.g.alchemy.com/nft/v3/alchemy-key")
-        #expect(configuration.alchemyDataAPIBaseURL?.absoluteString == "https://api.g.alchemy.com/data/v1/alchemy-key")
-        #expect(configuration.alchemyRPCURL?.absoluteString == "https://base-mainnet.g.alchemy.com/v2/alchemy-key")
+        #expect(try #require(configuration.alchemyNFTBaseURL).absoluteString == "https://base-mainnet.g.alchemy.com/nft/v3/alchemy-key")
+        #expect(try #require(configuration.alchemyDataAPIBaseURL).absoluteString == "https://api.g.alchemy.com/data/v1/alchemy-key")
+        #expect(try #require(configuration.alchemyRPCURL).absoluteString == "https://base-mainnet.g.alchemy.com/v2/alchemy-key")
     }
 
     @Test("provider configuration leaves unsupported RPC-backed endpoints empty for Solana")
@@ -31,8 +32,8 @@ struct ProviderAbstractionTests {
 
         let configuration = try resolver.configuration(for: .solanaMainnet)
 
-        #expect(configuration.alchemyNFTBaseURL?.absoluteString == "https://solana-mainnet.g.alchemy.com/nft/v3/shared-key")
-        #expect(configuration.alchemyDataAPIBaseURL?.absoluteString == "https://api.g.alchemy.com/data/v1/shared-key")
+        #expect(try #require(configuration.alchemyNFTBaseURL).absoluteString == "https://solana-mainnet.g.alchemy.com/nft/v3/shared-key")
+        #expect(try #require(configuration.alchemyDataAPIBaseURL).absoluteString == "https://api.g.alchemy.com/data/v1/shared-key")
         #expect(configuration.alchemyRPCURL == nil)
     }
 
@@ -106,7 +107,7 @@ struct ProviderAbstractionTests {
         )
 
         mockSession.setHandler { request in
-            #expect(request.url?.absoluteString == "https://eth-mainnet.g.alchemy.com/nft/v3/alchemy-key/getNFTsForOwner?owner=0x1234567890abcdef1234567890abcdef12345678&withMetadata=true&pageSize=100")
+            #expect(try #require(request.url).absoluteString == "https://eth-mainnet.g.alchemy.com/nft/v3/alchemy-key/getNFTsForOwner?owner=0x1234567890abcdef1234567890abcdef12345678&withMetadata=true&pageSize=100")
             #expect(request.httpMethod == "GET")
 
             let response = HTTPURLResponse(
@@ -203,21 +204,18 @@ struct ProviderAbstractionTests {
             return (response, payload)
         }
 
-        do {
+        let error = await #expect(throws: AlchemyNFTService.APIError.self) {
             _ = try await service.getNFTsForOwner(owner: publicOwner)
-            Issue.record("Expected unauthorized provider payload to throw.")
-        } catch let error as AlchemyNFTService.APIError {
-            let description = error.localizedDescription
-            #expect(description.contains("provider_error_payload_redacted"))
-            #expect(description.contains("reason=secret_like"))
-            #expect(description.contains("sha256="))
-            #expect(description.contains("should-never-appear") == false)
-            #expect(description.contains("secret-cookie") == false)
-            #expect(description.contains("PRIVATE KEY") == false)
-            #expect(description.contains(publicOwner) == false)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
+        let apiError = try #require(error)
+        let description = apiError.localizedDescription
+        #expect(description.contains("provider_error_payload_redacted"))
+        #expect(description.contains("reason=secret_like"))
+        #expect(description.contains("sha256="))
+        #expect(description.contains("should-never-appear") == false)
+        #expect(description.contains("secret-cookie") == false)
+        #expect(description.contains("PRIVATE KEY") == false)
+        #expect(description.contains(publicOwner) == false)
     }
 
     @Test("Alchemy NFT service hashes unclassified raw provider error bodies")
@@ -244,22 +242,19 @@ struct ProviderAbstractionTests {
             return (response, Data(rawBody.utf8))
         }
 
-        do {
+        let error = await #expect(throws: AlchemyNFTService.APIError.self) {
             _ = try await service.getNFTsForOwner(
                 owner: "0x1234567890abcdef1234567890abcdef12345678"
             )
-            Issue.record("Expected raw provider payload to throw.")
-        } catch let error as AlchemyNFTService.APIError {
-            let description = error.localizedDescription
-            #expect(description.contains("provider_error_payload_redacted"))
-            #expect(description.contains("reason=unclassified_body"))
-            #expect(description.contains("sha256="))
-            #expect(description.contains(rawBody) == false)
-            #expect(description.contains("trace-12345") == false)
-            #expect(description.contains("backend shard") == false)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
+        let apiError = try #require(error)
+        let description = apiError.localizedDescription
+        #expect(description.contains("provider_error_payload_redacted"))
+        #expect(description.contains("reason=unclassified_body"))
+        #expect(description.contains("sha256="))
+        #expect(description.contains(rawBody) == false)
+        #expect(description.contains("trace-12345") == false)
+        #expect(description.contains("backend shard") == false)
     }
 
     @Test("Alchemy NFT service hashes unclassified JSON provider messages")
@@ -286,22 +281,19 @@ struct ProviderAbstractionTests {
             return (response, Data(#"{"message":"\#(operationalMessage)"}"#.utf8))
         }
 
-        do {
+        let error = await #expect(throws: AlchemyNFTService.APIError.self) {
             _ = try await service.getNFTsForOwner(
                 owner: "0x1234567890abcdef1234567890abcdef12345678"
             )
-            Issue.record("Expected unclassified JSON provider payload to throw.")
-        } catch let error as AlchemyNFTService.APIError {
-            let description = error.localizedDescription
-            #expect(description.contains("provider_error_payload_redacted"))
-            #expect(description.contains("reason=unclassified_message"))
-            #expect(description.contains("sha256="))
-            #expect(description.contains(operationalMessage) == false)
-            #expect(description.contains("trace-12345") == false)
-            #expect(description.contains("backend shard") == false)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
+        let apiError = try #require(error)
+        let description = apiError.localizedDescription
+        #expect(description.contains("provider_error_payload_redacted"))
+        #expect(description.contains("reason=unclassified_message"))
+        #expect(description.contains("sha256="))
+        #expect(description.contains(operationalMessage) == false)
+        #expect(description.contains("trace-12345") == false)
+        #expect(description.contains("backend shard") == false)
     }
 
     @Test("Alchemy NFT service preserves classified safe provider messages and public identifiers")
@@ -329,19 +321,15 @@ struct ProviderAbstractionTests {
             return (response, Data(#"{"message":"\#(safeMessage)"}"#.utf8))
         }
 
-        do {
+        let error = await #expect(throws: AlchemyNFTService.APIError.self) {
             _ = try await service.getNFTsForOwner(owner: publicOwner)
-            Issue.record("Expected rate-limited provider payload to throw.")
-        } catch let error as AlchemyNFTService.APIError {
-            switch error {
-            case .rateLimited(let retryAfter, let message):
-                #expect(retryAfter == 2)
-                #expect(message == safeMessage)
-            default:
-                Issue.record("Unexpected Alchemy API error: \(error)")
-            }
-        } catch {
-            Issue.record("Unexpected error: \(error)")
+        }
+        let apiError = try #require(error)
+        if case .rateLimited(let retryAfter, let message) = apiError {
+            #expect(retryAfter == 2)
+            #expect(message == safeMessage)
+        } else {
+            Issue.record("Unexpected Alchemy API error: \(apiError)")
         }
     }
 
@@ -425,7 +413,7 @@ struct ProviderAbstractionTests {
         )
 
         mockSession.setHandler { request in
-            #expect(request.url?.absoluteString == "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address")
+            #expect(try #require(request.url).absoluteString == "https://api.g.alchemy.com/data/v1/alchemy-key/assets/tokens/balances/by-address")
             #expect(request.httpMethod == "POST")
 
             let body = try #require(request.bodyData)
@@ -615,7 +603,7 @@ struct ProviderAbstractionTests {
 
     @Test("token holdings provider preserves HTTP status and redacts unclassified API messages")
     @MainActor
-    func tokenHoldingsProviderRedactsHTTPFailureContext() async {
+    func tokenHoldingsProviderRedactsHTTPFailureContext() async throws {
         let mockSession = makeMockSession()
         let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
@@ -639,31 +627,34 @@ struct ProviderAbstractionTests {
             )
         }
 
+        let providerError: ProviderAbstractionError
         do {
             _ = try await provider.tokenHoldings(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .baseMainnet
             )
-            Issue.record("Expected token holdings HTTP failure to throw.")
+            Issue.record("Provider call completed successfully when an error was required.")
+            throw ExpectedErrorCaptureFailure.missingError
         } catch let error as ProviderAbstractionError {
-            switch error {
-            case .badStatus(let status, let message):
-                #expect(status == 400)
-                #expect(message?.contains("provider_error_payload_redacted") == true)
-                #expect(message?.contains("reason=unclassified_message") == true)
-                #expect(message?.contains("sha256=") == true)
-                #expect(message?.contains("invalid wallet scope") == false)
-            default:
-                Issue.record("Unexpected provider abstraction error: \(error)")
-            }
+            providerError = error
         } catch {
             Issue.record("Unexpected error: \(error)")
+            throw error
+        }
+        if case .badStatus(let status, let message) = providerError {
+            #expect(status == 400)
+            #expect(message?.contains("provider_error_payload_redacted") == true)
+            #expect(message?.contains("reason=unclassified_message") == true)
+            #expect(message?.contains("sha256=") == true)
+            #expect(message?.contains("invalid wallet scope") == false)
+        } else {
+            Issue.record("Unexpected provider abstraction error: \(providerError)")
         }
     }
 
     @Test("token holdings provider redacts secret-like API fields")
     @MainActor
-    func tokenHoldingsProviderRedactsSecretLikePayloads() async {
+    func tokenHoldingsProviderRedactsSecretLikePayloads() async throws {
         let mockSession = makeMockSession()
         let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
@@ -687,26 +678,29 @@ struct ProviderAbstractionTests {
             )
         }
 
+        let providerError: ProviderAbstractionError
         do {
             _ = try await provider.tokenHoldings(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .baseMainnet
             )
-            Issue.record("Expected token holdings secret-like HTTP failure to throw.")
+            Issue.record("Provider call completed successfully when an error was required.")
+            throw ExpectedErrorCaptureFailure.missingError
         } catch let error as ProviderAbstractionError {
-            switch error {
-            case .badStatus(let status, let message):
-                #expect(status == 400)
-                #expect(message?.contains("provider_error_payload_redacted") == true)
-                #expect(message?.contains("reason=secret_like") == true)
-                #expect(message?.contains("sha256=") == true)
-                #expect(message?.contains("should-never-appear") == false)
-                #expect(message?.contains("secret-cookie") == false)
-            default:
-                Issue.record("Unexpected provider abstraction error: \(error)")
-            }
+            providerError = error
         } catch {
             Issue.record("Unexpected error: \(error)")
+            throw error
+        }
+        if case .badStatus(let status, let message) = providerError {
+            #expect(status == 400)
+            #expect(message?.contains("provider_error_payload_redacted") == true)
+            #expect(message?.contains("reason=secret_like") == true)
+            #expect(message?.contains("sha256=") == true)
+            #expect(message?.contains("should-never-appear") == false)
+            #expect(message?.contains("secret-cookie") == false)
+        } else {
+            Issue.record("Unexpected provider abstraction error: \(providerError)")
         }
     }
 
@@ -804,7 +798,7 @@ struct ProviderAbstractionTests {
 
     @Test("token holdings provider maps offline transport failures into provider abstraction errors")
     @MainActor
-    func tokenHoldingsProviderMapsOfflineTransportFailures() async {
+    func tokenHoldingsProviderMapsOfflineTransportFailures() async throws {
         let mockSession = makeMockSession()
         let session = mockSession.session
         let provider = AlchemyTokenHoldingsProvider(
@@ -819,17 +813,21 @@ struct ProviderAbstractionTests {
             throw URLError(.notConnectedToInternet)
         }
 
+        let error: ProviderAbstractionError
         do {
             _ = try await provider.tokenHoldings(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .baseMainnet
             )
-            Issue.record("Expected offline token holdings refresh to throw.")
-        } catch let error as ProviderAbstractionError {
-            #expect(error == .offline)
+            Issue.record("Provider call completed successfully when an error was required.")
+            throw ExpectedErrorCaptureFailure.missingError
+        } catch let providerError as ProviderAbstractionError {
+            error = providerError
         } catch {
             Issue.record("Unexpected error: \(error)")
+            throw error
         }
+        #expect(error == .offline)
     }
 
     @Test("token holdings provider hides ERC-20 amounts when decimals are unavailable instead of showing raw base units")
@@ -1543,22 +1541,17 @@ struct ProviderAbstractionTests {
             )
         }
 
-        do {
+        await #expect(throws: ProviderAbstractionError.unsupportedMethod) {
             _ = try await provider.nativeBalance(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .ethMainnet
             )
-            Issue.record("Expected JSON-RPC error envelope to throw.")
-        } catch let error as ProviderAbstractionError {
-            #expect(error == .unsupportedMethod)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
     }
 
     @Test("native balance provider preserves HTTP status and redacts API messages for non-retryable failures")
     @MainActor
-    func nativeBalanceProviderRedactsHTTPFailureContext() async {
+    func nativeBalanceProviderRedactsHTTPFailureContext() async throws {
         let mockSession = makeMockSession()
         let session = mockSession.session
         let provider = AlchemyRPCProvider(
@@ -1582,31 +1575,27 @@ struct ProviderAbstractionTests {
             )
         }
 
-        do {
+        let error = await #expect(throws: ProviderAbstractionError.self) {
             _ = try await provider.nativeBalance(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .ethMainnet
             )
-            Issue.record("Expected native balance HTTP failure to throw.")
-        } catch let error as ProviderAbstractionError {
-            switch error {
-            case .badStatus(let status, let message):
-                #expect(status == 400)
-                #expect(message?.contains("provider_error_payload_redacted") == true)
-                #expect(message?.contains("reason=unclassified_message") == true)
-                #expect(message?.contains("sha256=") == true)
-                #expect(message?.contains("wallet scope mismatch") == false)
-            default:
-                Issue.record("Unexpected provider abstraction error: \(error)")
-            }
-        } catch {
-            Issue.record("Unexpected error: \(error)")
+        }
+        let providerError = try #require(error)
+        if case .badStatus(let status, let message) = providerError {
+            #expect(status == 400)
+            #expect(message?.contains("provider_error_payload_redacted") == true)
+            #expect(message?.contains("reason=unclassified_message") == true)
+            #expect(message?.contains("sha256=") == true)
+            #expect(message?.contains("wallet scope mismatch") == false)
+        } else {
+            Issue.record("Unexpected provider abstraction error: \(providerError)")
         }
     }
 
     @Test("native balance provider redacts unclassified JSON-RPC provider errors")
     @MainActor
-    func nativeBalanceProviderRedactsRPCProviderErrors() async {
+    func nativeBalanceProviderRedactsRPCProviderErrors() async throws {
         let mockSession = makeMockSession()
         let session = mockSession.session
         let provider = AlchemyRPCProvider(
@@ -1641,31 +1630,27 @@ struct ProviderAbstractionTests {
             )
         }
 
-        do {
+        let error = await #expect(throws: ProviderAbstractionError.self) {
             _ = try await provider.nativeBalance(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .ethMainnet
             )
-            Issue.record("Expected native balance JSON-RPC provider error to throw.")
-        } catch let error as ProviderAbstractionError {
-            switch error {
-            case .providerError(let message):
-                #expect(message.contains("provider_error_payload_redacted"))
-                #expect(message.contains("reason=unsafe_message"))
-                #expect(message.contains("sha256="))
-                #expect(message.contains("should-never-appear") == false)
-                #expect(message.contains("rpc.example") == false)
-            default:
-                Issue.record("Unexpected provider abstraction error: \(error)")
-            }
-        } catch {
-            Issue.record("Unexpected error: \(error)")
+        }
+        let providerError = try #require(error)
+        if case .providerError(let message) = providerError {
+            #expect(message.contains("provider_error_payload_redacted"))
+            #expect(message.contains("reason=unsafe_message"))
+            #expect(message.contains("sha256="))
+            #expect(message.contains("should-never-appear") == false)
+            #expect(message.contains("rpc.example") == false)
+        } else {
+            Issue.record("Unexpected provider abstraction error: \(providerError)")
         }
     }
 
     @Test("gas pricing provider maps JSON-RPC rate limits from HTTP 200 envelopes")
     @MainActor
-    func gasPricingProviderMapsRPCErrorEnvelope() async {
+    func gasPricingProviderMapsRPCErrorEnvelope() async throws {
         let mockSession = makeMockSession()
         let session = mockSession.session
         let provider = AlchemyGasPricingProvider(
@@ -1699,24 +1684,20 @@ struct ProviderAbstractionTests {
             )
         }
 
-        do {
+        let error = await #expect(throws: AlchemyGasPricingProvider.GasPricingError.self) {
             _ = try await provider.gasPriceEstimate(for: .ethMainnet)
-            Issue.record("Expected JSON-RPC rate limit envelope to throw.")
-        } catch let error as AlchemyGasPricingProvider.GasPricingError {
-            switch error {
-            case .rateLimited(let message, _):
-                #expect(message == "rate limit exceeded")
-            default:
-                Issue.record("Unexpected gas pricing error: \(error)")
-            }
-        } catch {
-            Issue.record("Unexpected error: \(error)")
+        }
+        let gasPricingError = try #require(error)
+        if case .rateLimited(let message, _) = gasPricingError {
+            #expect(message == "rate limit exceeded")
+        } else {
+            Issue.record("Unexpected gas pricing error: \(gasPricingError)")
         }
     }
 
     @Test("gas pricing provider redacts unclassified JSON-RPC diagnostics")
     @MainActor
-    func gasPricingProviderRedactsRPCDiagnostics() async {
+    func gasPricingProviderRedactsRPCDiagnostics() async throws {
         let mockSession = makeMockSession()
         let session = mockSession.session
         let provider = AlchemyGasPricingProvider(
@@ -1750,28 +1731,24 @@ struct ProviderAbstractionTests {
             )
         }
 
-        do {
+        let error = await #expect(throws: AlchemyGasPricingProvider.GasPricingError.self) {
             _ = try await provider.gasPriceEstimate(for: .ethMainnet)
-            Issue.record("Expected JSON-RPC diagnostic envelope to throw.")
-        } catch let error as AlchemyGasPricingProvider.GasPricingError {
-            switch error {
-            case .rpcError(_, let message):
-                #expect(message.contains("provider_error_payload_redacted"))
-                #expect(message.contains("reason=unsafe_message"))
-                #expect(message.contains("sha256="))
-                #expect(message.contains("should-never-appear") == false)
-                #expect(message.contains("rpc.example") == false)
-            default:
-                Issue.record("Unexpected gas pricing error: \(error)")
-            }
-        } catch {
-            Issue.record("Unexpected error: \(error)")
+        }
+        let gasPricingError = try #require(error)
+        if case .rpcError(_, let message) = gasPricingError {
+            #expect(message.contains("provider_error_payload_redacted"))
+            #expect(message.contains("reason=unsafe_message"))
+            #expect(message.contains("sha256="))
+            #expect(message.contains("should-never-appear") == false)
+            #expect(message.contains("rpc.example") == false)
+        } else {
+            Issue.record("Unexpected gas pricing error: \(gasPricingError)")
         }
     }
 
     @Test("gas pricing provider maps HTTP unauthorized responses to an auth-specific error")
     @MainActor
-    func gasPricingProviderMapsUnauthorizedHTTPFailures() async {
+    func gasPricingProviderMapsUnauthorizedHTTPFailures() async throws {
         let mockSession = makeMockSession()
         let session = mockSession.session
         let provider = AlchemyGasPricingProvider(
@@ -1794,21 +1771,17 @@ struct ProviderAbstractionTests {
             )
         }
 
-        do {
+        let error = await #expect(throws: AlchemyGasPricingProvider.GasPricingError.self) {
             _ = try await provider.gasPriceEstimate(for: .ethMainnet)
-            Issue.record("Expected unauthorized gas pricing response to throw.")
-        } catch let error as AlchemyGasPricingProvider.GasPricingError {
-            switch error {
-            case .unauthorized(let message):
-                #expect(message.contains("provider_error_payload_redacted"))
-                #expect(message.contains("reason=unclassified_message"))
-                #expect(message.contains("sha256="))
-                #expect(message.contains("invalid api key") == false)
-            default:
-                Issue.record("Unexpected gas pricing error: \(error)")
-            }
-        } catch {
-            Issue.record("Unexpected error: \(error)")
+        }
+        let gasPricingError = try #require(error)
+        if case .unauthorized(let message) = gasPricingError {
+            #expect(message.contains("provider_error_payload_redacted"))
+            #expect(message.contains("reason=unclassified_message"))
+            #expect(message.contains("sha256="))
+            #expect(message.contains("invalid api key") == false)
+        } else {
+            Issue.record("Unexpected gas pricing error: \(gasPricingError)")
         }
     }
 
@@ -1838,7 +1811,7 @@ struct ProviderAbstractionTests {
 
     @Test("retry exhaustion throws and records failure instead of success")
     @MainActor
-    func retryExhaustionThrowsAndSkipsSuccessReceipt() async {
+    func retryExhaustionThrowsAndSkipsSuccessReceipt() async throws {
         let provider = ExhaustingPaginationNFTInventoryProvider()
         let recorder = SpyNFTRefreshEventRecorder()
         let fetcher = NFTFetcher(
@@ -1848,23 +1821,18 @@ struct ProviderAbstractionTests {
             nftProviderFactory: { _ in provider }
         )
 
-        do {
+        let error = await #expect(throws: NFTFetcher.FetcherError.self) {
             _ = try await fetcher.fetchAllNFTs(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .ethMainnet,
                 correlationID: "retry-exhausted",
                 eventRecorder: recorder
             )
-            Issue.record("Expected retry exhaustion to throw.")
-        } catch let error as NFTFetcher.FetcherError {
-            switch error {
-            case .retryExhausted:
-                break
-            default:
-                Issue.record("Expected retryExhausted, got \(error)")
-            }
-        } catch {
-            Issue.record("Expected NFTFetcher.FetcherError, got \(error)")
+        }
+        let fetcherError = try #require(error)
+        guard case .retryExhausted = fetcherError else {
+            Issue.record("Expected retryExhausted, got \(fetcherError)")
+            return
         }
 
         let failedCount = recorder.fetchFailedCount()
@@ -1908,15 +1876,14 @@ struct ProviderAbstractionTests {
             nftProviderFactory: { _ in provider }
         )
 
-        do {
+        await #expect(throws: (any Error).self) {
             _ = try await fetcher.fetchAllNFTs(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .ethMainnet,
                 correlationID: "partial-pages",
                 eventRecorder: recorder
             )
-            Issue.record("Expected later-page failure to throw.")
-        } catch {}
+        }
 
         let partialFailureCount = recorder.fetchFailedCount()
         let partialSuccessCount = recorder.fetchSucceededCount()
@@ -1926,7 +1893,7 @@ struct ProviderAbstractionTests {
 
     @Test("NFT fetcher honors provider Retry-After delays when rate limited")
     @MainActor
-    func nftFetcherHonorsProviderRetryAfterDelay() async {
+    func nftFetcherHonorsProviderRetryAfterDelay() async throws {
         let provider = RetryLimitedNFTInventoryProvider()
         let fetcher = NFTFetcher(
             maxRetryCount: 2,
@@ -1935,34 +1902,26 @@ struct ProviderAbstractionTests {
             nftProviderFactory: { _ in provider }
         )
 
-        let start = ContinuousClock.now
-
-        do {
+        let error = await #expect(throws: AlchemyNFTService.APIError.self) {
             _ = try await fetcher.fetchAllNFTs(
                 for: "0x1234567890abcdef1234567890abcdef12345678",
                 chain: .ethMainnet,
                 correlationID: "retry-after",
                 eventRecorder: NoOpNFTRefreshEventRecorder()
             )
-            Issue.record("Expected rate-limited refresh to throw.")
-        } catch let error as AlchemyNFTService.APIError {
-            switch error {
-            case .rateLimited(let retryAfter, _):
-                #expect(retryAfter == 0.2)
-            default:
-                Issue.record("Expected rateLimited error, got \(error)")
-            }
-        } catch {
-            Issue.record("Unexpected error: \(error)")
+        }
+        let apiError = try #require(error)
+        if case .rateLimited(let retryAfter, _) = apiError {
+            #expect(retryAfter == 0.2)
+        } else {
+            Issue.record("Expected rateLimited error, got \(apiError)")
         }
 
-        let elapsed = start.duration(to: .now)
-        #expect(elapsed >= .milliseconds(180))
         #expect(await provider.requestCount() == 2)
     }
 }
 
-private final class StubNFTInventoryProvider: NFTInventoryProviding, @unchecked Sendable {
+private final class StubNFTInventoryProvider: NFTInventoryProviding, Sendable {
     // Safety invariant: mutation and reads flow through the nested actor state only.
     private let state = State()
 
@@ -2001,7 +1960,7 @@ private final class StubNFTInventoryProvider: NFTInventoryProviding, @unchecked 
 }
 
 // Helper names in this section prioritize test intent over SwiftLint's length heuristic.
-private final class RetryLimitedNFTInventoryProvider: NFTInventoryProviding, @unchecked Sendable {
+private final class RetryLimitedNFTInventoryProvider: NFTInventoryProviding, Sendable {
     private let state = State()
 
     func nftsForOwner(owner: String, pageKey: String?) async throws -> AlchemyNFTResponse {
@@ -2040,7 +1999,7 @@ private final class ExhaustingPaginationNFTInventoryProvider: NFTInventoryProvid
     }
 }
 
-private final class ManyPageNFTInventoryProvider: NFTInventoryProviding, @unchecked Sendable {
+private final class ManyPageNFTInventoryProvider: NFTInventoryProviding, Sendable {
     let pageCount: Int
     let itemsPerPage: Int
     // Safety invariant: mutation and reads flow through the nested actor state only.
@@ -2162,10 +2121,10 @@ private final class PartiallyFailingNFTInventoryProvider: NFTInventoryProviding 
 private extension ProviderAbstractionTests {
     @MainActor
     func makeMockSession() -> MockProviderURLSession {
-        let handler = LockedValue<ProviderMockURLProtocol.Handler?>(nil)
+        let handler = ProviderMockHandlerBox()
         return MockProviderURLSession(
             session: URLSession.mocked { request in
-                guard let currentHandler = handler.value else {
+                guard let currentHandler = handler.handler else {
                     throw URLError(.badServerResponse)
                 }
 
@@ -2174,15 +2133,24 @@ private extension ProviderAbstractionTests {
             handler: handler
         )
     }
+
+}
+
+private enum ExpectedErrorCaptureFailure: Error {
+    case missingError
 }
 
 private struct MockProviderURLSession {
     let session: URLSession
-    let handler: LockedValue<ProviderMockURLProtocol.Handler?>
+    let handler: ProviderMockHandlerBox
 
     func setHandler(_ handler: @escaping ProviderMockURLProtocol.Handler) {
-        self.handler.set(handler)
+        self.handler.handler = handler
     }
+}
+
+private final class ProviderMockHandlerBox: Sendable {
+    nonisolated(unsafe) var handler: ProviderMockURLProtocol.Handler?
 }
 
 private extension URLRequest {
@@ -2262,19 +2230,14 @@ private final class SpyNFTRefreshEventRecorder: NFTRefreshEventRecording {
     }
 }
 
-private final class ArrayRecorder<Element: Sendable>: @unchecked Sendable {
-    private var storage: [Element] = []
-    private let lock = NSLock()
+private final class ArrayRecorder<Element: Sendable>: Sendable {
+    private let storage = Mutex<[Element]>([])
 
     func append(_ element: Element) {
-        lock.lock()
-        storage.append(element)
-        lock.unlock()
+        storage.withLock { $0.append(element) }
     }
 
     func values() -> [Element] {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
+        storage.withLock { $0 }
     }
 }

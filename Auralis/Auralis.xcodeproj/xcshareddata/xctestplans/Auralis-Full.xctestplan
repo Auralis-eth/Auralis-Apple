@@ -1,0 +1,31 @@
+{
+  "configurations" : [
+    {
+      "id" : "6906E4FD-CFF7-4F07-B95C-FABEA072653A",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Auralis.xcodeproj",
+      "identifier" : "6FB455DA2CC5BEBB009A055C",
+      "name" : "Auralis"
+    },
+    "testExecutionOrdering" : "random",
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:Auralis.xcodeproj",
+        "identifier" : "6FB455EE2CC5BEBD009A055C",
+        "name" : "AuralisTests"
+      }
+    }
+  ],
+  "version" : 1
+}

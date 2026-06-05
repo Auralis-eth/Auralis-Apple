@@ -78,18 +78,27 @@ struct ExternalLinkDestinationTests {
     }
 
     @Test("external link policy accepts approved marketplace IPFS and Arweave hosts")
-    func policyAcceptsApprovedHosts() {
+    func policyAcceptsApprovedHosts() throws {
         let policy = ExternalLinkPolicy()
 
+        let openSeaURL = try #require(URL(string: "https://opensea.io/assets/base/0xabc/1"))
+        let openSeaCollectionURL = try #require(URL(string: "https://opensea.io/collection/auralis"))
+        let explorerAddressURL = try #require(URL(string: "https://etherscan.io/address/0x1234567890abcdef1234567890abcdef12345678"))
+        let explorerTxURL = try #require(URL(string: "https://etherscan.io/tx/0xabc"))
+        let ipfsIOURL = try #require(URL(string: "https://ipfs.io/ipfs/QmHash"))
+        let cloudflareIPFSURL = try #require(URL(string: "https://cloudflare-ipfs.com/ipfs/QmHash"))
+        let pinataIPFSURL = try #require(URL(string: "https://gateway.pinata.cloud/ipfs/QmHash"))
+        let arweaveURL = try #require(URL(string: "https://arweave.net/tx/example"))
+
         let approvedCandidates = [
-            ExternalLinkCandidateDestination(label: "OpenSea", url: URL(string: "https://opensea.io/assets/base/0xabc/1")!),
-            ExternalLinkCandidateDestination(label: "OpenSea Collection", url: URL(string: "https://opensea.io/collection/auralis")!),
-            ExternalLinkCandidateDestination(label: "Explorer Address", url: URL(string: "https://etherscan.io/address/0x1234567890abcdef1234567890abcdef12345678")!),
-            ExternalLinkCandidateDestination(label: "Explorer Transaction", url: URL(string: "https://etherscan.io/tx/0xabc")!),
-            ExternalLinkCandidateDestination(label: "IPFS", url: URL(string: "https://ipfs.io/ipfs/QmHash")!),
-            ExternalLinkCandidateDestination(label: "IPFS", url: URL(string: "https://cloudflare-ipfs.com/ipfs/QmHash")!),
-            ExternalLinkCandidateDestination(label: "IPFS", url: URL(string: "https://gateway.pinata.cloud/ipfs/QmHash")!),
-            ExternalLinkCandidateDestination(label: "Arweave", url: URL(string: "https://arweave.net/tx/example")!)
+            ExternalLinkCandidateDestination(label: "OpenSea", url: openSeaURL),
+            ExternalLinkCandidateDestination(label: "OpenSea Collection", url: openSeaCollectionURL),
+            ExternalLinkCandidateDestination(label: "Explorer Address", url: explorerAddressURL),
+            ExternalLinkCandidateDestination(label: "Explorer Transaction", url: explorerTxURL),
+            ExternalLinkCandidateDestination(label: "IPFS", url: ipfsIOURL),
+            ExternalLinkCandidateDestination(label: "IPFS", url: cloudflareIPFSURL),
+            ExternalLinkCandidateDestination(label: "IPFS", url: pinataIPFSURL),
+            ExternalLinkCandidateDestination(label: "Arweave", url: arweaveURL)
         ]
 
         for candidate in approvedCandidates {
@@ -104,13 +113,17 @@ struct ExternalLinkDestinationTests {
     }
 
     @Test("external link policy rejects root-level action URLs on approved hosts")
-    func policyRejectsRootLevelActionURLs() {
+    func policyRejectsRootLevelActionURLs() throws {
         let policy = ExternalLinkPolicy()
 
+        let explorerRootURL = try #require(URL(string: "https://etherscan.io"))
+        let openSeaRootURL = try #require(URL(string: "https://opensea.io/"))
+        let arweaveRootURL = try #require(URL(string: "https://arweave.net"))
+
         let rootCandidates = [
-            ExternalLinkCandidateDestination(label: "Explorer Root", url: URL(string: "https://etherscan.io")!),
-            ExternalLinkCandidateDestination(label: "OpenSea Root", url: URL(string: "https://opensea.io/")!),
-            ExternalLinkCandidateDestination(label: "Arweave Root", url: URL(string: "https://arweave.net")!)
+            ExternalLinkCandidateDestination(label: "Explorer Root", url: explorerRootURL),
+            ExternalLinkCandidateDestination(label: "OpenSea Root", url: openSeaRootURL),
+            ExternalLinkCandidateDestination(label: "Arweave Root", url: arweaveRootURL)
         ]
 
         for candidate in rootCandidates {
@@ -124,12 +137,16 @@ struct ExternalLinkDestinationTests {
     }
 
     @Test("external link policy rejects unsupported and suspicious destinations with typed failures")
-    func policyRejectsBlockedDestinations() {
+    func policyRejectsBlockedDestinations() throws {
         let policy = ExternalLinkPolicy()
 
-        let unsupportedHost = ExternalLinkCandidateDestination(label: "Bad", url: URL(string: "https://example.com/phish")!)
-        let unsupportedPath = ExternalLinkCandidateDestination(label: "Bad Path", url: URL(string: "https://opensea.io/settings")!)
-        let missingHost = ExternalLinkCandidateDestination(label: "Broken", url: URL(string: "https:///missing-host")!)
+        let unsupportedHostURL = try #require(URL(string: "https://example.com/phish"))
+        let unsupportedPathURL = try #require(URL(string: "https://opensea.io/settings"))
+        let missingHostURL = try #require(URL(string: "https:///missing-host"))
+
+        let unsupportedHost = ExternalLinkCandidateDestination(label: "Bad", url: unsupportedHostURL)
+        let unsupportedPath = ExternalLinkCandidateDestination(label: "Bad Path", url: unsupportedPathURL)
+        let missingHost = ExternalLinkCandidateDestination(label: "Broken", url: missingHostURL)
         let badSchemes = [
             "javascript:alert(1)",
             "file:///tmp/test",
@@ -142,7 +159,8 @@ struct ExternalLinkDestinationTests {
         #expect(policy.validate(missingHost) == .failure(.missingHost))
 
         for rawValue in badSchemes {
-            let candidate = ExternalLinkCandidateDestination(label: "Blocked", url: URL(string: rawValue)!)
+            let badURL = try #require(URL(string: rawValue))
+            let candidate = ExternalLinkCandidateDestination(label: "Blocked", url: badURL)
             guard case .failure(.invalidScheme) = policy.validate(candidate) else {
                 Issue.record("Expected invalid scheme failure for \(rawValue)")
                 continue
@@ -151,10 +169,11 @@ struct ExternalLinkDestinationTests {
     }
 
     @Test("external link policy preserves user-visible host and path displays")
-    func policyBuildsDisplayFields() {
+    func policyBuildsDisplayFields() throws {
         let policy = ExternalLinkPolicy()
 
-        let tokenPath = ExternalLinkCandidateDestination(label: "OpenSea", url: URL(string: "https://opensea.io/assets/base/0xabc/1?ref=auralis")!)
+        let tokenPathURL = try #require(URL(string: "https://opensea.io/assets/base/0xabc/1?ref=auralis"))
+        let tokenPath = ExternalLinkCandidateDestination(label: "OpenSea", url: tokenPathURL)
 
         guard case .success(let tokenDestination) = policy.validate(tokenPath) else {
             Issue.record("Expected OpenSea token URL to validate")

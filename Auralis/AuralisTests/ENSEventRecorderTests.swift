@@ -11,9 +11,7 @@ import Testing
 struct ENSEventRecorderTests {
     @MainActor
     private func makeReceiptStore() throws -> any ReceiptStore {
-        let schema = Schema([StoredReceipt.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         return SwiftDataReceiptStore(
             modelContext: context,

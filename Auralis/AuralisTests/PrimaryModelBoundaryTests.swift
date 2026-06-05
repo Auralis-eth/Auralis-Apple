@@ -1,12 +1,13 @@
 import Foundation
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import MusicFeature
 import ReceiptStorage
 import SwiftData
 import Testing
 import TokenStorage
 
-@Suite(.tags(.architecture))
+@Suite(.tags(.architecture, .slow))
 struct PrimaryModelBoundaryTests {
     @Test("primary models do not import UI frameworks")
     func primaryModelsDoNotImportUIFrameworks() throws {

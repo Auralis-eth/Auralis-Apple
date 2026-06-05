@@ -8,7 +8,7 @@ import Testing
 @MainActor
 struct NFTCollectionDetailPresentationTests {
     @Test("contract-backed collection detail filters by contract")
-    func contractBackedCollectionFiltersByContract() {
+    func contractBackedCollectionFiltersByContract() throws {
         let matching = NFT(
             id: "matching",
             contract: NFT.Contract(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", chain: .ethMainnet),
@@ -42,7 +42,7 @@ struct NFTCollectionDetailPresentationTests {
 
         #expect(presentation.title == "Moonpunks")
         #expect(presentation.items.count == 1)
-        #expect(presentation.items.first?.title == "Moonpunk #1")
+        #expect(try #require(presentation.items.first).title == "Moonpunk #1")
     }
 
     @Test("collection detail falls back to collection name when contract address is absent")

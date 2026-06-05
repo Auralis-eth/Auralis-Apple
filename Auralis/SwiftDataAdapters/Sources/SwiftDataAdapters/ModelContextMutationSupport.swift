@@ -1,5 +1,6 @@
 import SwiftData
 
+@available(macOS 14, iOS 17, *)
 public extension ModelContext {
     func performRollbackSafeMutation(_ work: () throws -> Void) throws {
         do {

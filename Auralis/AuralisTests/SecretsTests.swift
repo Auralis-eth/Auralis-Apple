@@ -16,18 +16,16 @@ import ProviderKit
 
 @Suite struct SecretsTests {
     @Test("missing provider keys fail deterministically when the test bundle is not configured")
-    func missingProviderKeyThrowsDeterministicError() {
-        do {
+    func missingProviderKeyThrowsDeterministicError() throws {
+        let error = #expect(throws: Secrets.SecretsError.self) {
             _ = try Secrets.apiKey(.alchemy, bundle: Bundle(for: BundleLocatorClass.self))
-            Issue.record("Expected missing Alchemy key to throw.")
-        } catch let error as Secrets.SecretsError {
-            switch error {
-            case .providerKeyNotFound(let provider):
-                #expect(provider == .alchemy)
-            }
-        } catch {
-            Issue.record("Unexpected error type: \(error)")
         }
+        let secretsError = try #require(error)
+        guard case .providerKeyNotFound(let provider) = secretsError else {
+            Issue.record("Unexpected error type: \(secretsError)")
+            return
+        }
+        #expect(provider == .alchemy)
     }
 }
 

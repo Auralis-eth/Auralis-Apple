@@ -61,7 +61,7 @@ struct ERC20TokensRootView: View {
     }
 
     private var rowModels: [TokenHoldingRowModel] {
-        holdings.map(TokenHoldingRowModel.init(holding:))
+        holdings.map { TokenHoldingRowModel(holding: $0) }
     }
 
     private var nativeHoldingCount: Int {

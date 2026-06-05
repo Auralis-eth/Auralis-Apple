@@ -53,7 +53,7 @@ struct AccountStoreTests {
         let lookedUpWithoutPrefix = try store.account(for: "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD")
         let invalidLookup = try store.account(for: "not-an-address")
 
-        #expect(lookedUpWithoutPrefix?.address == account.address)
+        #expect(try #require(lookedUpWithoutPrefix).address == account.address)
         #expect(invalidLookup == nil)
     }
 
@@ -243,7 +243,7 @@ struct AccountStoreTests {
         let remaining = try store.listAccounts()
 
         #expect(result.removedAddress == first.address)
-        #expect(result.fallbackAccount?.address == second.address)
+        #expect(try #require(result.fallbackAccount).address == second.address)
         #expect(remaining.map(\.address) == [second.address])
         #expect(recorder.events.last == .removed(address: first.address))
     }

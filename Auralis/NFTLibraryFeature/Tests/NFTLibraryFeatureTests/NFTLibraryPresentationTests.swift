@@ -34,7 +34,7 @@ struct NFTLibraryPresentationTests {
 
         #expect(presentation.title == "Moonpunks")
         #expect(presentation.items.map(\.id) == [matching.id])
-        #expect(presentation.items.first?.title == "Moonpunk #1")
+        #expect(try #require(presentation.items.first).title == "Moonpunk #1")
         #expect(presentation.contractAddressLine == "0xaaaa...aaaa")
     }
 
@@ -55,7 +55,7 @@ struct NFTLibraryPresentationTests {
         )
 
         #expect(presentation.items.count == 1)
-        #expect(presentation.items.first?.title == "Untitled NFT")
+        #expect(try #require(presentation.items.first).title == "Untitled NFT")
         #expect(presentation.subtitle == "1 item in Base")
     }
 
@@ -75,7 +75,7 @@ struct NFTLibraryPresentationTests {
     }
 
     @Test("image URL prefers original then thumbnail")
-    func imageURLPreference() {
+    func imageURLPreference() throws {
         let nft = NFTLibraryTestFactory.nft(
             id: "image",
             contractAddress: nil,
@@ -85,7 +85,8 @@ struct NFTLibraryPresentationTests {
             image: .init(originalUrl: "https://example.com/original.png", thumbnailUrl: "https://example.com/thumb.png")
         )
 
-        #expect(NFTLibraryPresentation.imageURL(for: nft)?.absoluteString == "https://example.com/original.png")
+        let imageURL = try #require(NFTLibraryPresentation.imageURL(for: nft))
+        #expect(imageURL.absoluteString == "https://example.com/original.png")
     }
 }
 

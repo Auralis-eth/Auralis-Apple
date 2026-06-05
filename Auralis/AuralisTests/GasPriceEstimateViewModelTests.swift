@@ -53,10 +53,11 @@ struct GasPriceEstimateViewModelTests {
         #expect(viewModel.phase == .loaded)
         #expect(viewModel.isLoading == false)
         #expect(viewModel.error == nil)
-        #expect(viewModel.estimate?.version == GasPriceEstimate.example.version)
-        #expect(viewModel.estimate?.estimatedBaseFee == GasPriceEstimate.example.estimatedBaseFee)
+        let estimate = try #require(viewModel.estimate)
+        #expect(estimate.version == GasPriceEstimate.example.version)
+        #expect(estimate.estimatedBaseFee == GasPriceEstimate.example.estimatedBaseFee)
         #expect(
-            viewModel.estimate?.medium.suggestedMaxFeePerGas ==
+            estimate.medium.suggestedMaxFeePerGas ==
                 GasPriceEstimate.example.medium.suggestedMaxFeePerGas
         )
         #expect(viewModel.lastUpdated == staleDate)

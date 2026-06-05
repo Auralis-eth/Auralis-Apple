@@ -1,23 +1,24 @@
 @testable import Auralis
+import AuralisTestSupport
 import Foundation
 import Testing
 
 @Suite
 struct HomePinnedItemsStoreTests {
-    private func makeStore() -> HomePinnedItemsStore {
-        let suiteName = "HomePinnedItemsStoreTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        return HomePinnedItemsStore(
+    private func makeStore() throws -> (store: HomePinnedItemsStore, cleanup: () -> Void) {
+        let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "HomePinnedItemsStoreTests")
+        let store = HomePinnedItemsStore(
             userDefaults: defaults,
             storageKey: "auralis.tests.home-pinned-items",
             maximumPinnedItemsPerAccount: 3
         )
+        return (store, cleanup)
     }
 
     @Test("home pinned-items store keeps pins scoped per account")
     func pinnedItemsStayScopedPerAccount() throws {
-        let store = makeStore()
+        let (store, cleanup) = try makeStore()
+        defer { cleanup() }
         let firstAccount = "0x1234567890abcdef1234567890abcdef12345678"
         let secondAccount = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
@@ -32,7 +33,8 @@ struct HomePinnedItemsStoreTests {
 
     @Test("home pinned-items store trims old pins beyond the configured limit")
     func pinnedItemsTrimToConfiguredLimit() throws {
-        let store = makeStore()
+        let (store, cleanup) = try makeStore()
+        defer { cleanup() }
         let account = "0x1234567890abcdef1234567890abcdef12345678"
 
         _ = try store.togglePin(.openSearch, accountAddress: account)
@@ -48,9 +50,8 @@ struct HomePinnedItemsStoreTests {
 
     @Test("mutating pinned items self-heals when stored data is corrupted")
     func corruptedPinnedItemsAreClearedBeforeToggleWritesFreshState() throws {
-        let suiteName = "HomePinnedItemsStoreTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
+        let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "HomePinnedItemsStoreTests")
+        defer { cleanup() }
         let storageKey = "auralis.tests.home-pinned-items"
         defaults.set(Data("not-json".utf8), forKey: storageKey)
 

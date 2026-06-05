@@ -24,7 +24,7 @@ struct ShellStatusPresentationTests {
         #expect(presentation.title == "Refresh Paused")
         #expect(presentation.systemImage == "bolt.horizontal.circle")
         #expect(presentation.tone == .warning)
-        #expect(presentation.primaryAction?.title == "Try Again")
+        #expect(try #require(presentation.primaryAction).title == "Try Again")
     }
 
     @Test("provider failure status uses blocking critical chrome when the failure replaces the surface")

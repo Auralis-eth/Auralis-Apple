@@ -1,4 +1,5 @@
 @testable import Auralis
+import AuralisTestSupport
 import Foundation
 import Testing
 import NFTDomain
@@ -9,13 +10,17 @@ import ProviderKit
 
 @Suite
 struct ERC20HoldingsSyncCoordinatorTests {
-    @Test("a newer ERC-20 sync drops stale results from the previous wallet scope")
+    @Test(
+        "a newer ERC-20 sync drops stale results from the previous wallet scope",
+        .timeLimit(.minutes(1))
+    )
     @MainActor
     func newerSyncSupersedesOlderScope() async throws {
         let coordinator = ERC20HoldingsSyncCoordinator()
         let firstFetchStarted = AsyncSignal()
         let releaseFirstFetch = AsyncSignal()
         let persistedScopes = PersistedScopeRecorder()
+        let referenceDate = Fixture.referenceDate
 
         let firstTask = Task {
             await coordinator.sync(
@@ -33,7 +38,7 @@ struct ERC20HoldingsSyncCoordinatorTests {
                                 symbol: "USDC",
                                 displayName: "USD Coin",
                                 amountDisplay: "10 USDC",
-                                updatedAt: .now,
+                                updatedAt: referenceDate,
                                 isPlaceholder: false,
                                 isAmountHidden: false
                             )
@@ -62,7 +67,7 @@ struct ERC20HoldingsSyncCoordinatorTests {
                             symbol: "DAI",
                             displayName: "Dai",
                             amountDisplay: "2 DAI",
-                            updatedAt: .now,
+                            updatedAt: referenceDate,
                             isPlaceholder: false,
                             isAmountHidden: false
                         )
@@ -92,6 +97,7 @@ struct ERC20HoldingsSyncCoordinatorTests {
         let warning = TokenHoldingsProviderWarning(
             message: "Metadata is temporarily unavailable."
         )
+        let referenceDate = Fixture.referenceDate
 
         let result = await coordinator.sync(
             request: .init(
@@ -106,7 +112,7 @@ struct ERC20HoldingsSyncCoordinatorTests {
                             symbol: nil,
                             displayName: "0xa0b8...eb48",
                             amountDisplay: "Amount hidden",
-                            updatedAt: .now,
+                            updatedAt: referenceDate,
                             isPlaceholder: true,
                             isAmountHidden: true
                         )

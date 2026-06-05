@@ -2,6 +2,7 @@ import ReceiptsCore
 import ReceiptStorage
 @testable import Auralis
 import AuralisPrimaryModels
+import AuralisTestSupport
 import Foundation
 import SwiftData
 import Testing
@@ -9,15 +10,8 @@ import Testing
 @Suite(.tags(.swiftdata))
 struct ReceiptStoreTests {
     @MainActor
-    private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([StoredReceipt.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
-    }
-
-    @MainActor
     private func makeStore() throws -> SwiftDataReceiptStore {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         return SwiftDataReceiptStore(
             modelContext: context,
@@ -31,7 +25,7 @@ struct ReceiptStoreTests {
         context: ModelContext,
         headStore: InMemoryReceiptIntegrityHeadStore
     ) {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let headStore = InMemoryReceiptIntegrityHeadStore()
         let store = SwiftDataReceiptStore(
@@ -153,8 +147,9 @@ struct ReceiptStoreTests {
         let correlated = try await store.receipts(forCorrelationID: "refresh-1", limit: 1)
 
         #expect(correlated.count == 1)
-        #expect(correlated.first?.sequenceID == matchingNewest.sequenceID)
-        #expect(correlated.first?.correlationID == "refresh-1")
+        let receipt = try #require(correlated.first)
+        #expect(receipt.sequenceID == matchingNewest.sequenceID)
+        #expect(receipt.correlationID == "refresh-1")
     }
 
     @Test("exportAll returns every receipt in deterministic ascending order for JSON export")
@@ -250,7 +245,7 @@ struct ReceiptStoreTests {
     @Test("failed integrity head writes roll back the just-persisted receipt")
     @MainActor
     func failedIntegrityHeadWriteDoesNotLeavePersistedReceipt() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
             modelContext: context,
@@ -308,7 +303,7 @@ struct ReceiptStoreTests {
     @Test("receipt integrity verification fails after out-of-band mutation or deletion")
     @MainActor
     func integrityVerificationDetectsTampering() async throws {
-        let container = try makeContainer()
+        let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
             modelContext: context,

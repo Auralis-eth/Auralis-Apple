@@ -1,12 +1,9 @@
 import AccountStorage
 import AccountsCore
 import AuralisPrimaryModels
-import AuralisPrimaryPersistence
 import Foundation
-import ReceiptStorage
 import SwiftData
 import Testing
-import TokenStorage
 
 @MainActor
 @Suite
@@ -37,8 +34,8 @@ struct SwiftDataAccountStoreTests {
         let lookupWithoutPrefix = try store.account(for: "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD")
         let invalidLookup = try store.account(for: "not-an-address")
 
-        #expect(lookupWithPrefix?.address == account.address)
-        #expect(lookupWithoutPrefix?.address == account.address)
+        #expect(try #require(lookupWithPrefix).address == account.address)
+        #expect(try #require(lookupWithoutPrefix).address == account.address)
         #expect(invalidLookup == nil)
     }
 
@@ -68,6 +65,73 @@ struct SwiftDataAccountStoreTests {
         #expect(replaced.addedAt == Date(timeIntervalSince1970: 200))
     }
 
+    @Test("overwriting an account removes stale account-scoped NFTs and tags")
+    func overwritingAccountRemovesStaleScopedNFTsAndTags() async throws {
+        let context = try makeContext()
+        let store = makeStore(context: context)
+        let address = "0x3333333333333333333333333333333333333333"
+        let account = try await store.createWatchAccount(
+            from: address,
+            name: "Original",
+            now: Date(timeIntervalSince1970: 100)
+        )
+        let tag = try Tag(name: "Archive")
+        let nft = NFT(
+            id: "stale-nft",
+            contract: NFT.Contract(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            tokenId: "1",
+            name: "Stale NFT",
+            collection: nil,
+            accountAddress: account.address,
+            tags: [tag]
+        )
+        nft.assignOwnership(to: account)
+        context.insert(tag)
+        context.insert(nft)
+        try context.save()
+
+        _ = try await store.createWatchAccount(
+            from: address.uppercased(),
+            name: "Replacement",
+            overwriteExisting: true,
+            now: Date(timeIntervalSince1970: 200)
+        )
+
+        #expect(try store.listAccounts().map(\.name) == ["Replacement"])
+        #expect(try context.fetch(FetchDescriptor<NFT>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<Tag>()).isEmpty)
+    }
+
+    @Test("duplicate account inserts fail deterministically without changing the original row")
+    func duplicateAccountInsertFailsWithoutChangingOriginalRow() async throws {
+        let store = try makeStore()
+        let address = "0x7777777777777777777777777777777777777777"
+        let original = try await store.createWatchAccount(
+            from: address,
+            name: "Original",
+            source: .manualEntry,
+            now: Date(timeIntervalSince1970: 100)
+        )
+
+        await #expect(throws: AccountStoreError.duplicateAddress(original.address)) {
+            _ = try await store.createWatchAccount(
+                from: address.uppercased(),
+                name: "Duplicate",
+                source: .qrScan,
+                overwriteExisting: false,
+                now: Date(timeIntervalSince1970: 200)
+            )
+        }
+
+        let accounts = try store.listAccounts()
+        #expect(accounts.count == 1)
+        let account = try #require(accounts.first)
+        #expect(account.address == original.address)
+        #expect(account.name == "Original")
+        #expect(account.source == .manualEntry)
+        #expect(account.addedAt == Date(timeIntervalSince1970: 100))
+    }
+
     @Test("removing the active account falls back to the newest remaining account")
     func removingActiveAccountFallsBackToNewestRemainingAccount() async throws {
         let store = try makeStore()
@@ -86,7 +150,7 @@ struct SwiftDataAccountStoreTests {
         )
 
         #expect(result.removedAddress == active.address)
-        #expect(result.fallbackAccount?.address == fallback.address)
+        #expect(try #require(result.fallbackAccount).address == fallback.address)
         #expect(try store.listAccounts().map(\.address) == [fallback.address])
         #expect(try store.account(for: active.address) == nil)
     }
@@ -137,19 +201,15 @@ struct SwiftDataAccountStoreTests {
 
 @MainActor
 private func makeStore() throws -> SwiftDataAccountStore {
-    let container = try ModelContainer(
-        for: Schema([
-            EOAccount.self,
-            NFT.self,
-            Tag.self,
-            StoredReceipt.self,
-            Playlist.self,
-            MusicLibraryItem.self,
-            TokenHolding.self,
-            SearchHistoryRecord.self,
-        ]),
-        configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-    )
+    try makeStore(context: makeContext())
+}
 
-    return SwiftDataAccountStore(modelContext: ModelContext(container))
+@MainActor
+private func makeStore(context: ModelContext) -> SwiftDataAccountStore {
+    SwiftDataAccountStore(modelContext: context)
+}
+
+@MainActor
+private func makeContext() throws -> ModelContext {
+    try AccountStorageTestModelContainers.context()
 }

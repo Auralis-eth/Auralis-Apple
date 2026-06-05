@@ -1,4 +1,3 @@
-@testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import MusicFeature
@@ -7,7 +6,7 @@ import Testing
 @Suite
 struct MusicCollectionPresentationTests {
     @Test("collection summaries group scoped library items by normalized collection key")
-    func summariesGroupItemsByCollection() {
+    func summariesGroupItemsByCollection() throws {
         let summaries = AuraPlayMusicCollectionSummary.summaries(
             from: [
                 makeItem(id: "1", title: "Track A", artistName: "Artist One", collectionName: "Sky Archive", normalizedCollectionKey: "sky-archive", availability: .ready),
@@ -17,10 +16,11 @@ struct MusicCollectionPresentationTests {
         )
 
         #expect(summaries.count == 2)
-        let skyArchive = summaries.first { $0.key == "sky-archive" }
-        #expect(skyArchive?.title == "Sky Archive")
-        #expect(skyArchive?.trackCount == 2)
-        #expect(skyArchive?.hasUnavailableTracks == true)
+        let skyArchiveResult = summaries.first { $0.key == "sky-archive" }
+        let skyArchive = try #require(skyArchiveResult)
+        #expect(skyArchive.title == "Sky Archive")
+        #expect(skyArchive.trackCount == 2)
+        #expect(skyArchive.hasUnavailableTracks)
     }
 
     @Test("collection summaries fall back honestly when collection names are sparse")

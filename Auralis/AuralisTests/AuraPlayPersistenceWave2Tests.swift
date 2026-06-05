@@ -2,6 +2,7 @@ import ReceiptsCore
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import Foundation
 import MusicFeature
 import SwiftData
@@ -37,7 +38,7 @@ struct AuraPlayPersistenceWave2Tests {
         let accounts = try context.fetch(FetchDescriptor<EOAccount>())
 
         #expect(accounts.count == 1)
-        #expect(accounts.first?.name == "Aura Wallet")
+        #expect(try #require(accounts.first).name == "Aura Wallet")
         #expect(accounts.first?.auraPlayLastSyncedAt(for: .ethMainnet) == syncedAt)
     }
 
@@ -51,13 +52,14 @@ struct AuraPlayPersistenceWave2Tests {
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet
         )
+        let syncedAt = Fixture.referenceDate
 
         let account = EOAccount(
             address: "0x1234567890abcdef1234567890abcdef12345678",
             access: .readonly,
             name: "Aura Wallet"
         )
-        account.markAuraPlaySynced(on: .ethMainnet, at: .now)
+        account.markAuraPlaySynced(on: .ethMainnet, at: syncedAt)
         primaryContext.insert(account)
         try primaryContext.save()
 
@@ -88,7 +90,7 @@ struct AuraPlayPersistenceWave2Tests {
                     isSearchable: true
                 )
             ],
-            syncedAt: .now
+            syncedAt: syncedAt
         )
 
         let repository = LiveAuraPlayLibraryRepository(
@@ -209,6 +211,7 @@ struct AuraPlayPersistenceWave2Tests {
         let container = try AuraPlayModelContainer.make(inMemory: true)
         let mediaItemService = AuraPlayMediaItemService(modelContainer: container)
         let resetService = SwiftDataAuraPlayPersistenceResetService(modelContainer: container)
+        let syncedAt = Fixture.referenceDate
 
         try await mediaItemService.replaceAll(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
@@ -237,7 +240,7 @@ struct AuraPlayPersistenceWave2Tests {
                     isSearchable: true
                 )
             ],
-            syncedAt: .now
+            syncedAt: syncedAt
         )
 
         try await resetService.resetAuraPlayPersistence()
@@ -272,12 +275,12 @@ struct AuraPlayPersistenceWave2Tests {
                     isSearchable: true
                 )
             ],
-            syncedAt: .now
+            syncedAt: syncedAt.addingTimeInterval(60)
         )
         let reusedMediaItems = try verificationContext.fetch(FetchDescriptor<AuraPlayMediaItem>())
 
         #expect(reusedMediaItems.count == 1)
-        #expect(reusedMediaItems.first?.accountAddressRawValue == "0x9999999999999999999999999999999999999999")
+        #expect(try #require(reusedMediaItems.first).accountAddressRawValue == "0x9999999999999999999999999999999999999999")
     }
 }
 

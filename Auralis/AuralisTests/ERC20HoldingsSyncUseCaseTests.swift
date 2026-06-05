@@ -1,6 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import Foundation
 import NFTDomain
 import NFTPersistence
@@ -16,9 +17,7 @@ struct ERC20HoldingsSyncUseCaseTests {
     private let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
 
     private func makeContext() throws -> ModelContext {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: PrimaryStoreSchema.schema, configurations: [configuration])
-        return ModelContext(container)
+        ModelContext(try TestModelContainers.primary())
     }
 
     private func makeUseCase(
@@ -70,7 +69,13 @@ struct ERC20HoldingsSyncUseCaseTests {
         let store = RecordingERC20HoldingsStore()
         let useCase = try makeUseCase(provider: provider, store: store)
 
-        let result = await useCase.sync(request: request(accountAddress: "", nativeBalanceDisplay: "1.25 ETH", nativeBalanceUpdatedAt: .now))
+        let result = await useCase.sync(
+            request: request(
+                accountAddress: "",
+                nativeBalanceDisplay: "1.25 ETH",
+                nativeBalanceUpdatedAt: Fixture.referenceDate
+            )
+        )
 
         #expect(result == .empty)
         #expect(await provider.requests.isEmpty)
@@ -93,7 +98,10 @@ struct ERC20HoldingsSyncUseCaseTests {
         ])
     }
 
-    @Test("a newer use-case sync drops stale persistence from an older sync")
+    @Test(
+        "a newer use-case sync drops stale persistence from an older sync",
+        .timeLimit(.minutes(1))
+    )
     func newerUseCaseSyncDropsStalePersistenceFromOlderSync() async throws {
         let provider = SequencedTokenHoldingsProvider()
         let store = RecordingERC20HoldingsStore()
@@ -197,7 +205,12 @@ struct ERC20HoldingsSyncUseCaseTests {
         let store = RecordingERC20HoldingsStore(nativeError: TestError.persistence)
         let useCase = try makeUseCase(provider: provider, store: store)
 
-        let result = await useCase.sync(request: request(nativeBalanceDisplay: "1.25 ETH", nativeBalanceUpdatedAt: .now))
+        let result = await useCase.sync(
+            request: request(
+                nativeBalanceDisplay: "1.25 ETH",
+                nativeBalanceUpdatedAt: Fixture.referenceDate
+            )
+        )
 
         #expect(result.providerErrorMessage == "Auralis could not load token holdings because this device appears to be offline.")
         #expect(result.persistenceErrorMessage == "Auralis kept the last saved holdings view, but the latest native balance could not be written on this device.")

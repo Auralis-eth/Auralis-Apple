@@ -1,0 +1,37 @@
+{
+  "configurations" : [
+    {
+      "id" : "B4C675FA-F87C-4B2D-AB52-3929742784DD",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Auralis.xcodeproj",
+      "identifier" : "6FB455DA2CC5BEBB009A055C",
+      "name" : "Auralis"
+    },
+    "testExecutionOrdering" : "random",
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "selectedTests" : [
+        "ArchitectureBoundaryTests",
+        "AuraPlayBundleContractTests",
+        "AuraPlayPrivacyManifestTests",
+        "PrimaryModelBoundaryTests"
+      ],
+      "target" : {
+        "containerPath" : "container:Auralis.xcodeproj",
+        "identifier" : "6FB455EE2CC5BEBD009A055C",
+        "name" : "AuralisTests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -1,6 +1,14 @@
 import Foundation
 import OSLog
 
+public struct ENSCacheUserDefaults: @unchecked Sendable {
+    let userDefaults: UserDefaults
+
+    public init(_ userDefaults: UserDefaults) {
+        self.userDefaults = userDefaults
+    }
+}
+
 public actor ENSResolutionCacheStore {
     public static let storageDecisionIdentifier = "Auralis.ENSResolutionCache.v1"
 
@@ -19,6 +27,21 @@ public actor ENSResolutionCacheStore {
         retentionTTL: TimeInterval = 60 * 60 * 24 * 7,
         nowProvider: @escaping @Sendable () -> Date = { .now }
     ) {
+        self.init(
+            userDefaultsStore: ENSCacheUserDefaults(userDefaults),
+            storageKey: storageKey,
+            retentionTTL: retentionTTL,
+            nowProvider: nowProvider
+        )
+    }
+
+    public init(
+        userDefaultsStore: ENSCacheUserDefaults,
+        storageKey: String = ENSResolutionCacheStore.storageDecisionIdentifier,
+        retentionTTL: TimeInterval = 60 * 60 * 24 * 7,
+        nowProvider: @escaping @Sendable () -> Date = { .now }
+    ) {
+        let userDefaults = userDefaultsStore.userDefaults
         self.userDefaults = userDefaults
         self.storageKey = storageKey
         self.retentionTTL = retentionTTL

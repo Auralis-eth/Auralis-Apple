@@ -15,27 +15,37 @@ import Testing
         let input: String?
         let expected: NFTImageSource?
     }
+
+    // Documented "safer wrapper" exception for static @Test argument contexts where
+    // `try #require` is not available. See TEST-005 in the Unit Test Refactor runbook.
+    private static func staticURL(_ string: String) -> URL {
+        guard let url = URL(string: string) else {
+            fatalError("Invalid static test URL: \(string)")
+        }
+        return url
+    }
+
     @Test(arguments: [
         // Valid cases
         TestCase(
             input: "ipfs://QmHash",
-            expected: .url(URL(string: "https://gateway.pinata.cloud/ipfs/QmHash")!)
+            expected: .url(Self.staticURL("https://gateway.pinata.cloud/ipfs/QmHash"))
         ),
         TestCase(
             input: "ipfs://QmHash/path/to/file",
-            expected: .url(URL(string: "https://gateway.pinata.cloud/ipfs/QmHash/path/to/file")!)
+            expected: .url(Self.staticURL("https://gateway.pinata.cloud/ipfs/QmHash/path/to/file"))
         ),
         TestCase(
             input: "http://example.com/image.png",
-            expected: .url(URL(string: "https://example.com/image.png")!)
+            expected: .url(Self.staticURL("https://example.com/image.png"))
         ),
         TestCase(
             input: "https://example.com/image.png",
-            expected: .url(URL(string: "https://example.com/image.png")!)
+            expected: .url(Self.staticURL("https://example.com/image.png"))
         ),
         TestCase(
             input: "QmHash",
-            expected: .url(URL(string: "https://ipfs.io/ipfs/QmHash/")!)
+            expected: .url(Self.staticURL("https://ipfs.io/ipfs/QmHash/"))
         ),
         TestCase(
             input: "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=", // Base64 for "<svg></svg>"
@@ -43,7 +53,7 @@ import Testing
         ),
         TestCase(
             input: "ipfs://QmHash?query=param#fragment",
-            expected: .url(URL(string: "https://gateway.pinata.cloud/ipfs/QmHash?query=param#fragment")!)
+            expected: .url(Self.staticURL("https://gateway.pinata.cloud/ipfs/QmHash?query=param#fragment"))
         ),
         // Invalid cases
         TestCase(input: nil, expected: nil),
@@ -52,7 +62,7 @@ import Testing
         // Edge cases
         TestCase(
             input: String(repeating: "a", count: 100),
-            expected: .url(URL(string: "https://ipfs.io/ipfs/" + String(repeating: "a", count: 100) + "/")!)
+            expected: .url(Self.staticURL("https://ipfs.io/ipfs/" + String(repeating: "a", count: 100) + "/"))
         )
     ])
     func testImageSource(testcase: TestCase) {
