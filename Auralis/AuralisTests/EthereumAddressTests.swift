@@ -3,7 +3,6 @@ import AuralisPrimaryModels
 import Foundation
 import Testing
 
-@Suite
 struct EthereumAddressTests {
     @Test(
         "normalizes supported wallet address input to lowercase 0x form",

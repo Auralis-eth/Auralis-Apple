@@ -9,7 +9,7 @@
 import Foundation
 import Testing
 
-@Suite struct URLExtensionTests {
+struct URLExtensionTests {
     // Test isIPFS property
     @Test(arguments: [
         // Valid IPFS URLs

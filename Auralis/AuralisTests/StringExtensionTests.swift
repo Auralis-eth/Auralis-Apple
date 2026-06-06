@@ -8,7 +8,7 @@
 @testable import Auralis
 import Testing
 
-@Suite struct StringExtensionTests {
+struct StringExtensionTests {
     // Test isHex property
     @Test(arguments: [
         // Valid hex strings

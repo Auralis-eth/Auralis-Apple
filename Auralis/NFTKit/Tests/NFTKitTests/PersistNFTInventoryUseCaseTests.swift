@@ -1,3 +1,4 @@
+import AuralisTestSupport
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
@@ -8,7 +9,6 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 
-@Suite
 struct PersistNFTInventoryUseCaseTests {
     @Test("upserts new NFTs and synchronizes tracked counts")
     @MainActor
@@ -53,7 +53,7 @@ struct PersistNFTInventoryUseCaseTests {
         let container = try NFTKitTestModelContainers.refresh()
         let context = ModelContext(container)
         let tag = try Tag(name: "Local Favorite")
-        let existing = makeRefreshFixtureNFT(tokenId: "7")
+        let existing = NFTFixture(tokenId: "7").build()
         existing.tags = [tag]
         context.insert(tag)
         context.insert(existing)
@@ -89,11 +89,11 @@ struct PersistNFTInventoryUseCaseTests {
         let container = try NFTKitTestModelContainers.refresh()
         let context = ModelContext(container)
         let account = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
-        let stale = makeRefreshFixtureNFT(
+        let stale = NFTFixture(
             contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             tokenId: "stale",
             accountAddress: account.address
-        )
+        ).build()
         context.insert(account)
         context.insert(stale)
         try context.save()

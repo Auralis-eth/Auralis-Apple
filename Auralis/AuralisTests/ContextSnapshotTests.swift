@@ -9,7 +9,7 @@ import ProviderKit
 import SwiftData
 import Testing
 
-@Suite struct ContextSnapshotTests {
+struct ContextSnapshotTests {
     @Test("live context source builds a versioned snapshot with provenance-bearing scope fields")
     func liveContextSourceBuildsVersionedSnapshot() {
         let refreshDate = Date(timeIntervalSince1970: 1_700_000_000)
@@ -237,7 +237,6 @@ import Testing
 }
 
 @MainActor
-@Suite
 struct ContextServiceTests {
     @Test("context service coalesces duplicate in-flight requests for the same scope")
     func contextServiceCoalescesDuplicateRequests() async {

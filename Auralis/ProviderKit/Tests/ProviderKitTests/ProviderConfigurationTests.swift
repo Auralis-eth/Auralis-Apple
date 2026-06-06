@@ -4,7 +4,6 @@ import Foundation
 import Testing
 @testable import ProviderKit
 
-@Suite
 struct ProviderConfigurationTests {
     @Test(
         "Live resolver keeps public Alchemy client keys in expected URL paths",

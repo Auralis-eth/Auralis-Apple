@@ -4,7 +4,6 @@ import SwiftDataAdapters
 import Testing
 
 @MainActor
-@Suite
 struct ModelContextMutationSupportTests {
     @Test("rollback-safe mutation saves successful work")
     func rollbackSafeMutationSavesSuccessfulWork() throws {

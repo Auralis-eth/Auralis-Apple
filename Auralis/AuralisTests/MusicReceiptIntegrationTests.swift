@@ -8,7 +8,6 @@ import ReceiptStorage
 import SwiftData
 import Testing
 
-@Suite
 struct MusicReceiptIntegrationTests {
     @Test("playlist creation and modification emit namespaced music receipts through the shared receipt store")
     @MainActor

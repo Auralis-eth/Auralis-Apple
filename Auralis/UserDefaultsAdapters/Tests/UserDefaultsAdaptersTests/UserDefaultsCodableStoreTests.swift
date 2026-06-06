@@ -3,7 +3,6 @@ import Foundation
 import Testing
 import UserDefaultsAdapters
 
-@Suite
 struct UserDefaultsCodableStoreTests {
     private struct Record: Codable, Equatable, Sendable {
         let id: String

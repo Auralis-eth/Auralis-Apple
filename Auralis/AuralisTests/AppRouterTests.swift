@@ -1,9 +1,9 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import Testing
 
-@Suite
 @MainActor
 struct AppRouterTests {
     @Test("music detail flow keeps the music tab and unwinds one level at a time")
@@ -75,14 +75,25 @@ struct AppRouterTests {
     @Test("home launch routes NFTs by media type")
     func homeLaunchRoutesNFTByMediaType() {
         let router = AppRouter()
-        let musicNFT = makeNFT(id: "music-1", contentType: "audio/mpeg", audioURL: "https://example.com/track.mp3")
+        let musicNFT = NFTFixture.music
+            .with {
+                $0.tokenId = "music-1"
+                $0.audioUrl = "https://example.com/track.mp3"
+            }
+            .build()
 
         router.showNFTFromHome(musicNFT)
         #expect(router.selectedTab == .music)
         #expect(router.musicPath == [.item(id: musicNFT.id)])
 
         router.resetAllPaths()
-        let visualNFT = makeNFT(id: "visual-1", contentType: "image/png", audioURL: nil)
+        let visualNFT = NFTFixture.image
+            .with {
+                $0.tokenId = "visual-1"
+                $0.contentType = "image/png"
+                $0.audioUrl = nil
+            }
+            .build()
 
         router.showNFTFromHome(visualNFT)
         #expect(router.selectedTab == .nftTokens)
@@ -214,26 +225,5 @@ struct AppRouterTests {
         #expect(router.auxiliarySurface == .erc20Token)
         #expect(router.currentRouteDepth == 1)
         #expect(router.selectedTabName == "erc20Tokens")
-    }
-
-    private func makeNFT(id: String, contentType: String, audioURL: String?) -> NFT {
-        NFT(
-            id: id,
-            contract: NFT.Contract(address: "0x1111111111111111111111111111111111111111"),
-            tokenId: "1",
-            tokenType: "ERC721",
-            name: id,
-            nftDescription: "Route test NFT",
-            image: NFT.Image(
-                originalUrl: "https://example.com/\(id).png",
-                thumbnailUrl: "https://example.com/\(id)-thumb.png"
-            ),
-            collection: NFT.Collection(name: "Route Tests"),
-            network: .ethMainnet,
-            contentType: contentType,
-            collectionName: "Route Tests",
-            artistName: "Auralis Tests",
-            audioUrl: audioURL
-        )
     }
 }

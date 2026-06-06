@@ -5,7 +5,6 @@ import ExplorerAdapter
 import Foundation
 import Testing
 
-@Suite
 struct ExternalLinkDestinationTests {
     private let contract = "0x1234567890abcdef1234567890abcdef12345678"
 

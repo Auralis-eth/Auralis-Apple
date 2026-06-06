@@ -1,3 +1,4 @@
+import AuralisTestSupport
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Testing
@@ -6,7 +7,6 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 
-@Suite
 struct NFTMetadataUpdaterTests {
     @Test("metadata image updates create a missing image submodel")
     func metadataImageUpdatesCreateImageModel() throws {
@@ -41,10 +41,11 @@ struct NFTMetadataUpdaterTests {
 
     @Test("nil metadata leaves cached NFT fields unchanged")
     func nilMetadataLeavesCachedFieldsUnchanged() throws {
-        let nft = makeNFT(
+        let nft = NFTFixture(
             name: "Cached Name",
-            image: makeImage(url: "https://example.com/cached.png")
-        )
+            imageOriginalUrl: "https://example.com/cached.png",
+            imageThumbnailUrl: "https://example.com/cached.png"
+        ).build()
 
         NFTMetadataUpdater.updateNFTFromMetadata(nft: nft, metadata: nil)
 
@@ -55,10 +56,11 @@ struct NFTMetadataUpdaterTests {
 
     @Test("partial metadata updates known fields and preserves cached image URLs")
     func partialMetadataUpdatesKnownFieldsAndPreservesImageURLs() throws {
-        let nft = makeNFT(
+        let nft = NFTFixture(
             name: "Old Name",
-            image: makeImage(url: "https://example.com/cached.png")
-        )
+            imageOriginalUrl: "https://example.com/cached.png",
+            imageThumbnailUrl: "https://example.com/cached.png"
+        ).build()
 
         NFTMetadataUpdater.updateNFTFromMetadata(
             nft: nft,
@@ -77,10 +79,11 @@ struct NFTMetadataUpdaterTests {
 
     @Test("empty metadata object preserves cached fields")
     func emptyMetadataObjectPreservesCachedFields() throws {
-        let nft = makeNFT(
+        let nft = NFTFixture(
             name: "Cached Name",
-            image: makeImage(url: "https://example.com/cached.png")
-        )
+            imageOriginalUrl: "https://example.com/cached.png",
+            imageThumbnailUrl: "https://example.com/cached.png"
+        ).build()
 
         NFTMetadataUpdater.updateNFTFromMetadata(nft: nft, metadata: [:])
 
@@ -91,10 +94,11 @@ struct NFTMetadataUpdaterTests {
 
     @Test("metadata image replacement updates both original and secure URLs")
     func metadataImageReplacementUpdatesImageURLs() throws {
-        let nft = makeNFT(
+        let nft = NFTFixture(
             name: "Cached Name",
-            image: makeImage(url: "https://example.com/old.png")
-        )
+            imageOriginalUrl: "https://example.com/old.png",
+            imageThumbnailUrl: "https://example.com/old.png"
+        ).build()
 
         NFTMetadataUpdater.updateNFTFromMetadata(
             nft: nft,
@@ -106,29 +110,4 @@ struct NFTMetadataUpdaterTests {
         #expect(try #require(nft.image).originalUrl == "https://gateway.pinata.cloud/ipfs/new-image")
         #expect(try #require(nft.image).secureUrl == "https://gateway.pinata.cloud/ipfs/new-image")
     }
-}
-
-private func makeNFT(name: String?, image: NFT.Image?) -> NFT {
-    NFT(
-        id: "0x1234567890abcdef1234567890abcdef12345678:eth-mainnet:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1",
-        contract: NFT.Contract(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", chain: .ethMainnet),
-        tokenId: "1",
-        name: name,
-        image: image,
-        raw: nil,
-        collection: NFT.Collection(
-            name: "Collection",
-            chain: .ethMainnet,
-            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        ),
-        tokenUri: "ipfs://fixture-1",
-        network: .ethMainnet,
-        accountAddress: "0x1234567890abcdef1234567890abcdef12345678"
-    )
-}
-
-private func makeImage(url: String) -> NFT.Image {
-    let image = NFT.Image(originalUrl: url)
-    image.secureUrl = url
-    return image
 }

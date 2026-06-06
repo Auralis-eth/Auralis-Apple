@@ -1,24 +1,33 @@
+import AuralisTestSupport
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import MusicFeature
 import Testing
 
-@Suite
 struct MusicItemDetailPresentationTests {
     @Test("item detail prefers source NFT identity while using indexed playback metadata")
     func presentationUsesCanonicalNFTAndIndexedPlaybackFields() throws {
-        let nft = makeNFT(
+        let nft = NFTFixture(
+            tokenId: "1",
             id: "track-1",
+            accountAddress: "",
+            contractAddress: Fixture.Accounts.primary,
+            network: .baseMainnet,
+            tokenType: "ERC721",
             name: "Aurora Echo",
-            description: "A test track.",
+            nftDescription: "A test track.",
             contentType: "audio/flac",
             collectionName: "Sky Archive",
             artistName: "DJ Nimbus",
-            audioURL: "https://example.com/audio.flac"
-        )
-        let item = makeLibraryItem(
+            audioUrl: "https://example.com/audio.flac",
+            includeOwnedChildren: true
+        ).build()
+        let item = MusicLibraryItemFixture(
+            id: "library-\(nft.id)",
             sourceNFTID: nft.id,
+            accountAddress: "",
+            network: .baseMainnet,
             title: "Indexed Aurora Echo",
             artistName: "Indexed Nimbus",
             collectionName: "Indexed Sky Archive",
@@ -26,7 +35,7 @@ struct MusicItemDetailPresentationTests {
             playbackURLString: "https://example.com/indexed.flac",
             availability: .ready,
             availabilityReason: nil
-        )
+        ).build()
 
         let presentation = try #require(AuraPlayMusicItemDetailPresentation(nft: nft, libraryItem: item))
 
@@ -41,17 +50,26 @@ struct MusicItemDetailPresentationTests {
 
     @Test("item detail degrades honestly when metadata is partial")
     func presentationDegradesCleanlyForSparseMetadata() throws {
-        let nft = makeNFT(
+        let nft = NFTFixture(
+            tokenId: "1",
             id: "track-2",
+            accountAddress: "",
+            contractAddress: Fixture.Accounts.primary,
+            network: .baseMainnet,
+            tokenType: "ERC721",
             name: nil,
-            description: nil,
+            nftDescription: nil,
             contentType: nil,
             collectionName: nil,
             artistName: nil,
-            audioURL: nil
-        )
-        let item = makeLibraryItem(
+            audioUrl: nil,
+            includeOwnedChildren: true
+        ).build()
+        let item = MusicLibraryItemFixture(
+            id: "library-\(nft.id)",
             sourceNFTID: nft.id,
+            accountAddress: "",
+            network: .baseMainnet,
             title: "Recovered Track",
             artistName: nil,
             collectionName: nil,
@@ -59,7 +77,7 @@ struct MusicItemDetailPresentationTests {
             playbackURLString: nil,
             availability: .unavailable,
             availabilityReason: "Provider did not return a playable source."
-        )
+        ).build()
 
         let presentation = try #require(AuraPlayMusicItemDetailPresentation(nft: nft, libraryItem: item))
 
@@ -74,8 +92,11 @@ struct MusicItemDetailPresentationTests {
 
     @Test("item detail still renders from indexed metadata when the source NFT is gone")
     func presentationFallsBackToIndexedMetadataWhenNFTIsMissing() throws {
-        let item = makeLibraryItem(
+        let item = MusicLibraryItemFixture(
+            id: "library-track-3",
             sourceNFTID: "track-3",
+            accountAddress: "",
+            network: .baseMainnet,
             title: "Indexed Only",
             artistName: "Offline Artist",
             collectionName: "Cached Vault",
@@ -83,7 +104,7 @@ struct MusicItemDetailPresentationTests {
             playbackURLString: nil,
             availability: .ready,
             availabilityReason: nil
-        )
+        ).build()
 
         let presentation = try #require(AuraPlayMusicItemDetailPresentation(nft: nil, libraryItem: item))
 
@@ -95,62 +116,4 @@ struct MusicItemDetailPresentationTests {
         #expect(summary.title == "Metadata Ready")
     }
 
-    private func makeNFT(
-        id: String,
-        name: String?,
-        description: String?,
-        contentType: String?,
-        collectionName: String?,
-        artistName: String?,
-        audioURL: String?
-    ) -> NFT {
-        NFT(
-            id: id,
-            contract: NFT.Contract(address: "0x1111111111111111111111111111111111111111"),
-            tokenId: "1",
-            tokenType: "ERC721",
-            name: name,
-            nftDescription: description,
-            image: NFT.Image(
-                originalUrl: "https://example.com/\(id).png",
-                thumbnailUrl: "https://example.com/\(id)-thumb.png"
-            ),
-            collection: collectionName.map { NFT.Collection(name: $0) },
-            network: .baseMainnet,
-            contentType: contentType,
-            collectionName: collectionName,
-            artistName: artistName,
-            audioUrl: audioURL
-        )
-    }
-
-    private func makeLibraryItem(
-        sourceNFTID: String,
-        title: String,
-        artistName: String?,
-        collectionName: String?,
-        contentType: String?,
-        playbackURLString: String?,
-        availability: MusicLibraryAvailability,
-        availabilityReason: String?
-    ) -> MusicLibraryItem {
-        MusicLibraryItem(
-            id: "library-\(sourceNFTID)",
-            sourceNFTID: sourceNFTID,
-            accountAddressRawValue: "",
-            networkRawValue: Chain.baseMainnet.rawValue,
-            title: title,
-            artistName: artistName,
-            collectionName: collectionName,
-            normalizedTitleKey: title.lowercased(),
-            normalizedArtistKey: (artistName ?? "").lowercased(),
-            normalizedCollectionKey: (collectionName ?? "").lowercased(),
-            artworkURLString: "https://example.com/\(sourceNFTID)-art.png",
-            contentType: contentType,
-            playbackURLString: playbackURLString,
-            availability: availability,
-            availabilityReason: availabilityReason,
-            sourceUpdatedAtRawValue: nil
-        )
-    }
 }

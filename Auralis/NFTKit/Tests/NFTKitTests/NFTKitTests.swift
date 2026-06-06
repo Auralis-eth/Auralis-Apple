@@ -1,3 +1,4 @@
+import AuralisTestSupport
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
@@ -5,7 +6,6 @@ import NFTDomain
 import NFTKit
 import Testing
 
-@Suite
 struct NFTKitTests {
     @Test("refresh scope normalizes account input and rejects empty scopes")
     func refreshScopeNormalizesAccountInput() throws {
@@ -36,7 +36,16 @@ struct NFTKitTests {
 
     @Test("metadata updater applies canonical media URLs and preserves secure image URL")
     func metadataUpdaterAppliesMediaPatch() throws {
-        let nft = makeNFT()
+        let nft = NFTFixture(
+            tokenId: "1",
+            accountAddress: Fixture.Accounts.primary,
+            contractAddress: Fixture.contract("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            collectionName: "Original Collection",
+            network: .baseMainnet,
+            name: "Original",
+            nftDescription: "Original description",
+            imageOriginalUrl: "https://example.com/original.png"
+        ).build()
 
         NFTMetadataUpdater.updateNFTFromMetadata(
             nft: nft,
@@ -104,23 +113,6 @@ struct NFTKitTests {
         ])
     }
 
-    private func makeNFT() -> NFT {
-        NFT(
-            id: "fixture",
-            contract: NFT.Contract(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", chain: .baseMainnet),
-            tokenId: "1",
-            name: "Original",
-            nftDescription: "Original description",
-            image: NFT.Image(originalUrl: "https://example.com/original.png"),
-            collection: NFT.Collection(
-                name: "Original Collection",
-                chain: .baseMainnet,
-                contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-            ),
-            network: .baseMainnet,
-            accountAddress: "0x1234567890abcdef1234567890abcdef12345678"
-        )
-    }
 }
 
 private actor RecordingNFTFetcher: NFTFetching {

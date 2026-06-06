@@ -1,7 +1,7 @@
 {
   "configurations" : [
     {
-      "id" : "8EB7246E-93B1-4FED-9740-35362FA7EBB3",
+      "id" : "B53B3B43-B9D9-4B24-8C98-5BB41914E622",
       "name" : "Configuration 1",
       "options" : {
 
@@ -20,7 +20,7 @@
   "testTargets" : [
     {
       "parallelizable" : true,
-      "skippedTests" : [
+      "selectedTests" : [
         "ArchitectureBoundaryTests",
         "AuraPlayBundleContractTests",
         "AuraPlayPersistenceWave2Tests",

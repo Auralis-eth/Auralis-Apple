@@ -14,7 +14,7 @@ import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
 
-@Suite struct SecretsTests {
+struct SecretsTests {
     @Test("missing provider keys fail deterministically when the test bundle is not configured")
     func missingProviderKeyThrowsDeterministicError() throws {
         let error = #expect(throws: Secrets.SecretsError.self) {

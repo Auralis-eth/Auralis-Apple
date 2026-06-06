@@ -21,71 +21,25 @@ import TokenStorage
 @MainActor
 @Suite(.tags(.privacy, .swiftdata))
 struct PrivacyResetServiceTests {
-    @Test("resetLocalPrivacyData clears persisted search history rows")
-    func resetLocalPrivacyDataClearsSearchHistory() async throws {
-        let fixture = try await makeResetFixture()
+    @Test("resetLocalPrivacyData clears all scoped local state")
+    func fullResetClearsAllScopedState() async throws {
+        let fixture = try await arrangePopulatedFixture()
+
+        try await fixture.performFullReset()
 
         #expect(fixture.searchHistoryStore.entries(for: nil).isEmpty)
         #expect(fixture.searchHistoryStore.entries(for: fixture.accountAddress).isEmpty)
-    }
-
-    @Test("resetLocalPrivacyData resets ENS cache collaborator once")
-    func resetLocalPrivacyDataResetsENSCache() async throws {
-        let fixture = try await makeResetFixture()
-
         #expect(await fixture.ensCacheResetService.resetCount() == 1)
-    }
-
-    @Test("resetLocalPrivacyData resets AuraPlay persistence once")
-    func resetLocalPrivacyDataResetsAuraPlayPersistence() async throws {
-        let fixture = try await makeResetFixture()
-
         #expect(await fixture.auraPlayPersistenceResetService.resetCount() == 1)
-    }
-
-    @Test("resetLocalPrivacyData clears stored credentials once")
-    func resetLocalPrivacyDataClearsCredentials() async throws {
-        let fixture = try await makeResetFixture()
-
         #expect(await fixture.credentialResetService.clearCount() == 1)
-    }
-
-    @Test("resetLocalPrivacyData clears receipt rows")
-    func resetLocalPrivacyDataClearsReceipts() async throws {
-        let fixture = try await makeResetFixture()
-
         #expect(try fixture.context.fetch(FetchDescriptor<StoredReceipt>()).isEmpty)
-    }
-
-    @Test("resetLocalPrivacyData clears token holdings")
-    func resetLocalPrivacyDataClearsTokenHoldings() async throws {
-        let fixture = try await makeResetFixture()
-
         #expect(try fixture.context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
-    }
-
-    @Test("resetLocalPrivacyData clears NFT and AuraPlay rows")
-    func resetLocalPrivacyDataClearsNFTAndAuraPlayRows() async throws {
-        let fixture = try await makeResetFixture()
-
         #expect(try fixture.context.fetch(FetchDescriptor<NFT>()).isEmpty)
         #expect(try fixture.context.fetch(FetchDescriptor<MusicLibraryItem>()).isEmpty)
         #expect(try fixture.context.fetch(FetchDescriptor<AuralisPrimaryPersistence.Tag>()).isEmpty)
         #expect(try fixture.context.fetch(FetchDescriptor<NFT.Contract>()).isEmpty)
         #expect(try fixture.context.fetch(FetchDescriptor<NFT.Collection>()).isEmpty)
-    }
-
-    @Test("resetLocalPrivacyData clears shell selection")
-    func resetLocalPrivacyDataClearsShellSelection() async throws {
-        let fixture = try await makeResetFixture()
-
         #expect(fixture.selectionPersistence.clearSelectionCallCount == 1)
-    }
-
-    @Test("resetLocalPrivacyData clears home pinned items")
-    func resetLocalPrivacyDataClearsHomePinnedItems() async throws {
-        let fixture = try await makeResetFixture()
-
         #expect(fixture.pinnedItemsStore.pinnedActions(for: fixture.accountAddress).isEmpty)
     }
 
@@ -142,7 +96,7 @@ struct PrivacyResetServiceTests {
         #expect(defaults.data(forKey: storageKey) == nil)
     }
 
-    private func makeResetFixture() async throws -> PrivacyResetFixture {
+    private func arrangePopulatedFixture() async throws -> PrivacyResetFixture {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let ensCacheResetService = RecordingENSCacheResetService()
@@ -166,8 +120,8 @@ struct PrivacyResetServiceTests {
             modelContext: context,
             sequenceAllocator: ReceiptSequenceAllocator()
         )
-        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
-        let accountAddress = "0x1111111111111111111111111111111111111111"
+        let referenceDate = Fixture.referenceDate
+        let accountAddress = Fixture.Accounts.primary
 
         try await searchHistoryStore.recordCommittedQuery("Moonpunks", accountAddress: nil)
         try await searchHistoryStore.recordCommittedQuery("USDC", accountAddress: accountAddress)
@@ -178,8 +132,11 @@ struct PrivacyResetServiceTests {
             updatedAt: referenceDate
         )
         try pinnedItemsStore.togglePin(.openNews, accountAddress: accountAddress)
-        context.insert(makeFixtureNFT(tokenId: "moon-1"))
-        context.insert(makeFixtureMusicLibraryItem(id: "track-1", sourceNFTID: "music-source-1"))
+        context.insert(NFTFixture.music.with { $0.tokenId = "moon-1" }.build())
+        context.insert(MusicLibraryItemFixture.music.with {
+            $0.id = "track-1"
+            $0.sourceNFTID = "music-source-1"
+        }.build())
         context.insert(try AuralisPrimaryPersistence.Tag(name: "Local Favorite"))
         try context.save()
         _ = try await receiptStore.append(
@@ -193,10 +150,9 @@ struct PrivacyResetServiceTests {
             )
         )
 
-        try await service.resetLocalPrivacyData()
-
         return PrivacyResetFixture(
             context: context,
+            service: service,
             searchHistoryStore: searchHistoryStore,
             ensCacheResetService: ensCacheResetService,
             auraPlayPersistenceResetService: auraPlayPersistenceResetService,
@@ -222,14 +178,17 @@ struct PrivacyResetServiceTests {
             now: Date(timeIntervalSince1970: 200)
         )
 
-        context.insert(makeFixtureNFT(tokenId: "removed-1", accountAddress: removed.address))
-        context.insert(makeFixtureMusicLibraryItem(
-            id: "removed-track-1",
-            sourceNFTID: "removed-source-1",
-            accountAddressRawValue: removed.address
-        ))
+        context.insert(NFTFixture.music.with {
+            $0.tokenId = "removed-1"
+            $0.accountAddress = removed.address
+        }.build())
+        context.insert(MusicLibraryItemFixture.music.with {
+            $0.id = "removed-track-1"
+            $0.sourceNFTID = "removed-source-1"
+            $0.accountAddress = removed.address
+        }.build())
         removed.markAuraPlaySynced(on: .ethMainnet, at: Date(timeIntervalSince1970: 1_700_000_000))
-        context.insert(try makeFixtureStoredReceipt(accountAddress: removed.address))
+        context.insert(try StoredReceiptFixture.successful.with { $0.accountAddress = removed.address }.build())
         try await SearchHistoryStore(modelContext: context).recordCommittedQuery("Removed Scope", accountAddress: removed.address)
         try await SwiftDataTokenHoldingsStore(modelContext: context).upsertNativeHolding(
             accountAddress: removed.address,
@@ -237,18 +196,18 @@ struct PrivacyResetServiceTests {
             amountDisplay: "4.2",
             updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
-        context.insert(makeFixtureNFT(
-            tokenId: "preserved-1",
-            accountAddress: preserved.address,
-            contractAddress: "0x9999999999999999999999999999999999999999"
-        ))
-        context.insert(makeFixtureMusicLibraryItem(
-            id: "preserved-track-1",
-            sourceNFTID: "preserved-source-1",
-            accountAddressRawValue: preserved.address
-        ))
+        context.insert(NFTFixture.music.with {
+            $0.tokenId = "preserved-1"
+            $0.accountAddress = preserved.address
+            $0.contractAddress = Fixture.contract("9999999999999999999999999999999999999999")
+        }.build())
+        context.insert(MusicLibraryItemFixture.music.with {
+            $0.id = "preserved-track-1"
+            $0.sourceNFTID = "preserved-source-1"
+            $0.accountAddress = preserved.address
+        }.build())
         preserved.markAuraPlaySynced(on: .ethMainnet, at: Date(timeIntervalSince1970: 1_700_000_000))
-        context.insert(try makeFixtureStoredReceipt(accountAddress: preserved.address))
+        context.insert(try StoredReceiptFixture.successful.with { $0.accountAddress = preserved.address }.build())
         try context.save()
 
         _ = try await store.removeAccount(
@@ -292,14 +251,17 @@ struct PrivacyResetServiceTests {
             now: Date(timeIntervalSince1970: 200)
         )
 
-        context.insert(makeFixtureNFT(tokenId: "stale-overwrite", accountAddress: overwritten.address))
-        context.insert(makeFixtureMusicLibraryItem(
-            id: "overwrite-track-1",
-            sourceNFTID: "overwrite-source-1",
-            accountAddressRawValue: overwritten.address
-        ))
+        context.insert(NFTFixture.music.with {
+            $0.tokenId = "stale-overwrite"
+            $0.accountAddress = overwritten.address
+        }.build())
+        context.insert(MusicLibraryItemFixture.music.with {
+            $0.id = "overwrite-track-1"
+            $0.sourceNFTID = "overwrite-source-1"
+            $0.accountAddress = overwritten.address
+        }.build())
         overwritten.markAuraPlaySynced(on: .ethMainnet, at: Date(timeIntervalSince1970: 1_700_000_000))
-        context.insert(try makeFixtureStoredReceipt(accountAddress: overwritten.address))
+        context.insert(try StoredReceiptFixture.successful.with { $0.accountAddress = overwritten.address }.build())
         try await SearchHistoryStore(modelContext: context).recordCommittedQuery("Overwrite Scope", accountAddress: overwritten.address)
         try await SwiftDataTokenHoldingsStore(modelContext: context).upsertNativeHolding(
             accountAddress: overwritten.address,
@@ -307,18 +269,18 @@ struct PrivacyResetServiceTests {
             amountDisplay: "9.9",
             updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
-        context.insert(makeFixtureNFT(
-            tokenId: "keep-other",
-            accountAddress: other.address,
-            contractAddress: "0x8888888888888888888888888888888888888888"
-        ))
-        context.insert(makeFixtureMusicLibraryItem(
-            id: "keep-other-track-1",
-            sourceNFTID: "keep-other-source-1",
-            accountAddressRawValue: other.address
-        ))
+        context.insert(NFTFixture.music.with {
+            $0.tokenId = "keep-other"
+            $0.accountAddress = other.address
+            $0.contractAddress = Fixture.Contracts.alternate
+        }.build())
+        context.insert(MusicLibraryItemFixture.music.with {
+            $0.id = "keep-other-track-1"
+            $0.sourceNFTID = "keep-other-source-1"
+            $0.accountAddress = other.address
+        }.build())
         other.markAuraPlaySynced(on: .ethMainnet, at: Date(timeIntervalSince1970: 1_700_000_000))
-        context.insert(try makeFixtureStoredReceipt(accountAddress: other.address))
+        context.insert(try StoredReceiptFixture.successful.with { $0.accountAddress = other.address }.build())
         try context.save()
 
         _ = try await store.createWatchAccount(
@@ -356,19 +318,22 @@ struct PrivacyResetServiceTests {
         let context = ModelContext(container)
 
         let preservedAccount = EOAccount(
-            address: "0x1111111111111111111111111111111111111111",
+            address: Fixture.Accounts.primary,
             access: .readonly,
             name: "Preserved"
         )
         context.insert(preservedAccount)
-        context.insert(makeFixtureNFT(tokenId: "logout-track", accountAddress: preservedAccount.address))
-        context.insert(makeFixtureMusicLibraryItem(
-            id: "logout-library-item",
-            sourceNFTID: "logout-source-1",
-            accountAddressRawValue: preservedAccount.address
-        ))
+        context.insert(NFTFixture.music.with {
+            $0.tokenId = "logout-track"
+            $0.accountAddress = preservedAccount.address
+        }.build())
+        context.insert(MusicLibraryItemFixture.music.with {
+            $0.id = "logout-library-item"
+            $0.sourceNFTID = "logout-source-1"
+            $0.accountAddress = preservedAccount.address
+        }.build())
         preservedAccount.markAuraPlaySynced(on: .ethMainnet, at: Date(timeIntervalSince1970: 1_700_000_000))
-        context.insert(try makeFixtureStoredReceipt(accountAddress: preservedAccount.address))
+        context.insert(try StoredReceiptFixture.successful.with { $0.accountAddress = preservedAccount.address }.build())
         try await SearchHistoryStore(modelContext: context).recordCommittedQuery(
             "Logout Scope",
             accountAddress: preservedAccount.address
@@ -605,6 +570,7 @@ struct PrivacyResetServiceTests {
 @MainActor
 private struct PrivacyResetFixture {
     let context: ModelContext
+    let service: PrivacyResetService
     let searchHistoryStore: SearchHistoryStore
     let ensCacheResetService: RecordingENSCacheResetService
     let auraPlayPersistenceResetService: RecordingAuraPlayPersistenceResetService
@@ -612,6 +578,10 @@ private struct PrivacyResetFixture {
     let selectionPersistence: RecordingShellSelectionPersistence
     let pinnedItemsStore: HomePinnedItemsStore
     let accountAddress: String
+
+    func performFullReset() async throws {
+        try await service.resetLocalPrivacyData()
+    }
 }
 
 private func makeIsolatedPinnedItemsStore() -> HomePinnedItemsStore {
@@ -619,88 +589,6 @@ private func makeIsolatedPinnedItemsStore() -> HomePinnedItemsStore {
     let defaults = UserDefaults(suiteName: suiteName) ?? UserDefaults()
     defaults.removePersistentDomain(forName: suiteName)
     return HomePinnedItemsStore(userDefaults: defaults)
-}
-
-private func makeFixtureNFT(
-    tokenId: String,
-    accountAddress: String = "0x1111111111111111111111111111111111111111",
-    contractAddress: String = "0x495f947276749ce646f68ac8c248420045cb7b5e"
-) -> NFT {
-    let network: Chain = .ethMainnet
-    let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? "unscoped"
-    let normalizedContractAddress = NFT.normalizedScopeComponent(contractAddress) ?? "unknown"
-
-    return NFT(
-        id: "\(normalizedAccountAddress):\(network.rawValue):\(normalizedContractAddress):\(tokenId)",
-        contract: NFT.Contract(address: contractAddress, chain: network),
-        tokenId: tokenId,
-        name: "Fixture \(tokenId)",
-        image: nil,
-        raw: nil,
-        collection: NFT.Collection(
-            name: "Fixture Collection",
-            chain: network,
-            contractAddress: contractAddress
-        ),
-        tokenUri: "ipfs://fixture-\(tokenId)",
-        timeLastUpdated: "2025-01-01T00:00:00Z",
-        network: network,
-        accountAddress: accountAddress,
-        contentType: "audio/mpeg",
-        collectionName: "Fixture Collection",
-        artistName: "Fixture Artist",
-        animationUrl: "https://example.com/\(tokenId).mp3",
-        audioUrl: "https://example.com/\(tokenId).mp3"
-    )
-}
-
-private func makeFixtureMusicLibraryItem(
-    id: String,
-    sourceNFTID: String,
-    accountAddressRawValue: String = "0x1111111111111111111111111111111111111111"
-) -> MusicLibraryItem {
-    MusicLibraryItem(
-        id: id,
-        sourceNFTID: sourceNFTID,
-        accountAddressRawValue: accountAddressRawValue,
-        networkRawValue: Chain.ethMainnet.rawValue,
-        title: "Fixture Track",
-        artistName: "Fixture Artist",
-        collectionName: "Fixture Collection",
-        normalizedTitleKey: "fixture track",
-        normalizedArtistKey: "fixture artist",
-        normalizedCollectionKey: "fixture collection",
-        artworkURLString: "https://example.com/\(id).png",
-        contentType: "audio/mpeg",
-        playbackURLString: "https://example.com/\(id).mp3",
-        availability: .ready,
-        availabilityReason: nil,
-        sourceUpdatedAtRawValue: nil
-    )
-}
-
-private func makeFixtureStoredReceipt(
-    accountAddress: String,
-    chainRawValue: String = Chain.ethMainnet.rawValue
-) throws -> StoredReceipt {
-    try StoredReceipt(
-        sequenceID: 1,
-        createdAt: Date(timeIntervalSince1970: 123),
-        actor: .system,
-        mode: .observe,
-        trigger: "fixture.trigger",
-        scope: "fixture.scope",
-        summary: "fixture.summary",
-        provenance: "tests",
-        isSuccess: true,
-        timelineAccountAddress: accountAddress,
-        timelineChainRawValue: chainRawValue,
-        accountSequenceID: 1,
-        payloadHash: "payload-hash-\(accountAddress)",
-        previousReceiptHash: "previous-hash-\(accountAddress)",
-        chainHash: "chain-hash-\(accountAddress)",
-        details: ReceiptPayload(values: [:])
-    )
 }
 
 private actor RecordingENSCacheResetService: ENSCacheResetting {

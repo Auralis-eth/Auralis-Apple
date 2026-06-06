@@ -4,7 +4,6 @@ import Foundation
 import ProviderKit
 import Testing
 
-@Suite
 @MainActor
 struct GasPriceEstimateViewModelTests {
     @Test("setting the first chain immediately enters a non-error loading phase")

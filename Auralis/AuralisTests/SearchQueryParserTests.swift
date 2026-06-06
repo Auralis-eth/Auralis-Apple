@@ -5,7 +5,6 @@ import Foundation
 import Testing
 import TokenStorage
 
-@Suite
 struct SearchQueryParserTests {
     private let parser = SearchQueryParser()
 

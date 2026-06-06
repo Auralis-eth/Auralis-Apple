@@ -6,12 +6,12 @@ import NFTPresentation
 import NFTProviderAdapters
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import Foundation
 import ProviderKit
 import SwiftData
 import Testing
 
-@Suite
 struct NFTServiceReceiptTests {
     @Test("refresh flow carries one caller-provided correlation ID across service fetch and persistence receipts")
     @MainActor
@@ -189,7 +189,7 @@ struct NFTServiceReceiptTests {
         let context = ModelContext(container)
         let fetcher = NFTFixtureFetcher(
             nftsByChain: [
-                .baseMainnet: [makeFixtureSnapshot(network: .ethMainnet)]
+                .baseMainnet: [makeRefreshFixtureSnapshot(network: .ethMainnet)]
             ]
         )
         let service = NFTService(nftFetcher: fetcher)
@@ -218,18 +218,18 @@ struct NFTServiceReceiptTests {
         let container = try NFTKitTestModelContainers.refresh()
         let context = ModelContext(container)
 
-        let firstNFT = makeFixtureNFT(
-            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        let firstNFT = NFTFixture(
             tokenId: "1",
+            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             collectionName: "Shared Name",
             network: .ethMainnet
-        )
-        let secondNFT = makeFixtureNFT(
-            contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        ).build()
+        let secondNFT = NFTFixture(
             tokenId: "2",
+            contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             collectionName: "Shared Name",
             network: .ethMainnet
-        )
+        ).build()
 
         context.insert(firstNFT)
         context.insert(secondNFT)
@@ -249,18 +249,18 @@ struct NFTServiceReceiptTests {
         let container = try NFTKitTestModelContainers.refresh()
         let context = ModelContext(container)
 
-        let firstNFT = makeFixtureNFT(
-            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        let firstNFT = NFTFixture(
             tokenId: "1",
+            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             collectionName: "Shared Name",
             network: .ethMainnet
-        )
-        let secondNFT = makeFixtureNFT(
-            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ).build()
+        let secondNFT = NFTFixture(
             tokenId: "1",
+            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             collectionName: "Shared Name",
             network: .baseMainnet
-        )
+        ).build()
 
         context.insert(firstNFT)
         context.insert(secondNFT)
@@ -283,27 +283,27 @@ struct NFTServiceReceiptTests {
         let otherAccountAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         context.insert(
-            makeFixtureNFT(
-                contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            NFTFixture(
                 tokenId: "stale",
-                network: .ethMainnet,
-                accountAddress: activeAccount.address
-            )
+                accountAddress: activeAccount.address,
+                contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                network: .ethMainnet
+            ).build()
         )
         context.insert(
-            makeFixtureNFT(
-                contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            NFTFixture(
                 tokenId: "other-account",
-                network: .ethMainnet,
-                accountAddress: otherAccountAddress
-            )
+                accountAddress: otherAccountAddress,
+                contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                network: .ethMainnet
+            ).build()
         )
         try context.save()
 
         let fetcher = NFTFixtureFetcher(
             nftsByChain: [
                 .ethMainnet: [
-                    makeFixtureSnapshot(
+                    makeRefreshFixtureSnapshot(
                         contractAddress: "0xcccccccccccccccccccccccccccccccccccccccc",
                         tokenId: "fresh",
                         network: .ethMainnet,
@@ -335,27 +335,27 @@ struct NFTServiceReceiptTests {
         let activeAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
 
         context.insert(
-            makeFixtureNFT(
-                contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            NFTFixture(
                 tokenId: "stale-eth",
-                network: .ethMainnet,
-                accountAddress: activeAccount.address
-            )
+                accountAddress: activeAccount.address,
+                contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                network: .ethMainnet
+            ).build()
         )
         context.insert(
-            makeFixtureNFT(
-                contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            NFTFixture(
                 tokenId: "base-keep",
-                network: .baseMainnet,
-                accountAddress: activeAccount.address
-            )
+                accountAddress: activeAccount.address,
+                contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                network: .baseMainnet
+            ).build()
         )
         try context.save()
 
         let fetcher = NFTFixtureFetcher(
             nftsByChain: [
                 .ethMainnet: [
-                    makeFixtureSnapshot(
+                    makeRefreshFixtureSnapshot(
                         contractAddress: "0xcccccccccccccccccccccccccccccccccccccccc",
                         tokenId: "fresh-eth",
                         network: .ethMainnet,
@@ -388,13 +388,13 @@ struct NFTServiceReceiptTests {
         let fetcher = NFTFixtureFetcher(
             nftsByChain: [
                 .ethMainnet: [
-                    makeFixtureSnapshot(
+                    makeRefreshFixtureSnapshot(
                         contractAddress: sharedContractAddress,
                         tokenId: "1",
                         collectionName: "Shared Contract",
                         network: .ethMainnet
                     ),
-                    makeFixtureSnapshot(
+                    makeRefreshFixtureSnapshot(
                         contractAddress: sharedContractAddress,
                         tokenId: "2",
                         collectionName: "Shared Contract",
@@ -766,48 +766,4 @@ private actor FailingStateNFTFetcher: NFTFetching {
     ) async throws -> NFTFetchInventoryResult {
         throw error
     }
-}
-
-private func makeFixtureNFT(
-    contractAddress: String = "0x495f947276749ce646f68ac8c248420045cb7b5e",
-    tokenId: String = "42",
-    collectionName: String = "Fixture Collection",
-    network: Chain = .ethMainnet,
-    accountAddress: String = "0x1234567890abcdef1234567890abcdef12345678"
-) -> NFT {
-    let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? "unscoped"
-    let normalizedContractAddress = NFT.normalizedScopeComponent(contractAddress) ?? "unknown"
-    return NFT(
-        id: "\(normalizedAccountAddress):\(network.rawValue):\(normalizedContractAddress):\(tokenId)",
-        contract: NFT.Contract(address: contractAddress, chain: network),
-        tokenId: tokenId,
-        name: "Fixture NFT",
-        image: nil,
-        raw: nil,
-        collection: NFT.Collection(
-            name: collectionName,
-            chain: network,
-            contractAddress: contractAddress
-        ),
-        tokenUri: "ipfs://fixture-\(tokenId)",
-        network: network,
-        accountAddress: accountAddress,
-        collectionName: collectionName
-    )
-}
-
-private func makeFixtureSnapshot(
-    contractAddress: String = "0x495f947276749ce646f68ac8c248420045cb7b5e",
-    tokenId: String = "42",
-    collectionName: String = "Fixture Collection",
-    network: Chain = .ethMainnet,
-    accountAddress: String = "0x1234567890abcdef1234567890abcdef12345678"
-) -> NFTInventoryItemSnapshot {
-    makeRefreshFixtureSnapshot(
-        contractAddress: contractAddress,
-        tokenId: tokenId,
-        collectionName: collectionName,
-        network: network,
-        accountAddress: accountAddress
-    )
 }

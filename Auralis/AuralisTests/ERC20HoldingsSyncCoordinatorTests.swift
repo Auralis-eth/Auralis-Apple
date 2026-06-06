@@ -8,7 +8,6 @@ import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
 
-@Suite
 struct ERC20HoldingsSyncCoordinatorTests {
     @Test(
         "a newer ERC-20 sync drops stale results from the previous wallet scope",

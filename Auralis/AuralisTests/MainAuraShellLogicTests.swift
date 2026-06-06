@@ -4,7 +4,7 @@ import AuralisPrimaryPersistence
 import Foundation
 import Testing
 
-@Suite struct MainAuraShellLogicTests {
+struct MainAuraShellLogicTests {
     private let logic = MainAuraShellLogic()
 
     @Test("initial restore falls back to Ethereum mainnet and no account when storage is empty")

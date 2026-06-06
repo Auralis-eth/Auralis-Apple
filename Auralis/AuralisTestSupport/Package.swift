@@ -14,7 +14,18 @@ let package = Package(
             targets: ["AuralisTestSupport"]
         ),
     ],
+    dependencies: [
+        .package(path: "../AuralisPrimaryModels"),
+        .package(path: "../ReceiptStorage"),
+    ],
     targets: [
-        .target(name: "AuralisTestSupport"),
+        .target(
+            name: "AuralisTestSupport",
+            dependencies: [
+                "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "ReceiptStorage",
+            ]
+        ),
     ]
 )

@@ -4,7 +4,6 @@ import AVFoundation
 import SwiftUI
 import Testing
 
-@Suite
 struct CodeScannerTests {
     @Test("scan mode manual flag distinguishes manual capture from automatic modes")
     func scanModeManualFlagDistinguishesModes() {

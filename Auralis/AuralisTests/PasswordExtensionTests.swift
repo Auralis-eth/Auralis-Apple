@@ -9,7 +9,6 @@
 import Foundation
 import Testing
 
-@Suite
 struct PasswordExtensionTests {
     struct TestCase: Sendable {
         let password: String

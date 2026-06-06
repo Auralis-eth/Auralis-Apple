@@ -3,7 +3,6 @@ import AuralisPrimaryPersistence
 import MusicFeature
 import Testing
 
-@Suite
 struct MusicCollectionPresentationTests {
     @Test("collection summaries group scoped library items by normalized collection key")
     func summariesGroupItemsByCollection() throws {

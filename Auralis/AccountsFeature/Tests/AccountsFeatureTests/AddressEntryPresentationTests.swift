@@ -2,7 +2,6 @@ import AccountsFeature
 import Testing
 
 @MainActor
-@Suite
 struct AddressEntryPresentationTests {
     @Test("address entry shows canonical copyable form for valid EVM input")
     func addressEntryShowsCanonicalForm() {

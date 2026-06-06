@@ -7,7 +7,6 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 
-@Suite
 struct PrepareNFTMetadataUseCaseTests {
     @Test("applies refresh scope to prepared NFTs")
     @MainActor

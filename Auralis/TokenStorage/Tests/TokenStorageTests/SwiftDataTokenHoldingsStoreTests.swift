@@ -6,7 +6,6 @@ import Testing
 import TokenStorage
 
 @MainActor
-@Suite
 struct SwiftDataTokenHoldingsStoreTests {
     @Test("save native token holding for account and chain scope")
     func saveNativeTokenHoldingForAccountAndChainScope() async throws {

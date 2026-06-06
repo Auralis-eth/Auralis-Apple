@@ -6,7 +6,6 @@ import AuralisTestSupport
 import Foundation
 import Testing
 
-@Suite
 struct ExternalLinkOpenFlowTests {
     @Test("confirmed open logs first and then opens the destination")
     @MainActor

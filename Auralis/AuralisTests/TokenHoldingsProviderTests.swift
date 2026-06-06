@@ -9,7 +9,6 @@ import NFTProviderAdapters
 import ProviderKit
 import Testing
 
-@Suite
 struct TokenHoldingsPaginationTests {
     @Test("pagination guard rejects repeated cursors")
     func paginationGuardRejectsRepeatedCursors() {
@@ -70,7 +69,6 @@ struct TokenHoldingsPaginationTests {
     }
 }
 
-@Suite
 struct AlchemyTokenHoldingsProviderWarningTests {
     @Test("provider returns holdings plus warning when enrichment fails")
     func providerReturnsWarningForEnrichmentFailure() async throws {

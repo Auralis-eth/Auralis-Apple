@@ -13,7 +13,6 @@ import NFTProviderAdapters
 import ProviderKit
 import TokenStorage
 
-@Suite
 struct HelperConsistencyTests {
     @Test("8 character hex values resolve consistently across helper paths")
     func hexHelpersUseSharedRGBAConvention() {
@@ -65,7 +64,7 @@ struct HelperConsistencyTests {
     func playlistTracksRelationshipPersistsAcrossFetch() throws {
         let container = try TestModelContainers.inMemory(TestSchemas.auraPlay)
         let context = ModelContext(container)
-        let nft = makeFixtureNFT(tokenId: "playlist-track")
+        let nft = NFTFixture.music.with { $0.tokenId = "playlist-track" }.build()
         let playlist = Playlist(title: "Scoped Tracks", tracks: [nft])
 
         context.insert(playlist)
@@ -84,10 +83,10 @@ struct HelperConsistencyTests {
     func deletingNFTCascadesOwnedChildModels() throws {
         let container = try TestModelContainers.inMemory(TestSchemas.auraPlay)
         let context = ModelContext(container)
-        let nft = makeFixtureNFT(
-            tokenId: "cascade-child-models",
-            includeOwnedChildren: true
-        )
+        let nft = NFTFixture.image.with {
+            $0.tokenId = "cascade-child-models"
+            $0.includeOwnedChildren = true
+        }.build()
 
         context.insert(nft)
         try context.save()
@@ -368,47 +367,6 @@ struct HelperConsistencyTests {
         #expect(holdings[0].contractAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
         #expect(holdings[0].amountDisplay == "20 USDC")
         #expect(holdings[0].updatedAt == Date(timeIntervalSince1970: 200))
-    }
-
-    private func makeFixtureNFT(
-        tokenId: String,
-        accountAddress: String = "0x1111111111111111111111111111111111111111",
-        contractAddress: String = "0x495f947276749ce646f68ac8c248420045cb7b5e",
-        includeOwnedChildren: Bool = false
-    ) -> NFT {
-        let network: Chain = .ethMainnet
-        let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? "unscoped"
-        let normalizedContractAddress = NFT.normalizedScopeComponent(contractAddress) ?? "unknown"
-
-        return NFT(
-            id: "\(normalizedAccountAddress):\(network.rawValue):\(normalizedContractAddress):\(tokenId)",
-            contract: NFT.Contract(address: contractAddress, chain: network),
-            tokenId: tokenId,
-            name: "Fixture \(tokenId)",
-            image: includeOwnedChildren ? NFT.Image(
-                originalUrl: "https://example.com/\(tokenId).png",
-                thumbnailUrl: "https://example.com/\(tokenId)-thumb.png"
-            ) : nil,
-            raw: includeOwnedChildren ? NFT.Raw(
-                tokenUri: "ipfs://fixture-\(tokenId)",
-                metadata: ["title": .string("Fixture \(tokenId)")]
-            ) : nil,
-            collection: NFT.Collection(
-                name: "Fixture Collection",
-                chain: network,
-                contractAddress: contractAddress
-            ),
-            tokenUri: "ipfs://fixture-\(tokenId)",
-            timeLastUpdated: "2025-01-01T00:00:00Z",
-            acquiredAt: includeOwnedChildren ? NFT.AcquiredAt(blockTimestamp: "2025-01-01T00:00:00Z") : nil,
-            network: network,
-            accountAddress: accountAddress,
-            contentType: "audio/mpeg",
-            collectionName: "Fixture Collection",
-            artistName: "Fixture Artist",
-            animationUrl: "https://example.com/\(tokenId).mp3",
-            audioUrl: "https://example.com/\(tokenId).mp3"
-        )
     }
 
     private func rgbaComponents(_ color: Color) -> [CGFloat] {

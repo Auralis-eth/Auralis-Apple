@@ -3,7 +3,6 @@ import Foundation
 import ReceiptsCore
 import Testing
 
-@Suite
 struct ReceiptsCoreTests {
     @Test("receipt draft preserves append contract fields")
     func receiptDraftPreservesFields() {

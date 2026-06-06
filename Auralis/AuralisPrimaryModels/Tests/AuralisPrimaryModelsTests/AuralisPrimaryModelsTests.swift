@@ -3,7 +3,6 @@ import AuralisPrimaryPersistence
 import Foundation
 import Testing
 
-@Suite
 struct AuralisPrimaryModelsTests {
     @Test("chain raw values and chain IDs remain stable")
     func chainIdentifiersRemainStable() {

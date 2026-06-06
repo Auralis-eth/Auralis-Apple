@@ -8,7 +8,6 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 
-@Suite
 struct NFTServiceTests {
     @Test("service sequences fetch, prepare, persist, and event recording in order")
     @MainActor

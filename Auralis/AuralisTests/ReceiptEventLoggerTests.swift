@@ -7,7 +7,6 @@ import Foundation
 import SwiftData
 import Testing
 
-@Suite
 struct ReceiptEventLoggerTests {
     @Test("receipt event logger records app launch, context build, link open, and copy actions")
     @MainActor

@@ -6,7 +6,6 @@ import ReceiptStorage
 import SwiftData
 import Testing
 
-@Suite
 struct StoredReceiptTests {
     @MainActor
     private func makePersistentContainer(at storeURL: URL) throws -> ModelContainer {

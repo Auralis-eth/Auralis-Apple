@@ -5,7 +5,6 @@ import Foundation
 import ProviderKit
 import Testing
 
-@Suite
 struct ENSResolutionServiceTests {
     private let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
 

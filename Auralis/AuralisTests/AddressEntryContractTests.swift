@@ -2,7 +2,6 @@ import AccountsFeature
 import Testing
 
 @MainActor
-@Suite
 struct AddressEntryContractTests {
     @Test("qr scan validation accepts canonical addresses and rejects ENS in the current slice")
     func qrScanValidationMatchesSupportedInputContract() {

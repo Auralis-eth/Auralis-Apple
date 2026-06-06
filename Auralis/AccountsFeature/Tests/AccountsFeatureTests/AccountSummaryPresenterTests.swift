@@ -3,7 +3,6 @@ import AuralisPrimaryModels
 import Foundation
 import Testing
 
-@Suite
 struct AccountSummaryPresenterTests {
     private let presenter = AccountSummaryPresenter()
 

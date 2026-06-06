@@ -4,7 +4,6 @@ import AuralisPrimaryPersistence
 import Foundation
 import Testing
 
-@Suite
 struct AccountSwitcherPresenterTests {
     private let presenter = AccountSwitcherPresenter()
 

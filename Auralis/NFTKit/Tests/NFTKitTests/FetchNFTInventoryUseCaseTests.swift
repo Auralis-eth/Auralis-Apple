@@ -7,7 +7,6 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 
-@Suite
 struct FetchNFTInventoryUseCaseTests {
     @Test("returns fetched inventory and marks a completed full refresh")
     @MainActor

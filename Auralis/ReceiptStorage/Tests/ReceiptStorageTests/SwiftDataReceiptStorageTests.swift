@@ -6,7 +6,6 @@ import SwiftData
 import Testing
 
 @MainActor
-@Suite
 struct SwiftDataReceiptStorageTests {
     @Test("append receipt persists expected stored receipt")
     func appendPersistsStoredReceipt() async throws {

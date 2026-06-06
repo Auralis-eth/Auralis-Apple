@@ -7,7 +7,6 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 
-@Suite
 @MainActor
 struct ShellStatusPresentationTests {
     @Test("provider failure status uses degraded warning chrome and retry when the provider is recoverable")

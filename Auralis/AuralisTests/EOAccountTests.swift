@@ -4,7 +4,7 @@ import AuralisPrimaryPersistence
 import Foundation
 import Testing
 
-@Suite struct EOAccountTests {
+struct EOAccountTests {
     @Test("phase 0 defaults preserve the current address behavior while filling metadata")
     func defaultsPreserveCurrentBehavior() throws {
         let addedAt = Date(timeIntervalSince1970: 1_700_000_000)

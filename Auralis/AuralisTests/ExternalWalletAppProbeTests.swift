@@ -2,7 +2,6 @@
 import Foundation
 import Testing
 
-@Suite
 struct ExternalWalletAppProbeTests {
     @MainActor
     @Test("wallet app probe asks UIApplication about the expected deep-link URL")

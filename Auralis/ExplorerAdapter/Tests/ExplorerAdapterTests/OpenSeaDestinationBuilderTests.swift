@@ -2,7 +2,6 @@ import AuralisPrimaryModels
 import ExplorerAdapter
 import Testing
 
-@Suite
 struct OpenSeaDestinationBuilderTests {
     private let builder = OpenSeaDestinationBuilder()
     private let contract = "0x1234567890abcdef1234567890abcdef12345678"

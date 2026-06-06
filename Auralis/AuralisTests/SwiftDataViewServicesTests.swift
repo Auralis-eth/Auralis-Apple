@@ -1,6 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import Foundation
 import ReceiptStorage
 import SwiftData
@@ -8,32 +9,34 @@ import Testing
 import TokenStorage
 
 @MainActor
-@Suite
 struct SwiftDataViewServicesTests {
     @Test("home summary service returns scoped counts and recent activity")
     func homeSummaryServiceReturnsScopedCountsAndActivity() throws {
         let context = try makeContext()
         let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
-        let playableNFT = makeRefreshFixtureNFT(
-            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            tokenId: "playable",
-            accountAddress: accountAddress
-        )
-        playableNFT.audioUrl = "https://audio.example/track.mp3"
+        let playableNFT = NFTFixture.music
+            .with {
+                $0.contractAddress = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                $0.tokenId = "playable"
+                $0.accountAddress = accountAddress
+                $0.audioUrl = "https://audio.example/track.mp3"
+            }
+            .build()
         context.insert(playableNFT)
         context.insert(
-            makeRefreshFixtureNFT(
-                contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                tokenId: "visual",
-                accountAddress: accountAddress
-            )
+            NFTFixture.image
+                .with {
+                    $0.contractAddress = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    $0.tokenId = "visual"
+                    $0.accountAddress = accountAddress
+                }
+                .build()
         )
         context.insert(
-            try makeReceipt(
+            try receipt(
                 sequenceID: 1,
                 summary: "Refreshed wallet",
-                accountAddress: accountAddress,
-                chain: .ethMainnet
+                accountAddress: accountAddress
             )
         )
         try context.save()
@@ -53,12 +56,14 @@ struct SwiftDataViewServicesTests {
         let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
         context.insert(EOAccount(address: accountAddress, name: "Primary Wallet"))
         context.insert(
-            makeRefreshFixtureNFT(
-                contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                tokenId: "search-nft",
-                collectionName: "Search Collection",
-                accountAddress: accountAddress
-            )
+            NFTFixture.image
+                .with {
+                    $0.contractAddress = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    $0.tokenId = "search-nft"
+                    $0.collectionName = "Search Collection"
+                    $0.accountAddress = accountAddress
+                }
+                .build()
         )
         context.insert(
             TokenHolding(
@@ -89,7 +94,14 @@ struct SwiftDataViewServicesTests {
         let context = try makeContext()
         let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
         context.insert(EOAccount(address: accountAddress, name: "Profile Wallet"))
-        context.insert(makeRefreshFixtureNFT(tokenId: "profile-nft", accountAddress: accountAddress))
+        context.insert(
+            NFTFixture.image
+                .with {
+                    $0.tokenId = "profile-nft"
+                    $0.accountAddress = accountAddress
+                }
+                .build()
+        )
         context.insert(
             TokenHolding(
                 accountAddress: accountAddress,
@@ -118,23 +130,21 @@ struct SwiftDataViewServicesTests {
         let context = try makeContext()
         let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
         context.insert(
-            try makeReceipt(
+            try receipt(
                 sequenceID: 1,
                 summary: "Context built",
                 trigger: "context.built",
                 correlationID: "context-1",
-                accountAddress: accountAddress,
-                chain: .ethMainnet
+                accountAddress: accountAddress
             )
         )
         context.insert(
-            try makeReceipt(
+            try receipt(
                 sequenceID: 2,
                 summary: "Related refresh",
                 trigger: "nft.fetch.succeeded",
                 correlationID: "context-1",
-                accountAddress: accountAddress,
-                chain: .ethMainnet
+                accountAddress: accountAddress
             )
         )
         try context.save()
@@ -151,32 +161,27 @@ struct SwiftDataViewServicesTests {
         ModelContext(try TestModelContainers.primary())
     }
 
-    private func makeReceipt(
+    private func receipt(
         sequenceID: Int,
         summary: String,
         trigger: String = "home.activity",
         correlationID: String? = nil,
-        accountAddress: String,
-        chain: Chain
+        accountAddress: String
     ) throws -> StoredReceipt {
-        try StoredReceipt(
-            sequenceID: sequenceID,
-            createdAt: Date(timeIntervalSince1970: TimeInterval(sequenceID)),
-            actor: .system,
-            mode: .observe,
-            trigger: trigger,
-            scope: "tests",
-            summary: summary,
-            provenance: "local_cache",
-            isSuccess: true,
-            correlationID: correlationID,
-            timelineAccountAddress: accountAddress,
-            timelineChainRawValue: chain.rawValue,
-            accountSequenceID: sequenceID,
-            payloadHash: "payload-\(sequenceID)",
-            previousReceiptHash: "previous-\(sequenceID)",
-            chainHash: "chain-\(sequenceID)",
-            details: ReceiptPayload(values: [:])
-        )
+        try StoredReceiptFixture.successful
+            .with {
+                $0.sequenceID = sequenceID
+                $0.createdAt = Fixture.referenceDate.plus(seconds: TimeInterval(sequenceID))
+                $0.trigger = trigger
+                $0.summary = summary
+                $0.provenance = "local_cache"
+                $0.correlationID = correlationID
+                $0.accountAddress = accountAddress
+                $0.accountSequenceID = sequenceID
+                $0.payloadHash = "payload-\(sequenceID)"
+                $0.previousReceiptHash = "previous-\(sequenceID)"
+                $0.chainHash = "chain-\(sequenceID)"
+            }
+            .build()
     }
 }

@@ -7,7 +7,6 @@ import Foundation
 import SwiftData
 import Testing
 
-@Suite
 struct MusicLibraryIndexTests {
     @Test("music library index rebuild loads from scoped local NFTs and ignores non-music records")
     @MainActor

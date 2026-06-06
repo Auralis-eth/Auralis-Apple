@@ -3,13 +3,13 @@ import AccountStorage
 import AccountsCore
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import Foundation
 import SwiftData
 import Testing
 import TokenStorage
 
 @MainActor
-@Suite
 struct UndoSupportTests {
     @Test("playlist deletion registers an undoable transaction on the primary store schema")
     func playlistDeletionCanUndo() throws {
@@ -44,7 +44,10 @@ struct UndoSupportTests {
             now: Date(timeIntervalSince1970: 200)
         )
 
-        context.insert(makeFixtureNFT(tokenId: "undo-1", accountAddress: removed.address))
+        context.insert(NFTFixture.music.with {
+            $0.tokenId = "undo-1"
+            $0.accountAddress = removed.address
+        }.build())
         context.insert(
             TokenHolding(
                 accountAddress: removed.address,
@@ -91,7 +94,7 @@ struct UndoSupportTests {
 
         let container = try TestModelContainers.primaryStore()
         let context = container.mainContext
-        let nft = makeFixtureNFT(tokenId: "rollback-1")
+        let nft = NFTFixture.music.with { $0.tokenId = "rollback-1" }.build()
         context.insert(nft)
         try context.save()
 
@@ -107,37 +110,4 @@ struct UndoSupportTests {
         #expect(try context.fetch(FetchDescriptor<NFT.Contract>()).count == 1)
         #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).count == 1)
     }
-}
-
-private func makeFixtureNFT(
-    tokenId: String,
-    accountAddress: String = "0x1111111111111111111111111111111111111111",
-    contractAddress: String = "0x495f947276749ce646f68ac8c248420045cb7b5e"
-) -> NFT {
-    let network: Chain = .ethMainnet
-    let normalizedAccountAddress = NFT.normalizedScopeComponent(accountAddress) ?? "unscoped"
-    let normalizedContractAddress = NFT.normalizedScopeComponent(contractAddress) ?? "unknown"
-
-    return NFT(
-        id: "\(normalizedAccountAddress):\(network.rawValue):\(normalizedContractAddress):\(tokenId)",
-        contract: NFT.Contract(address: contractAddress, chain: network),
-        tokenId: tokenId,
-        name: "Fixture \(tokenId)",
-        image: nil,
-        raw: nil,
-        collection: NFT.Collection(
-            name: "Fixture Collection",
-            chain: network,
-            contractAddress: contractAddress
-        ),
-        tokenUri: "ipfs://fixture-\(tokenId)",
-        timeLastUpdated: "2025-01-01T00:00:00Z",
-        network: network,
-        accountAddress: accountAddress,
-        contentType: "audio/mpeg",
-        collectionName: "Fixture Collection",
-        artistName: "Fixture Artist",
-        animationUrl: "https://example.com/\(tokenId).mp3",
-        audioUrl: "https://example.com/\(tokenId).mp3"
-    )
 }

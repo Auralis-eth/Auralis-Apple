@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import AuralisShellCore
 import Testing
 
-@Suite struct PendingDeepLinkResolverTests {
+struct PendingDeepLinkResolverTests {
     private let resolver = PendingDeepLinkResolver()
 
     @Test("account deep link switches accounts before routing nested destinations")

@@ -2,7 +2,6 @@ import Foundation
 import OperatorCore
 import Testing
 
-@Suite
 struct OperatorCoreTests {
     @Test("external link policy allows approved HTTPS routes")
     func externalLinkPolicyAllowsApprovedRoutes() throws {

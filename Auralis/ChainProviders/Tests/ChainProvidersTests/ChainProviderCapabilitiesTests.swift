@@ -5,7 +5,6 @@ import Foundation
 import ProviderKit
 import Testing
 
-@Suite
 struct ChainProviderCapabilitiesTests {
     @Test("Every current chain has an explicit capability decision")
     func everyChainHasExplicitCapabilities() {

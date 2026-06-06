@@ -12,7 +12,6 @@ import SwiftData
 import Testing
 
 @MainActor
-@Suite
 struct ERC20HoldingsSyncUseCaseTests {
     private let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
 

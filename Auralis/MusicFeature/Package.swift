@@ -16,6 +16,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
+        .package(path: "../AuralisTestSupport"),
         .package(path: "../AuraUI"),
         .package(path: "../CapabilitiesCore"),
         .package(path: "../ReceiptStorage"),
@@ -36,6 +37,7 @@ let package = Package(
             name: "MusicFeatureTests",
             dependencies: [
                 "MusicFeature",
+                "AuralisTestSupport",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "ReceiptStorage",
             ]

@@ -2,7 +2,6 @@ import AuralisPrimaryModels
 import ExplorerAdapter
 import Testing
 
-@Suite
 struct ExplorerURLBuilderTests {
     private let builder = ExplorerURLBuilder()
     private let contract = "0x1234567890abcdef1234567890abcdef12345678"

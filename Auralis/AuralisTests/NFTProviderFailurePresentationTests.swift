@@ -8,7 +8,6 @@ import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
 
-@Suite
 struct NFTProviderFailurePresentationTests {
     @Test("degraded offline failures preserve cached-browsing language")
     func degradedOfflinePresentation() throws {

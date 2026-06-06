@@ -5,7 +5,6 @@ import ReceiptsCore
 import SwiftData
 import Testing
 
-@Suite
 struct MusicReceiptEventLoggerTests {
     @MainActor
     private func makeReceiptStore() throws -> SwiftDataReceiptStore {

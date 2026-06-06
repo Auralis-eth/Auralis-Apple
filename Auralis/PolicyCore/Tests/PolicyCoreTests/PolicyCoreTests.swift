@@ -1,7 +1,6 @@
 import PolicyCore
 import Testing
 
-@Suite
 struct PolicyCoreTests {
     @Test("observe mode denies execution-style actions before future execution evidence is evaluated")
     @MainActor

@@ -8,7 +8,6 @@ import NFTPresentation
 import NFTProviderAdapters
 import TokenStorage
 
-@Suite
 struct ERC20TokenDetailPresentationTests {
     private let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
 

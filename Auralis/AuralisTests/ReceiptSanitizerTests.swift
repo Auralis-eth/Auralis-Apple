@@ -3,7 +3,6 @@ import ReceiptsCore
 import Foundation
 import Testing
 
-@Suite
 struct ReceiptSanitizerTests {
     private let sanitizer = DefaultReceiptPayloadSanitizer()
 

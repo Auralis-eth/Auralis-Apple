@@ -15,6 +15,7 @@
 		6F467D9B2FCD0E7E0062CE28 /* AuralisTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6F467D9A2FCD0E7E0062CE28 /* AuralisTestSupport */; };
 		6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */; };
 		6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */ = {isa = PBXBuildFile; productRef = 6F6A10052F90000100BEEF01 /* AuralisPrimaryModels */; };
+		6F793F7F2FD45B6300EC8C40 /* ReceiptsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F793F7E2FD45B6300EC8C40 /* ReceiptsCore */; };
 		6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = 6F7B76032D962FE800DF0AD7 /* CodeScanner */; };
 		6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E0152FAE32FF00CD4102 /* AccountsCore */; };
 		6F84E01B2FAE48B000CD4102 /* AgentIdentityCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E01A2FAE48B000CD4102 /* AgentIdentityCore */; };
@@ -141,6 +142,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6F793F7F2FD45B6300EC8C40 /* ReceiptsCore in Frameworks */,
 				6F467D9B2FCD0E7E0062CE28 /* AuralisTestSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -270,6 +272,7 @@
 			name = AuralisTests;
 			packageProductDependencies = (
 				6F467D9A2FCD0E7E0062CE28 /* AuralisTestSupport */,
+				6F793F7E2FD45B6300EC8C40 /* ReceiptsCore */,
 			);
 			productName = AuralisTests;
 			productReference = 6FB455EF2CC5BEBD009A055C /* AuralisTests.xctest */;
@@ -927,6 +930,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6F6A10042F90000100BEEF01 /* XCLocalSwiftPackageReference "AuralisPrimaryModels" */;
 			productName = AuralisPrimaryModels;
+		};
+		6F793F7E2FD45B6300EC8C40 /* ReceiptsCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F84E01E2FAE627D00CD4102 /* XCLocalSwiftPackageReference "ReceiptsCore" */;
+			productName = ReceiptsCore;
 		};
 		6F7B76032D962FE800DF0AD7 /* CodeScanner */ = {
 			isa = XCSwiftPackageProductDependency;

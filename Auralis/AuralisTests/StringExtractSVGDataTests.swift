@@ -9,7 +9,7 @@
 import Foundation
 import Testing
 
-@Suite struct StringExtractSVGDataTests {
+struct StringExtractSVGDataTests {
     struct TestCase {
         let input: String
         let expected: String?

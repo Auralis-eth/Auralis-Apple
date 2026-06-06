@@ -1,7 +1,6 @@
 import AccountsFeature
 import Testing
 
-@Suite
 struct GuestPassAccountTests {
     @Test("curated guest passes stay deterministic and selectable")
     func curatedGuestPassesAreStable() {

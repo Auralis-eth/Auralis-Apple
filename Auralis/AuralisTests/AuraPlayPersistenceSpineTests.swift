@@ -4,7 +4,6 @@ import MusicFeature
 import SwiftData
 import Testing
 
-@Suite
 struct AuraPlayPersistenceSpineTests {
     @Test("AuraPlay container can construct an in-memory container for the current schema")
     func inMemoryContainerBoots() throws {

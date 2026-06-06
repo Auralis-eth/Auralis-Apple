@@ -3,7 +3,6 @@ import Foundation
 import NFTLibraryFeature
 import Testing
 
-@Suite
 struct NFTLibrarySortTests {
     @Test("sort fields expose expected titles")
     func sortFieldTitles() {

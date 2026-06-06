@@ -6,7 +6,6 @@ import Foundation
 import SwiftData
 import Testing
 
-@Suite
 struct ReceiptResetServiceTests {
     @MainActor
     private func makeStoreAndResetService() throws -> (SwiftDataReceiptStore, SwiftDataReceiptResetService) {

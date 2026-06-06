@@ -1,7 +1,6 @@
 @testable import Auralis
 import Testing
 
-@Suite
 struct ReceiptIntegrityCopyTests {
     @Test("receipt integrity copy states local tamper evidence without overclaiming")
     func receiptIntegrityCopyStatesLocalGuarantee() {

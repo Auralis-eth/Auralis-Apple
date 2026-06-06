@@ -5,7 +5,6 @@ import PolicyCore
 import Testing
 
 @MainActor
-@Suite
 struct ModeStateTests {
     @Test("shipped app modes remain observe-only until WEB3-001 future gates exist")
     func appModesRemainObserveOnly() {

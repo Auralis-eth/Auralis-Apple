@@ -4,7 +4,7 @@ import AuralisShellCore
 import Foundation
 import Testing
 
-@Suite struct AppDeepLinkParserTests {
+struct AppDeepLinkParserTests {
     private let parser = AppDeepLinkParser()
 
     @Test(

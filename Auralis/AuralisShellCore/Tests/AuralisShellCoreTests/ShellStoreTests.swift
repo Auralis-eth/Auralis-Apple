@@ -5,7 +5,6 @@ import AuralisShellCore
 import Foundation
 import Testing
 
-@Suite
 struct ShellStoreTests {
     @Test("restore from persistence repairs chain mismatch from the account and records app launch once")
     @MainActor

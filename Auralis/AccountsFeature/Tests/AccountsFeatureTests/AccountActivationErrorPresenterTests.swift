@@ -3,7 +3,6 @@ import AccountsFeature
 import Foundation
 import Testing
 
-@Suite
 struct AccountActivationErrorPresenterTests {
     private let presenter = AccountActivationErrorPresenter()
 

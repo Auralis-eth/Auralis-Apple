@@ -6,7 +6,6 @@ import MusicFeature
 import SwiftData
 import Testing
 
-@Suite
 @MainActor
 struct AuraPlayFoundationBoundaryTests {
     @Test("AuraPlay persistence contract exposes the current schema")

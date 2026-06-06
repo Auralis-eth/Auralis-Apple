@@ -29,7 +29,6 @@ private final class FailureGate: Sendable {
     }
 }
 
-@Suite
 @MainActor
 struct NFTImageLoaderTests {
     @Test("cached image load does not issue a second network request")

@@ -1,7 +1,6 @@
 import AccountsFeature
 import Testing
 
-@Suite
 struct AccountENSResolutionPresentationTests {
     private let presenter = AccountENSResolutionPresenter()
 

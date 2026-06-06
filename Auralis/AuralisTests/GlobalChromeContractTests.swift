@@ -4,7 +4,6 @@ import AuralisPrimaryPersistence
 import Foundation
 import Testing
 
-@Suite
 struct GlobalChromeContractTests {
     @Test("chrome-facing snapshot fields expose account scope freshness and preference context")
     func chromeSnapshotFieldsStayReadable() {

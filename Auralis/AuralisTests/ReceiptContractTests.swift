@@ -5,7 +5,6 @@ import AuralisPrimaryPersistence
 import Foundation
 import Testing
 
-@Suite
 struct ReceiptContractTests {
     @Test("receipt records round-trip cleanly through JSON encoding to preserve append-only metadata")
     func receiptRecordRoundTripsThroughJSONEncoding() throws {

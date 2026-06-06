@@ -1835,8 +1835,8 @@ struct ProviderAbstractionTests {
             return
         }
 
-        let failedCount = recorder.fetchFailedCount()
-        let succeededCount = recorder.fetchSucceededCount()
+        let failedCount = await recorder.fetchFailedCount()
+        let succeededCount = await recorder.fetchSucceededCount()
         #expect(failedCount == 1)
         #expect(succeededCount == 0)
     }
@@ -1885,8 +1885,8 @@ struct ProviderAbstractionTests {
             )
         }
 
-        let partialFailureCount = recorder.fetchFailedCount()
-        let partialSuccessCount = recorder.fetchSucceededCount()
+        let partialFailureCount = await recorder.fetchFailedCount()
+        let partialSuccessCount = await recorder.fetchSucceededCount()
         #expect(partialFailureCount == 1)
         #expect(partialSuccessCount == 0)
     }
@@ -2206,8 +2206,7 @@ private enum ProviderMockURLProtocol {
     typealias Handler = @Sendable (URLRequest) throws -> (URLResponse, Data)
 }
 
-@MainActor
-private final class SpyNFTRefreshEventRecorder: NFTRefreshEventRecording {
+private actor SpyNFTRefreshEventRecorder: NFTRefreshEventRecording {
     private var succeededCount = 0
     private var failedCount = 0
 

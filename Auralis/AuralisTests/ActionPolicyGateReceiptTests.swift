@@ -6,7 +6,6 @@ import ReceiptsCore
 import Testing
 
 @MainActor
-@Suite
 struct ActionPolicyGateReceiptTests {
     @Test(
         "Observe mode blocks every high-risk policy action",

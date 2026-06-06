@@ -4,7 +4,6 @@ import AuralisPrimaryPersistence
 import Foundation
 import Testing
 
-@Suite
 struct ReceiptTimelineStateTests {
     @Test("scope changes reset search, filters, and pagination to the default view")
     func scopeChangeResetsState() {

@@ -8,8 +8,8 @@ import MusicFeature
 import SwiftData
 import Testing
 
+@Suite(.tags(.slow))
 @MainActor
-@Suite
 struct AuraPlayPersistenceWave2Tests {
     @Test("current AuraPlay schema keeps only persisted media rows in the dedicated store")
     func schemaContainsCurrentCoreEntities() {

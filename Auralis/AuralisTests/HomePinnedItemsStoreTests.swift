@@ -3,7 +3,6 @@ import AuralisTestSupport
 import Foundation
 import Testing
 
-@Suite
 struct HomePinnedItemsStoreTests {
     private func makeStore() throws -> (store: HomePinnedItemsStore, cleanup: () -> Void) {
         let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "HomePinnedItemsStoreTests")

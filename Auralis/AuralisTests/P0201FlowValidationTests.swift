@@ -8,7 +8,6 @@ import ReceiptStorage
 import SwiftData
 import Testing
 
-@Suite
 struct P0201FlowValidationTests {
     @Test("end-to-end flow covers add switch duplicate delete-active and relaunch persistence")
     @MainActor

@@ -10,7 +10,6 @@ import PolicyCore
 import SwiftData
 import Testing
 
-@Suite
 struct AccountReceiptRecorderTests {
     @Test("receipt-backed account recorder emits real receipts for account add select and remove flows")
     @MainActor

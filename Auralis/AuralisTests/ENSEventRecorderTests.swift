@@ -7,7 +7,6 @@ import Foundation
 import SwiftData
 import Testing
 
-@Suite
 struct ENSEventRecorderTests {
     @MainActor
     private func makeReceiptStore() throws -> any ReceiptStore {

@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-06-05 — Phase 5 Got Its Shipping Stamp
+
+The Phase 4/5 closeout had one awkward truth left: the board said "complete," but the fast test plan still let one slow provider suite sneak into the lunch line. That is how a tag becomes a sticky note instead of a routing rule. `Auralis-Fast` now skips every currently tagged slow/architecture app suite by name, and `Auralis-Slow` gives those heavier tests their own lane until Xcode's test-plan editor can promote the setup to real tag filters.
+
+The fixture cleanup also finished the migration story. `AppRouterTests` and `SwiftDataViewServicesTests` stopped hand-rolling tiny local NFTs and receipts and now use the shared `NFTFixture` / `StoredReceiptFixture` builders. The old refresh helper file left the target entirely. Lesson learned: a phase is ship-ready when the code, the plan files, and the tracker all agree about what is done and what is honestly future work.
+
 ## 2026-06-05 — Phase 3 Finally Got Its Receipt
 
 Phase 3 was functionally done, but the ticket board still looked like a kitchen where every completed prep bowl had a sticky note saying "maybe." The last cleanup removed the little per-file `makeContainer()` wrappers that were mostly hiding the real schema choice. Tests now call `TestModelContainers.inMemory(TestSchemas.receipts)`, `TestModelContainers.primary()`, `MusicFeatureTestModelContainers.libraryIndex()`, or `NFTKitTestModelContainers.refresh()` directly, so the reader can see which pantry a test is using without following a tiny detour.
@@ -2372,3 +2378,11 @@ The last hardening pass cleaned up the boring-looking assertions that make debug
 Package SwiftData tests also got local schema authorities. The account, receipt, token, and SwiftData adapter packages each have one in-memory container helper for their test target. That keeps package tests honest about their dependency boundaries: they share a pantry map inside the package, but they do not reach back into the app target just because the app has a bigger map.
 
 Finally, the Xcode scheme now has checked-in test-plan artifacts. Fast, architecture, and full regression lanes are visible as files instead of tribal memory, with explicit suite filters for the expensive architecture and slow checks. The lesson: a shipping test suite needs two things at once: sharp assertions inside the tests, and obvious road signs for how engineers are supposed to run them.
+
+## Unit Test Phase 5 Follow-Up: The Fixture Drawer Gets Labels
+
+The Phase 5 checklist said the duplicate fixture builders were gone, but a review found a few utensils still hiding in package drawers: local NFT and music item builders in `NFTKit` and `MusicFeature`. They were small, but that is exactly how fixture drift starts. One helper says "Fixture NFT", another says "Aurora Echo", and six months later a schema change turns into a scavenger hunt.
+
+`NFTFixture` now knows how to build the odd cases the package tests needed: explicit IDs, absent collection metadata, descriptions, token types, image URL control, and raw metadata. `MusicLibraryItemFixture` can also represent sparse playback metadata without quietly inventing a URL. The tests now pull those shapes from the shared support package instead of sketching local copies.
+
+One helper intentionally stayed local: `makeRefreshFixtureSnapshot`. That snapshot type belongs to `NFTKit`, while `NFTKit` already depends on `AuralisTestSupport`; moving the helper upward would make the packages chase each other in a circle. The lesson is that shared fixtures are a pantry, not a junk drawer. Put common domain ingredients there, but keep package-owned shapes in the package that owns them.

@@ -6,7 +6,6 @@ import SwiftData
 import Testing
 
 @MainActor
-@Suite
 struct SwiftDataAccountStoreTests {
     @Test("creating a watch account normalizes and persists the canonical address")
     func creatingWatchAccountNormalizesAndPersistsCanonicalAddress() async throws {

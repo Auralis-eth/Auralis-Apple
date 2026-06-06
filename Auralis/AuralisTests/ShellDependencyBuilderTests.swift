@@ -16,7 +16,7 @@ import SwiftData
 import Testing
 import TokenStorage
 
-@Suite
+@Suite(.tags(.slow))
 struct ShellDependencyBuilderTests {
     @MainActor
     private func makeIsolatedPinnedItemsStore() throws -> (store: HomePinnedItemsStore, cleanup: () -> Void) {

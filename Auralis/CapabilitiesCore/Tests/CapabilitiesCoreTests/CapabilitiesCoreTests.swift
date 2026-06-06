@@ -1,7 +1,6 @@
 import CapabilitiesCore
 import Testing
 
-@Suite
 struct CapabilitiesCoreTests {
     @Test("registry covers every canonical capability")
     func registryCoversEveryCapability() {

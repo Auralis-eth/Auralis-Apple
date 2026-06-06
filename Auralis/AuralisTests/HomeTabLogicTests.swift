@@ -4,7 +4,6 @@ import AuralisPrimaryModels
 import Foundation
 import Testing
 
-@Suite
 struct HomeTabLogicTests {
     private let logic = HomeTabLogic()
 

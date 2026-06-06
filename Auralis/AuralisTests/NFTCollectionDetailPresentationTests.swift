@@ -4,7 +4,6 @@ import AuralisPrimaryPersistence
 import NFTLibraryFeature
 import Testing
 
-@Suite
 @MainActor
 struct NFTCollectionDetailPresentationTests {
     @Test("contract-backed collection detail filters by contract")

@@ -6,7 +6,6 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 
-@Suite
 struct NFTRefreshStateComputerTests {
     @Test("tracks success timestamps per account and chain scope")
     @MainActor

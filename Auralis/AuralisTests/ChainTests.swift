@@ -2,7 +2,6 @@
 import AuralisPrimaryModels
 import Testing
 
-@Suite
 struct ChainTests {
     @Test(
         "routing display names stay readable for supported mainnets and testnets",

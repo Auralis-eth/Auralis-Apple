@@ -3,7 +3,6 @@ import AuralisPrimaryPersistence
 @testable import NFTLibraryFeature
 import Testing
 
-@Suite
 struct NFTLibraryPresentationTests {
     @Test("contract-backed collection detail filters by contract")
     func contractBackedCollectionFiltersByContract() {

@@ -6,7 +6,6 @@ import SwiftData
 import Testing
 
 @MainActor
-@Suite
 struct AccountStoreTests {
     @Test("create normalizes addresses and lists accounts by activity then recency added")
     @MainActor

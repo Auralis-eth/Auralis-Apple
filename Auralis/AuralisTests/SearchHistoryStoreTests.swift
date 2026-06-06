@@ -6,7 +6,6 @@ import SwiftData
 import Testing
 
 @MainActor
-@Suite
 struct SearchHistoryStoreTests {
     private func makeStore(maxEntriesPerAccount: Int = 12) throws -> SearchHistoryStore {
         let container = try TestModelContainers.inMemory(TestSchemas.searchHistory)

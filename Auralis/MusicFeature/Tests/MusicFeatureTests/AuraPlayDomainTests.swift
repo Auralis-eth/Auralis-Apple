@@ -3,7 +3,6 @@ import Foundation
 import MusicFeature
 import Testing
 
-@Suite
 struct AuraPlayDomainTests {
     @Test("library scope keeps account and chain together")
     func libraryScopeStoresAccountAndChain() {

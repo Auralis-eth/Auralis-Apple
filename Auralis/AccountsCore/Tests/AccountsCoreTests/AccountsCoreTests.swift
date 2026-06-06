@@ -2,7 +2,6 @@ import AccountsCore
 import Foundation
 import Testing
 
-@Suite
 struct AccountsCoreTests {
     @Test("account input validation distinguishes empty, ENS, invalid, and valid input")
     func accountInputValidationClassifiesInputs() {

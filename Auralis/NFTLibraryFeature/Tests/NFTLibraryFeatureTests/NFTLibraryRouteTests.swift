@@ -3,7 +3,6 @@ import AuralisPrimaryPersistence
 import NFTLibraryFeature
 import Testing
 
-@Suite
 struct NFTLibraryRouteTests {
     @Test("item route stores the NFT identifier")
     func itemRouteStoresIdentifier() {
