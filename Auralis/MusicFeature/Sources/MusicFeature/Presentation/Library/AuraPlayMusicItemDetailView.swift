@@ -132,7 +132,7 @@ public struct AuraPlayMusicItemDetailView: View {
                 }
                 .background(Color.background)
                 .navigationTitle(presentation.navigationTitle)
-                .navigationBarTitleDisplayMode(.inline)
+                .auraPlayInlineNavigationTitle()
                 .accessibilityIdentifier("auraplay.detail.screen")
             } else {
                 ContentUnavailableView(

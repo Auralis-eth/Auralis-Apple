@@ -15,10 +15,6 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
         player.auraPlayRecentlyPlayed(limit: initialLimit)
     }
 
-    private var haptics: AuraHaptics {
-        AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion)
-    }
-
     private var emptyStateBackground: AnyShapeStyle {
         accessibilityReduceTransparency ? AnyShapeStyle(Color.surface) : AnyShapeStyle(.ultraThinMaterial)
     }
@@ -111,8 +107,11 @@ struct AuraPlayRecentlyPlayedSection<Player: AuraPlayPlaybackPresenting>: View {
         }
     }
 
+    @MainActor
     private func impact() {
-        haptics.impact(.light)
+        #if canImport(UIKit)
+        AuraHaptics(accessibilityReduceMotion: accessibilityReduceMotion).impact(.light)
+        #endif
     }
 
     private func recentlyPlayedCard(for item: AuraPlayRecentlyPlayedItem) -> some View {

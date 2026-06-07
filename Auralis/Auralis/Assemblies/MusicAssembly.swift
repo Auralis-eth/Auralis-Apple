@@ -58,7 +58,9 @@ struct MusicAssembly {
 
         let audioResult: (AudioEngine?, String?)
         do {
-            audioResult = (try AudioEngine(), nil)
+            let audioEngine = try AudioEngine()
+            configureMediaResolver(audioEngine)
+            audioResult = (audioEngine, nil)
         } catch {
             audioResult = (nil, error.localizedDescription)
         }
@@ -79,6 +81,17 @@ struct MusicAssembly {
         )
     }
 
+    func configureMediaResolver(_ audioEngine: AudioEngine?) {
+        let configuration = AuraPlayStorageResolutionConfiguration.liveDefault
+        audioEngine?.configureMediaResolver(
+            GatewayFallbackChain(
+                resolver: URLResolver(configuration: configuration),
+                configuration: configuration
+            ),
+            configuration: configuration
+        )
+    }
+
     func makeMusicLibraryIndexer(modelContext: ModelContext) -> any MusicLibraryIndexing {
         SwiftDataMusicLibraryIndexer(modelContext: modelContext)
     }
@@ -90,6 +103,7 @@ struct MusicAssembly {
         musicLibraryIndexer: any MusicLibraryIndexing
     ) -> AuraPlayDependencies {
         let logger = LiveAuraPlayLogger()
+        configureMediaResolver(audioEngine)
         return AuraPlayDependencies(
             libraryRepository: LiveAuraPlayLibraryRepository(
                 indexer: musicLibraryIndexer,
@@ -111,6 +125,9 @@ struct MusicAssembly {
             logger: logger,
             configuration: AuraPlayModuleConfiguration.live(
                 infoDictionary: Bundle.main.infoDictionary ?? [:]
+            ),
+            urlResolver: URLResolver(
+                configuration: .liveDefault
             )
         )
     }

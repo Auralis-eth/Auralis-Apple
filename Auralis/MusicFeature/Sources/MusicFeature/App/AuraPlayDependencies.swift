@@ -9,6 +9,7 @@ public struct AuraPlayDependencies {
     public let artworkLoader: any AuraPlayArtworkLoading
     public let logger: any AuraPlayLogging
     public let configuration: AuraPlayModuleConfiguration
+    public let urlResolver: URLResolver
 
     public init(
         libraryRepository: any AuraPlayLibraryRepository,
@@ -17,7 +18,8 @@ public struct AuraPlayDependencies {
         queueCoordinator: any AuraPlayQueueCoordinating,
         artworkLoader: any AuraPlayArtworkLoading,
         logger: any AuraPlayLogging,
-        configuration: AuraPlayModuleConfiguration
+        configuration: AuraPlayModuleConfiguration,
+        urlResolver: URLResolver
     ) {
         self.libraryRepository = libraryRepository
         self.librarySyncService = librarySyncService
@@ -26,5 +28,6 @@ public struct AuraPlayDependencies {
         self.artworkLoader = artworkLoader
         self.logger = logger
         self.configuration = configuration
+        self.urlResolver = urlResolver
     }
 }

@@ -189,9 +189,9 @@ struct AuraPlayNowPlayingView<Player: AuraPlayPlaybackPresenting>: View {
                 }
             }
             .navigationTitle("Now Playing")
-            .navigationBarTitleDisplayMode(.inline)
+            .auraPlayInlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         dismiss()
                     }

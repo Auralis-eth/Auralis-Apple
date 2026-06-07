@@ -40,7 +40,8 @@ struct AuraPlayDomainTests {
             imageURLString: "https://example.com/cover.png"
         )
 
-        #expect(try #require(loader.artworkURL(for: track)).absoluteString == "https://example.com/cover.png")
+        let artworkURL = try #require(try loader.artworkURL(for: track))
+        #expect(artworkURL.absoluteString == "https://example.com/cover.png")
     }
 
     @Test("media item stores scope, search flags, and chain identity")

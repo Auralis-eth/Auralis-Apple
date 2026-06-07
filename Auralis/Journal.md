@@ -1,5 +1,17 @@
 # Journal
 
+## 2026-06-07 — AuraPlay Phase 3 Shipped The URL Front Desk
+
+The Phase 3 closeout turned the storage-resolution story from "the code is probably fine" into a shipping record. The docs now agree on the exact boundary: `URLResolver` is the deterministic front desk for IPFS, Arweave, HTTP/S, and `data:` inputs; `GatewayFallbackChain` is the network-facing layer above it; and the rest of AuraPlay should consume those seams instead of copying old helper tricks into new screens.
+
+The useful lesson is that a phase can be complete without every downstream caller being migrated. That is not a loophole; it is the whole point of a seam. Phase 3 built and validated the door. Phase 5 gets to move real traffic through it, one product path at a time.
+
+## 2026-06-06 — AuraPlay Phase 3 Built The Storage Bouncer
+
+AuraPlay's storage resolver is now its own front desk instead of a handful of side doors in the app target. `URLResolver` lives in `MusicFeature`, classifies IPFS, Arweave, HTTP/S, and `data:` inputs, and turns the good ones into URLs the rest of the music stack can reason about. The old helpers were useful trail markers, but the new path keeps detection, validation, gateway choice, and fallback probing in one module-owned lane.
+
+The interesting engineering wrinkle was `data:` URIs. The resolver is supposed to be pure and synchronous, but inline media is already the whole file wearing a URL costume. So Phase 3 gives it one bounded exception: decode, cap at 50 MB, and write a deterministic temp file. Think of it like checking a very large coat at the door; allowed, but tagged, size-limited, and never mistaken for normal traffic.
+
 ## 2026-06-05 — Phase 5 Got Its Shipping Stamp
 
 The Phase 4/5 closeout had one awkward truth left: the board said "complete," but the fast test plan still let one slow provider suite sneak into the lunch line. That is how a tag becomes a sticky note instead of a routing rule. `Auralis-Fast` now skips every currently tagged slow/architecture app suite by name, and `Auralis-Slow` gives those heavier tests their own lane until Xcode's test-plan editor can promote the setup to real tag filters.
@@ -546,6 +558,21 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
   Because once a shell grows past a couple tabs, ad hoc navigation state turns into a junk drawer fast.
 
 ## The Journey
+
+- AuraPlay Phase 3 prep, the case of the phantom wallet:
+  Before starting the next AuraPlay slice, we caught the handoff docs describing a persistence graph that the code no longer has. `AuraPlayWallet`, `AuraPlayNFTToken`, `AuraPlaySchemaV1`, and `AuraPlayMigrationPlan` were still wandering through Phase 3 notes like old band members listed on a tour poster. The actual lineup is simpler: `EOAccount` is the shared account/wallet record, it stores AuraPlay sync metadata, and `AuraPlayMediaItem` is the AuraPlay-owned persisted media projection. The lesson is practical: phase docs are part of the architecture. If they point at ghosts, the next engineer burns time debugging the map instead of building the road.
+
+- AuraPlay Phase 3 tickets, storage resolution gets a blueprint:
+  We wrote down the six-ticket Phase 3 plan for storage resolution utilities: `URLResolver`, `URIScheme`, IPFS rewriting, Arweave rewriting, HTTP/data URI handling, a gateway fallback actor, and the 58-test acceptance gate. This is the little customs desk every NFT media URL has to pass through before the rest of AuraPlay tries to play it, index it, or show artwork from it. The key boundary is deliberately boring: the resolver is pure and synchronous, while network retry behavior lives one layer above it.
+
+- AuraPlay Phase 3 alignment, don't invent a new toolbox when the garage has shelves:
+  The ticket plan originally named a few objects from a generic architecture sketch: `AppConfig`, `DependencyValues`, `AppError`, `AuraPlayCore`, `AuraPlayTests`, and `MockURLSession`. The app already has different shelves for those jobs: `AuraPlayModuleConfiguration`, `MusicAssembly` / `AuraPlayDependencies`, `AuraPlayError`, the `MusicFeature` target, `MusicFeatureTests`, and `AuralisTestSupport.URLProtocolMock`. We updated the tickets so Phase 3 creates only the missing storage-resolution pieces and reuses the existing project seams where they fit.
+
+- AuraPlay Phase 3 decisions, the resolver gets its passport stamped:
+  We settled the three open implementation choices before writing code. Gateway URLs get their own `AuraPlayStorageResolutionConfiguration` because gateways are storage-resolution policy, not bundle-contract metadata. Errors flow through `AuraPlayError.mediaResolution(String)` so the feature keeps one public error surface. `URLResolver` is wired into `AuraPlayDependencies` during P3-001 even before the first caller arrives, which is like installing the outlet before bringing in the stereo.
+
+- AuraPlay Phase 3 ships the storage-resolution customs desk:
+  Phase 3 now has its real code: `URIScheme` checks the passport, `URLResolver` stamps it into an HTTPS or temp-file URL, and `GatewayFallbackChain` handles the polite knock on alternate gateway doors when the first one refuses to answer. The important engineering move is that the resolver stays boring and local: no SwiftData, no network, no hidden app-target helper dependency. Validation in this sandbox got a clean full Xcode build, clean live diagnostics, clean build-log warnings for the Phase 3 files, and a resolver snippet that exercised IPFS, Arweave, HTTP, `data:`, and rejection paths. The only wrinkle was environmental: SwiftPM tests and simulator `xcodebuild test` could not run here because the tool sandbox blocks SwiftPM sandboxing, CoreSimulator, and cache writes. That is a lab-door problem, not a resolver-design problem, but an unsandboxed local test run should still be part of release tagging.
 
 - Receipt integrity copy contract:
   The receipt ledger now says what it can prove without puffing itself up. Local receipts are hash-chained, each account has a last-page bookmark protected in Keychain, and verification checks both ledgers against each other. That is strong local tamper evidence, like a notebook whose pages are numbered and whose last page number is locked in a separate drawer. It is not magic courtroom paperwork from a trusted third party. The product copy now says that plainly, the developer docs carry the same boundary, and tests keep the forbidden overclaim wording from sneaking back in.

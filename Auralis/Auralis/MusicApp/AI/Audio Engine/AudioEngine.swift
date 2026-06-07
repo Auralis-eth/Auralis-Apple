@@ -53,6 +53,8 @@ public final class AudioEngine {
     @ObservationIgnored private var displayUpdateTask: Task<Void, Never>?
     @ObservationIgnored private var musicReceiptLogger: MusicReceiptEventLogger?
     @ObservationIgnored private var pendingPlaybackTriggerCause: MusicReceiptTriggerCause?
+    @ObservationIgnored private var mediaResolver: GatewayFallbackChain?
+    @ObservationIgnored private var mediaGatewayHosts: Set<String> = []
 
     /// High-level playback states exposed to the UI.
     public enum PlaybackState: Equatable, Sendable, Codable {
@@ -148,6 +150,17 @@ public final class AudioEngine {
         musicReceiptLogger = logger
     }
 
+    func configureMediaResolver(
+        _ resolver: GatewayFallbackChain?,
+        configuration: AuraPlayStorageResolutionConfiguration
+    ) {
+        mediaResolver = resolver
+        mediaGatewayHosts = Set(
+            (configuration.ipfsGatewayChain + configuration.arweaveGatewayChain)
+                .compactMap { $0.host?.lowercased() }
+        )
+    }
+
     // MARK: - Audio Session Configuration
     private func setupAudioSession() throws {
         let session = AVAudioSession.sharedInstance()
@@ -232,10 +245,6 @@ public final class AudioEngine {
     }
 
     private func canPlayFormat(_ url: URL) -> Bool {
-        guard url.isSupportedRemoteMediaURL else {
-            return false
-        }
-
         // File extensions supported by AVAudioFile/Core Audio
         let supportedFormats: Set<String> = [
             // Uncompressed / PCM
@@ -256,12 +265,20 @@ public final class AudioEngine {
             "flac"
         ]
 
+        if url.isFileURL {
+            return supportedFormats.contains(url.pathExtension.lowercased())
+        }
+
+        guard url.isSupportedRemoteMediaURL else {
+            return false
+        }
+
         // Domains that serve audio content without file extensions
-        let audioServingDomains: Set<String> = [
+        let audioServingDomains: Set<String> = mediaGatewayHosts.union([
             "arweave.net",
             "ipfs.io",
             "gateway.pinata.cloud"
-        ]
+        ])
 
         if let host = url.host?.lowercased(), audioServingDomains.contains(host) {
             return true
@@ -682,9 +699,7 @@ public final class AudioEngine {
 
     private func loadAndPlay(nft: NFT, triggerCause: MusicReceiptTriggerCause) async throws {
         let loadID = await beginNewLoad()
-        guard let url = nft.musicURL else {
-            throw AudioEngineError.fileLoadFailed
-        }
+        let url = try await resolvedPlaybackURL(for: nft)
         pendingPlaybackTriggerCause = triggerCause
 
         // Start a new load task on the current actor (MainActor)
@@ -713,6 +728,36 @@ public final class AudioEngine {
             }
         }
         try await task.value
+    }
+
+    private func resolvedPlaybackURL(for nft: NFT) async throws -> URL {
+        guard let rawAudioURL = nft.audioUrl?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawAudioURL.isEmpty else {
+            throw AudioEngineError.fileLoadFailed
+        }
+
+        if shouldUseStorageResolver(for: rawAudioURL), let mediaResolver {
+            return try await mediaResolver.resolve(rawAudioURL)
+        }
+
+        if let url = nft.musicURL {
+            return url
+        }
+
+        if let mediaResolver {
+            return try await mediaResolver.resolve(rawAudioURL)
+        }
+
+        throw AudioEngineError.fileLoadFailed
+    }
+
+    private func shouldUseStorageResolver(for rawAudioURL: String) -> Bool {
+        let lowercased = rawAudioURL.lowercased()
+        return lowercased.hasPrefix("ipfs://")
+            || lowercased.hasPrefix("/ipfs/")
+            || lowercased.hasPrefix("ipfs/")
+            || lowercased.hasPrefix("ar://")
+            || lowercased.hasPrefix("data:")
     }
 
     // MARK: - Improved Playback Information

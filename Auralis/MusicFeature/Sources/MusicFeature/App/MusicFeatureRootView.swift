@@ -27,6 +27,7 @@ public struct MusicFeatureRootView: View {
                 artworkLoader: dependencies.artworkLoader,
                 logger: dependencies.logger,
                 configuration: dependencies.configuration,
+                urlResolver: dependencies.urlResolver,
                 currentAccount: currentAccount,
                 currentChain: currentChain
             )

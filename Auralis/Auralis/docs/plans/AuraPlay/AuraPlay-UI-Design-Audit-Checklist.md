@@ -2,10 +2,12 @@
 
 This checklist audits whether AuraPlay feels like a coherent rebuilt music product instead of a technically correct migration seam with a pretty coat of paint.
 
-The current audit target is the shipped Phase 2 persistence seam. That means the checklist should judge the real user-facing state honestly:
+The current audit target is the shipped Phase 3 baseline. That means the checklist should judge the real user-facing state honestly:
 
 - persisted wallet-scoped library data is part of the current product contract
+- module-owned storage resolution is part of the current product contract for migrated URL-preparation paths
 - the active AuraPlay root is still a migration surface, not the final Library/Now Playing/search product
+- `GatewayFallbackChain` exists for network-facing gateway probing, but it should not create visible design complexity unless a migrated caller actually uses it
 - search, playlists, and durable playback history are later-phase items and should be treated as deferred scope unless they are explicitly activated
 
 ## Audit Rules
@@ -39,9 +41,12 @@ The current audit target is the shipped Phase 2 persistence seam. That means the
 
 ## 4. Library Audit
 
-- [ ] The current Music root does not misrepresent itself as a fake “foundation” placeholder when persistence is already live
+- [ ] The current Music root does not misrepresent itself as a fake “foundation” placeholder when persistence and storage resolution are already live
 - [ ] If a real library browse surface is active, it feels like a real browse surface rather than a temporary migration summary
 - [ ] Artwork, metadata, and action affordances have a clear hierarchy
+- [ ] Supported IPFS, Arweave, HTTP/HTTPS, and `data:` URI artwork/media inputs render as ordinary product content rather than exposing raw storage strings
+- [ ] Unsupported or malformed storage strings degrade through normal AuraPlay copy and controls rather than leaking resolver terminology
+- [ ] Gateway fallback, if active on the tested path, feels like a loading/retry behavior and not like a second product mode
 - [ ] Scroll density is comfortable on device
 - [ ] Library rows or cards do not repeat the same information with slightly different labels
 - [ ] Empty, loading, and degraded states all have clear next-step guidance
@@ -88,7 +93,7 @@ The current audit target is the shipped Phase 2 persistence seam. That means the
 
 ## 10. Migration Smell Checklist
 
-- [ ] No screen still feels like a misleading “foundation placeholder” now that the persistence seam is live
+- [ ] No screen still feels like a misleading “foundation placeholder” now that the persistence and storage-resolution seams are live
 - [ ] No legacy `AI/V1` styling leak makes the module feel split-brain
 - [ ] No duplicate playback state is implied by the UI
 - [ ] No shell-owned state looks like it is secretly being re-owned inside Music

@@ -6,6 +6,7 @@ public enum AuraPlayError: Error, Equatable, LocalizedError {
     case queue(String)
     case artwork(String)
     case configuration(String)
+    case mediaResolution(String)
 
     public var errorDescription: String? {
         switch self {
@@ -18,6 +19,8 @@ public enum AuraPlayError: Error, Equatable, LocalizedError {
         case .artwork(let message):
             message
         case .configuration(let message):
+            message
+        case .mediaResolution(let message):
             message
         }
     }
@@ -36,5 +39,9 @@ public enum AuraPlayError: Error, Equatable, LocalizedError {
 
     public static func artwork(_ error: Error) -> AuraPlayError {
         .artwork("AuraPlay could not resolve artwork for the active track: \(error.localizedDescription)")
+    }
+
+    public static func mediaResolution(_ error: Error) -> AuraPlayError {
+        .mediaResolution("AuraPlay could not resolve media storage URL: \(error.localizedDescription)")
     }
 }

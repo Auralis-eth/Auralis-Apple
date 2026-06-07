@@ -2,7 +2,7 @@
 
 This is the real-device QA suite for the AuraPlay rebuild path. The simulator is useful for speed. It is not where audio session behavior, background playback, interruptions, route changes, and “why does this feel wrong in the hand?” issues tell the truth.
 
-The current shipping scope for this suite is the Phase 2 persistence seam: wallet-scoped sync into the AuraPlay store, persisted-library preference, shell-scope changes, and the still-shared playback engine. Search, playlists, and durable playback history are later-phase items and should be marked `Not In Scope Yet` when absent rather than filed as false regressions.
+The current shipping scope for this suite is the Phase 3 baseline: wallet-scoped sync into the AuraPlay store, persisted-library preference, module-owned storage resolution, shell-scope changes, and the still-shared playback engine. Search, playlists, and durable playback history are later-phase items and should be marked `Not In Scope Yet` when absent rather than filed as false regressions.
 
 ## Test Environment Template
 
@@ -17,6 +17,8 @@ Record this before starting:
 - chain scope(s) tested
 - whether the Music tab is running through the legacy root or AuraPlay root
 - whether the active wallet has already been mirrored into the AuraPlay persisted store
+- whether the tested media/artwork includes IPFS, Arweave, HTTP/HTTPS, or `data:` URI inputs
+- whether any gateway fallback behavior was observed or deliberately exercised
 
 ## Exit Rule
 
@@ -24,6 +26,7 @@ AuraPlay device QA passes only when:
 
 - all blocking tests below pass
 - no crash, stuck playback state, broken route change, or unrecoverable navigation wedge remains
+- supported Phase 3 storage inputs do not surface as raw or broken URLs in migrated AuraPlay paths
 - any known issues are documented with severity, repro steps, and owner
 
 ## AP-Device-001: Cold launch into the Music tab
@@ -85,6 +88,7 @@ Pass criteria:
 - a later visit prefers the persisted AuraPlay media graph instead of behaving like a perpetual cold start
 - playable and non-playable items are distinguishable
 - no artwork flicker, stale scope leakage, or obviously wrong availability state appears
+- migrated artwork URL preparation accepts supported IPFS, Arweave, HTTP/HTTPS, and `data:` inputs without falling back to visibly broken URLs
 
 ## AP-Device-004: Playback controls
 
@@ -105,6 +109,27 @@ Pass criteria:
 - playback state stays coherent
 - controls do not wedge or point at the wrong track
 - UI state matches actual audio behavior
+
+## AP-Device-004A: Storage-resolution product paths
+
+Goal:
+
+- verify the Phase 3 resolver seam behaves like product infrastructure on device, not a visible technical layer
+
+Steps:
+
+1. Open Music on fixture or real-account media that includes IPFS artwork or audio.
+2. Repeat with Arweave media if available.
+3. Repeat with normal HTTP/HTTPS media.
+4. Repeat with a small `data:` artwork/media item if the fixture path exposes one.
+5. Trigger the visible loading path for each item.
+
+Pass criteria:
+
+- supported IPFS, Arweave, HTTP/HTTPS, and `data:` inputs resolve into ordinary artwork/media behavior on migrated AuraPlay paths
+- cleartext `http://` inputs do not remain cleartext in migrated URL-preparation paths
+- unsupported or malformed storage strings degrade through the normal AuraPlay failure state rather than showing raw technical strings
+- gateway fallback, if exercised, does not block navigation or duplicate loading UI
 
 ## AP-Device-005: Background playback
 
@@ -206,7 +231,7 @@ Pass criteria:
 
 Goal:
 
-- validate that the current Phase 2 persistence slice survives normal app lifecycle churn
+- validate that the current Phase 3 persistence and storage-resolution baseline survives normal app lifecycle churn
 
 Steps:
 
@@ -241,7 +266,7 @@ Pass criteria:
 
 If inactive:
 
-- mark `Not In Scope Yet` instead of filing a product bug against the current Phase 2 slice
+- mark `Not In Scope Yet` instead of filing a product bug against the current Phase 3 baseline
 
 ## Severity Rubric
 

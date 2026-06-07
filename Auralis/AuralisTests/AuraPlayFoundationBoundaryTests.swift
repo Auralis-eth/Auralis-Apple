@@ -24,10 +24,12 @@ struct AuraPlayFoundationBoundaryTests {
             queueCoordinator: MockAuraPlayQueueCoordinator(),
             artworkLoader: MockAuraPlayArtworkLoader(),
             logger: MockAuraPlayLogger(),
-            configuration: .validFixture
+            configuration: .validFixture,
+            urlResolver: URLResolver()
         )
 
         #expect(dependencies.configuration.missingRequirements.isEmpty)
+        #expect(dependencies.urlResolver.resolve("ipfs://QmFixture")?.host == "cloudflare-ipfs.com")
     }
 
     @Test("root model refreshes the library summary for the active wallet scope")
@@ -50,6 +52,7 @@ struct AuraPlayFoundationBoundaryTests {
             artworkLoader: artworkLoader,
             logger: logger,
             configuration: .validFixture,
+            urlResolver: URLResolver(),
             currentAccount: account,
             currentChain: .ethMainnet
         )
@@ -95,6 +98,7 @@ struct AuraPlayFoundationBoundaryTests {
             artworkLoader: artworkLoader,
             logger: logger,
             configuration: .validFixture,
+            urlResolver: URLResolver(),
             currentAccount: initialAccount,
             currentChain: .ethMainnet
         )
@@ -128,6 +132,7 @@ struct AuraPlayFoundationBoundaryTests {
             artworkLoader: artworkLoader,
             logger: logger,
             configuration: .validFixture,
+            urlResolver: URLResolver(),
             currentAccount: nil,
             currentChain: .ethMainnet
         )

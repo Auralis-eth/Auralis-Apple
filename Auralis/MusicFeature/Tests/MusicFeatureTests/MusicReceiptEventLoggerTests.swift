@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import Foundation
 import MusicFeature
 import ReceiptStorage
 import ReceiptsCore
@@ -44,9 +45,9 @@ struct MusicReceiptEventLoggerTests {
         #expect(receipt.details.values["capabilityUsed"] == .string("playlist_management"))
         #expect(receipt.details.values["policyDecision"] == .string("allowed"))
         #expect(receipt.details.values["surface"] == .string("music.playlist.new"))
-        #expect(receipt.details.values["playlistID"] == .string(playlistID.uuidString))
+        #expect(receipt.details.values["playlistID"] == .string("<redacted-opaque-token>"))
         #expect(receipt.details.values["playlistTitle"] == .string("Night Drive"))
-        #expect(receipt.details.values["affectedMediaIDs"] == .array([.string("track-1"), .string("track-2")]))
+        #expect(receipt.details.values["affectedMediaIDs"] == .array([.string("<redacted-unexpected-string>"), .string("<redacted-unexpected-string>")]))
     }
 
     @Test("auto-organization dry runs emit dry-run receipts through the shared store")

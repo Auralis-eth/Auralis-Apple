@@ -29,6 +29,9 @@ public final class AuraPlayRootModel {
     @ObservationIgnored
     let configuration: AuraPlayModuleConfiguration
 
+    @ObservationIgnored
+    let urlResolver: URLResolver
+
     public private(set) var currentAccount: EOAccount?
     public private(set) var currentChain: Chain
 
@@ -48,6 +51,7 @@ public final class AuraPlayRootModel {
         artworkLoader: any AuraPlayArtworkLoading,
         logger: any AuraPlayLogging,
         configuration: AuraPlayModuleConfiguration,
+        urlResolver: URLResolver,
         currentAccount: EOAccount?,
         currentChain: Chain
     ) {
@@ -58,6 +62,7 @@ public final class AuraPlayRootModel {
         self.artworkLoader = artworkLoader
         self.logger = logger
         self.configuration = configuration
+        self.urlResolver = urlResolver
         self.currentAccount = currentAccount
         self.currentChain = currentChain
         self.upcomingQueueCount = 0
@@ -124,7 +129,7 @@ public final class AuraPlayRootModel {
         playbackHistoryCount = queueSnapshot.historyCount
 
         do {
-            currentArtworkURL = try artworkLoader.artworkURL(for: playbackController.currentTrack)
+            currentArtworkURL = try resolvedArtworkURL(for: playbackController.currentTrack)
         } catch let error as AuraPlayError {
             currentArtworkURL = nil
             lastError = error
@@ -162,6 +167,14 @@ public final class AuraPlayRootModel {
             return "Bundle contract ready"
         }
         return configuration.missingRequirements.joined(separator: " ")
+    }
+
+    private func resolvedArtworkURL(for track: AuraPlayTrack?) throws -> URL? {
+        if let imageURLString = track?.imageURLString,
+           let resolvedURL = urlResolver.resolve(imageURLString) {
+            return resolvedURL
+        }
+        return try artworkLoader.artworkURL(for: track)
     }
 }
 

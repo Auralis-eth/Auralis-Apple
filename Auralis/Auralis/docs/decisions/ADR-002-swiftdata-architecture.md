@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Accepted, with implementation note
+
+The accepted direction is still one shared AuraPlay `ModelContainer` and service-local contexts. The current implementation is an interim flat schema: `AuraPlayModelContainer` builds from `AuraPlaySchema.models`, `AuraPlayMediaItem` is the only AuraPlay-owned persisted model, and wallet/account identity comes from the shared `EOAccount` model in `AuralisPrimaryPersistence`. Formal `VersionedSchema` / `SchemaMigrationPlan` types remain planned work.
 
 ## Context
 
@@ -21,7 +23,7 @@ AuraPlay uses one shared SwiftData `ModelContainer`, versioned schemas, and serv
 
 The concrete rules are:
 
-1. `AppModelContainer.make(inMemory:)` is the only AuraPlay container factory.
+1. `AuraPlayModelContainer.make(inMemory:)` is the only AuraPlay container factory.
 2. `ModelContainer` is the only persistence object shared through dependency injection.
 3. Non-view persistence work uses `@ModelActor` services, each with its own private `ModelContext` derived from that shared container.
 4. SwiftUI views may use `@Query` when Phase 2 surfaces become query-backed, but views do not orchestrate persistence writes directly.
