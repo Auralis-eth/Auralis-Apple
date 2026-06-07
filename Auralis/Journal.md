@@ -1,5 +1,11 @@
 # Journal
 
+## 2026-06-07 — Wallet Connectors Got Their Own Workshop
+
+Third-party wallet work now has a clean side garage instead of being welded straight onto the main app while the engine is running. `WalletConnectorKit` is a new local Swift package for MetaMask, Rainbow, Coinbase Wallet, Phantom, and whatever specialized connector code comes next. The package starts with provider identities, supported chains, connection-method descriptors, a connector protocol, and a registry that routes connect/disconnect calls by wallet provider.
+
+The demo app target is deliberately a showroom with cardboard wiring: it uses stub connectors so the team can build the UI and state model before real deep links, SDK callbacks, universal links, and browser-extension flows start bringing their own weather. That is the useful architectural lesson here: isolate the workshop first, then let each wallet integration become a replaceable tool on the wall instead of a mystery cable running through the app shell.
+
 ## 2026-06-07 — AuraPlay Phase 3 Shipped The URL Front Desk
 
 The Phase 3 closeout turned the storage-resolution story from "the code is probably fine" into a shipping record. The docs now agree on the exact boundary: `URLResolver` is the deterministic front desk for IPFS, Arweave, HTTP/S, and `data:` inputs; `GatewayFallbackChain` is the network-facing layer above it; and the rest of AuraPlay should consume those seams instead of copying old helper tricks into new screens.
