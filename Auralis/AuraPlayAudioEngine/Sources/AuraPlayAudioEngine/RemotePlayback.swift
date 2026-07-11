@@ -1,0 +1,10 @@
+@_exported import AuraPlayMediaCore
+
+public typealias RemoteCommandEvent = AuraPlayMediaCore.RemoteCommandEvent
+public typealias NowPlayingMediaType = AuraPlayMediaCore.NowPlayingMediaType
+public typealias NowPlayingState = AuraPlayMediaCore.NowPlayingState
+public typealias NowPlayingInfoSnapshot = AuraPlayMediaCore.NowPlayingInfoSnapshot
+public typealias NowPlayingPublishing = AuraPlayMediaCore.NowPlayingPublishing
+public typealias RemoteCommandPublishing = AuraPlayMediaCore.RemoteCommandPublishing
+public typealias MediaTransportControlling = AuraPlayMediaCore.MediaTransportControlling
+public typealias MediaRemoteCommandDispatcher = AuraPlayMediaCore.MediaRemoteCommandDispatcher

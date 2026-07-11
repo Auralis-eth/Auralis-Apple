@@ -1,0 +1,6 @@
+@_exported import AuraPlayMediaCore
+
+public typealias AuraPlayableMedia = AuraPlayMediaCore.AuraPlayableMedia
+public typealias AuraPlayableContentKind = AuraPlayMediaCore.AuraPlayableContentKind
+public typealias AuraCachedFileState = AuraPlayMediaCore.AuraCachedFileState
+public typealias AnyAuraPlayableMedia = AuraPlayMediaCore.AnyAuraPlayableMedia

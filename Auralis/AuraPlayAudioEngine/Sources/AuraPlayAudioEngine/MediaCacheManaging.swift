@@ -1,0 +1,9 @@
+@_exported import AuraPlayMediaCore
+
+public typealias CachedLoudnessMeasurement = AuraPlayMediaCore.CachedLoudnessMeasurement
+public typealias CacheProgress = AuraPlayMediaCore.CacheProgress
+public typealias MediaCacheManaging = AuraPlayMediaCore.MediaCacheManaging
+public typealias CacheKey = AuraPlayMediaCore.CacheKey
+public typealias URLSessionMediaDownloader = AuraPlayMediaCore.URLSessionMediaDownloader
+public typealias MediaGatewayFallbackResolving = AuraPlayMediaCore.MediaGatewayFallbackResolving
+public typealias OrderedMediaGatewayFallbackResolver = AuraPlayMediaCore.OrderedMediaGatewayFallbackResolver
