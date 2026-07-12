@@ -17,9 +17,9 @@ public struct SubtitleTrackManager {
 
     public func availableTracks(for item: AVPlayerItem) async throws -> [SubtitleTrack] {
         guard let group = try await item.asset.loadMediaSelectionGroup(for: .legible) else { return [] }
-        return group.options.map { option in
+        return group.options.enumerated().map { index, option in
             SubtitleTrack(
-                id: option.displayName + (option.locale?.identifier ?? ""),
+                id: subtitleTrackID(for: option, index: index),
                 displayName: option.displayName,
                 languageCode: option.locale?.language.languageCode?.identifier
             )
@@ -34,10 +34,10 @@ public struct SubtitleTrackManager {
             return
         }
 
-        let option = group.options.first { option in
-            option.displayName == track.displayName && option.locale?.language.languageCode?.identifier == track.languageCode
+        let option = group.options.enumerated().first { index, option in
+            subtitleTrackID(for: option, index: index) == track.id
         }
-        item.select(option, in: group)
+        item.select(option?.element, in: group)
         if let languageCode = track.languageCode {
             userDefaults.set(languageCode, forKey: Self.preferredLanguageKey)
         }
@@ -59,13 +59,22 @@ public struct SubtitleTrackManager {
         guard let group = try await item.asset.loadMediaSelectionGroup(for: .audible) else { return [] }
 
         return group.options
-            .filter { $0.hasMediaCharacteristic(.describesVideoForAccessibility) }
-            .map { option in
+            .enumerated()
+            .filter { _, option in option.hasMediaCharacteristic(.describesVideoForAccessibility) }
+            .map { index, option in
                 AudioDescriptionTrack(
-                    id: option.displayName + (option.locale?.identifier ?? ""),
+                    id: subtitleTrackID(for: option, index: index),
                     displayName: option.displayName,
                     languageCode: option.locale?.language.languageCode?.identifier
                 )
             }
     }
+}
+
+private func subtitleTrackID(for option: AVMediaSelectionOption, index: Int) -> String {
+    [
+        String(index),
+        option.displayName,
+        option.locale?.identifier ?? "und",
+    ].joined(separator: "|")
 }

@@ -19,11 +19,17 @@ public protocol VideoPlayerControlling: AnyObject {
 @MainActor
 public final class VideoPlayerController: VideoPlayerControlling {
     public let player: AVPlayer
-    public let events: AsyncStream<VideoPlaybackEvent>
     public private(set) var state: VideoPlaybackState = .idle
     public private(set) var waitingReason: VideoWaitingReason?
 
-    private let eventContinuation: AsyncStream<VideoPlaybackEvent>.Continuation
+    /// Each access returns an independent stream, so multiple observers (integration
+    /// coordinator, queue controller, UI) each receive every event emitted after the
+    /// stream is created. Events are not replayed to late subscribers.
+    public var events: AsyncStream<VideoPlaybackEvent> {
+        eventHub.makeStream()
+    }
+
+    private let eventHub = PlaybackEventHub()
     private let validator: VideoFormatValidator
     private let bufferingPolicy: VideoBufferingPolicy
     private let assetLoader: VideoAssetLoader
@@ -34,7 +40,7 @@ public final class VideoPlayerController: VideoPlayerControlling {
     private let seekCoordinator = ChaseTimeSeekCoordinator()
     private let playerObserverBag = ObserverBag()
     private let itemObserverBag = ObserverBag()
-    private var periodicTimeObserver: Any?
+    private var periodicTimeObserver: PeriodicTimeObserver?
     private var selectedPlaybackSpeed: PlaybackSpeedOption
     private var isTornDown = false
 
@@ -93,34 +99,42 @@ public final class VideoPlayerController: VideoPlayerControlling {
         self.selectedPlaybackSpeed = playbackSpeedController.storedSpeed
         self.timeObserverRegistrar = timeObserverRegistrar
 
-        var continuation: AsyncStream<VideoPlaybackEvent>.Continuation!
-        self.events = AsyncStream { continuation = $0 }
-        self.eventContinuation = continuation
-
         configurePlayer()
         registerPlayerObservers()
         registerPeriodicTimeObserver()
     }
 
     deinit {
-        MainActor.assumeIsolated {
-            teardown()
-            eventContinuation.finish()
+        let eventHub = eventHub
+        let periodicTimeObserver = periodicTimeObserver
+        let timeObserverRegistrar = timeObserverRegistrar
+        Task { @MainActor in
+            eventHub.finish()
+            if let periodicTimeObserver {
+                timeObserverRegistrar.removeTimeObserver(periodicTimeObserver.rawValue)
+            }
         }
     }
 
     public func load(resolvedURL: URL) async throws {
+        guard !isTornDown else {
+            throw VideoPlaybackError.controllerTornDown
+        }
         try validator.validateResolvedPlaybackURL(resolvedURL)
-        restoreObservationIfNeeded()
-        isTornDown = false
         updateState(.loading(resolvedURL))
 
-        let item = try await assetLoader.playerItem(
-            for: resolvedURL,
-            plan: assetLoadPlan,
-            bufferingPolicy: bufferingPolicy,
-            resourceLoaderDelegate: resourceLoaderDelegate
-        )
+        let item: AVPlayerItem
+        do {
+            item = try await assetLoader.playerItem(
+                for: resolvedURL,
+                plan: assetLoadPlan,
+                bufferingPolicy: bufferingPolicy,
+                resourceLoaderDelegate: resourceLoaderDelegate
+            )
+        } catch {
+            updateState(.failed(.videoLoadFailed(error.localizedDescription)))
+            throw error
+        }
         selectedPlaybackSpeed = playbackSpeedController.storedSpeed
         item.audioTimePitchAlgorithm = selectedPlaybackSpeed.pitchAlgorithm
         replaceCurrentItem(with: item)
@@ -131,7 +145,21 @@ public final class VideoPlayerController: VideoPlayerControlling {
     }
 
     public func play() {
-        isTornDown = false
+        guard !isTornDown else { return }
+        if state == .ended {
+            // Await the restart seek so playback deterministically resumes from zero.
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                _ = await self.performSeek(to: 0, tolerance: VideoSeekKind.resume.tolerance)
+                guard !self.isTornDown, self.state == .ended else { return }
+                self.beginPlayback()
+            }
+            return
+        }
+        beginPlayback()
+    }
+
+    private func beginPlayback() {
         selectedPlaybackSpeed = playbackSpeedController.storedSpeed
         player.currentItem?.audioTimePitchAlgorithm = selectedPlaybackSpeed.pitchAlgorithm
         player.rate = Float(selectedPlaybackSpeed.rawValue)
@@ -139,11 +167,13 @@ public final class VideoPlayerController: VideoPlayerControlling {
     }
 
     public func pause() {
+        guard !isTornDown else { return }
         player.pause()
         updateState(.paused)
     }
 
     public func seek(to seconds: Double, kind: VideoSeekKind) async {
+        guard !isTornDown else { return }
         await seekCoordinator.requestSeek(to: seconds, tolerance: kind.tolerance) { [weak self] targetSeconds, tolerance in
             await self?.performSeek(to: targetSeconds, tolerance: tolerance) ?? false
         }
@@ -154,7 +184,7 @@ public final class VideoPlayerController: VideoPlayerControlling {
         isTornDown = true
 
         if let periodicTimeObserver {
-            timeObserverRegistrar.removeTimeObserver(periodicTimeObserver)
+            timeObserverRegistrar.removeTimeObserver(periodicTimeObserver.rawValue)
             self.periodicTimeObserver = nil
         }
 
@@ -162,11 +192,16 @@ public final class VideoPlayerController: VideoPlayerControlling {
         playerObserverBag.invalidate()
         player.replaceCurrentItem(with: nil)
         updateState(.idle)
+        eventHub.finish()
     }
 
     private func configurePlayer() {
+        #if !os(visionOS)
         player.allowsExternalPlayback = true
+        #endif
+        #if os(iOS) || os(tvOS)
         player.usesExternalPlaybackWhileExternalScreenIsActive = true
+        #endif
         player.automaticallyWaitsToMinimizeStalling = true
     }
 
@@ -191,21 +226,24 @@ public final class VideoPlayerController: VideoPlayerControlling {
             }
         })
 
+        #if !os(visionOS)
         playerObserverBag.store(player.observe(\.isExternalPlaybackActive, options: [.initial, .new]) { [weak self] player, _ in
             Task { @MainActor [weak self] in
-                self?.eventContinuation.yield(.externalPlaybackChanged(player.isExternalPlaybackActive))
+                self?.eventHub.yield(.externalPlaybackChanged(player.isExternalPlaybackActive))
             }
         })
+        #endif
     }
 
     private func registerPeriodicTimeObserver() {
         guard periodicTimeObserver == nil else { return }
         let interval = CMTime(seconds: 1.0 / 60.0, preferredTimescale: 600)
-        periodicTimeObserver = timeObserverRegistrar.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            Task { @MainActor [weak self] in
+        let observer = timeObserverRegistrar.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
+            MainActor.assumeIsolated {
                 self?.publishTick(currentTime: time)
             }
         }
+        periodicTimeObserver = PeriodicTimeObserver(rawValue: observer)
     }
 
     private func replaceCurrentItem(with item: AVPlayerItem) {
@@ -229,7 +267,7 @@ public final class VideoPlayerController: VideoPlayerControlling {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.updateState(.ended)
-                self?.eventContinuation.yield(.didPlayToEnd)
+                self?.eventHub.yield(.didPlayToEnd)
             }
         })
 
@@ -240,7 +278,7 @@ public final class VideoPlayerController: VideoPlayerControlling {
         ) { [weak self] notification in
             let message = (notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error)?.localizedDescription
             Task { @MainActor [weak self] in
-                self?.eventContinuation.yield(.failedToPlayToEnd(message))
+                self?.eventHub.yield(.failedToPlayToEnd(message))
             }
         })
 
@@ -251,7 +289,7 @@ public final class VideoPlayerController: VideoPlayerControlling {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.updateState(.buffering)
-                self?.eventContinuation.yield(.playbackStalled)
+                self?.eventHub.yield(.playbackStalled)
             }
         })
     }
@@ -304,7 +342,7 @@ public final class VideoPlayerController: VideoPlayerControlling {
             currentSeconds: currentTime.validSeconds,
             durationSeconds: durationSeconds()
         )
-        eventContinuation.yield(.tick(tick))
+        eventHub.yield(.tick(tick))
     }
 
     private func durationSeconds() -> Double? {
@@ -314,24 +352,18 @@ public final class VideoPlayerController: VideoPlayerControlling {
     private func updateState(_ newState: VideoPlaybackState) {
         guard state != newState else { return }
         state = newState
-        eventContinuation.yield(.stateChanged(newState))
+        eventHub.yield(.stateChanged(newState))
     }
 
     private func updateWaitingReason(_ newReason: VideoWaitingReason?) {
         guard waitingReason != newReason else { return }
         waitingReason = newReason
-        eventContinuation.yield(.waitingReasonChanged(newReason))
-    }
-
-    private func restoreObservationIfNeeded() {
-        guard isTornDown else { return }
-        registerPlayerObservers()
-        registerPeriodicTimeObserver()
+        eventHub.yield(.waitingReasonChanged(newReason))
     }
 }
 
 @MainActor
-protocol VideoTimeObserverRegistering: AnyObject {
+protocol VideoTimeObserverRegistering: AnyObject, Sendable {
     func addPeriodicTimeObserver(
         forInterval interval: CMTime,
         queue: DispatchQueue?,
@@ -359,6 +391,50 @@ private final class AVPlayerTimeObserverRegistrar: VideoTimeObserverRegistering 
 
     func removeTimeObserver(_ observer: Any) {
         player.removeTimeObserver(observer)
+    }
+}
+
+private struct PeriodicTimeObserver: @unchecked Sendable {
+    let rawValue: Any
+}
+
+/// Multicasts playback events so any number of observers can consume
+/// `VideoPlayerController.events` concurrently. Each stream keeps only
+/// the newest 120 events so unconsumed 60fps ticks cannot grow unbounded.
+@MainActor
+final class PlaybackEventHub {
+    private var continuations: [UUID: AsyncStream<VideoPlaybackEvent>.Continuation] = [:]
+    private var isFinished = false
+
+    func makeStream() -> AsyncStream<VideoPlaybackEvent> {
+        AsyncStream(bufferingPolicy: .bufferingNewest(120)) { continuation in
+            guard !isFinished else {
+                continuation.finish()
+                return
+            }
+            let id = UUID()
+            continuations[id] = continuation
+            continuation.onTermination = { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.continuations[id] = nil
+                }
+            }
+        }
+    }
+
+    func yield(_ event: VideoPlaybackEvent) {
+        for continuation in continuations.values {
+            continuation.yield(event)
+        }
+    }
+
+    func finish() {
+        isFinished = true
+        let active = continuations.values
+        continuations.removeAll()
+        for continuation in active {
+            continuation.finish()
+        }
     }
 }
 

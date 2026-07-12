@@ -2,16 +2,23 @@ import Foundation
 
 #if canImport(AVFAudio) && (os(iOS) || os(tvOS) || os(visionOS))
 import AVFAudio
+#if canImport(UIKit)
+import UIKit
+#endif
 
 public final class SystemVideoMediaSessionManager: VideoMediaSessionManaging, @unchecked Sendable {
     public let events: AsyncStream<VideoMediaSessionEvent>
 
     private let session: AVAudioSession
+    private let notificationCenter: NotificationCenter
     private let continuation: AsyncStream<VideoMediaSessionEvent>.Continuation
     private var interruptionToken: NSObjectProtocol?
+    private var backgroundToken: NSObjectProtocol?
+    private var terminationToken: NSObjectProtocol?
 
     public init(session: AVAudioSession = .sharedInstance(), notificationCenter: NotificationCenter = .default) {
         self.session = session
+        self.notificationCenter = notificationCenter
 
         var continuation: AsyncStream<VideoMediaSessionEvent>.Continuation!
         self.events = AsyncStream { continuation = $0 }
@@ -24,16 +31,40 @@ public final class SystemVideoMediaSessionManager: VideoMediaSessionManaging, @u
         ) { [continuation] notification in
             Self.handleInterruption(notification, continuation: continuation)
         }
+
+        #if canImport(UIKit)
+        backgroundToken = notificationCenter.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [continuation] _ in
+            continuation.yield(.enteredBackground)
+        }
+
+        terminationToken = notificationCenter.addObserver(
+            forName: UIApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [continuation] _ in
+            continuation.yield(.willStop)
+        }
+        #endif
     }
 
     deinit {
         if let interruptionToken {
-            NotificationCenter.default.removeObserver(interruptionToken)
+            notificationCenter.removeObserver(interruptionToken)
+        }
+        if let backgroundToken {
+            notificationCenter.removeObserver(backgroundToken)
+        }
+        if let terminationToken {
+            notificationCenter.removeObserver(terminationToken)
         }
         continuation.finish()
     }
 
-    public func configureForVideoPlayback() async throws {
+    public func configureForPlayback() async throws {
         try session.setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay, .allowBluetoothA2DP])
         try session.setActive(true)
     }
@@ -76,6 +107,6 @@ public final class SystemVideoMediaSessionManager: VideoMediaSessionManaging, @u
         continuation.finish()
     }
 
-    public func configureForVideoPlayback() async throws {}
+    public func configureForPlayback() async throws {}
 }
 #endif

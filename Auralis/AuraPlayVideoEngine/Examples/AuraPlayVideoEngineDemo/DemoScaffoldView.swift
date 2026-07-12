@@ -63,7 +63,8 @@ struct DemoScaffoldView: View {
                 await observeEvents()
             }
             .onDisappear {
-                controller.teardown()
+                // Pause rather than teardown so the view can resume if it reappears.
+                controller.pause()
             }
         }
     }

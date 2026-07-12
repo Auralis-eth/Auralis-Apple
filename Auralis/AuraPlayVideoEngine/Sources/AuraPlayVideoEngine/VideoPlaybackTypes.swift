@@ -1,4 +1,5 @@
 import AVFoundation
+@_exported import AuraPlayMediaCore
 import CoreGraphics
 import Foundation
 
@@ -20,17 +21,10 @@ public enum VideoPlaybackError: Error, Equatable, Sendable {
     case pictureInPictureUnsupported
     case noCurrentItem
     case resourceLoadingUnsupported
+    case controllerTornDown
 }
 
-public struct PlaybackTick: Equatable, Sendable {
-    public let currentSeconds: Double
-    public let durationSeconds: Double?
-
-    public init(currentSeconds: Double, durationSeconds: Double?) {
-        self.currentSeconds = currentSeconds
-        self.durationSeconds = durationSeconds
-    }
-}
+public typealias PlaybackTick = AuraPlayMediaCore.PlaybackTick
 
 public enum VideoPlaybackEvent: Equatable, Sendable {
     case stateChanged(VideoPlaybackState)
@@ -144,34 +138,27 @@ public enum PiPState: Equatable, Sendable {
     case unsupported
 }
 
-public protocol VideoPlayableMedia: Sendable {
-    var videoMediaID: String { get }
-    var videoTitle: String { get }
-    var videoArtist: String? { get }
-    var videoArtworkURL: URL? { get }
-    var resolvedPlaybackURL: URL { get }
+public protocol VideoPlayableMedia: AuraPlayableMedia {
+    var mediaMetadata: MediaMetadata { get }
 }
 
-public struct VideoMediaMetadata: Equatable, Sendable {
-    public let id: String
-    public let title: String
-    public let artist: String?
-    public let artworkURL: URL?
+public extension VideoPlayableMedia {
+    var videoMediaID: String { mediaMetadata.id }
+    var videoTitle: String { mediaMetadata.title }
+    var videoArtist: String? { mediaMetadata.artist }
+    var videoArtworkURL: URL? { mediaMetadata.artworkURL }
+    var resolvedPlaybackURL: URL { sourceURL }
+}
 
-    public init(id: String, title: String, artist: String?, artworkURL: URL?) {
-        self.id = id
-        self.title = title
-        self.artist = artist
-        self.artworkURL = artworkURL
-    }
+extension AuraPlayableMediaItem: VideoPlayableMedia {
+    public var mediaMetadata: MediaMetadata { metadata }
+}
 
-    public init(media: some VideoPlayableMedia) {
-        self.init(
-            id: media.videoMediaID,
-            title: media.videoTitle,
-            artist: media.videoArtist,
-            artworkURL: media.videoArtworkURL
-        )
+public typealias VideoMediaMetadata = AuraPlayMediaCore.MediaMetadata
+
+public extension MediaMetadata {
+    init(media: some VideoPlayableMedia) {
+        self = media.mediaMetadata
     }
 }
 

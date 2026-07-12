@@ -94,3 +94,5 @@ public final class PictureInPictureController {
     public func stop() {}
 }
 #endif
+
+extension PictureInPictureController: VideoPictureInPictureControlling {}

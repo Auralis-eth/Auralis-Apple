@@ -4,7 +4,7 @@ public actor ChaseTimeSeekCoordinator {
     public typealias SeekOperation = @Sendable (_ targetSeconds: Double, _ tolerance: VideoSeekTolerance) async -> Bool
 
     private var isSeekInProgress = false
-    private var chaseTargetSeconds: Double?
+    private var chaseTarget: SeekTarget?
 
     public init() {}
 
@@ -13,16 +13,21 @@ public actor ChaseTimeSeekCoordinator {
         tolerance: VideoSeekTolerance,
         perform: @escaping SeekOperation
     ) async {
-        chaseTargetSeconds = targetSeconds
+        chaseTarget = SeekTarget(seconds: targetSeconds, tolerance: tolerance)
 
         guard !isSeekInProgress else { return }
         isSeekInProgress = true
 
-        while let target = chaseTargetSeconds {
-            chaseTargetSeconds = nil
-            _ = await perform(target, tolerance)
+        while let target = chaseTarget {
+            chaseTarget = nil
+            _ = await perform(target.seconds, target.tolerance)
         }
 
         isSeekInProgress = false
+    }
+
+    private struct SeekTarget {
+        let seconds: Double
+        let tolerance: VideoSeekTolerance
     }
 }

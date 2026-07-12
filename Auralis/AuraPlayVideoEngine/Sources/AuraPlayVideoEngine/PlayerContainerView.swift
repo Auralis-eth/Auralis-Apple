@@ -20,6 +20,9 @@ public final class PlayerSurfaceView: UIView {
 public struct PlayerContainerView: UIViewRepresentable {
     public let player: AVPlayer
     public let videoGravity: AVLayerVideoGravity
+
+    /// Called from `makeUIView` and every SwiftUI update with the same backing layer.
+    /// Hosts should keep PiP/controller creation idempotent for this layer.
     public let onLayerReady: (@MainActor (AVPlayerLayer) -> Void)?
 
     public init(
@@ -63,20 +66,23 @@ public final class PlayerSurfaceView: NSView {
 
     public override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        wantsLayer = true
         layer = playerLayer
+        wantsLayer = true
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        wantsLayer = true
         layer = playerLayer
+        wantsLayer = true
     }
 }
 
 public struct PlayerContainerView: NSViewRepresentable {
     public let player: AVPlayer
     public let videoGravity: AVLayerVideoGravity
+
+    /// Called from `makeNSView` and every SwiftUI update with the same backing layer.
+    /// Hosts should keep PiP/controller creation idempotent for this layer.
     public let onLayerReady: (@MainActor (AVPlayerLayer) -> Void)?
 
     public init(

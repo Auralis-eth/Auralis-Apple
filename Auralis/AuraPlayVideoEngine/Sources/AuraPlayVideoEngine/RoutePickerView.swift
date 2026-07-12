@@ -1,6 +1,6 @@
 import SwiftUI
 
-#if canImport(AVKit) && canImport(UIKit)
+#if canImport(AVKit) && canImport(UIKit) && !os(visionOS)
 import AVKit
 import UIKit
 

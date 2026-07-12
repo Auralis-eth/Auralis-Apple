@@ -53,6 +53,9 @@ public struct PlaybackSpeedController {
         return PlaybackSpeedOption(storedRawValue: value)
     }
 
+    /// Stores the speed and retimes the player when it is actively playing.
+    /// A paused player keeps its zero rate — assigning a nonzero rate would start
+    /// playback as a side effect — and picks up the stored speed on the next play.
     public func setSpeed(_ speed: PlaybackSpeedOption, on player: AVPlayer, persist: Bool = true) throws {
         guard let item = player.currentItem else {
             throw VideoPlaybackError.noCurrentItem
@@ -62,7 +65,9 @@ public struct PlaybackSpeedController {
         if persist {
             userDefaults.set(speed.rawValue, forKey: Self.preferenceKey)
         }
-        player.rate = Float(speed.rawValue)
+        if player.rate != 0 {
+            player.rate = Float(speed.rawValue)
+        }
     }
 
     public func applyStoredSpeed(on player: AVPlayer) throws {

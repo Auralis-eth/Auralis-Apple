@@ -1,4 +1,5 @@
 import AVFoundation
+import AuraPlayMediaCore
 import Foundation
 
 @MainActor
@@ -10,6 +11,7 @@ public final class VideoPlaybackIntegrationCoordinator {
     private let remoteCommandStream: (any VideoRemoteCommandStreaming)?
     private let mediaSessionManager: (any VideoMediaSessionManaging)?
     private let gatewayResolver: (any VideoGatewayResolving)?
+    public let coordinatedPlaybackConfiguration: VideoCoordinatedPlaybackConfiguration?
     private let bufferingPolicy: VideoBufferingPolicy
     private let stallFallbackCoordinator: StallFallbackCoordinator
     private let logger: VideoEngineLogging
@@ -20,6 +22,7 @@ public final class VideoPlaybackIntegrationCoordinator {
     private var currentResolvedURL: URL?
     private var fallbackRetried = false
     private var isObserving = false
+    private var fallbackCheckTask: Task<Void, Never>?
 
     public init(
         controller: any VideoPlayerControlling,
@@ -29,6 +32,8 @@ public final class VideoPlaybackIntegrationCoordinator {
         remoteCommandStream: (any VideoRemoteCommandStreaming)? = nil,
         mediaSessionManager: (any VideoMediaSessionManaging)? = nil,
         gatewayResolver: (any VideoGatewayResolving)? = nil,
+        pictureInPictureController: (any VideoPictureInPictureControlling)? = nil,
+        coordinatedPlaybackConfiguration: VideoCoordinatedPlaybackConfiguration? = nil,
         bufferingPolicy: VideoBufferingPolicy = VideoBufferingPolicy(),
         stallFallbackCoordinator: StallFallbackCoordinator = StallFallbackCoordinator(),
         logger: VideoEngineLogging = NoOpVideoEngineLogger()
@@ -40,6 +45,7 @@ public final class VideoPlaybackIntegrationCoordinator {
         self.remoteCommandStream = remoteCommandStream
         self.mediaSessionManager = mediaSessionManager
         self.gatewayResolver = gatewayResolver
+        self.coordinatedPlaybackConfiguration = coordinatedPlaybackConfiguration
         self.bufferingPolicy = bufferingPolicy
         self.stallFallbackCoordinator = stallFallbackCoordinator
         self.logger = logger
@@ -50,11 +56,12 @@ public final class VideoPlaybackIntegrationCoordinator {
 
     deinit {
         tasks.forEach { $0.cancel() }
+        fallbackCheckTask?.cancel()
     }
 
     @discardableResult
     public func load(media: some VideoPlayableMedia) async throws -> StoredVideoPlaybackPosition? {
-        try await mediaSessionManager?.configureForVideoPlayback()
+        try await mediaSessionManager?.configureForPlayback()
         currentResolvedURL = media.resolvedPlaybackURL
         fallbackRetried = false
         let storedPosition = try await playbackStateStore?.storedPosition(for: media.videoMediaID)
@@ -62,23 +69,40 @@ public final class VideoPlaybackIntegrationCoordinator {
         return resumablePosition(from: storedPosition)
     }
 
-    public func startObserving() {
+    public func startObserving(observesPlaybackEvents: Bool = true) {
         guard !isObserving else { return }
         isObserving = true
 
-        tasks.append(Task { [weak self] in
-            await self?.observePlaybackEvents()
-        })
+        if observesPlaybackEvents {
+            let events = controller.events
+            tasks.append(Task { [weak self] in
+                for await event in events {
+                    if Task.isCancelled { return }
+                    guard let self else { return }
+                    await self.handlePlaybackEvent(event)
+                }
+            })
+        }
 
         if let remoteCommandStream {
+            let commands = remoteCommandStream.commands
             tasks.append(Task { [weak self] in
-                await self?.observeRemoteCommands(remoteCommandStream.commands)
+                for await command in commands {
+                    if Task.isCancelled { return }
+                    guard let self else { return }
+                    await self.handleRemoteCommand(command)
+                }
             })
         }
 
         if let mediaSessionManager {
+            let events = mediaSessionManager.events
             tasks.append(Task { [weak self] in
-                await self?.observeMediaSessionEvents(mediaSessionManager.events)
+                for await event in events {
+                    if Task.isCancelled { return }
+                    guard let self else { return }
+                    await self.handleMediaSessionEvent(event)
+                }
             })
         }
     }
@@ -86,41 +110,31 @@ public final class VideoPlaybackIntegrationCoordinator {
     public func stop() async {
         await flushPosition()
         if let nowPlayingPublisher {
-            await nowPlayingPublisher.clearVideo(metadataID: metadata.id)
+            await nowPlayingPublisher.clear(metadataID: metadata.id)
         }
         tasks.forEach { $0.cancel() }
         tasks.removeAll()
+        fallbackCheckTask?.cancel()
+        fallbackCheckTask = nil
         isObserving = false
         controller.teardown()
     }
 
-    private func observePlaybackEvents() async {
-        for await event in controller.events {
-            if Task.isCancelled { return }
-            await handlePlaybackEvent(event)
-        }
+    public func flushCurrentPosition() async {
+        await flushPosition()
     }
 
-    private func observeRemoteCommands(_ commands: AsyncStream<VideoRemoteCommand>) async {
-        for await command in commands {
-            if Task.isCancelled { return }
-            await handleRemoteCommand(command)
-        }
+    public func flushCurrentPosition(_ tick: PlaybackTick) async {
+        latestTick = tick
+        await flushPosition()
     }
 
-    private func observeMediaSessionEvents(_ events: AsyncStream<VideoMediaSessionEvent>) async {
-        for await event in events {
-            if Task.isCancelled { return }
-            await handleMediaSessionEvent(event)
-        }
-    }
-
-    private func handlePlaybackEvent(_ event: VideoPlaybackEvent) async {
+    public func handlePlaybackEvent(_ event: VideoPlaybackEvent) async {
         switch event {
         case .tick(let tick):
             latestTick = tick
             await persistTickIfNeeded(tick)
-            await nowPlayingPublisher?.publishVideo(
+            await nowPlayingPublisher?.publish(
                 metadata: metadata,
                 tick: tick,
                 isPlaying: controller.state == .playing
@@ -137,19 +151,7 @@ public final class VideoPlaybackIntegrationCoordinator {
     }
 
     private func handleRemoteCommand(_ command: VideoRemoteCommand) async {
-        switch command {
-        case .play:
-            controller.play()
-        case .pause:
-            controller.pause()
-            await flushPosition()
-        case .skipForward(let seconds):
-            await controller.seek(to: latestTick.currentSeconds + seconds, kind: .skip)
-        case .skipBackward(let seconds):
-            await controller.seek(to: max(0, latestTick.currentSeconds - seconds), kind: .skip)
-        case .seek(let seconds):
-            await controller.seek(to: seconds, kind: .scrub)
-        }
+        await command.dispatch(to: self)
     }
 
     private func handleMediaSessionEvent(_ event: VideoMediaSessionEvent) async {
@@ -159,7 +161,9 @@ public final class VideoPlaybackIntegrationCoordinator {
             await flushPosition()
         case .interruptionEndedShouldResume:
             controller.play()
-        case .enteredBackground, .willStop:
+        case .enteredBackground:
+            await flushPosition()
+        case .willStop:
             await flushPosition()
         }
     }
@@ -192,13 +196,15 @@ public final class VideoPlaybackIntegrationCoordinator {
         let stalledAt = latestTick.currentSeconds
         let threshold = stallFallbackCoordinator.thresholdSeconds
 
-        tasks.append(Task { [weak self] in
+        fallbackCheckTask?.cancel()
+        fallbackCheckTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(threshold))
             await self?.attemptGatewayFallback(stalledAtSeconds: stalledAt)
-        })
+        }
     }
 
     private func attemptGatewayFallback(stalledAtSeconds: Double) async {
+        defer { fallbackCheckTask = nil }
         guard controller.state == .buffering else { return }
         guard latestTick.currentSeconds <= stalledAtSeconds else { return }
         guard let currentResolvedURL else { return }
@@ -233,4 +239,39 @@ public final class VideoPlaybackIntegrationCoordinator {
         }
         return storedPosition
     }
+}
+
+extension VideoPlaybackIntegrationCoordinator: MediaTransportControlling {
+    public var isPlaying: Bool {
+        controller.state == .playing
+    }
+
+    public var currentTime: TimeInterval {
+        latestTick.currentSeconds
+    }
+
+    public func play() async {
+        controller.play()
+    }
+
+    public func pause() async {
+        controller.pause()
+        await flushPosition()
+    }
+
+    public func seek(to seconds: TimeInterval) async {
+        await controller.seek(to: seconds, kind: .scrub)
+    }
+
+    public func skipForward(by seconds: TimeInterval) async {
+        await controller.seek(to: latestTick.currentSeconds + seconds, kind: .skip)
+    }
+
+    public func skipBackward(by seconds: TimeInterval) async {
+        await controller.seek(to: max(0, latestTick.currentSeconds - seconds), kind: .skip)
+    }
+
+    public func next() async {}
+
+    public func previous() async {}
 }

@@ -1,6 +1,5 @@
 import Foundation
 
-@MainActor
 final class ObserverBag {
     private var observations: [NSKeyValueObservation] = []
     private var notificationTokens: [NSObjectProtocol] = []
@@ -26,9 +25,7 @@ final class ObserverBag {
     }
 
     deinit {
-        MainActor.assumeIsolated {
-            observations.forEach { $0.invalidate() }
-            notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
-        }
+        observations.forEach { $0.invalidate() }
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 }

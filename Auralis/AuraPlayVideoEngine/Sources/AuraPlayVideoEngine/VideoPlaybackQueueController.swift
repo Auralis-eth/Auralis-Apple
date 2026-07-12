@@ -18,6 +18,14 @@ public enum VideoQueueEvent: Equatable, Sendable {
     case exhausted
 }
 
+/// Advances a list of media through one `VideoPlayerControlling` instance.
+///
+/// Queue advancement loads each item's resolved URL directly on the controller.
+/// It deliberately does not call `VideoPlaybackIntegrationCoordinator.load(media:)`,
+/// so per-item media-session configuration and stored-position restore do not run.
+/// Hosts that want resume-from-position or session reconfiguration per queue item
+/// should observe `events` and route `.advanced` through their integration
+/// coordinator instead of relying on the automatic load.
 @MainActor
 public final class VideoPlaybackQueueController {
     public let events: AsyncStream<VideoQueueEvent>
@@ -65,11 +73,12 @@ public final class VideoPlaybackQueueController {
 
     public func startObservingCompletion() {
         guard observationTask == nil else { return }
+        let events = controller.events
         observationTask = Task { [weak self] in
-            guard let self else { return }
-            for await event in controller.events {
+            for await event in events {
                 if Task.isCancelled { return }
                 if event == .didPlayToEnd {
+                    guard let self else { return }
                     _ = try? await self.advanceToNext()
                 }
             }

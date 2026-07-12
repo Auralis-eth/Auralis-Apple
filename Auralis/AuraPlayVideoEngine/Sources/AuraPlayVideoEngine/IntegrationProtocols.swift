@@ -1,8 +1,7 @@
+import AuraPlayMediaCore
 import Foundation
 
-public protocol VideoGatewayResolving: Sendable {
-    func nextResolvedURL(after failedURL: URL) async throws -> URL?
-}
+public typealias VideoGatewayResolving = MediaGatewayFallbackResolving
 
 public protocol VideoPlaybackStateStoring: Sendable {
     func storedPosition(for mediaID: String) async throws -> StoredVideoPlaybackPosition?
@@ -10,33 +9,70 @@ public protocol VideoPlaybackStateStoring: Sendable {
     func markCompleted(mediaID: String) async throws
 }
 
-public protocol VideoNowPlayingPublishing: Sendable {
-    func publishVideo(metadata: VideoMediaMetadata, tick: PlaybackTick, isPlaying: Bool) async
-    func clearVideo(metadataID: String) async
+public typealias VideoNowPlayingPublishing = MediaNowPlayingPublishing
+
+public typealias VideoRemoteCommand = RemoteCommandEvent
+
+public typealias VideoRemoteCommandStreaming = RemoteCommandStreaming
+
+public typealias VideoMediaTransportControlling = MediaTransportControlling
+
+public typealias VideoRemoteCommandDispatcher = MediaRemoteCommandDispatcher
+
+public typealias VideoMediaSessionEvent = MediaSessionEvent
+
+public typealias VideoMediaSessionManaging = MediaSessionManaging
+
+@MainActor
+public protocol VideoPictureInPictureControlling: AnyObject {
+    var state: PiPState { get }
+
+    func start()
+    func stop()
 }
 
-public enum VideoRemoteCommand: Equatable, Sendable {
-    case play
-    case pause
-    case skipForward(seconds: Double)
-    case skipBackward(seconds: Double)
-    case seek(seconds: Double)
+public struct VideoCoordinatedPlaybackConfiguration: Equatable, Sendable {
+    public let sessionIdentity: SharedMediaSessionIdentity
+
+    /// Indicates that coordinated playback should be eligible for AVKit's automatic inline PiP transition.
+    /// The coordinator does not manually start PiP after the app has entered the background.
+    public let startsPictureInPictureWhenEnteringBackground: Bool
+
+    public init(
+        sessionIdentity: SharedMediaSessionIdentity,
+        startsPictureInPictureWhenEnteringBackground: Bool = true
+    ) {
+        self.sessionIdentity = sessionIdentity
+        self.startsPictureInPictureWhenEnteringBackground = startsPictureInPictureWhenEnteringBackground
+    }
 }
 
-public protocol VideoRemoteCommandStreaming: Sendable {
-    var commands: AsyncStream<VideoRemoteCommand> { get }
+public enum VideoAVKitImmersiveExperience: Equatable, Sendable {
+    case expanded(disableAutomaticImmersiveTransition: Bool)
+    case immersive
 }
 
-public enum VideoMediaSessionEvent: Equatable, Sendable {
-    case shouldPause
-    case interruptionEndedShouldResume
-    case enteredBackground
-    case willStop
+public struct VideoAVKitImmersiveHandoffRequest: Equatable, Sendable {
+    public let playbackURL: URL
+    public let metadata: VideoMediaMetadata?
+    public let capabilities: VideoPlaybackCapabilities
+    public let requestedExperience: VideoAVKitImmersiveExperience
+
+    public init(
+        playbackURL: URL,
+        metadata: VideoMediaMetadata? = nil,
+        capabilities: VideoPlaybackCapabilities,
+        requestedExperience: VideoAVKitImmersiveExperience
+    ) {
+        self.playbackURL = playbackURL
+        self.metadata = metadata
+        self.capabilities = capabilities
+        self.requestedExperience = requestedExperience
+    }
 }
 
-public protocol VideoMediaSessionManaging: Sendable {
-    var events: AsyncStream<VideoMediaSessionEvent> { get }
-    func configureForVideoPlayback() async throws
+public protocol VideoAVKitImmersiveHandoffPresenting: Sendable {
+    func presentAVKitImmersivePlayback(_ request: VideoAVKitImmersiveHandoffRequest) async throws
 }
 
 public protocol VideoArtworkCaching: Sendable {
@@ -44,14 +80,6 @@ public protocol VideoArtworkCaching: Sendable {
     func storePoster(_ image: PlatformImage, for mediaID: String) async
 }
 
-public protocol VideoEngineLogging: Sendable {
-    func info(_ message: String)
-    func error(_ message: String)
-}
+public typealias VideoEngineLogging = MediaEngineLogging
 
-public struct NoOpVideoEngineLogger: VideoEngineLogging {
-    public init() {}
-
-    public func info(_ message: String) {}
-    public func error(_ message: String) {}
-}
+public typealias NoOpVideoEngineLogger = NoOpMediaEngineLogger

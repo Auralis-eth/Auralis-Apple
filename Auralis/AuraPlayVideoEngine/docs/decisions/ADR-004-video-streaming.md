@@ -28,3 +28,4 @@ Keeping gateway resolution outside this package preserves a standalone engine bo
 - HLS offline support uses the system asset-download package flow rather than raw `URLSession` bytes.
 - Gateway stall fallback is expressed through protocols so the app can swap in its real resolver later.
 - Editing timelines, effects, and export remain outside this playback package.
+- Live Apple Immersive Video production tooling is a separate boundary: SMPTE 2110 ingest/playout, streamed ProRes frames, ASAF PCM channel beds/objects, per-frame JSON metadata, MOV writing, MEBX metadata tracks, and `kVTProjectionKind_AppleImmersiveVideo`/`vexu` signaling should not be folded into this playback engine.

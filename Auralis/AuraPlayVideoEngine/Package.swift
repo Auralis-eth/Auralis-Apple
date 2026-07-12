@@ -7,6 +7,7 @@ let package = Package(
     platforms: [
         .iOS("26.0"),
         .macOS("26.0"),
+        .visionOS("26.0"),
     ],
     products: [
         .library(
@@ -18,9 +19,13 @@ let package = Package(
             targets: ["AuraPlayVideoEngineDemo"]
         ),
     ],
+    dependencies: [
+        .package(path: "../AuraPlayMediaCore"),
+    ],
     targets: [
         .target(
             name: "AuraPlayVideoEngine",
+            dependencies: ["AuraPlayMediaCore"],
             path: "Sources/AuraPlayVideoEngine"
         ),
         .executableTarget(
