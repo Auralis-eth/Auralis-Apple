@@ -12,18 +12,6 @@ public enum RemoteCommandEvent: Equatable, Sendable {
 }
 
 public extension RemoteCommandEvent {
-    static func skipForward(seconds: TimeInterval) -> RemoteCommandEvent {
-        .skipForward(seconds)
-    }
-
-    static func skipBackward(seconds: TimeInterval) -> RemoteCommandEvent {
-        .skipBackward(seconds)
-    }
-
-    static func seek(seconds: TimeInterval) -> RemoteCommandEvent {
-        .changePlaybackPosition(seconds)
-    }
-
     @MainActor
     func dispatch(to transport: any MediaTransportControlling) async {
         await MediaRemoteCommandDispatcher(transport: transport).dispatch(self)
@@ -38,6 +26,8 @@ public protocol MediaTransportControlling: Sendable {
     func play() async
     func pause() async
     func seek(to seconds: TimeInterval) async
+    func skipForward(by seconds: TimeInterval) async
+    func skipBackward(by seconds: TimeInterval) async
     func next() async
     func previous() async
 }
@@ -92,6 +82,11 @@ public enum NowPlayingMediaType: String, Sendable {
     case video
 }
 
+/// A fully-formed now-playing state, including raw artwork bytes.
+///
+/// `Equatable` compares `artworkData` byte-for-byte. For frequent
+/// change-detection, compare ``NowPlayingInfoSnapshot`` values instead —
+/// the snapshot carries `hasArtwork` in place of the bytes.
 public struct NowPlayingState: Equatable, Sendable {
     public let title: String
     public let artist: String?
@@ -148,20 +143,29 @@ public struct NowPlayingInfoSnapshot: Equatable, Sendable {
     }
 }
 
+/// Publishes fully-formed now-playing snapshots (`NowPlayingState`) to the system.
+///
+/// This is the snapshot-based contract used by engines that assemble the complete
+/// now-playing state themselves, including artwork data. Engines that only have
+/// raw `MediaMetadata` (with an artwork URL still to be fetched) publish through
+/// ``MediaNowPlayingPublishing`` instead, delegating assembly to the adapter.
 public protocol NowPlayingPublishing: Sendable {
     func update(_ state: NowPlayingState) async
     func clear() async
 }
 
+/// Streams system remote-command events (lock screen, control center, headphones)
+/// to a playback engine. Shared by audio and video engines.
 public protocol RemoteCommandPublishing: Sendable {
     var events: AsyncStream<RemoteCommandEvent> { get }
 }
 
+/// Publishes now-playing info from raw metadata and a playback tick.
+///
+/// This is the metadata-based counterpart of ``NowPlayingPublishing``: the engine
+/// hands over `MediaMetadata` (artwork referenced by URL, not yet loaded) and the
+/// adapter assembles and publishes the system now-playing state.
 public protocol MediaNowPlayingPublishing: Sendable {
     func publish(metadata: MediaMetadata, tick: PlaybackTick, isPlaying: Bool) async
     func clear(metadataID: String) async
-}
-
-public protocol RemoteCommandStreaming: Sendable {
-    var commands: AsyncStream<RemoteCommandEvent> { get }
 }

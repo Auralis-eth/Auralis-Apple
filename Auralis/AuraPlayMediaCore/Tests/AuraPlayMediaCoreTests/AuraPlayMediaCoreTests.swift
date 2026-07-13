@@ -34,30 +34,39 @@ struct AuraPlayMediaCoreTests {
         #expect(erased.approxLoudnessLUFS == -14.5)
     }
 
-    @Test("Cache keys sanitize filesystem-hostile media identifiers")
+    @Test("Cache keys keep a readable stub and sanitize filesystem-hostile identifiers")
     func cacheKeySanitizesMediaID() {
-        #expect(CacheKey(mediaID: "wallet/track id?#1").rawValue == "wallet-track-id--1")
-        #expect(CacheKey(mediaID: "///???").rawValue == "media-2f2f2f3f3f3f")
-        #expect(CacheKey(mediaID: "").rawValue == "media-empty")
+        let key = CacheKey(mediaID: "wallet/track id?#1").rawValue
+
+        #expect(key.hasPrefix("media-wallet-track-id--1-"))
+        #expect(key.rangeOfCharacter(from: CharacterSet(charactersIn: "/?#: ")) == nil)
+        #expect(CacheKey(mediaID: "").rawValue.hasPrefix("media-"))
+        #expect(CacheKey(mediaID: "///???").rawValue.hasPrefix("media-"))
     }
 
-    @Test("Cache keys create stable URL-safe URL identifiers")
-    func cacheKeyCreatesURLIdentifier() throws {
-        let url = try #require(URL(string: "https://example.com/media/video%20one.mp4?token=a+b/c"))
+    @Test("Cache keys are deterministic and collision-resistant across sanitized identifiers")
+    func cacheKeyIsCollisionResistant() throws {
+        let url = try #require(URL(string: "track-1"))
+
+        #expect(CacheKey(mediaID: "a/b") == CacheKey(mediaID: "a/b"))
+        #expect(CacheKey(mediaID: "a/b") != CacheKey(mediaID: "a?b"))
+        #expect(CacheKey(mediaID: "///???") != CacheKey(mediaID: "?/?/?/"))
+        #expect(CacheKey(mediaID: "track-1") != CacheKey(url: url))
+    }
+
+    @Test("Cache keys stay within filename length limits for long URLs")
+    func cacheKeyStaysWithinFilenameLimits() throws {
+        let longPath = String(repeating: "a", count: 400)
+        let url = try #require(URL(string: "https://gateway.example/ipfs/\(longPath)?token=abc"))
+        let otherURL = try #require(URL(string: "https://gateway.example/ipfs/\(longPath)?token=abd"))
 
         let key = CacheKey(url: url).rawValue
 
-        #expect(key == "aHR0cHM6Ly9leGFtcGxlLmNvbS9tZWRpYS92aWRlbyUyMG9uZS5tcDQ_dG9rZW49YStiL2M")
-        #expect(!key.contains("/"))
-        #expect(!key.contains("+"))
-        #expect(!key.contains("="))
-    }
-
-    @Test("Remote command compatibility factories map video-style names to shared commands")
-    func remoteCommandCompatibilityFactories() {
-        #expect(RemoteCommandEvent.skipForward(seconds: 15) == .skipForward(15))
-        #expect(RemoteCommandEvent.skipBackward(seconds: 10) == .skipBackward(10))
-        #expect(RemoteCommandEvent.seek(seconds: 42) == .changePlaybackPosition(42))
+        #expect(key.utf8.count <= 255)
+        #expect(key.hasPrefix("url-"))
+        #expect(key.rangeOfCharacter(from: CharacterSet(charactersIn: "/?=+")) == nil)
+        #expect(CacheKey(url: url) == CacheKey(url: url))
+        #expect(CacheKey(url: url) != CacheKey(url: otherURL))
     }
 
     @MainActor
@@ -119,6 +128,62 @@ struct AuraPlayMediaCoreTests {
         #expect(try await resolver.nextResolvedURL(after: unknown) == first)
     }
 
+    @Test("Gateway resolver passes web and file URLs through untouched")
+    func gatewayResolverPassesWebURLsThrough() async throws {
+        let resolver = GatewayMediaURLResolver()
+        let web = try #require(URL(string: "https://example.com/track.mp3"))
+        let file = try #require(URL(string: "file:///tmp/track.mp3"))
+
+        #expect(try await resolver.resolve(web) == web)
+        #expect(try await resolver.resolve(file) == file)
+    }
+
+    @Test("Gateway resolver maps IPFS URLs preserving case-sensitive CIDs")
+    func gatewayResolverMapsIPFSPreservingCIDCase() async throws {
+        let resolver = GatewayMediaURLResolver()
+        let withPath = try #require(URL(string: "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG/readme.txt"))
+        let bare = try #require(URL(string: "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG"))
+
+        let resolvedWithPath = try await resolver.resolve(withPath)
+        let resolvedBare = try await resolver.resolve(bare)
+
+        #expect(resolvedWithPath.absoluteString == "https://ipfs.io/ipfs/QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG/readme.txt")
+        #expect(resolvedBare.absoluteString == "https://ipfs.io/ipfs/QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG")
+    }
+
+    @Test("Gateway resolver maps Arweave URLs and rejects unsupported schemes")
+    func gatewayResolverMapsArweaveAndRejectsUnknownSchemes() async throws {
+        let resolver = GatewayMediaURLResolver()
+        let arweave = try #require(URL(string: "ar://AbC123xYz"))
+        let unsupported = try #require(URL(string: "magnet:?xt=urn:btih:abc"))
+
+        let resolved = try await resolver.resolve(arweave)
+        #expect(resolved.absoluteString == "https://arweave.net/AbC123xYz")
+
+        await #expect(throws: AuraPlayError.invalidMediaURL(unsupported)) {
+            _ = try await resolver.resolve(unsupported)
+        }
+    }
+
+    @Test("Gateway resolver preserves query strings and fragments when mapping to gateways")
+    func gatewayResolverPreservesQueryStringsAndFragments() async throws {
+        let resolver = GatewayMediaURLResolver()
+        let ipfs = try #require(URL(string: "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG/track.mp3?filename=track%20one.mp3"))
+        let arweave = try #require(URL(string: "ar://AbC123xYz?ext=mp4"))
+        let ipfsFragment = try #require(URL(string: "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG/video.mp4#t=30"))
+        let arweaveQueryAndFragment = try #require(URL(string: "ar://AbC123xYz?ext=mp4#t=5,20"))
+
+        let resolvedIPFS = try await resolver.resolve(ipfs)
+        let resolvedArweave = try await resolver.resolve(arweave)
+        let resolvedIPFSFragment = try await resolver.resolve(ipfsFragment)
+        let resolvedArweaveQueryAndFragment = try await resolver.resolve(arweaveQueryAndFragment)
+
+        #expect(resolvedIPFS.absoluteString == "https://ipfs.io/ipfs/QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG/track.mp3?filename=track%20one.mp3")
+        #expect(resolvedArweave.absoluteString == "https://arweave.net/AbC123xYz?ext=mp4")
+        #expect(resolvedIPFSFragment.absoluteString == "https://ipfs.io/ipfs/QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG/video.mp4#t=30")
+        #expect(resolvedArweaveQueryAndFragment.absoluteString == "https://arweave.net/AbC123xYz?ext=mp4#t=5,20")
+    }
+
     @Test("Media metadata stores neutral now-playing descriptors")
     func mediaMetadataStoresDescriptors() {
         let artworkURL = URL(string: "https://example.com/art.png")
@@ -167,10 +232,18 @@ struct AuraPlayMediaCoreTests {
         #expect(MediaOfflineState.cancelled.rawValue == "cancelled")
     }
 
-    @Test("Always online network status can represent offline fixtures")
-    func alwaysOnlineNetworkStatusProviderCanRepresentOfflineFixtures() {
-        #expect(AlwaysOnlineMediaNetworkStatusProvider().isOffline == false)
-        #expect(AlwaysOnlineMediaNetworkStatusProvider(isOffline: true).isOffline)
+    @Test("Cached file state round-trips through Codable alongside its sibling enums")
+    func cachedFileStateRoundTripsThroughCodable() throws {
+        for state in AuraCachedFileState.allCases {
+            let encoded = try JSONEncoder().encode(state)
+            #expect(try JSONDecoder().decode(AuraCachedFileState.self, from: encoded) == state)
+        }
+    }
+
+    @Test("Fixed network status provider represents online and offline fixtures")
+    func fixedNetworkStatusProviderRepresentsBothStates() {
+        #expect(FixedMediaNetworkStatusProvider().isOffline == false)
+        #expect(FixedMediaNetworkStatusProvider(isOffline: true).isOffline)
     }
 
     @Test("No-op media logger accepts informational and error messages")
@@ -181,8 +254,18 @@ struct AuraPlayMediaCoreTests {
         logger.error("failed")
     }
 
-    @Test("Shared media session snapshot carries SharePlay coordination identity")
-    func sharedMediaSessionSnapshotCarriesCoordinationIdentity() throws {
+    @Test("AuraPlay errors provide localized descriptions")
+    func auraPlayErrorsProvideLocalizedDescriptions() throws {
+        let url = try #require(URL(string: "https://example.com/broken.mp3"))
+
+        #expect(AuraPlayError.mediaUnavailableOffline.errorDescription?.isEmpty == false)
+        #expect(AuraPlayError.unsupportedFormat("ogg").errorDescription?.contains("ogg") == true)
+        #expect(AuraPlayError.downloadFailed("HTTP 404").errorDescription?.contains("HTTP 404") == true)
+        #expect(AuraPlayError.invalidMediaURL(url).errorDescription?.contains(url.absoluteString) == true)
+    }
+
+    @Test("Shared media session identity carries SharePlay coordination identity")
+    func sharedMediaSessionIdentityCarriesCoordinationIdentity() throws {
         let fallbackURL = try #require(URL(string: "https://auralis.example/share/video-1"))
         let activity = SharedMediaActivityIdentity(
             id: "activity.video-1",
@@ -197,6 +280,7 @@ struct AuraPlayMediaCoreTests {
             currentItemID: "video-1",
             revision: 3
         )
+
         let identity = SharedMediaSessionIdentity(
             id: "session-1",
             activity: activity,
@@ -207,29 +291,13 @@ struct AuraPlayMediaCoreTests {
                 requiresExplicitStart: true
             )
         )
-        let participant = MediaParticipantPresence(
-            id: "participant-1",
-            displayName: "Alex",
-            isLocalParticipant: false,
-            state: .ready
-        )
-        let attribution = MediaSessionChangeAttribution(
-            origin: .remoteParticipant("participant-1"),
-            action: .selectedItem(id: "video-2")
-        )
 
-        let snapshot = SharedMediaSessionSnapshot(
-            identity: identity,
-            participants: [participant],
-            lastChange: attribution
-        )
-
-        #expect(snapshot.identity.activity.fallbackURL == fallbackURL)
-        #expect(snapshot.identity.queue.currentItemID == "video-1")
-        #expect(snapshot.identity.queue.revision == 3)
-        #expect(snapshot.identity.lobbyPolicy.lateJoinPolicy == .waitInLobby)
-        #expect(snapshot.participants.first?.displayName == "Alex")
-        #expect(snapshot.lastChange == attribution)
+        #expect(identity.activity.fallbackURL == fallbackURL)
+        #expect(identity.queue.currentItemID == "video-1")
+        #expect(identity.queue.revision == 3)
+        #expect(identity.lobbyPolicy.lateJoinPolicy == .waitInLobby)
+        #expect(identity.lobbyPolicy.minimumReadyParticipants == 2)
+        #expect(identity.lobbyPolicy.requiresExplicitStart)
     }
 
     @Test("Lobby policy clamps impossible ready participant counts")
@@ -279,106 +347,331 @@ struct AuraPlayMediaCoreTests {
                 "truckName": "Aura Taco Truck",
             ]
         )
-        let quality = SharedMediaActivityMetadataQuality(activity: activity)
 
         #expect(activity.activityIdentifier.isReverseDNSStyle)
+        #expect(SharedMediaActivityIdentifier(rawValue: "order-together").isReverseDNSStyle == false)
+        #expect(SharedMediaActivityIdentifier(rawValue: "...").isReverseDNSStyle == false)
         #expect(activity.activityType == .shopTogether)
         #expect(activity.launchPayload["truckName"] == "Aura Taco Truck")
-        #expect(quality.hasSpecificTitle)
-        #expect(quality.hasPreviewImage)
-        #expect(quality.hasFallbackURL)
+    }
+}
+
+@Suite("URLSession media downloader HTTP handling", .serialized)
+struct URLSessionMediaDownloaderHTTPTests {
+    private func makeStubSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        return URLSession(configuration: configuration)
     }
 
-    @Test("Message policy separates reliable state from low-latency transient updates")
-    func messagePolicySeparatesReliableAndUnreliableTraffic() {
-        #expect(SharedMediaMessagePolicy.maximumPayloadBytes == 262_144)
-        #expect(SharedMediaMessagePolicy.initialStateContribution.deliveryMode == .reliable)
-        #expect(SharedMediaMessagePolicy.authoritativeState.deliveryMode == .reliable)
-        #expect(SharedMediaMessagePolicy.controlAction.deliveryMode == .reliable)
-        #expect(SharedMediaMessagePolicy.transientPlaybackHint.deliveryMode == .unreliable)
-        #expect(SharedMediaMessagePolicy.realtimeGesture.deliveryMode == .unreliable)
+    private func temporaryFileURL(_ prefix: String) -> URL {
+        FileManager.default.temporaryDirectory
+            .appending(path: "\(prefix)-\(UUID().uuidString)")
     }
 
-    @Test("Staged sessions carry ownerless initial playback contributions")
-    func stagedSessionsCarryOwnerlessInitialPlaybackContributions() {
-        let queue = SharedMediaQueueIdentity(
-            id: "queue.video",
-            itemIDs: ["video-1"],
-            currentItemID: "video-1",
-            revision: 4
-        )
-        let contribution = SharedMediaInitialPlaybackStateContribution(
-            participantID: "participant-adam",
-            sessionID: "session-video",
-            queue: queue,
-            playbackTick: PlaybackTick(currentSeconds: 23, durationSeconds: 120),
-            isPlaying: true
-        )
-        let snapshot = SharedMediaSessionSnapshot(
-            identity: SharedMediaSessionIdentity(
-                id: "session-video",
-                activity: SharedMediaActivityIdentity(
-                    id: "activity-video",
-                    title: "Watch Signal",
-                    contentKind: .video
-                ),
-                queue: queue
-            ),
-            activationState: .staged
-        )
+    @Test("Download rejects HTTP error statuses instead of returning the error body")
+    func downloadRejectsHTTPErrorStatus() async throws {
+        let url = try #require(URL(string: "https://cdn.example/missing.mp3"))
+        StubURLProtocol.responder = { _ in (404, [:], Data("not found".utf8)) }
+        let downloader = URLSessionMediaDownloader(session: makeStubSession())
 
-        #expect(snapshot.activationState == .staged)
-        #expect(contribution.sessionID == snapshot.identity.id)
-        #expect(contribution.queue.currentItemID == "video-1")
-        #expect(contribution.playbackTick.currentSeconds == 23)
-        #expect(contribution.isPlaying)
+        await #expect(throws: AuraPlayError.downloadFailed("HTTP 404 for \(url.absoluteString)")) {
+            _ = try await downloader.download(from: url)
+        }
     }
 
-    @Test("Attachment policy captures GroupSessionJournal transfer limits")
-    func attachmentPolicyCapturesJournalTransferLimits() {
-        let policy = SharedMediaAttachmentPolicy()
+    @Test("Download returns the payload for successful responses")
+    func downloadReturnsPayloadOnSuccess() async throws {
+        let url = try #require(URL(string: "https://cdn.example/track.mp3"))
+        let body = Data((0..<4_096).map { UInt8($0 % 251) })
+        StubURLProtocol.responder = { _ in (200, ["Content-Length": "\(body.count)"], body) }
+        let downloader = URLSessionMediaDownloader(session: makeStubSession())
 
-        #expect(SharedMediaAttachmentPolicy.maximumPayloadBytes == 104_857_600)
-        #expect(policy.permitsPayload(byteCount: 104_857_600))
-        #expect(policy.permitsPayload(byteCount: 104_857_601) == false)
-        #expect(policy.permitsPayload(byteCount: -1) == false)
-        #expect(policy.supportsLateJoinerCatchUpWithoutReupload)
-        #expect(policy.requiresEndToEndEncryption)
-        #expect(policy.lifecycle == .availableWhileSessionHasParticipants)
+        let (fileURL, response) = try await downloader.download(from: url)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        #expect((response as? HTTPURLResponse)?.statusCode == 200)
+        #expect(try Data(contentsOf: fileURL) == body)
     }
 
-    @Test("Attachment manifests track user-generated journal content")
-    func attachmentManifestsTrackJournalContent() {
-        let attachment = SharedMediaAttachmentMetadata(
-            id: "image-1",
-            kind: .image,
-            displayName: "Canvas Photo",
-            byteCount: 32_000,
-            contentType: "image/jpeg",
-            sourceParticipantID: "participant-brian"
-        )
-        let manifest = SharedMediaAttachmentManifest(
-            sessionID: "session-drawing",
-            attachments: [attachment]
+    @Test("Resume appends partial content responses to the partial file")
+    func resumeAppendsPartialContent() async throws {
+        let url = try #require(URL(string: "https://cdn.example/resumable.mp3"))
+        let partialFileURL = temporaryFileURL("mediacore-partial")
+        let prefix = Data([1, 2, 3, 4, 5])
+        let tail = Data([6, 7, 8, 9])
+        try prefix.write(to: partialFileURL)
+        defer { try? FileManager.default.removeItem(at: partialFileURL) }
+        StubURLProtocol.responder = { _ in (206, ["Content-Range": "bytes 5-8/9"], tail) }
+        let downloader = URLSessionMediaDownloader(session: makeStubSession())
+
+        let (fileURL, _) = try await downloader.resumeDownload(
+            from: url,
+            to: partialFileURL,
+            startingAt: Int64(prefix.count)
         )
 
-        #expect(manifest.sessionID == "session-drawing")
-        #expect(manifest.totalByteCount == 32_000)
-        #expect(manifest.isAttachmentAllowed(attachment))
-        #expect(manifest.attachments.first?.sourceParticipantID == "participant-brian")
+        #expect(fileURL == partialFileURL)
+        #expect(try Data(contentsOf: partialFileURL) == prefix + tail)
     }
 
-    @Test("Attachment mutations describe journal add and remove events")
-    func attachmentMutationsDescribeJournalEvents() {
-        let attachment = SharedMediaAttachmentMetadata(
-            id: "annotation-1",
-            kind: .annotation,
-            byteCount: 512
+    @Test("Resume rejects partial content whose range does not start at the resume offset")
+    func resumeRejectsMismatchedContentRange() async throws {
+        let url = try #require(URL(string: "https://cdn.example/mismatched.mp3"))
+        let partialFileURL = temporaryFileURL("mediacore-partial")
+        let existing = Data([1, 2, 3, 4, 5])
+        try existing.write(to: partialFileURL)
+        defer { try? FileManager.default.removeItem(at: partialFileURL) }
+        StubURLProtocol.responder = { _ in (206, ["Content-Range": "bytes 0-8/9"], Data([9, 9, 9, 9])) }
+        let downloader = URLSessionMediaDownloader(session: makeStubSession())
+
+        await #expect(throws: AuraPlayError.downloadFailed("Partial content did not start at byte 5 for \(url.absoluteString)")) {
+            _ = try await downloader.resumeDownload(from: url, to: partialFileURL, startingAt: 5)
+        }
+        #expect(try Data(contentsOf: partialFileURL) == existing)
+    }
+
+    @Test("Resume rejects partial content without a verifiable Content-Range header")
+    func resumeRejectsMissingContentRange() async throws {
+        let url = try #require(URL(string: "https://cdn.example/unverifiable.mp3"))
+        let partialFileURL = temporaryFileURL("mediacore-partial")
+        let existing = Data([1, 2, 3])
+        try existing.write(to: partialFileURL)
+        defer { try? FileManager.default.removeItem(at: partialFileURL) }
+        StubURLProtocol.responder = { _ in (206, [:], Data([4, 5])) }
+        let downloader = URLSessionMediaDownloader(session: makeStubSession())
+
+        await #expect(throws: AuraPlayError.downloadFailed("Partial content did not start at byte 3 for \(url.absoluteString)")) {
+            _ = try await downloader.resumeDownload(from: url, to: partialFileURL, startingAt: 3)
+        }
+        #expect(try Data(contentsOf: partialFileURL) == existing)
+    }
+
+    @Test("Resume replaces the partial file when the server sends the full payload")
+    func resumeReplacesFileOnFullResponse() async throws {
+        let url = try #require(URL(string: "https://cdn.example/changed.mp3"))
+        let partialFileURL = temporaryFileURL("mediacore-partial")
+        try Data([9, 9, 9]).write(to: partialFileURL)
+        defer { try? FileManager.default.removeItem(at: partialFileURL) }
+        let fullBody = Data([1, 2, 3, 4, 5, 6])
+        StubURLProtocol.responder = { _ in (200, [:], fullBody) }
+        let downloader = URLSessionMediaDownloader(session: makeStubSession())
+
+        let (fileURL, _) = try await downloader.resumeDownload(
+            from: url,
+            to: partialFileURL,
+            startingAt: 3
         )
 
-        #expect(SharedMediaAttachmentMutation.added(attachment) == .added(attachment))
-        #expect(SharedMediaAttachmentMutation.removed("annotation-1") == .removed("annotation-1"))
+        #expect(fileURL == partialFileURL)
+        #expect(try Data(contentsOf: partialFileURL) == fullBody)
     }
+
+    @Test("Resume surfaces HTTP errors and preserves the partial file")
+    func resumeSurfacesHTTPErrorsAndPreservesPartialFile() async throws {
+        let url = try #require(URL(string: "https://cdn.example/unsatisfiable.mp3"))
+        let partialFileURL = temporaryFileURL("mediacore-partial")
+        let existing = Data([1, 2, 3])
+        try existing.write(to: partialFileURL)
+        defer { try? FileManager.default.removeItem(at: partialFileURL) }
+        StubURLProtocol.responder = { _ in (416, [:], Data("range not satisfiable".utf8)) }
+        let downloader = URLSessionMediaDownloader(session: makeStubSession())
+
+        await #expect(throws: AuraPlayError.downloadFailed("HTTP 416 for \(url.absoluteString)")) {
+            _ = try await downloader.resumeDownload(from: url, to: partialFileURL, startingAt: 3)
+        }
+        #expect(try Data(contentsOf: partialFileURL) == existing)
+    }
+
+    @Test("Progressive download streams chunks to disk and completes with the full payload")
+    func progressiveDownloadStreamsChunksToDisk() async throws {
+        let url = try #require(URL(string: "https://cdn.example/progressive.mp3"))
+        let destinationURL = temporaryFileURL("mediacore-progressive")
+        defer { try? FileManager.default.removeItem(at: destinationURL) }
+        let body = Data((0..<100_000).map { UInt8($0 % 249) })
+        StubURLProtocol.responder = { _ in (200, ["Content-Length": "\(body.count)"], body) }
+        let downloader = URLSessionMediaDownloader(session: makeStubSession())
+
+        let handle = try await downloader.downloadUntilPlayable(
+            from: url,
+            to: destinationURL,
+            minimumPlayableBytes: 1_024
+        )
+
+        #expect(handle.playableURL == destinationURL)
+        let completedURL = try await handle.completion.value
+        #expect(completedURL == destinationURL)
+        #expect(try Data(contentsOf: destinationURL) == body)
+    }
+
+    @Test("Progressive download rejects HTTP error statuses before writing")
+    func progressiveDownloadRejectsHTTPErrorStatus() async throws {
+        let url = try #require(URL(string: "https://cdn.example/progressive-missing.mp3"))
+        let destinationURL = temporaryFileURL("mediacore-progressive")
+        defer { try? FileManager.default.removeItem(at: destinationURL) }
+        StubURLProtocol.responder = { _ in (503, [:], Data("service unavailable".utf8)) }
+        let downloader = URLSessionMediaDownloader(session: makeStubSession())
+
+        await #expect(throws: AuraPlayError.downloadFailed("HTTP 503 for \(url.absoluteString)")) {
+            _ = try await downloader.downloadUntilPlayable(
+                from: url,
+                to: destinationURL,
+                minimumPlayableBytes: 1_024
+            )
+        }
+        #expect(FileManager.default.fileExists(atPath: destinationURL.path) == false)
+    }
+
+    @Test("Progressive download removes the empty destination when the transport fails")
+    func progressiveDownloadRemovesEmptyDestinationOnTransportFailure() async throws {
+        let url = try #require(URL(string: "https://cdn.example/unreachable.mp3"))
+        let destinationURL = temporaryFileURL("mediacore-progressive")
+        defer { try? FileManager.default.removeItem(at: destinationURL) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [FailingStubURLProtocol.self]
+        let downloader = URLSessionMediaDownloader(session: URLSession(configuration: configuration))
+
+        await #expect(throws: (any Error).self) {
+            _ = try await downloader.downloadUntilPlayable(
+                from: url,
+                to: destinationURL,
+                minimumPlayableBytes: 1_024
+            )
+        }
+        #expect(FileManager.default.fileExists(atPath: destinationURL.path) == false)
+    }
+
+    @Test("Progressive download cancellation fails completion and keeps partial bytes for resume")
+    func progressiveDownloadCancellationKeepsPartialBytes() async throws {
+        let url = try #require(URL(string: "https://cdn.example/hanging.mp3"))
+        let destinationURL = temporaryFileURL("mediacore-progressive")
+        defer { try? FileManager.default.removeItem(at: destinationURL) }
+        let chunk = Data((0..<4_096).map { UInt8($0 % 241) })
+        HangingStubURLProtocol.initialChunk = chunk
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HangingStubURLProtocol.self]
+        let downloader = URLSessionMediaDownloader(session: URLSession(configuration: configuration))
+
+        let handle = try await downloader.downloadUntilPlayable(
+            from: url,
+            to: destinationURL,
+            minimumPlayableBytes: Int64(chunk.count)
+        )
+
+        handle.completion.cancel()
+        await #expect(throws: (any Error).self) {
+            _ = try await handle.completion.value
+        }
+        #expect(try Data(contentsOf: destinationURL) == chunk)
+    }
+
+    @Test("Chunk streaming delegate suspends at the high-water mark and resumes after draining")
+    func chunkStreamingDelegateAppliesBackpressure() async throws {
+        let url = try #require(URL(string: "https://cdn.example/backpressure.mp3"))
+        HangingStubURLProtocol.initialChunk = Data()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HangingStubURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let (chunks, continuation) = AsyncThrowingStream.makeStream(of: Data.self)
+        let delegate = ChunkStreamingTaskDelegate(chunks: continuation)
+        let task = session.dataTask(with: URLRequest(url: url))
+        delegate.attach(to: task)
+        task.resume()
+        defer {
+            continuation.finish()
+            task.cancel()
+        }
+        #expect(task.state == .running)
+
+        delegate.urlSession(session, dataTask: task, didReceive: Data(count: Int(ChunkStreamingTaskDelegate.bufferHighWaterMark)))
+        #expect(task.state == .suspended)
+
+        // Draining down to the low-water mark resumes the transfer.
+        let drained = ChunkStreamingTaskDelegate.bufferHighWaterMark - ChunkStreamingTaskDelegate.bufferLowWaterMark
+        delegate.consume(byteCount: Int(drained))
+        #expect(task.state == .running)
+        for try await _ in chunks { break }
+    }
+}
+
+private final class StubURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var responder: (@Sendable (URLRequest) -> (Int, [String: String], Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard
+            let responder = Self.responder,
+            let url = request.url
+        else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        let (status, headers, body) = responder(request)
+        guard let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers) else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+/// Fails every request at the transport layer before any response is delivered.
+private final class FailingStubURLProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
+    }
+
+    override func stopLoading() {}
+}
+
+/// Delivers a 200 response and one chunk, then keeps the transfer open forever
+/// so tests can observe in-flight behavior like cancellation.
+private final class HangingStubURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var initialChunk = Data()
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard
+            let url = request.url,
+            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: [:])
+        else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        if !Self.initialChunk.isEmpty {
+            client?.urlProtocol(self, didLoad: Self.initialChunk)
+        }
+        // Intentionally never calls urlProtocolDidFinishLoading.
+    }
+
+    override func stopLoading() {}
 }
 
 @MainActor

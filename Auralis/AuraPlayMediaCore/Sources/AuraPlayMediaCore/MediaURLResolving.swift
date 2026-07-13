@@ -8,7 +8,7 @@ public protocol MediaGatewayFallbackResolving: Sendable {
     func nextResolvedURL(after failedURL: URL) async throws -> URL?
 }
 
-public actor OrderedMediaGatewayFallbackResolver: MediaGatewayFallbackResolving {
+public struct OrderedMediaGatewayFallbackResolver: MediaGatewayFallbackResolving {
     private let resolvedURLs: [URL]
 
     public init(resolvedURLs: [URL]) {
@@ -51,13 +51,44 @@ public struct GatewayMediaURLResolver: MediaURLResolving {
         case "ipfs":
             let identifier = url.host.map { host in
                 url.path.isEmpty ? host : host + url.path
-            } ?? url.absoluteString.replacingOccurrences(of: "ipfs://", with: "")
-            return ipfsGateway.appending(path: identifier.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+            } ?? Self.strippingScheme("ipfs", from: url)
+            return Self.gatewayURL(base: ipfsGateway, identifier: identifier, preservingComponentsOf: url)
         case "ar":
-            let identifier = url.host ?? url.absoluteString.replacingOccurrences(of: "ar://", with: "")
-            return arweaveGateway.appending(path: identifier.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+            let identifier = url.host ?? Self.strippingScheme("ar", from: url)
+            return Self.gatewayURL(base: arweaveGateway, identifier: identifier, preservingComponentsOf: url)
         default:
             throw AuraPlayError.invalidMediaURL(url)
         }
+    }
+
+    private static func gatewayURL(base: URL, identifier: String, preservingComponentsOf url: URL) -> URL {
+        let resolved = base.appending(path: identifier.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+        let query = url.query(percentEncoded: true)
+        let fragment = url.fragment(percentEncoded: true)
+        guard
+            query?.isEmpty == false || fragment?.isEmpty == false,
+            var components = URLComponents(url: resolved, resolvingAgainstBaseURL: false)
+        else {
+            return resolved
+        }
+        if let query, !query.isEmpty {
+            components.percentEncodedQuery = query
+        }
+        if let fragment, !fragment.isEmpty {
+            components.percentEncodedFragment = fragment
+        }
+        return components.url ?? resolved
+    }
+
+    private static func strippingScheme(_ scheme: String, from url: URL) -> String {
+        let raw = url.absoluteString
+        for prefix in ["\(scheme)://", "\(scheme):"] where raw.lowercased().hasPrefix(prefix) {
+            let stripped = raw.dropFirst(prefix.count)
+            // The query and fragment are re-attached by gatewayURL; keep only the
+            // path part so appending(path:) doesn't percent-encode "?…" or "#…".
+            let end = stripped.firstIndex { $0 == "?" || $0 == "#" } ?? stripped.endIndex
+            return String(stripped[..<end])
+        }
+        return raw
     }
 }

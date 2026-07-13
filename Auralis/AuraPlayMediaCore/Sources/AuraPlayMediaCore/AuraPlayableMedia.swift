@@ -18,13 +18,21 @@ public enum AuraPlayableContentKind: String, Sendable, CaseIterable, Codable {
     case unknown
 }
 
-public enum AuraCachedFileState: String, Sendable, CaseIterable {
+/// What the cache currently holds on disk for a media item, however it got
+/// there. Complements ``MediaOfflineState``, which tracks the lifecycle of an
+/// explicit user-requested offline download.
+public enum AuraCachedFileState: String, Sendable, CaseIterable, Codable {
     case notCached
     case partial
     case cached
     case pinned
 }
 
+/// A type-erased playable media value.
+///
+/// Erasure stringifies the source ID via `String(describing:)`, so IDs that
+/// print identically from different ID types (`Int` 42 and `String` "42")
+/// collide. Callers mixing ID types in one collection must namespace their IDs.
 public struct AnyAuraPlayableMedia: AuraPlayableMedia, Identifiable {
     public let id: String
     public let sourceURL: URL

@@ -41,6 +41,8 @@ public struct AuraPlayableMediaItem: AuraPlayableMedia, Identifiable {
         self.metadata = metadata
     }
 
+    /// Stringifies `media.id` via `String(describing:)`; see
+    /// ``AnyAuraPlayableMedia`` for the ID-collision caveat.
     public init<M: AuraPlayableMedia>(_ media: M, metadata: MediaMetadata) {
         self.id = String(describing: media.id)
         self.sourceURL = media.sourceURL
