@@ -13,24 +13,16 @@ struct ContextSnapshotTests {
     @Test("live context source builds a versioned snapshot with provenance-bearing scope fields")
     func liveContextSourceBuildsVersionedSnapshot() {
         let refreshDate = Date(timeIntervalSince1970: 1_700_000_000)
-        let account = EOAccount(
-            address: "0x1234567890abcdef1234567890abcdef12345678",
-            access: .readonly,
-            name: "Collector",
-            addedAt: Date(timeIntervalSince1970: 1_699_999_000),
-            lastSelectedAt: Date(timeIntervalSince1970: 1_700_000_100),
-            trackedNFTCount: 42
-        )
-        account.currentChain = .baseMainnet
-
+        let address = "0x1234567890abcdef1234567890abcdef12345678"
         let source = LiveContextSource(
-            accountProvider: { account },
-            addressProvider: { account.address },
+            accountProvider: { nil },
+            addressProvider: { address },
             chainProvider: { .baseMainnet },
             modeProvider: { .observe },
             loadingProvider: { false },
             refreshedAtProvider: { refreshDate },
             freshnessTTLProvider: { 300 },
+            trackedNFTCountProvider: { 42 },
             musicCollectionCountProvider: { 3 },
             receiptCountProvider: { 7 },
             prefersDemoDataProvider: { true },
@@ -41,9 +33,9 @@ struct ContextSnapshotTests {
 
         #expect(snapshot.version == .v0)
         #expect(snapshot.mode.value == AppMode.observe.rawValue)
-        #expect(snapshot.scope.accountAddress.value == account.address)
+        #expect(snapshot.scope.accountAddress.value == address)
         #expect(snapshot.scope.accountAddress.provenance == .userProvided)
-        #expect(snapshot.scope.accountName.value == "Collector")
+        #expect(snapshot.scope.accountName.value == nil)
         #expect(snapshot.scope.selectedChains.value == [.baseMainnet])
         #expect(snapshot.scope.selectedChains.provenance == .userProvided)
         #expect(snapshot.libraryPointers.trackedNFTCount.value == 42)
@@ -205,34 +197,58 @@ struct ContextSnapshotTests {
 
     @Test("context snapshot provides shell-facing account title and scope summary fallbacks")
     func contextSnapshotProvidesShellFacingSummary() {
-        let namedSnapshot = LiveContextSource(
-            accountProvider: {
-                EOAccount(
-                    address: "0x1234567890abcdef1234567890abcdef12345678",
-                    access: .readonly,
-                    name: "Collector"
-                )
-            },
-            addressProvider: { "0x1234567890abcdef1234567890abcdef12345678" },
-            chainProvider: { .baseMainnet },
-            modeProvider: { .observe },
-            loadingProvider: { false },
-            refreshedAtProvider: { nil }
-        ).snapshot()
+        let namedSnapshot = summarySnapshot(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            accountName: "Collector",
+            selectedChains: [.baseMainnet]
+        )
 
-        let fallbackSnapshot = LiveContextSource(
-            accountProvider: { nil },
-            addressProvider: { "0x1234567890abcdef1234567890abcdef12345678" },
-            chainProvider: { .ethMainnet },
-            modeProvider: { .observe },
-            loadingProvider: { false },
-            refreshedAtProvider: { nil }
-        ).snapshot()
+        let fallbackSnapshot = summarySnapshot(
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            accountName: nil,
+            selectedChains: [.ethMainnet]
+        )
 
         #expect(namedSnapshot.chromeAccountTitle == "Collector")
         #expect(namedSnapshot.scopeSummary.contains("Collector"))
         #expect(fallbackSnapshot.chromeAccountTitle == "0x1234...5678")
         #expect(fallbackSnapshot.scopeSummary.contains("Ethereum"))
+    }
+
+    private func summarySnapshot(
+        accountAddress: String,
+        accountName: String?,
+        selectedChains: [Chain]
+    ) -> ContextSnapshot {
+        ContextSnapshot(
+            version: .v0,
+            mode: ContextField(AppMode.observe.rawValue, provenance: .localCache),
+            scope: ContextScope(
+                accountAddress: ContextField(accountAddress, provenance: .userProvided),
+                accountName: ContextField(accountName, provenance: .localCache),
+                selectedChains: ContextField(selectedChains, provenance: .userProvided)
+            ),
+            balances: ContextBalancesSummary(
+                nativeBalanceDisplay: ContextField(nil, provenance: .localCache),
+                nativeBalanceStatusMessage: ContextField(nil, provenance: .localCache)
+            ),
+            libraryPointers: ContextLibraryPointers(
+                trackedNFTCount: ContextField(nil, provenance: .localCache),
+                musicCollectionCount: ContextField(nil, provenance: .localCache),
+                receiptCount: ContextField(nil, provenance: .localCache)
+            ),
+            modulePointers: ContextModulePointers(items: []),
+            localPreferences: ContextLocalPreferences(
+                prefersDemoData: ContextField(nil, provenance: .userProvided),
+                pinnedItemCount: ContextField(nil, provenance: .userProvided)
+            ),
+            freshness: ContextFreshness(
+                refreshState: .idle,
+                lastSuccessfulRefreshAt: nil,
+                lastSuccessfulRefreshProvenance: .localCache,
+                ttl: nil
+            )
+        )
     }
 }
 

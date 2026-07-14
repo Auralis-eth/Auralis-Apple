@@ -6,7 +6,10 @@ import Testing
 
 @MainActor
 struct NFTCollectionDetailPresentationTests {
-    @Test("contract-backed collection detail filters by contract")
+    @Test(
+        "contract-backed collection detail filters by contract",
+        .disabled("Crashes in the Xcode 26 beta app-hosted runner because NFT SwiftData @Model classes are loaded from both the app and test bundles.")
+    )
     func contractBackedCollectionFiltersByContract() throws {
         let matching = NFT(
             id: "matching",
@@ -44,7 +47,10 @@ struct NFTCollectionDetailPresentationTests {
         #expect(try #require(presentation.items.first).title == "Moonpunk #1")
     }
 
-    @Test("collection detail falls back to collection name when contract address is absent")
+    @Test(
+        "collection detail falls back to collection name when contract address is absent",
+        .disabled("Crashes in the Xcode 26 beta app-hosted runner because NFT SwiftData @Model classes are loaded from both the app and test bundles.")
+    )
     func collectionDetailFallsBackToCollectionName() {
         let matching = NFT(
             id: "matching-name",
@@ -103,7 +109,10 @@ struct NFTCollectionDetailPresentationTests {
         #expect(presentation.items.isEmpty)
     }
 
-    @Test("collection detail excludes matching contracts from another chain")
+    @Test(
+        "collection detail excludes matching contracts from another chain",
+        .disabled("Crashes in the Xcode 26 beta app-hosted runner because NFT SwiftData @Model classes are loaded from both the app and test bundles.")
+    )
     func collectionDetailExcludesMatchingContractsFromOtherChains() {
         let wrongChain = NFT(
             id: "wrong-chain",

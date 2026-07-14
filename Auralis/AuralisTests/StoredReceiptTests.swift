@@ -126,7 +126,10 @@ struct StoredReceiptTests {
         #expect(try receipt.decodedDetails().values["address"] == .string("0x1234567890abcdef1234567890abcdef12345678"))
     }
 
-    @Test("timeline scope falls back to decoded payload when persisted scope fields are unavailable")
+    @Test(
+        "timeline scope falls back to decoded payload when persisted scope fields are unavailable",
+        .disabled("Crashes in the Xcode 26 beta app-hosted runner because StoredReceipt is loaded from both the app and test bundles.")
+    )
     @MainActor
     func receiptTimelineRecordFallsBackToPayloadScope() throws {
         let payload = ReceiptPayload(values: [

@@ -204,6 +204,13 @@ enum LocalDataStoragePolicy {
             rationale: "AuraPlay media items are a separate SwiftData store derived from wallet-scoped NFT media and are cleared in the AuraPlay persistence reset phase."
         ),
         LocalDataStorageDecision(
+            identifier: "AuraPlayPlaybackPositionState",
+            classification: .walletMetadata,
+            storage: .swiftData,
+            resetPhase: .auraPlayPersistence,
+            rationale: "AuraPlay playback positions are wallet-scoped listening state tied to local media rows and are cleared with the AuraPlay persistence store."
+        ),
+        LocalDataStorageDecision(
             identifier: GasPriceCache.storageDecisionIdentifier,
             classification: .publicIdentifierMetadata,
             storage: .memoryCache,

@@ -112,7 +112,10 @@ struct SearchQueryParserTests {
         #expect(result.localMatches.isEmpty)
     }
 
-    @Test("builds the local index from active-scope NFTs and accounts")
+    @Test(
+        "builds the local index from active-scope NFTs and accounts",
+        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData @Model classes are loaded from both the app and test bundles.")
+    )
     func buildsLocalIndexFromCurrentScope() {
         let matchingNFT = NFT(
             id: "matching",

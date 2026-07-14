@@ -37,6 +37,13 @@ struct AccountAssembly {
         )
     }
 
+    func makeAccountStore(
+        modelContext: ModelContext,
+        eventRecorder: any AccountEventRecorder
+    ) -> any AccountStoring {
+        accountStoreFactory(modelContext, eventRecorder)
+    }
+
     func makeAccountEventRecorder(modelContext: ModelContext) -> any AccountEventRecorder {
         receiptAssembly.makeAccountEventRecorder(modelContext: modelContext)
     }

@@ -9,6 +9,16 @@ import TokenStorage
 @MainActor
 enum TestSchemas {
     static let primary = PrimaryStoreSchema.schema
+    static let packagePrimary = Schema([
+        EOAccount.self,
+        NFT.self,
+        Tag.self,
+        StoredReceipt.self,
+        Playlist.self,
+        MusicLibraryItem.self,
+        TokenHolding.self,
+        SearchHistoryRecord.self
+    ])
     static let receipts = Schema([StoredReceipt.self])
     static let tokens = Schema([TokenHolding.self])
     static let searchHistory = Schema([SearchHistoryRecord.self])
@@ -36,5 +46,9 @@ enum TestModelContainers {
 
     static func primaryStore(undoEnabled: Bool = false) throws -> ModelContainer {
         try primary(undoEnabled: undoEnabled)
+    }
+
+    static func packagePrimary(undoEnabled: Bool = false) throws -> ModelContainer {
+        try inMemory(TestSchemas.packagePrimary, undoEnabled: undoEnabled)
     }
 }

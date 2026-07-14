@@ -14,6 +14,26 @@ struct ReceiptAssembly {
         ReceiptStores.live(modelContext: modelContext)
     }
 
+    func makeReceiptStore(
+        modelContext: ModelContext,
+        integrityHeadStore: any ReceiptIntegrityHeadStoring
+    ) -> any ReceiptStore {
+        SwiftDataReceiptStore(
+            modelContext: modelContext,
+            persistenceStore: ReceiptPersistenceStore(
+                modelContainer: modelContext.container,
+                integrityHeadStore: integrityHeadStore
+            )
+        )
+    }
+
+    func makeEphemeralReceiptStore(modelContext: ModelContext) -> any ReceiptStore {
+        makeReceiptStore(
+            modelContext: modelContext,
+            integrityHeadStore: InMemoryReceiptIntegrityHeadStore()
+        )
+    }
+
     func makeReceiptEventLogger(modelContext: ModelContext) -> ReceiptEventLogger {
         ReceiptEventLogger(receiptStore: makeReceiptStore(modelContext: modelContext))
     }

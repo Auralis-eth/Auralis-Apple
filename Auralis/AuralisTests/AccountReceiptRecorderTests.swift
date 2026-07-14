@@ -1,7 +1,5 @@
 import ReceiptsCore
-import ReceiptStorage
 @testable import Auralis
-import AccountStorage
 import AccountsCore
 import AccountsFeature
 import AuralisPrimaryModels
@@ -11,32 +9,61 @@ import SwiftData
 import Testing
 
 struct AccountReceiptRecorderTests {
+    @MainActor
+    private func makeReceiptBackedStores() throws -> (
+        receiptStore: any ReceiptStore,
+        accountStore: any AccountStoring,
+        recorder: any AccountEventRecorder
+    ) {
+        let container = try TestModelContainers.primary()
+        let context = ModelContext(container)
+        let receiptAssembly = ReceiptAssembly()
+        let accountAssembly = AccountAssembly(
+            providerAssembly: ProviderAssembly(),
+            receiptAssembly: receiptAssembly
+        )
+        let receiptStore = receiptAssembly.makeEphemeralReceiptStore(modelContext: context)
+        let recorder = ReceiptBackedAccountEventRecorder(receiptStore: receiptStore)
+        let accountStore = accountAssembly.makeAccountStore(
+            modelContext: context,
+            eventRecorder: recorder
+        )
+
+        return (receiptStore, accountStore, recorder)
+    }
+
+    @MainActor
+    private func makeReceiptStore() throws -> any ReceiptStore {
+        let container = try TestModelContainers.primary()
+        let context = ModelContext(container)
+        return ReceiptAssembly().makeEphemeralReceiptStore(modelContext: context)
+    }
+
     @Test("receipt-backed account recorder emits real receipts for account add select and remove flows")
     @MainActor
     func accountStoreWritesReceiptsThroughRecorderSeam() async throws {
-        let container = try TestModelContainers.primary()
-        let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
-        )
-        let recorder = ReceiptBackedAccountEventRecorder(
-            receiptStore: receiptStore,
-            payloadSanitizer: DefaultReceiptPayloadSanitizer()
-        )
-        let accountStore = SwiftDataAccountStore(modelContext: context, eventRecorder: recorder)
+        let stores = try makeReceiptBackedStores()
+        let receiptStore = stores.receiptStore
+        let accountStore = stores.accountStore
 
-        let account = try await accountStore.createWatchAccount(
-            from: "0x1234567890abcdef1234567890abcdef12345678",
-            now: Date(timeIntervalSince1970: 100)
+        let address = "0x1234567890abcdef1234567890abcdef12345678"
+        _ = try await accountStore.createWatchAccount(
+            from: address,
+            name: nil,
+            source: .manualEntry,
+            overwriteExisting: false,
+            now: Date(timeIntervalSince1970: 100),
+            correlationID: nil
         )
         _ = try await accountStore.selectAccount(
-            address: account.address,
-            selectedAt: Date(timeIntervalSince1970: 200)
+            address: address,
+            selectedAt: Date(timeIntervalSince1970: 200),
+            correlationID: nil
         )
         _ = try await accountStore.removeAccount(
-            address: account.address,
-            activeAddress: account.address
+            address: address,
+            activeAddress: address,
+            correlationID: nil
         )
 
         let receipts = try await receiptStore.latest(limit: 10)
@@ -60,21 +87,14 @@ struct AccountReceiptRecorderTests {
     @Test("account activation receipts share one correlation ID across chained account events")
     @MainActor
     func accountActivationReceiptsShareCorrelationID() async throws {
-        let container = try TestModelContainers.primary()
-        let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
-        )
-        let recorder = ReceiptBackedAccountEventRecorder(
-            receiptStore: receiptStore,
-            payloadSanitizer: DefaultReceiptPayloadSanitizer()
-        )
-        let accountStore = SwiftDataAccountStore(modelContext: context, eventRecorder: recorder)
+        let stores = try makeReceiptBackedStores()
+        let receiptStore = stores.receiptStore
+        let accountStore = stores.accountStore
         let correlationID = "account-activation-correlation"
 
         _ = try await accountStore.activateWatchAccount(
             from: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            name: nil,
             source: EOAccountSource.manualEntry,
             selectedAt: Date(timeIntervalSince1970: 100),
             correlationID: correlationID
@@ -92,12 +112,7 @@ struct AccountReceiptRecorderTests {
     @Test("policy gate denies blocked observe actions and records a denial receipt")
     @MainActor
     func observeModePolicyGateWritesReceipt() async throws {
-        let container = try TestModelContainers.primary()
-        let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
-        )
+        let receiptStore = try makeReceiptStore()
         let modeState = ModeState()
 
         let result = await ActionPolicyGate.attempt(
@@ -123,12 +138,7 @@ struct AccountReceiptRecorderTests {
     @Test("policy gate denies plugin actions in Observe mode and records a denial receipt")
     @MainActor
     func observeModePolicyGateDeniesPluginActions() async throws {
-        let container = try TestModelContainers.primary()
-        let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
-        )
+        let receiptStore = try makeReceiptStore()
         let modeState = ModeState()
 
         let result = await ActionPolicyGate.attempt(
@@ -155,16 +165,9 @@ struct AccountReceiptRecorderTests {
     @Test("chain-scope account events emit one receipt per real preferred and current change")
     @MainActor
     func chainScopeEventsWriteReceipts() async throws {
-        let container = try TestModelContainers.primary()
-        let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
-        )
-        let recorder = ReceiptBackedAccountEventRecorder(
-            receiptStore: receiptStore,
-            payloadSanitizer: DefaultReceiptPayloadSanitizer()
-        )
+        let stores = try makeReceiptBackedStores()
+        let receiptStore = stores.receiptStore
+        let recorder = stores.recorder
 
         await recorder.record(
             AccountEvent.preferredChainChanged(
@@ -197,16 +200,9 @@ struct AccountReceiptRecorderTests {
     @Test("chain-scope account receipts preserve caller correlation IDs for follow-on refresh chaining")
     @MainActor
     func chainScopeReceiptsPreserveCorrelationID() async throws {
-        let container = try TestModelContainers.primary()
-        let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
-        )
-        let recorder = ReceiptBackedAccountEventRecorder(
-            receiptStore: receiptStore,
-            payloadSanitizer: DefaultReceiptPayloadSanitizer()
-        )
+        let stores = try makeReceiptBackedStores()
+        let receiptStore = stores.receiptStore
+        let recorder = stores.recorder
         let correlationID = "chain-scope-correlation"
 
         await recorder.record(

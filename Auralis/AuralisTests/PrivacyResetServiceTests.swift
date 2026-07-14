@@ -21,7 +21,10 @@ import TokenStorage
 @MainActor
 @Suite(.tags(.privacy, .swiftdata))
 struct PrivacyResetServiceTests {
-    @Test("resetLocalPrivacyData clears all scoped local state")
+    @Test(
+        "resetLocalPrivacyData clears all scoped local state",
+        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData account, NFT, receipt, and music models are loaded from both the app and test bundles.")
+    )
     func fullResetClearsAllScopedState() async throws {
         let fixture = try await arrangePopulatedFixture()
 
@@ -163,7 +166,10 @@ struct PrivacyResetServiceTests {
         )
     }
 
-    @Test("removing an account purges only NFTs scoped to that account")
+    @Test(
+        "removing an account purges only NFTs scoped to that account",
+        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData account and NFT models are loaded from both the app and test bundles.")
+    )
     func accountRemovalPurgesScopedNFTs() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
@@ -236,7 +242,10 @@ struct PrivacyResetServiceTests {
         #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).count == 1)
     }
 
-    @Test("overwriting an account purges previously persisted NFTs for that account")
+    @Test(
+        "overwriting an account purges previously persisted NFTs for that account",
+        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData account and NFT models are loaded from both the app and test bundles.")
+    )
     func accountOverwritePurgesScopedNFTs() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
@@ -312,7 +321,10 @@ struct PrivacyResetServiceTests {
         #expect(try context.fetch(FetchDescriptor<NFT.Collection>()).count == 1)
     }
 
-    @Test("logout cleanup clears active shell support data while preserving accounts when requested")
+    @Test(
+        "logout cleanup clears active shell support data while preserving accounts when requested",
+        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData account models are loaded from both the app and test bundles.")
+    )
     func logoutCleanupClearsShellSupportData() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)

@@ -5,7 +5,10 @@ import Foundation
 import Testing
 
 struct GlobalChromeContractTests {
-    @Test("chrome-facing snapshot fields expose account scope freshness and preference context")
+    @Test(
+        "chrome-facing snapshot fields expose account scope freshness and preference context",
+        .disabled("Crashes in the Xcode 26 beta app-hosted runner because EOAccount is loaded from both the app and test bundles.")
+    )
     func chromeSnapshotFieldsStayReadable() {
         let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
         let snapshot = LiveContextSource(
