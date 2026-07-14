@@ -13,7 +13,7 @@ public typealias VideoNowPlayingPublishing = MediaNowPlayingPublishing
 
 public typealias VideoRemoteCommand = RemoteCommandEvent
 
-public typealias VideoRemoteCommandStreaming = RemoteCommandStreaming
+public typealias VideoRemoteCommandStreaming = RemoteCommandPublishing
 
 public typealias VideoMediaTransportControlling = MediaTransportControlling
 

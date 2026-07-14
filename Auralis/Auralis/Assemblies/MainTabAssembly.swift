@@ -95,9 +95,9 @@ struct MainTabAssembly {
                     modeState: modeState
                 )
             },
-            musicFeatureDependenciesFactory: { [music] audioEngine, auraPlayModelContainer, accountModelContext, musicLibraryIndexer in
+            musicFeatureDependenciesFactory: { [music] playbackRuntime, auraPlayModelContainer, accountModelContext, musicLibraryIndexer in
                 music.makeMusicFeatureDependencies(
-                    audioEngine: audioEngine,
+                    playbackRuntime: playbackRuntime,
                     auraPlayModelContainer: auraPlayModelContainer,
                     accountModelContext: accountModelContext,
                     musicLibraryIndexer: musicLibraryIndexer
@@ -126,7 +126,7 @@ struct MainTabDependencies {
     let privacyResetServiceFactory: @MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
     let musicFeatureDependenciesFactory: @MainActor (
-        AudioEngine,
+        AuraPlayPlaybackRuntime,
         ModelContainer,
         ModelContext,
         any MusicLibraryIndexing
@@ -134,12 +134,12 @@ struct MainTabDependencies {
 
 
     func makeMusicFeatureDependencies(
-        audioEngine: AudioEngine,
+        playbackRuntime: AuraPlayPlaybackRuntime,
         auraPlayModelContainer: ModelContainer,
         accountModelContext: ModelContext
     ) -> AuraPlayDependencies {
         musicFeatureDependenciesFactory(
-            audioEngine,
+            playbackRuntime,
             auraPlayModelContainer,
             accountModelContext,
             musicLibraryIndexer

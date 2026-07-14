@@ -17,7 +17,7 @@ public actor MediaCacheManager: MediaCacheManaging {
     private let downloader: any MediaDownloading
     private let resolver: any MediaURLResolving
     private let gatewayFallbackResolver: (any MediaGatewayFallbackResolving)?
-    private let networkStatusProvider: any NetworkStatusProviding
+    private let networkStatusProvider: any MediaNetworkStatusProviding
     private let loudnessAnalyzer: ApproximateLoudnessAnalyzer
     private nonisolated let progressBroadcast = AsyncBroadcast<CacheProgress>()
     private nonisolated let loudnessBroadcast = AsyncBroadcast<CachedLoudnessMeasurement>()
@@ -32,7 +32,7 @@ public actor MediaCacheManager: MediaCacheManaging {
         downloader: any MediaDownloading = URLSessionMediaDownloader(),
         resolver: any MediaURLResolving = GatewayMediaURLResolver(),
         gatewayFallbackResolver: (any MediaGatewayFallbackResolving)? = nil,
-        networkStatusProvider: any NetworkStatusProviding = AlwaysOnlineNetworkStatusProvider(),
+        networkStatusProvider: any MediaNetworkStatusProviding = FixedMediaNetworkStatusProvider(),
         loudnessAnalyzer: ApproximateLoudnessAnalyzer = ApproximateLoudnessAnalyzer()
     ) throws {
         self.fileManager = fileManager

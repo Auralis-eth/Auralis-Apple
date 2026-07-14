@@ -106,6 +106,37 @@ public enum A11yID {
 
     public enum AuraPlay {
         public static let unavailable = "auraplay.unavailable"
+        public static let root = "auraplay.root"
+        public static let librarySummary = "auraplay.library.summary"
+        public static let librarySearch = "auraplay.library.search"
+        public static let libraryFilter = "auraplay.library.filter"
+        public static let librarySort = "auraplay.library.sort"
+        public static let collections = "auraplay.collections"
+        public static let tracks = "auraplay.tracks"
+        public static let queue = "auraplay.queue"
+        public static let routeControls = "auraplay.routeControls"
+        public static let cacheControls = "auraplay.cacheControls"
+        public static let cacheStatus = "auraplay.cache.status"
+        public static let cacheSaveOffline = "auraplay.cache.saveOffline"
+        public static let cachePin = "auraplay.cache.pin"
+        public static let cacheUnpin = "auraplay.cache.unpin"
+        public static let cacheError = "auraplay.cache.error"
+        public static let playbackToast = "auraplay.playback.toast"
+        public static let miniPlayerCacheStatus = "auraplay.miniPlayer.cacheStatus"
+        public static let audioTuning = "auraplay.audioTuning"
+        public static let audioTuningEQPreset = "auraplay.audioTuning.eqPreset"
+        public static let audioTuningNormalize = "auraplay.audioTuning.normalize"
+        public static let audioTuningCrossfade = "auraplay.audioTuning.crossfade"
+        public static let audioTuningCustomEQ = "auraplay.audioTuning.customEQ"
+        public static let audioTuningDownloadOffline = "auraplay.audioTuning.downloadOffline"
+        public static let settingsAudioTuning = "auraplay.settings.audioTuning"
+        public static let visualizer = "auraplay.visualizer"
+        public static let sharedSession = "auraplay.sharedSession"
+        public static let videoWireframe = "auraplay.videoWireframe"
+        public static let videoPlayer = "auraplay.video.player"
+        public static let videoLoadSample = "auraplay.video.loadSample"
+        public static let videoPlayback = "auraplay.video.playback"
+        public static let videoStatus = "auraplay.video.status"
         public static let detailScreen = "auraplay.detail.screen"
         public static let detailTitle = "auraplay.detail.title"
         public static let detailPlayback = "auraplay.detail.playback"
@@ -114,6 +145,22 @@ public enum A11yID {
 
         public static func collectionTrack(id: String) -> String {
             "auraplay.collection.track.\(id)"
+        }
+
+        public static func trackRow(id: String) -> String {
+            "auraplay.track.\(id)"
+        }
+
+        public static func audioTuningCustomEQBand(index: Int) -> String {
+            "auraplay.audioTuning.customEQ.band.\(index)"
+        }
+
+        public static func collectionRow(id: String) -> String {
+            "auraplay.collection.\(id)"
+        }
+
+        public static func videoItem(id: String) -> String {
+            "auraplay.video.item.\(id)"
         }
     }
 

@@ -1,3 +1,4 @@
+import AuraUI
 import SwiftUI
 
 private enum AuraPlayMiniPlayerAccessoryMode {
@@ -80,6 +81,52 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
         }
     }
 
+    private var cachePresentation: AuraPlayCachePresentation {
+        player.auraPlayCachePresentation
+    }
+
+    private var shouldShowCacheStatus: Bool {
+        player.auraPlayPlaybackState == .loading
+            || cachePresentation.progressFraction != nil
+            || cachePresentation.state == .queued
+            || cachePresentation.state == .downloading
+            || cachePresentation.state == .partial
+            || cachePresentation.state == .cached
+            || cachePresentation.state == .pinned
+            || cachePresentation.state == .error
+    }
+
+    private var cacheStatusTitle: String {
+        if player.auraPlayPlaybackState == .loading, cachePresentation.state == .partial {
+            return String(localized: "Buffering")
+        }
+
+        switch cachePresentation.state {
+        case .unavailable:
+            return String(localized: "Preparing")
+        case .notCached:
+            return String(localized: "Online only")
+        case .queued:
+            return String(localized: "Queued")
+        case .downloading, .partial:
+            return String(localized: "Downloading")
+        case .cached:
+            return String(localized: "Saved offline")
+        case .pinned:
+            return String(localized: "Pinned offline")
+        case .error:
+            return String(localized: "Offline error")
+        }
+    }
+
+    private var cacheStatusValue: String {
+        guard let progressFraction = cachePresentation.progressFraction else {
+            return cachePresentation.message
+        }
+
+        return String(localized: "\(Int((progressFraction * 100).rounded())) percent. \(cachePresentation.message)")
+    }
+
     var body: some View {
         VStack {
             if dynamicTypeSize.isAccessibilitySize {
@@ -126,6 +173,10 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
             default:
                 ProgressView()
             }
+
+            if shouldShowCacheStatus {
+                miniCacheStatus
+            }
         }
         .padding(.top)
         .padding(.trailing)
@@ -147,6 +198,56 @@ private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>
             .accessibilityLabel(String(localized: "Now Playing"))
             .accessibilityValue(currentTrackAccessibilityValue)
             .accessibilityHint(String(localized: "Opens the Now Playing screen"))
+        }
+    }
+
+    private var miniCacheStatus: some View {
+        HStack(spacing: 8) {
+            if let progressFraction = cachePresentation.progressFraction {
+                ProgressView(value: progressFraction)
+                    .frame(width: 56)
+                    .accessibilityHidden(true)
+            } else if player.auraPlayPlaybackState == .loading || cachePresentation.state == .queued {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityHidden(true)
+            } else {
+                Image(systemName: cacheStatusSystemImage)
+                    .font(.caption)
+                    .foregroundStyle(cachePresentation.state == .error ? Color.red : Color.secondary)
+                    .accessibilityHidden(true)
+            }
+
+            Text(cacheStatusTitle)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(cachePresentation.state == .error ? Color.red : Color.secondary)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            if let progressFraction = cachePresentation.progressFraction {
+                Text("\(Int((progressFraction * 100).rounded()))%")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "AuraPlay offline status"))
+        .accessibilityValue(cacheStatusValue)
+        .accessibilityIdentifier(A11yID.AuraPlay.miniPlayerCacheStatus)
+    }
+
+    private var cacheStatusSystemImage: String {
+        switch cachePresentation.state {
+        case .cached:
+            return "checkmark.circle"
+        case .pinned:
+            return "pin.fill"
+        case .error:
+            return "exclamationmark.triangle"
+        default:
+            return "arrow.down.circle"
         }
     }
 

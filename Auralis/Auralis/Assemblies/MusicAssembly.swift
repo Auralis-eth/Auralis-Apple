@@ -8,16 +8,23 @@ import ReceiptsCore
 import SwiftData
 
 struct MusicRuntime {
-    let audioEngine: AudioEngine?
-    let audioEngineInitializationErrorMessage: String?
+    let playbackRuntime: AuraPlayPlaybackRuntime?
+    let playbackRuntimeInitializationErrorMessage: String?
     let auraPlayModelContainer: ModelContainer?
     let auraPlayInitializationErrorMessage: String?
 
     var unavailableMessage: String? {
-        [audioEngineInitializationErrorMessage, auraPlayInitializationErrorMessage]
+        [playbackRuntimeInitializationErrorMessage, auraPlayInitializationErrorMessage]
             .compactMap { $0 }
             .joined(separator: " ")
             .nilIfEmpty
+    }
+}
+
+private extension ProcessInfo {
+    static var isHostedUnitTest: Bool {
+        processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || Bundle.allBundles.contains { $0.bundlePath.hasSuffix(".xctest") }
     }
 }
 
@@ -51,39 +58,43 @@ struct MusicAssembly {
     func makeRuntime() -> MusicRuntime {
         let auraPlayResult: (ModelContainer?, String?)
         do {
-            auraPlayResult = (try AuraPlayModelContainer.make(inMemory: false), nil)
+            auraPlayResult = (try AuraPlayModelContainer.make(inMemory: ProcessInfo.isHostedUnitTest), nil)
         } catch {
             auraPlayResult = (nil, "AuraPlay storage could not be opened on this launch.")
         }
 
-        let audioResult: (AudioEngine?, String?)
-        do {
-            let audioEngine = try AudioEngine()
-            configureMediaResolver(audioEngine)
-            audioResult = (audioEngine, nil)
-        } catch {
-            audioResult = (nil, error.localizedDescription)
+        let audioResult: (AuraPlayPlaybackRuntime?, String?)
+        if ProcessInfo.isHostedUnitTest {
+            audioResult = (nil, nil)
+        } else {
+            do {
+                let playbackRuntime = try AuraPlayPlaybackRuntime()
+                configureMediaResolver(playbackRuntime)
+                audioResult = (playbackRuntime, nil)
+            } catch {
+                audioResult = (nil, error.localizedDescription)
+            }
         }
 
         return MusicRuntime(
-            audioEngine: audioResult.0,
-            audioEngineInitializationErrorMessage: audioResult.1,
+            playbackRuntime: audioResult.0,
+            playbackRuntimeInitializationErrorMessage: audioResult.1,
             auraPlayModelContainer: auraPlayResult.0,
             auraPlayInitializationErrorMessage: auraPlayResult.1
         )
     }
 
-    func configureReceiptLogger(audioEngine: AudioEngine?, modelContext: ModelContext) {
-        audioEngine?.configureMusicReceiptLogger(
+    func configureReceiptLogger(playbackRuntime: AuraPlayPlaybackRuntime?, modelContext: ModelContext) {
+        playbackRuntime?.configureMusicReceiptLogger(
             MusicReceiptEventLogger(
                 receiptStore: receiptAssembly.makeReceiptStore(modelContext: modelContext)
             )
         )
     }
 
-    func configureMediaResolver(_ audioEngine: AudioEngine?) {
+    func configureMediaResolver(_ playbackRuntime: AuraPlayPlaybackRuntime?) {
         let configuration = AuraPlayStorageResolutionConfiguration.liveDefault
-        audioEngine?.configureMediaResolver(
+        playbackRuntime?.configureMediaResolver(
             GatewayFallbackChain(
                 resolver: URLResolver(configuration: configuration),
                 configuration: configuration
@@ -97,13 +108,14 @@ struct MusicAssembly {
     }
 
     func makeMusicFeatureDependencies(
-        audioEngine: AudioEngine,
+        playbackRuntime: AuraPlayPlaybackRuntime,
         auraPlayModelContainer: ModelContainer,
         accountModelContext: ModelContext,
         musicLibraryIndexer: any MusicLibraryIndexing
     ) -> AuraPlayDependencies {
         let logger = LiveAuraPlayLogger()
-        configureMediaResolver(audioEngine)
+        configureMediaResolver(playbackRuntime)
+        playbackRuntime.configureAuraPlayModelContainer(auraPlayModelContainer)
         return AuraPlayDependencies(
             libraryRepository: LiveAuraPlayLibraryRepository(
                 indexer: musicLibraryIndexer,
@@ -119,8 +131,8 @@ struct MusicAssembly {
                 ),
                 logger: logger
             ),
-            playbackController: AuraPlayAudioEnginePlaybackController(audioEngine: audioEngine),
-            queueCoordinator: AuraPlayAudioEngineQueueCoordinator(audioEngine: audioEngine),
+            playbackController: playbackRuntime,
+            queueCoordinator: playbackRuntime,
             artworkLoader: AuraPlayTrackArtworkLoader(),
             logger: logger,
             configuration: AuraPlayModuleConfiguration.live(

@@ -76,6 +76,27 @@ public actor AuraPlayMediaItemService {
         try modelContext.save()
     }
 
+    public func updatePlaybackCacheState(
+        sourceNFTID: String,
+        cachedFileStateRawValue: String? = nil,
+        approxLoudnessLUFS: Double? = nil,
+        updatedAt: Date = .now
+    ) throws {
+        guard let item = try fetchItem(sourceNFTID: sourceNFTID) else {
+            return
+        }
+
+        if let cachedFileStateRawValue {
+            item.cachedFileStateRawValue = cachedFileStateRawValue
+        }
+        if let approxLoudnessLUFS {
+            item.approxLoudnessLUFS = approxLoudnessLUFS
+        }
+        item.updatedAt = updatedAt
+
+        try modelContext.save()
+    }
+
     private func fetchScopedItems(accountAddress: String, chain: Chain) throws -> [AuraPlayMediaItem] {
         let chainRawValue = chain.rawValue
         let descriptor = FetchDescriptor<AuraPlayMediaItem>(
@@ -85,5 +106,15 @@ public actor AuraPlayMediaItemService {
             }
         )
         return try modelContext.fetch(descriptor)
+    }
+
+    private func fetchItem(sourceNFTID: String) throws -> AuraPlayMediaItem? {
+        var descriptor = FetchDescriptor<AuraPlayMediaItem>(
+            predicate: #Predicate<AuraPlayMediaItem> { item in
+                item.sourceNFTID == sourceNFTID
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 }

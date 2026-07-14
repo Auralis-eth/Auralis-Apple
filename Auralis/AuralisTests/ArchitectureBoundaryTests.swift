@@ -182,7 +182,7 @@ struct ArchitectureBoundaryTests {
         #expect(sourceImports.contains("NFTKit") == false)
     }
 
-    @Test("AuraPlay receipts live in MusicFeature and playback does not import NFTKit")
+    @Test("AuraPlay receipts live in MusicFeature and playback runtime does not import NFTKit")
     func auraPlayReceiptBoundaryStaysInMusicFeature() throws {
         let projectRoot = try projectRootURL()
         let musicFeaturePackage = projectRoot
@@ -194,13 +194,13 @@ struct ArchitectureBoundaryTests {
                 .appending(path: "MusicFeature")
                 .appending(path: "Sources")
         )
-        let audioEngineFile = projectRoot
+        let playbackRuntimeFile = projectRoot
             .appending(path: "Auralis")
             .appending(path: "MusicApp")
-            .appending(path: "AI")
-            .appending(path: "Audio Engine")
-            .appending(path: "AudioEngine.swift")
-        let audioEngineSource = try String(contentsOf: audioEngineFile, encoding: .utf8)
+            .appending(path: "AuraPlay")
+            .appending(path: "Services")
+            .appending(path: "AuraPlayPlaybackRuntime.swift")
+        let playbackRuntimeSource = try String(contentsOf: playbackRuntimeFile, encoding: .utf8)
         let appReceiptFiles = try swiftSourceFiles(
             under: projectRoot
                 .appending(path: "Auralis")
@@ -213,7 +213,7 @@ struct ArchitectureBoundaryTests {
         #expect(packageText.contains("../CapabilitiesCore"))
         #expect(musicFeatureImports.contains("ReceiptsCore"))
         #expect(musicFeatureImports.contains("CapabilitiesCore"))
-        #expect(audioEngineSource.contains("import NFTKit") == false)
+        #expect(playbackRuntimeSource.contains("import NFTKit") == false)
         #expect(
             appReceiptFiles.isEmpty,
             "AuraPlay receipt implementation belongs in MusicFeature, not the app target: \(appReceiptFiles.map(\.path).sorted())"

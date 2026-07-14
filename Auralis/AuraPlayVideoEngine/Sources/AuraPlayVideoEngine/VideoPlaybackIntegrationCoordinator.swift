@@ -85,7 +85,7 @@ public final class VideoPlaybackIntegrationCoordinator {
         }
 
         if let remoteCommandStream {
-            let commands = remoteCommandStream.commands
+            let commands = remoteCommandStream.events
             tasks.append(Task { [weak self] in
                 for await command in commands {
                     if Task.isCancelled { return }

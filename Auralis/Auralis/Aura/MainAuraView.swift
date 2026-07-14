@@ -22,8 +22,8 @@ struct MainAuraView: View {
     @State private var router: AppRouter
     @State private var nftService: NFTService
     @State private var modeState: ModeState
-    @State private var audioEngine: AudioEngine?
-    @State private var audioEngineInitializationErrorMessage: String?
+    @State private var playbackRuntime: AuraPlayPlaybackRuntime?
+    @State private var playbackRuntimeInitializationErrorMessage: String?
     @State private var auraPlayModelContainer: ModelContainer?
     @State private var auraPlayInitializationErrorMessage: String?
     @State private var shellStore: ShellStore?
@@ -60,8 +60,8 @@ struct MainAuraView: View {
         let musicRuntime = dependencies.makeMusicRuntime()
         _auraPlayModelContainer = State(initialValue: musicRuntime.auraPlayModelContainer)
         _auraPlayInitializationErrorMessage = State(initialValue: musicRuntime.auraPlayInitializationErrorMessage)
-        _audioEngine = State(initialValue: musicRuntime.audioEngine)
-        _audioEngineInitializationErrorMessage = State(initialValue: musicRuntime.audioEngineInitializationErrorMessage)
+        _playbackRuntime = State(initialValue: musicRuntime.playbackRuntime)
+        _playbackRuntimeInitializationErrorMessage = State(initialValue: musicRuntime.playbackRuntimeInitializationErrorMessage)
     }
 
     var body: some View {
@@ -73,23 +73,49 @@ struct MainAuraView: View {
             }
         }
         .overlay(alignment: .top) {
-            if let primaryStoreInitializationErrorMessage, !primaryStoreWarningDismissed {
-                Button {
-                    primaryStoreWarningDismissed = true
-                } label: {
-                    AuraErrorBanner(
-                        title: "Limited Local Storage",
-                        message: primaryStoreInitializationErrorMessage,
-                        systemImage: "externaldrive.badge.exclamationmark"
-                    )
-                    .padding(.horizontal, 12)
-                    .padding(.top, 12)
+            VStack(spacing: 8) {
+                if let primaryStoreInitializationErrorMessage, !primaryStoreWarningDismissed {
+                    Button {
+                        primaryStoreWarningDismissed = true
+                    } label: {
+                        AuraErrorBanner(
+                            title: "Limited Local Storage",
+                            message: primaryStoreInitializationErrorMessage,
+                            systemImage: "externaldrive.badge.exclamationmark"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "Limited local storage warning"))
+                    .accessibilityValue(primaryStoreInitializationErrorMessage)
+                    .accessibilityHint(String(localized: "Dismisses the local storage warning"))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "Limited local storage warning"))
-                .accessibilityValue(primaryStoreInitializationErrorMessage)
-                .accessibilityHint(String(localized: "Dismisses the local storage warning"))
+
+                if let playbackAlert = playbackRuntime?.auraPlayPlaybackAlert {
+                    Button {
+                        playbackRuntime?.auraPlayDismissPlaybackAlert()
+                    } label: {
+                        AuraErrorBanner(
+                            title: playbackAlert.title,
+                            message: playbackAlert.message,
+                            systemImage: "exclamationmark.triangle"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier(A11yID.AuraPlay.playbackToast)
+                    .accessibilityLabel(String(localized: "Playback warning"))
+                    .accessibilityValue("\(playbackAlert.title). \(playbackAlert.message)")
+                    .accessibilityHint(String(localized: "Dismisses the playback warning"))
+                    .task(id: playbackAlert.id) {
+                        AuraAccessibilityAnnouncer.announce(
+                            "\(playbackAlert.title). \(playbackAlert.message)"
+                        )
+                        try? await Task.sleep(nanoseconds: 4_000_000_000)
+                        playbackRuntime?.auraPlayDismissPlaybackAlert()
+                    }
+                }
             }
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
         }
         .task {
             initializeShellStoreIfNeeded()
@@ -124,7 +150,7 @@ struct MainAuraView: View {
                         },
                         nftService: $nftService,
                         router: router,
-                        audioEngine: audioEngine,
+                        playbackRuntime: playbackRuntime,
                         musicUnavailableMessage: musicUnavailableMessage,
                         showsMusicReinstallGuidance: auraPlayInitializationErrorMessage != nil,
                         retryMusicSetup: reloadMusicServices,
@@ -134,8 +160,8 @@ struct MainAuraView: View {
                     )
                     .tabBarMinimizeBehavior(.onScrollDown)
                     .tabViewBottomAccessory {
-                        if let audioEngine {
-                            AuraPlayMiniPlayerView(player: audioEngine)
+                        if let playbackRuntime {
+                            AuraPlayMiniPlayerView(player: playbackRuntime)
                         }
                     }
                 }
@@ -201,7 +227,7 @@ struct MainAuraView: View {
             return
         }
 
-        dependencies.configureMusicReceiptLogger(audioEngine, modelContext)
+        dependencies.configureMusicReceiptLogger(playbackRuntime, modelContext)
         let gatewayDependencies = dependencies.makeGatewayDependencies(modelContext)
         let mainTabDependencies = dependencies.makeMainTabDependencies(modelContext)
         let store = dependencies.makeShellStore(modelContext, nftService, router)
@@ -276,8 +302,8 @@ struct MainAuraView: View {
 
     private var musicUnavailableMessage: String? {
         MusicRuntime(
-            audioEngine: audioEngine,
-            audioEngineInitializationErrorMessage: audioEngineInitializationErrorMessage,
+            playbackRuntime: playbackRuntime,
+            playbackRuntimeInitializationErrorMessage: playbackRuntimeInitializationErrorMessage,
             auraPlayModelContainer: auraPlayModelContainer,
             auraPlayInitializationErrorMessage: auraPlayInitializationErrorMessage
         ).unavailableMessage
@@ -288,9 +314,9 @@ struct MainAuraView: View {
         let musicRuntime = dependencies.makeMusicRuntime()
         auraPlayModelContainer = musicRuntime.auraPlayModelContainer
         auraPlayInitializationErrorMessage = musicRuntime.auraPlayInitializationErrorMessage
-        audioEngine = musicRuntime.audioEngine
-        audioEngineInitializationErrorMessage = musicRuntime.audioEngineInitializationErrorMessage
-        dependencies.configureMusicReceiptLogger(audioEngine, modelContext)
+        playbackRuntime = musicRuntime.playbackRuntime
+        playbackRuntimeInitializationErrorMessage = musicRuntime.playbackRuntimeInitializationErrorMessage
+        dependencies.configureMusicReceiptLogger(playbackRuntime, modelContext)
     }
 
 }

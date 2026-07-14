@@ -22,7 +22,7 @@ struct MainTabView: View {
     let resolveCurrentAccount: @MainActor () -> EOAccount?
     @Binding var nftService: NFTService
     @Bindable var router: AppRouter
-    let audioEngine: AudioEngine?
+    let playbackRuntime: AuraPlayPlaybackRuntime?
     let musicUnavailableMessage: String?
     let showsMusicReinstallGuidance: Bool
     let retryMusicSetup: @MainActor () async -> Void
@@ -76,12 +76,25 @@ struct MainTabView: View {
         currentAccount?.trackedNFTCount
     }
 
+    private var scopedMusicNFTs: [NFT] {
+        let normalizedAccountAddress = NFT.normalizedScopeComponent(activeAccountAddress) ?? ""
+        let chainRawValue = currentChain.rawValue
+        let descriptor = FetchDescriptor<NFT>(
+            predicate: #Predicate<NFT> {
+                $0.accountAddressRawValue == normalizedAccountAddress &&
+                $0.networkRawValue == chainRawValue
+            }
+        )
+
+        return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
     init(
         shellStore: ShellStore,
         resolveCurrentAccount: @escaping @MainActor () -> EOAccount?,
         nftService: Binding<NFTService>,
         router: AppRouter,
-        audioEngine: AudioEngine?,
+        playbackRuntime: AuraPlayPlaybackRuntime?,
         musicUnavailableMessage: String?,
         showsMusicReinstallGuidance: Bool,
         retryMusicSetup: @escaping @MainActor () async -> Void,
@@ -93,7 +106,7 @@ struct MainTabView: View {
         self.resolveCurrentAccount = resolveCurrentAccount
         self._nftService = nftService
         self.router = router
-        self.audioEngine = audioEngine
+        self.playbackRuntime = playbackRuntime
         self.musicUnavailableMessage = musicUnavailableMessage
         self.showsMusicReinstallGuidance = showsMusicReinstallGuidance
         self.retryMusicSetup = retryMusicSetup
@@ -285,16 +298,34 @@ struct MainTabView: View {
             Tab("Music", systemImage: "play.circle", value: AppTab.music) {
                 NavigationStack(path: $router.musicPath) {
                     Group {
-                        if let audioEngine, let auraPlayModelContainer {
+                        if let playbackRuntime, let auraPlayModelContainer {
                             VStack {
                                 MusicFeatureRootView(
                                     currentAccount: currentAccount,
                                     currentChain: currentChain,
                                     dependencies: dependencies.makeMusicFeatureDependencies(
-                                        audioEngine: audioEngine,
+                                        playbackRuntime: playbackRuntime,
                                         auraPlayModelContainer: auraPlayModelContainer,
                                         accountModelContext: modelContext
-                                    )
+                                    ),
+                                    onOpenItem: { itemID in
+                                        router.showMusicNFTDetail(id: itemID)
+                                    },
+                                    onOpenCollection: { key, title in
+                                        router.showMusicCollectionDetail(key: key, title: title)
+                                    },
+                                    onPlayItem: { itemID in
+                                        try? await playbackRuntime.playLibraryItem(
+                                            id: itemID,
+                                            in: scopedMusicNFTs
+                                        )
+                                    },
+                                    onAddItemToQueue: { itemID in
+                                        playbackRuntime.addLibraryItemToQueue(
+                                            id: itemID,
+                                            in: scopedMusicNFTs
+                                        )
+                                    }
                                 )
                             }
                             .navigationDestination(for: MusicRoute.self) { route in
@@ -309,6 +340,18 @@ struct MainTabView: View {
                                                 key: key,
                                                 title: title
                                             )
+                                        },
+                                        onPlay: { itemID in
+                                            try? await playbackRuntime.playLibraryItem(
+                                                id: itemID,
+                                                in: scopedMusicNFTs
+                                            )
+                                        },
+                                        onAddToQueue: { itemID in
+                                            playbackRuntime.addLibraryItemToQueue(
+                                                id: itemID,
+                                                in: scopedMusicNFTs
+                                            )
                                         }
                                     )
 
@@ -320,8 +363,36 @@ struct MainTabView: View {
                                         currentChain: currentChain,
                                         onOpenItem: { itemID in
                                             router.showMusicNFTDetail(id: itemID)
+                                        },
+                                        onPlayItem: { itemID in
+                                            try? await playbackRuntime.playLibraryItem(
+                                                id: itemID,
+                                                in: scopedMusicNFTs
+                                            )
+                                        },
+                                        onAddItemToQueue: { itemID in
+                                            playbackRuntime.addLibraryItemToQueue(
+                                                id: itemID,
+                                                in: scopedMusicNFTs
+                                            )
                                         }
                                     )
+
+                                case .video:
+                                    AuraPlayVideoWireframeView(
+                                        currentAccount: currentAccount,
+                                        currentChain: currentChain,
+                                        auraPlayModelContainer: auraPlayModelContainer,
+                                        playbackRuntime: playbackRuntime,
+                                        restoreVideoRoute: router.restoreMusicVideoWireframe
+                                    )
+                                }
+                            }
+                            .toolbar {
+                                ToolbarItem(placement: .primaryAction) {
+                                    Button("Video", systemImage: "play.rectangle") {
+                                        router.showMusicVideoWireframe()
+                                    }
                                 }
                             }
                         } else {
@@ -369,6 +440,7 @@ struct MainTabView: View {
                                 currentChain: currentChain,
                                 privacyResetServiceFactory: dependencies.privacyResetServiceFactory,
                                 auraPlayModelContainer: auraPlayModelContainer,
+                                playbackRuntime: playbackRuntime,
                                 onPrivacyResetCompleted: {
                                     await shellStore.send(.logoutRequested)
                                 }
@@ -600,7 +672,7 @@ private struct MainTabPreviewWrapper: View {
     @State private var router = AppRouter()
     let initialTab: AppTab
     let showsSettings: Bool
-    let audioEngine: AudioEngine? = try? AudioEngine()
+    let playbackRuntime: AuraPlayPlaybackRuntime? = try? AuraPlayPlaybackRuntime()
     @State private var modeState = ModeState()
     private let auraPlayModelContainer = PreviewModelContainers.auraPlay()
     private let shellStore = ShellStore.preview(
@@ -621,7 +693,7 @@ private struct MainTabPreviewWrapper: View {
             resolveCurrentAccount: { nil },
             nftService: $nftService,
             router: router,
-            audioEngine: audioEngine,
+            playbackRuntime: playbackRuntime,
             musicUnavailableMessage: nil,
             showsMusicReinstallGuidance: false,
             retryMusicSetup: {},

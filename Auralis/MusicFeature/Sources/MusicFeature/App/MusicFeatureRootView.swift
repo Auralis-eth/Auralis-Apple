@@ -7,17 +7,29 @@ public struct MusicFeatureRootView: View {
     public let currentAccount: EOAccount?
     public let currentChain: Chain
     public let dependencies: AuraPlayDependencies
+    public let onOpenItem: (String) -> Void
+    public let onOpenCollection: (String, String) -> Void
+    public let onPlayItem: (String) async -> Void
+    public let onAddItemToQueue: (String) async -> Void
 
     @State private var model: AuraPlayRootModel
 
     public init(
         currentAccount: EOAccount?,
         currentChain: Chain,
-        dependencies: AuraPlayDependencies
+        dependencies: AuraPlayDependencies,
+        onOpenItem: @escaping (String) -> Void = { _ in },
+        onOpenCollection: @escaping (String, String) -> Void = { _, _ in },
+        onPlayItem: @escaping (String) async -> Void = { _ in },
+        onAddItemToQueue: @escaping (String) async -> Void = { _ in }
     ) {
         self.currentAccount = currentAccount
         self.currentChain = currentChain
         self.dependencies = dependencies
+        self.onOpenItem = onOpenItem
+        self.onOpenCollection = onOpenCollection
+        self.onPlayItem = onPlayItem
+        self.onAddItemToQueue = onAddItemToQueue
         _model = State(
             initialValue: AuraPlayRootModel(
                 libraryRepository: dependencies.libraryRepository,
@@ -35,7 +47,15 @@ public struct MusicFeatureRootView: View {
     }
 
     public var body: some View {
-        AuraPlayEntryView(model: model)
+        AuraPlayEntryView(
+            model: model,
+            currentAccount: currentAccount,
+            currentChain: currentChain,
+            onOpenItem: onOpenItem,
+            onOpenCollection: onOpenCollection,
+            onPlayItem: onPlayItem,
+            onAddItemToQueue: onAddItemToQueue
+        )
             .task(id: "\(currentAccount?.address ?? "none")|\(currentChain.rawValue)") {
                 model.updateContext(
                     currentAccount: currentAccount,

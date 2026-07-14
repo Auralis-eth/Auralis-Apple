@@ -1296,7 +1296,7 @@ struct VideoPlaybackIntegrationCoordinatorTests {
         coordinator.startObserving()
         controller.emit(.tick(PlaybackTick(currentSeconds: 30, durationSeconds: 100)))
         try await expectEventually { await nowPlaying.publishedTicks.last?.currentSeconds == 30 }
-        remoteCommands.emit(.skipForward(seconds: 15))
+        remoteCommands.emit(.skipForward(15))
 
         try await expectEventually {
             controller.seekRequests.last?.seconds == 45 && controller.seekRequests.last?.kind == .skip
@@ -1657,12 +1657,12 @@ final class MockTimeObserverRegistrar: VideoTimeObserverRegistering {
 private final class MockTimeObserverToken {}
 
 final class MockRemoteCommandStream: VideoRemoteCommandStreaming, @unchecked Sendable {
-    let commands: AsyncStream<VideoRemoteCommand>
+    let events: AsyncStream<VideoRemoteCommand>
     private let continuation: AsyncStream<VideoRemoteCommand>.Continuation
 
     init() {
         var continuation: AsyncStream<VideoRemoteCommand>.Continuation!
-        self.commands = AsyncStream { continuation = $0 }
+        self.events = AsyncStream { continuation = $0 }
         self.continuation = continuation
     }
 

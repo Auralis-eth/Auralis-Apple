@@ -10,6 +10,8 @@ public struct AuraPlayMusicCollectionDetailView: View {
     public let currentAccountAddress: String?
     public let currentChain: Chain
     public let onOpenItem: (String) -> Void
+    public let onPlayItem: (String) async -> Void
+    public let onAddItemToQueue: (String) async -> Void
 
     @Query private var libraryItems: [MusicLibraryItem]
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -19,13 +21,17 @@ public struct AuraPlayMusicCollectionDetailView: View {
         collectionTitle: String,
         currentAccountAddress: String?,
         currentChain: Chain,
-        onOpenItem: @escaping (String) -> Void
+        onOpenItem: @escaping (String) -> Void,
+        onPlayItem: @escaping (String) async -> Void = { _ in },
+        onAddItemToQueue: @escaping (String) async -> Void = { _ in }
     ) {
         self.collectionKey = collectionKey
         self.collectionTitle = collectionTitle
         self.currentAccountAddress = currentAccountAddress
         self.currentChain = currentChain
         self.onOpenItem = onOpenItem
+        self.onPlayItem = onPlayItem
+        self.onAddItemToQueue = onAddItemToQueue
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
         let chainRawValue = currentChain.rawValue
@@ -115,12 +121,7 @@ public struct AuraPlayMusicCollectionDetailView: View {
                         .font(.headline)
 
                     ForEach(items) { item in
-                        Button {
-                            onOpenItem(item.sourceNFTID)
-                        } label: {
-                            collectionTrackRow(item: item)
-                        }
-                        .buttonStyle(.plain)
+                        collectionTrackRow(item: item)
                         .accessibilityIdentifier("auraplay.collection.track.\(item.id)")
                     }
                 }
@@ -157,25 +158,45 @@ public struct AuraPlayMusicCollectionDetailView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .mediaAccessibility(.decorative)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(item.title)
-                    .font(.headline)
-                    .foregroundStyle(Color.textPrimary)
-                    .lineLimit(2)
+            Button {
+                onOpenItem(item.sourceNFTID)
+            } label: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(item.title)
+                        .font(.headline)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
 
-                if let artist = item.artistName, !artist.isEmpty {
-                    Text(artist)
-                        .font(.subheadline)
-                        .foregroundStyle(Color.textSecondary)
+                    if let artist = item.artistName, !artist.isEmpty {
+                        Text(artist)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(.plain)
 
-            Spacer()
+            HStack(spacing: 4) {
+                Button {
+                    Task { await onPlayItem(item.sourceNFTID) }
+                } label: {
+                    Image(systemName: "play.fill")
+                }
+                .frame(minWidth: 44, minHeight: 44)
+                .disabled(!item.isPlaybackReady)
+                .accessibilityLabel("Play \(item.title)") // [VERIFY] item title is the playback label.
 
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.textSecondary)
-                .accessibilityHidden(true)
+                Button {
+                    Task { await onAddItemToQueue(item.sourceNFTID) }
+                } label: {
+                    Image(systemName: "text.badge.plus")
+                }
+                .frame(minWidth: 44, minHeight: 44)
+                .disabled(!item.isPlaybackReady)
+                .accessibilityLabel("Add \(item.title) to queue") // [VERIFY] item title is the queue label.
+            }
+            .buttonStyle(.borderless)
         }
         .padding(12)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
@@ -213,6 +234,12 @@ public struct AuraPlayMusicCollectionDetailView: View {
     }
 }
 
+private extension MusicLibraryItem {
+    var isPlaybackReady: Bool {
+        availability == .ready && playbackURLString?.isEmpty == false
+    }
+}
+
 public struct AuraPlayMusicCollectionSummary: Equatable {
     public let key: String
     public let title: String
@@ -235,6 +262,10 @@ public struct AuraPlayMusicCollectionSummary: Equatable {
         self.artworkURL = artworkURL
         self.trackCount = trackCount
         self.hasUnavailableTracks = hasUnavailableTracks
+    }
+
+    public var trackCountLabel: String {
+        "\(trackCount) track" + (trackCount == 1 ? "" : "s")
     }
 
     public static func summaries(from items: [MusicLibraryItem]) -> [AuraPlayMusicCollectionSummary] {

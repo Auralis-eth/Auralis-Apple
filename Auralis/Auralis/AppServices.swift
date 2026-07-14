@@ -10,7 +10,7 @@ struct ShellBootstrapDependencies {
     let modeStateFactory: @MainActor () -> ModeState
     let nftServiceFactory: @MainActor () -> NFTService
     let makeMusicRuntime: @MainActor () -> MusicRuntime
-    let configureMusicReceiptLogger: @MainActor (AudioEngine?, ModelContext) -> Void
+    let configureMusicReceiptLogger: @MainActor (AuraPlayPlaybackRuntime?, ModelContext) -> Void
     let makeShellStore: @MainActor (ModelContext, NFTService, AppRouter) -> ShellStore
     let makeGatewayDependencies: @MainActor (ModelContext) -> GatewayDependencies
     let makeMainTabDependencies: @MainActor (ModelContext) -> MainTabDependencies

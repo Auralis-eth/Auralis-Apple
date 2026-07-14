@@ -55,6 +55,7 @@ enum NFTDetailRoute: Hashable {
 enum MusicRoute: Hashable {
     case item(id: String)
     case collection(key: String, title: String)
+    case video
 }
 
 /// Represents a routed destination within the profile flow.
@@ -125,6 +126,20 @@ final class AppRouter {
         musicPath = musicPath + [.collection(key: key, title: title)]
     }
 
+    func showMusicVideoWireframe() {
+        selectedTab = .music
+        musicPath = musicPath + [.video]
+    }
+
+    func restoreMusicVideoWireframe() -> Bool {
+        selectedTab = .music
+        auxiliarySurface = nil
+        if musicPath.last != .video {
+            musicPath = musicPath + [.video]
+        }
+        return true
+    }
+
     func showNFTTokensDetail(id: String) {
         nftTokensPath = nftTokensPath + [.item(id: id)]
         showTabOrPresentAuxiliary(tab: .nftTokens, auxiliarySurface: .nftTokens)
@@ -142,10 +157,14 @@ final class AppRouter {
     }
 
     func showNFTFromHome(_ nft: NFT) {
-        if nft.isMusic() {
-            showMusicNFTDetail(id: nft.id)
+        showNFTFromHome(id: nft.id, isMusic: nft.isMusic())
+    }
+
+    func showNFTFromHome(id: String, isMusic: Bool) {
+        if isMusic {
+            showMusicNFTDetail(id: id)
         } else {
-            showNFTTokensDetail(id: nft.id)
+            showNFTTokensDetail(id: id)
         }
     }
 

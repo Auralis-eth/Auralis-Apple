@@ -12,7 +12,7 @@ struct AuraPlayFoundationBoundaryTests {
     func persistenceContractUsesCurrentSchema() {
         let modelNames = Set(AuraPlaySchema.models.map { String(describing: $0) })
 
-        #expect(modelNames == ["AuraPlayMediaItem"])
+        #expect(modelNames == ["AuraPlayMediaItem", "AuraPlayPlaybackPositionState"])
     }
 
     @Test("dependencies preserve injected feature collaborators")

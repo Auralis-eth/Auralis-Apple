@@ -9,6 +9,8 @@ public struct AuraPlayMusicItemDetailView: View {
     public let currentAccountAddress: String?
     public let currentChain: Chain
     public let onOpenCollection: (String, String) -> Void
+    public let onPlay: (String) async -> Void
+    public let onAddToQueue: (String) async -> Void
 
     @Query private var nfts: [NFT]
     @Query private var libraryItems: [MusicLibraryItem]
@@ -19,12 +21,16 @@ public struct AuraPlayMusicItemDetailView: View {
         itemID: String,
         currentAccountAddress: String?,
         currentChain: Chain,
-        onOpenCollection: @escaping (String, String) -> Void
+        onOpenCollection: @escaping (String, String) -> Void,
+        onPlay: @escaping (String) async -> Void = { _ in },
+        onAddToQueue: @escaping (String) async -> Void = { _ in }
     ) {
         self.itemID = itemID
         self.currentAccountAddress = currentAccountAddress
         self.currentChain = currentChain
         self.onOpenCollection = onOpenCollection
+        self.onPlay = onPlay
+        self.onAddToQueue = onAddToQueue
 
         let normalizedAccountAddress = NFT.normalizedScopeComponent(currentAccountAddress) ?? ""
         let chainRawValue = currentChain.rawValue
@@ -100,6 +106,21 @@ public struct AuraPlayMusicItemDetailView: View {
                                     HeadlineFontText(playback.title)
                                         .accessibilityAddTraits(.isHeader)
                                     SecondaryText(playback.message)
+
+                                    HStack(spacing: 10) {
+                                        Button("Play", systemImage: "play.fill") {
+                                            Task { await onPlay(itemID) }
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .disabled(!presentation.isPlayable)
+
+                                        Button("Add to Queue", systemImage: "text.badge.plus") {
+                                            Task { await onAddToQueue(itemID) }
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .disabled(!presentation.isPlayable)
+                                    }
+                                    .padding(.top, 6)
                                 }
                             }
                             .accessibilityIdentifier("auraplay.detail.playback")
@@ -259,6 +280,7 @@ public struct AuraPlayMusicItemDetailPresentation: Equatable {
     public let contentType: String?
     public let metadataStatus: String?
     public let playbackSummary: PlaybackSummary?
+    public let isPlayable: Bool
 
     public init?(nft: NFT?, libraryItem: MusicLibraryItem?) {
         guard nft != nil || libraryItem != nil else {
@@ -304,6 +326,7 @@ public struct AuraPlayMusicItemDetailPresentation: Equatable {
         }
 
         if let libraryItem {
+            self.isPlayable = libraryItem.availability == .ready && playbackURLString != nil
             switch libraryItem.availability {
             case .ready where playbackURLString != nil:
                 self.playbackSummary = PlaybackSummary(
@@ -323,11 +346,13 @@ public struct AuraPlayMusicItemDetailPresentation: Equatable {
                 )
             }
         } else if playbackURLString != nil {
+            self.isPlayable = true
             self.playbackSummary = PlaybackSummary(
                 title: "Playback Available",
                 message: "A playable music source is present on the source NFT metadata."
             )
         } else {
+            self.isPlayable = false
             self.playbackSummary = PlaybackSummary(
                 title: "Metadata Only",
                 message: "This music item currently resolves as metadata without a confirmed playable source."

@@ -98,13 +98,15 @@ func mediaTypeErasurePreservesGenericFields() throws {
 func cacheKeySanitizesMediaID() {
     let key = CacheKey(mediaID: "wallet/track id?#1")
 
-    #expect(key.rawValue == "wallet-track-id--1")
+    #expect(key.rawValue.hasPrefix("media-wallet-track-id--1-"))
+    #expect(key.rawValue.rangeOfCharacter(from: CharacterSet(charactersIn: "/?#: ")) == nil)
 }
 
-@Test("Cache keys fall back when sanitizing would produce an empty filename")
+@Test("Cache keys stay distinct when sanitizing would produce an empty filename")
 func cacheKeyFallsBackForEmptySanitizedID() {
-    #expect(CacheKey(mediaID: "///???").rawValue == "media-2f2f2f3f3f3f")
-    #expect(CacheKey(mediaID: "").rawValue == "media-empty")
+    #expect(CacheKey(mediaID: "///???").rawValue.hasPrefix("media-"))
+    #expect(CacheKey(mediaID: "").rawValue.hasPrefix("media-"))
+    #expect(CacheKey(mediaID: "///???") != CacheKey(mediaID: ""))
 }
 
 @Test("EQ presets expose deterministic ten-band gains")
@@ -229,7 +231,7 @@ func cacheNormalizesDeclaredFormatsBeforeCreatingLocalFilenames() async throws {
 
     let cachedURL = try await manager.localFile(for: media)
 
-    #expect(cachedURL.lastPathComponent == "normalized-format-item.wav")
+    #expect(cachedURL.lastPathComponent == "\(CacheKey(mediaID: "normalized-format-item").rawValue).wav")
     #expect(await manager.isCached(media))
 }
 
@@ -593,7 +595,7 @@ func cacheRejectsOfflineUncachedMedia() async throws {
     let manager = try MediaCacheManager(
         cacheDirectory: cacheDirectory,
         downloader: FixtureDownloader(fileURL: try makeFixtureWAV(name: "offline")),
-        networkStatusProvider: AlwaysOnlineNetworkStatusProvider(isOffline: true)
+        networkStatusProvider: FixedMediaNetworkStatusProvider(isOffline: true)
     )
     let media = FixtureMedia(
         id: "offline-item",
@@ -680,7 +682,7 @@ func cacheRejectsCorruptLocalFileBeforeRecordingCacheHit() async throws {
         approxLoudnessLUFS: nil
     )
 
-    let expectedCacheURL = cacheDirectory.appending(path: "corrupt-local-item.wav")
+    let expectedCacheURL = cacheDirectory.appending(path: "\(CacheKey(mediaID: "corrupt-local-item").rawValue).wav")
 
     await #expect(throws: AuraPlayError.corruptedFile(expectedCacheURL)) {
         _ = try await manager.localFile(for: media)
@@ -991,7 +993,7 @@ func localFileWhenPlayableRejectsUndecodablePartialFile() async throws {
         approxLoudnessLUFS: nil
     )
 
-    let expectedCacheURL = cacheDirectory.appending(path: "invalid-progressive-item.wav")
+    let expectedCacheURL = cacheDirectory.appending(path: "\(CacheKey(mediaID: "invalid-progressive-item").rawValue).wav")
 
     await #expect(throws: AuraPlayError.corruptedFile(expectedCacheURL)) {
         _ = try await manager.localFileWhenPlayable(for: media, minimumPlayableBytes: 512)
@@ -1611,7 +1613,7 @@ private actor CountedProgressiveFixtureDownloader: ProgressiveMediaDownloading {
         to destinationURL: URL,
         minimumPlayableBytes: Int64,
         progress: (@Sendable (Int64, Int64?) -> Void)?
-    ) async throws -> ProgressiveDownloadHandle {
+    ) async throws -> ProgressiveMediaDownloadHandle {
         playableDownloadCount += 1
         try await Task.sleep(nanoseconds: startDelayNanoseconds)
         try? FileManager.default.removeItem(at: destinationURL)
@@ -1628,7 +1630,7 @@ private actor CountedProgressiveFixtureDownloader: ProgressiveMediaDownloading {
             await completionProbe?.markCompleted()
             return destinationURL
         }
-        return ProgressiveDownloadHandle(playableURL: destinationURL, response: response, completion: completion)
+        return ProgressiveMediaDownloadHandle(playableURL: destinationURL, response: response, completion: completion)
     }
 
     private func response(for url: URL) -> URLResponse {
@@ -1679,7 +1681,7 @@ private struct ProgressiveFixtureDownloader: ProgressiveMediaDownloading {
         to destinationURL: URL,
         minimumPlayableBytes: Int64,
         progress: (@Sendable (Int64, Int64?) -> Void)?
-    ) async throws -> ProgressiveDownloadHandle {
+    ) async throws -> ProgressiveMediaDownloadHandle {
         try? FileManager.default.removeItem(at: destinationURL)
         try firstChunk.write(to: destinationURL)
         progress?(Int64(firstChunk.count), Int64(firstChunk.count + tailChunk.count))
@@ -1694,7 +1696,7 @@ private struct ProgressiveFixtureDownloader: ProgressiveMediaDownloading {
             await completionProbe?.markCompleted()
             return destinationURL
         }
-        return ProgressiveDownloadHandle(playableURL: destinationURL, response: response, completion: completion)
+        return ProgressiveMediaDownloadHandle(playableURL: destinationURL, response: response, completion: completion)
     }
 
     private func response(for url: URL) -> URLResponse {

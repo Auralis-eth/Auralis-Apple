@@ -27,6 +27,8 @@
 	<string>Auralis uses the camera to scan Ethereum wallet QR codes and capture playlist cover art.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Auralis uses your photo library so you can choose playlist cover art.</string>
+	<key>AVInitialRouteSharingPolicy</key>
+	<string>LongFormAudio</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

@@ -32,6 +32,8 @@ public final class AuraPlayMediaItem {
     public var hasAudio: Bool
     public var isPlayable: Bool
     public var isSearchable: Bool
+    public var cachedFileStateRawValue: String
+    public var approxLoudnessLUFS: Double?
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -56,6 +58,8 @@ public final class AuraPlayMediaItem {
         hasAudio: Bool,
         isPlayable: Bool,
         isSearchable: Bool,
+        cachedFileStateRawValue: String = "notCached",
+        approxLoudnessLUFS: Double? = nil,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -80,6 +84,8 @@ public final class AuraPlayMediaItem {
         self.hasAudio = hasAudio
         self.isPlayable = isPlayable
         self.isSearchable = isSearchable
+        self.cachedFileStateRawValue = cachedFileStateRawValue
+        self.approxLoudnessLUFS = approxLoudnessLUFS
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

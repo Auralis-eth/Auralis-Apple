@@ -19,6 +19,9 @@ struct AuralisApp: App {
     private let primaryStoreInitializationErrorMessage: String?
     private let usesInMemoryPrimaryStore: Bool
     private let uiTestFixture: UITestFixture
+    #if canImport(UIKit)
+    @UIApplicationDelegateAdaptor(AuralisAppDelegate.self) private var appDelegate
+    #endif
     @State private var primaryStoreRecoveryAlertPresented = false
 
     init() {

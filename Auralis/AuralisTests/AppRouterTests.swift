@@ -25,6 +25,22 @@ struct AppRouterTests {
         #expect(router.currentRouteDepth == 0)
     }
 
+    @Test("PiP restoration returns to the music video route without stacking duplicates")
+    func pictureInPictureRestorationReturnsToVideoRoute() {
+        let router = AppRouter()
+
+        router.showSearch()
+        let firstRestoreSucceeded = router.restoreMusicVideoWireframe()
+        let secondRestoreSucceeded = router.restoreMusicVideoWireframe()
+
+        #expect(firstRestoreSucceeded)
+        #expect(secondRestoreSucceeded)
+        #expect(router.selectedTab == .music)
+        #expect(router.auxiliarySurface == nil)
+        #expect(router.musicPath == [.video])
+        #expect(router.currentRouteDepth == 1)
+    }
+
     @Test("token detail flow keeps the NFT Tokens tab and unwinds correctly")
     func nftTokenDetailFlow() {
         let router = AppRouter()
@@ -75,29 +91,16 @@ struct AppRouterTests {
     @Test("home launch routes NFTs by media type")
     func homeLaunchRoutesNFTByMediaType() {
         let router = AppRouter()
-        let musicNFT = NFTFixture.music
-            .with {
-                $0.tokenId = "music-1"
-                $0.audioUrl = "https://example.com/track.mp3"
-            }
-            .build()
 
-        router.showNFTFromHome(musicNFT)
+        router.showNFTFromHome(id: "music-1", isMusic: true)
         #expect(router.selectedTab == .music)
-        #expect(router.musicPath == [.item(id: musicNFT.id)])
+        #expect(router.musicPath == [.item(id: "music-1")])
 
         router.resetAllPaths()
-        let visualNFT = NFTFixture.image
-            .with {
-                $0.tokenId = "visual-1"
-                $0.contentType = "image/png"
-                $0.audioUrl = nil
-            }
-            .build()
 
-        router.showNFTFromHome(visualNFT)
+        router.showNFTFromHome(id: "visual-1", isMusic: false)
         #expect(router.selectedTab == .nftTokens)
-        #expect(router.nftTokensPath == [.item(id: visualNFT.id)])
+        #expect(router.nftTokensPath == [.item(id: "visual-1")])
     }
 
     @Test("profile detail routes stay on the profile tab")

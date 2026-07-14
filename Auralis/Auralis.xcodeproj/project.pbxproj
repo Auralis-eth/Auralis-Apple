@@ -36,6 +36,8 @@
 		6FA256432FB6A28400292ECA /* NFTLibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA256422FB6A28400292ECA /* NFTLibraryFeature */; };
 		6FA256482FB77B4800292ECA /* MusicFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA256472FB77B4800292ECA /* MusicFeature */; };
 		6FA2564B2FB79FC600292ECA /* AccountsFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA2564A2FB79FC600292ECA /* AccountsFeature */; };
+		6FBB89282FFE8B2900012DCB /* AuraPlayAudioEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 6FBB89272FFE8B2900012DCB /* AuraPlayAudioEngine */; };
+		6FBB892B2FFE8BD700012DCB /* AuraPlayVideoEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 6FBB892A2FFE8BD700012DCB /* AuraPlayVideoEngine */; };
 		6FDB397E2FBA7B4B00075FCE /* ENS in Frameworks */ = {isa = PBXBuildFile; productRef = 6FDB397D2FBA7B4B00075FCE /* ENS */; };
 		6FDB39812FBA7B5E00075FCE /* ProviderKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6FDB39802FBA7B5E00075FCE /* ProviderKit */; };
 		6FDB39842FBA7B7200075FCE /* ReceiptStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6FDB39832FBA7B7200075FCE /* ReceiptStorage */; };
@@ -117,11 +119,13 @@
 				6F84E0292FAE829200CD4102 /* OperatorCore in Frameworks */,
 				6F1947322FBD15A900A811F4 /* NFTDomain in Frameworks */,
 				6F1947382FBD15A900A811F4 /* NFTProviderAdapters in Frameworks */,
+				6FBB892B2FFE8BD700012DCB /* AuraPlayVideoEngine in Frameworks */,
 				6FA256402FB683EB00292ECA /* AuralisShellCore in Frameworks */,
 				6FDB39812FBA7B5E00075FCE /* ProviderKit in Frameworks */,
 				6F1947342FBD15A900A811F4 /* NFTPersistence in Frameworks */,
 				6F84E2FC2FAF6CEA00CD4102 /* SwiftDataAdapters in Frameworks */,
 				6F84E3082FB35A0A00CD4102 /* AgentIdentityCore in Frameworks */,
+				6FBB89282FFE8B2900012DCB /* AuraPlayAudioEngine in Frameworks */,
 				6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */,
 				6F84E3052FB2202700CD4102 /* UserDefaultsAdapters in Frameworks */,
 				6F84E02C2FAE901500CD4102 /* NFTKit in Frameworks */,
@@ -254,6 +258,8 @@
 				6F1947332FBD15A900A811F4 /* NFTPersistence */,
 				6F1947352FBD15A900A811F4 /* NFTPresentation */,
 				6F1947372FBD15A900A811F4 /* NFTProviderAdapters */,
+				6FBB89272FFE8B2900012DCB /* AuraPlayAudioEngine */,
+				6FBB892A2FFE8BD700012DCB /* AuraPlayVideoEngine */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -368,6 +374,9 @@
 				6FDB39852FBA7B8F00075FCE /* XCLocalSwiftPackageReference "ChainProviders" */,
 				6FDB398A2FBA7CB800075FCE /* XCLocalSwiftPackageReference "CapabilitiesCore" */,
 				6F467D992FCD0E7E0062CE28 /* XCLocalSwiftPackageReference "AuralisTestSupport" */,
+				6FCC89882FF56E870019D356 /* XCLocalSwiftPackageReference "WalletConnectorKit" */,
+				6FBB89262FFE8B2900012DCB /* XCLocalSwiftPackageReference "AuraPlayAudioEngine" */,
+				6FBB89292FFE8BD700012DCB /* XCLocalSwiftPackageReference "AuraPlayVideoEngine" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -494,8 +503,10 @@
 				CODE_SIGN_ENTITLEMENTS = Auralis/Auralis.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = NO;
 				DEVELOPMENT_ASSET_PATHS = "\"Auralis/Preview Content\"";
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -529,8 +540,10 @@
 				CODE_SIGN_ENTITLEMENTS = Auralis/Auralis.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = NO;
 				DEVELOPMENT_ASSET_PATHS = "\"Auralis/Preview Content\"";
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -856,6 +869,18 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = AccountsFeature;
 		};
+		6FBB89262FFE8B2900012DCB /* XCLocalSwiftPackageReference "AuraPlayAudioEngine" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = AuraPlayAudioEngine;
+		};
+		6FBB89292FFE8BD700012DCB /* XCLocalSwiftPackageReference "AuraPlayVideoEngine" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = AuraPlayVideoEngine;
+		};
+		6FCC89882FF56E870019D356 /* XCLocalSwiftPackageReference "WalletConnectorKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = WalletConnectorKit;
+		};
 		6FDB397C2FBA7B4B00075FCE /* XCLocalSwiftPackageReference "ENS" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ENS;
@@ -1029,6 +1054,14 @@
 		6FA2564A2FB79FC600292ECA /* AccountsFeature */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AccountsFeature;
+		};
+		6FBB89272FFE8B2900012DCB /* AuraPlayAudioEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AuraPlayAudioEngine;
+		};
+		6FBB892A2FFE8BD700012DCB /* AuraPlayVideoEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AuraPlayVideoEngine;
 		};
 		6FDB397D2FBA7B4B00075FCE /* ENS */ = {
 			isa = XCSwiftPackageProductDependency;
