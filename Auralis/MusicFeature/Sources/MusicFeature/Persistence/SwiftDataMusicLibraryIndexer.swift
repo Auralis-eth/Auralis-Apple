@@ -284,16 +284,6 @@ private extension MusicLibraryIndexPersistenceStore {
     }
 
     func sanitizedRemoteMediaURL(from rawValue: String) -> URL? {
-        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard
-            !trimmed.isEmpty,
-            let url = URL(string: trimmed),
-            url.scheme?.lowercased() == "https",
-            url.host?.isEmpty == false
-        else {
-            return nil
-        }
-
-        return url
+        URLResolver().resolve(rawValue)
     }
 }

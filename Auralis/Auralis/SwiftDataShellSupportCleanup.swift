@@ -7,24 +7,11 @@ import TokenStorage
 
 extension ModelContext {
     func deleteAllShellSupportData() throws {
-        for receipt in try fetch(FetchDescriptor<StoredReceipt>()) {
-            delete(receipt)
-        }
-        try delete(
-            model: TokenHolding.self,
-            where: #Predicate<TokenHolding> { _ in true }
-        )
-        for item in try fetch(FetchDescriptor<MusicLibraryItem>()) {
-            delete(item)
-        }
-        try delete(
-            model: SearchHistoryRecord.self,
-            where: #Predicate<SearchHistoryRecord> { _ in true }
-        )
-        try delete(
-            model: Playlist.self,
-            where: #Predicate<Playlist> { _ in true }
-        )
+        try deleteFetchedModels(matching: FetchDescriptor<StoredReceipt>())
+        try deleteFetchedModels(matching: FetchDescriptor<TokenHolding>())
+        try deleteFetchedModels(matching: FetchDescriptor<MusicLibraryItem>())
+        try deleteFetchedModels(matching: FetchDescriptor<SearchHistoryRecord>())
+        try deleteFetchedModels(matching: FetchDescriptor<Playlist>())
 
         for account in try fetch(FetchDescriptor<EOAccount>()) {
             account.clearAllAuraPlaySyncState()

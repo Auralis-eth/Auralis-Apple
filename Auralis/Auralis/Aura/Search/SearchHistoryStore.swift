@@ -56,22 +56,19 @@ private actor SearchHistoryPersistenceStore {
     }
 
     func clear(accountAddress: String?) throws {
+        let descriptor = FetchDescriptor<SearchHistoryRecord>(
+            predicate: #Predicate<SearchHistoryRecord> { record in
+                record.accountAddressRawValue == accountAddress
+            }
+        )
         try modelContext.performRollbackSafeMutation {
-            try modelContext.delete(
-                model: SearchHistoryRecord.self,
-                where: #Predicate<SearchHistoryRecord> { record in
-                    record.accountAddressRawValue == accountAddress
-                }
-            )
+            try modelContext.deleteFetchedModels(matching: descriptor)
         }
     }
 
     func clearAll() throws {
         try modelContext.performRollbackSafeMutation {
-            try modelContext.delete(
-                model: SearchHistoryRecord.self,
-                where: #Predicate<SearchHistoryRecord> { _ in true }
-            )
+            try modelContext.deleteFetchedModels(matching: FetchDescriptor<SearchHistoryRecord>())
         }
     }
 

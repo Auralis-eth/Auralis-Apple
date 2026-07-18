@@ -126,10 +126,9 @@ private actor TokenHoldingsPersistenceStore {
 
     public func clearAll() throws {
         try modelContext.performRollbackSafeMutation {
-            try modelContext.delete(
-                model: TokenHolding.self,
-                where: #Predicate<TokenHolding> { _ in true }
-            )
+            for holding in try modelContext.fetch(FetchDescriptor<TokenHolding>()) {
+                modelContext.delete(holding)
+            }
         }
     }
 

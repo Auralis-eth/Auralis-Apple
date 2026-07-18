@@ -84,6 +84,10 @@ struct LocalDataStoragePolicyTests {
         .init(identifier: "Playlist", classification: .walletMetadata, storage: .swiftData, resetPhase: .transactionalStore),
         .init(identifier: "MusicLibraryItem", classification: .walletMetadata, storage: .swiftData, resetPhase: .transactionalStore),
         .init(identifier: "AuraPlayMediaItem", classification: .walletMetadata, storage: .swiftData, resetPhase: .auraPlayPersistence),
+        .init(identifier: "AuraPlayMediaEmbedding", classification: .walletMetadata, storage: .swiftData, resetPhase: .auraPlayPersistence),
+        .init(identifier: "AuraPlayNFTToken", classification: .walletMetadata, storage: .swiftData, resetPhase: .auraPlayPersistence),
+        .init(identifier: "AuraPlayPlaylist", classification: .walletMetadata, storage: .swiftData, resetPhase: .auraPlayPersistence),
+        .init(identifier: "AuraPlayPlaylistItem", classification: .walletMetadata, storage: .swiftData, resetPhase: .auraPlayPersistence),
         .init(identifier: "auralis.shell.selection.v1", classification: .walletMetadata, storage: .keychain, resetPhase: .localPreferences)
     ]
 

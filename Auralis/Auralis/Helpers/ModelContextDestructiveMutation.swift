@@ -1,6 +1,12 @@
 import SwiftData
 
 extension ModelContext {
+    func deleteFetchedModels<T: PersistentModel>(matching descriptor: FetchDescriptor<T> = FetchDescriptor<T>()) throws {
+        for model in try fetch(descriptor) {
+            delete(model)
+        }
+    }
+
     func performRollbackSafeMutation(_ work: () throws -> Void) throws {
         do {
             try work()

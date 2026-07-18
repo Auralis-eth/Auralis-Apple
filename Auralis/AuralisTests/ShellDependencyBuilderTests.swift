@@ -19,6 +19,56 @@ import TokenStorage
 @Suite(.tags(.slow))
 struct ShellDependencyBuilderTests {
     @MainActor
+    private func makeTestEnvironment(receiptStore: any ReceiptStore) -> AppEnvironment {
+        let providers = ProviderAssembly()
+        let receipts = ReceiptAssembly { _ in receiptStore }
+        let accounts = AccountAssembly(
+            providerAssembly: providers,
+            receiptAssembly: receipts
+        )
+        let shell = ShellAssembly(
+            accountAssembly: accounts,
+            receiptAssembly: receipts
+        )
+        let music = MusicAssembly(
+            providerAssembly: providers,
+            receiptAssembly: receipts
+        )
+        let privacy = PrivacyAssembly()
+        let tokenHoldings = TokenHoldingsAssembly(providerAssembly: providers)
+        let search = SearchAssembly()
+        let home = HomeAssembly()
+        let policy = PolicyAssembly(receiptAssembly: receipts)
+        let mainTabs = MainTabAssembly(
+            accounts: accounts,
+            shell: shell,
+            providers: providers,
+            receipts: receipts,
+            music: music,
+            privacy: privacy,
+            tokenHoldings: tokenHoldings,
+            search: search,
+            home: home,
+            policy: policy
+        )
+
+        return AppEnvironment(
+            modeStateFactory: { ModeState() },
+            providers: providers,
+            receipts: receipts,
+            accounts: accounts,
+            shell: shell,
+            music: music,
+            privacy: privacy,
+            tokenHoldings: tokenHoldings,
+            search: search,
+            home: home,
+            policy: policy,
+            mainTabs: mainTabs
+        )
+    }
+
+    @MainActor
     private func makeIsolatedPinnedItemsStore() throws -> (store: HomePinnedItemsStore, cleanup: () -> Void) {
         let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "ShellDependencyBuilderTests")
         let store = HomePinnedItemsStore(
@@ -33,8 +83,10 @@ struct ShellDependencyBuilderTests {
     func gatewayDependenciesUseSharedRecorderSeam() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let dependencies = AppEnvironment.live.accounts.makeGatewayDependencies(modelContext: context)
-        let receiptStore = ReceiptStores.live(modelContext: context)
+        let receiptStore = RecordingReceiptStore()
+        let dependencies = makeTestEnvironment(receiptStore: receiptStore)
+            .accounts
+            .makeGatewayDependencies(modelContext: context)
 
         _ = try await dependencies.featureDependencies.accountActivator.activateWatchAccount(
             from: "0x1234567890abcdef1234567890abcdef12345678",
@@ -52,9 +104,11 @@ struct ShellDependencyBuilderTests {
     func mainTabDependenciesUseSharedReceiptStore() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let dependencies = AppEnvironment.live.mainTabs.makeMainTabDependencies(modelContext: context)
+        let receiptStore = RecordingReceiptStore()
+        let dependencies = makeTestEnvironment(receiptStore: receiptStore)
+            .mainTabs
+            .makeMainTabDependencies(modelContext: context)
         let receiptLogger = dependencies.receiptEventLoggerFactory(context)
-        let receiptStore = ReceiptStores.live(modelContext: context)
 
         _ = try await receiptLogger.recordCopyAction(
             subject: "nft.id",
@@ -104,7 +158,8 @@ struct ShellDependencyBuilderTests {
     func featureAssembliesBuildLiveCollaborators() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let environment = AppEnvironment.live
+        let receiptStore = RecordingReceiptStore()
+        let environment = makeTestEnvironment(receiptStore: receiptStore)
 
         _ = environment.providers.makeNativeBalanceProvider()
         _ = environment.providers.makeGasPricingProvider()
@@ -123,7 +178,7 @@ struct ShellDependencyBuilderTests {
             correlationID: "assembly-receipt-logger"
         )
 
-        let receipts = try await ReceiptStores.live(modelContext: context).receipts(
+        let receipts = try await receiptStore.receipts(
             forCorrelationID: "assembly-receipt-logger",
             limit: 10
         )
@@ -137,19 +192,30 @@ struct ShellDependencyBuilderTests {
         let context = ModelContext(container)
         let router = AppRouter()
         let selectionPersistence = RecordingShellSelectionPersistence()
+        let receiptLogger = RecordingShellReceiptLogger()
+        let liveDependencies = AppEnvironment.live.shell.makeShellStoreDependencies(
+            modelContext: context,
+            nftService: NFTService(),
+            router: router,
+            selectionPersistence: selectionPersistence
+        )
         let store = ShellStore.live(
-            dependencies: AppEnvironment.live.shell.makeShellStoreDependencies(
-                modelContext: context,
-                nftService: NFTService(),
-                router: router,
-                selectionPersistence: selectionPersistence
+            dependencies: ShellStoreDependencies(
+                selectionPersistence: liveDependencies.selectionPersistence,
+                accountResolver: liveDependencies.accountResolver,
+                accountMutator: liveDependencies.accountMutator,
+                refreshCoordinator: liveDependencies.refreshCoordinator,
+                deepLinkReplayer: liveDependencies.deepLinkReplayer,
+                routerEffectHandler: liveDependencies.routerEffectHandler,
+                receiptLogger: receiptLogger,
+                clock: liveDependencies.clock
             )
         )
 
         await store.send(.restoreFromPersistence)
 
-        let receipts = try await ReceiptStores.live(modelContext: context).latest(limit: 10)
-        #expect(receipts.contains { $0.trigger == "app.launch" })
+        #expect(receiptLogger.launches.count == 1)
+        #expect(try #require(receiptLogger.launches.first).trigger == "app.launch")
     }
 
     @Test("main tab dependencies wire policy gates through shared receipts and observe mode")
@@ -157,7 +223,10 @@ struct ShellDependencyBuilderTests {
     func mainTabDependenciesWirePolicyGate() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let dependencies = AppEnvironment.live.mainTabs.makeMainTabDependencies(modelContext: context)
+        let receiptStore = RecordingReceiptStore()
+        let dependencies = makeTestEnvironment(receiptStore: receiptStore)
+            .mainTabs
+            .makeMainTabDependencies(modelContext: context)
         let (modeDefaults, modeDefaultsCleanup) = try TestSupport.temporaryUserDefaults(prefix: "ShellDependencyBuilderTests.ModeState")
         defer { modeDefaultsCleanup() }
         let modeState = ModeState(userDefaults: modeDefaults, storageKey: "app.mode.tests")
@@ -166,7 +235,7 @@ struct ShellDependencyBuilderTests {
 
         #expect(result.isAllowed == false)
         #expect(result.userMessage == "Not available in Observe mode")
-        let receipts = try await ReceiptStores.live(modelContext: context).latest(limit: 10)
+        let receipts = try await receiptStore.latest(limit: 10)
         #expect(receipts.contains { $0.trigger == "policy.denied" })
     }
 
@@ -255,6 +324,79 @@ private final class RecordingShellSelectionPersistence: ShellSelectionPersisting
     func clearSelection() async throws {
         selection = ("", Chain.ethMainnet.rawValue)
         clearSelectionCallCount += 1
+    }
+}
+
+@MainActor
+private final class RecordingShellReceiptLogger: ShellReceiptLogging {
+    struct Launch {
+        let trigger: String
+        let address: String
+        let chain: Chain
+        let correlationID: String
+    }
+
+    private(set) var launches: [Launch] = []
+
+    func recordAppLaunch(address: String, chain: Chain, correlationID: String) async {
+        launches.append(
+            Launch(
+                trigger: "app.launch",
+                address: address,
+                chain: chain,
+                correlationID: correlationID
+            )
+        )
+    }
+}
+
+private actor RecordingReceiptStore: ReceiptStore {
+    private var records: [ReceiptRecord] = []
+
+    func append(_ receipt: ReceiptDraft) async throws -> ReceiptRecord {
+        let record = ReceiptRecord(
+            id: UUID(),
+            sequenceID: records.count + 1,
+            createdAt: receipt.createdAt,
+            actor: receipt.actor,
+            mode: receipt.mode,
+            trigger: receipt.trigger,
+            scope: receipt.scope,
+            summary: receipt.summary,
+            provenance: receipt.provenance,
+            isSuccess: receipt.isSuccess,
+            correlationID: receipt.correlationID,
+            details: receipt.details
+        )
+        records.append(record)
+        return record
+    }
+
+    func latest(limit: Int) async throws -> [ReceiptRecord] {
+        guard limit > 0 else { return [] }
+        return Array(sortedRecords().prefix(limit))
+    }
+
+    func receipts(forCorrelationID correlationID: String, limit: Int) async throws -> [ReceiptRecord] {
+        guard limit > 0 else { return [] }
+        return Array(sortedRecords().filter { $0.correlationID == correlationID }.prefix(limit))
+    }
+
+    func exportAll() async throws -> Data {
+        try JSONEncoder().encode(sortedRecords())
+    }
+
+    func resetAll() async throws {
+        records.removeAll()
+    }
+
+    private func sortedRecords() -> [ReceiptRecord] {
+        records.sorted { lhs, rhs in
+            if lhs.createdAt == rhs.createdAt {
+                return lhs.sequenceID > rhs.sequenceID
+            }
+            return lhs.createdAt > rhs.createdAt
+        }
     }
 }
 

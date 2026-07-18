@@ -36,31 +36,13 @@ actor SwiftDataTransactionalPrivacyResetService: TransactionalPrivacyResetting {
         try await receiptIntegrityHeadStore.clearAllHeads()
         do {
             try modelContext.performRollbackSafeMutation {
-                try modelContext.delete(
-                    model: StoredReceipt.self,
-                    where: #Predicate<StoredReceipt> { _ in true }
-                )
-                try modelContext.delete(
-                    model: SearchHistoryRecord.self,
-                    where: #Predicate<SearchHistoryRecord> { _ in true }
-                )
-                try modelContext.delete(
-                    model: TokenHolding.self,
-                    where: #Predicate<TokenHolding> { _ in true }
-                )
-                try modelContext.delete(
-                    model: MusicLibraryItem.self,
-                    where: #Predicate<MusicLibraryItem> { _ in true }
-                )
-                try modelContext.delete(
-                    model: Playlist.self,
-                    where: #Predicate<Playlist> { _ in true }
-                )
+                try modelContext.deleteFetchedModels(matching: FetchDescriptor<StoredReceipt>())
+                try modelContext.deleteFetchedModels(matching: FetchDescriptor<SearchHistoryRecord>())
+                try modelContext.deleteFetchedModels(matching: FetchDescriptor<TokenHolding>())
+                try modelContext.deleteFetchedModels(matching: FetchDescriptor<MusicLibraryItem>())
+                try modelContext.deleteFetchedModels(matching: FetchDescriptor<Playlist>())
                 try modelContext.deleteAllNFTData()
-                try modelContext.delete(
-                    model: Tag.self,
-                    where: #Predicate<Tag> { _ in true }
-                )
+                try modelContext.deleteFetchedModels(matching: FetchDescriptor<Tag>())
 
                 let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
                 for account in accounts {
@@ -144,10 +126,7 @@ actor AuraPlayStoreResetService: AuraPlayPersistenceResetting {
 actor SwiftDataAuraPlayPersistenceResetService: AuraPlayPersistenceResetting {
     func resetAuraPlayPersistence() throws {
         try modelContext.performRollbackSafeMutation {
-            try modelContext.delete(
-                model: AuraPlayMediaItem.self,
-                where: #Predicate<AuraPlayMediaItem> { _ in true }
-            )
+            try modelContext.deleteFetchedModels(matching: FetchDescriptor<AuraPlayMediaItem>())
         }
     }
 }

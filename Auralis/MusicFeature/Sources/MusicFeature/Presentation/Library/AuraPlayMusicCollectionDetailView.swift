@@ -185,7 +185,7 @@ public struct AuraPlayMusicCollectionDetailView: View {
                 }
                 .frame(minWidth: 44, minHeight: 44)
                 .disabled(!item.isPlaybackReady)
-                .accessibilityLabel("Play \(item.title)") // [VERIFY] item title is the playback label.
+                .accessibilityLabel("Play \(item.title)")
 
                 Button {
                     Task { await onAddItemToQueue(item.sourceNFTID) }
@@ -194,7 +194,7 @@ public struct AuraPlayMusicCollectionDetailView: View {
                 }
                 .frame(minWidth: 44, minHeight: 44)
                 .disabled(!item.isPlaybackReady)
-                .accessibilityLabel("Add \(item.title) to queue") // [VERIFY] item title is the queue label.
+                .accessibilityLabel("Add \(item.title) to queue")
             }
             .buttonStyle(.borderless)
         }

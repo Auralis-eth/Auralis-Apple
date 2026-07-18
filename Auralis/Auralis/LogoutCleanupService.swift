@@ -27,11 +27,11 @@ struct LogoutCleanupService: LogoutCleaning {
                 // Watch-only logout clears local app state but intentionally preserves
                 // saved accounts so people can hop back into previously scoped wallets.
                 if plan.shouldDeleteAccounts {
-                    try modelContext.delete(model: EOAccount.self)
+                    try modelContext.deleteFetchedModels(matching: FetchDescriptor<EOAccount>())
                 }
 
                 if plan.shouldDeleteTags {
-                    try modelContext.delete(model: Tag.self)
+                    try modelContext.deleteFetchedModels(matching: FetchDescriptor<Tag>())
                 }
             }
         } catch {
