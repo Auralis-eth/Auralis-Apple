@@ -25,16 +25,19 @@ public struct AuraPlayMediaItemUpsertRequest: Sendable {
     public let tokenType: String?
     public let title: String
     public let artistName: String?
+    public let creatorIdentifierRawValue: String?
     public let collectionName: String?
     public let normalizedTitleKey: String
     public let normalizedArtistKey: String
     public let normalizedCollectionKey: String
     public let artworkURLString: String?
     public let playbackURLString: String?
+    public let durationSeconds: Double?
     public let contentType: String?
     public let sourceUpdatedAtRawValue: String?
     public let hasArtwork: Bool
     public let hasAudio: Bool
+    public let hasVideo: Bool
     public let isPlayable: Bool
     public let isSearchable: Bool
 
@@ -47,16 +50,19 @@ public struct AuraPlayMediaItemUpsertRequest: Sendable {
         tokenType: String?,
         title: String,
         artistName: String?,
+        creatorIdentifierRawValue: String? = nil,
         collectionName: String?,
         normalizedTitleKey: String,
         normalizedArtistKey: String,
         normalizedCollectionKey: String,
         artworkURLString: String?,
         playbackURLString: String?,
+        durationSeconds: Double? = nil,
         contentType: String?,
         sourceUpdatedAtRawValue: String?,
         hasArtwork: Bool,
         hasAudio: Bool,
+        hasVideo: Bool,
         isPlayable: Bool,
         isSearchable: Bool
     ) {
@@ -68,16 +74,19 @@ public struct AuraPlayMediaItemUpsertRequest: Sendable {
         self.tokenType = tokenType
         self.title = title
         self.artistName = artistName
+        self.creatorIdentifierRawValue = creatorIdentifierRawValue
         self.collectionName = collectionName
         self.normalizedTitleKey = normalizedTitleKey
         self.normalizedArtistKey = normalizedArtistKey
         self.normalizedCollectionKey = normalizedCollectionKey
         self.artworkURLString = artworkURLString
         self.playbackURLString = playbackURLString
+        self.durationSeconds = durationSeconds
         self.contentType = contentType
         self.sourceUpdatedAtRawValue = sourceUpdatedAtRawValue
         self.hasArtwork = hasArtwork
         self.hasAudio = hasAudio
+        self.hasVideo = hasVideo
         self.isPlayable = isPlayable
         self.isSearchable = isSearchable
     }

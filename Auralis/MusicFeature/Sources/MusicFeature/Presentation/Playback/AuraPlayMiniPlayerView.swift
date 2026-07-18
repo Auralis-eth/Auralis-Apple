@@ -9,31 +9,95 @@ private enum AuraPlayMiniPlayerAccessoryMode {
 
 public struct AuraPlayMiniPlayerView<Player: AuraPlayPlaybackPresenting>: View {
     private let player: Player
+    private let orchestrator: (any AuraPlayPlaybackOrchestrating)?
+    private let transitionNamespace: Namespace.ID?
 
     @State private var showNowPlaying = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.auraPlayContextActions) private var contextActions
 
     private var accessoryMode: AuraPlayMiniPlayerAccessoryMode {
         .expanded
     }
 
-    public init(player: Player) {
+    public init(
+        player: Player,
+        orchestrator: (any AuraPlayPlaybackOrchestrating)? = nil,
+        transitionNamespace: Namespace.ID? = nil
+    ) {
         self.player = player
+        self.orchestrator = orchestrator
+        self.transitionNamespace = transitionNamespace
+    }
+
+    /// Orchestrator state is the single visibility authority when available:
+    /// visible for every state except `.idle`, including restored paused (P9-006).
+    private var isVisible: Bool {
+        if let orchestrator {
+            return orchestrator.state.isVisibleInMiniPlayer
+        }
+        return player.auraPlayCurrentTrack != nil
+    }
+
+    private var isPiPActive: Bool {
+        orchestrator?.state.item?.isPiPActive
+            ?? ((player as? any AuraPlayPlayerVideoPresenting)?.auraPlayVideoCapabilities?.isPiPActive ?? false)
     }
 
     public var body: some View {
         Group {
-            if player.auraPlayCurrentTrack != nil {
-                AuraPlayMiniPlayerContentView(
-                    player: player,
-                    accessoryMode: accessoryMode,
-                    openNowPlaying: openNowPlaying
-                )
+            if isVisible {
+                VStack(spacing: 0) {
+                    if isPiPActive {
+                        pipBanner
+                    }
+                    AuraPlayMiniPlayerContentView(
+                        player: player,
+                        accessoryMode: accessoryMode,
+                        openNowPlaying: openNowPlaying
+                    )
+                }
+                .modifier(MiniPlayerTransitionSource(namespace: reduceMotion ? nil : transitionNamespace))
                 .sheet(isPresented: $showNowPlaying) {
-                    AuraPlayNowPlayingView(player: player)
+                    let adapter = AuraPlayPlaybackPlayerAdapter(
+                        presenter: player,
+                        contextActions: contextActions ?? .noop
+                    )
+                    let videoSurfacePresenter = player as? any AuraPlayPlayerVideoSurfacePresenting
+                    AuraPlayPlayerView(
+                        presentation: adapter.presentation,
+                        commander: adapter,
+                        videoRoutePicker: videoSurfacePresenter?.auraPlayPlayerVideoRoutePicker
+                    ) {
+                        videoSurfacePresenter?.auraPlayPlayerVideoSurface ?? AnyView(Color.black)
+                    }
+                    .modifier(MiniPlayerZoomTransition(namespace: reduceMotion ? nil : transitionNamespace))
                 }
             }
         }
         .accessibilityElement(children: .contain)
+    }
+
+    /// While video PiP is active, the mini-player never advertises a different
+    /// audio item; it shows the PiP state with a restore action instead.
+    private var pipBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "pip")
+                .font(.caption)
+                .accessibilityHidden(true)
+            Text("Playing in Picture in Picture")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Restore", systemImage: "pip.exit") {
+                orchestrator?.restoreVideoPresentation()
+            }
+            .font(.caption)
+            .accessibilityLabel(String(localized: "Restore video"))
+            .accessibilityIdentifier(A11yID.AuraPlay.miniPlayerRestorePiP)
+        }
+        .padding(.top, 8)
+        .padding(.horizontal, 4)
     }
 
     private func openNowPlaying() {
@@ -41,6 +105,42 @@ public struct AuraPlayMiniPlayerView<Player: AuraPlayPlaybackPresenting>: View {
             showNowPlaying = true
         }
     }
+}
+
+private struct MiniPlayerTransitionSource: ViewModifier {
+    let namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        if let namespace {
+            content.matchedTransitionSource(id: AuraPlayPlayerTransitionID.player, in: namespace)
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+}
+
+private struct MiniPlayerZoomTransition: ViewModifier {
+    let namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        if let namespace {
+            content.navigationTransition(.zoom(sourceID: AuraPlayPlayerTransitionID.player, in: namespace))
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+}
+
+enum AuraPlayPlayerTransitionID {
+    static let player = "auraplay.player.transition"
 }
 
 private struct AuraPlayMiniPlayerContentView<Player: AuraPlayPlaybackPresenting>: View {

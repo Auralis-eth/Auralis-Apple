@@ -116,17 +116,11 @@ Anything actually shipped lives in `AuraPlay-Status.md`. Do not duplicate.
 - Actual: `AuraPlayMediaItem` has no override-shaped fields and no override mutation path.
 - Why it matters: user-curated metadata edits cannot survive a sync because every field is treated as sync-owned.
 
-### `MediaItemSort` and `MediaItemFilter` typed surfaces are not built
+### `AuraPlayMediaItem` is missing relationship inverses to search index
 
-- Expected: a `MediaItemSort` enum (`dateAdded`, `titleAZ`, `creatorAZ`, `duration`, `lastPlayed`) and a `Sendable MediaItemFilter` struct (chain, media type, duration range, unplayed-only). A `MediaItemService.fetchSorted(sort:filter:)` operation that resolves them.
-- Actual: sort and filter logic lives in ad-hoc `FetchDescriptor` builders inside `AuraPlayPersistenceDescriptors.swift`; there is no public typed surface.
-- Why it matters: Library UI work has nothing to bind onto for filter chips; every filter has to be added by hand.
-
-### `AuraPlayMediaItem` is missing relationship inverses to playback state and search index
-
-- Expected: relationships from `AuraPlayMediaItem` to `PlaybackState` and `SearchIndex` with `.cascade` delete rules so deleting a media item removes its derived rows.
-- Actual: neither relationship exists because the related models do not exist.
-- Why it matters: once `PlaybackState` and `SearchIndex` land, they have to be wired up at the same time. Plan for the relationship change as part of those models, not after.
+- Expected: a relationship from `AuraPlayMediaItem` to `SearchIndex` with a `.cascade` delete rule so deleting a media item removes its derived search row.
+- Actual: `AuraPlayPlaybackState` now exists as a standalone playback-position row keyed by media ID, but no `SearchIndex` model exists.
+- Why it matters: when search lands, the index relationship should land with it instead of leaving orphaned derived search rows.
 
 ### Three-tier search is not built
 
@@ -156,23 +150,17 @@ Anything actually shipped lives in `AuraPlay-Status.md`. Do not duplicate.
 - Actual: not built.
 - Why it matters: when `EmbeddingService` lands, semantic-search tests need a stable corpus; otherwise tests will drift the moment Apple updates the embedding model.
 
-### Playlist persistence and ordered playlist items are not AuraPlay-shaped
+### Playback history analytics and tombstone policy are incomplete
 
-- Expected: a playlist model with smart/AI flags, smart-query data, iCloud sync key, and a cascading relationship to a `PlaylistItem` carrying `position` + `addedAt`, plus a compound `#Unique` constraint on `(playlist, mediaItem)` and a `@ModelActor PlaylistService` that maintains a contiguous, gapless `position` sequence after every add / remove / reorder through a single save.
-- Actual: the shared `Playlist` `@Model` exists in `AuralisPrimaryPersistence` (`@Attribute(.unique) id: UUID`, `title`, `imageData`, `tracks: [NFT]` via `\NFT.playlists` inverse), but it stores tracks as an unordered `[NFT]` array — no `PlaylistItem`, no `position`, no compound unique constraint, no smart/AI flag fields, and no playlist service.
-- Why it matters: AuraPlay-shaped playlist work needs either to extend the shared model with ordered `PlaylistItem` rows and an AuraPlay service, or to introduce an AuraPlay-owned playlist model alongside it. Decide deliberately before adding either ordering or smart-playlist support.
-
-### Playback history is not persisted
-
-- Expected: a `PlaybackState` `@Model` (position-ms, duration-ms cache, play-count, completed-count, last-played-at) keyed by media item, with `@Attribute(.preserveValueOnDeletion)` on identifying fields so persistent-history tombstones can drive Smart Resume after a token is burned or transferred. A `@ModelActor PlaybackStateService` with `autosaveEnabled = false` and an explicit save per update, sized for an update every five seconds during playback.
-- Actual: not built. Playback state remains transient inside the shared `AudioEngine`.
-- Why it matters: no "recently played" library row, no resume-from-position, no analytics surface for Smart Resume work.
+- Expected: playback state covers position, duration cache, play count, completed count, last played, and deletion-preserved identifying fields so persistent-history tombstones can drive Smart Resume after a token is burned or transferred.
+- Actual: `AuraPlayPlaybackPositionState` and `AuraPlayPlaybackPositionStateService` persist position, duration, completion, and `lastPlayedAt`, and the service denormalizes `lastPlayedAt` / duration onto `AuraPlayMediaItem` for library sorting. Play counts, completed counts, and deletion-preserved tombstone policy are not built.
+- Why it matters: Smart Resume has a real position store now, but richer recently-played analytics and post-transfer history recovery still need explicit schema and service work.
 
 ### Sendable DTOs for cross-actor work are not defined
 
-- Expected: `Sendable` DTOs (`NFTTokenDTO`, `MediaItemDTO`, `PlaylistDTO`, `PlaybackStateDTO`) that the persistence services accept and emit so `@Model` objects never cross actor boundaries.
-- Actual: only `AuraPlayMediaItemService` exists today and it does not yet route through DTOs.
-- Why it matters: once additional `@ModelActor` services land, the DTO pattern needs to land with them or the actor boundary will leak `@Model` references.
+- Expected: `Sendable` DTOs/snapshots (`NFTTokenDTO`, `MediaItemDTO`, `PlaylistDTO`, `PlaybackStateDTO`) that the persistence services accept and emit so `@Model` objects never cross actor boundaries.
+- Actual: discovery and media persistence use `NFTTokenDTO` / `MediaItemDTO`, media query windows return `MediaItemQueryItem` snapshots, and playlist item reads expose `AuraPlayPlaylistItemSnapshot`. A complete DTO surface for every playlist and playback-state operation is not built yet.
+- Why it matters: the pattern is now established, but every new `@ModelActor` service method still needs to avoid returning live SwiftData models across isolation.
 
 ### No deterministic seeder
 
@@ -200,14 +188,40 @@ Any follow-on caller migration should be tracked under the downstream phase that
 
 ## Phase 5 Gaps
 
-### Downstream media URL callers have not fully migrated to storage resolution
+No open Phase 5 storage-resolution-migration gaps are currently tracked here. Every AuraPlay media-URL caller now routes through the module-owned stack: the Phase 5 discovery pipeline (`MetadataFetcher`, `MediaClassifier`, `MediaItemArtworkPrefetcher`) uses `GatewayFallbackChain`/`URLResolver`, both library-sync artwork paths (`LiveAuraPlayLibrarySyncService` in the app target and `SwiftDataMusicLibraryIndexer` in the package) normalize through `URLResolver`, the audio-engine load path resolves decentralized URIs through the runtime's `GatewayFallbackChain`, and the video gateway-fallback resolver derives its host list from `AuraPlayStorageResolutionConfiguration` instead of a hard-coded copy.
 
-- Expected: every migrated AuraPlay metadata, artwork, audio-engine, and image-classifier path that prepares decentralized or remote media URLs routes deterministic normalization through `URLResolver`, and uses `GatewayFallbackChain` only when reachability probing is actually needed.
-- Actual: `URLResolver` is wired through `AuraPlayDependencies` and the AuraPlay root uses it for current-track artwork URL preparation, but legacy metadata fetch, audio engine loading, and image-classifier paths still use older helpers such as `URLConverter.convertToPreferredHTTPS` and `URL.toPinataGatewayURL()`.
-- Why it matters: Phase 3 built the storage-resolution seam, but product confidence only arrives when real caller paths stop duplicating gateway and URI-normalization behavior.
+The legacy helpers (`URLConverter.convertToPreferredHTTPS`, `URL.toPinataGatewayURL()`, `URL.sanitizedRemoteMediaURL(from:)`) now serve only non-AuraPlay shell paths (`NFTKit`, `AuralisPrimaryModels`); retiring those is shell cleanup, not an AuraPlay gap.
+
+## Phase 6 Gaps
+
+### Host app has not fully signed off the audio-engine release gates
+
+- Expected: the host app wires `AuraPlayAudioEngine` into real playback flows with user controls, route selection, cache persistence, app-owned media adapters, persisted loudness measurement updates, disciplined Now Playing publication, `AVInitialRouteSharingPolicy = LongFormAudio`, and completed physical-device QA from `AuraPlay-Physical-Device-QA-Suite.md`.
+- Actual: the package-side Phase 6 infrastructure and host UI wiring are implemented: Settings, Now Playing, and the mini player expose EQ, custom 10-band EQ, normalization, AutoMix, route, cache/offline, buffering/download progress, recovery, transition status, and transient typed playback warnings. Release readiness still depends on real-device sign-off for AirPods, interruptions, Lock Screen, background, audible gaplessness, poor-network buffering, offline launch, and battery behavior.
+- Why it matters: `AVAudioEngine` package readiness and UI wiring are still not the same as a shippable playback experience. Route changes, interruptions, Lock Screen controls, AirPods behavior, AirPlay, audible gaplessness, and battery behavior need the real app, real media, and physical hardware before the phase can be closed.
 
 ## How To Use This File
 
 - Pick gaps off this list deliberately when a downstream phase needs them.
 - When a gap is closed, delete its entry and add a one-line note in `AuraPlay-Status.md` reflecting the new reality.
 - Each new phase should add its own gap entries here under a `## Phase N Gaps` heading. Do not start a separate file per phase.
+
+## Phase 9/10 Gaps
+
+### Snapshot baselines render on the macOS host, not an iOS simulator
+
+- Expected: eventually, an iOS-simulator snapshot lane so baselines match shipping pixels.
+- Actual: `LibraryAndPlayerSnapshotTests` renders through `NSHostingView` on macOS because app-hosted tests crash under the current Xcode beta and `swift test` builds for the host. The suite is deterministic and stable across runs, but the pixels are macOS pixels.
+- Why it matters: a future iOS snapshot lane requires re-recording all baselines; do not mix baselines from both platforms.
+
+### Library populates only when network discovery is available
+
+- Context: `NFTSyncCoordinator` (network discovery) is now the single authoritative writer of `AuraPlayMediaItem`. `LiveAuraPlayLibrarySyncService` no longer writes/replaces media rows — it only records the per-scope sync timestamp (`markSynced`) and classification receipts. This removed a bug where the audio-only local-inventory projection's `replaceAll` deleted discovery-written video and network-only items for the visible scope on every appearance.
+- Residual: when discovery is unavailable (e.g. missing Alchemy/Helius keys → `NoOpAuraPlayNFTDiscoverySyncService`), nothing projects the already-downloaded local `NFT` inventory into `AuraPlayMediaItem`, so the library can be empty even though local NFT rows exist. This is an accepted tradeoff (the local inventory needs the same keys to populate anyway).
+- Follow-up if needed: fall back to a non-destructive local projection only when discovery is the no-op service, or fold video/animation-URL handling into the local projection so it is no longer audio-only.
+
+### Physical-device QA and manual accessibility audit are outstanding
+
+- Expected: the device QA suite in `AuraPlay-Physical-Device-QA-Suite.md` executed on hardware (PiP, AirPlay, subtitles, speed, routes, interruptions), plus an Accessibility Inspector pass over Library and Player.
+- Actual: everything code-side is automated-tested; these two gates need a human with a device.
+- Why it matters: they are the last release gates for Phases 9/10.

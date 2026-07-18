@@ -1809,6 +1809,27 @@ struct ProviderAbstractionTests {
         #expect(response.didCompleteFullRefresh)
     }
 
+    @Test("NFT fetcher accepts Solana base58 accounts for Solana inventory providers")
+    @MainActor
+    func nftFetcherAcceptsSolanaAccounts() async throws {
+        let provider = StubNFTInventoryProvider()
+        let fetcher = NFTFetcher(
+            nftProviderFactory: { chain in
+                #expect(chain == .solanaMainnet)
+                return provider
+            }
+        )
+
+        _ = try await fetcher.fetchAllNFTs(
+            for: "11111111111111111111111111111111",
+            chain: .solanaMainnet,
+            correlationID: "solana-provider-test",
+            eventRecorder: NoOpNFTRefreshEventRecorder()
+        )
+
+        #expect(await provider.receivedOwners() == ["11111111111111111111111111111111"])
+    }
+
     @Test("retry exhaustion throws and records failure instead of success")
     @MainActor
     func retryExhaustionThrowsAndSkipsSuccessReceipt() async throws {
@@ -2032,20 +2053,17 @@ private final class ManyPageNFTInventoryProvider: NFTInventoryProviding, Sendabl
         let nextPageKey = pageIndex + 1 < pageCount ? String(pageIndex + 1) : nil
         let ownedNfts = (0..<itemsPerPage).map { itemOffset in
             let tokenNumber = pageIndex * itemsPerPage + itemOffset
-            return NFT(
-                id: "temp-\(tokenNumber)",
-                contract: NFT.Contract(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            return AlchemyNFTResponse.OwnedNFT(
+                contract: .init(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
                 tokenId: String(tokenNumber),
                 name: "NFT \(tokenNumber)",
                 raw: nil,
-                collection: NFT.Collection(
+                collection: .init(
                     name: "Paged Collection",
                     chain: .ethMainnet,
                     contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 ),
-                tokenUri: "ipfs://\(tokenNumber)",
-                network: .ethMainnet,
-                accountAddress: owner
+                tokenURI: "ipfs://\(tokenNumber)"
             )
         }
 
@@ -2088,20 +2106,17 @@ private final class PartiallyFailingNFTInventoryProvider: NFTInventoryProviding 
         let nextPageKey = pageIndex + 1 <= successfulPageCount ? String(pageIndex + 1) : nil
         let ownedNfts = (0..<itemsPerPage).map { itemOffset in
             let tokenNumber = pageIndex * itemsPerPage + itemOffset
-            return NFT(
-                id: "partial-\(tokenNumber)",
-                contract: NFT.Contract(address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+            return AlchemyNFTResponse.OwnedNFT(
+                contract: .init(address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
                 tokenId: String(tokenNumber),
                 name: "Partial \(tokenNumber)",
                 raw: nil,
-                collection: NFT.Collection(
+                collection: .init(
                     name: "Partial Collection",
                     chain: .ethMainnet,
                     contractAddress: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                 ),
-                tokenUri: "ipfs://partial-\(tokenNumber)",
-                network: .ethMainnet,
-                accountAddress: owner
+                tokenURI: "ipfs://partial-\(tokenNumber)"
             )
         }
 

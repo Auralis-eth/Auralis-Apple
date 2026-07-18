@@ -8,10 +8,14 @@ import Foundation
 import MusicFeature
 import Observation
 import SwiftData
+import SwiftUI
 
 @MainActor
 protocol AuraPlayVideoRemoteControlling: AnyObject {
     var currentPosition: TimeInterval { get }
+    var playerVideoCapabilities: AuraPlayPlayerVideoCapabilities? { get }
+    var playerVideoSurface: AnyView? { get }
+    var playerVideoRoutePicker: AnyView? { get }
 
     func play()
     func pause()
@@ -20,11 +24,17 @@ protocol AuraPlayVideoRemoteControlling: AnyObject {
     func skipToNext() async
     func skipToPrevious() async
     func stopForAudioHandoff() async
+    func startPiP()
+    func stopPiP()
+    func restorePiP()
+    func selectSubtitle(_ title: String?) async
+    func setPlaybackSpeed(_ speed: Double) async
+    func toggleVideoGravity() async
 }
 
 @MainActor
 @Observable
-public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPlayPlaybackPresenting, AuraPlayQueueCoordinating {
+public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPlayPlaybackPresenting, AuraPlayPlaybackItemPresenting, AuraPlayPlaybackModePresenting, AuraPlayPlayerVideoPresenting, AuraPlayPlayerVideoSurfacePresenting, AuraPlayQueueCoordinating {
     @ObservationIgnored private let engineController: AudioEngineController
     @ObservationIgnored private let cacheManager: MediaCacheManager
     @ObservationIgnored private let scheduler: GaplessScheduler
@@ -41,6 +51,14 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     @ObservationIgnored private var phase8ActiveEngine: EngineKind?
     @ObservationIgnored private var lastPlaybackPositionWriteSeconds: [String: TimeInterval] = [:]
     @ObservationIgnored private var orchestratedNFTs: [String: NFT] = [:]
+    @ObservationIgnored private var libraryQueueSeed: [NFT] = []
+    @ObservationIgnored private var libraryQueueCursor: Int?
+    @ObservationIgnored private var libraryQueueQueryContext: MediaItemQueryContext?
+    @ObservationIgnored private var libraryQueueNextOffset: Int?
+    @ObservationIgnored private var libraryQueueExtender: (any AuraPlayQueueExtending)?
+    @ObservationIgnored private var libraryQueueNFTResolver: (@MainActor ([String]) -> [NFT])?
+    @ObservationIgnored private var libraryQueueExtensionTask: Task<Void, Never>?
+    @ObservationIgnored private var didAttemptSessionRestore = false
     @ObservationIgnored private var currentNFT: NFT?
     @ObservationIgnored private var currentMedia: NFTPlayableMedia?
     @ObservationIgnored private var currentLoadTask: Task<Void, Error>?
@@ -74,6 +92,8 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     @ObservationIgnored private var stalledFrameObservationCount = 0
     @ObservationIgnored private var observedAutomaticTransitionCount = 0
     @ObservationIgnored private var nowPlayingElapsedTickSignature: String?
+    @ObservationIgnored private let libraryQueueWindowSize = 24
+    @ObservationIgnored private let libraryQueueLowWatermark = 6
 
     public var previousAudio = Playlist(name: "Previous")
     public var nextAudio = Playlist(name: "Next")
@@ -250,6 +270,111 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         playbackAlert
     }
 
+    public var auraPlayCurrentItemPresentation: AuraPlayCurrentItemPresentation? {
+        guard let currentNFT else {
+            return currentTrack.map {
+                AuraPlayCurrentItemPresentation(
+                    id: $0.id,
+                    title: $0.title?.nilIfEmpty ?? "Unknown Title",
+                    creator: $0.artist?.nilIfEmpty,
+                    collection: nil,
+                    artworkURLString: $0.imageURLString,
+                    mediaKind: .audio
+                )
+            }
+        }
+
+        let chain = currentNFT.network ?? .ethMainnet
+        let contractAddress = currentNFT.contract.address?.nilIfEmpty
+        let tokenID = currentNFT.tokenId.nilIfEmpty
+        let explorerURL = Self.explorerURL(
+            chain: chain,
+            contractAddress: contractAddress,
+            tokenID: tokenID
+        )
+        return AuraPlayCurrentItemPresentation(
+            id: currentNFT.id,
+            title: currentNFT.name?.nilIfEmpty ?? currentTrack?.title?.nilIfEmpty ?? "Unknown Title",
+            creator: currentNFT.artistName?.nilIfEmpty ?? currentTrack?.artist?.nilIfEmpty,
+            collection: currentNFT.collectionName?.nilIfEmpty ?? currentNFT.collection?.name?.nilIfEmpty,
+            artworkURLString: currentNFT.image?.thumbnailUrl ?? currentNFT.image?.originalUrl ?? currentTrack?.imageURLString,
+            mediaKind: Self.isVideoMedia(nft: currentNFT, media: currentMedia) ? .video : .audio,
+            chainDisplayName: chain.routingDisplayName,
+            contractAddress: contractAddress,
+            tokenID: tokenID,
+            shareURL: explorerURL,
+            explorerURL: explorerURL
+        )
+    }
+
+    public var auraPlayShuffleEnabled: Bool {
+        playbackOrchestrator.shuffleCoordinator.mode == .on
+    }
+
+    public var auraPlayRepeatModeTitle: String {
+        switch playbackOrchestrator.repeatMode {
+        case .off:
+            "Off"
+        case .one:
+            "One"
+        case .all:
+            "All"
+        }
+    }
+
+    public var auraPlayVideoCapabilities: AuraPlayPlayerVideoCapabilities? {
+        videoRemoteControls?.playerVideoCapabilities
+    }
+
+    public var auraPlayPlayerVideoSurface: AnyView? {
+        videoRemoteControls?.playerVideoSurface
+    }
+
+    public var auraPlayPlayerVideoRoutePicker: AnyView? {
+        videoRemoteControls?.playerVideoRoutePicker
+    }
+
+    public func auraPlaySetShuffleEnabled(_ isEnabled: Bool) {
+        playbackOrchestrator.setShuffleMode(isEnabled ? .on : .off)
+    }
+
+    public func auraPlayCycleRepeatMode() {
+        let nextMode: AuraPlayRepeatMode
+        switch playbackOrchestrator.repeatMode {
+        case .off:
+            nextMode = .all
+        case .all:
+            nextMode = .one
+        case .one:
+            nextMode = .off
+        }
+        playbackOrchestrator.setRepeatMode(nextMode)
+    }
+
+    public func auraPlayStartPiP() {
+        videoRemoteControls?.startPiP()
+    }
+
+    public func auraPlayStopPiP() {
+        videoRemoteControls?.stopPiP()
+    }
+
+    public func auraPlayRestorePiP() {
+        videoRemoteControls?.restorePiP()
+    }
+
+    public func auraPlaySelectSubtitle(_ title: String?) async {
+        await videoRemoteControls?.selectSubtitle(title)
+    }
+
+    public func auraPlaySetPlaybackSpeed(_ speed: Double) async {
+        await videoRemoteControls?.setPlaybackSpeed(speed)
+    }
+
+    public func auraPlayToggleVideoGravity() async {
+        await videoRemoteControls?.toggleVideoGravity()
+    }
+
     func configureMusicReceiptLogger(_ logger: MusicReceiptEventLogger?) {
         musicReceiptLogger = logger
     }
@@ -353,6 +478,16 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         Task { [weak self] in
             guard let self else { return }
             do {
+                if !self.playbackOrchestrator.hasActiveEngine, let restoredNFT = self.currentNFT {
+                    // Cold-launch restored session: no engine has media loaded,
+                    // so resume runs the full load path and seeks back.
+                    let resumePosition = self.currentTime
+                    try await self.loadAndPlay(nft: restoredNFT, triggerCause: .userInitiated)
+                    if resumePosition > 0 {
+                        await self.playbackOrchestrator.seek(to: resumePosition)
+                    }
+                    return
+                }
                 try await self.playbackOrchestrator.resume()
             } catch {
                 self.playbackState = .error
@@ -427,34 +562,6 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         await playPrevious()
     }
 
-    public func auraPlayRecentlyPlayed(limit: Int) -> [AuraPlayRecentlyPlayedItem] {
-        guard limit > 0 else { return [] }
-        return previousAudio.tracks.suffix(limit).reversed().map {
-            AuraPlayRecentlyPlayedItem(
-                id: $0.id,
-                title: $0.name ?? "Unknown Track",
-                artist: $0.artistName,
-                imageURLString: $0.image?.thumbnailUrl ?? $0.image?.originalUrl,
-                lastPlayed: currentNFT?.id == $0.id ? Date() : .distantPast
-            )
-        }
-    }
-
-    public func auraPlayPlayRecentlyPlayed(id: String) async throws {
-        guard let nft = previousAudio.tracks.first(where: { $0.id == id }) else {
-            return
-        }
-        try await loadAndPlay(nft: nft)
-    }
-
-    public func auraPlayRemoveRecentlyPlayed(id: String) {
-        previousAudio.tracks.removeAll { $0.id == id }
-    }
-
-    public func auraPlayClearRecentlyPlayed() {
-        previousAudio.tracks.removeAll()
-    }
-
     public func auraPlayQueueItems() -> [AuraPlayQueuePresentationItem] {
         let history = previousAudio.tracks.reversed().map {
             AuraPlayQueuePresentationItem(nft: $0, role: .history)
@@ -472,6 +579,15 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     public func auraPlayRemoveQueueItem(id: String) {
         previousAudio.tracks.removeAll { $0.id == id }
         nextAudio.tracks.removeAll { $0.id == id }
+    }
+
+    public func auraPlayMoveQueueItem(id: String, toUpcomingIndex: Int) {
+        guard let sourceIndex = nextAudio.tracks.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        let item = nextAudio.tracks.remove(at: sourceIndex)
+        let destinationIndex = min(max(0, toUpcomingIndex), nextAudio.tracks.count)
+        nextAudio.tracks.insert(item, at: destinationIndex)
     }
 
     public func auraPlayClearUpcomingQueue() {
@@ -645,11 +761,104 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         try await loadAndPlay(nft: nft, triggerCause: .userInitiated)
     }
 
+    /// Phase 8 orchestrator state, exposed for the app-target
+    /// `AuraPlayPlaybackOrchestrating` adapter.
+    var phase8OrchestratorState: OrchestratorState {
+        playbackOrchestrator.state
+    }
+
+    func configureLibraryQueueExtension(
+        extender: any AuraPlayQueueExtending,
+        resolveNFTs: @escaping @MainActor ([String]) -> [NFT]
+    ) {
+        libraryQueueExtender = extender
+        libraryQueueNFTResolver = resolveNFTs
+    }
+
+    /// Starts playback from a bounded Library window and captures the query
+    /// context so the queue can lazily extend past the materialized window.
+    public func playLibraryWindow(
+        id: String,
+        in orderedNFTs: [NFT],
+        queryContext: MediaItemQueryContext?,
+        nextOffset: Int?
+    ) async throws {
+        try await playLibraryItem(id: id, in: orderedNFTs)
+        libraryQueueQueryContext = queryContext
+        libraryQueueNextOffset = nextOffset
+    }
+
+    /// Restores the most recent playback session as paused after cold launch,
+    /// so the mini-player shows it without starting audio (P9-006).
+    @discardableResult
+    public func restoreMostRecentSessionIfNeeded() async -> Bool {
+        guard !didAttemptSessionRestore, case .idle = playbackOrchestrator.state else {
+            return false
+        }
+        didAttemptSessionRestore = true
+        guard let resolver = libraryQueueNFTResolver else { return false }
+
+        let didRestore = await playbackOrchestrator.restoreMostRecent { [weak self] mediaID in
+            guard let self, let nft = resolver([mediaID]).first else { return nil }
+            // Skip restoration when the persisted "most recent" item has lost
+            // its playback URLs; an about:blank / /dev/null placeholder would
+            // silently fail to play. Returning nil leaves the session idle.
+            guard let sourceURLString = nft.secureAnimationUrl ?? nft.animationUrl,
+                  let sourceURL = URL(string: sourceURLString) else {
+                return nil
+            }
+            let item = AuraPlayableMediaItem(
+                id: nft.id,
+                sourceURL: sourceURL,
+                contentKind: self.isVideoMediaCandidate(nft: nft) ? .video : .music,
+                metadata: MediaMetadata(
+                    id: nft.id,
+                    title: nft.name ?? "Unknown Track",
+                    artist: nft.artistName,
+                    artworkURL: URL(string: nft.image?.secureUrl ?? nft.image?.originalUrl ?? "")
+                )
+            )
+            // Mirror the restored session into the presenter surface so the
+            // mini-player has artwork/title/paused state on cold launch.
+            self.currentNFT = nft
+            self.orchestratedNFTs[nft.id] = nft
+            self.currentTrack = AuraPlayTrack(nft: nft)
+            self.playbackState = .paused
+            return item
+        }
+
+        if didRestore,
+           let candidate = try? await positionPersistenceCoordinator?.restoreCandidate(),
+           candidate.mediaID == currentNFT?.id {
+            let restoredSeconds = Double(candidate.positionMilliseconds) / 1000
+            currentTime = restoredSeconds
+            pausedAt = restoredSeconds
+            seekPosition = restoredSeconds
+            if let durationMilliseconds = candidate.durationMilliseconds {
+                currentDuration = Double(durationMilliseconds) / 1000
+            }
+            updateNowPlaying()
+        }
+        return didRestore
+    }
+
+    private func isVideoMediaCandidate(nft: NFT) -> Bool {
+        Self.isVideoMedia(nft: nft, media: nil)
+    }
+
     public func playLibraryItem(id: String, in scopedNFTs: [NFT]) async throws {
-        guard let nft = scopedNFTs.first(where: { $0.id == id }) else {
+        let uniqueNFTs = scopedNFTs.uniquedByID()
+        guard let startIndex = uniqueNFTs.firstIndex(where: { $0.id == id }) else {
             playbackState = .error
             return
         }
+        let nft = uniqueNFTs[startIndex]
+        libraryQueueSeed = uniqueNFTs
+        libraryQueueCursor = startIndex
+        libraryQueueQueryContext = nil
+        libraryQueueNextOffset = nil
+        libraryQueueExtensionTask?.cancel()
+        seedUpcomingQueue(after: startIndex)
 
         do {
             try await loadAndPlay(nft: nft, triggerCause: .userInitiated)
@@ -673,6 +882,74 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         }
 
         nextAudio.tracks.append(nft)
+    }
+
+    private func seedUpcomingQueue(after index: Int) {
+        guard libraryQueueSeed.indices.contains(index) else {
+            nextAudio.tracks.removeAll()
+            return
+        }
+        let lowerBound = libraryQueueSeed.index(after: index)
+        guard lowerBound < libraryQueueSeed.endIndex else {
+            nextAudio.tracks.removeAll()
+            return
+        }
+        let upperBound = min(libraryQueueSeed.endIndex, lowerBound + libraryQueueWindowSize)
+        let currentID = libraryQueueSeed[index].id
+        nextAudio.tracks = Array(libraryQueueSeed[lowerBound..<upperBound])
+            .filter { $0.id != currentID }
+    }
+
+    private func extendUpcomingQueueIfNeeded(after currentID: String) {
+        guard let currentIndex = libraryQueueSeed.firstIndex(where: { $0.id == currentID }) else {
+            return
+        }
+        libraryQueueCursor = currentIndex
+        guard nextAudio.tracks.count <= libraryQueueLowWatermark else {
+            return
+        }
+        let queuedIDs = Set(nextAudio.tracks.map(\.id)).union([currentID])
+        let lowerBound = libraryQueueSeed.index(after: currentIndex)
+        if lowerBound < libraryQueueSeed.endIndex {
+            let candidates = libraryQueueSeed[lowerBound...]
+                .filter { !queuedIDs.contains($0.id) }
+                .prefix(libraryQueueWindowSize - nextAudio.tracks.count)
+            nextAudio.tracks.append(contentsOf: candidates)
+        }
+
+        // Near the seed tail with a captured query context: fetch the next
+        // window as a pure function of that context (P9-002 lazy extension).
+        let remainingSeed = libraryQueueSeed.count - (currentIndex + 1)
+        if remainingSeed <= libraryQueueLowWatermark {
+            extendSeedFromCapturedContext(after: currentID)
+        }
+    }
+
+    private func extendSeedFromCapturedContext(after currentID: String) {
+        guard libraryQueueExtensionTask == nil,
+              let extender = libraryQueueExtender,
+              let resolver = libraryQueueNFTResolver,
+              var context = libraryQueueQueryContext,
+              let nextOffset = libraryQueueNextOffset else {
+            return
+        }
+        context.offset = nextOffset
+
+        libraryQueueExtensionTask = Task { [weak self] in
+            defer { self?.libraryQueueExtensionTask = nil }
+            guard let window = try? await extender.fetchNextWindow(from: context) else { return }
+            guard let self, !Task.isCancelled else { return }
+            // The queue may have been replaced while fetching.
+            guard self.libraryQueueNextOffset == nextOffset else { return }
+
+            let knownIDs = Set(self.libraryQueueSeed.map(\.id))
+            let newIDs = window.items.map(\.id).filter { !knownIDs.contains($0) }
+            let resolvedNFTs = resolver(newIDs)
+            self.libraryQueueSeed.append(contentsOf: resolvedNFTs.uniquedByID().filter { !knownIDs.contains($0.id) })
+            self.libraryQueueNextOffset = window.nextOffset
+            self.libraryQueueQueryContext = window.queryContext ?? self.libraryQueueQueryContext
+            self.extendUpcomingQueueIfNeeded(after: currentID)
+        }
     }
 
     private func loadAndPlay(nft: NFT, triggerCause: MusicReceiptTriggerCause) async throws {
@@ -912,6 +1189,7 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
 
         do {
             try await loadAndPlay(nft: next, triggerCause: triggerCause)
+            extendUpcomingQueueIfNeeded(after: next.id)
             await recordQueueChangedIfPossible(
                 operation: "next",
                 affectedMediaIDs: [next.id],
@@ -1962,6 +2240,36 @@ private extension AuraPlayQueuePresentationItem {
 }
 
 private extension AuraPlayPlaybackRuntime {
+    static func isVideoMedia(nft: NFT, media: NFTPlayableMedia?) -> Bool {
+        if let media {
+            let pathExtension = media.sourceURL.pathExtension.lowercased()
+            if ["mp4", "m4v", "mov", "m3u8"].contains(pathExtension) {
+                return true
+            }
+        }
+        if let contentType = nft.contentType?.lowercased(), contentType.hasPrefix("video/") {
+            return true
+        }
+        let candidates = [
+            nft.securePrimaryAssetUrl,
+            nft.primaryAssetUrl,
+            nft.secureAnimationUrl,
+            nft.animationUrl
+        ]
+        return candidates.compactMap { $0?.lowercased() }.contains { value in
+            ["mp4", "m4v", "mov", "m3u8"].contains { value.hasSuffix(".\($0)") }
+        }
+    }
+
+    static func explorerURL(chain: Chain, contractAddress: String?, tokenID: String?) -> URL? {
+        // Single explorer policy: the tested ExplorerAdapter catalog (P10-007).
+        AuraPlayExplorerURLBuilder.nftURL(
+            chain: chain,
+            contractAddress: contractAddress,
+            tokenID: tokenID
+        )
+    }
+
     var engineEQPreset: EQPreset {
         switch selectedEQPreset {
         case .flat:
@@ -2050,5 +2358,20 @@ private extension AuraPlayCachePresentation {
                 canUnpin: true
             )
         }
+    }
+}
+
+private extension Array where Element == NFT {
+    func uniquedByID() -> [NFT] {
+        var seen = Set<String>()
+        return filter { nft in
+            seen.insert(nft.id).inserted
+        }
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }

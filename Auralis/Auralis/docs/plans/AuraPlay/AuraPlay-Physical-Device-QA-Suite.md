@@ -110,6 +110,46 @@ Pass criteria:
 - controls do not wedge or point at the wrong track
 - UI state matches actual audio behavior
 
+## AP-Device-004B: Phase 6 audio-engine release gate
+
+Goal:
+
+- sign off the hardware-only behavior that cannot be proven by simulator or package tests
+
+Steps:
+
+1. Start a representative cached AuraPlay audio track and keep Now Playing open.
+2. Background the app and lock the screen.
+3. Confirm Lock Screen title, artist, artwork, elapsed time, play/pause, skip, and scrub controls.
+4. Connect AirPods or another Bluetooth route mid-playback.
+5. Disconnect that route mid-playback.
+6. Trigger an interruption with a phone call or Siri.
+7. Play an uncached supported track on a poor network and observe progressive buffering/recovery.
+8. Play a known gapless pair or album with both tracks cached.
+9. Try an unsupported `.ogg` or `.opus` item if test media is available.
+10. Run one hour of background audio on a recent physical device.
+
+Pass criteria:
+
+- background audio continues when the app is backgrounded and locked
+- Lock Screen and Control Center metadata are correct and elapsed time advances
+- remote commands map to the active AuraPlay transport
+- Bluetooth connect/configuration changes recover without silent playback death
+- Bluetooth disconnect pauses instead of unexpectedly playing through the speaker
+- interruption end resumes from the same position when the system indicates playback should resume
+- poor-network playback shows buffering/recovery instead of a raw technical error
+- cached gapless transitions have no audible gap on representative media
+- unsupported formats show the product unsupported-format copy
+- one-hour background playback stays within the current battery target or records a signed known issue
+
+Sign-off:
+
+- Owner:
+- Date:
+- Device / iOS:
+- Build:
+- Result: Not Run
+
 ## AP-Device-004A: Storage-resolution product paths
 
 Goal:

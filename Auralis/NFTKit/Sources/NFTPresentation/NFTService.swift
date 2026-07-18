@@ -31,6 +31,7 @@ public class NFTService {
     private let fetchInventoryUseCase: any FetchNFTInventoryUsing
     private let prepareMetadataUseCase: any PrepareNFTMetadataUsing
     private let persistInventoryUseCase: any PersistNFTInventoryUsing
+    private let artworkPrefetcher: any NFTArtworkPrefetching
     private let refreshStateComputer: NFTRefreshStateComputer
     private let eventRecorderFactory: @MainActor (ModelContext) -> any NFTRefreshEventRecording
 
@@ -50,10 +51,11 @@ public class NFTService {
     /// Creates the shared NFT orchestration service used by the shell.
     public init(
         nftFetcher: (any NFTFetching)? = nil,
-        refreshTTL: TimeInterval = 300,
+        refreshTTL: TimeInterval = 900,
         fetchInventoryUseCase: (any FetchNFTInventoryUsing)? = nil,
         prepareMetadataUseCase: (any PrepareNFTMetadataUsing)? = nil,
         persistInventoryUseCase: (any PersistNFTInventoryUsing)? = nil,
+        artworkPrefetcher: (any NFTArtworkPrefetching)? = nil,
         refreshStateComputer: NFTRefreshStateComputer? = nil,
         eventRecorderFactory: @escaping @MainActor (ModelContext) -> any NFTRefreshEventRecording = { _ in
             NoOpNFTRefreshEventRecorder()
@@ -63,8 +65,9 @@ public class NFTService {
         self.nftFetcher = resolvedFetcher
         self.refreshTTL = refreshTTL
         self.fetchInventoryUseCase = fetchInventoryUseCase ?? LiveFetchNFTInventoryUseCase(nftFetcher: resolvedFetcher)
-        self.prepareMetadataUseCase = prepareMetadataUseCase ?? LivePrepareNFTMetadataUseCase()
+        self.prepareMetadataUseCase = prepareMetadataUseCase ?? LivePrepareNFTMetadataUseCase(metadataFetcher: LiveTokenMetadataJSONFetcher())
         self.persistInventoryUseCase = persistInventoryUseCase ?? LivePersistNFTInventoryUseCase()
+        self.artworkPrefetcher = artworkPrefetcher ?? URLCacheNFTArtworkPrefetcher()
         self.refreshStateComputer = refreshStateComputer ?? NFTRefreshStateComputer(refreshTTL: refreshTTL)
         self.eventRecorderFactory = eventRecorderFactory
     }
@@ -161,6 +164,12 @@ public class NFTService {
                     correlationID: correlationID,
                     persistedCount: preparedInventory.nfts.count
                 )
+
+                let artworkPrefetcher = artworkPrefetcher
+                let prefetchNFTs = preparedInventory.nfts
+                Task.detached(priority: .utility) {
+                    await artworkPrefetcher.prefetchArtwork(for: prefetchNFTs)
+                }
             } catch is CancellationError {
                 throw CancellationError()
             } catch {

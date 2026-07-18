@@ -25,6 +25,13 @@ struct ReadOnlyProviderFactory: Sendable {
     }
 
     func makeNFTInventoryProvider(for chain: Chain) throws -> any NFTInventoryProviding {
+        if chain == .solanaMainnet {
+            guard let heliusKey = Secrets.apiKeyOrNil(.helius) else {
+                throw ProviderAbstractionError.missingAPIKey(.helius)
+            }
+            return HeliusDASNFTService(apiKey: heliusKey, session: session)
+        }
+
         if let session {
             return try AlchemyNFTService(
                 chain: chain,

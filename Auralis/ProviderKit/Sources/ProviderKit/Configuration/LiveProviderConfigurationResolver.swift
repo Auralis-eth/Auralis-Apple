@@ -12,6 +12,7 @@ public struct LiveProviderConfigurationResolver: ProviderConfigurationResolving 
 
     public func configuration(for chain: Chain) throws -> ProviderEndpointConfiguration {
         let alchemyKey = keyProvider(.alchemy)
+        let heliusKey = keyProvider(.helius)
 
         let alchemyNFTBaseURL = try alchemyKey.flatMap {
             try Self.url("https://\(chain.rawValue).g.alchemy.com/nft/v3/\($0)")
@@ -23,11 +24,16 @@ public struct LiveProviderConfigurationResolver: ProviderConfigurationResolving 
             try Self.url("https://\(chain.rawValue).g.alchemy.com/v2/\($0)")
         }
 
+        let heliusDASBaseURL = try heliusKey.flatMap { _ in
+            try Self.url("https://mainnet.helius-rpc.com/")
+        }
+
         let configuration = ProviderEndpointConfiguration(
             chain: chain,
             alchemyNFTBaseURL: alchemyNFTBaseURL,
             alchemyDataAPIBaseURL: alchemyDataAPIBaseURL,
-            alchemyRPCURL: chain.supportsProviderRPC ? alchemyRPCURL : nil
+            alchemyRPCURL: chain.supportsProviderRPC ? alchemyRPCURL : nil,
+            heliusDASBaseURL: chain == .solanaMainnet ? heliusDASBaseURL : nil
         )
         return configuration
     }

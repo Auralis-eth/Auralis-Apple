@@ -4,26 +4,32 @@ This file is the condensed record of the AuraPlay phases that are complete enoug
 
 ## Retained AuraPlay Docs
 
-1. `AuraPlay-Future-Work.md`
+1. `AuraPlay-Status.md`
+   The single living status doc describing what is actually in the codebase across Phases 1–3.
+2. `AuraPlay-Gaps.md`
+   The single living gap log for everything that should exist for the product to be complete but is not yet in code.
+3. `AuraPlay-Future-Work.md`
    The backlog of incomplete and intentionally deferred work after the shipped Phase 3 storage-resolution slice.
-2. `AuraPlay-Physical-Device-QA-Suite.md`
+4. `AuraPlay-Physical-Device-QA-Suite.md`
    The real-device manual QA pass for the rebuilt music stack, persisted-library seam, storage-resolution seam, and playback lifecycle risks.
-3. `AuraPlay-UI-Design-Audit-Checklist.md`
+5. `AuraPlay-UI-Design-Audit-Checklist.md`
    The product and interaction audit checklist for the current AuraPlay surfaces.
-4. `AuraPlay-Phase5-Handoff.md`
+6. `AuraPlay-Phase5-Handoff.md`
    The practical handoff notes for starting the next AuraPlay feature phase safely.
-5. `AuraPlay-LLM-Context.md`
+7. `AuraPlay-LLM-Context.md`
    The compact memory layer for future sessions that need the AuraPlay mental model fast.
-6. `docs/decisions/ADR-001-auraplay-architecture.md`
+8. `Phase3-Followup-Package-Test-Restoration.md`
+   The follow-up tracker for unrelated package-test debt surfaced during Phase 3 ship validation. Not a Phase 3 reopen.
+9. `docs/decisions/ADR-001-auraplay-architecture.md`
    The architecture decision record for the Phase 1 module boundary and integration shape.
-7. `docs/decisions/ADR-002-swiftdata-architecture.md`
-   The architecture decision record for the Phase 2 SwiftData container, schema, model actor, and search-boundary choices.
+10. `docs/decisions/ADR-002-swiftdata-architecture.md`
+    The architecture decision record for the Phase 2 SwiftData container, schema, model actor, and search-boundary choices.
 
 ## Phase 1 Completed Summary
 
 - AuraPlay now lives inside `Auralis` as the rebuild path for the Music tab.
 - The module uses native SwiftUI with `@Observable` presentation state and initializer-based dependency injection.
-- The Music tab routes through `AuraPlayTabRootView`, which can preserve the legacy `AI/V1` root or switch to the AuraPlay root.
+- The Music tab is composed inside `MainTabView` and renders through `MusicFeatureRootView` from the `MusicFeature` package, with the legacy `AI/V1` path still living alongside it under `Auralis/MusicApp/AI/V1/` until migrated UI parity is real.
 - The first service seams now exist for library, playback, queue, artwork, logging, and bundle configuration concerns.
 - Repo-level lint, CI, privacy, and documentation now recognize the AuraPlay module as a first-class surface.
 
@@ -71,6 +77,8 @@ This file is the condensed record of the AuraPlay phases that are complete enoug
 
 For that, start with:
 
+- `Auralis/docs/plans/AuraPlay/AuraPlay-Status.md`
+- `Auralis/docs/plans/AuraPlay/AuraPlay-Gaps.md`
 - `Auralis/docs/plans/AuraPlay/AuraPlay-Future-Work.md`
 - `Auralis/docs/plans/AuraPlay/AuraPlay-Phase5-Handoff.md`
 - `Auralis/docs/plans/AuraPlay/AuraPlay-LLM-Context.md`

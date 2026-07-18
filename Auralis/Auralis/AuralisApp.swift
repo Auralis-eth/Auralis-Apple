@@ -25,6 +25,8 @@ struct AuralisApp: App {
     @State private var primaryStoreRecoveryAlertPresented = false
 
     init() {
+        AppLaunchConfiguration().configure()
+
         let missingProviders = Secrets.configurationStatuses()
             .filter { !$0.isConfigured }
 

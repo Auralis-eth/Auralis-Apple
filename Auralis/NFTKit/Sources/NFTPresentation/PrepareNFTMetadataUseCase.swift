@@ -26,7 +26,11 @@ public protocol PrepareNFTMetadataUsing: Sendable {
 }
 
 public struct LivePrepareNFTMetadataUseCase: PrepareNFTMetadataUsing, Sendable {
-    public init() { }
+    private let metadataFetcher: (any TokenMetadataJSONFetching)?
+
+    public init(metadataFetcher: (any TokenMetadataJSONFetching)? = nil) {
+        self.metadataFetcher = metadataFetcher
+    }
 
     public func prepareInventory(
         _ fetchedNFTs: [NFTInventoryItemSnapshot],
@@ -75,27 +79,38 @@ public struct LivePrepareNFTMetadataUseCase: PrepareNFTMetadataUsing, Sendable {
             )
         }
 
-        // Base64 metadata decoding can be CPU-heavy; keep it off any inherited actor.
-        return await Task.detached(priority: .userInitiated) {
-            inputs.map { input in
-                guard !Task.isCancelled else {
-                    return nil
-                }
+        var patches: [NFTMetadataUpdater.MetadataPatch?] = []
+        patches.reserveCapacity(inputs.count)
 
-                let emptyPatch = NFTMetadataUpdater.MetadataPatch()
-                let tokenURIs = Set([input.tokenURI, input.rawTokenURI].compactMap(\.self))
-                let siftedTokenURIs = tokenURIs.siftTokenURIs()
-
-                guard !siftedTokenURIs.isEmpty else {
-                    return emptyPatch
-                }
-
-                if let decodedTokenURI = siftedTokenURIs.lazy.compactMap(\.base64JSON).first {
-                    return NFTMetadataUpdater.metadataPatch(from: decodedTokenURI)
-                }
-
-                return NFTMetadataUpdater.metadataPatch(from: input.rawMetadata)
+        for input in inputs {
+            guard !Task.isCancelled else {
+                patches.append(nil)
+                continue
             }
-        }.value
+
+            let emptyPatch = NFTMetadataUpdater.MetadataPatch()
+            let tokenURIs = Set([input.tokenURI, input.rawTokenURI].compactMap(\.self))
+            let siftedTokenURIs = tokenURIs.siftTokenURIs()
+
+            if let decodedTokenURI = siftedTokenURIs.lazy.compactMap(\.base64JSON).first {
+                patches.append(NFTMetadataUpdater.metadataPatch(from: decodedTokenURI))
+                continue
+            }
+
+            if let rawMetadata = input.rawMetadata {
+                patches.append(NFTMetadataUpdater.metadataPatch(from: rawMetadata))
+                continue
+            }
+
+            if let metadataURL = siftedTokenURIs.first,
+               let fetchedMetadata = await metadataFetcher?.fetchMetadataJSON(from: metadataURL) {
+                patches.append(NFTMetadataUpdater.metadataPatch(from: fetchedMetadata))
+                continue
+            }
+
+            patches.append(emptyPatch)
+        }
+
+        return patches
     }
 }

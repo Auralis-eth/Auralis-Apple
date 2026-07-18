@@ -66,6 +66,7 @@ struct AuraPlayDomainTests {
             sourceUpdatedAtRawValue: "2026-06-01T00:00:00Z",
             hasArtwork: true,
             hasAudio: true,
+            hasVideo: false,
             isPlayable: true,
             isSearchable: true,
             createdAt: createdAt,
@@ -76,6 +77,7 @@ struct AuraPlayDomainTests {
         #expect(item.chain == .baseMainnet)
         #expect(item.hasArtwork)
         #expect(item.hasAudio)
+        #expect(!item.hasVideo)
         #expect(item.isPlayable)
         #expect(item.isSearchable)
         #expect(item.updatedAt == createdAt)

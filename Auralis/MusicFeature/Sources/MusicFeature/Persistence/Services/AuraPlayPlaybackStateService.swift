@@ -26,6 +26,11 @@ public actor AuraPlayPlaybackPositionStateService {
         row.lastPlayedAt = date
         row.completedAt = nil
         row.updatedAt = date
+        try updateMediaItemPlaybackMetadata(
+            mediaID: mediaID,
+            durationMilliseconds: durationMilliseconds,
+            lastPlayedAt: date
+        )
         try modelContext.save()
     }
 
@@ -47,6 +52,11 @@ public actor AuraPlayPlaybackPositionStateService {
         row.lastPlayedAt = date
         row.completedAt = date
         row.updatedAt = date
+        try updateMediaItemPlaybackMetadata(
+            mediaID: mediaID,
+            durationMilliseconds: nil,
+            lastPlayedAt: date
+        )
         try modelContext.save()
     }
 
@@ -70,6 +80,28 @@ public actor AuraPlayPlaybackPositionStateService {
         )
         descriptor.fetchLimit = 1
         return try modelContext.fetch(descriptor).first
+    }
+
+    private func updateMediaItemPlaybackMetadata(
+        mediaID: String,
+        durationMilliseconds: Int?,
+        lastPlayedAt: Date
+    ) throws {
+        var descriptor = FetchDescriptor<AuraPlayMediaItem>(
+            predicate: #Predicate<AuraPlayMediaItem> { item in
+                item.sourceNFTID == mediaID
+            }
+        )
+        descriptor.fetchLimit = 1
+        guard let item = try modelContext.fetch(descriptor).first else {
+            return
+        }
+
+        if let durationMilliseconds {
+            item.durationSeconds = Double(max(0, durationMilliseconds)) / 1_000
+        }
+        item.lastPlayedAt = lastPlayedAt
+        item.updatedAt = lastPlayedAt
     }
 
     private static func snapshot(from state: AuraPlayPlaybackPositionState) -> AuraPlayPlaybackPositionStateSnapshot {

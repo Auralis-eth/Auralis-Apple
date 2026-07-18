@@ -11,6 +11,8 @@
 		6F1947342FBD15A900A811F4 /* NFTPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 6F1947332FBD15A900A811F4 /* NFTPersistence */; };
 		6F1947362FBD15A900A811F4 /* NFTPresentation in Frameworks */ = {isa = PBXBuildFile; productRef = 6F1947352FBD15A900A811F4 /* NFTPresentation */; };
 		6F1947382FBD15A900A811F4 /* NFTProviderAdapters in Frameworks */ = {isa = PBXBuildFile; productRef = 6F1947372FBD15A900A811F4 /* NFTProviderAdapters */; };
+		6F1BDD14300AF17100B39BC7 /* AuraPlayMediaCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F1BDD13300AF17100B39BC7 /* AuraPlayMediaCore */; };
+		6F1BDD17300AF19500B39BC7 /* ExplorerAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 6F1BDD16300AF19500B39BC7 /* ExplorerAdapter */; };
 		6F4179322DA96363002A78F5 /* web3.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 6F4179312DA96363002A78F5 /* web3.swift */; };
 		6F467D9B2FCD0E7E0062CE28 /* AuralisTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6F467D9A2FCD0E7E0062CE28 /* AuralisTestSupport */; };
 		6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */; };
@@ -112,6 +114,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6F1BDD14300AF17100B39BC7 /* AuraPlayMediaCore in Frameworks */,
+				6F1BDD17300AF19500B39BC7 /* ExplorerAdapter in Frameworks */,
 				6F1947362FBD15A900A811F4 /* NFTPresentation in Frameworks */,
 				6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */,
 				6FDB397E2FBA7B4B00075FCE /* ENS in Frameworks */,
@@ -260,6 +264,8 @@
 				6F1947372FBD15A900A811F4 /* NFTProviderAdapters */,
 				6FBB89272FFE8B2900012DCB /* AuraPlayAudioEngine */,
 				6FBB892A2FFE8BD700012DCB /* AuraPlayVideoEngine */,
+				6F1BDD13300AF17100B39BC7 /* AuraPlayMediaCore */,
+				6F1BDD16300AF19500B39BC7 /* ExplorerAdapter */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -377,6 +383,8 @@
 				6FCC89882FF56E870019D356 /* XCLocalSwiftPackageReference "WalletConnectorKit" */,
 				6FBB89262FFE8B2900012DCB /* XCLocalSwiftPackageReference "AuraPlayAudioEngine" */,
 				6FBB89292FFE8BD700012DCB /* XCLocalSwiftPackageReference "AuraPlayVideoEngine" */,
+				6F1BDD12300AF17100B39BC7 /* XCLocalSwiftPackageReference "AuraPlayMediaCore" */,
+				6F1BDD15300AF19500B39BC7 /* XCLocalSwiftPackageReference "ExplorerAdapter" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FB455DC2CC5BEBB009A055C /* Products */;
@@ -512,7 +520,8 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Auralis/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Scan a wallet address QR code to add it to your account or switch to a saved account.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Auralis uses the camera to scan Ethereum wallet QR codes and capture playlist cover art.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Auralis uses your photo library so you can choose playlist cover art.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -549,7 +558,8 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Auralis/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Scan a wallet address QR code to add it to your account or switch to a saved account.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Auralis uses the camera to scan Ethereum wallet QR codes and capture playlist cover art.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Auralis uses your photo library so you can choose playlist cover art.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -801,6 +811,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		6F1BDD12300AF17100B39BC7 /* XCLocalSwiftPackageReference "AuraPlayMediaCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = AuraPlayMediaCore;
+		};
+		6F1BDD15300AF19500B39BC7 /* XCLocalSwiftPackageReference "ExplorerAdapter" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ExplorerAdapter;
+		};
 		6F467D992FCD0E7E0062CE28 /* XCLocalSwiftPackageReference "AuralisTestSupport" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = AuralisTestSupport;
@@ -950,6 +968,14 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6F84E02A2FAE901500CD4102 /* XCLocalSwiftPackageReference "NFTKit" */;
 			productName = NFTProviderAdapters;
+		};
+		6F1BDD13300AF17100B39BC7 /* AuraPlayMediaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AuraPlayMediaCore;
+		};
+		6F1BDD16300AF19500B39BC7 /* ExplorerAdapter */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ExplorerAdapter;
 		};
 		6F4179312DA96363002A78F5 /* web3.swift */ = {
 			isa = XCSwiftPackageProductDependency;

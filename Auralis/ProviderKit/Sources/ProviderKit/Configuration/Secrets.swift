@@ -22,6 +22,7 @@ public struct Secrets {
 
     public enum APIKeyProvider: String, CaseIterable {
         case alchemy = "Alchemy"
+        case helius = "Helius"
 
         var infoPlistKeyName: String {
             "AURALIS_\(rawValue.uppercased())_API_KEY"

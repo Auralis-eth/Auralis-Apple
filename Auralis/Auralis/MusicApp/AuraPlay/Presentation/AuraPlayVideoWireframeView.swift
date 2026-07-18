@@ -386,7 +386,7 @@ struct AuraPlayVideoWireframeView: View {
         HStack(alignment: .center, spacing: 12) {
             VideoRoutePickerView()
                 .frame(width: 44, height: 44)
-                .accessibilityLabel("AirPlay") // [VERIFY] opens system video route picker.
+                .accessibilityLabel("AirPlay")
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(isExternalPlaybackActive ? "AirPlay active" : "Local playback")
@@ -875,6 +875,30 @@ struct AuraPlayVideoWireframeView: View {
 
     private func configureRemoteControlBridge() {
         remoteControlBridge.currentPositionProvider = { currentSeconds }
+        remoteControlBridge.capabilitiesProvider = {
+            AuraPlayPlayerVideoCapabilities(
+                isPiPAvailable: canUsePictureInPicture,
+                isPiPActive: pipState == .active || pipState == .starting,
+                hasRoutePicker: hasCurrentItem,
+                subtitleOptions: availableSubtitles.map(\.displayName),
+                audioDescriptionOptions: audioDescriptionTracks.map(\.displayName),
+                speedOptions: PlaybackSpeedOption.allCases.map(\.rawValue),
+                selectedSpeed: selectedSpeed.rawValue,
+                canChangeAspect: presentationInfo?.isLandscape == true || presentationInfo?.isSquare == true
+            )
+        }
+        remoteControlBridge.surfaceProvider = {
+            AnyView(
+                PlayerContainerView(
+                    player: controller.player,
+                    videoGravity: videoGravity,
+                    onLayerReady: configurePictureInPicture
+                )
+            )
+        }
+        remoteControlBridge.routePickerProvider = {
+            AnyView(VideoRoutePickerView())
+        }
         remoteControlBridge.playAction = {
             playbackRuntime?.auraPlayRegisterVideoRemoteControls(remoteControlBridge)
             controller.play()
@@ -902,6 +926,39 @@ struct AuraPlayVideoWireframeView: View {
             await videoIntegrationCoordinator?.stop()
             videoIntegrationCoordinator = nil
             playbackState = .idle
+        }
+        remoteControlBridge.startPiPAction = {
+            if pipState == .active || pipState == .starting {
+                pictureInPictureController?.stop()
+            } else {
+                pictureInPictureController?.start()
+            }
+        }
+        remoteControlBridge.stopPiPAction = {
+            pictureInPictureController?.stop()
+        }
+        remoteControlBridge.restorePiPAction = {
+            _ = restoreVideoRoute()
+            showFullscreen = true
+        }
+        remoteControlBridge.subtitleAction = { title in
+            if let title,
+               let audioDescription = audioDescriptionTracks.first(where: { $0.displayName == title }) {
+                await selectAudioDescriptionTrack(audioDescription)
+            } else {
+                let subtitle = title.flatMap { title in
+                    availableSubtitles.first { $0.displayName == title }
+                }
+                await selectSubtitle(subtitle)
+            }
+        }
+        remoteControlBridge.speedAction = { speed in
+            let option = PlaybackSpeedOption(storedRawValue: speed)
+            selectedSpeed = option
+            try? PlaybackSpeedController().setSpeed(option, on: controller.player)
+        }
+        remoteControlBridge.toggleGravityAction = {
+            videoZoomScale = videoZoomScale > 1.01 ? 1 : 1.02
         }
     }
 
@@ -943,6 +1000,8 @@ struct AuraPlayVideoWireframeView: View {
         selectedSubtitleID = nil
         selectedAudioTrackID = nil
         selectedAudioDescriptionTrackID = nil
+        // Zoom is a per-item choice: gravity must return to .resizeAspect for each new video (P10-006).
+        videoZoomScale = 1
         await videoIntegrationCoordinator?.stop()
         videoIntegrationCoordinator = nil
 
@@ -1665,6 +1724,9 @@ private final class VideoNowPlayingPublisherAdapter: VideoNowPlayingPublishing, 
 @MainActor
 private final class AuraPlayVideoRemoteControlBridge: AuraPlayVideoRemoteControlling {
     var currentPositionProvider: () -> TimeInterval = { 0 }
+    var capabilitiesProvider: () -> AuraPlayPlayerVideoCapabilities? = { nil }
+    var surfaceProvider: () -> AnyView? = { nil }
+    var routePickerProvider: () -> AnyView? = { nil }
     var playAction: () -> Void = {}
     var pauseAction: () -> Void = {}
     var toggleAction: () -> Void = {}
@@ -1672,9 +1734,27 @@ private final class AuraPlayVideoRemoteControlBridge: AuraPlayVideoRemoteControl
     var nextAction: () async -> Void = {}
     var previousAction: () async -> Void = {}
     var stopAction: () async -> Void = {}
+    var startPiPAction: () -> Void = {}
+    var stopPiPAction: () -> Void = {}
+    var restorePiPAction: () -> Void = {}
+    var subtitleAction: (String?) async -> Void = { _ in }
+    var speedAction: (Double) async -> Void = { _ in }
+    var toggleGravityAction: () async -> Void = {}
 
     var currentPosition: TimeInterval {
         currentPositionProvider()
+    }
+
+    var playerVideoCapabilities: AuraPlayPlayerVideoCapabilities? {
+        capabilitiesProvider()
+    }
+
+    var playerVideoSurface: AnyView? {
+        surfaceProvider()
+    }
+
+    var playerVideoRoutePicker: AnyView? {
+        routePickerProvider()
     }
 
     func play() {
@@ -1704,14 +1784,38 @@ private final class AuraPlayVideoRemoteControlBridge: AuraPlayVideoRemoteControl
     func stopForAudioHandoff() async {
         await stopAction()
     }
+
+    func startPiP() {
+        startPiPAction()
+    }
+
+    func stopPiP() {
+        stopPiPAction()
+    }
+
+    func restorePiP() {
+        restorePiPAction()
+    }
+
+    func selectSubtitle(_ title: String?) async {
+        await subtitleAction(title)
+    }
+
+    func setPlaybackSpeed(_ speed: Double) async {
+        await speedAction(speed)
+    }
+
+    func toggleVideoGravity() async {
+        await toggleGravityAction()
+    }
 }
 
 private struct AuralisVideoGatewayFallbackResolver: VideoGatewayResolving {
-    private let ipfsGatewayHosts = [
-        "ipfs.io",
-        "cloudflare-ipfs.com",
-        "gateway.pinata.cloud"
-    ]
+    private let ipfsGatewayHosts: [String]
+
+    init(configuration: AuraPlayStorageResolutionConfiguration = .liveDefault) {
+        ipfsGatewayHosts = configuration.ipfsGatewayChain.compactMap { $0.host?.lowercased() }
+    }
 
     func nextResolvedURL(after failedURL: URL) async throws -> URL? {
         guard let host = failedURL.host?.lowercased(),

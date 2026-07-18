@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import Foundation
 
 /// Identifies the active account-and-chain scope for AuraPlay library queries.
-public struct AuraPlayLibraryScope: Equatable, Sendable {
+public struct AuraPlayLibraryScope: Codable, Equatable, Hashable, Sendable {
     public let accountAddress: String?
     public let chain: Chain
 

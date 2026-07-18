@@ -171,6 +171,12 @@ final class PlaybackOrchestrator {
         }
     }
 
+    /// False after a cold-launch restore: the state is `.paused` but no engine
+    /// has loaded media yet, so resume must go through the full play path.
+    var hasActiveEngine: Bool {
+        arbiter.activeEngine != nil
+    }
+
     init(
         arbiter: EngineArbiter,
         positionPersistence: PositionPersistenceCoordinator? = nil,
@@ -349,7 +355,7 @@ final class PlaybackOrchestrator {
 
     @discardableResult
     func restoreMostRecent(
-        resolveMedia: (String) async -> AuraPlayableMediaItem?
+        resolveMedia: @MainActor @Sendable (String) async -> AuraPlayableMediaItem?
     ) async -> Bool {
         guard let candidate = try? await positionPersistence?.restoreCandidate(),
               let item = await resolveMedia(candidate.mediaID) else {

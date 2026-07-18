@@ -33,6 +33,23 @@ final class AuraVideoOrientationLock {
 }
 
 final class AuralisAppDelegate: NSObject, UIApplicationDelegate {
+    private lazy var auraPlayBackgroundRefreshRegistrar: AuraPlayBackgroundRefreshRegistrar? = {
+        #if canImport(BackgroundTasks)
+        AuraPlayBackgroundRefreshRegistrar.live()
+        #else
+        nil
+        #endif
+    }()
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        auraPlayBackgroundRefreshRegistrar?.registerIfNeeded()
+        auraPlayBackgroundRefreshRegistrar?.scheduleNextRefresh()
+        return true
+    }
+
     func application(
         _ application: UIApplication,
         supportedInterfaceOrientationsFor window: UIWindow?

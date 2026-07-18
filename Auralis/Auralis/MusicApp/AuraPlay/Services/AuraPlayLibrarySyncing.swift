@@ -5,36 +5,27 @@ import Foundation
 import MusicFeature
 import SwiftData
 
-protocol AuraPlayMediaItemReplacing: Sendable {
-    func replaceAll(
-        accountAddress: String,
-        chain: Chain,
-        requests: [AuraPlayMediaItemUpsertRequest],
-        syncedAt: Date
-    ) async throws
-}
-
-extension AuraPlayMediaItemService: AuraPlayMediaItemReplacing { }
-
+/// Projects the account's local music-NFT inventory for receipt/telemetry
+/// bookkeeping and records the per-scope sync timestamp. It intentionally does
+/// **not** write `AuraPlayMediaItem` rows: `NFTSyncCoordinator` (network
+/// discovery) is the single authoritative writer of that store, so the
+/// classification it produces — including video and network-only items — is not
+/// clobbered by an audio-only local-inventory projection.
 struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
     private let sourceSnapshotStore: AuraPlaySourceNFTSnapshotStore
     private let accountSyncStateService: AuraPlayAccountSyncStateService
-    private let mediaItemService: any AuraPlayMediaItemReplacing
     private let projectionService: LibraryProjectionService
     private let musicReceiptLogger: MusicReceiptEventLogger
     private let logger: any AuraPlayLogging
 
     init(
         sourceModelContext: ModelContext,
-        auraPlayModelContainer: ModelContainer,
         musicReceiptLogger: MusicReceiptEventLogger,
         logger: any AuraPlayLogging,
-        mediaItemService: (any AuraPlayMediaItemReplacing)? = nil,
         requestBuilder: AuraPlayLibrarySyncRequestBuilder = .init()
     ) {
         self.sourceSnapshotStore = AuraPlaySourceNFTSnapshotStore(modelContainer: sourceModelContext.container)
         self.accountSyncStateService = AuraPlayAccountSyncStateService(modelContainer: sourceModelContext.container)
-        self.mediaItemService = mediaItemService ?? AuraPlayMediaItemService(modelContainer: auraPlayModelContainer)
         self.projectionService = LibraryProjectionService(requestBuilder: requestBuilder)
         self.musicReceiptLogger = musicReceiptLogger
         self.logger = logger
@@ -62,12 +53,10 @@ struct LiveAuraPlayLibrarySyncService: AuraPlayLibrarySyncing {
         let requestBundle = await projectionService.project(sourceSnapshots)
         let affectedMediaIDs = requestBundle.mediaItemRequests.map(\.sourceNFTID).sorted()
 
-        try await mediaItemService.replaceAll(
-            accountAddress: normalizedAccountAddress,
-            chain: scope.chain,
-            requests: requestBundle.mediaItemRequests,
-            syncedAt: syncedAt
-        )
+        // NFTSyncCoordinator (network discovery) owns AuraPlayMediaItem. This
+        // service only records the sync timestamp and classification receipts;
+        // it must not persist/replace media rows or it would delete the
+        // video and network-only items discovery wrote for this scope.
         try await accountSyncStateService.markSynced(
             AuraPlayAccountSyncUpdateRequest(
                 address: normalizedAccountAddress,
@@ -279,6 +268,7 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
         let thumbnailURLString: String?
         let originalImageURLString: String?
         let playbackURLString: String?
+        let animationURLString: String?
         let contentType: String?
         let sourceUpdatedAtRawValue: String?
 
@@ -296,6 +286,7 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
             thumbnailURLString: String?,
             originalImageURLString: String?,
             playbackURLString: String?,
+            animationURLString: String? = nil,
             contentType: String?,
             sourceUpdatedAtRawValue: String?
         ) {
@@ -312,6 +303,7 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
             self.thumbnailURLString = thumbnailURLString
             self.originalImageURLString = originalImageURLString
             self.playbackURLString = playbackURLString
+            self.animationURLString = animationURLString
             self.contentType = contentType
             self.sourceUpdatedAtRawValue = sourceUpdatedAtRawValue
         }
@@ -330,6 +322,7 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
             self.thumbnailURLString = nft.image?.thumbnailUrl
             self.originalImageURLString = nft.image?.originalUrl
             self.playbackURLString = nft.musicURL?.absoluteString
+            self.animationURLString = nft.animationUrl
             self.contentType = nft.contentType
             self.sourceUpdatedAtRawValue = nft.timeLastUpdated
         }
@@ -380,10 +373,37 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
             sourceUpdatedAtRawValue: cleanedText(snapshot.sourceUpdatedAtRawValue),
             hasArtwork: artworkURLString != nil,
             hasAudio: playbackURLString != nil,
+            hasVideo: isVideoMedia(snapshot: snapshot),
             isPlayable: playbackURLString != nil,
             isSearchable: true
         )
     }
+
+    /// Derives whether the projected media item carries video, mirroring
+    /// `MediaClassifier`'s intent so video NFTs are not persisted as
+    /// audio-only and excluded from `.video`-scoped views. The library-sync
+    /// snapshot only exposes the NFT content type and animation URL, so both
+    /// are consulted.
+    private func isVideoMedia(snapshot: SourceNFTSnapshot) -> Bool {
+        if let contentType = cleanedText(snapshot.contentType)?.lowercased(),
+           Self.videoContentTypeMarkers.contains(where: contentType.contains) {
+            return true
+        }
+        if let animationURLString = cleanedText(snapshot.animationURLString),
+           let fileExtension = URL(string: animationURLString)?.pathExtension.lowercased(),
+           Self.videoFileExtensions.contains(fileExtension) {
+            return true
+        }
+        return false
+    }
+
+    private static let videoContentTypeMarkers: [String] = [
+        "video", "mp4", "mov", "webm", "mpegurl", "hls",
+    ]
+
+    private static let videoFileExtensions: Set<String> = [
+        "mp4", "mov", "webm", "m4v",
+    ]
 
     private func artworkURLString(from snapshot: SourceNFTSnapshot) -> String? {
         [snapshot.thumbnailURLString, snapshot.originalImageURLString]
@@ -391,7 +411,7 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
                 guard let rawValue else {
                     return nil
                 }
-                return URL.sanitizedRemoteMediaURL(from: rawValue)?.absoluteString
+                return URLResolver().resolve(rawValue)?.absoluteString
             }
             .first
     }

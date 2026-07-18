@@ -10,8 +10,18 @@ import SwiftData
 
 @MainActor
 struct ReceiptAssembly {
+    private let receiptStoreFactory: @MainActor (ModelContext) -> any ReceiptStore
+
+    init(
+        receiptStoreFactory: (@MainActor (ModelContext) -> any ReceiptStore)? = nil
+    ) {
+        self.receiptStoreFactory = receiptStoreFactory ?? { modelContext in
+            ReceiptStores.live(modelContext: modelContext)
+        }
+    }
+
     func makeReceiptStore(modelContext: ModelContext) -> any ReceiptStore {
-        ReceiptStores.live(modelContext: modelContext)
+        receiptStoreFactory(modelContext)
     }
 
     func makeReceiptStore(
@@ -43,7 +53,7 @@ struct ReceiptAssembly {
     }
 
     func makeAccountEventRecorder(modelContext: ModelContext) -> any AccountEventRecorder {
-        AccountEventRecorders.live(modelContext: modelContext)
+        ReceiptBackedAccountEventRecorder(receiptStore: makeReceiptStore(modelContext: modelContext))
     }
 
     func makeNFTRefreshEventRecorder(modelContext: ModelContext) -> any NFTRefreshEventRecording {

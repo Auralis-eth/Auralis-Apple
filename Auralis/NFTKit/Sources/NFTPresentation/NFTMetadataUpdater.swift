@@ -29,6 +29,7 @@ public enum NFTMetadataUpdater {
         var name: MetadataUpdate<String> = .unchanged
         var nftDescription: MetadataUpdate<String> = .unchanged
         var collectionName: MetadataUpdate<String> = .unchanged
+        var contentType: MetadataUpdate<String> = .unchanged
         var collectionID: MetadataUpdate<String> = .unchanged
         var projectID: MetadataUpdate<String> = .unchanged
         var series: MetadataUpdate<String> = .unchanged
@@ -105,6 +106,10 @@ public enum NFTMetadataUpdater {
         if let collection = metadata["collection"], let collectionName = collection.objectValue?["name"] {
             if let resolvedCollectionName = collectionName.stringValue {
                 patch.collectionName = .set(resolvedCollectionName)
+            }
+        } else if let projectName = metadata["project"] {
+            if let resolvedProjectName = projectName.stringValue {
+                patch.collectionName = .set(resolvedProjectName)
             }
         } else if let collectionName = metadata["collectionName"] {
             if let resolvedCollectionName = collectionName.stringValue {
@@ -205,6 +210,7 @@ public enum NFTMetadataUpdater {
         apply(patch.name, to: &nft.name)
         apply(patch.nftDescription, to: &nft.nftDescription)
         apply(patch.collectionName, to: &nft.collectionName)
+        apply(patch.contentType, to: &nft.contentType)
         apply(patch.collectionID, to: &nft.collectionID)
         apply(patch.projectID, to: &nft.projectID)
         apply(patch.series, to: &nft.series)
@@ -253,6 +259,7 @@ public enum NFTMetadataUpdater {
         apply(patch.name, to: &snapshot.name)
         apply(patch.nftDescription, to: &snapshot.nftDescription)
         apply(patch.collectionName, to: &snapshot.collectionName)
+        apply(patch.contentType, to: &snapshot.contentType)
         apply(patch.collectionID, to: &snapshot.collectionID)
         apply(patch.projectID, to: &snapshot.projectID)
         apply(patch.series, to: &snapshot.series)
@@ -354,10 +361,32 @@ public enum NFTMetadataUpdater {
     }
 
     private static func updateAnimationURLs(patch: inout MetadataPatch, metadata: [String: JSONValue]) {
+        if let content = metadata["content"]?.objectValue {
+            if let contentURI = content["uri"]?.stringValue,
+               let contentMIME = content["mime"]?.stringValue {
+                patch.contentType = .set(contentMIME)
+                applyMediaURL(contentURI, mimeType: contentMIME, patch: &patch, field: "content.uri")
+            }
+
+            let links = content["links"]?.objectValue
+            if let animationURLString = links?["animation_url"]?.stringValue ?? links?["animationUrl"]?.stringValue,
+               case .unchanged = patch.animationURL {
+                applyVideoURL(animationURLString, patch: &patch, field: "content.links.animation_url")
+            }
+
+            if let videoURLString = firstMediaFileURL(in: content["files"]?.arrayValue, mimePrefix: "video/"),
+               case .unchanged = patch.animationURL {
+                applyVideoURL(videoURLString, patch: &patch, field: "content.files")
+            }
+        }
+
         if let animationURLString = metadata["animation_url"]?.stringValue ?? metadata["animationUrl"]?.stringValue ?? metadata["animation"]?.stringValue {
-            if let sanitizedURL = sanitizedMediaURL(from: animationURLString) {
+            if isAudioURL(animationURLString) {
+                applyAudioURL(animationURLString, patch: &patch, field: "animation")
+            } else if let sanitizedURL = sanitizedMediaURL(from: animationURLString) {
                 patch.animationURL = .set(sanitizedURL.absoluteString)
                 patch.secureAnimationURL = .set(sanitizedURL.absoluteString)
+                patch.contentType = patch.contentType.resolved(or: contentType(for: sanitizedURL))
             } else {
                 patch.animationURL = .set(nil)
                 patch.secureAnimationURL = .set(nil)
@@ -367,17 +396,25 @@ public enum NFTMetadataUpdater {
     }
 
     private static func updateAudioURLs(patch: inout MetadataPatch, metadata: [String: JSONValue]) {
-        let audioURLString = metadata["audioUrl"]?.stringValue ??
-                           metadata["audioURI"]?.stringValue ??
+        let properties = metadata["properties"]?.objectValue
+        let content = metadata["content"]?.objectValue
+        let contentLinks = content?["links"]?.objectValue
+        let audioURLString = metadata["losslessAudio"]?.stringValue ??
                            metadata["audio"]?.stringValue ??
-                           metadata["losslessAudio"]?.stringValue
-        if let audioURLString = audioURLString {
-            if let sanitizedURL = sanitizedMediaURL(from: audioURLString) {
-                patch.audioURL = .set(sanitizedURL.absoluteString)
-            } else {
-                patch.audioURL = .set(nil)
-                logRejectedMediaURL(audioURLString, field: "audio")
-            }
+                           metadata["audioUrl"]?.stringValue ??
+                           metadata["audioURI"]?.stringValue ??
+                           properties?["audio_url"]?.stringValue ??
+                           contentLinks?["audio_url"]?.stringValue ??
+                           contentLinks?["audioUrl"]?.stringValue ??
+                           firstMediaFileURL(in: properties?["files"]?.arrayValue, mimePrefix: "audio/") ??
+                           firstMediaFileURL(in: content?["files"]?.arrayValue, mimePrefix: "audio/")
+        if let audioURLString {
+            applyAudioURL(audioURLString, patch: &patch, field: "audio")
+        }
+
+        if let videoURLString = firstMediaFileURL(in: properties?["files"]?.arrayValue, mimePrefix: "video/"),
+           case .unchanged = patch.animationURL {
+            applyVideoURL(videoURLString, patch: &patch, field: "properties.files")
         }
     }
 
@@ -440,7 +477,7 @@ public enum NFTMetadataUpdater {
     }
 
     private static func updateNumericProperties(patch: inout MetadataPatch, metadata: [String: JSONValue]) {
-        if let sellerFeeBasisPoints = metadata["sellerFeeBasisPoints"]?.intValue {
+        if let sellerFeeBasisPoints = metadata["sellerFeeBasisPoints"]?.intValue ?? metadata["seller_fee_basis_points"]?.intValue {
             patch.sellerFeeBasisPoints = .set(sellerFeeBasisPoints)
         }
         if let minted = metadata["minted"]?.intValue {
@@ -484,6 +521,106 @@ public enum NFTMetadataUpdater {
                     traitType: traitDict["type"]?.stringValue ?? traitDict["trait_type"]?.stringValue
                 )
             })
+        }
+    }
+
+    private static func applyMediaURL(
+        _ rawValue: String,
+        mimeType: String,
+        patch: inout MetadataPatch,
+        field: String
+    ) {
+        if mimeType.lowercased().hasPrefix("audio/") {
+            applyAudioURL(rawValue, patch: &patch, field: field, contentType: mimeType)
+        } else if mimeType.lowercased().hasPrefix("video/") {
+            applyVideoURL(rawValue, patch: &patch, field: field, contentType: mimeType)
+        }
+    }
+
+    private static func applyAudioURL(
+        _ rawValue: String,
+        patch: inout MetadataPatch,
+        field: String,
+        contentType: String? = nil
+    ) {
+        if let sanitizedURL = sanitizedMediaURL(from: rawValue) {
+            patch.audioURL = .set(sanitizedURL.absoluteString)
+            if let resolvedContentType = contentType ?? Self.contentType(for: sanitizedURL) {
+                patch.contentType = .set(resolvedContentType)
+            }
+        } else {
+            patch.audioURL = .set(nil)
+            logRejectedMediaURL(rawValue, field: field)
+        }
+    }
+
+    private static func applyVideoURL(
+        _ rawValue: String,
+        patch: inout MetadataPatch,
+        field: String,
+        contentType: String? = nil
+    ) {
+        if let sanitizedURL = sanitizedMediaURL(from: rawValue) {
+            patch.animationURL = .set(sanitizedURL.absoluteString)
+            patch.secureAnimationURL = .set(sanitizedURL.absoluteString)
+            patch.contentType = patch.contentType.resolved(or: contentType ?? Self.contentType(for: sanitizedURL))
+        } else {
+            patch.animationURL = .set(nil)
+            patch.secureAnimationURL = .set(nil)
+            logRejectedMediaURL(rawValue, field: field)
+        }
+    }
+
+    private static func firstMediaFileURL(in files: [JSONValue]?, mimePrefix: String) -> String? {
+        files?.lazy.compactMap { file -> String? in
+            guard let object = file.objectValue else {
+                return nil
+            }
+            let mime = object["type"]?.stringValue ?? object["mime"]?.stringValue
+            guard mime?.lowercased().hasPrefix(mimePrefix) == true else {
+                return nil
+            }
+            return object["cdn_uri"]?.stringValue ?? object["uri"]?.stringValue
+        }.first
+    }
+
+    private static func isAudioURL(_ rawValue: String) -> Bool {
+        guard let url = sanitizedMediaURL(from: rawValue) ?? URL(string: rawValue) else {
+            return false
+        }
+        let extensionValue = url.pathExtension.lowercased()
+        if ["mp3", "flac", "m4a", "wav", "aif", "aiff", "ogg", "opus"].contains(extensionValue) {
+            return true
+        }
+        let host = url.host?.lowercased() ?? ""
+        let path = url.path.lowercased()
+        return host.contains("sound.xyz") || host.contains("catalog.works") || path.contains("audio")
+    }
+
+    private static func contentType(for url: URL) -> String? {
+        switch url.pathExtension.lowercased() {
+        case "mp3":
+            return "audio/mpeg"
+        case "flac":
+            return "audio/flac"
+        case "m4a":
+            return "audio/mp4"
+        case "wav":
+            return "audio/wav"
+        case "aif", "aiff":
+            return "audio/aiff"
+        case "ogg":
+            return "audio/ogg"
+        case "opus":
+            return "audio/opus"
+        case "mp4":
+            return "video/mp4"
+        case "mov":
+            return "video/quicktime"
+        case "webm":
+            return "video/webm"
+        default:
+            return nil
         }
     }
 
@@ -594,6 +731,20 @@ public enum NFTMetadataUpdater {
             snapshot.attributes = attributes.map {
                 NFTInventoryItemSnapshot.Attribute(value: $0.value, traitType: $0.traitType)
             }
+        }
+    }
+}
+
+private extension NFTMetadataUpdater.MetadataUpdate where Value == String {
+    func resolved(or fallback: String?) -> Self {
+        switch self {
+        case .unchanged:
+            if let fallback {
+                return .set(fallback)
+            }
+            return .unchanged
+        case .set:
+            return self
         }
     }
 }

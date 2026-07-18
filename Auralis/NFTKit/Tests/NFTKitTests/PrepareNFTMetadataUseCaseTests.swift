@@ -76,6 +76,29 @@ struct PrepareNFTMetadataUseCaseTests {
         #expect(prepared.audioURL == "https://example.com/audio.mp3")
     }
 
+    @Test("fetches metadata JSON from token URI when raw metadata is missing")
+    @MainActor
+    func fetchesMetadataJSONFromTokenURI() async throws {
+        let nft = makeRefreshFixtureSnapshot(tokenURI: "ipfs://fixture-json")
+        let fetcher = StubTokenMetadataJSONFetcher(metadata: [
+            "name": .string("Fetched Metadata Name"),
+            "losslessAudio": .string("https://example.com/lossless.flac")
+        ])
+        let useCase = LivePrepareNFTMetadataUseCase(metadataFetcher: fetcher)
+
+        let inventory = await useCase.prepareInventory(
+            [nft],
+            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            chain: .ethMainnet
+        )
+        let prepared = try #require(inventory.nfts.first)
+
+        #expect(await fetcher.requestedURLs == ["ipfs://fixture-json"])
+        #expect(prepared.name == "Fetched Metadata Name")
+        #expect(prepared.audioURL == "https://example.com/lossless.flac")
+        #expect(prepared.contentType == "audio/flac")
+    }
+
     @Test("deduplicates repeated NFT ids after preparation")
     @MainActor
     func deduplicatesRepeatedIDs() async {
@@ -90,5 +113,19 @@ struct PrepareNFTMetadataUseCaseTests {
         )
 
         #expect(inventory.nfts.count == 1)
+    }
+}
+
+private actor StubTokenMetadataJSONFetcher: TokenMetadataJSONFetching {
+    private let metadata: [String: JSONValue]
+    private(set) var requestedURLs: [String] = []
+
+    init(metadata: [String: JSONValue]) {
+        self.metadata = metadata
+    }
+
+    func fetchMetadataJSON(from metadataURL: String) async -> [String: JSONValue]? {
+        requestedURLs.append(metadataURL)
+        return metadata
     }
 }

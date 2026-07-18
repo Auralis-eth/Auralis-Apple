@@ -11,6 +11,7 @@ public struct MusicFeatureRootView: View {
     public let onOpenCollection: (String, String) -> Void
     public let onPlayItem: (String) async -> Void
     public let onAddItemToQueue: (String) async -> Void
+    public let openWalletPicker: () -> Void
 
     @State private var model: AuraPlayRootModel
 
@@ -21,7 +22,8 @@ public struct MusicFeatureRootView: View {
         onOpenItem: @escaping (String) -> Void = { _ in },
         onOpenCollection: @escaping (String, String) -> Void = { _, _ in },
         onPlayItem: @escaping (String) async -> Void = { _ in },
-        onAddItemToQueue: @escaping (String) async -> Void = { _ in }
+        onAddItemToQueue: @escaping (String) async -> Void = { _ in },
+        openWalletPicker: @escaping () -> Void = {}
     ) {
         self.currentAccount = currentAccount
         self.currentChain = currentChain
@@ -30,11 +32,19 @@ public struct MusicFeatureRootView: View {
         self.onOpenCollection = onOpenCollection
         self.onPlayItem = onPlayItem
         self.onAddItemToQueue = onAddItemToQueue
+        self.openWalletPicker = openWalletPicker
         _model = State(
             initialValue: AuraPlayRootModel(
                 libraryRepository: dependencies.libraryRepository,
                 librarySyncService: dependencies.librarySyncService,
+                nftDiscoverySyncService: dependencies.nftDiscoverySyncService,
+                syncProgressProvider: dependencies.syncProgressProvider,
+                semanticSearchService: dependencies.semanticSearchService,
+                playlistManager: dependencies.playlistManager,
                 playbackController: dependencies.playbackController,
+                playbackPresenter: dependencies.playbackPresenter,
+                playbackOrchestrator: dependencies.playbackOrchestrator,
+                mediaQueryService: dependencies.mediaQueryService,
                 queueCoordinator: dependencies.queueCoordinator,
                 artworkLoader: dependencies.artworkLoader,
                 logger: dependencies.logger,
@@ -47,14 +57,15 @@ public struct MusicFeatureRootView: View {
     }
 
     public var body: some View {
-        AuraPlayEntryView(
+        LibraryRootView(
             model: model,
             currentAccount: currentAccount,
             currentChain: currentChain,
             onOpenItem: onOpenItem,
             onOpenCollection: onOpenCollection,
             onPlayItem: onPlayItem,
-            onAddItemToQueue: onAddItemToQueue
+            onAddItemToQueue: onAddItemToQueue,
+            openWalletPicker: openWalletPicker
         )
             .task(id: "\(currentAccount?.address ?? "none")|\(currentChain.rawValue)") {
                 model.updateContext(

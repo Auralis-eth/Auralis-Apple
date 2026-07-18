@@ -1,9 +1,11 @@
+import AuralisPrimaryPersistence
 import Foundation
 import MusicFeature
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import ProviderKit
 import ReceiptsCore
 import SwiftData
 
@@ -107,6 +109,52 @@ struct MusicAssembly {
         SwiftDataMusicLibraryIndexer(modelContext: modelContext)
     }
 
+    func makeNFTSyncCoordinator(
+        auraPlayModelContainer: ModelContainer,
+        accountModelContext: ModelContext
+    ) throws -> NFTSyncCoordinator {
+        let storageConfiguration = AuraPlayStorageResolutionConfiguration.liveDefault
+        let resolver = URLResolver(configuration: storageConfiguration)
+        let gatewayFallbackChain = GatewayFallbackChain(
+            resolver: resolver,
+            configuration: storageConfiguration
+        )
+
+        return NFTSyncCoordinator(
+            evmClient: AlchemyNFTClient(
+                apiKey: try Secrets.apiKey(.alchemy)
+            ),
+            solanaClient: HeliusNFTClient(
+                apiKey: try Secrets.apiKey(.helius)
+            ),
+            metadataFetcher: MetadataFetcher(
+                gatewayFallbackChain: gatewayFallbackChain
+            ),
+            metadataParser: MetadataParser(),
+            mediaClassifier: MediaClassifier(
+                urlResolver: resolver
+            ),
+            tokenStore: AuraPlayNFTTokenService(
+                modelContainer: auraPlayModelContainer
+            ),
+            mediaStore: AuraPlayMediaItemService(
+                modelContainer: auraPlayModelContainer
+            ),
+            scopeProvider: SwiftDataNFTDiscoveryScopeProvider(
+                modelContainer: accountModelContext.container
+            ),
+            artworkPrefetcher: MediaItemArtworkPrefetcher(
+                gatewayFallbackChain: gatewayFallbackChain
+            ),
+            mediaItemIndexer: AuraPlaySpotlightIndexer(
+                modelContainer: auraPlayModelContainer
+            ),
+            embeddingQueueProcessor: AuraPlayEmbeddingService(
+                modelContainer: auraPlayModelContainer
+            )
+        )
+    }
+
     func makeMusicFeatureDependencies(
         playbackRuntime: AuraPlayPlaybackRuntime,
         auraPlayModelContainer: ModelContainer,
@@ -114,8 +162,44 @@ struct MusicAssembly {
         musicLibraryIndexer: any MusicLibraryIndexing
     ) -> AuraPlayDependencies {
         let logger = LiveAuraPlayLogger()
+        let nftDiscoverySyncService: any AuraPlayNFTDiscoverySyncing
+        let syncProgressProvider: any AuraPlaySyncProgressProviding
+        do {
+            let syncCoordinator = try makeNFTSyncCoordinator(
+                auraPlayModelContainer: auraPlayModelContainer,
+                accountModelContext: accountModelContext
+            )
+            nftDiscoverySyncService = syncCoordinator
+            syncProgressProvider = syncCoordinator
+        } catch {
+            logger.log(
+                AuraPlayLogEvent(
+                    category: .sync,
+                    level: .error,
+                    message: "AuraPlay NFT discovery sync is unavailable: \(error.localizedDescription)"
+                )
+            )
+            nftDiscoverySyncService = NoOpAuraPlayNFTDiscoverySyncService()
+            syncProgressProvider = NoOpAuraPlaySyncProgressProvider()
+        }
         configureMediaResolver(playbackRuntime)
         playbackRuntime.configureAuraPlayModelContainer(auraPlayModelContainer)
+        let semanticSearchService = AuraPlayEmbeddingService(
+            modelContainer: auraPlayModelContainer
+        )
+
+        let mediaQueryService = AuraPlayMediaItemService(modelContainer: auraPlayModelContainer)
+        let nftResolver: @MainActor ([String]) -> [NFT] = { ids in
+            let requested = Set(ids)
+            guard !requested.isEmpty else { return [] }
+            let allNFTs = (try? accountModelContext.fetch(FetchDescriptor<NFT>())) ?? []
+            return allNFTs.filter { requested.contains($0.id) }
+        }
+        playbackRuntime.configureLibraryQueueExtension(
+            extender: AuraPlayMediaQueueWindowProvider(queryService: mediaQueryService),
+            resolveNFTs: nftResolver
+        )
+
         return AuraPlayDependencies(
             libraryRepository: LiveAuraPlayLibraryRepository(
                 indexer: musicLibraryIndexer,
@@ -125,13 +209,22 @@ struct MusicAssembly {
             ),
             librarySyncService: LiveAuraPlayLibrarySyncService(
                 sourceModelContext: accountModelContext,
-                auraPlayModelContainer: auraPlayModelContainer,
                 musicReceiptLogger: MusicReceiptEventLogger(
                     receiptStore: receiptAssembly.makeReceiptStore(modelContext: accountModelContext)
                 ),
                 logger: logger
             ),
+            nftDiscoverySyncService: nftDiscoverySyncService,
+            syncProgressProvider: syncProgressProvider,
+            semanticSearchService: semanticSearchService,
+            playlistManager: AuraPlayPlaylistService(modelContainer: auraPlayModelContainer),
             playbackController: playbackRuntime,
+            playbackPresenter: playbackRuntime,
+            playbackOrchestrator: AuraPlayOrchestratorAdapter(
+                runtime: playbackRuntime,
+                resolveNFTs: nftResolver
+            ),
+            mediaQueryService: mediaQueryService,
             queueCoordinator: playbackRuntime,
             artworkLoader: AuraPlayTrackArtworkLoader(),
             logger: logger,
@@ -142,5 +235,21 @@ struct MusicAssembly {
                 configuration: .liveDefault
             )
         )
+    }
+}
+
+@ModelActor
+private actor SwiftDataNFTDiscoveryScopeProvider: NFTDiscoveryScopeProviding {
+    func activeScopes() async throws -> [NFTDiscoveryScope] {
+        let descriptor = FetchDescriptor<EOAccount>(
+            sortBy: [SortDescriptor(\.lastSelectedAt, order: .reverse), SortDescriptor(\.addedAt, order: .reverse)]
+        )
+
+        return try modelContext.fetch(descriptor).map { account in
+            NFTDiscoveryScope(
+                walletAddress: account.address,
+                chain: account.currentChain
+            )
+        }
     }
 }

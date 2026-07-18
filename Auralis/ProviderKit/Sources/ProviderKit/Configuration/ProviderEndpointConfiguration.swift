@@ -6,16 +6,19 @@ public struct ProviderEndpointConfiguration: Equatable, Sendable {
     public let alchemyNFTBaseURL: URL?
     public let alchemyDataAPIBaseURL: URL?
     public let alchemyRPCURL: URL?
+    public let heliusDASBaseURL: URL?
 
     public init(
         chain: Chain,
         alchemyNFTBaseURL: URL?,
         alchemyDataAPIBaseURL: URL?,
-        alchemyRPCURL: URL?
+        alchemyRPCURL: URL?,
+        heliusDASBaseURL: URL? = nil
     ) {
         self.chain = chain
         self.alchemyNFTBaseURL = alchemyNFTBaseURL
         self.alchemyDataAPIBaseURL = alchemyDataAPIBaseURL
         self.alchemyRPCURL = alchemyRPCURL
+        self.heliusDASBaseURL = heliusDASBaseURL
     }
 }

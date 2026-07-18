@@ -35,13 +35,32 @@ struct ProviderConfigurationTests {
         #expect(configuration.alchemyRPCURL == nil)
     }
 
-    @Test("Live resolver omits RPC endpoints for Solana chains")
-    func resolverOmitsSolanaRPC() throws {
-        let resolver = LiveProviderConfigurationResolver { _ in "test-key" }
+    @Test("Live resolver omits RPC endpoints for Solana chains and exposes Helius DAS")
+    func resolverOmitsSolanaRPCAndExposesHeliusDAS() throws {
+        let resolver = LiveProviderConfigurationResolver { provider in
+            switch provider {
+            case .alchemy:
+                return "alchemy-test-key"
+            case .helius:
+                return "helius-test-key"
+            }
+        }
 
         let configuration = try resolver.configuration(for: .solanaMainnet)
 
         #expect(configuration.alchemyRPCURL == nil)
+        #expect(configuration.heliusDASBaseURL?.absoluteString == "https://mainnet.helius-rpc.com/")
+    }
+
+    @Test("Live resolver omits Helius DAS when the Helius key is unavailable")
+    func resolverOmitsHeliusDASWithoutKey() throws {
+        let resolver = LiveProviderConfigurationResolver { provider in
+            provider == .alchemy ? "alchemy-test-key" : nil
+        }
+
+        let configuration = try resolver.configuration(for: .solanaMainnet)
+
+        #expect(configuration.heliusDASBaseURL == nil)
     }
 
     @Test("Native balance provider maps missing RPC endpoint to missing API key")

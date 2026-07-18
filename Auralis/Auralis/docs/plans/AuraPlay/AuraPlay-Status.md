@@ -46,7 +46,7 @@ Locked-in choices:
 - Initializer-based DI through composition roots
 - Module boundary: `App/`, `Core/`, `Domain/`, `Services/`, `Presentation/`
 - State ownership stays layered: `ShellStore` / `MainAuraView` / `AppRouter` (app) → `MusicAssembly` / `AuraPlayDependencies` (composition) → `@Observable` presentation models (screen) → injected playback controller over the shared `AudioEngine` (engine)
-- The Music tab swaps roots through `AuraPlayTabRootView`
+- The Music tab is composed inside `MainTabView` and renders through `MusicFeatureRootView` from the `MusicFeature` package
 
 Related ADRs:
 
@@ -76,7 +76,10 @@ Module-level DI in MusicFeature is the public struct `AuraPlayDependencies` (`Mu
 
 - `any AuraPlayLibraryRepository`
 - `any AuraPlayLibrarySyncing`
+- `any AuraPlayNFTDiscoverySyncing`
+- `any AuraPlaySemanticSearching`
 - `any AuraPlayPlaybackControlling`
+- optional `any AuraPlayPlaybackPresenting` for the legacy mini-player/Now Playing presenter surface
 - `any AuraPlayQueueCoordinating`
 - `any AuraPlayArtworkLoading`
 - `any AuraPlayLogging`
@@ -214,12 +217,19 @@ AuraPlay persistence is SwiftData. The shape is locked by ADR-002 (`docs/decisio
 ```swift
 public enum AuraPlaySchema {
     public static var models: [any PersistentModel.Type] {
-        [AuraPlayMediaItem.self]
+        [
+            AuraPlayNFTToken.self,
+            AuraPlayMediaItem.self,
+            AuraPlayMediaEmbedding.self,
+            AuraPlayPlaybackPositionState.self,
+            AuraPlayPlaylist.self,
+            AuraPlayPlaylistItem.self,
+        ]
     }
 }
 ```
 
-The schema is currently a flat models enumeration, not a `VersionedSchema`. Only one `@Model` is registered today: `AuraPlayMediaItem`.
+The schema is currently a flat models enumeration, not a `VersionedSchema`. Phase 9 added playlist tables and media query fields additively; introducing a formal migration plan remains the next schema-hardening step.
 
 ### `AuraPlayMediaItem`
 
@@ -230,9 +240,10 @@ Key fields:
 - `@Attribute(.unique) id` — equal to `sourceNFTID`
 - account scope: `accountAddressRawValue`, `chainRawValue`
 - NFT origin: `contractAddressRawValue`, `tokenID`, `tokenType`
-- presentation: `title`, `artistName`, `collectionName`, `artworkURLString`, `playbackURLString`, `contentType`
+- presentation: `title`, `artistName`, `creatorIdentifierRawValue`, `collectionName`, `artworkURLString`, `playbackURLString`, `durationSeconds`, `contentType`
 - normalized search keys: `normalizedTitleKey`, `normalizedArtistKey`, `normalizedCollectionKey`
-- capability flags: `hasArtwork`, `hasAudio`, `isPlayable`, `isSearchable`
+- capability flags: `hasArtwork`, `hasAudio`, `hasVideo`, `isPlayable`, `isSearchable`
+- playback metadata: `cachedFileStateRawValue`, `approxLoudnessLUFS`, `lastPlayedAt`
 - bookkeeping: `sourceUpdatedAtRawValue`, `createdAt`, `updatedAt`
 - computed `chain: Chain` projection over `chainRawValue`
 
@@ -241,11 +252,31 @@ SwiftData multi-key `#Index<AuraPlayMediaItem>` macro covers:
 - `(accountAddressRawValue, chainRawValue, sourceNFTID)`
 - `(accountAddressRawValue, chainRawValue, contractAddressRawValue, tokenID)`
 - `(accountAddressRawValue, chainRawValue, normalizedArtistKey, normalizedTitleKey, id)`
+- `(accountAddressRawValue, chainRawValue, creatorIdentifierRawValue)`
+- `(accountAddressRawValue, chainRawValue, lastPlayedAt)`
 - `(accountAddressRawValue, chainRawValue)`
 
 ### Persistence Services
 
 `MusicFeature/Sources/MusicFeature/Persistence/Services/AuraPlayMediaItemService.swift` is the `@ModelActor` that owns mutation/query work for media items.
+
+Phase 9 added typed query surfaces in `MusicFeature/Sources/MusicFeature/Domain/MediaItemQuery.swift`:
+
+- `MediaItemSort`
+- `MediaItemMediaTypeFilter`
+- `MediaItemFilter`
+- `MediaItemQueryContext`
+- `MediaItemQueryResult`
+
+`AuraPlayMediaItemService.fetchWindow(context:)` applies scoped media type, unplayed-only, sort, offset, and limit behavior and returns `Sendable` `MediaItemQueryItem` snapshots rather than leaking live SwiftData models across actor boundaries.
+
+AuraPlay-owned playlist persistence now lives in:
+
+- `MusicFeature/Sources/MusicFeature/Persistence/AuraPlayPlaylist.swift`
+- `MusicFeature/Sources/MusicFeature/Persistence/AuraPlayPlaylistItem.swift`
+- `MusicFeature/Sources/MusicFeature/Persistence/Services/AuraPlayPlaylistService.swift`
+
+The playlist service supports create, rename, delete, add, remove, toggle, create-and-add, and reorder operations. It keeps playlist-item positions contiguous and zero-based after every mutation.
 
 Additional persistence support:
 
@@ -267,7 +298,7 @@ AuraPlay does not own a separate wallet `@Model`. Wallet/account identity comes 
 - per-chain AuraPlay sync metadata encoded into `auraPlaySyncStateRawValue`, exposed through `auraPlayLastSyncedAt(for:)`, `markAuraPlaySynced(on:at:)`, `clearAuraPlaySyncState(for:)`, and `clearAllAuraPlaySyncState()`
 - preferred/current chain raw values backed by `Chain`
 
-Sibling persisted models in `AuralisPrimaryPersistence` (`NFT`, `MusicLibraryItem`, `Playlist`, `Tag`, `SearchHistoryRecord`) are shared shell/library models — not AuraPlay-owned schema. `AuraPlayMediaItem` remains the only model AuraPlay registers in its own `AuraPlaySchema`.
+Sibling persisted models in `AuralisPrimaryPersistence` (`NFT`, `MusicLibraryItem`, `Playlist`, `Tag`, `SearchHistoryRecord`) are shared shell/library models — not AuraPlay-owned schema. AuraPlay now owns its media, NFT-token, embedding, playback-position, playlist, and ordered playlist-item tables in its dedicated store.
 
 ### Sync Path
 
@@ -314,7 +345,7 @@ The broader local-package sweep found unrelated package test debt. That follow-u
 
 ### Legacy Compatibility References
 
-The legacy Music path still contains ad-hoc helpers under `Auralis/Helpers/`. These remain compatibility references and migration fixtures while downstream callers move to the AuraPlay resolver.
+The legacy shell path still contains ad-hoc helpers under `Auralis/Helpers/`. AuraPlay no longer calls them: every AuraPlay media-URL path routes through `URLResolver` / `GatewayFallbackChain`. The helpers remain only for non-AuraPlay shell callers (`NFTKit`, `AuralisPrimaryModels`) and as migration references.
 
 - `Auralis/Auralis/Helpers/StringHelpers.swift`:
   - `URLConverter.convertToPreferredHTTPS(_ urlString: String) -> Result<String, URLConversionError>` — the entry point used today for converting raw token URIs to playable HTTPS.
@@ -333,9 +364,74 @@ The legacy Music path still contains ad-hoc helpers under `Auralis/Helpers/`. Th
 
 ### Constraints That Apply Today
 
-- The legacy resolver still mixes scheme detection, gateway selection, and URL rewriting in one helper.
-- Gateway URLs in the legacy helper remain hard-coded.
-- Downstream callers have only partially migrated to `URLResolver` / `GatewayFallbackChain`; the AuraPlay root uses `URLResolver` for current-track artwork, but metadata fetch, audio engine loading, and image-classifier paths still need deliberate migration. The old helpers must coexist until those paths move.
+- The legacy resolver still mixes scheme detection, gateway selection, and URL rewriting in one helper, and its gateway URLs remain hard-coded — but it no longer sits on any AuraPlay path.
+- AuraPlay caller migration is complete: the discovery pipeline (`MetadataFetcher`, `MediaClassifier`, `MediaItemArtworkPrefetcher`) resolves through `GatewayFallbackChain`/`URLResolver`; both library-sync artwork paths (`LiveAuraPlayLibrarySyncService`, `SwiftDataMusicLibraryIndexer`) normalize through `URLResolver`; the audio-engine load path resolves decentralized URIs through the runtime's `GatewayFallbackChain`; and the video gateway-fallback resolver derives its host list from `AuraPlayStorageResolutionConfiguration`.
+- The old helpers coexist only for non-AuraPlay shell callers (`NFTKit`, `AuralisPrimaryModels`).
+
+## Phase 6 — Audio Engine v1 UI Integration
+
+The Audio Engine v1 host UI is implemented for the current release scope. `AuraPlayPlaybackRuntime` wires the `AuraPlayAudioEngine` package into the MusicFeature presentation contracts, and the active user-facing controls now live across Now Playing, the mini player, and Settings.
+
+Implemented UI and runtime surfaces:
+
+- Now Playing exposes play/pause/resume, previous/next, 15-second skip, scrubbing, queue, recent items, route/system integration status, cache/offline controls, tuning controls, transition status, recovery status, and visualization.
+- Mini player exposes track identity, artwork, previous/play/next, scrubbing, and compact buffering/download/offline status for the active track.
+- Settings exposes AuraPlay EQ presets, 10-band custom EQ, loudness normalization, Download for offline, and AutoMix crossfade defaults.
+- Runtime error handling maps unsupported format, offline unavailable, corrupted cache, and engine-start failure into user-visible playback messaging. Unsupported format and engine-start failures, plus offline/corrupted cache failures, use the transient top playback-warning path where appropriate.
+- System Now Playing and remote command integration are wired through `NowPlayingPublisher` and `RemoteCommandPublisher`, including play/pause/toggle, seek, skip, previous, and next.
+
+Remaining release gate: physical-device QA. AirPods route changes, calls/Siri interruptions, Lock Screen and Control Center controls, background playback, AirPlay behavior, poor-network progressive playback, audible gapless/crossfade quality, offline launch, and battery behavior must still be signed off with real media on hardware.
+
+## Phase 9/10 — Library And Player UI
+
+The production Music tab now opens through `LibraryRootView` instead of the older migration-dashboard `AuraPlayEntryView`.
+
+Implemented Phase 9 surfaces:
+
+- `MusicFeatureRootView` composes `LibraryRootView`.
+- `LibraryRootView` browses through the typed query service only: `AuraPlayRootModel` holds service-fetched `MediaItemQueryItem` windows from `AuraPlayMediaItemService.fetchWindow(context:)`, pages near the tail, and never sorts or filters media arrays in the view. Non-playable rows stay visible and render dimmed; their taps open detail, never playback.
+- Playable taps start playback through the public `AuraPlayPlaybackOrchestrating` boundary with a bounded 100-item `AuraPlayQueueWindow` plus the captured `MediaItemQueryContext`. `AuraPlayPlaybackRuntime` lazily extends the queue seed from that context through `AuraPlayMediaQueueWindowProvider` (`AuraPlayQueueExtending`) when playback nears the seed tail.
+- Collections and creators come from the cached `AuraPlayGroupedLibraryIndex` built in the model actor, keyed by scope, and invalidated on sync completion — not from per-render view grouping. Collection detail has a deterministic Play All.
+- Playlists use `AuraPlayPlaylistService` end to end; `AddToPlaylistSheet` shows membership checkmarks and toggles add/remove through `toggle(mediaItemID:playlistID:)`.
+- Manual pull-to-refresh calls `syncAll()` (protocol-level, debounce bypassed) and polls live sync progress counts while the fetch phase runs.
+- The mini-player observes `AuraPlayPlaybackOrchestrating.state` for visibility (every state except `.idle`, including restored paused), shows a PiP banner with a restore action while video PiP is active, and cold-launch restore is wired through `AuraPlayPlaybackRuntime.restoreMostRecentSessionIfNeeded()` with a working resume-from-cold path.
+- Phase 9/10 accessibility identifiers are registered centrally in `AuraUI/Sources/AuraUI/A11yID.swift`.
+
+Implemented Phase 10 surfaces:
+
+- `AuraPlayOrchestratorAdapter` (app target, `MusicApp/AuraPlay/Player/`) is the live conformance of `AuraPlayPlaybackOrchestrating` over the app-private `PlaybackOrchestrator`.
+- `AuraPlayPlayerView` renders distinct audio and video branches: audio gets a blurred-artwork ambient background (opaque fallback under Reduce Transparency) and a marquee title when Reduce Motion is off; video renders full-bleed above the scrolling controls with a contrast scrim.
+- The mini-player-to-player transition uses the zoom matched-transition (`matchedTransitionSource`/`navigationTransition(.zoom)`) on iOS, skipped under Reduce Motion.
+- One `SeekCoalescer` instance is shared by the scrubber and the gesture layer, so drags and double-taps chase a single target for both audio and video. The engine-internal `ChaseTimeSeekCoordinator` remains as the `AVPlayer`-side chase beneath that shared UI path (deliberate: it is the engine primitive the plan allows wrapping).
+- Share/explorer/copy presentation is app-owned: `AuraPlayPlayerContextActionHandler.uiKitLive` and the `ExplorerAdapter`-backed `AuraPlayExplorerURLBuilder` are injected through the SwiftUI environment; `MusicFeature` no longer contains UIKit/Safari/pasteboard code. Share payloads include cached artwork; copy shows a toast in the player. The runtime's hand-rolled explorer URL table is gone — Solana routes to Solscan, unsupported chains return nil instead of silently falling back to Etherscan.
+- `AuraPlayPlayerContextMenuBuilder` serves both the player menu and Library cells with the same share/explorer/copy actions and accessibility identifiers.
+- The legacy `AuraPlayNowPlayingView` is deleted; the mini-player sheet path presents only `AuraPlayPlayerView`. Its presenter-only affordances are gone with it: `AuraPlayRecentlyPlayedSection` and the four recently-played members of `AuraPlayPlaybackPresenting` (`auraPlayRecentlyPlayed`, `auraPlayPlayRecentlyPlayed`, `auraPlayRemoveRecentlyPlayed`, `auraPlayClearRecentlyPlayed`) plus `AuraPlayRecentlyPlayedItem` are removed from the protocol, the `AnyAuraPlayPlaybackPresenter` wrapper, and the runtime conformance. Playback history in the player surfaces through `auraPlayQueueItems()` history roles instead.
+- Pinch-zoom video gravity resets to `.resizeAspect` on every new video load (`loadVideo(_:)` resets `videoZoomScale`), so zoom never persists across items (P10-006).
+
+Test coverage (P9-009 / P10-009):
+
+- `MusicFeature` package tests now run standalone (`swift test` with the Xcode beta `DEVELOPER_DIR`); the missing `AuraPlayMediaCore` manifest dependency and the iOS-only view APIs that blocked macOS compilation are fixed via the `AuraPlayPlatformNavigation` shims.
+- New suites: `LibraryQueryServiceTests` (sort/filter/window/grouping incl. 500- and 5000-item bounded cases), `LibraryBrowseModelTests` (browse paging, bounded queue windows, non-playable taps, grouped-index caching, manual `syncAll()`, mini-player visibility states), `PlaylistServiceTests` (full round trip), `SeekCoalescerTests` in `AuraPlayMediaCore`, and `LibraryAndPlayerSnapshotTests` via `swift-snapshot-testing` (library cell states, audio/video player, Up Next duplicates; light/dark/XXXL). Full package run: 95 tests in ~5 seconds.
+
+Remaining release gates: physical-device QA for video PiP/AirPlay/subtitle/speed controls and playback routes, and a manual Accessibility Inspector pass over the new Library/Player surfaces. Snapshot baselines are macOS-host renders through `NSHostingView`; if an iOS-simulator snapshot lane is added later, re-record there.
+
+## Phase 8 — Playback Orchestration
+
+Phase 8 code-side orchestration is implemented in the app target, with `PlaybackOrchestrator` as the target playback authority. Because AuraPlay has not shipped, the remaining work should cut production paths over to the orchestrator instead of preserving `AuraPlayPlaybackRuntime` as a parallel owner.
+
+Implemented surfaces:
+
+- `AuraPlayPlaybackQueue` stores `QueueEntry` values with per-entry UUID identity, so duplicate media items can be removed, reordered, advanced, and tracked without relying on non-unique media IDs.
+- `PlaybackOrchestrator` owns a main-actor state machine, active-engine routing through `EngineArbiter`, a playback-generation token, remote-command dispatch, repeat/shuffle state, error recovery, completion advance, cadence persistence, next-item preparation hooks, and restore-to-paused support.
+- `AuraPlayPlaybackRuntime` is now the UI-facing adapter over `PlaybackOrchestrator`: production audio starts through `playbackOrchestrator.play`, transport controls route through orchestrator commands, and remote commands bind through `RemoteCommandCoordinator` instead of a second runtime-owned stream consumer.
+- `PositionPersistenceCoordinator` is attached to the orchestrator for cadence writes, pause/stop/track-change flushes, completion reset, most-recent restore lookup, and shared resume-threshold logic.
+- `AuraPlayVideoWireframeView` now uses a SwiftData-backed `VideoPlaybackStateStoring` adapter over `AuraPlayPlaybackPositionStateService`; the old video-local `UserDefaults` writer is removed from the app path.
+- ADR-006 records that playback position persistence is now orchestrator-owned and no longer a video-local production write path.
+- Focused Phase 8 coverage is now `AuraPlayPhase8PlaybackOrchestrationTests` with 20 passing scenarios, including all remote command cases, async stale-load protection, completion advance without position overwrite, cadence and pause persistence, duplicate queue identity, repeat/shuffle, production video route wiring checks, and a production audio cutover guard.
+
+Remaining code gate: none for Phase 8 orchestration in the current app-target scope.
+
+Remaining release gate: physical-device playback QA for real media, routes, interruptions, Lock Screen/Control Center, backgrounding, PiP restore, poor networks, resume prompts, and battery behavior.
 
 ## Object Index
 
@@ -360,7 +456,7 @@ Use these names. Rows marked "(not yet built)" describe a planned concept that d
 | Media item `@Model` + service   | `AuraPlayMediaItem` + `AuraPlayMediaItemService` | `MusicFeature/.../Persistence/AuraPlayMediaItem.swift`, `.../Services/AuraPlayMediaItemService.swift` |
 | Search index + three-tier search | (not yet built)                               | —                                                                                     |
 | Playlist + playlist-item models | (not yet built)                                | —                                                                                     |
-| Playback-state model            | (not yet built)                                | —                                                                                     |
+| Playback-state model            | `AuraPlayPlaybackPositionState` + `AuraPlayPlaybackPositionStateService` | `MusicFeature/.../Persistence/AuraPlayPlaybackPositionState.swift`, `.../Services/AuraPlayPlaybackPositionStateService.swift` |
 | Deterministic seeder            | (not yet built — shared helpers in `AuralisTestSupport`) | `AuralisTestSupport/`                                                       |
 | Legacy URI resolver             | `URLConverter.convertToPreferredHTTPS` (legacy, app-target) | `Auralis/Auralis/Helpers/StringHelpers.swift`                            |
 | Legacy IPFS gateway rewrite     | `URL.toPinataGatewayURL()` (legacy, app-target) | `Auralis/Auralis/Helpers/URL.swift`                                                  |

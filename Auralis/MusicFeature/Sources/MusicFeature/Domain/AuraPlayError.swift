@@ -1,6 +1,7 @@
 import Foundation
 
 public enum AuraPlayError: Error, Equatable, LocalizedError {
+    case network(AuraPlayNetworkError)
     case library(String)
     case playback(String)
     case queue(String)
@@ -10,6 +11,8 @@ public enum AuraPlayError: Error, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
+        case .network(let error):
+            error.errorDescription
         case .library(let message):
             message
         case .playback(let message):
@@ -43,5 +46,16 @@ public enum AuraPlayError: Error, Equatable, LocalizedError {
 
     public static func mediaResolution(_ error: Error) -> AuraPlayError {
         .mediaResolution("AuraPlay could not resolve media storage URL: \(error.localizedDescription)")
+    }
+}
+
+public enum AuraPlayNetworkError: Error, Equatable, LocalizedError {
+    case rateLimited
+
+    public var errorDescription: String? {
+        switch self {
+        case .rateLimited:
+            "The NFT provider rate limit was reached. Try again later."
+        }
     }
 }

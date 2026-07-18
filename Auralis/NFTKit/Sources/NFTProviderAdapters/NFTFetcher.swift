@@ -117,7 +117,16 @@ public actor NFTFetcher: NFTFetching {
         self.nftProviderFactory = nftProviderFactory
     }
 
-    private func validateAccount(_ account: String) throws {
+    private func validateAccount(_ account: String, chain: Chain) throws {
+        switch chain {
+        case .solanaMainnet, .solanaDevnetTestnet:
+            try validateSolanaAccount(account)
+        default:
+            try validateEVMAccount(account)
+        }
+    }
+
+    private func validateEVMAccount(_ account: String) throws {
         guard account.hasPrefix("0x") else {
             throw FetcherError.invalidAccount(reason: "Address must start with 0x")
         }
@@ -135,6 +144,27 @@ public actor NFTFetcher: NFTFetching {
 
         guard account.wholeMatch(of: hexAddressRegex) != nil else {
             throw FetcherError.invalidAccount(reason: "Address must be 0x followed by 40 hexadecimal characters")
+        }
+    }
+
+    private func validateSolanaAccount(_ account: String) throws {
+        let trimmedAccount = account.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (32...44).contains(trimmedAccount.count) else {
+            throw FetcherError.invalidAccount(reason: "Solana address must be a base58 public key between 32 and 44 characters")
+        }
+
+        let base58Regex = Regex {
+            Anchor.startOfSubject
+            OneOrMore {
+                CharacterClass(
+                    .anyOf("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+                )
+            }
+            Anchor.endOfSubject
+        }
+
+        guard trimmedAccount.wholeMatch(of: base58Regex) != nil else {
+            throw FetcherError.invalidAccount(reason: "Solana address must use base58 characters")
         }
     }
 
@@ -230,7 +260,7 @@ public actor NFTFetcher: NFTFetching {
         }
 
         do {
-            try validateAccount(account)
+            try validateAccount(account, chain: chain)
         } catch {
             if let correlationID {
                 await eventRecorder.recordFetchFailed(
@@ -433,7 +463,7 @@ public actor NFTFetcher: NFTFetching {
 }
 
 private extension NFTInventoryItemSnapshot {
-    init<ProviderNFT: Encodable>(providerNFT: ProviderNFT) throws {
+    init(providerNFT: AlchemyNFTResponse.OwnedNFT) throws {
         let encodedNFT = try JSONEncoder().encode(providerNFT)
         self = try JSONDecoder().decode(NFTInventoryItemSnapshot.self, from: encodedNFT)
     }

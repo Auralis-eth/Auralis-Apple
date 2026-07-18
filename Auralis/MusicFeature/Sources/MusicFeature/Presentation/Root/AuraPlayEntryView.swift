@@ -16,7 +16,28 @@ public final class AuraPlayRootModel {
     let librarySyncService: any AuraPlayLibrarySyncing
 
     @ObservationIgnored
+    let nftDiscoverySyncService: any AuraPlayNFTDiscoverySyncing
+
+    @ObservationIgnored
+    let syncProgressProvider: any AuraPlaySyncProgressProviding
+
+    @ObservationIgnored
+    let semanticSearchService: any AuraPlaySemanticSearching
+
+    @ObservationIgnored
+    let playlistManager: any AuraPlayPlaylistManaging
+
+    @ObservationIgnored
     public let playbackController: any AuraPlayPlaybackControlling
+
+    @ObservationIgnored
+    public let playbackPresenter: (any AuraPlayPlaybackPresenting)?
+
+    @ObservationIgnored
+    public let playbackOrchestrator: (any AuraPlayPlaybackOrchestrating)?
+
+    @ObservationIgnored
+    public let mediaQueryService: (any AuraPlayMediaItemQuerying)?
 
     @ObservationIgnored
     let queueCoordinator: any AuraPlayQueueCoordinating
@@ -43,11 +64,43 @@ public final class AuraPlayRootModel {
     public var lastError: AuraPlayError?
     public var configurationStatus: String
     public var statusMessage: String
+    public var semanticSearchText: String
+    public private(set) var semanticSearchResults: [AuraPlaySemanticSearchResult]
+    public private(set) var isSemanticSearchRunning: Bool
+    public private(set) var semanticSearchStatus: String
+    public private(set) var indexingStatus: AuraPlayIndexingStatus
+
+    /// Reads sync progress live from the `@Observable` provider rather than
+    /// snapshotting it at discrete points. `syncProgressProvider` is
+    /// `@ObservationIgnored` (its reference never changes), but the provider is
+    /// itself `@Observable`, so views that read this property observe the
+    /// underlying `progress` and update during foreground sync automatically.
+    public var syncProgress: SyncProgress {
+        syncProgressProvider.syncProgress
+    }
+
+    // Service-backed browse window (P9-002). The view never sorts or filters
+    // media arrays itself; it renders these snapshots.
+    public private(set) var browseItems: [MediaItemQueryItem] = []
+    public private(set) var browseTotalCount: Int?
+    public private(set) var browseNextOffset: Int?
+    public private(set) var browseContext: MediaItemQueryContext?
+    public private(set) var groupedIndex: AuraPlayGroupedLibraryIndex?
+    @ObservationIgnored private var groupedIndexScopeKey: String?
+    @ObservationIgnored private var lastSyncCompletionDate: Date?
+    @ObservationIgnored private var browseLoadTask: Task<Void, Never>?
 
     public init(
         libraryRepository: any AuraPlayLibraryRepository,
         librarySyncService: any AuraPlayLibrarySyncing,
+        nftDiscoverySyncService: any AuraPlayNFTDiscoverySyncing,
+        syncProgressProvider: any AuraPlaySyncProgressProviding = NoOpAuraPlaySyncProgressProvider(),
+        semanticSearchService: any AuraPlaySemanticSearching = NoOpAuraPlaySemanticSearchService(),
+        playlistManager: any AuraPlayPlaylistManaging,
         playbackController: any AuraPlayPlaybackControlling,
+        playbackPresenter: (any AuraPlayPlaybackPresenting)? = nil,
+        playbackOrchestrator: (any AuraPlayPlaybackOrchestrating)? = nil,
+        mediaQueryService: (any AuraPlayMediaItemQuerying)? = nil,
         queueCoordinator: any AuraPlayQueueCoordinating,
         artworkLoader: any AuraPlayArtworkLoading,
         logger: any AuraPlayLogging,
@@ -58,7 +111,14 @@ public final class AuraPlayRootModel {
     ) {
         self.libraryRepository = libraryRepository
         self.librarySyncService = librarySyncService
+        self.nftDiscoverySyncService = nftDiscoverySyncService
+        self.syncProgressProvider = syncProgressProvider
+        self.semanticSearchService = semanticSearchService
+        self.playlistManager = playlistManager
         self.playbackController = playbackController
+        self.playbackPresenter = playbackPresenter
+        self.playbackOrchestrator = playbackOrchestrator
+        self.mediaQueryService = mediaQueryService
         self.queueCoordinator = queueCoordinator
         self.artworkLoader = artworkLoader
         self.logger = logger
@@ -71,6 +131,11 @@ public final class AuraPlayRootModel {
         self.currentArtworkURL = nil
         self.configurationStatus = Self.makeConfigurationStatus(configuration)
         self.statusMessage = "AuraPlay is ready to play wallet-scoped tracks for the current account and chain."
+        self.semanticSearchText = ""
+        self.semanticSearchResults = []
+        self.isSemanticSearchRunning = false
+        self.semanticSearchStatus = "Semantic search is ready."
+        self.indexingStatus = AuraPlayIndexingStatus(isActive: false, message: "Index ready")
     }
 
     public var scope: AuraPlayLibraryScope {
@@ -94,9 +159,269 @@ public final class AuraPlayRootModel {
         self.currentAccount = currentAccount
         self.currentChain = currentChain
         configurationStatus = Self.makeConfigurationStatus(configuration)
+        clearSemanticSearch()
+
+        browseItems = []
+        browseTotalCount = nil
+        browseNextOffset = nil
+        browseContext = nil
+        groupedIndex = nil
+        groupedIndexScopeKey = nil
     }
 
     public func refreshLibrarySummary() async {
+        await refreshLibrarySummary(syncDiscoveryIfNeeded: true)
+    }
+
+    public func refreshLibraryFromUserAction() async {
+        // Live token/item counts render automatically while the network fetch
+        // phase runs: `syncProgress` reads through to the `@Observable` provider
+        // (P9-007), so no manual polling is required.
+        indexingStatus = AuraPlayIndexingStatus(isActive: true, message: "Indexing wallet media")
+
+        do {
+            // P9-007: manual refresh always bypasses the debounce.
+            try await nftDiscoverySyncService.syncAll()
+        } catch {
+            lastError = AuraPlayError.library(error)
+            statusMessage = "AuraPlay could not sync NFT discovery for this wallet yet."
+            logger.log(
+                AuraPlayLogEvent(
+                    category: .sync,
+                    level: .error,
+                    message: lastError?.localizedDescription ?? "AuraPlay NFT discovery sync failed."
+                )
+            )
+        }
+
+        indexingStatus = AuraPlayIndexingStatus(isActive: false, message: "Index ready")
+        await refreshLibrarySummary(syncDiscoveryIfNeeded: false)
+        await invalidateAfterSyncCompletion()
+    }
+
+    // MARK: - Service-backed browsing (P9-002)
+
+    public func reloadBrowseWindow(
+        sort: MediaItemSort,
+        mediaType: MediaItemMediaTypeFilter,
+        unplayedOnly: Bool,
+        pageSize: Int = 100
+    ) async {
+        guard let mediaQueryService else { return }
+        let context = MediaItemQueryContext(
+            scope: scope,
+            sort: sort,
+            filter: MediaItemFilter(
+                scope: scope,
+                mediaType: mediaType,
+                unplayedOnly: unplayedOnly,
+                includeNonPlayable: true
+            ),
+            offset: 0,
+            limit: pageSize
+        )
+        browseContext = context
+        do {
+            let result = try await mediaQueryService.fetchWindow(context: context)
+            guard browseContext == context else { return }
+            browseItems = result.items
+            browseTotalCount = result.totalCount
+            browseNextOffset = result.nextOffset
+        } catch {
+            lastError = AuraPlayError.library(error)
+        }
+    }
+
+    public func loadMoreBrowseItemsIfNeeded(visibleItemID: String) async {
+        guard let mediaQueryService,
+              var context = browseContext,
+              let nextOffset = browseNextOffset,
+              !isLoadingMoreBrowseItems,
+              let index = browseItems.firstIndex(where: { $0.sourceNFTID == visibleItemID }),
+              browseItems.count - index <= 20 else {
+            return
+        }
+
+        isLoadingMoreBrowseItems = true
+        defer { isLoadingMoreBrowseItems = false }
+        context.offset = nextOffset
+        do {
+            let result = try await mediaQueryService.fetchWindow(context: context)
+            guard browseContext?.filter == context.filter, browseContext?.sort == context.sort else { return }
+            let loadedIDs = Set(browseItems.map(\.sourceNFTID))
+            browseItems.append(contentsOf: result.items.filter { !loadedIDs.contains($0.sourceNFTID) })
+            browseTotalCount = result.totalCount
+            browseNextOffset = result.nextOffset
+        } catch {
+            lastError = AuraPlayError.library(error)
+        }
+    }
+
+    public func reloadGroupedIndexIfNeeded(force: Bool = false) async {
+        guard let mediaQueryService else { return }
+        let key = scopeKey
+        if !force, groupedIndexScopeKey == key, groupedIndex != nil {
+            return
+        }
+        do {
+            groupedIndex = try await mediaQueryService.fetchGroupedIndex(scope: scope)
+            groupedIndexScopeKey = key
+        } catch {
+            lastError = AuraPlayError.library(error)
+        }
+    }
+
+    public func groupItems(_ group: LibraryGroupKey, sort: MediaItemSort) async -> [MediaItemQueryItem] {
+        guard let mediaQueryService else { return [] }
+        do {
+            return try await mediaQueryService.fetchGroupItems(scope: scope, group: group, sort: sort)
+        } catch {
+            lastError = AuraPlayError.library(error)
+            return []
+        }
+    }
+
+    public func items(withIDs ids: [String]) async -> [MediaItemQueryItem] {
+        guard let mediaQueryService, !ids.isEmpty else { return [] }
+        do {
+            return try await mediaQueryService.fetchItems(scope: scope, ids: ids)
+        } catch {
+            lastError = AuraPlayError.library(error)
+            return []
+        }
+    }
+
+    /// Builds the bounded queue window (default 100 playable items) starting at a tapped
+    /// browse row, capturing the query context so the queue can lazily extend later
+    /// without reading live view state.
+    public func browseQueueWindow(
+        startingAt itemID: String,
+        windowSize: Int = 100
+    ) -> (item: AuraPlayPlaybackItemPresentation, window: AuraPlayQueueWindow)? {
+        guard let tappedIndex = browseItems.firstIndex(where: { $0.sourceNFTID == itemID }),
+              browseItems[tappedIndex].isPlayable else {
+            return nil
+        }
+
+        var windowItems: [MediaItemQueryItem] = []
+        var lastIncludedIndex = tappedIndex
+        for index in tappedIndex..<browseItems.count where browseItems[index].isPlayable {
+            windowItems.append(browseItems[index])
+            lastIncludedIndex = index
+            if windowItems.count == windowSize { break }
+        }
+
+        // Continue extension exactly where the window stopped, in browse ordering.
+        let extensionOffset: Int? = windowItems.count == windowSize && lastIncludedIndex + 1 < browseItems.count
+            ? lastIncludedIndex + 1
+            : browseNextOffset
+        var extensionContext: MediaItemQueryContext?
+        if var context = browseContext, let extensionOffset {
+            context.offset = extensionOffset
+            extensionContext = context
+        }
+
+        let window = AuraPlayQueueWindow(
+            items: windowItems.map(\.playbackPresentation),
+            startIndex: 0,
+            origin: .single(mediaItemID: itemID),
+            queryContext: extensionContext,
+            windowSize: windowSize,
+            nextOffset: extensionOffset
+        )
+        return (browseItems[tappedIndex].playbackPresentation, window)
+    }
+
+    /// Bounded window over a fully known ordered list (collection, creator, playlist).
+    public func listQueueWindow(
+        startingAt itemID: String,
+        in items: [MediaItemQueryItem],
+        origin: AuraPlayQueueOriginPresentation,
+        windowSize: Int = 100
+    ) -> (item: AuraPlayPlaybackItemPresentation, window: AuraPlayQueueWindow)? {
+        guard let tappedIndex = items.firstIndex(where: { $0.sourceNFTID == itemID }),
+              items[tappedIndex].isPlayable else {
+            return nil
+        }
+        let playable = items[tappedIndex...].filter(\.isPlayable).prefix(windowSize)
+        let window = AuraPlayQueueWindow(
+            items: playable.map(\.playbackPresentation),
+            startIndex: 0,
+            origin: origin,
+            queryContext: nil,
+            windowSize: windowSize,
+            nextOffset: nil
+        )
+        return (items[tappedIndex].playbackPresentation, window)
+    }
+
+    private func invalidateAfterSyncCompletion() async {
+        // Grouped index and browse pages are cached; rebuild them only after a
+        // sync generation completes.
+        guard case .complete = syncProgress.state else { return }
+        if let lastSyncedAt = syncProgress.lastSyncedAt, lastSyncedAt == lastSyncCompletionDate {
+            return
+        }
+        lastSyncCompletionDate = syncProgress.lastSyncedAt
+        await reloadGroupedIndexIfNeeded(force: true)
+        if let context = browseContext {
+            await reloadBrowseWindow(
+                sort: context.sort,
+                mediaType: context.filter.mediaType,
+                unplayedOnly: context.filter.unplayedOnly,
+                pageSize: context.limit
+            )
+        }
+    }
+
+    private var scopeKey: String {
+        "\(scope.accountAddress ?? "none")|\(scope.chain.rawValue)"
+    }
+
+    @ObservationIgnored private var isLoadingMoreBrowseItems = false
+
+    public func runSemanticSearch() async {
+        let query = semanticSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            clearSemanticSearch()
+            return
+        }
+
+        isSemanticSearchRunning = true
+        do {
+            let results = try await semanticSearchService.search(
+                query: query,
+                in: scope,
+                limit: 8,
+                minimumScore: 0.18
+            )
+            semanticSearchResults = results
+            semanticSearchStatus = results.isEmpty
+                ? "No semantic matches found."
+                : "\(results.count) semantic \(results.count == 1 ? "match" : "matches") found."
+        } catch {
+            semanticSearchResults = []
+            lastError = AuraPlayError.library(error)
+            semanticSearchStatus = "Semantic search is unavailable right now."
+            logger.log(
+                AuraPlayLogEvent(
+                    category: .library,
+                    level: .error,
+                    message: lastError?.localizedDescription ?? "AuraPlay semantic search failed."
+                )
+            )
+        }
+        isSemanticSearchRunning = false
+    }
+
+    public func clearSemanticSearch() {
+        semanticSearchText = ""
+        semanticSearchResults = []
+        semanticSearchStatus = "Semantic search is ready."
+        isSemanticSearchRunning = false
+    }
+
+    private func refreshLibrarySummary(syncDiscoveryIfNeeded: Bool) async {
         logger.log(
             AuraPlayLogEvent(
                 category: .library,
@@ -106,6 +431,9 @@ public final class AuraPlayRootModel {
         )
 
         do {
+            if syncDiscoveryIfNeeded {
+                try await nftDiscoverySyncService.syncAllIfNeeded()
+            }
             try await librarySyncService.syncLibrary(
                 in: scope,
                 accountName: currentAccount?.name
@@ -226,6 +554,7 @@ struct AuraPlayEntryView: View {
                 header
                 librarySummaryCard
                 libraryControls
+                semanticSearchSection
                 collectionsSection
                 tracksSection
                 mediaIntegrationSection
@@ -241,6 +570,9 @@ struct AuraPlayEntryView: View {
             id: "\(model.currentAccount?.address ?? "none")|\(model.currentChain.rawValue)"
         ) {
             await model.refreshLibrarySummary()
+        }
+        .refreshable {
+            await model.refreshLibraryFromUserAction()
         }
     }
 
@@ -340,6 +672,81 @@ struct AuraPlayEntryView: View {
                     }
                     .pickerStyle(.menu)
                     .accessibilityIdentifier(A11yID.AuraPlay.librarySort)
+                }
+            }
+        }
+    }
+
+    private var semanticSearchSection: some View {
+        AuraPlayLibrarySection(title: "Semantic Search", systemImage: "sparkles") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(Color.textSecondary)
+                        .accessibilityHidden(true)
+
+                    TextField("Search by mood, artist, sound, or collection", text: $model.semanticSearchText)
+                        #if !os(macOS)
+                        .textInputAutocapitalization(.never)
+                        #endif
+                        .disableAutocorrection(true)
+                        .submitLabel(.search)
+                        .onSubmit {
+                            Task { await model.runSemanticSearch() }
+                        }
+                        .accessibilityIdentifier(A11yID.AuraPlay.semanticSearch)
+
+                    if model.isSemanticSearchRunning {
+                        ProgressView()
+                            .controlSize(.small)
+                            .accessibilityLabel("Semantic search running")
+                    } else if !model.semanticSearchText.isEmpty {
+                        Button {
+                            model.clearSemanticSearch()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .accessibilityHidden(true)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Clear semantic search")
+                        .accessibilityIdentifier(A11yID.AuraPlay.semanticSearchClear)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
+
+                HStack(spacing: 10) {
+                    Text(model.semanticSearchStatus)
+                        .font(.caption)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer(minLength: 0)
+
+                    Button {
+                        Task { await model.runSemanticSearch() }
+                    } label: {
+                        Label("Search", systemImage: "sparkles")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(model.semanticSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isSemanticSearchRunning)
+                    .accessibilityIdentifier(A11yID.AuraPlay.semanticSearchRun)
+                }
+
+                if !model.semanticSearchResults.isEmpty {
+                    VStack(spacing: 10) {
+                        ForEach(model.semanticSearchResults) { result in
+                            AuraPlaySemanticResultRow(
+                                result: result,
+                                open: { onOpenItem(result.id) },
+                                play: { Task { await onPlayItem(result.id) } },
+                                addToQueue: { Task { await onAddItemToQueue(result.id) } }
+                            )
+                            .accessibilityIdentifier(A11yID.AuraPlay.semanticResult(id: result.id))
+                        }
+                    }
+                    .accessibilityIdentifier(A11yID.AuraPlay.semanticResults)
                 }
             }
         }
@@ -573,7 +980,7 @@ private struct AuraPlayTrackRow: View {
                     }
                     .frame(minWidth: 44, minHeight: 44)
                     .disabled(!item.isPlaybackReady)
-                    .accessibilityLabel("Play \(item.title)") // [VERIFY] item title is the playback label.
+                    .accessibilityLabel("Play \(item.title)")
                     .accessibilityHint("Starts playback for this track")
 
                     Button(action: addToQueue) {
@@ -581,12 +988,85 @@ private struct AuraPlayTrackRow: View {
                     }
                     .frame(minWidth: 44, minHeight: 44)
                     .disabled(!item.isPlaybackReady)
-                    .accessibilityLabel("Add \(item.title) to queue") // [VERIFY] item title is the queue label.
+                    .accessibilityLabel("Add \(item.title) to queue")
                     .accessibilityHint("Adds this track to the upcoming queue")
                 }
                 .buttonStyle(.borderless)
             }
         }
+    }
+}
+
+private struct AuraPlaySemanticResultRow: View {
+    let result: AuraPlaySemanticSearchResult
+    let open: () -> Void
+    let play: () -> Void
+    let addToQueue: () -> Void
+
+    var body: some View {
+        AuraSurfaceCard(style: .regular, cornerRadius: 18, padding: 12) {
+            HStack(spacing: 12) {
+                AsyncImage(url: artworkURL) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.secondary.opacity(0.16))
+                        .overlay {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(Color.textSecondary)
+                                .accessibilityHidden(true)
+                        }
+                }
+                .frame(width: 52, height: 52)
+                .clipShape(.rect(cornerRadius: 10))
+                .mediaAccessibility(.decorative)
+
+                Button(action: open) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(result.title)
+                            .font(.headline)
+                            .foregroundStyle(Color.textPrimary)
+                            .lineLimit(2)
+                        Text(result.artistName ?? result.collectionName ?? "AuraPlay")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                            .lineLimit(1)
+                        Text(scoreLabel)
+                            .font(.caption)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+
+                HStack(spacing: 4) {
+                    Button(action: play) {
+                        Image(systemName: "play.fill")
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
+                    .disabled(!result.isPlayable)
+                    .accessibilityLabel("Play \(result.title)")
+                    .accessibilityHint("Starts playback for this semantic search result")
+
+                    Button(action: addToQueue) {
+                        Image(systemName: "text.badge.plus")
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
+                    .disabled(!result.isPlayable)
+                    .accessibilityLabel("Add \(result.title) to queue")
+                    .accessibilityHint("Adds this semantic search result to the upcoming queue")
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+    }
+
+    private var artworkURL: URL? {
+        result.artworkURLString.flatMap(URL.init(string:))
+    }
+
+    private var scoreLabel: String {
+        "Match \(Int((result.score * 100).rounded()))%"
     }
 }
 

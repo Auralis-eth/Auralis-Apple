@@ -1,5 +1,391 @@
 # Journal
 
+## 2026-07-17 — Helius Learned To Ask For The Right Shelf
+
+The Solana NFT path needed the right amount of ambition. Helius says `searchAssets` is the power tool for filtered discovery, but a plain wallet gallery still belongs on `getAssetsByOwner`. Both the app inventory provider and AuraPlay discovery now use that endpoint for wallet-owned NFTs, explicitly keep fungibles out, and ask for collection metadata plus unverified collection grouping so the library does not silently miss the oddball records users actually care about.
+
+The other trap was the JSON-RPC envelope. Helius can return HTTP 200 with an `error` payload, which means "the cashier said no" can look like "the door opened" unless we check the receipt. The clients now decode RPC errors, map auth and rate-limit failures into typed app errors, and tolerate missing collection grouping instead of dropping the whole response on the floor. Provider APIs are restaurants, not vending machines: sometimes the plate comes back with a note, and the code has to read it.
+
+The follow-up docs also caught a useful performance wrinkle: `total` belongs with `showGrandTotal`, and that flag is slower. Pagination now walks until Helius returns a short page instead of paying for a grand-total headcount on every shelf check.
+
+The robustness pass added one more Helius lesson: not every empty shelf is a broken shelf. The DAS docs list 404 as "no assets found" for owner queries, so Auralis now treats that as an empty wallet instead of a provider outage. Rate limits also got a proper traffic light: both Helius paths retry transient 429/server responses, and the shared inventory provider respects `Retry-After` through the existing parser that understands numeric seconds and HTTP-date headers. The API is basically saying, "come back after the kitchen timer rings"; our code now listens instead of pacing in the doorway.
+
+## 2026-07-17 — SwiftData Reset Stopped Taking The Trapdoor
+
+A UI test crash pointed straight into CoreData's SQL generator while SwiftData was performing a change request. The app code looked harmless: `ModelContext.delete(model:where:)` with "delete everything" predicates during privacy reset, logout cleanup, and token/search history clearing. In practice, that route asks SwiftData to build a batch-style delete under the floorboards, and the simulator can abort before Swift ever gets a polite throwable error.
+
+The fix was intentionally boring: fetch the rows and delete the models one by one inside the existing rollback-safe transaction wrapper. It is not the fastest way to empty a warehouse, but these are local reset flows where correctness matters more than shaving milliseconds. The lesson sticks: SwiftData object deletion is the well-lit hallway; model-wide batch deletion is a shortcut we only take after proving the current OS can handle the schema.
+
+## 2026-07-17 — AuraPlay's Ship Review Found The Fire Doors
+
+The release review found three different kinds of “looks fine until the inspector opens the door” problems. The service boundary had let `AnyView` sneak into a contract file, which is like storing stage props in the wiring closet: convenient for a minute, confusing forever. The video-surface protocol now lives with player presentation, while the service contracts are back to pure playback state and commands.
+
+The local-data ledger also got its missing AuraPlay shelves. Media items were classified, but embeddings, NFT token rows, playlists, and playlist items were not. Those rows are not secrets, but they are wallet-scoped behavior and curation records, so they now clear with the dedicated AuraPlay persistence reset phase. Privacy reset is a product contract, not a spreadsheet chore.
+
+Two UI and network lessons landed with it. The full player now keeps dark media chrome readable even when the host snapshot asks for light mode, and the macOS Up Next snapshot path uses a concrete scroll layout so duplicate queue rows actually show up. Artwork prefetching also stopped trusting `Content-Length` after the meal was already on the plate: it now rejects oversized declared bodies early and streams bytes with a hard cap for providers that omit the header.
+
+## 2026-07-17 — AuraPlay Swept The Old Room And Rekeyed The Locks
+
+Two ship blockers closed today. First, the legacy now-playing surface is fully gone: with `AuraPlayNowPlayingView` deleted, this pass removed the furniture that only it used — `AuraPlayRecentlyPlayedSection` and the four recently-played members on `AuraPlayPlaybackPresenting`, along with `AuraPlayRecentlyPlayedItem` and the matching wrapper/runtime/mock conformances. Playback history still exists; it just lives where the new player already looks, in the queue presentation's history roles. One now-playing surface, one contract, no drift.
+
+Second, the last AuraPlay callers stopped freelancing their gateway knowledge. The app-target library sync and the package indexer both normalized artwork through hand-rolled or legacy sanitisers that either dropped `ipfs://` art or duplicated Pinata rewrites; both now route through `URLResolver`, so decentralized artwork resolves the same way everywhere. The video wireframe's gateway-fallback resolver also stopped carrying its own hard-coded host list and now derives it from `AuraPlayStorageResolutionConfiguration`. The legacy `Auralis/Helpers` URL utilities remain only for non-AuraPlay shell callers (`NFTKit`, `AuralisPrimaryModels`) — retiring those is shell cleanup, not AuraPlay debt.
+
+Validation: full MusicFeature package run (95 tests) green under the beta toolchain, and the app builds with test targets. Gaps and Status docs updated to match.
+
+## 2026-07-16 — Phase 10 Put The Mode Switches Where Hands Expect Them
+
+The full player already had a working Up Next room, but shuffle and repeat were hiding in that room like light switches mounted inside a closet. This pass moved those controls onto the main Now Playing surface too, while keeping them wired to the same command path as the sheet. One state source, two convenient handles.
+
+A small accessibility breadcrumb got cleaned up at the same time: the reusable gesture layer now takes its accessibility identifier from the surface hosting it, so artwork and video no longer wear the same test badge. The audio normalisation copy also got more honest about the target: about -14 LUFS from approximate metadata, not a studio-grade promise with a fancy sticker.
+
+## 2026-07-16 — Phase 10 Player Controls Found Their Wires
+
+The full player had the right dashboard labels, but a few buttons were still politely pointing at empty space. This pass connected the Phase 10 player adapter to the runtime and video bridge for the controls that matter: repeat, shuffle, PiP, subtitles/audio descriptions, playback speed, video aspect, route picking, and the real shared video surface. The important architectural move is still restraint: `MusicFeature` gets the reusable UI and command vocabulary, while the app-owned runtime and video wireframe keep the engine keys.
+
+The scrubber learned a small but user-facing memory trick too: remaining-vs-total time now survives relaunch through `AppStorage`. The player gesture layer now sends double-tap seek, middle-tap video chrome, pinch aspect toggling, and swipe-down dismiss through the same command surface, with Reduce Motion changing the feel instead of changing the feature. That is the difference between a pretty control panel and one that keeps working when the room changes.
+
+## 2026-07-16 — AuraPlay Library Stopped Being A Display Case
+
+Phase 9’s library now behaves like a working record shop instead of a museum shelf. Collection rows and creator rows open real scoped detail routes. Playlist rows open a playlist editor with create, rename, delete, remove, and drag-reorder flows wired through the SwiftData playlist actor, so the UI no longer pretends “add to playlist” is the same thing as “add to queue.” Sync got a counter at the front desk too: the Music tab can show discovery progress, completion, errors, and indexing work without learning the sync coordinator’s private plumbing.
+
+Phase 10 moved furniture into the room as well. The mini-player now opens the new Phase 10 full-player shell through an adapter over the live playback presenter, so audio playback uses the new presentation and command contracts while keeping the existing engine stable. The library start path also stopped throwing the whole library at playback. It now seeds a bounded queue window and lazily tops up as the listener advances, which is the difference between handing someone the next crate and dropping the whole warehouse on the turntable.
+
+The useful gotcha: SwiftUI navigation was not the hard part. The hard part was keeping each doorway honest. Item details still belong to the app router, playlist mutation belongs to the playlist actor, sync progress belongs to the sync coordinator, and the player UI talks through presentation/command contracts. The screen feels more complete because fewer things are freelancing.
+
+The final Phase 10 pass made that doorway more than a drawing. The live runtime now hands the new player a full current-item card: media kind, chain, contract, token ID, share URL, explorer URL, and queue mutations. The context menu buttons are not decorative anymore; share, explorer, copy contract, queue delete, and queue reorder all travel through the adapter into real app behavior. Think of it as replacing the cardboard “control panel” with switches connected to wires.
+
+The video side also got a useful audit point: the production video shell is already using `PlayerContainerView` and passes its `AVPlayerLayer` into the PiP controller, so the layer that PiP needs is not trapped behind SwiftUI chrome. The only thing deliberately left outside this pass is the real-device PiP/AirPlay/video QA run, because simulator builds cannot prove route-picker hardware behavior.
+
+## 2026-07-16 — AuraPlay Got Shelves, A Clipboard, And A Bouncer
+
+Phase 9 stopped being a blueprint and became the Music tab’s front door. `MusicFeatureRootView` now opens onto a real `LibraryRootView`: six segments, grid/list browsing, AuraPlay-owned media rows, collection/creator grouping, playlist rows, the existing mini-player mounted at the root, and accessibility IDs registered in the shared `AuraUI` ledger. The old `AuraPlayEntryView` is still around as a useful migration room, but it is no longer the production lobby.
+
+Under the floorboards, AuraPlay gained the missing shelves: duration and last-played metadata on media rows, typed media query windows, ordered AuraPlay playlist tables, and a playlist service that keeps positions gapless after every shuffle of the stack. The important bug-shaped lesson came from Swift 6: SwiftData models are not party favors you hand across actor boundaries. Query windows now return Sendable snapshots, and playlist tests use snapshot helpers instead of smuggling live model objects out of a model actor. The bouncer at the actor door is doing its job.
+
+Phase 10 also has its package-side player room now: presentation contracts, command protocol, full-player shell, coalesced scrubber, Up Next, audio controls, and video chrome. It is still waiting on the live app adapter cutover and device QA, but the UI no longer needs to invent playback state. It watches one clipboard and sends commands back through one counter.
+
+## 2026-07-16 — Phase 10 Drew The Player Room Before Moving The Furniture
+
+Phase 10 is tempting to treat as a prettier Now Playing sheet. The plan pass says no: the existing audio Now Playing view, the video wireframe, and the Phase 8 orchestrator all own useful pieces, but the shipping player needs one shared state-and-command doorway. Otherwise the scrubber, video controls, audio controls, PiP, and queue can quietly become five little playback surfaces wearing the same coat.
+
+The blueprint keeps the player honest. State comes from the orchestrator, media rendering comes from the existing engines, and SwiftUI observes and commands. Audio controls disappear for video, video controls disappear for audio, drag scrubbing and double-tap seeking share one coalescer, and dismissing the full player never stops the music. A full-screen player should feel powerful, but its best engineering trick is restraint.
+
+## 2026-07-16 — Phase 9 Got A Real Library Blueprint
+
+AuraPlay Phase 9 looked like a UI phase at first glance: tabs, cells, playlists, mini-player, snapshots. The plan pass found the important catch hiding under the counter: the current Music tab is still a migration dashboard, and the package is missing some of the contracts a real Library screen would need to avoid theater props. Sort/filter needs a typed media query service. Playlists need ordered AuraPlay-owned rows, not the older unordered `Playlist.tracks` bag. The mini-player needs an orchestrator-shaped contract instead of a tiny playback-controller peephole.
+
+So the Phase 9 plan now starts with the kitchen equipment before plating the meal. Build the query, playback, playlist, grouping, seed, and accessibility seams first; then the Library UI can be built once and reused across grid, list, collection, creator, playlist, and future search. The lesson is a good one: a product screen is only "just UI" when the data and behavior underneath already speak the product's language.
+
+## 2026-07-16 — Phase 5 Tests Got A Shipping Lane
+
+The Phase 5 discovery suite already had the important coverage; today closed the boring-but-critical question of whether the release machinery actually runs it. CI now drives the `MusicFeature` package through Xcode with `xcodebuild test -scheme MusicFeature -destination "platform=macOS"` before the app unit tests, which keeps the Alchemy, Helius, metadata fetcher, parser/classifier, artwork prefetcher, and full NFT discovery integration coverage off the plain-`swift test` road that still trips over SwiftData macro loading on this machine.
+
+The Xcode package plan reports 67 enabled tests, zero disabled, and the Phase 5 file runs its nine lettered scenarios plus the metadata-failure continuation case. Those tests stay local and deterministic: mock provider clients, mock metadata fetches, mock artwork/indexing hooks, and in-memory SwiftData. In coffee-shop terms, we finally checked not just that the kitchen has a fire alarm, but that the building inspection actually pulls its cord.
+
+## 2026-07-15 — Search Learned To Forget And To Wonder
+
+Spotlight indexing had a classic library-card problem: it knew how to add and update cards, but not how to pull cards when a record left the shelf. AuraPlay now treats indexing as reconciliation. If a requested media ID is missing or no longer searchable, the Spotlight client deletes it from the `com.auraplay.media` domain. When sync marks transferred tokens inactive, it also tells the indexer to remove those IDs immediately, so system search does not keep ghost tracks around.
+
+The vector side also moved from warehouse inventory to front-desk service. `AuraPlayEmbeddingService` can now run wallet-and-chain-scoped semantic queries over persisted vectors, rank them with cosine similarity, and hand the Music screen result rows that open, play, or queue the matching media. The UI keeps literal filtering and semantic search separate: one is the exact shelf label, the other is the helpful clerk who understands "late night synth" even when the title does not say those words.
+
+The engineering lesson is small and useful: indexing systems need a delete story on day one, and embeddings are not a feature until there is a query path humans can touch. Persistence is the pantry; search is the meal.
+
+## 2026-07-15 — Phase 5 Got Its Night Shift Crew
+
+Foreground sync is the person at the counter; background refresh is the night shift that restocks the shelves while nobody is looking. AuraPlay now registers `com.auraplay.nft-sync` as a real `BGAppRefreshTask`, declares the required `fetch` background mode and permitted identifier, and routes the task through the same `NFTSyncCoordinator` factory used by the visible Music surface. No second pipeline, no secret shortcut.
+
+The post-sync workers are real now too. Spotlight indexing turns persisted AuraPlay media rows into Core Spotlight documents in the `com.auraplay.media` domain, with a mockable client so tests verify the document contract without poking the device index. Embedding processing persists Float32 vectors in a SwiftData `AuraPlayMediaEmbedding` table, fingerprints source rows, and skips unchanged media for the same Natural Language model revision. Think of it as giving each track both a library card and a semantic scent trail.
+
+The useful pitfall: package tests are only useful if Xcode runs them. The `MusicFeature` scheme still reports zero tests, so the coverage for these production services lives in the active `AuralisTests` plan where CI can actually see it. That is less aesthetically pure than package-local tests, but it is much more honest.
+
+## 2026-07-15 — Phase 5's Old Road Learned The New Video Flag
+
+The normal app build found a small but real contract mismatch: the legacy AuraPlay library projection still handed `AuraPlayMediaItemUpsertRequest` an audio-era shape after Phase 5 taught media rows about video. That old path is like a side entrance to the same theater; even if the new discovery lobby knows whether a token is audio or video, the side entrance still needs to stamp the ticket correctly.
+
+The fix was intentionally narrow. Existing app NFT projections are still audio-first because they only have one sanitized playback URL, so they now say `hasAudio` when that URL exists and `hasVideo: false`. That keeps the production build honest without pretending the older projection path has done Phase 5-style media classification.
+
+## 2026-07-15 — Phase 5 Learned To Fail Loudly And Cache Quietly
+
+The discovery clients had the pipes, but a review found two places where the contract was more implied than proven. Alchemy now has its own direct tests standing at the provider boundary: two-page pagination, empty wallets, ERC-1155 balance handling, and rate-limit retries all run through a mocked `URLSession`, so no test needs to peek at a real API key or wake a real provider.
+
+Rate limits also stopped wearing a generic library-error coat. `AuraPlayError.network(.rateLimited)` is now the package-level signal for Alchemy and Helius after retry exhaustion. That is the difference between telling the app "something went wrong in the basement" and saying "the provider asked us to slow down." The UI can make a better call when the error speaks plainly.
+
+The metadata cache got a quieter second trip, too. The first tokenURI fetch still resolves through the gateway chain and performs the health probe, but successful resolutions are remembered inside `MetadataFetcher`. When the JSON body is already in `URLCache`, the next fetch can go straight to the cached GET response instead of knocking on the gateway door with another `HEAD`.
+
+## 2026-07-15 — Phase 5 Artwork Cache Gets Its Launch Key
+
+P5-007 had the downloader, but the app still needed the kitchen prep station: a shared `URLCache` big enough to make artwork prefetching matter after the first sync. `AppLaunchConfiguration` now installs a 50 MB memory / 500 MB disk cache as the app boots, so `AsyncImage` and the prefetcher are working from the same pantry instead of hoping the default cache has enough shelf space.
+
+The tests now cover both halves of the contract. App-level tests prove launch cache sizing and shared-cache installation, while package-level `MediaItemArtworkPrefetcherTests` exercise mocked downloads, cache hits, oversized-image skips, and Low Power Mode bypasses without touching the network. The small gotcha: `GatewayFallbackChain` still performs its `HEAD` probe before the prefetcher checks for cached GET data, so the cache-hit test expects no extra download rather than zero URLSession traffic. That distinction matters; otherwise the test would be arguing with the architecture instead of guarding it.
+
+## 2026-07-15 — Phase 5 Got A Real Discovery Conveyor
+
+The tempting question was, "Can we just delete `NFTTokenDTO`?" That would be like removing the serving tray because the kitchen already has plates. The DTO is not the final meal; it is the clean handoff between provider clients, metadata parsing, classification, and persistence. Pulling the app's giant SwiftData `NFT` model into `MusicFeature` would make the package boundary sag under furniture it does not need to carry.
+
+This pass gave Phase 5 the missing conveyor belt pieces instead. `AlchemyNFTClient` now implements the EVM discovery contract beside Helius, `NFTSyncCoordinator` walks wallet scopes through fetch, tokenURI fallback, parser, classifier, SwiftData upsert, inactive-token marking, indexing, and artwork prefetch. AuraPlay also has its own persisted token table, so discovery can remember active/inactive NFT tokens without hijacking the older app-wide NFT store. The existing `AuraPlayLibrarySyncing` path still has its job: projecting already-persisted app NFTs into the music library. Phase 5 now has the separate wallet-to-media ingestion route it was missing.
+
+The test story improved but exposed a tooling wrinkle. The nine Phase 5 scenarios now live as Swift Testing integration coverage under `MusicFeatureTests`, using mock clients and in-memory SwiftData. Xcode builds the project cleanly, but the active `Auralis-Fast` plan still only includes `AuralisTests`; the `MusicFeature` scheme currently reports zero tests. SwiftPM can start with its sandbox disabled, but this machine's command-line toolchain cannot load SwiftData macros, so package tests need to run through a properly wired Xcode test action or CI toolchain.
+
+## 2026-07-15 — Phase 5 Came Back To The Real NFT Road
+
+The first Phase 5 map briefly wandered into DTO country. That looked tidy on paper, but Auralis is already shipping its discovery spine through the persisted `NFT` model and `NFTFetcher` provider boundary. Building a parallel `NFTTokenDTO` road would have given us two highways to the same library, with the app trying to remember which one was real.
+
+This pass pulled Phase 5 back onto the production route. Solana discovery now enters through a Helius DAS provider that returns the same `NFT` inventory shape Alchemy uses. The shared fetcher accepts Solana base58 wallets instead of treating every account as EVM, and the app factory selects Helius for `.solanaMainnet` while keeping Alchemy for EVM chains. Missing tokenURI metadata now gets fetched into the existing metadata-prep step, schema-specific media fields patch the real `NFT` fields, and artwork prefetch runs after persistence without blocking refresh completion.
+
+The useful lesson is architectural, not just musical: when an app already has a working conveyor belt, do not build a decorative second conveyor beside it. Upgrade the belt the app actually uses, then make tests stand at the stations where data changes hands: provider page mapping, chain-aware validation, tokenURI fallback, Sound/Zora/ERC-1155 media normalization, and refresh debounce.
+
+## 2026-07-13 — Unit Tests Stopped Opening The Real Record Crate
+
+The test crash hunt started with a suspiciously beta-shaped crime scene: a small account-test batch reported `signal trap` for almost every test, while one pure planner test slipped through. The console told the better story. Before those tests could do much of anything, the hosted unit-test app launched the full Auralis shell, loaded duplicate Swift package classes into the app and test bundle, and tried to open the live AuraPlay SQLite store. That store then hit a migration error for a required `AuraPlayMediaItem.cachedFileStateRawValue` value. The account tests looked guilty because they were nearby when the kitchen caught fire.
+
+The fix is deliberately boring: `MusicAssembly.makeRuntime()` now asks for an in-memory `AuraPlayModelContainer` when `XCTestConfigurationFilePath` is present. Hosted unit tests still exercise the app shell, but they no longer drag yesterday's simulator music database into today's run. This is the engineering lesson: when a unit test crashes before its own code matters, inspect the host app startup path first. Test tags are useful for known beta runner failures; they are not a substitute for keeping live persistent stores out of unit-test bootstrap.
+
+One environment wrinkle remains from the same session: after clearing DerivedData, Xcode beta temporarily reported every local package product as missing even though the package manifests and project references were intact. That is resolver/index state, not a source-code product mismatch.
+
+## 2026-07-11 — Phase 8 Cut The Second Steering Wheel
+
+The remaining Phase 8 problem was not missing machinery. It was ownership. `PlaybackOrchestrator` had the right traffic rules, but live audio playback and remote commands still had a second route through `AuraPlayPlaybackRuntime`. That is how "single source of truth" turns into "single source of truth, except Tuesdays."
+
+The runtime is now the adapter over the conductor instead of a rival conductor. Production audio starts through `PlaybackOrchestrator.play`, the remote command stream binds through `RemoteCommandCoordinator`, and tiny runtime bridge controllers let the orchestrator drive the existing audio engine and video remote-control surface without forcing the SwiftUI presentation layer to change shape. The good pattern here is old-school but reliable: keep the public contract stable, move the authority underneath it.
+
+The new guard test checks that runtime audio still owns a `PlaybackOrchestrator`, binds remote commands through the coordinator, and does not quietly recreate a direct `remoteCommandPublisher.events` consumer. A bug we prevent with a source-level tripwire is a bug nobody has to re-learn during release week.
+
+## 2026-07-11 — Phase 8 Stopped Asking For Migration Permission
+
+The first Phase 8 pass built the traffic controller, but part of the car was still driving around it. That made sense only if a released compatibility contract existed. It does not. For an unreleased app, keeping two playback authorities is not caution, it is clutter with a steering wheel.
+
+This hardening pass tightened the dedicated `PlaybackOrchestrator` instead of preserving the split as a design goal. Completion now has an explicit orchestrator path that marks the finished item, advances the queue, and avoids accidentally rewriting the completed position with the last playback tick. Cadence writes are injectable so tests can prove periodic persistence without waiting five real seconds, and audio start now calls a queue-advance coordinator hook for next-item preparation. The tests now cover all remote command cases, completion advance, cadence plus pause flush, and next-item preparation.
+
+The useful lesson: an ADR is not a spell. Writing "single owner" in a decision record does not make the code obey it. The right unreleased-product move is to make the desired architecture the target and keep tests as the guard rails while the remaining runtime cutover happens.
+
+## 2026-07-11 — AuraPlay Got A Traffic Controller
+
+Phase 8 found the classic media-app trap: two things can be individually correct and still make a mess together. Audio knew how to play. Video knew how to play. Remote commands knew how to shout instructions. But nobody was standing in the intersection making sure only one engine moved at a time, and nobody was checking whether an old async load was still allowed to touch the dashboard after the user had already picked something newer.
+
+The new playback orchestration layer is that traffic controller. `AuraPlayPlaybackQueue` gives every queued occurrence its own `QueueEntry` UUID, because the same song can appear twice and still be two different seats in the line. `PlaybackOrchestrator` owns the main-actor state machine and a playback-generation token, so a slow load from track A cannot wander back later and overwrite track B. The live audio runtime now has the same generation-token guard around URL resolution, cache readiness, scheduling, and engine start.
+
+Position persistence also stopped being a side hustle. `AuraPlayPlaybackPositionState` and its model actor give audio and video one SwiftData-backed place to write current position, completion, and most-recent restore state. The useful lesson is simple: playback state is not a souvenir each engine keeps in its own drawer. It is the app's flight recorder, and there should be one cockpit writing it.
+
+## 2026-07-11 — Video Playback Learned To Stop Keeping Every Receipt
+
+AuraPlayVideoEngine had a good old-fashioned shipping-review catch: not one dramatic crash, but a cluster of small bookkeeping lies. AVFoundation asked the resource loader for a UTI and we sometimes handed it a MIME type. That is the media equivalent of writing "soup" where the shipping form wants a barcode. The fix now translates server `Content-Type` values through `UTType` and falls back to the media file extension when the server is vague.
+
+The player event stream also needed a memory diet. A 60fps tick stream is great while a UI is listening, but unbounded buffering means a plain play/pause host can quietly stack up hundreds of thousands of events. The controller now keeps only the newest buffered playback events, and the package README spells out the single-consumer `AsyncStream` rule so the integration coordinator and queue controller do not accidentally split events between themselves.
+
+The offline download managers got the mop-and-bucket pass: progress observers unregister when listeners leave, terminal records finish streams, successful URLSession tasks leave the task registry, and unknown zero-progress callbacks no longer get persisted over completed downloads. The broader lesson is the boring one that saves products: every async stream, task map, and delegate callback needs an exit strategy.
+
+## 2026-07-10 — Video Plugged Into The System Desk
+
+The video player had plenty of buttons on the counter, but a few were still wired like a rehearsal board: the app view drove playback directly while the engine's integration coordinator sat nearby with the system plugs for Now Playing, remote commands, persistence, gateway fallback, and background PiP. That is like having the stage lights patched into the practice dimmer instead of the theater console.
+
+`AuraPlayVideoWireframeView` now creates a real `VideoPlaybackIntegrationCoordinator` for the selected wallet-scoped video. The view still owns the SwiftUI dashboard, but it forwards playback events into the coordinator so Lock Screen metadata, remote play/pause/scrub commands, position writes, media-session interruption handling, completion resets, and gateway recovery all run through the shared engine contract. The speed picker now starts from the stored speed, and Audio Descriptions get their own explicit menu instead of being merely listed as detected tracks.
+
+The useful boundary is still honest: this finishes the code wiring, not hardware certification. PiP, AirPlay routes, HDR display behavior, remote commands, and Lock Screen controls still need real-device QA because simulators and unit tests cannot prove the system UI actually behaves in the user's hand.
+
+## 2026-07-10 — PiP Learned The Way Back To The Theater
+
+The first Phase 7 video UI pass had the right player machinery, but PiP restoration still had a small navigation trap: when the system asked the app to restore the interface, the view opened fullscreen without first making sure the Music video route was actually back on screen. That is like turning on the projector before walking the viewer back into the theater.
+
+`AppRouter` now has an explicit `restoreMusicVideoWireframe()` route contract. The PiP delegate closure calls that before presenting fullscreen, and the router avoids stacking duplicate `.video` routes if restoration fires more than once. The same tune-up aligned smart resume so the button appears for every saved position the helper considers resumable, and the HDR badge now checks display EDR headroom instead of treating wide color as proof of HDR hardware.
+
+The lesson: media UI restoration is a shell contract, not just a player callback. The engine can ask for the screen, but the app router has to know how to put the user back in the right room.
+
+## 2026-07-10 — Phase 7 Video Got Real Hands On The Controls
+
+The video engine already had a serious toolbox, but the app surface was still treating some of those tools like display models behind glass. This pass moved the important pieces onto the actual AuraPlay Video screen: the AVPlayerLayer surface now catches double taps for 15-second seeks, pinches for zoom, and uses Liquid Glass chrome for the controls that live on top of the picture.
+
+The library also learned a good media-app survival trick: when metadata art is missing, generate the poster from the video itself instead of showing a generic tile. That is like labeling a movie shelf with frames from the film rather than blank index cards. Playback got stricter too: unsupported formats raise a toast and skip forward, failed loads get video-specific warnings, saved positions only offer resume when they are truly in the middle, and prolonged gateway stalls try another gateway before giving up.
+
+The subtle platform lesson was orientation and PiP. A SwiftUI view can know a video is landscape, but UIKit still has to enforce the app's rotation policy. The new orientation bridge keeps portrait/square media locked upright and lets landscape media rotate. PiP restoration now returns users to the fullscreen player instead of quietly closing the presentation door it was supposed to reopen.
+
+## 2026-07-09 — The Mini Player Got Its Warning Light
+
+The final Audio Engine v1 UI polish was not a new music feature so much as a trust feature. Now Playing already had the detailed dashboard, but the mini player followed users around the app like a tiny status strip. If a track was buffering, downloading, saved offline, pinned, or stuck on a cache error, that little strip needed to say so instead of making users open the big cockpit to check the gauges.
+
+`AuraPlayMiniPlayerView` now shows a compact buffering/offline/cache row under the scrubber whenever active playback or cache state needs attention. The same pass made offline-unavailable and corrupted-cache failures use the top playback warning path, matching unsupported-format and engine-start failures. The useful lesson: an audio app should not hide recoverable trouble in the room the user just left.
+
+The docs now call the Audio Engine v1 UI implemented across Now Playing, mini player, and Settings. The remaining gate is the honest one: real-device QA for routes, interruptions, Lock Screen, background playback, poor networks, audible transitions, offline launch, and battery.
+
+## 2026-07-09 — Settings Finally Reached The Live Mixing Desk
+
+The last AuraPlay settings gap was subtle because the controls looked real: EQ, loudness, AutoMix, and offline preference all wrote to `UserDefaults`. But the already-running audio engine had its own in-memory knobs. That is like changing the recipe card in the kitchen binder while the chef is already cooking from memory.
+
+`SettingsView` now receives the shared `AuraPlayPlaybackRuntime` from `MainTabView`. When a user changes EQ, custom band gains, normalization, or AutoMix from Settings, the same runtime methods used by Now Playing fire immediately. Opening Settings also syncs from the runtime first, so the global panel and player panel no longer drift apart.
+
+The offline toggle still stays conservative: turning it on asks the runtime to pin the current track when possible and updates the durable preference for future cached tracks. Turning it off stops future automatic pinning without silently undoing any explicit pin a user already made.
+
+## 2026-07-09 — AuraPlay Closed The Three Annoying Escape Hatches
+
+The latest audio pass was not about glamorous controls. It was about the three places users could still fall through the floor: errors that only lived as quiet panel copy, an offline preference that did not exist globally, and system route interruptions that paused the engine without telling the SwiftUI state machine. That is like the stage manager cutting the music but forgetting to tell the light board.
+
+`AuraPlayPlaybackRuntime` now raises a real playback warning surface for critical engine-start failures and unsupported formats, and queued unsupported tracks are skipped instead of stranding the listener on a dead item. Settings gained a `Download for offline` preference, backed by `AuraPlayAudioSettings`, so cached tracks can be pinned automatically rather than relying only on the per-track button.
+
+The recovery path got the most important little contract: `EngineRecoveryCoordinator` now publishes a paused recovery event for route loss and interruption start. The runtime consumes that event, updates play/pause state, stops display ticks, and keeps Now Playing honest. Lesson: in media apps, the engine being correct is only half the work; the dashboard has to learn about every forced state change too.
+
+## 2026-07-09 — Phase 6 Gave The Lock Screen Its Own Clock
+
+The Phase 6 UI review found a small but important loose wire: the Lock Screen had a purpose-built 0.5-second elapsed-time ticker in `NowPlayingPublisher`, but the host runtime was not actually starting it. The app was updating Now Playing from the playback display loop instead, which is like asking the speedometer needle to double as the dashboard clock.
+
+`AuraPlayPlaybackRuntime` now starts the Now Playing elapsed ticker when real playback is active, restarts it after seeks so the system clock resumes from the new position, and stops it for pause, stop, error, or clear. The visible SwiftUI was already showing the right Phase 6 controls; this fix makes the system playback UI tell time through the machinery built for it.
+
+## 2026-07-09 — Phase 6 Got The Missing Knobs And Warning Lights
+
+The last Phase 6 pass found the kind of UI gap that sneaks into audio apps: the engine had real muscles, but the user could only reach some of the controls from the Now Playing room. That is like hiding the house thermostat behind the stereo cabinet. EQ, loudness normalization, and AutoMix are preferences, not just per-screen curiosities, so Settings now has a real AuraPlay Audio section.
+
+The fix also turned "custom EQ exists in the engine" into "custom EQ exists for humans." `AuraPlayAudioSettings` is the shared little recipe card for default keys, band labels, gain limits, and stored custom gains. Settings and Now Playing both read the same card. The runtime applies the same card to `AudioEngineController`, so the sliders are not decorative faders; they move the actual 10-band engine preset.
+
+The other missing warning light was playback failure copy. Unsupported formats and offline-missing media now get specific product messages instead of the old shrug of "could not load." That matters because users can act on "this `.ogg` is not supported yet" or "this is not saved on this device"; they cannot do much with a mystery failure.
+
+The remaining truth is hardware. The Phase 6 checklist now names the real-device gate for AirPods, calls, Siri, Lock Screen, background playback, poor networks, audible gaplessness, and battery. Code can wire the dashboard. A physical device still has to take the car onto the road.
+
+## 2026-07-09 — Phase 6 Put Real Wires Behind The Dashboard
+
+The earlier Phase 6 audit found the uncomfortable kind of almost-done: the buttons were visible, the engine package was capable, but some of the wires stopped behind the panel. AutoMix had a slider but no runtime handoff, Lock Screen artwork had a publisher but no artwork payload, cache/loudness lived in the engine but not in the app's durable media row, and the progressive-underrun recovery hook was waiting on the bench like a spare tire no one had mounted.
+
+The fix was to make the host runtime own the handoff. `AuraPlayPlaybackRuntime` now tracks the prepared next NFT and media record, schedules crossfade ramps when AutoMix is enabled, watches the engine's automatic transition counter, and promotes the app's current-track metadata when the engine swaps players. In other words: when the engine changes lanes, the dashboard follows instead of yanking the car back to the old lane and reloading the next song from scratch.
+
+Now Playing got the same honesty pass. Artwork is fetched before publishing system metadata, so the MediaPlayer artwork handler stays synchronous while Lock Screen and Control Center can receive the actual cover. Cache and approximate loudness also learned where to live after the app quits: `AuraPlayMediaItem` gained additive fields, the AuraPlay store now opens through a versioned migration plan, and the model actor has a playback-state update method. The cache manager still keeps its fast JSON index for file eviction, but the product-facing media row now remembers the state users care about.
+
+The remaining truth label is physical QA. Code can now connect the promised paths; only a real device can prove AirPods, interruptions, route changes, Lock Screen controls, bad networks, and battery drain behave like a shipping audio app.
+
+## 2026-07-09 — Phase 6 Learned The Difference Between Engine Ready And Ship Ready
+
+The audio package is now wearing its hard hat correctly: cache, gapless scheduling, recovery, EQ, normalization, Now Playing, remote commands, AirPlay route policy, and the deferred spatial/voice boundaries are all documented as package-side reality. But a package is not a product. It is the engine on a test stand; the app still has to bolt it into the car, connect the dashboard, take it onto actual roads, and make sure the steering wheel works when AirPods, phone calls, Lock Screen controls, and bad networks show up.
+
+`AuraPlay-Gaps.md` now tracks that distinction directly under Phase 6. The remaining gate is host integration and physical-device QA: real queue state, user controls, route selection, cache persistence, app-owned media adapters, loudness persistence, disciplined Now Playing publication, `AVInitialRouteSharingPolicy = LongFormAudio`, and the manual checklist. That keeps the docs honest: Phase 6 infrastructure can be ready without pretending every product edge has been signed off.
+
+The lesson is useful beyond audio: never let a green package test suite impersonate a shipping experience. Automated tests can prove the workshop machinery. Hardware QA proves the thing survives the weather.
+
+## 2026-07-08 — Phase 6 Audio UI Got Its Dashboard
+
+Phase 6 had the engine room: cache, progressive local-file playback, EQ, normalization, AutoMix, recovery events, and system metadata. What it did not fully have was the dashboard. That is a problem because a user cannot steer from inside the boiler room, and a reviewer cannot sign off a feature by reading gauges hidden behind a wall.
+
+The Now Playing surface now exposes the Phase 6 controls that belong in a player: EQ presets, loudness normalization, AutoMix duration, transition quality, cache/buffering state, recovery state, and spoken-word processing status. The runtime is no longer just playing sound; it is translating engine events into human-readable status. If a file is playable while still downloading, the cache panel says so. If the engine recovers from a route change or interruption, the recovery row has a place to tell that story.
+
+The lesson is the usual media-app lesson: advanced audio work should be mostly invisible until the user needs agency or trust. EQ and AutoMix are agency. Buffering, offline state, normalization, and recovery are trust. Put those on the dashboard, keep the graph details in the engine room, and make sure every visible switch has a real wire behind it.
+
+## 2026-07-08 — AuraPlay Got Backing Behind The Buttons
+
+The second AuraPlay UI pass turned the earlier honesty rule into a shipping rule: a control can show up only when there is machinery behind it. Audio now publishes real Now Playing metadata, listens to system remote commands, and gives the active track real save/pin/unpin cache controls. The 15-second skip buttons now match the runtime and remote-command convention, so the UI and engine finally clap on the same beat.
+
+Video grew up from a demo room into a wallet-scoped playback room. Instead of asking users for raw media URLs, it pulls video-capable library items for the active account and chain, resolves them through the shared resolver, and opens them in an AVPlayer-backed surface with PiP, fullscreen, route, speed, subtitle, audio track, chapter, and resume controls. The AuraPlay root also gained search, filters, and sorting so a real library can be scanned instead of admired from a distance.
+
+The important restraint stayed intact: shared sessions, video offline downloads, immersive handoff, multiview, EQ, and visualizer work are still not fake-shipped. They remain documented as future doors that need real hinges first.
+
+## 2026-07-08 — AuraPlay Stopped Showing Fake Doors
+
+The AuraPlay UI requirements report had one rule that mattered more than any shiny control: do not ship buttons that cannot do the thing they advertise. A disabled PiP button, a disabled offline button, or a route-mode picker that never changes routes is like putting a beautifully labeled elevator panel on a painted wall. It looks ambitious for a demo and dishonest in a product.
+
+The Music tab now leans into that honesty. Audio skip controls say and do the same thing: 15-second seeks, matching the package remote-command convention. The Now Playing integration panel keeps real AirPlay routing visible, but turns unwired route/offline behavior into readable status rows instead of fake controls. The video surface no longer exposes a raw resolved URL field or dead PiP/fullscreen/download/subtitle buttons; it loads sample media through a production-shaped player shell with real play/pause, seek, speed, AirPlay, and designed loading/error/buffering copy.
+
+The lesson is simple: a media app earns trust by making unavailable capability quiet, not tantalizing. When the host adapters arrive, the controls can return with real state behind them.
+
+## 2026-07-08 — The UI Audit Zoomed Out
+
+The AuraPlay UI report started as a shopping list for the media workshop, then grew into a map of the whole storefront. That matters because a music/video feature does not live in a display case by itself: users enter through onboarding, switch wallets through chrome, search across local objects, bounce through token detail screens, recover from provider failures, and eventually ask Settings to clean up the local trail.
+
+`AuraPlay-UI-Requirements-And-Gaps.md` now names that wider contract. The app is not just a pile of placeholders; Home, Search, Gas, NFT tokens, ERC-20 holdings, Settings, Profile, onboarding, shell restore, and global chrome all have real UI. The honest gap is proof: device QA, accessibility inspection, release-vs-debug surface visibility, and ugly-state testing across providers, caches, deep links, and destructive confirmations.
+
+The lesson is a good product-audit rule: do not call a feature report complete until you trace the doors into and out of it. AuraPlay can have the best media controls in the world, but if Search, chrome, account switching, or offline/provider states lie to the user, the experience still leaks.
+
+## 2026-07-08 — AuraPlay Got Its UI Shopping List
+
+The three AuraPlay media packages were starting to look like three well-stocked workshops with no shared shopping list for the storefront. Audio had playback machinery, video had a serious AVFoundation toolbox, and MediaCore had the language for shared sessions, but the app needed one honest ledger of what the user can actually touch.
+
+`AuraPlay-UI-Requirements-And-Gaps.md` is that ledger. It separates present controls from placeholders, package-only capabilities from app-wired behavior, and real product requirements from tempting demo scaffolding. The big lesson is that package readiness is not the same as product readiness. A PiP controller is not a PiP experience until the app owns restore behavior. A shared session contract is not SharePlay until real participants, queue identity, and attribution are visible. An offline manager is not offline UX until users can start, cancel, retry, and trust what is cached.
+
+The next useful move is not to wire everything at once. Start by making current audio and video controls truthful, then add host adapters one at a time so the UI never promises more than the app can back up.
+
+## 2026-07-08 — AuraPlay Moved Out Of The Old Audio Engine
+
+The old app-local `AudioEngine` had become a two-story building: downstairs it owned AVFoundation playback, upstairs it kept AuraPlay queue state, mini-player presentation, gateway resolution, and receipt logging. That made migration awkward because replacing the engine risked ripping out the dashboard along with the motor.
+
+The fix was to move the motor to the new `AuraPlayAudioEngine` package and keep a small app-level concierge named `AuraPlayPlaybackRuntime`. The runtime still speaks the contracts MusicFeature already expects: playback controls, mini-player presentation, queue counts, recent items, and receipt hooks. But when sound actually needs to happen, it delegates to `AudioEngineController`, `MediaCacheManager`, and `GaplessScheduler` from the package.
+
+The lesson: a migration seam should preserve the product conversation while swapping the machinery behind the counter. The UI still asks, "what track is playing?" and "what is next?" The answer now comes from a runtime that knows AuraPlay, while the heavy AVAudioEngine work lives in the package built for it.
+
+## 2026-07-08 — SharePlay Got Its Invitation Card
+
+The intro SharePlay session was less about transport mechanics and more about the invitation. A SharePlay activity needs a real identity: a unique reverse-DNS-style activity identifier, a title that names the activity rather than the app, a useful subtitle, a preview image that represents the shared thing, a fallback URL, and the right system category. That invitation card is what makes the system UI feel trustworthy instead of vague.
+
+`AuraPlayMediaCore` now has that neutral invitation model. Activities can describe their SharePlay type, app-specific launch payload, preview image identity, supported group contexts, and supported platforms. FaceTime, Messages, and AirDrop are now first-class contexts in the contract, with AirDrop also represented as a launch surface because nearby SharePlay still starts through the same share machinery.
+
+The practical product lesson is still restraint: MusicFeature should not show SharePlay UI until a GroupActivities adapter can back it with a real activity, metadata, and session state. The core now knows what a good invitation looks like; the app layer still needs the actual doorman.
+
+## 2026-07-08 — SharePlay Got A Shared Backpack
+
+`GroupSessionJournal` adds the missing backpack for SharePlay: not every shared thing is a tiny message. Photos, annotations, voice notes, PDFs, and other user-generated files need attachment semantics instead of being shoved through the messenger like furniture through a mail slot.
+
+`AuraPlayMediaCore` now models that backpack without importing GroupActivities directly. Shared attachments have IDs, kinds, display metadata, byte counts, content types, source participants, lifecycle rules, and add/remove mutations. The policy encodes the important WWDC constraints: 100 MB per attachment, end-to-end encryption expectations, and late-join catch-up without forcing everyone to re-upload the same blob.
+
+The design line is deliberate: use the journal for user-generated or collaboratively added attachments, not for primary media like a movie or NFT track that should come from a server or gateway. In AuraPlay terms, journal attachments are for the stuff people bring into the room together; the room itself still needs proper media URLs, caching, and provider validation.
+
+## 2026-07-08 — SharePlay Learned How To Start And How To Whisper
+
+The next SharePlay session filled in two gaps around the shared-room model. First, the app needs to know where a SharePlay activity can start: the share sheet, an in-app button, or a contextual menu. `AuraPlayMediaCore` now models that launch policy directly, including whether the share sheet should register the group activity prominently, quietly, or not at all.
+
+Second, not every SharePlay message deserves the same delivery promise. Playback state, queue identity, participant presence, and control actions are reliable traffic: they are the signed receipts of the room. Real-time hints are different. If a transient scrub preview or gesture point arrives late, it can be worse than dropping it. The core now has a delivery policy that names reliable and unreliable traffic, using the WWDC 256 KB payload ceiling as the shared limit.
+
+The ownerless-session lesson also turned into a contract. Staged sessions can carry each participant's initial playback contribution, so the future GroupActivities adapter can reconcile what everyone thinks the session is before the app starts playing. No single phone gets to be king of the room; the state has to survive handoff, late join, and system-ended sessions.
+
+## 2026-07-08 — SharePlay Got Its Session Passport
+
+The SharePlay plan moved from sticky-note wisdom into code. `AuraPlayMediaCore` now has the neutral session passport: activity identity, participant presence, lobby and late-join policy, queue/session identity, and attribution for who caused a playback change. That last bit matters because shared playback can otherwise feel haunted: the screen moves, but nobody knows whose hand touched the controls.
+
+`AuraPlayVideoEngine` also learned the first practical rule of coordinated video: if people are watching together and someone backgrounds the app, PiP is not a bonus feature, it is the bridge that keeps them in the room. The integration coordinator now accepts a coordinated-playback configuration plus an injectable PiP controller, and only auto-starts PiP on backgrounding for coordinated sessions. Local playback keeps its old behavior.
+
+The MusicFeature SharePlay button stays skipped for now. There is still no live GroupActivities adapter or truthful participant/session state in the feature layer, so adding a shiny button today would be a fake door. The right next move is to wire the shared session contract to real SharePlay sessions, then let MusicFeature present controls and presence once it can tell the truth.
+
+## 2026-07-08 — SharePlay Is A Shared Room, Not A Bigger Play Button
+
+The SharePlay session reframed AuraPlay’s future group mode in a useful way: do not start by asking "how do we broadcast playback?" Start by imagining everyone standing around the same record player. Anyone can touch the controls, everyone should know who is in the room, and if the music changes because someone else acted, the app needs to make that cause visible instead of leaving the screen to move mysteriously.
+
+For Auralis, the adoption path should keep the boundaries clean. `AuraPlayMediaCore` can own neutral SharePlay vocabulary such as activity identity, participant presence, late-join policy, and shared-control attribution. `AuraPlayAudioEngine` and `AuraPlayVideoEngine` should own the AVFoundation coordination details: `AVDelegatingPlaybackCoordinator` for the current custom audio engine path, and `AVPlayerPlaybackCoordinator` for video where `AVPlayer` is the natural transport. `MusicFeature` should own the human part: SharePlay launch affordances, descriptive activity metadata, participant/lobby surfaces, and contextual notices like "Priya skipped to the next track."
+
+The sharp edge is queue identity. Apple’s coordinator can keep time and rate aligned, but it does not decide that every participant loaded the same NFT-backed item. AuraPlay needs a shared media-session contract before real SharePlay controls ship, or synchronized playback will be standing on mismatched queues.
+
+## 2026-07-07 — Media Core Took Over The Boring Plumbing
+
+The next AuraPlay cleanup moved the stuff that never really belonged to "audio" or "video" in the first place: URL downloading contracts, progressive/resumable download handles, network availability, offline download state, and engine logging. Those are the pipes and gauges in the media building. Whether the room is playing a song or a film, the plumbing has the same job.
+
+`AuraPlayMediaCore` now owns those neutral seams with media-shaped names, while the engine packages keep compatibility aliases where existing code expects audio or video vocabulary. `AuraPlayAudioEngine` still has the concrete cache manager and URLSession downloader. `AuraPlayVideoEngine` still owns its asset loader and offline record details. The shared layer only owns the reusable contract language, which is the right amount of DRY: one dictionary, not one giant engine.
+
+## 2026-07-07 — Video Stopped Inventing A Separate Media Passport
+
+`VideoPlayableMedia` used to be its own little border checkpoint: `videoMediaID`, `videoTitle`, `videoArtist`, `videoArtworkURL`, and `resolvedPlaybackURL`. That worked, but it made video media look like a different species from the shared `AuraPlayableMedia` contract. The video engine now asks for the shared passport instead: an `AuraPlayableMedia` transport/cache identity plus `MediaMetadata`.
+
+`AuraPlayMediaCore` now has `AuraPlayableMediaItem`, a small value that bundles the playable URL, declared format, cache state, content kind, optional loudness, and neutral metadata. `AuraPlayVideoEngine` still keeps the `VideoPlayableMedia` name for its public surface, but that protocol now refines `AuraPlayableMedia` and gets video-style accessors from metadata/source URL. In other words, old video call sites still read like video code, while the real model underneath is shared with audio.
+
+The important engineering lesson: compatibility does not have to mean keeping the old shape as the source of truth. The trick is to move the truth into the shared layer, then leave thin adapters where they make existing code and migration easier to read.
+
+## 2026-07-07 — AuraPlay Shared Contracts Learned Their Common Language
+
+The first media-core pass moved the obvious nouns, but audio and video still had a few cousins wearing different name tags. Remote commands, now-playing snapshots, media session events, generic metadata, and gateway URL resolving now sit in `AuraPlayMediaCore`, where both engines can point at the same dictionary instead of translating at the border.
+
+The migration kept the old engine-facing names as aliases where that buys compatibility. Audio still exposes `RemoteCommandEvent` and `NowPlayingState` through `AuraPlayAudioEngine`; video still exposes names like `VideoRemoteCommand` and `VideoMediaMetadata`. Underneath, though, the shared contracts are now the source of truth. Concrete system publishers, AV session managers, resource loaders, cache managers, and anything that smells like AVFoundation wiring stayed in the engine packages where they belong.
+
+Validation had two separate potholes. The core package test suite passed under the matching Xcode beta toolchain. The audio and video library targets also built cleanly. Full audio package tests still trip over the SwiftUI demo executable because the local plugin server cannot load `SwiftUIMacros.StateMacro`, and the workspace build is currently blocked by DerivedData/module-cache writes failing with “No space left on device.” The code signal we needed still came through: the shared contracts compile in core, audio, and video.
+
+## 2026-07-07 — AuraPlay Media Core Became The Shared Counter
+
+Audio and video had each started building their own little media vocabulary, which is how two kitchens end up with different labels for the same salt. `AuraPlayMediaCore` is now the shared counter between them: playable media identity, content/cache state, cache progress/key contracts, shared playback ticks, and the base `AuraPlayError` live in one neutral Swift package.
+
+The migration is deliberately gentle. `AuraPlayAudioEngine` and `AuraPlayVideoEngine` now depend on the core package, but they keep source-compatible public names through typealiases and re-exports. That lets existing call sites keep importing the engine they already use while the real contract has a single home underneath.
+
+Two useful gotchas surfaced while validating the packages. First, CommandLineTools in this environment can build the library products, but it cannot load SwiftUI or Swift Testing macro plugins, so demo executables and package tests need the full Xcode toolchain. Second, the video package had a couple of macOS build traps hiding in platform guards: external-screen playback and AVRouting participant preferences are not available the same way on macOS. The fix was not a media-core concern, but it was the toll booth we had to clear before the new dependency graph could prove itself.
+
+## 2026-07-01 — AuraPlay Video Got An Empty Room
+
+AuraPlay video now has a reserved local package named `AuraPlayVideoEngine`, sitting beside the other first-party packages. It is intentionally only a scaffold right now: no engine code, no playback models, no queue types, no loaders, no AVFoundation or AVKit wrapper, and no tests.
+
+The demo app is just a labeled placeholder screen. The useful move is organizational, not technical: video now has a place to grow later without borrowing shape from the audio work or quietly moving existing media responsibilities before the contract is designed.
+
+## 2026-07-01 — AuraPlay Audio Got An Empty Workshop
+
+AuraPlay audio now has a reserved local package named `AuraPlayAudioEngine`, sitting beside the other first-party packages. It is intentionally only a scaffold right now: no engine code, no playback models, no queue types, no loaders, no AVFoundation wrapper, and no tests.
+
+The demo app is just a labeled placeholder screen. That sounds underwhelming, but it is the right kind of boring: the workshop exists before the tools arrive, and the shipping app `AudioEngine` stays untouched until the new contract is designed on purpose.
+
 ## 2026-06-07 — Wallet Connectors Got Their Own Workshop
 
 Third-party wallet work now has a clean side garage instead of being welded straight onto the main app while the engine is running. `WalletConnectorKit` is a new local Swift package for MetaMask, Rainbow, Coinbase Wallet, Phantom, and whatever specialized connector code comes next. The package starts with provider identities, supported chains, connection-method descriptors, a connector protocol, and a registry that routes connect/disconnect calls by wallet provider.
@@ -602,7 +988,7 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
 - MusicFeature migration, first pass:
   AuraPlay finally got its first real package boundary in `MusicFeature`. The trick was not to shove the whole DJ booth into a moving box. We moved the feature vocabulary first: library scope, errors, bundle configuration, logging events, playback state/track snapshots, queue snapshots, artwork loading, library repository, and sync protocols. The app target still owns the live adapters over `AudioEngine`, SwiftData, receipts, and the existing indexer. That keeps the music package honest: it describes what the feature needs without secretly importing every wire in the building.
 
-- The gotcha was classic migration work: the old protocols casually mentioned concrete app types like `AudioEngine.Track` and `MusicLibraryIndexRebuildResult`. Those names are convenient inside the app and poison inside a package. The fix was to introduce package-owned DTOs (`AuraPlayTrack`, `AuraPlayPlaybackState`, `AuraPlayLibraryRebuildResult`) and let app adapters translate. It is the software equivalent of using a customs form at the border instead of asking the whole country to share one suitcase.
+- The gotcha was classic migration work: the old protocols casually mentioned concrete app types like `AudioEngine.Track` and `MusicLibraryIndexRebuildResult`. Those names are convenient inside the app and poison inside a package. The fix was to introduce package-owned DTOs (`AuraPlayTrack`, `AuraPlayPlaybackPositionState`, `AuraPlayLibraryRebuildResult`) and let app adapters translate. It is the software equivalent of using a customs form at the border instead of asking the whole country to share one suitcase.
 
 - Package boundary cleanup:
   We moved `SearchHistoryRecord`, `StoredReceipt`, `TokenHolding`, `MusicLibraryItem`, and `AuraPlayMediaItem` into `AuralisPrimaryModels` so the app target stops owning persistence models that are shared across search, receipts, holdings, and music. The lesson was simple but useful: if multiple product surfaces depend on the same SwiftData vocabulary, that vocabulary should live at the package boundary instead of hiding inside one feature folder.
@@ -2419,3 +2805,113 @@ The Phase 5 checklist said the duplicate fixture builders were gone, but a revie
 `NFTFixture` now knows how to build the odd cases the package tests needed: explicit IDs, absent collection metadata, descriptions, token types, image URL control, and raw metadata. `MusicLibraryItemFixture` can also represent sparse playback metadata without quietly inventing a URL. The tests now pull those shapes from the shared support package instead of sketching local copies.
 
 One helper intentionally stayed local: `makeRefreshFixtureSnapshot`. That snapshot type belongs to `NFTKit`, while `NFTKit` already depends on `AuralisTestSupport`; moving the helper upward would make the packages chase each other in a circle. The lesson is that shared fixtures are a pantry, not a junk drawer. Put common domain ingredients there, but keep package-owned shapes in the package that owns them.
+
+## AuraPlay Media Core: The Remote Control Leaves The Couch
+
+The media packages had the right idea already: keep `AuraPlayMediaCore` boring and let audio/video do the AVFoundation gymnastics. This pass moved three more boring-but-important tools into that shared drawer. URL cache keys now come from one `CacheKey(url:)` initializer instead of two video helpers doing the same base64 dance. The default `URLSessionMediaDownloader` moved out of the audio engine, because downloading bytes is not an audio talent. And remote commands now pass through a neutral `MediaTransportControlling` dispatcher, so play, pause, toggle, seek, skip, next, and previous mean the same thing before each engine adds its local flavor.
+
+The local flavor still matters. Video keeps its `.skip` seek tolerance for skip commands, and audio keeps its AirPlay queue behavior where previous restarts the current item. The core owns the common grammar; the engines still choose the accent.
+
+The lesson: DRY is not about shoving everything into the basement. It is about noticing which code is a universal adapter and which code is a specialized appliance. Shared core should hold the adapter, not the whole entertainment center.
+
+## AuraPlay Media Core: One Gateway List, Two Playback Surfaces
+
+Gateway fallback graduated from a video-only protocol to a shared media contract. That matches the product reality: audio and video can point at the same NFT media source, and only the renderer changes. Video still uses fallback after a stall, like changing lanes when traffic stops. Audio uses the same resolver during cache downloads, like trying the next door when a gateway refuses to hand over bytes.
+
+`MediaGatewayFallbackResolving` now lives in `AuraPlayMediaCore`, with a small ordered resolver for the simple case where composition already knows the candidate gateway URLs. Video keeps `VideoGatewayResolving` as a compatibility alias, while audio cache downloads accept the shared resolver and apply it to full, resumable, and progressive startup downloads.
+
+Playback position persistence is different. The coordinator itself is generic enough to move eventually because it writes `PlaybackTick`, but audio does not yet have the same resume-position product behavior as video. Moving it before audio has a real store and restore flow would be tidy architecture with no customer behind it. The lesson: shared code should follow shared behavior, not just shared-looking shapes.
+
+## AuraPlay UI Integration: Wireframes Before Wardrobe
+
+The media engines now have a basic doorway into the app instead of living like impressive machinery behind a locked service panel. The Music tab moved from a migration placard to a real library surface: scoped collections, scoped tracks, play buttons, add-to-queue buttons, and navigation into the existing detail screens. It is not the final AuraPlay experience yet. It is the plywood stage that lets every cable reach the right place before anyone paints the set.
+
+The important decision was to keep ownership honest. `MusicFeature` asks for callbacks like "play this item ID" and "open this collection"; the app target resolves those requests against the active wallet, chain, SwiftData NFTs, and `AuraPlayPlaybackRuntime`. That keeps the package from learning too much about app persistence while still letting the UI do useful work.
+
+Now Playing gained a queue sheet plus visible integration placeholders for AirPlay route selection, cache/offline state, and visualizer output. Video got its first app-side wireframe too: a real `AuraPlayVideoEngine` player surface with URL load, play/pause, seek, speed, route picker, and honest disabled controls for PiP, fullscreen, offline downloads, captions, and audio tracks. The disabled controls are deliberate signposts, not fake features. A good integration pass should reveal the missing adapter seams instead of pretending they are already paved.
+
+The lesson: wireframes are not throwaway if they connect real systems. They are scaffolding. You still remove the scaffolding before launch, but it lets engineers safely build the second floor.
+
+## AuraPlay UI Ship Pass: The Control Panel Stops Bluffing
+
+The AuraPlay requirements doc had already drawn the right line: ship the media UI that has real backing services, and hide the parts that are still just package contracts. This pass tightened the app to that promise. The audio Now Playing screen no longer leaves an error state as a dead warning icon; it gives the user a real Retry button that calls the active playback presenter. The visualizer also stopped pretending: it now either reflects live engine meter frames or clearly reports why the meter is paused.
+
+Video got smarter without getting louder. The player now asks `VideoPresentationAnalyzer` what shape the source actually is, then keeps portrait, square, and landscape videos in their native framing instead of stuffing everything into a 16:9 shoebox. `HDRDetector` and `VideoPlaybackCapabilities` now feed capability rows too, so HDR and high-frame-rate badges appear only when the media reports those traits. That is the difference between a dashboard and a sticker sheet.
+
+The smaller cleanup mattered too: remaining AuraPlay search/filter/sort and video row identifiers now come from `A11yID`, which keeps UI automation from depending on magic strings sprinkled through views.
+
+The lesson: "ready to ship" is often less about adding controls and more about removing bluff. A production UI should either connect to a real system, explain a real state, or stay out of the user's way.
+
+## AuraPlay Visualizer: The Meter Gets A Fuse Box
+
+The visualizer was the last obvious AuraPlay UI item that had a real engine behind it but no honest app bridge. The audio engine already knew how to publish RMS and peak frames; the missing piece was a safe doorway into `MusicFeature`. We did not make the feature package import the audio engine. Instead, `MusicFeature` now owns a tiny presentation shape: normalized bar levels, live/paused state, and user-facing status copy. The app runtime translates engine frames into that shape.
+
+The lifecycle is the important part. Now Playing starts the visualization stream only while the integration panel is onscreen, and it stops the engine tap on disappear. Reduce Motion acts like a circuit breaker: the UI keeps the visual status visible but pauses the live animation and stops the stream. That keeps the feature expressive without turning a decorative meter into a background battery tax.
+
+The lesson: a live UI needs a fuse box, not just a wire. If something subscribes to real-time engine data, it should have a clear owner, a stop condition, and an accessibility policy before it ships.
+
+### Follow-Up: The Fuse Learns About The Play Button
+
+A code pass found a subtle lifecycle hole in that fuse box. The visualizer task was keyed to Reduce Motion, but not to the transport state. That meant a user could open Now Playing while a track was still loading, watch playback become live, and never get meter frames because the task had already decided "not playing yet." Pausing could also leave the engine visualization tap alive longer than the visible UI intended.
+
+The fix was to make the SwiftUI task key include Reduce Motion, playback state, and current track ID, then stop the engine visualization tap from the runtime's pause, stop, and auto-advance paths. In restaurant terms: the meter no longer asks only whether the kitchen lights are dimmed; it also checks whether the stove is actually on.
+
+## Xcode Beta Test Run: When The Same Pantry Appears Twice
+
+The unit test suite hit a very beta-shaped pothole: app-hosted tests were loading SwiftData model classes from both `Auralis.app` and `AuralisTests.xctest`. The Objective-C runtime called it out plainly, then the tests did what duplicate model classes love to do: trap, abort, or hang in places that looked unrelated to the line being tested.
+
+The fix for the fast lane was pragmatic. We turned off the app target's debug dylib for these runs, serialized the fast test target, and quarantined the specific hosted SwiftData tests that still crash under Xcode 26 beta with explicit `.disabled(...)` reasons. The tests are not gone; they are marked like wet paint so the next engineer knows the failure is runner infrastructure, not product behavior.
+
+There was one real product-side miss mixed into the noise: `AuraPlayPlaybackPositionState` joined the AuraPlay SwiftData schema but had not been added to the local data storage policy table. That is now classified as wallet-scoped AuraPlay persistence, cleared with the AuraPlay reset phase. The lesson: noisy infrastructure failures can hide honest contract drift. First make the runner stop shouting, then listen for the one quiet assertion that still matters.
+
+## AuraPlay Phase 5: The Discovery Pipe Gets Connected To The Faucet
+
+Phase 5 already had the machinery: Alchemy, Helius, metadata fetch, schema parsing, classification, SwiftData persistence, and artwork prefetch. The missing shipping question was simpler and more dangerous: does the app actually turn the valve, or is the pipe just sitting proudly on the workbench?
+
+This pass wired NFT discovery into the live music composition. `MusicAssembly` now hands the real `NFTSyncCoordinator` into `AuraPlayDependencies` when storage and provider keys are available. The AuraPlay root model uses that dependency during foreground refresh with the coordinator's 15-minute debounce, and pull-to-refresh bypasses the debounce for the current wallet and chain. In user terms: opening Music can quietly catch up, while an intentional refresh asks the provider right now.
+
+The test fixtures also grew up. Alchemy pagination now exercises the ticket-sized 100 + 47 item shape, and Helius exercises 1000 + 250. Helius owner mismatches now leave a warning trail instead of silently dropping a questionable asset. That is like a bouncer refusing a mismatched ticket and writing it in the incident log, not just shrugging at the door.
+
+The lesson: a feature is not shipped when its parts exist. It ships when composition, lifecycle triggers, release configuration, and tests all agree on how the current flows through the system.
+
+## AuraPlay Phase 5 CI: The Test Lane Gets Its Own Guardrail
+
+The Phase 5 discovery tests were present, but they were living in the package scheme while CI only drove the app's Xcode test action. That is like having a smoke detector in the kitchen and then only checking the hallway. CI now runs the `MusicFeature` package tests through Xcode before the app unit tests, so the Alchemy, Helius, metadata, classifier, artwork, and integration coverage stays on the shipping path without depending on plain `swift test`.
+
+The validation pass found two good test-runner lessons. First, mocked POST requests may arrive at `URLProtocol` with an `httpBodyStream` instead of `httpBody`. The Helius recorder was looking in the wrong pocket, so every response looked like page 1 and the 1000 + 250 pagination fixture never stopped. Second, artwork prefetch is concurrent, so the test now checks that the right HEAD and GET requests happened instead of pretending the scheduler owes us a neat alternating order.
+
+The lesson: CI gaps are rarely dramatic. They are usually one missing lane, one body stream, or one ordering assumption away from turning a real acceptance suite into decorative paperwork.
+
+## AuraPlay Phase 9/10: The Contracts Stop Being Decorative
+
+This pass closed the gap between what the Phase 9/10 plans promised and what the code actually did. The biggest offender was a familiar pattern: the typed query service, the bounded queue window, and the orchestrator presentation boundary all existed as well-shaped contracts that nothing called. `LibraryRootView` was quietly fetching every media row with `@Query` and sorting in computed properties, and `AuraPlayPlaybackOrchestrating` had zero conformances in the entire repository. A contract without a caller is a promise written on the workbench, not a load-bearing beam.
+
+The cutover ran in dependency order. First the app grew `AuraPlayOrchestratorAdapter`, the live conformance that maps the app-private `PlaybackOrchestrator` into the public boundary, which immediately unlocked orchestrator-state mini-player visibility, the PiP restore banner, and a cold-launch restored-paused session that can actually resume (the orchestrator now knows when no engine has media loaded and reruns the full play path instead of silently no-opping). Then the Library moved onto service-fetched windows with near-tail paging, cached collection/creator grouping invalidated on sync completion, and taps that capture the exact sort/filter/offset context so the queue can lazily extend without ever reading live view state. The smaller debts came along: `syncAll()` on the protocol for honest pull-to-refresh, playlist membership checkmarks with toggle semantics, dimmed non-playable cells instead of hidden ones, one shared `SeekCoalescer` for scrubber and gestures, app-owned share/Safari/pasteboard presentation, and the hand-rolled explorer URL table replaced by the tested `ExplorerAdapter` catalog.
+
+The test story had a twist worth remembering: `MusicFeature` had never actually compiled outside the Xcode workspace. The manifest was missing its `AuraPlayMediaCore` dependency and the Phase 9 views used iOS-only APIs without the platform shims, which is precisely why the package test plans looked empty. Fixing the manifest and routing platform-specific modifiers through `AuraPlayPlatformNavigation` made `swift test` real again — 95 tests in 16 suites in about five seconds, including 5000-item bounded-window proofs and `swift-snapshot-testing` baselines rendered through `NSHostingView`.
+
+The lesson: when a plan says "service-backed" or "orchestrator-driven," grep for the conformance, not the type declaration. The type is the easy half; the wiring is the feature.
+
+### Follow-Up: The Bouncer Still Needs The Sign On The Door
+
+A production-readiness review caught two bundle-contract regressions that were easy to miss because the app still built. `Info.plist` had gained the new AuraPlay background fetch and Helius configuration keys, but the existing camera and photo-library usage strings disappeared in the same neighborhood. That is the kind of change that looks like harmless plist housekeeping until a user opens the active playlist cover flow and iOS shuts the party down at the privacy gate.
+
+The release-secret validator had a smaller but useful lesson. Generalizing Alchemy and Helius validation through one helper was the right shape, but the app tests intentionally pin the provider-specific error text so release failures stay obvious in CI. The fix kept the helper while passing stable per-provider messages into it.
+
+The lesson: bundle files are the coat check of the app. You can reorganize the tickets, but the camera, photo library, background task, URL scheme, and release-key promises all still need their numbered tags.
+
+### Follow-Up: Do Not Hand SwiftData Models Through The Service Window
+
+The next crash looked unrelated at first: NFT pagination tests exploded in `NFT.id` and `NFT.contract`, then shell dependency tests crashed while reading receipts. Same villain, different costume. App-hosted tests were loading some SwiftData model types from the app bundle and the test bundle, then asking SwiftData to cast or fetch across that split-brain pantry. The stack pointed at innocent lines because the real mistake happened earlier: a service boundary had let live persistence furniture cross into a test that only needed a clean receipt or provider shape.
+
+The fix was to make those seams speak plain values. Provider responses now return `AlchemyNFTResponse.OwnedNFT` snapshots instead of app `NFT` models, and `NFTFetcher` decodes those snapshots into its inventory item shape without touching SwiftData. The shell dependency tests now inject a tiny actor-backed `ReceiptStore`, so they prove receipt logging is wired through the shared assembly without asking the simulator's duplicate `ReceiptStorage` classes to agree on identity.
+
+The lesson is one worth taping above the prep table: SwiftData models are not DTOs, and test seams should not smuggle them around like serving trays. Use value snapshots for provider data, use protocol fakes for wiring tests, and reserve live SwiftData stores for tests that are actually about persistence.
+
+### Follow-Up: The Media Ticket Needs To Keep The Attached Stub
+
+A ship-readiness pass caught the kind of bug that feels tiny until the music tab goes quiet. Helius DAS was returning Solana assets with useful media file links, but the ProviderKit boundary converted those assets into an Alchemy-shaped value where `audioUrl` and `animationUrl` do not exist. The important clue was still inside `raw.metadata`, so the fix taught `NFTMetadataUpdater` to understand Helius' `content.files` and `content.links` shapes directly. The kitchen analogy: if the order slip has the sauce request in the notes, do not throw away the notes just because the main form has no sauce box.
+
+The metadata fetcher got the same treatment as artwork prefetching. It now streams response bytes and rejects oversized payloads before building a giant `Data` blob. Metadata JSON is small by contract; if a server tries to send a sofa through the mail slot, the app should stop at the doorway.
+
+The UI lesson was blunter. AuraPlay is a dark, immersive surface, but some rows and player controls were letting the host color scheme decide foreground colors. In snapshots that produced black text on a near-black player. The fix was not a redesign; it was making owned dark-surface text and controls explicit so the UI looks intentional wherever it is rendered.

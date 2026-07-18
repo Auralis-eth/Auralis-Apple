@@ -108,9 +108,21 @@ public enum A11yID {
         public static let unavailable = "auraplay.unavailable"
         public static let root = "auraplay.root"
         public static let librarySummary = "auraplay.library.summary"
+        public static let librarySegmentPicker = "auraplay.library.segmentPicker"
+        public static let libraryLayoutToggle = "auraplay.library.layoutToggle"
         public static let librarySearch = "auraplay.library.search"
         public static let libraryFilter = "auraplay.library.filter"
+        public static let libraryFilterSheet = "auraplay.library.filter.sheet"
         public static let librarySort = "auraplay.library.sort"
+        public static let libraryEmptyNoWallet = "auraplay.library.empty.noWallet"
+        public static let libraryEmptySyncing = "auraplay.library.empty.syncing"
+        public static let libraryEmptyNoPlayable = "auraplay.library.empty.noPlayable"
+        public static let librarySyncBanner = "auraplay.library.syncBanner"
+        public static let libraryIndexingPill = "auraplay.library.indexingPill"
+        public static let semanticSearch = "auraplay.semantic.search"
+        public static let semanticSearchRun = "auraplay.semantic.search.run"
+        public static let semanticSearchClear = "auraplay.semantic.search.clear"
+        public static let semanticResults = "auraplay.semantic.results"
         public static let collections = "auraplay.collections"
         public static let tracks = "auraplay.tracks"
         public static let queue = "auraplay.queue"
@@ -123,6 +135,9 @@ public enum A11yID {
         public static let cacheError = "auraplay.cache.error"
         public static let playbackToast = "auraplay.playback.toast"
         public static let miniPlayerCacheStatus = "auraplay.miniPlayer.cacheStatus"
+        public static let miniPlayer = "auraplay.miniPlayer"
+        public static let miniPlayerPlayPause = "auraplay.miniPlayer.playPause"
+        public static let miniPlayerRestorePiP = "auraplay.miniPlayer.restorePiP"
         public static let audioTuning = "auraplay.audioTuning"
         public static let audioTuningEQPreset = "auraplay.audioTuning.eqPreset"
         public static let audioTuningNormalize = "auraplay.audioTuning.normalize"
@@ -142,6 +157,36 @@ public enum A11yID {
         public static let detailPlayback = "auraplay.detail.playback"
         public static let detailUnavailable = "auraplay.detail.unavailable"
         public static let collectionDetail = "auraplay.collection.detail"
+        public static let creators = "auraplay.creators"
+        public static let playlists = "auraplay.playlists"
+        public static let addToPlaylistSheet = "auraplay.playlists.addToPlaylist"
+        public static let playlistNameEditor = "auraplay.playlists.nameEditor"
+        public static let playerSheet = "auraplay.player.sheet"
+        public static let playerDismiss = "auraplay.player.dismiss"
+        public static let playerArtwork = "auraplay.player.artwork"
+        public static let playerVideoSurface = "auraplay.player.videoSurface"
+        public static let playerPlayPause = "auraplay.player.playPause"
+        public static let playerPrevious = "auraplay.player.previous"
+        public static let playerNext = "auraplay.player.next"
+        public static let playerScrubber = "auraplay.player.scrubber"
+        public static let playerElapsedTime = "auraplay.player.elapsedTime"
+        public static let playerTrailingTime = "auraplay.player.trailingTime"
+        public static let playerUpNext = "auraplay.player.upNext"
+        public static let playerShuffle = "auraplay.player.shuffle"
+        public static let playerRepeat = "auraplay.player.repeat"
+        public static let playerAudioControls = "auraplay.player.audioControls"
+        public static let playerVideoControls = "auraplay.player.videoControls"
+        public static let playerPiP = "auraplay.player.pip"
+        public static let playerAirPlay = "auraplay.player.airplay"
+        public static let playerSubtitles = "auraplay.player.subtitles"
+        public static let playerSpeed = "auraplay.player.speed"
+        public static let playerShare = "auraplay.player.share"
+        public static let playerViewOnExplorer = "auraplay.player.viewOnExplorer"
+        public static let playerCopyContract = "auraplay.player.copyContract"
+        public static let playerSkipBack10 = "auraplay.player.skipBack10"
+        public static let playerSkipForward10 = "auraplay.player.skipForward10"
+        public static let playerCopyToast = "auraplay.player.copyToast"
+        public static let collectionPlayAll = "auraplay.collection.playAll"
 
         public static func collectionTrack(id: String) -> String {
             "auraplay.collection.track.\(id)"
@@ -151,12 +196,32 @@ public enum A11yID {
             "auraplay.track.\(id)"
         }
 
+        public static func libraryCell(id: String) -> String {
+            "auraplay.library.cell.\(id)"
+        }
+
+        public static func semanticResult(id: String) -> String {
+            "auraplay.semantic.result.\(id)"
+        }
+
         public static func audioTuningCustomEQBand(index: Int) -> String {
             "auraplay.audioTuning.customEQ.band.\(index)"
         }
 
         public static func collectionRow(id: String) -> String {
             "auraplay.collection.\(id)"
+        }
+
+        public static func creatorRow(id: String) -> String {
+            "auraplay.creator.\(id)"
+        }
+
+        public static func playlistRow(id: String) -> String {
+            "auraplay.playlist.\(id)"
+        }
+
+        public static func playlistItem(id: String) -> String {
+            "auraplay.playlist.item.\(id)"
         }
 
         public static func videoItem(id: String) -> String {

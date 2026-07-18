@@ -325,6 +325,9 @@ struct MainTabView: View {
                                             id: itemID,
                                             in: scopedMusicNFTs
                                         )
+                                    },
+                                    openWalletPicker: {
+                                        showAccountSwitcher = true
                                     }
                                 )
                             }
@@ -395,6 +398,18 @@ struct MainTabView: View {
                                     }
                                 }
                             }
+                            .task {
+                                // Restored session shows as paused in the mini-player (P9-006).
+                                await playbackRuntime.restoreMostRecentSessionIfNeeded()
+                            }
+                            .environment(\.auraPlayContextActions, .uiKitLive)
+                            .environment(\.auraPlayExplorerResolver, AuraPlayExplorerURLResolving { chain, contract, tokenID in
+                                AuraPlayExplorerURLBuilder.nftURL(
+                                    chain: chain,
+                                    contractAddress: contract,
+                                    tokenID: tokenID
+                                )
+                            })
                         } else {
                             AuraPlayUnavailableView(
                                 message: musicUnavailableMessage,

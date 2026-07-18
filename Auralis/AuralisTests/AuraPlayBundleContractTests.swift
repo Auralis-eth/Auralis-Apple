@@ -13,6 +13,10 @@ struct AuraPlayBundleContractTests {
 
         let backgroundModes = try #require(infoPlist["UIBackgroundModes"] as? [String])
         #expect(backgroundModes.contains("audio"))
+        #expect(backgroundModes.contains("fetch"))
+
+        let backgroundTaskIdentifiers = try #require(infoPlist["BGTaskSchedulerPermittedIdentifiers"] as? [String])
+        #expect(backgroundTaskIdentifiers.contains("com.auraplay.nft-sync"))
 
         let querySchemes = try #require(infoPlist["LSApplicationQueriesSchemes"] as? [String])
         #expect(querySchemes.contains("metamask"))
