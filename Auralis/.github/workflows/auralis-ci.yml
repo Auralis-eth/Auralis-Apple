@@ -31,5 +31,9 @@ jobs:
       - name: Build Auralis
         run: xcodebuild build -project Auralis.xcodeproj -scheme Auralis -destination "generic/platform=iOS"
 
+      - name: Run MusicFeature package tests
+        working-directory: MusicFeature
+        run: xcodebuild test -scheme MusicFeature -destination "platform=macOS"
+
       - name: Run unit tests
         run: xcodebuild test -project Auralis.xcodeproj -scheme Auralis -destination "platform=iOS Simulator,name=iPhone 16"

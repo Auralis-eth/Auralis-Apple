@@ -12,6 +12,22 @@ The work is not a visual polish pass over the existing audio Now Playing screen.
 
 Phase 10 should unify those capabilities behind a player-specific presentation and command adapter that can read the Phase 8 orchestrator, expose engine-specific capabilities, and keep the SwiftUI views free of playback logic.
 
+## Implementation Status — Implemented (with divergences)
+
+**Status: implemented on branch `music-mini-app`.** The sections below describe the *pre-implementation* design and are retained for rationale. The full player is built in the `MusicFeature` package under `Presentation/Player/` and is presented from `AuraPlayMiniPlayerView`.
+
+As-built confirmations:
+
+- Player UI: `AuraPlayPlayerView`, `AuraPlayPlayerPresentation`, `AuraPlayPlayerCommanding`, `AuraPlayUpNextSheet`, `AuraPlayAudioControlsSheet`, `AuraPlayVideoControlsOverlay`, `AuraPlayPlayerGestureLayer`, `AuraPlayPlayerContextMenuBuilder` all exist in the package.
+- Shared `SeekCoalescer` is placed in `AuraPlayMediaCore` (the preferred engine-neutral placement from "Shared seek coalescing package choice").
+- Queue UI targets `QueueEntry.id` identity; Up Next duplicate-entry behavior is covered by tests.
+- P10-009 snapshots live in `LibraryAndPlayerSnapshotTests` (audio/video player, Up Next duplicates).
+
+Divergences from this plan (intentional, not defects):
+
+1. **Adapter placement.** The plan prescribed an app-target folder `Auralis/Auralis/MusicApp/AuraPlay/Player/` with `AuraPlayPlayerAdapter`/`AuraPlayPlayerCommandAdapter`/etc. mapping the app-private `PlaybackOrchestrator` into the presentation contract. **That folder and those adapters were not created.** Instead, a package-level generic adapter `AuraPlayPlaybackPlayerAdapter<Presenter: AuraPlayPlaybackPresenting>` (in `Presentation/Player/AuraPlayPlaybackPlayerAdapter.swift`) bridges the *existing* `AuraPlayPlaybackPresenting` presenter into `AuraPlayPlayerCommanding`, and is constructed inline in `AuraPlayMiniPlayerView` when the player sheet is presented. Net effect: the player is driven through the existing Phase-8 presenting protocol rather than a new app-target orchestrator→presentation adapter. The "Code Placement" and "Required Foundations §1" sections below do not match reality on this point.
+2. **Snapshot baselines re-recorded.** The originally committed `LibraryAndPlayerSnapshotTests` player baselines were bad (dark-text-on-dark, illegible) — not regressions in current code — and were re-recorded on the local host (Xcode-beta, iOS 27 SDK). They now pass deterministically. Note: `light` and `dark` player variants render identically because the player forces its own dark stage regardless of `colorScheme`; those variants are redundant and a candidate for cleanup.
+
 ## Current Baseline
 
 ### Existing player-facing UI

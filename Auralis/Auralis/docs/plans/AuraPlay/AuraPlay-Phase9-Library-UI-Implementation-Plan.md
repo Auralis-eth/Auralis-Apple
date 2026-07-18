@@ -6,6 +6,25 @@ Phase 9 turns AuraPlay from a migration dashboard into the real Music tab home s
 
 This is a full implementation plan for P9-001 through P9-009. It deliberately includes the model, service, adapter, accessibility, and test work hidden under the UI tickets. No ticket should be treated as "UI-only" if its acceptance criteria require missing data contracts.
 
+## Implementation Status — Implemented (with divergences)
+
+**Status: implemented on branch `music-mini-app`.** The "Current Baseline", "Required Foundations", and "Risks And Decisions" sections below describe the *pre-implementation* state and are retained for design rationale. The foundations they list as missing now exist. The production Music tab opens to `LibraryRootView` (`MusicFeatureRootView` composes it; wired at `Auralis/Auralis/Aura/MainTabView.swift`).
+
+As-built confirmations:
+
+- Public playback contract: `AuraPlayPlaybackOrchestrating` exists; mini-player uses `OrchestratorState` visibility.
+- Typed query: `MediaItemQuery` (`MediaItemQueryItem`, sort/filter) + `AuraPlayMediaItemService`.
+- Schema fields present on `AuraPlayMediaItem`: `durationSeconds`, `lastPlayedAt`, `creatorIdentifierRawValue` (with `#Index`/`#Unique`).
+- Grouped index: `GroupedLibraryIndex`. Playlists: `AuraPlayPlaylist`, `AuraPlayPlaylistItem`, `AuraPlayPlaylistService`.
+- `swift-snapshot-testing` is a MusicFeature test dependency; P9-009 snapshots live in `LibraryAndPlayerSnapshotTests`.
+
+Divergences from this plan (intentional, not defects):
+
+1. **Naming drift.** Grid and list are not separate `LibraryGridView`/`LibraryListView` types — they are inline `LazyVGrid`/`List` branches in `LibraryRootView`, switched by `LibraryLayoutMode` (`LibrarySegment.swift`) with per-segment `@AppStorage` keys `auraplay.library.layout.{all,audio,video}`. Collection detail is `AuraPlayMusicCollectionDetailView`; there is no separate `CreatorDetailView` — collections and creators both route through the generic `LibraryGroupDetailView` / `LibraryGroupDetailLoaderView`. The shared cell is `LibraryItemCellViewModel` + `LibraryItemCell`. `AddToPlaylistSheet` and `PlaylistNameEditorSheet` live in `LibraryDetailViews.swift`.
+2. **Sync/indexing surface consolidated.** The separate `SyncStatusBanner` / `IndexingStatusPill` / `EmbeddingProgress` names were collapsed into one `AuraPlayIndexingStatus` (Equatable, Sendable) value plus its presentation.
+3. **No schema versioning/migration.** Because the app has not shipped, the additive schema changes (duration/lastPlayed/creator id, playlist models) were made directly with **no `VersionedSchema`/`SchemaMigrationPlan`**. This closes Risk #1 below by decision: no migration is needed pre-ship.
+4. **Snapshot baselines re-recorded.** The originally committed `LibraryAndPlayerSnapshotTests` baselines were bad (dark-text-on-dark, illegible) and are not regressions in current code. They were re-recorded on the local host (Xcode-beta, iOS 27 SDK) and pass deterministically across consecutive runs. Note: the `light` and `dark` variants render identically because the player/library views force their own dark Aura stage regardless of `colorScheme`; the separate variants are redundant and a candidate for cleanup.
+
 ## Current Baseline
 
 What exists now:
