@@ -10,6 +10,8 @@ struct SearchLocalMatch: Identifiable, Equatable, Sendable {
         case tokenSymbol
         case nftName
         case collectionName
+        case receipt
+        case musicItem
 
         var title: String {
             switch self {
@@ -25,6 +27,10 @@ struct SearchLocalMatch: Identifiable, Equatable, Sendable {
                 return "NFT"
             case .collectionName:
                 return "Collection"
+            case .receipt:
+                return "Receipt"
+            case .musicItem:
+                return "Music"
             }
         }
     }
@@ -44,6 +50,10 @@ struct SearchLocalMatch: Identifiable, Equatable, Sendable {
             return "\(kind.rawValue):nft:\(id)"
         case .nftCollection(let contractAddress, let title, let chain):
             return "\(kind.rawValue):collection:\(chain.rawValue):\(contractAddress ?? title)"
+        case .receipt(let id):
+            return "\(kind.rawValue):receipt:\(id)"
+        case .musicItem(let id):
+            return "\(kind.rawValue):music:\(id)"
         }
     }
 }

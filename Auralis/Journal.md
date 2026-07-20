@@ -1,5 +1,63 @@
 # Journal
 
+## 2026-07-19 — The Dark iOS-27 Search Stages Got Honest Wiring
+
+The assistant's custom pipeline stages were the part of search nobody could actually watch run, because the whole path is gated to iOS 27 and Apple Intelligence. That is exactly where fragile code likes to hide. This pass replaced the guesswork with the structured Spotlight tokens the indexer already emits: `AuralisMediaCapabilityStage` now scores off `mediaKind`, `isPlayable`, `artistName`, and `collectionName` with named weight constants instead of scanning free text for the word "music", and `AuralisReceiptRollupStage` reads its grouping value straight from the tokens instead of parsing "Trigger: …" out of a sentence. The table view stopped string-stripping `.string(...)` syntax off cells; the typed `SearchResultsTable.Value` is now pattern-matched at the source.
+
+The useful catch was a latent bug the string fallbacks were papering over: chain grouping looked up a `receiptChain` token that the indexer never writes, so it *always* fell through to the free-text parser. Chain is a shared token, not a receipt-scoped one. Once the stages trusted structured data, the bug had nowhere to hide. The lesson repeats: a "defensive" fallback is often just a bug wearing a raincoat — it keeps the wrong answer from ever surfacing as a crash.
+
+Unit tests now pin the structured-token contract in `SearchAssistantStageTests`, including a regression for the chain lookup. Then the lights actually came on: run against a physical iOS 27.0 device, all 11 stage/cell/evaluation-seed tests pass, the pre-existing `SearchSpotlightSupportTests` stage tests still pass, and the on-device model reports `.available`. Getting onto the device meant fixing an unrelated device-build breakage first — the vendored `CodeScanner` referenced its simulator-only `sendSimulatedCode()` from an unguarded selector, so every device build failed to link. The one dark corner still dark: the evaluation only scores a fixture stub, not the live `SearchAssistantService` pipeline. The model is available and the path runs, so that is now real follow-up work, not a runtime blocker — deferred deliberately because a live-LLM plus async Spotlight evaluation does not belong in the fast lane without its own harness.
+
+A pre-commit review of the Phase 11 search work found the tree built locally only because three needed files were still untracked — most importantly the entire AuraPlay search domain (`AuraPlaySearch.swift`), which the library and root views depend on. The fix was staging discipline, not code: move tracked and untracked together so a partial commit cannot ship a broken tree. The lesson is old but keeps knocking: a green local build says nothing about what git actually captured.
+
+The review also caught the seams left by the `.searchable` migration. `SearchInputCard` and `SearchSuggestionsCard` were the custom counter we no longer stand behind now that the OS owns the field, so they came out. And the marquee assistant, gated to iOS 27 because the SDK marks `SpotlightSearchTool` that way, was quietly advertising itself: on the current OS every empty text search showed a "requires iOS 27" upsell instead of an honest "no local matches." Presentation now consults real availability, so the feature stays dark until it can actually work. Do not sell a door that does not open yet.
+
+## 2026-07-19 — Search Moved Into The System Search Booth
+
+The WWDC search overhaul was the moment Auralis stopped treating search like a custom console wearing a magnifying-glass hat. The global Search tab still owns the big cross-app question — wallets, ENS names, contracts, NFTs, ERC-20s, receipts, and AuraPlay — but the field itself now belongs to SwiftUI's native `.searchable` machinery. That hands keyboard focus, clear/cancel behavior, platform placement, and future system styling back to the operating system, which is exactly where users expect those tiny habits to live.
+
+The new split is visible scopes for broad, obvious filtering and search tokens for power moves. The scope bar is the labeled aisle sign: All, NFTs, Tokens, Music, Receipts, Accounts. Tokens are the little basket dividers inside the search field: content type, media traits, account, and chain. Keeping both matters because tokens are fast once discovered, but a visible scope bar is the friendly employee pointing at the right shelf.
+
+Under the counter, suggestions learned to rank like a person thinks. Prefix matches beat word-prefix matches, word-prefix beats substring, and recents/current scope get a small boost. That is not fancy AI; it is good manners. Large wallets make this lesson obvious: before asking the assistant to reason, build a local index that can find the obvious thing quickly and predictably.
+
+## 2026-07-19 — Search Put The Magnifying Glass Back On The Counter
+
+The Apple search design session was a good reminder that search is not just a text box with ambition. People bring years of muscle memory to that little magnifying glass: type, clear, cancel, see recents, narrow the room, and get a useful miss instead of a blank wall. Auralis already had the smart back room — local indexing, Spotlight donation, assistant grounding — but the front counter still felt like a custom command console.
+
+This pass keeps the Aura-styled surface but gives it the expected search manners. The field now wears the universal search icon, has a real clear button, keeps Cancel as a non-destructive keyboard dismiss, and exposes scopes for All, NFTs, Tokens, Music, Receipts, and Accounts. Prefix suggestions now come straight from the local index, so token symbols, NFT names, collections, ENS/account labels, and other indexed handles can shorten the user's typing without waiting for the assistant.
+
+The useful product lesson is that intelligence should not be the first thing users have to wait for. Exact local matches, scopes, recents, suggestions, and honest empty states are the fast counter. The LLM assistant is the specialist behind it, not the cashier for every banana. When search feels shippable, it is usually because the ordinary paths are boringly good before the fancy paths start talking.
+
+## 2026-07-19 — Search Learned To Ask With Receipts In Hand
+
+The WWDC Core Spotlight search pass turned Auralis search into a two-counter setup. Exact crypto inputs still go to the fast counter: wallet addresses, ENS names, and invalid safety cases stay deterministic because nobody wants a language model improvising with a contract address. Product questions get the richer counter now: local token, NFT, collection, receipt, and AuraPlay matches can still appear immediately, while the assistant can read from the same Spotlight shelf and add grounded context when the OS supports it.
+
+The useful catch was an SDK calendar trap. The session talks about `SpotlightSearchTool` as the shiny new assistant bridge, but this local SDK still marks the tool APIs as iOS 27 while the app deploys to iOS 26. The implementation keeps the library cards useful today by indexing through Core Spotlight, and gates the LLM assistant behind availability so exact search does not trip over a future-only feature. Search is now a librarian with two desks: one for barcodes, one for questions.
+
+The WWDC lesson that stuck hardest was metadata quality. Auralis now gives Spotlight more than a title and a blob of keywords: documents carry chain, account, contract, token standard, artist, collection, media kind, receipt status, dates, and model-only hydration notes. Hydration is the librarian pulling the full folder from the back room after the index card gets you to the right shelf.
+
+The assistant UI also stopped pretending every answer is just a flat list. Spotlight replies can arrive in multiple queries and stages, so Auralis now keeps sections for item lists, scored items, grouped items, counts, tables, statistics, and text. Custom pipeline stages give the model two app-native calculators: one that scores playable media traits, and one that rolls receipts up by status, trigger, chain, or scope. The evaluation seed is deliberately small, but it puts a ruler on the table: result coverage has to stay measurable instead of being judged by vibes.
+
+## 2026-07-18 — Phase 11 Search Got Its Boarding Pass Checked
+
+The Phase 11 search review had one last trap: an older April ticket sheet kept asking for a grand `SearchService`, a separate integration target, and a Spotlight-first tier show. The app had already taken a cleaner route. AuraPlay search now lives where users actually touch it, inside the Music tab's Library Search segment, with local matches first, semantic matches merged in, scoped recents, and the visible result set handed to playback as the queue.
+
+The hardening pass turned that from "looks implemented" into something easier to defend. The active `Auralis-Fast` test plan already includes the app-hosted AuraPlay search tests, so we kept that lane instead of creating a ceremonial target. Semantic search already checked cancellation while scanning persisted items; now a regression test pins that behavior so a cancelled search cannot wander back from the kitchen with yesterday's order. The lesson is a good shipping rule: do not build the old map just because someone found it in a drawer, but do write down why the current road is the one we are driving.
+
+## 2026-07-18 — Phase 11 Search Became A Real Counter
+
+AuraPlay search moved from ticket plan to working surface today. The Search segment now has a live field, library-backed suggestions, scoped recent queries, natural-language examples, local-plus-semantic merged results, filters that reuse `MediaItemFilter`, and a tap-to-play path that seeds playback from the visible search result set instead of throwing the whole library at the engine.
+
+The useful engineering move was treating search as a coordinator, not a decoration on the text field. Local matches arrive immediately, semantic matches can follow later, and each submitted query carries a generation token so a slow old search cannot stroll back in and overwrite the newer one. The result is the same lesson playback already taught us: async features need a bouncer at the door, especially when users type faster than background work completes.
+
+Coverage now lives where Xcode actually runs it: `AuraPlaySearchTests` in the app test plan cover autocomplete, semantic merge, stale-query cancellation, post-merge filters, recent-search dedupe, empty-query behavior, and search-origin playback windows. The package scheme still reports zero tests, so the honest CI route remains app-hosted Swift Testing until that scheme grows a real package test action.
+
+## 2026-07-18 — Phase 11 Search Stopped Pretending The Room Was Empty
+
+The first Phase 11 Search ticket set assumed AuraPlay was still waiting for a brand-new three-tier `SearchService`. The code had moved on. Global app search already handles wallets, ENS, ERC-20s, NFT tokens, and collections, while AuraPlay already owns media-specific pieces: library text filtering, `MediaItemFilter`, reusable library cells, Spotlight indexing, and semantic search through `AuraPlayEmbeddingService`.
+
+The updated plan keeps those lanes separate. Global search remains the building directory; AuraPlay search becomes the record-store clerk who knows tracks, artists, collections, playback, and weird natural-language moods. The tickets now improve what exists: autocomplete from active library data, merged local-plus-semantic result presentation, scoped recents, shared filters, and mocked integration tests. The useful lesson is planning hygiene: tickets are maps, not fossils. When the terrain changes, update the map before sending engineers into yesterday's hallway.
+
 ## 2026-07-17 — Helius Learned To Ask For The Right Shelf
 
 The Solana NFT path needed the right amount of ambition. Helius says `searchAssets` is the power tool for filtered discovery, but a plain wallet gallery still belongs on `getAssetsByOwner`. Both the app inventory provider and AuraPlay discovery now use that endpoint for wallet-owned NFTs, explicitly keep fungibles out, and ask for collection metadata plus unverified collection grouping so the library does not silently miss the oddball records users actually care about.
@@ -2915,3 +2973,13 @@ A ship-readiness pass caught the kind of bug that feels tiny until the music tab
 The metadata fetcher got the same treatment as artwork prefetching. It now streams response bytes and rejects oversized payloads before building a giant `Data` blob. Metadata JSON is small by contract; if a server tries to send a sofa through the mail slot, the app should stop at the doorway.
 
 The UI lesson was blunter. AuraPlay is a dark, immersive surface, but some rows and player controls were letting the host color scheme decide foreground colors. In snapshots that produced black text on a near-black player. The fix was not a redesign; it was making owned dark-surface text and controls explicit so the UI looks intentional wherever it is rendered.
+
+## Search Assistant: The Librarian Gets Index Cards
+
+The WWDC Spotlight search session landed on a truth Auralis was already orbiting: an LLM search feature is only as good as the shelves it can inspect. The app had a Spotlight-backed assistant, but the first quality gauge was a cardboard speedometer: the evaluation compared expected IDs to the same expected IDs. It proved the calculator worked, not that search found anything.
+
+This pass gave the assistant proper index cards. Search requests now carry the classified query kind, so the Spotlight tool can ask for a smaller, sharper capability set. Token, NFT, and collection queries skip receipt machinery. Receipt-like activity questions get date support and the receipt rollup stage. Music and playable media questions get the media capability stage. The model still gets the same local app content, but with less irrelevant guidance rattling around in its context window.
+
+Metadata also learned to speak in two voices. Humans still get readable lines like "Artist: Nova"; pipeline stages now get machine-readable tags like `auralis:mediakind=audio` and `auralis:receiptstatus=Failed`. That means custom stages no longer have to read prose with a magnifying glass when a labeled drawer is available.
+
+The other missing piece was recovery. The Spotlight delegate used to politely acknowledge reindex requests and do nothing. Now it shares the active wallet/chain scope with the indexer and can rebuild all scoped items or specific requested identifiers. The lesson: if Spotlight asks you to restock the shelf, nodding is not inventory management.

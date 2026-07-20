@@ -133,6 +133,9 @@ public actor AuraPlayMediaItemService {
     public func fetchWindow(context: MediaItemQueryContext) throws -> MediaItemQueryResult {
         let scopedItems = try fetchScopedItems(context: context)
         let filteredItems = scopedItems.filter { item in
+            if !context.filter.selectedChains.isEmpty, !context.filter.selectedChains.contains(item.chain) {
+                return false
+            }
             if !context.filter.includeNonPlayable, !item.isPlayable { return false }
             if context.filter.unplayedOnly, item.lastPlayedAt != nil {
                 return false

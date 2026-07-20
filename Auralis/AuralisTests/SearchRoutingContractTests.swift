@@ -71,4 +71,35 @@ struct SearchRoutingContractTests {
             )
         )
     }
+
+    @Test("search routes receipt and music matches through existing destinations")
+    func searchRoutesReceiptAndMusicDestinations() {
+        let router = AppRouter()
+
+        SearchRootView.route(
+            match: SearchLocalMatch(
+                kind: .receipt,
+                title: "Context Built",
+                subtitle: "Receipt summary",
+                destination: .receipt(id: "11111111-1111-1111-1111-111111111111")
+            ),
+            router: router
+        )
+
+        #expect(router.selectedTab == .receipts)
+        #expect(router.receiptsPath == [.init(id: "11111111-1111-1111-1111-111111111111")])
+
+        SearchRootView.route(
+            match: SearchLocalMatch(
+                kind: .musicItem,
+                title: "Late Night Synth",
+                subtitle: "AuraPlay media",
+                destination: .musicItem(id: "music-nft-1")
+            ),
+            router: router
+        )
+
+        #expect(router.selectedTab == .music)
+        #expect(router.musicPath.last == .item(id: "music-nft-1"))
+    }
 }

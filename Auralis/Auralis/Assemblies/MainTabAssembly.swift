@@ -71,6 +71,12 @@ struct MainTabAssembly {
                 receipts.makeReceiptEventLogger(modelContext: modelContext)
             },
             searchHistoryStore: search.makeSearchHistoryStore(modelContext: modelContext),
+            searchSpotlightIndexerFactory: { [search] modelContext in
+                search.makeSpotlightIndexer(modelContext: modelContext)
+            },
+            searchAssistantFactory: { [search] modelContainer in
+                search.makeAssistant(modelContainer: modelContainer)
+            },
             tokenHoldingsStoreFactory: { [tokenHoldings] modelContext in
                 tokenHoldings.makeStore(modelContext: modelContext)
             },
@@ -119,6 +125,8 @@ struct MainTabDependencies {
     let musicLibraryIndexer: any MusicLibraryIndexing
     let receiptEventLoggerFactory: @MainActor (ModelContext) -> ReceiptEventLogger
     let searchHistoryStore: SearchHistoryStore
+    let searchSpotlightIndexerFactory: @MainActor (ModelContext) -> any SearchSpotlightIndexing
+    let searchAssistantFactory: @MainActor (ModelContainer) -> any SearchAssistantProviding
     let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> SwiftDataTokenHoldingsStore
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
     let erc20HoldingsSyncerFactory: @MainActor (ModelContext) -> any ERC20HoldingsSyncing

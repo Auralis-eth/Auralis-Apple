@@ -36,9 +36,22 @@ public enum A11yID {
     public enum Search {
         public static let root = "search.root"
         public static let queryField = "search.queryField"
+        public static let assistantResults = "search.assistant.results"
+
+        public static func scope(_ rawValue: String) -> String {
+            "search.scope.\(rawValue)"
+        }
+
+        public static func suggestion(id: String) -> String {
+            "search.suggestion.\(id)"
+        }
 
         public static func match(id: String) -> String {
             "search.match.\(id)"
+        }
+
+        public static func assistantMatch(id: String) -> String {
+            "search.assistant.match.\(id)"
         }
 
         public static func history(normalizedQuery: String) -> String {
@@ -114,6 +127,18 @@ public enum A11yID {
         public static let libraryFilter = "auraplay.library.filter"
         public static let libraryFilterSheet = "auraplay.library.filter.sheet"
         public static let librarySort = "auraplay.library.sort"
+        public static let searchRoot = "auraplay.search.root"
+        public static let searchField = "auraplay.search.field"
+        public static let searchClear = "auraplay.search.clear"
+        public static let searchEmpty = "auraplay.search.empty"
+        public static let searchLoading = "auraplay.search.loading"
+        public static let searchResults = "auraplay.search.results"
+        public static let searchNoResults = "auraplay.search.noResults"
+        public static let searchFilteredEmpty = "auraplay.search.filteredEmpty"
+        public static let searchDiagnostics = "auraplay.search.diagnostics"
+        public static let searchMediaTypeFilter = "auraplay.search.filter.mediaType"
+        public static let searchClearFilters = "auraplay.search.filter.clear"
+        public static let searchClearRecents = "auraplay.search.recents.clear"
         public static let libraryEmptyNoWallet = "auraplay.library.empty.noWallet"
         public static let libraryEmptySyncing = "auraplay.library.empty.syncing"
         public static let libraryEmptyNoPlayable = "auraplay.library.empty.noPlayable"
@@ -204,6 +229,22 @@ public enum A11yID {
             "auraplay.semantic.result.\(id)"
         }
 
+        public static func searchSuggestion(id: String) -> String {
+            "auraplay.search.suggestion.\(id)"
+        }
+
+        public static func searchRecent(query: String) -> String {
+            "auraplay.search.recent.\(sanitizedIdentifierComponent(query))"
+        }
+
+        public static func searchSuggested(query: String) -> String {
+            "auraplay.search.suggested.\(sanitizedIdentifierComponent(query))"
+        }
+
+        public static func searchResult(id: String) -> String {
+            "auraplay.search.result.\(id)"
+        }
+
         public static func audioTuningCustomEQBand(index: Int) -> String {
             "auraplay.audioTuning.customEQ.band.\(index)"
         }
@@ -226,6 +267,14 @@ public enum A11yID {
 
         public static func videoItem(id: String) -> String {
             "auraplay.video.item.\(id)"
+        }
+
+        private static func sanitizedIdentifierComponent(_ value: String) -> String {
+            value
+                .lowercased()
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { !$0.isEmpty }
+                .joined(separator: ".")
         }
     }
 

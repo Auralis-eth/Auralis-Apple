@@ -11,11 +11,84 @@ private struct SearchLocalIndexRefreshKey: Equatable {
     let currentChain: Chain
 }
 
+private struct SearchAssistantRefreshKey: Equatable {
+    let query: String
+    let currentAccountAddress: String?
+    let currentChain: Chain
+    let selectedScope: SearchResultScope
+}
+
 enum SearchRootPresentationContent: Equatable {
     case history
     case safety
     case noResults
     case results
+    case resultsAndAssistant
+    case assistant
+}
+
+enum SearchResultScope: String, CaseIterable, Equatable, Identifiable, Sendable {
+    case all
+    case nfts
+    case tokens
+    case music
+    case receipts
+    case accounts
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .all:
+            return "All"
+        case .nfts:
+            return "NFTs"
+        case .tokens:
+            return "Tokens"
+        case .music:
+            return "Music"
+        case .receipts:
+            return "Receipts"
+        case .accounts:
+            return "Accounts"
+        }
+    }
+
+    var emptyStateName: String {
+        switch self {
+        case .all:
+            return "the active account"
+        default:
+            return title.lowercased()
+        }
+    }
+
+    func includes(matchKind: SearchLocalMatch.Kind) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .nfts:
+            return matchKind == .nftName || matchKind == .collectionName || matchKind == .contract
+        case .tokens:
+            return matchKind == .tokenSymbol
+        case .music:
+            return matchKind == .musicItem
+        case .receipts:
+            return matchKind == .receipt
+        case .accounts:
+            return matchKind == .account || matchKind == .ens
+        }
+    }
+}
+
+struct SearchSuggestion: Equatable, Identifiable, Sendable {
+    let completion: String
+    let detail: String
+    let kind: SearchLocalMatch.Kind
+
+    var id: String {
+        "\(kind.rawValue):\(completion.lowercased()):\(detail.lowercased())"
+    }
 }
 
 struct SearchRootPresentation: Equatable {
@@ -33,14 +106,19 @@ struct SearchRootView: View {
     let currentAccountAddress: String?
     let currentChain: Chain
     let historyStore: SearchHistoryStore
+    let spotlightIndexer: any SearchSpotlightIndexing
+    let assistantProvider: any SearchAssistantProviding
 
     @State private var query = ""
     @State private var historyEntries: [SearchHistoryEntry] = []
     @State private var historyErrorMessage: String?
     @State private var localIndex: SearchLocalIndex = .empty
+    @State private var assistantState: SearchAssistantState = .idle
     @State private var debouncedClassification: SearchQueryClassification?
     @State private var announcedClassificationTitle: String?
-    @FocusState private var isQueryFieldFocused: Bool
+    @State private var selectedScope: SearchResultScope = .all
+    @State private var isSearchPresented = false
+    @State private var searchTokens: [SearchToken] = []
 
     private let parser = SearchQueryParser()
 
@@ -48,12 +126,16 @@ struct SearchRootView: View {
         router: AppRouter,
         currentAccountAddress: String?,
         currentChain: Chain,
-        historyStore: SearchHistoryStore
+        historyStore: SearchHistoryStore,
+        spotlightIndexer: any SearchSpotlightIndexing,
+        assistantProvider: any SearchAssistantProviding
     ) {
         self.router = router
         self.currentAccountAddress = currentAccountAddress
         self.currentChain = currentChain
         self.historyStore = historyStore
+        self.spotlightIndexer = spotlightIndexer
+        self.assistantProvider = assistantProvider
     }
 
     private var localIndexRefreshKey: SearchLocalIndexRefreshKey {
@@ -63,23 +145,99 @@ struct SearchRootView: View {
         )
     }
 
+    private var assistantRefreshKey: SearchAssistantRefreshKey {
+        SearchAssistantRefreshKey(
+            query: query,
+            currentAccountAddress: currentAccountAddress,
+            currentChain: currentChain,
+            selectedScope: selectedScope
+        )
+    }
+
     private var baseClassification: SearchQueryClassification {
         parser.classify(query: query, index: localIndex)
     }
 
+    private var filterState: SearchFilterState {
+        SearchFilterState(
+            selectedScope: selectedScope,
+            tokens: searchTokens,
+            currentAccountAddress: currentAccountAddress,
+            currentChain: currentChain
+        )
+    }
+
     private var classification: SearchQueryClassification {
-        baseClassification
+        Self.classification(
+            baseClassification,
+            applying: filterState,
+            index: localIndex
+        )
     }
 
     private var presentation: SearchRootPresentation {
         Self.makePresentation(
             classification: classification,
-            historyEntries: historyEntries
+            historyEntries: historyEntries,
+            allowsAssistant: allowsAssistantForCurrentScope
         )
     }
 
     private var shouldAutofocusQuery: Bool {
         !ProcessInfo.processInfo.arguments.contains("-accessibility-audit")
+    }
+
+    private var searchScope: SearchScope {
+        SearchScope(accountAddress: currentAccountAddress, chain: currentChain)
+    }
+
+    private var suggestions: [SearchSuggestion] {
+        Self.makeSuggestions(
+            query: query,
+            index: localIndex,
+            filter: filterState,
+            historyEntries: historyEntries
+        )
+    }
+
+    private var suggestedSearchTokens: [SearchToken] {
+        Self.makeTokenSuggestions(
+            query: query,
+            index: localIndex,
+            currentAccountAddress: currentAccountAddress,
+            currentChain: currentChain,
+            selectedTokens: searchTokens
+        )
+    }
+
+    private var allowsAssistantForCurrentScope: Bool {
+        guard assistantProvider.availability == .available else {
+            return false
+        }
+        return selectedScope == .all ||
+            !classification.localMatches.isEmpty ||
+            baseClassification.localMatches.isEmpty
+    }
+
+    @ViewBuilder
+    private var searchSuggestionsContent: some View {
+        ForEach(suggestedSearchTokens) { token in
+            SearchTokenSuggestionRow(token: token)
+                .searchCompletion(token)
+        }
+
+        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            ForEach(historyEntries.prefix(5)) { entry in
+                Label(entry.query, systemImage: "clock.arrow.circlepath")
+                    .searchCompletion(entry.query)
+                    .accessibilityLabel(String(localized: "Recent search \(entry.query.accessibilitySpokenQuery)"))
+            }
+        } else {
+            ForEach(suggestions) { suggestion in
+                SearchCompletionSuggestionRow(query: query, suggestion: suggestion)
+                    .searchCompletion(suggestion.completion)
+            }
+        }
     }
 
     var body: some View {
@@ -94,10 +252,7 @@ struct SearchRootView: View {
                         )
                     }
 
-                    SearchInputCard(
-                        query: $query,
-                        isFocused: _isQueryFieldFocused
-                    )
+                    SearchScopeBar(selectedScope: $selectedScope)
 
                     if presentation.showsDetection {
                         SearchDetectionCard(classification: classification)
@@ -120,10 +275,27 @@ struct SearchRootView: View {
                             tone: .critical
                         )
                     case .noResults:
-                        SearchNoResultsCard(classification: classification)
+                        SearchNoResultsCard(
+                            classification: classification,
+                            selectedScope: selectedScope
+                        )
                     case .results:
                         SearchLocalMatchesCard(
                             matches: classification.localMatches,
+                            onOpenMatch: openMatch
+                        )
+                    case .resultsAndAssistant:
+                        SearchLocalMatchesCard(
+                            matches: classification.localMatches,
+                            onOpenMatch: openMatch
+                        )
+                        SearchAssistantCard(
+                            state: assistantState,
+                            onOpenMatch: openMatch
+                        )
+                    case .assistant:
+                        SearchAssistantCard(
+                            state: assistantState,
                             onOpenMatch: openMatch
                         )
                     }
@@ -133,10 +305,22 @@ struct SearchRootView: View {
         }
         .navigationTitle("Search")
         .navigationBarTitleDisplayMode(.large)
-        .accessibilityIdentifier("search.root")
+        .searchable(
+            text: $query,
+            tokens: $searchTokens,
+            isPresented: $isSearchPresented,
+            placement: .automatic,
+            prompt: "Search ENS, wallet, contract, symbol, NFT, collection"
+        ) { token in
+            SearchTokenLabel(token: token)
+        }
+        .searchSuggestions {
+            searchSuggestionsContent
+        }
+        .accessibilityIdentifier(A11yID.Search.root)
         .onAppear {
             if shouldAutofocusQuery && query.isEmpty {
-                isQueryFieldFocused = true
+                isSearchPresented = true
             }
             reloadHistory()
         }
@@ -144,6 +328,9 @@ struct SearchRootView: View {
             reloadHistory()
         }
         .onSubmit(of: .text) {
+            commitQuery()
+        }
+        .onSubmit(of: .search) {
             commitQuery()
         }
         .task(id: localIndexRefreshKey) {
@@ -154,6 +341,9 @@ struct SearchRootView: View {
         }
         .task(id: query) {
             await updateDebouncedClassificationAnnouncement()
+        }
+        .task(id: assistantRefreshKey) {
+            await runAssistantSearchIfNeeded()
         }
         .onChange(of: scenePhase) { _, newValue in
             guard newValue == .active else {
@@ -189,7 +379,7 @@ struct SearchRootView: View {
 
     private func recallHistory(_ entry: SearchHistoryEntry) {
         query = entry.query
-        isQueryFieldFocused = false
+        isSearchPresented = false
     }
 
     private func deleteHistoryEntry(_ entry: SearchHistoryEntry) {
@@ -227,6 +417,7 @@ struct SearchRootView: View {
             try Task.checkCancellation()
             localIndex = refreshedIndex
             debouncedClassification = parser.classify(query: query, index: refreshedIndex)
+            try await spotlightIndexer.reconcile(scope: searchScope)
         } catch is CancellationError {
             return
         } catch {
@@ -237,6 +428,41 @@ struct SearchRootView: View {
     private func observeModelContextSaves() async {
         await SearchIndexBuilder(modelContext: modelContext).observePersistenceChanges {
             await refreshLocalIndex()
+        }
+    }
+
+    private func runAssistantSearchIfNeeded() async {
+        do {
+            try await Task.sleep(for: .milliseconds(500))
+            try Task.checkCancellation()
+        } catch {
+            return
+        }
+
+        let nextClassification = classification
+        guard allowsAssistantForCurrentScope else {
+            assistantState = .idle
+            return
+        }
+
+        guard nextClassification.kind.isAssistantEligible, !nextClassification.trimmedQuery.isEmpty else {
+            assistantState = .idle
+            return
+        }
+
+        guard assistantProvider.availability == .available else {
+            assistantState = .unavailable(assistantProvider.availability)
+            return
+        }
+
+        let request = SearchAssistantRequest(
+            query: nextClassification.trimmedQuery,
+            scope: searchScope,
+            kind: nextClassification.kind
+        )
+        for await state in assistantProvider.streamAnswer(for: request) {
+            guard !Task.isCancelled else { return }
+            assistantState = state
         }
     }
 
@@ -273,7 +499,8 @@ struct SearchRootView: View {
 
     static func makePresentation(
         classification: SearchQueryClassification,
-        historyEntries: [SearchHistoryEntry]
+        historyEntries: [SearchHistoryEntry],
+        allowsAssistant: Bool = true
     ) -> SearchRootPresentation {
         if classification.kind == .empty {
             return SearchRootPresentation(
@@ -292,7 +519,14 @@ struct SearchRootView: View {
         if classification.localMatches.isEmpty {
             return SearchRootPresentation(
                 showsDetection: true,
-                content: .noResults
+                content: allowsAssistant && classification.kind.isAssistantEligible ? .assistant : .noResults
+            )
+        }
+
+        if allowsAssistant && classification.kind.isAssistantEligible {
+            return SearchRootPresentation(
+                showsDetection: true,
+                content: .resultsAndAssistant
             )
         }
 
@@ -300,6 +534,162 @@ struct SearchRootView: View {
             showsDetection: true,
             content: .results
         )
+    }
+
+    static func classification(
+        _ classification: SearchQueryClassification,
+        applying scope: SearchResultScope
+    ) -> SearchQueryClassification {
+        let filter = SearchFilterState(
+            selectedScope: scope,
+            tokens: [],
+            currentAccountAddress: nil,
+            currentChain: .ethMainnet
+        )
+        return self.classification(classification, applying: filter, index: .empty)
+    }
+
+    static func classification(
+        _ classification: SearchQueryClassification,
+        applying filter: SearchFilterState,
+        index: SearchLocalIndex
+    ) -> SearchQueryClassification {
+        let localMatches: [SearchLocalMatch]
+        if classification.kind == .empty, filter.hasQueryIndependentFilters {
+            localMatches = index.allMatches(filter: filter)
+        } else {
+            localMatches = classification.localMatches.filter { filter.includes(match: $0) }
+        }
+
+        let kind: SearchQueryKind = classification.kind == .empty && filter.hasQueryIndependentFilters ? .text : classification.kind
+        return SearchQueryClassification(
+            rawQuery: classification.rawQuery,
+            normalizedQuery: classification.normalizedQuery,
+            kind: kind,
+            localMatches: localMatches
+        )
+    }
+
+    static func makeSuggestions(
+        query: String,
+        index: SearchLocalIndex,
+        scope: SearchResultScope,
+        limit: Int = 5
+    ) -> [SearchSuggestion] {
+        makeSuggestions(
+            query: query,
+            index: index,
+            filter: SearchFilterState(
+                selectedScope: scope,
+                tokens: [],
+                currentAccountAddress: nil,
+                currentChain: .ethMainnet
+            ),
+            historyEntries: [],
+            limit: limit
+        )
+    }
+
+    static func makeSuggestions(
+        query: String,
+        index: SearchLocalIndex,
+        filter: SearchFilterState,
+        historyEntries: [SearchHistoryEntry],
+        limit: Int = 5
+    ) -> [SearchSuggestion] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedQuery = trimmedQuery.lowercased()
+        guard !normalizedQuery.isEmpty else {
+            return []
+        }
+
+        let recentQueries = Set(historyEntries.map { $0.normalizedQuery })
+        let candidates = index.suggestionCandidates
+            .filter { filter.selectedScope.includes(matchKind: $0.kind) }
+            .filter { suggestion in
+                filter.contentScopes.isEmpty || filter.contentScopes.contains { $0.includes(matchKind: suggestion.kind) }
+            }
+            .compactMap { candidate -> (suggestion: SearchSuggestion, score: Int)? in
+                let normalizedCompletion = candidate.completion.lowercased()
+                guard normalizedCompletion != normalizedQuery else {
+                    return nil
+                }
+
+                let score: Int
+                if normalizedCompletion.hasPrefix(normalizedQuery) {
+                    score = 300
+                } else if normalizedCompletion
+                    .split(separator: " ")
+                    .contains(where: { $0.hasPrefix(normalizedQuery) }) {
+                    score = 200
+                } else if normalizedCompletion.contains(normalizedQuery) {
+                    score = 100
+                } else {
+                    return nil
+                }
+
+                let recentBoost = recentQueries.contains(normalizedCompletion) ? 30 : 0
+                let currentScopeBoost = Self.currentScopeBoost(candidate, filter: filter)
+                return (candidate, score + recentBoost + currentScopeBoost)
+            }
+
+        var seen = Set<String>()
+        return candidates
+            .sorted { lhs, rhs in
+                if lhs.score == rhs.score {
+                    return lhs.suggestion.completion.localizedCaseInsensitiveCompare(rhs.suggestion.completion) == .orderedAscending
+                }
+                return lhs.score > rhs.score
+            }
+            .map(\.suggestion)
+            .filter { seen.insert($0.completion.lowercased()).inserted }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    static func makeTokenSuggestions(
+        query: String,
+        index: SearchLocalIndex,
+        currentAccountAddress: String?,
+        currentChain: Chain,
+        selectedTokens: [SearchToken],
+        limit: Int = 8
+    ) -> [SearchToken] {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let selectedIDs = Set(selectedTokens.map(\.id))
+        let contentTokens = SearchResultScope.allCases
+            .filter { $0 != .all }
+            .map { SearchToken(kind: .content($0)) }
+        let mediaTokens = SearchToken.SearchMediaFilter.allCases.map { SearchToken(kind: .media($0)) }
+        let accountTokens = index.accounts.map {
+            SearchToken(kind: .account(address: $0.address, displayName: $0.displayName))
+        }
+        let currentAccountToken = currentAccountAddress.map {
+            SearchToken(kind: .account(address: $0, displayName: $0.displayAddress))
+        }
+        let chainTokens = ([currentChain] + Chain.allCases.filter { $0 != currentChain })
+            .map { SearchToken(kind: .chain($0)) }
+
+        var seen = Set<String>()
+        return (contentTokens + mediaTokens + [currentAccountToken].compactMap { $0 } + accountTokens + chainTokens)
+            .filter { seen.insert($0.id).inserted }
+            .filter { !selectedIDs.contains($0.id) }
+            .filter { token in
+                normalizedQuery.isEmpty || token.title.lowercased().contains(normalizedQuery)
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    private static func currentScopeBoost(_ suggestion: SearchSuggestion, filter: SearchFilterState) -> Int {
+        switch suggestion.kind {
+        case .tokenSymbol, .collectionName, .contract:
+            return 15
+        case .account, .ens:
+            return filter.currentAccountAddress == nil ? 0 : 10
+        case .nftName, .musicItem, .receipt:
+            return 5
+        }
     }
 
     static func route(match: SearchLocalMatch, router: AppRouter) {
@@ -320,43 +710,123 @@ struct SearchRootView: View {
                 title: title,
                 chain: chain
             )
+        case .receipt(let id):
+            router.showReceipt(id: id)
+        case .musicItem(let id):
+            router.showMusicNFTDetail(id: id)
         }
     }
 }
 
-private struct SearchInputCard: View {
-    @Binding var query: String
-    @FocusState var isFocused: Bool
+private struct SearchTokenLabel: View {
+    let token: SearchToken
 
     var body: some View {
-        AuraSurfaceCard(style: .regular, cornerRadius: 24, padding: 18) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Query")
-                    .font(.headline)
-                    .foregroundStyle(Color.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
+        Text(token.title)
+    }
+}
 
-                TextField(
-                    "Search ENS, wallet, contract, symbol, NFT, collection",
-                    text: $query
-                )
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .focused($isFocused)
-                .submitLabel(.search)
-                .font(.body)
-                .foregroundStyle(Color.textPrimary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.white.opacity(0.08))
-                )
-                .accessibilityLabel(String(localized: "Query"))
-                .accessibilityHint(String(localized: "Search by ENS name, wallet address, contract, token symbol, NFT, or collection"))
-                .accessibilityIdentifier("search.queryField")
+private struct SearchTokenSuggestionRow: View {
+    let token: SearchToken
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(token.title)
+                Text(token.suggestionDetail)
+                    .font(.caption)
+                    .foregroundStyle(Color.textSecondary)
             }
+        } icon: {
+            Image(systemName: symbolName)
+                .accessibilityHidden(true)
         }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var symbolName: String {
+        switch token.kind {
+        case .content:
+            return "line.3.horizontal.decrease.circle"
+        case .media:
+            return "play.circle"
+        case .account:
+            return "person.crop.circle"
+        case .chain:
+            return "link.circle"
+        }
+    }
+}
+
+private struct SearchCompletionSuggestionRow: View {
+    let query: String
+    let suggestion: SearchSuggestion
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 2) {
+                highlightedCompletion
+                Text("\(suggestion.kind.title) • \(suggestion.detail)")
+                    .font(.caption)
+                    .foregroundStyle(Color.textSecondary)
+            }
+        } icon: {
+            Image(systemName: "arrow.up.left")
+                .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "Suggestion \(suggestion.completion.accessibilitySpokenQuery)"))
+        .accessibilityValue(String(localized: "\(suggestion.kind.title), \(suggestion.detail)"))
+    }
+
+    @ViewBuilder
+    private var highlightedCompletion: some View {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedQuery.isEmpty,
+           suggestion.completion.lowercased().hasPrefix(trimmedQuery.lowercased()),
+           suggestion.completion.count > trimmedQuery.count {
+            HStack(spacing: 0) {
+                Text(trimmedQuery)
+                    .foregroundStyle(Color.textPrimary)
+                Text(String(suggestion.completion.dropFirst(trimmedQuery.count)))
+                    .foregroundStyle(Color.textSecondary)
+            }
+        } else {
+            Text(suggestion.completion)
+                .foregroundStyle(Color.textPrimary)
+        }
+    }
+}
+
+private struct SearchScopeBar: View {
+    @Binding var selectedScope: SearchResultScope
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(SearchResultScope.allCases) { scope in
+                    Button {
+                        selectedScope = scope
+                    } label: {
+                        Text(scope.title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(selectedScope == scope ? Color(.systemBackground) : Color.textPrimary)
+                            .padding(.horizontal, 12)
+                            .frame(height: 36)
+                            .background(
+                                Capsule()
+                                    .fill(selectedScope == scope ? Color.primary : Color.white.opacity(0.08))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedScope == scope ? .isSelected : [])
+                    .accessibilityHint(String(localized: "Filters search results to \(scope.title)"))
+                    .accessibilityIdentifier(A11yID.Search.scope(scope.rawValue))
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+        .accessibilityLabel(String(localized: "Search scope"))
     }
 }
 
@@ -467,7 +937,7 @@ private struct SearchLocalMatchesCard: View {
                     .accessibilityLabel(String(localized: "\(match.kind.title), \(match.title)"))
                     .accessibilityValue(String(localized: "\(match.subtitle)"))
                     .accessibilityHint(String(localized: "Opens this result"))
-                    .accessibilityIdentifier("search.match.\(match.id)")
+                    .accessibilityIdentifier(A11yID.Search.match(id: match.id))
                 }
             }
         }
@@ -476,12 +946,13 @@ private struct SearchLocalMatchesCard: View {
 
 private struct SearchNoResultsCard: View {
     let classification: SearchQueryClassification
+    let selectedScope: SearchResultScope
 
     var body: some View {
         AuraEmptyState(
             eyebrow: "Search",
             title: "No local matches yet",
-            message: "Auralis classified this as \(classification.kind.title.lowercased()), but the active account scope does not currently have a matching local result.",
+            message: "No \(selectedScope.emptyStateName) results matched \"\(classification.trimmedQuery)\". Check the spelling, switch scopes, or search all categories.",
             systemImage: "magnifyingglass",
             tone: .neutral
         )

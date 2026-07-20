@@ -147,7 +147,8 @@ struct MusicAssembly {
                 gatewayFallbackChain: gatewayFallbackChain
             ),
             mediaItemIndexer: AuraPlaySpotlightIndexer(
-                modelContainer: auraPlayModelContainer
+                modelContainer: auraPlayModelContainer,
+                indexClient: CoreSpotlightAuraPlayIndexClient(indexName: SearchSpotlightIndexConfiguration.indexName)
             ),
             embeddingQueueProcessor: AuraPlayEmbeddingService(
                 modelContainer: auraPlayModelContainer

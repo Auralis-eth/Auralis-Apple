@@ -6,4 +6,6 @@ enum SearchDestination: Equatable, Sendable {
     case token(contractAddress: String, chain: Chain, symbol: String)
     case nftItem(id: String)
     case nftCollection(contractAddress: String?, title: String, chain: Chain)
+    case receipt(id: String)
+    case musicItem(id: String)
 }

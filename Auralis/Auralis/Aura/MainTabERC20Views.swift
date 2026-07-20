@@ -25,6 +25,7 @@ struct ERC20TokensRootView: View {
     @State private var persistenceErrorMessage: String?
     @State private var providerErrorMessage: String?
     @State private var providerWarningMessage: String?
+    @State private var searchText = ""
     @State private var isSyncingTokenHoldings = false
     @State private var activeTokenSyncViewID: UUID?
     @State private var holdingsSyncer: (any ERC20HoldingsSyncing)?
@@ -60,8 +61,27 @@ struct ERC20TokensRootView: View {
         )
     }
 
-    private var rowModels: [TokenHoldingRowModel] {
+    private var allRowModels: [TokenHoldingRowModel] {
         holdings.map { TokenHoldingRowModel(holding: $0) }
+    }
+
+    private var rowModels: [TokenHoldingRowModel] {
+        let normalizedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalizedSearchText.isEmpty else {
+            return allRowModels
+        }
+
+        return allRowModels.filter { row in
+            [
+                row.title,
+                row.symbol,
+                row.subtitle,
+                row.contractAddress,
+                row.kind == .native ? "native" : "erc20"
+            ]
+            .compactMap { $0?.lowercased() }
+            .contains { $0.contains(normalizedSearchText) }
+        }
     }
 
     private var nativeHoldingCount: Int {
@@ -175,23 +195,33 @@ struct ERC20TokensRootView: View {
                                     )
                                 }
 
-                                LazyVStack(spacing: 14) {
-                                    ForEach(rowModels) { row in
-                                        if row.canOpenDetail, let contractAddress = row.contractAddress {
-                                            Button {
-                                                router.showERC20Token(
-                                                    contractAddress: contractAddress,
-                                                    chain: currentChain,
-                                                    symbol: row.symbol ?? row.title
-                                                )
-                                            } label: {
+                                if rowModels.isEmpty {
+                                    AuraEmptyState(
+                                        eyebrow: "ERC-20",
+                                        title: "No Tokens Match",
+                                        message: "No token holdings matched \"\(searchText.trimmingCharacters(in: .whitespacesAndNewlines))\" on \(currentChain.routingDisplayName).",
+                                        systemImage: "magnifyingglass",
+                                        tone: .neutral
+                                    )
+                                } else {
+                                    LazyVStack(spacing: 14) {
+                                        ForEach(rowModels) { row in
+                                            if row.canOpenDetail, let contractAddress = row.contractAddress {
+                                                Button {
+                                                    router.showERC20Token(
+                                                        contractAddress: contractAddress,
+                                                        chain: currentChain,
+                                                        symbol: row.symbol ?? row.title
+                                                    )
+                                                } label: {
+                                                    ERC20HoldingRow(row: row)
+                                                }
+                                                .buttonStyle(.plain)
+                                                .accessibilityIdentifier(A11yID.ERC20.row(id: row.id))
+                                            } else {
                                                 ERC20HoldingRow(row: row)
+                                                    .accessibilityIdentifier(A11yID.ERC20.row(id: row.id))
                                             }
-                                            .buttonStyle(.plain)
-                                            .accessibilityIdentifier("erc20.row.\(row.id)")
-                                        } else {
-                                            ERC20HoldingRow(row: row)
-                                                .accessibilityIdentifier("erc20.row.\(row.id)")
                                         }
                                     }
                                 }
@@ -203,7 +233,12 @@ struct ERC20TokensRootView: View {
             }
         }
         .navigationTitle("ERC-20")
-        .accessibilityIdentifier("erc20.root")
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search symbol, token, contract, or native asset"
+        )
+        .accessibilityIdentifier(A11yID.ERC20.root)
         .task(id: syncKey) {
             await syncHoldings()
         }

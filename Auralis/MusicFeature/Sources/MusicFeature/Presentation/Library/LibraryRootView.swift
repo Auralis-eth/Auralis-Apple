@@ -26,10 +26,14 @@ public struct LibraryRootView: View {
     @State private var playlistSheet: PlaylistSheet?
     @State private var pendingPlaylistDeletion: AuraPlayPlaylist?
     @State private var playlistMutationError: String?
+    @State private var showsSearchDiagnostics = false
     @Namespace private var playerTransitionNamespace
 
     private let columns = [
         GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 14)
+    ]
+    private let chipColumns = [
+        GridItem(.adaptive(minimum: 120), spacing: 8)
     ]
 
     public init(
@@ -91,6 +95,18 @@ public struct LibraryRootView: View {
                 }
             }
             .navigationTitle("Music")
+            .searchable(
+                text: searchTextBinding,
+                placement: .automatic,
+                prompt: "Search tracks, artists, moods"
+            )
+            .searchSuggestions {
+                auraPlaySearchSuggestions
+            }
+            .onSubmit(of: .search) {
+                selectedSegment = .search
+                model.submitSearch()
+            }
             .navigationDestination(for: LibraryRoute.self) { route in
                 destination(for: route)
             }
@@ -343,6 +359,8 @@ public struct LibraryRootView: View {
             switch selectedSegment {
             case .all, .audio, .video:
                 itemGridOrList
+            case .search:
+                searchContent
             case .collections:
                 collectionList
             case .creators:
@@ -351,6 +369,301 @@ public struct LibraryRootView: View {
                 playlistList
             }
         }
+    }
+
+    private var searchContent: some View {
+        LazyVStack(alignment: .leading, spacing: 14) {
+            searchControls
+            if model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                emptySearchContent
+            } else {
+                searchResultsContent
+            }
+        }
+        .accessibilityIdentifier(A11yID.AuraPlay.searchRoot)
+        .task(id: "\(model.currentAccount?.address ?? "none")|\(model.currentChain.rawValue)") {
+            model.refreshSearchRecents()
+        }
+    }
+
+    private var searchTextBinding: Binding<String> {
+        Binding(
+            get: { model.searchText },
+            set: { newValue in
+                if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    selectedSegment = .search
+                }
+                Task { await model.updateSearchText(newValue) }
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var auraPlaySearchSuggestions: some View {
+        if model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            ForEach(model.searchRecentQueries.prefix(5), id: \.self) { query in
+                Label(query, systemImage: "clock.arrow.circlepath")
+                    .searchCompletion(query)
+            }
+            ForEach(model.suggestedSearchQueries.prefix(5), id: \.self) { query in
+                Label(query, systemImage: "sparkles")
+                    .searchCompletion(query)
+            }
+        } else {
+            ForEach(model.searchSuggestions) { suggestion in
+                Label(suggestion.value, systemImage: suggestion.kind.systemImage)
+                    .searchCompletion(suggestion.value)
+            }
+        }
+    }
+
+    private var searchMediaTypeBinding: Binding<MediaItemMediaTypeFilter> {
+        Binding(
+            get: { model.searchFilter.mediaType },
+            set: { model.searchFilter.mediaType = $0 }
+        )
+    }
+
+    private var searchUnplayedBinding: Binding<Bool> {
+        Binding(
+            get: { model.searchFilter.unplayedOnly },
+            set: { model.searchFilter.unplayedOnly = $0 }
+        )
+    }
+
+    private var searchCurrentChainBinding: Binding<Bool> {
+        Binding(
+            get: { model.searchFilter.selectedChains.contains(currentChain) },
+            set: { isEnabled in
+                if isEnabled {
+                    model.searchFilter.selectedChains.insert(currentChain)
+                } else {
+                    model.searchFilter.selectedChains.remove(currentChain)
+                }
+            }
+        )
+    }
+
+    private var searchControls: some View {
+        AuraSurfaceCard(style: .soft, cornerRadius: 18, padding: 12) {
+            VStack(alignment: .leading, spacing: 12) {
+                if model.isSearchRunning {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Searching AuraPlay library")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier(A11yID.AuraPlay.searchField)
+                } else if !model.searchText.isEmpty {
+                    Button("Clear AuraPlay Search", systemImage: "xmark.circle") {
+                        model.clearSearch()
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier(A11yID.AuraPlay.searchClear)
+                }
+
+                if !model.searchSuggestions.isEmpty {
+                    LazyVGrid(columns: chipColumns, alignment: .leading, spacing: 8) {
+                        ForEach(model.searchSuggestions) { suggestion in
+                            Button {
+                                model.submitSearch(suggestion.value)
+                            } label: {
+                                Label(suggestion.value, systemImage: suggestion.kind.systemImage)
+                            }
+                            .buttonStyle(.bordered)
+                            .accessibilityIdentifier(A11yID.AuraPlay.searchSuggestion(id: suggestion.id))
+                        }
+                    }
+                }
+
+                searchFilterControls
+            }
+        }
+    }
+
+    private var searchFilterControls: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack {
+                Picker("Media type", selection: searchMediaTypeBinding) {
+                    ForEach(MediaItemMediaTypeFilter.allCases) { filter in
+                        Text(filter.title).tag(filter)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier(A11yID.AuraPlay.searchMediaTypeFilter)
+
+                Toggle(currentChain.routingDisplayName, isOn: searchCurrentChainBinding)
+                Toggle("Unplayed", isOn: searchUnplayedBinding)
+                Button("Clear Filters", systemImage: "xmark.circle") {
+                    model.clearSearchFilters()
+                }
+                .accessibilityIdentifier(A11yID.AuraPlay.searchClearFilters)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Picker("Media type", selection: searchMediaTypeBinding) {
+                    ForEach(MediaItemMediaTypeFilter.allCases) { filter in
+                        Text(filter.title).tag(filter)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier(A11yID.AuraPlay.searchMediaTypeFilter)
+
+                Toggle(currentChain.routingDisplayName, isOn: searchCurrentChainBinding)
+                Toggle("Unplayed", isOn: searchUnplayedBinding)
+                Button("Clear Filters", systemImage: "xmark.circle") {
+                    model.clearSearchFilters()
+                }
+                .accessibilityIdentifier(A11yID.AuraPlay.searchClearFilters)
+            }
+        }
+    }
+
+    private var emptySearchContent: some View {
+        AuraSurfaceCard(style: .regular, cornerRadius: 20, padding: 16) {
+            VStack(alignment: .leading, spacing: 14) {
+                if !model.searchRecentQueries.isEmpty {
+                    Label("Recent Searches", systemImage: "clock.arrow.circlepath")
+                        .font(.headline)
+                        .accessibilityAddTraits(.isHeader)
+                    LazyVGrid(columns: chipColumns, alignment: .leading, spacing: 8) {
+                        ForEach(model.searchRecentQueries, id: \.self) { query in
+                            Button(query) {
+                                model.submitSearch(query)
+                            }
+                            .buttonStyle(.bordered)
+                            .accessibilityIdentifier(A11yID.AuraPlay.searchRecent(query: query))
+                        }
+                    }
+                    Button("Clear Recent Searches", systemImage: "trash") {
+                        model.clearRecentSearches()
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier(A11yID.AuraPlay.searchClearRecents)
+                }
+
+                if !model.suggestedSearchQueries.isEmpty {
+                    Label("Suggested Searches", systemImage: "sparkles")
+                        .font(.headline)
+                        .accessibilityAddTraits(.isHeader)
+                    LazyVGrid(columns: chipColumns, alignment: .leading, spacing: 8) {
+                        ForEach(model.suggestedSearchQueries, id: \.self) { query in
+                            Button(query) {
+                                model.submitSearch(query)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier(A11yID.AuraPlay.searchSuggested(query: query))
+                        }
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier(A11yID.AuraPlay.searchEmpty)
+    }
+
+    @ViewBuilder
+    private var searchResultsContent: some View {
+        let results = model.filteredSearchResults
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Search Results", systemImage: "magnifyingglass")
+                .font(.headline)
+                .foregroundStyle(Color.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+
+            VStack(alignment: .leading, spacing: 10) {
+                searchResultsHeader(resultCount: results.count)
+
+                if model.isSearchRunning && model.searchResults.isEmpty {
+                    AuraSurfaceCard(style: .regular, cornerRadius: 18, padding: 16) {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                            Text("Searching AuraPlay library")
+                                .font(.subheadline)
+                        }
+                    }
+                    .accessibilityIdentifier(A11yID.AuraPlay.searchLoading)
+                } else if !model.searchResults.isEmpty && results.isEmpty {
+                    emptyState(
+                        id: A11yID.AuraPlay.searchFilteredEmpty,
+                        title: "No Results Match Filters",
+                        message: "Clear filters to show the matching AuraPlay media again.",
+                        systemImage: "line.3.horizontal.decrease.circle",
+                        actionTitle: "Clear Filters",
+                        action: model.clearSearchFilters
+                    )
+                } else if results.isEmpty {
+                    emptyState(
+                        id: A11yID.AuraPlay.searchNoResults,
+                        title: "No AuraPlay Matches",
+                        message: model.searchStatus,
+                        systemImage: "magnifyingglass"
+                    )
+                } else {
+                    LazyVStack(spacing: 10) {
+                        ForEach(results) { result in
+                            searchCell(for: result)
+                        }
+                    }
+                    .accessibilityIdentifier(A11yID.AuraPlay.searchResults)
+                }
+            }
+        }
+    }
+
+    private func searchResultsHeader(resultCount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(resultCount) visible - \(model.searchStatus)")
+                .font(.caption)
+                .foregroundStyle(Color.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .onLongPressGesture {
+                    #if DEBUG
+                    showsSearchDiagnostics.toggle()
+                    #endif
+                }
+                .accessibilityAction(named: "Toggle search diagnostics") {
+                    #if DEBUG
+                    showsSearchDiagnostics.toggle()
+                    #endif
+                }
+
+            #if DEBUG
+            if showsSearchDiagnostics {
+                Text("Local \(model.searchDiagnostics.localCount) - Semantic \(model.searchDiagnostics.semanticCount) - Overlap \(model.searchDiagnostics.overlapCount)")
+                    .font(.caption2)
+                    .foregroundStyle(Color.textSecondary)
+                    .accessibilityIdentifier(A11yID.AuraPlay.searchDiagnostics)
+            }
+            #endif
+        }
+    }
+
+    private func searchCell(for result: AuraPlaySearchResult) -> some View {
+        LibraryItemCell(
+            viewModel: LibraryItemCellViewModel(
+                queryItem: result.item,
+                isCurrent: model.playbackController.currentTrackID == result.item.sourceNFTID
+            ),
+            layout: .list,
+            play: { Task { await playFromSearch(itemID: result.item.sourceNFTID) } },
+            open: { onOpenItem(result.item.sourceNFTID) },
+            addToPlaylist: { playlistSheet = .addItem(result.item.sourceNFTID) }
+        )
+        .overlay(alignment: .topTrailing) {
+            #if DEBUG
+            Text(result.source.title)
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(.thinMaterial, in: Capsule())
+                .padding(6)
+                .accessibilityHidden(true)
+            #endif
+        }
+        .accessibilityIdentifier(A11yID.AuraPlay.searchResult(id: result.id))
     }
 
     @ViewBuilder
@@ -391,6 +704,20 @@ public struct LibraryRootView: View {
     private func playFromBrowse(itemID: String) async {
         if let orchestrator = model.playbackOrchestrator,
            let pair = model.browseQueueWindow(startingAt: itemID) {
+            await orchestrator.play(
+                item: pair.item,
+                queue: pair.window,
+                startAt: pair.window.startIndex,
+                origin: pair.window.origin
+            )
+        } else {
+            await onPlayItem(itemID)
+        }
+    }
+
+    private func playFromSearch(itemID: String) async {
+        if let orchestrator = model.playbackOrchestrator,
+           let pair = model.searchQueueWindow(startingAt: itemID) {
             await orchestrator.play(
                 item: pair.item,
                 queue: pair.window,
@@ -728,6 +1055,32 @@ private enum PlaylistSheet: Identifiable, Hashable {
             "rename-\(id)"
         case .addItem(let id):
             "add-\(id)"
+        }
+    }
+}
+
+private extension AuraPlaySearchSuggestion.Kind {
+    var systemImage: String {
+        switch self {
+        case .title:
+            "music.note"
+        case .creator:
+            "person.crop.square"
+        case .collection:
+            "rectangle.stack"
+        }
+    }
+}
+
+private extension AuraPlaySearchMatchSource {
+    var title: String {
+        switch self {
+        case .local:
+            "Local"
+        case .semantic:
+            "Semantic"
+        case .localAndSemantic:
+            "Both"
         }
     }
 }

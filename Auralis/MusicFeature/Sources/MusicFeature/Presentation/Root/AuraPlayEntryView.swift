@@ -69,6 +69,14 @@ public final class AuraPlayRootModel {
     public private(set) var isSemanticSearchRunning: Bool
     public private(set) var semanticSearchStatus: String
     public private(set) var indexingStatus: AuraPlayIndexingStatus
+    public var searchText: String
+    public private(set) var searchSuggestions: [AuraPlaySearchSuggestion]
+    public private(set) var searchResults: [AuraPlaySearchResult]
+    public private(set) var searchRecentQueries: [String]
+    public private(set) var isSearchRunning: Bool
+    public private(set) var searchStatus: String
+    public private(set) var searchDiagnostics: AuraPlaySearchDiagnostics
+    public var searchFilter: MediaItemFilter
 
     /// Reads sync progress live from the `@Observable` provider rather than
     /// snapshotting it at discrete points. `syncProgressProvider` is
@@ -89,6 +97,9 @@ public final class AuraPlayRootModel {
     @ObservationIgnored private var groupedIndexScopeKey: String?
     @ObservationIgnored private var lastSyncCompletionDate: Date?
     @ObservationIgnored private var browseLoadTask: Task<Void, Never>?
+    @ObservationIgnored private let recentSearchStore: AuraPlayRecentSearchStore
+    @ObservationIgnored private var searchTask: Task<Void, Never>?
+    @ObservationIgnored private var searchGeneration = 0
 
     public init(
         libraryRepository: any AuraPlayLibraryRepository,
@@ -96,6 +107,7 @@ public final class AuraPlayRootModel {
         nftDiscoverySyncService: any AuraPlayNFTDiscoverySyncing,
         syncProgressProvider: any AuraPlaySyncProgressProviding = NoOpAuraPlaySyncProgressProvider(),
         semanticSearchService: any AuraPlaySemanticSearching = NoOpAuraPlaySemanticSearchService(),
+        recentSearchStore: AuraPlayRecentSearchStore = AuraPlayRecentSearchStore(),
         playlistManager: any AuraPlayPlaylistManaging,
         playbackController: any AuraPlayPlaybackControlling,
         playbackPresenter: (any AuraPlayPlaybackPresenting)? = nil,
@@ -114,6 +126,7 @@ public final class AuraPlayRootModel {
         self.nftDiscoverySyncService = nftDiscoverySyncService
         self.syncProgressProvider = syncProgressProvider
         self.semanticSearchService = semanticSearchService
+        self.recentSearchStore = recentSearchStore
         self.playlistManager = playlistManager
         self.playbackController = playbackController
         self.playbackPresenter = playbackPresenter
@@ -136,6 +149,19 @@ public final class AuraPlayRootModel {
         self.isSemanticSearchRunning = false
         self.semanticSearchStatus = "Semantic search is ready."
         self.indexingStatus = AuraPlayIndexingStatus(isActive: false, message: "Index ready")
+        let initialScope = AuraPlayLibraryScope(accountAddress: currentAccount?.address, chain: currentChain)
+        self.searchText = ""
+        self.searchSuggestions = []
+        self.searchResults = []
+        self.searchRecentQueries = recentSearchStore.queries(scope: initialScope)
+        self.isSearchRunning = false
+        self.searchStatus = "Search the active AuraPlay library."
+        self.searchDiagnostics = AuraPlaySearchDiagnostics()
+        self.searchFilter = MediaItemFilter(
+            scope: initialScope,
+            selectedChains: [currentChain],
+            includeNonPlayable: true
+        )
     }
 
     public var scope: AuraPlayLibraryScope {
@@ -160,6 +186,13 @@ public final class AuraPlayRootModel {
         self.currentChain = currentChain
         configurationStatus = Self.makeConfigurationStatus(configuration)
         clearSemanticSearch()
+        clearSearch()
+        searchFilter = MediaItemFilter(
+            scope: scope,
+            selectedChains: [scope.chain],
+            includeNonPlayable: true
+        )
+        searchRecentQueries = recentSearchStore.queries(scope: scope)
 
         browseItems = []
         browseTotalCount = nil
@@ -419,6 +452,169 @@ public final class AuraPlayRootModel {
         semanticSearchResults = []
         semanticSearchStatus = "Semantic search is ready."
         isSemanticSearchRunning = false
+    }
+
+    public var filteredSearchResults: [AuraPlaySearchResult] {
+        AuraPlaySearchCoordinator.filtered(searchResults, filter: searchFilter)
+    }
+
+    public var suggestedSearchQueries: [String] {
+        let recentCount = searchRecentQueries.count
+        guard recentCount < 4 else { return [] }
+        return Array(AuraPlaySearchCoordinator.suggestedQueries.prefix(4 - recentCount))
+    }
+
+    public func refreshSearchRecents() {
+        searchRecentQueries = recentSearchStore.queries(scope: scope)
+    }
+
+    public func updateSearchText(_ text: String) async {
+        searchText = text
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            searchSuggestions = []
+            searchResults = []
+            searchDiagnostics = AuraPlaySearchDiagnostics()
+            searchStatus = "Search the active AuraPlay library."
+            return
+        }
+
+        do {
+            let items = try await fetchSearchSnapshot()
+            searchSuggestions = AuraPlaySearchCoordinator.suggestions(for: trimmed, in: items)
+        } catch {
+            searchSuggestions = []
+        }
+    }
+
+    public func submitSearch(_ query: String? = nil) {
+        let trimmed = (query ?? searchText).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            clearSearch()
+            return
+        }
+
+        searchText = trimmed
+        recentSearchStore.record(trimmed, scope: scope)
+        refreshSearchRecents()
+        searchSuggestions = []
+        isSearchRunning = true
+        searchStatus = "Searching AuraPlay."
+        searchGeneration += 1
+        let generation = searchGeneration
+        searchTask?.cancel()
+        searchTask = Task { @MainActor in
+            await performSearch(query: trimmed, generation: generation)
+        }
+    }
+
+    public func clearSearch() {
+        searchTask?.cancel()
+        searchText = ""
+        searchSuggestions = []
+        searchResults = []
+        searchDiagnostics = AuraPlaySearchDiagnostics()
+        searchStatus = "Search the active AuraPlay library."
+        isSearchRunning = false
+    }
+
+    public func clearRecentSearches() {
+        recentSearchStore.clear(scope: scope)
+        refreshSearchRecents()
+    }
+
+    public func clearSearchFilters() {
+        searchFilter = MediaItemFilter(
+            scope: scope,
+            selectedChains: [scope.chain],
+            includeNonPlayable: true
+        )
+    }
+
+    public func waitForSearchCompletion() async {
+        await searchTask?.value
+    }
+
+    public func searchQueueWindow(
+        startingAt itemID: String,
+        windowSize: Int = 100
+    ) -> (item: AuraPlayPlaybackItemPresentation, window: AuraPlayQueueWindow)? {
+        AuraPlaySearchCoordinator.queueWindow(
+            startingAt: itemID,
+            in: filteredSearchResults,
+            query: searchText,
+            windowSize: windowSize
+        )
+    }
+
+    private func performSearch(query: String, generation: Int) async {
+        do {
+            let snapshot = try await fetchSearchSnapshot()
+            try Task.checkCancellation()
+            guard generation == searchGeneration else { return }
+
+            let localMatches = AuraPlaySearchCoordinator.localMatches(query: query, in: snapshot)
+            let localMerge = AuraPlaySearchCoordinator.merge(
+                localItems: localMatches,
+                semanticResults: [],
+                resolvedSemanticItems: []
+            )
+            searchResults = localMerge.results
+            searchDiagnostics = localMerge.diagnostics
+            searchStatus = localMatches.isEmpty ? "Checking semantic matches." : "\(localMatches.count) local match\(localMatches.count == 1 ? "" : "es") found."
+
+            let semanticMatches = try await semanticSearchService.search(
+                query: query,
+                in: scope,
+                limit: 25,
+                minimumScore: 0.18
+            )
+            try Task.checkCancellation()
+            guard generation == searchGeneration else { return }
+
+            let resolvedSemanticItems = try await mediaQueryService?.fetchItems(
+                scope: scope,
+                ids: semanticMatches.map(\.id)
+            ) ?? []
+            let merged = AuraPlaySearchCoordinator.merge(
+                localItems: localMatches,
+                semanticResults: semanticMatches,
+                resolvedSemanticItems: resolvedSemanticItems
+            )
+            searchResults = merged.results
+            searchDiagnostics = merged.diagnostics
+            searchStatus = merged.results.isEmpty
+                ? "No AuraPlay matches found."
+                : "\(merged.results.count) search match\(merged.results.count == 1 ? "" : "es") found."
+            isSearchRunning = false
+        } catch is CancellationError {
+            return
+        } catch {
+            guard generation == searchGeneration else { return }
+            isSearchRunning = false
+            searchStatus = searchResults.isEmpty
+                ? "Search is unavailable right now."
+                : "Semantic search is unavailable; local matches are shown."
+            logger.log(
+                AuraPlayLogEvent(
+                    category: .library,
+                    level: .error,
+                    message: "AuraPlay search failed: \(error.localizedDescription)"
+                )
+            )
+        }
+    }
+
+    private func fetchSearchSnapshot() async throws -> [MediaItemQueryItem] {
+        guard let mediaQueryService else { return [] }
+        let context = MediaItemQueryContext(
+            scope: scope,
+            sort: .titleAZ,
+            filter: MediaItemFilter(scope: scope, includeNonPlayable: true),
+            offset: 0,
+            limit: 5_000
+        )
+        return try await mediaQueryService.fetchWindow(context: context).items
     }
 
     private func refreshLibrarySummary(syncDiscoveryIfNeeded: Bool) async {

@@ -109,6 +109,28 @@ struct NFTTokensRootView: View {
     let refreshAction: @MainActor () async -> Void
     let router: AppRouter
 
+    @State private var searchText = ""
+
+    private var filteredNFTs: [NFT] {
+        let normalizedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalizedSearchText.isEmpty else {
+            return nfts
+        }
+
+        return nfts.filter { nft in
+            [
+                nft.id,
+                nft.name,
+                nft.collectionName,
+                nft.collection?.name,
+                nft.contract.address,
+                nft.tokenId
+            ]
+            .compactMap { $0?.lowercased() }
+            .contains { $0.contains(normalizedSearchText) }
+        }
+    }
+
     init(
         currentAccount: EOAccount?,
         currentChain: Chain,
@@ -137,7 +159,7 @@ struct NFTTokensRootView: View {
 
     var body: some View {
         NFTLibraryTokensRootView(
-            nfts: nfts,
+            nfts: filteredNFTs,
             currentChain: currentChain,
             emptyMessage: emptyMessage,
             isLoading: nftService.isLoading,
@@ -151,6 +173,11 @@ struct NFTTokensRootView: View {
                 },
                 refresh: refreshAction
             )
+        )
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search NFT, collection, contract, or token ID"
         )
     }
 

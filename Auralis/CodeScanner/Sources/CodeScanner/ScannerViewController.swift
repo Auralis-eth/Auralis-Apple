@@ -57,9 +57,11 @@ extension CodeScannerView {
             openGallery()
         }
 
+        #if targetEnvironment(simulator)
         @objc func useSimulatedCodeFromButton(_ sender: UIButton) {
             sendSimulatedCode()
         }
+        #endif
 
         #if targetEnvironment(simulator)
         override public func loadView() {

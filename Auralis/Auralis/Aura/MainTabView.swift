@@ -537,7 +537,9 @@ struct MainTabView: View {
             router: router,
             currentAccountAddress: activeAccountAddress,
             currentChain: currentChain,
-            historyStore: dependencies.searchHistoryStore
+            historyStore: dependencies.searchHistoryStore,
+            spotlightIndexer: dependencies.searchSpotlightIndexerFactory(modelContext),
+            assistantProvider: dependencies.searchAssistantFactory(modelContext.container)
         )
     }
 

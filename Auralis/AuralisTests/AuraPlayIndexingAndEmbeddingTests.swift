@@ -163,6 +163,41 @@ struct AuraPlayIndexingAndEmbeddingTests {
         #expect(provider.requests() == ["silent"])
     }
 
+    @Test("semantic search cooperatively cancels before scanning persisted embeddings")
+    func semanticSearchChecksCancellationDuringScan() async throws {
+        let container = try AuraPlayModelContainer.make(inMemory: true)
+        let context = ModelContext(container)
+        context.insert(Self.mediaItem(id: "media-1", title: "Cancellable Track"))
+        context.insert(
+            AuraPlayMediaEmbedding(
+                mediaItemID: "media-1",
+                vectorData: AuraPlayEmbeddingVectorCodec.data(from: [1, 0]),
+                embeddingModelVersion: "fixed-test-v1",
+                sourceFingerprint: "media-1"
+            )
+        )
+        try context.save()
+        let provider = FixedEmbeddingProvider(vector: [1, 0])
+        let service = AuraPlayEmbeddingService(modelContainer: container, embeddingProvider: provider)
+
+        let task = Task {
+            try await service.search(
+                query: "cancel me",
+                in: AuraPlayLibraryScope(accountAddress: "0x123", chain: .ethMainnet),
+                limit: 5,
+                minimumScore: 0
+            )
+        }
+        task.cancel()
+
+        do {
+            _ = try await task.value
+            Issue.record("Expected semantic search to throw CancellationError")
+        } catch is CancellationError {
+            #expect(provider.requests() == ["cancel me"])
+        }
+    }
+
     private static func mediaItem(
         id: String,
         title: String,

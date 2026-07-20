@@ -74,6 +74,54 @@ struct SearchLocalIndex: Equatable, Sendable {
     let nftNames: [NameEntry]
     let collections: [CollectionEntry]
 
+    var suggestionCandidates: [SearchSuggestion] {
+        let accountSuggestions = accounts.map {
+            SearchSuggestion(
+                completion: $0.displayName,
+                detail: $0.address.displayAddress,
+                kind: .account
+            )
+        }
+
+        let ensSuggestions = ensEntries.map {
+            SearchSuggestion(
+                completion: $0.displayName,
+                detail: $0.address.displayAddress,
+                kind: .ens
+            )
+        }
+
+        let tokenSuggestions = tokenSymbols.map {
+            SearchSuggestion(
+                completion: $0.symbol,
+                detail: $0.label,
+                kind: .tokenSymbol
+            )
+        }
+
+        let nftSuggestions = nftNames.map {
+            SearchSuggestion(
+                completion: $0.displayName,
+                detail: $0.collectionDisplayName ?? "Active scope item",
+                kind: .nftName
+            )
+        }
+
+        let collectionSuggestions = collections.map {
+            SearchSuggestion(
+                completion: $0.displayName,
+                detail: $0.chain.routingDisplayName,
+                kind: .collectionName
+            )
+        }
+
+        return accountSuggestions +
+            ensSuggestions +
+            tokenSuggestions +
+            nftSuggestions +
+            collectionSuggestions
+    }
+
     static let empty = SearchLocalIndex(
         accounts: [],
         ensEntries: [],
@@ -261,125 +309,129 @@ struct SearchLocalIndex: Equatable, Sendable {
     }
 
     func accountMatches(address: String) -> [SearchLocalMatch] {
-        accounts
-            .filter { $0.address == address }
-            .map {
-                SearchLocalMatch(
-                    kind: .account,
-                    title: $0.displayName,
-                    subtitle: $0.address.displayAddress,
-                    destination: .profile(address: $0.address)
-                )
-            }
+        let matchesByAddress = Dictionary(grouping: accounts, by: \.address)
+        return (matchesByAddress[address] ?? []).map(accountMatch)
     }
 
     func ensMatches(name: String) -> [SearchLocalMatch] {
-        ensEntries
-            .filter { $0.ensName == name }
-            .map {
-                SearchLocalMatch(
-                    kind: .ens,
-                    title: $0.displayName,
-                    subtitle: $0.address.displayAddress,
-                    destination: .profile(address: $0.address)
-                )
-            }
+        let matchesByName = Dictionary(grouping: ensEntries, by: \.ensName)
+        return (matchesByName[name] ?? []).map(ensMatch)
     }
 
     func contractMatches(address: String) -> [SearchLocalMatch] {
-        contracts
-            .filter { $0.address == address }
-            .map {
-                SearchLocalMatch(
-                    kind: .contract,
-                    title: $0.label,
-                    subtitle: "\($0.chain.routingDisplayName) • \($0.address.displayAddress)",
-                    destination: .nftCollection(
-                        contractAddress: $0.address,
-                        title: $0.label,
-                        chain: $0.chain
-                    )
-                )
-            }
+        let matchesByAddress = Dictionary(grouping: contracts, by: \.address)
+        return (matchesByAddress[address] ?? []).map(contractMatch)
     }
 
     func tokenSymbolMatches(symbol: String) -> [SearchLocalMatch] {
-        tokenSymbols
-            .filter { $0.symbol == symbol }
-            .map {
-                SearchLocalMatch(
-                    kind: .tokenSymbol,
-                    title: $0.symbol,
-                    subtitle: $0.label,
-                    destination: .token(
-                        contractAddress: $0.contractAddress,
-                        chain: $0.chain,
-                        symbol: $0.symbol
-                    )
-                )
-            }
+        let matchesBySymbol = Dictionary(grouping: tokenSymbols, by: \.symbol)
+        return (matchesBySymbol[symbol] ?? []).map(tokenSymbolMatch)
     }
 
     func exactNFTNameMatches(query: String) -> [SearchLocalMatch] {
-        nftNames
-            .filter { $0.normalizedName == query }
-            .map {
-                SearchLocalMatch(
-                    kind: .nftName,
-                    title: $0.displayName,
-                    subtitle: $0.collectionDisplayName ?? "Active scope item",
-                    destination: .nftItem(id: $0.nftID)
-                )
-            }
+        let matchesByName = Dictionary(grouping: nftNames, by: \.normalizedName)
+        return (matchesByName[query] ?? []).map(nftNameMatch)
     }
 
     func partialNFTNameMatches(query: String) -> [SearchLocalMatch] {
         nftNames
             .filter { $0.normalizedName.contains(query) }
             .prefix(6)
-            .map {
-                SearchLocalMatch(
-                    kind: .nftName,
-                    title: $0.displayName,
-                    subtitle: $0.collectionDisplayName ?? "Active scope item",
-                    destination: .nftItem(id: $0.nftID)
-                )
-            }
+            .map(nftNameMatch)
     }
 
     func exactCollectionMatches(query: String) -> [SearchLocalMatch] {
-        collections
-            .filter { $0.normalizedName == query }
-            .map {
-                SearchLocalMatch(
-                    kind: .collectionName,
-                    title: $0.displayName,
-                    subtitle: $0.chain.routingDisplayName,
-                    destination: .nftCollection(
-                        contractAddress: $0.contractAddress,
-                        title: $0.displayName,
-                        chain: $0.chain
-                    )
-                )
-            }
+        let matchesByName = Dictionary(grouping: collections, by: \.normalizedName)
+        return (matchesByName[query] ?? []).map(collectionMatch)
     }
 
     func partialCollectionMatches(query: String) -> [SearchLocalMatch] {
         collections
             .filter { $0.normalizedName.contains(query) }
             .prefix(6)
-            .map {
-                SearchLocalMatch(
-                    kind: .collectionName,
-                    title: $0.displayName,
-                    subtitle: $0.chain.routingDisplayName,
-                    destination: .nftCollection(
-                        contractAddress: $0.contractAddress,
-                        title: $0.displayName,
-                        chain: $0.chain
-                    )
-                )
-            }
+            .map(collectionMatch)
+    }
+
+    func allMatches(filter: SearchFilterState, limit: Int = 24) -> [SearchLocalMatch] {
+        var seen = Set<String>()
+        let orderedMatches = accounts.map(accountMatch) +
+            ensEntries.map(ensMatch) +
+            tokenSymbols.map(tokenSymbolMatch) +
+            nftNames.map(nftNameMatch) +
+            collections.map(collectionMatch) +
+            contracts.map(contractMatch)
+
+        return orderedMatches
+            .filter { filter.includes(match: $0) }
+            .filter { seen.insert($0.id).inserted }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    private func accountMatch(_ entry: AccountEntry) -> SearchLocalMatch {
+        SearchLocalMatch(
+            kind: .account,
+            title: entry.displayName,
+            subtitle: entry.address.displayAddress,
+            destination: .profile(address: entry.address)
+        )
+    }
+
+    private func ensMatch(_ entry: ENSEntry) -> SearchLocalMatch {
+        SearchLocalMatch(
+            kind: .ens,
+            title: entry.displayName,
+            subtitle: entry.address.displayAddress,
+            destination: .profile(address: entry.address)
+        )
+    }
+
+    private func contractMatch(_ entry: ContractEntry) -> SearchLocalMatch {
+        SearchLocalMatch(
+            kind: .contract,
+            title: entry.label,
+            subtitle: "\(entry.chain.routingDisplayName) • \(entry.address.displayAddress)",
+            destination: .nftCollection(
+                contractAddress: entry.address,
+                title: entry.label,
+                chain: entry.chain
+            )
+        )
+    }
+
+    private func tokenSymbolMatch(_ entry: SymbolEntry) -> SearchLocalMatch {
+        SearchLocalMatch(
+            kind: .tokenSymbol,
+            title: entry.symbol,
+            subtitle: entry.label,
+            destination: .token(
+                contractAddress: entry.contractAddress,
+                chain: entry.chain,
+                symbol: entry.symbol
+            )
+        )
+    }
+
+    private func nftNameMatch(_ entry: NameEntry) -> SearchLocalMatch {
+        SearchLocalMatch(
+            kind: .nftName,
+            title: entry.displayName,
+            subtitle: entry.collectionDisplayName ?? "Active scope item",
+            destination: .nftItem(id: entry.nftID)
+        )
+    }
+
+    private func collectionMatch(_ entry: CollectionEntry) -> SearchLocalMatch {
+        SearchLocalMatch(
+            kind: .collectionName,
+            title: entry.displayName,
+            subtitle: entry.chain.routingDisplayName,
+            destination: .nftCollection(
+                contractAddress: entry.contractAddress,
+                title: entry.displayName,
+                chain: entry.chain
+            )
+        )
     }
 
     private static func cleanedText(_ value: String?) -> String? {

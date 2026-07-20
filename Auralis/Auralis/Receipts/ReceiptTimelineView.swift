@@ -96,9 +96,9 @@ struct ReceiptsRootView: View {
         .searchable(
             text: $timelineState.searchQuery,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Search summary, scope, correlation, payload"
+            prompt: "Search status, trigger, chain, account, or receipt ID"
         )
-        .accessibilityIdentifier("receipts.root")
+        .accessibilityIdentifier(A11yID.Receipts.root)
         .task(id: refreshKey) {
             refreshSnapshot()
         }
@@ -195,7 +195,7 @@ struct ReceiptsRootView: View {
                         ReceiptTimelineRow(record: record)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityIdentifier("receipts.row.\(record.id.uuidString)")
+                    .accessibilityIdentifier(A11yID.Receipts.row(id: record.id.uuidString))
                 }
 
                 if snapshot.hasMore {

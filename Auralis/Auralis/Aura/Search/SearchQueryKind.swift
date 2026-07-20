@@ -77,4 +77,19 @@ enum SearchQueryKind: String, Equatable, Sendable {
             return false
         }
     }
+
+    var isAssistantEligible: Bool {
+        switch self {
+        case .tokenSymbol, .nftName, .collectionName, .text:
+            return true
+        case .empty,
+             .walletAddress,
+             .contractAddress,
+             .ambiguousAddress,
+             .invalidAddress,
+             .ensName,
+             .invalidENSLike:
+            return false
+        }
+    }
 }

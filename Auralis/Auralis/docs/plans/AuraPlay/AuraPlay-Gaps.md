@@ -225,3 +225,17 @@ The legacy helpers (`URLConverter.convertToPreferredHTTPS`, `URL.toPinataGateway
 - Expected: the device QA suite in `AuraPlay-Physical-Device-QA-Suite.md` executed on hardware (PiP, AirPlay, subtitles, speed, routes, interruptions), plus an Accessibility Inspector pass over Library and Player.
 - Actual: everything code-side is automated-tested; these two gates need a human with a device.
 - Why it matters: they are the last release gates for Phases 9/10.
+
+## Phase 11 (Search) Gaps
+
+### Assistant result-quality evaluation is a seed, not real coverage
+
+- Expected: a meaningful evaluation corpus for `SearchAssistantService` that scores real result relevance (precision/recall over representative queries), not just structural round-trips.
+- Actual: `SearchAssistantEvaluationTests` is a deliberately small seed whose `subject(from:)` returns a hand-rolled fixture stub (`fixtureReturnedIdentifiers`), so it scores harness math, not the real assistant. It does not drive `SearchAssistantService` / the live `SpotlightSearchTool` pipeline.
+- Update (2026-07-19): the on-device model reports `.available` on the physical iOS 27.0 test device, so a model-driven evaluation is now genuinely runnable here — the blocker is no longer the runtime, it is the missing work: (1) point `subject` at the real `SearchAssistantService` against a seeded CoreSpotlight test domain, (2) grow the corpus to representative per-domain queries with precision/recall (not just coverage), (3) keep it out of the fast lane since live-LLM + async Spotlight indexing is nondeterministic.
+- Why it matters: until the eval drives the real pipeline, assistant result quality is still unverified even though the path now runs.
+
+### iOS-27-only assistant stages: hardened in code, runtime validation still pending
+
+- Done (2026-07-19): `AuralisMediaCapabilityStage` now scores off the structured Spotlight metadata tokens the indexer already emits (`mediaKind`, `isPlayable`, `artistName`, `collectionName`) with named weight constants, and no longer scans free text for `"music"`/`"artist:"` substrings. `AuralisReceiptRollupStage.receiptValue` reads grouping values straight from structured tokens and dropped the fragile `"Trigger: …"` free-text parsing — this also fixed a latent bug where chain grouping looked up a non-existent `receiptChain` token instead of the shared `chain` token. Table cells are now formatted by pattern-matching the typed `SearchResultsTable.Value` at the source, so `SearchAssistantTableView.cleanedCellValue` (which string-stripped `.string(...)` syntax) is deleted. Unit tests live in `SearchAssistantStageTests` (structured scoring, threshold filtering, synonym mapping, receipt grouping incl. the chain regression, typed cell formatting).
+- Validated (2026-07-19): run on a physical iOS 27.0 device, all 11 stage/cell/evaluation-seed tests pass, and the pre-existing `SearchSpotlightSupportTests` stage tests still pass (no regression from the refactor). The app-hosted test crash seen under the Xcode beta simulator did not occur on device. Unblocking the device lane required one fix to the vendored `CodeScanner` package: `ScannerViewController.useSimulatedCodeFromButton` referenced the simulator-only `sendSimulatedCode()` without a `#if targetEnvironment(simulator)` guard, which broke every device build.

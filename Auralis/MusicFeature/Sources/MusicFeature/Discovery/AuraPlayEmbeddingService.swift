@@ -226,25 +226,31 @@ public actor AuraPlayEmbeddingService: EmbeddingQueueProcessing, AuraPlaySemanti
         )
         let embeddingsByMediaID = Dictionary(uniqueKeysWithValues: embeddings.map { ($0.mediaItemID, $0) })
 
-        return items.compactMap { item -> AuraPlaySemanticSearchResult? in
+        var matches: [AuraPlaySemanticSearchResult] = []
+        for item in items {
+            try Task.checkCancellation()
             guard let embedding = embeddingsByMediaID[item.sourceNFTID],
                   let vectorData = embedding.vectorData,
                   let score = Self.cosineSimilarity(queryVector, AuraPlayEmbeddingVectorCodec.vector(from: vectorData)),
                   score >= minimumScore else {
-                return nil
+                continue
             }
 
-            return AuraPlaySemanticSearchResult(
-                id: item.sourceNFTID,
-                title: item.title,
-                artistName: item.artistName,
-                collectionName: item.collectionName,
-                artworkURLString: item.artworkURLString,
-                playbackURLString: item.playbackURLString,
-                isPlayable: item.isPlayable && item.playbackURLString?.isEmpty == false,
-                score: score
+            matches.append(
+                AuraPlaySemanticSearchResult(
+                    id: item.sourceNFTID,
+                    title: item.title,
+                    artistName: item.artistName,
+                    collectionName: item.collectionName,
+                    artworkURLString: item.artworkURLString,
+                    playbackURLString: item.playbackURLString,
+                    isPlayable: item.isPlayable && item.playbackURLString?.isEmpty == false,
+                    score: score
+                )
             )
         }
+
+        return matches
         .sorted { lhs, rhs in
             if lhs.score == rhs.score {
                 return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
