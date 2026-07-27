@@ -773,12 +773,28 @@ public final class ProgressiveVideoResourceLoader: NSObject, VideoAssetResourceL
 
     func contentTypeIdentifier(for record: ProgressiveVideoCacheRecord) -> String {
         if let contentType = record.contentType {
-            if let type = UTType(mimeType: contentType) {
+            switch contentType.lowercased() {
+            case "video/mp4", "application/mp4":
+                return AVFileType.mp4.rawValue
+            case "video/quicktime":
+                return AVFileType.mov.rawValue
+            default:
+                break
+            }
+            if contentType.contains("/"), contentType.rangeOfCharacter(from: .whitespacesAndNewlines) == nil, let type = UTType(mimeType: contentType) {
                 return type.identifier
             }
-            if UTType(contentType) != nil {
+            if contentType.contains("."), contentType.rangeOfCharacter(from: .whitespacesAndNewlines) == nil, UTType(contentType) != nil {
                 return contentType
             }
+        }
+        switch record.sourceURL.pathExtension.lowercased() {
+        case "mp4", "m4v":
+            return AVFileType.mp4.rawValue
+        case "mov", "qt":
+            return AVFileType.mov.rawValue
+        default:
+            break
         }
         if let type = UTType(filenameExtension: record.sourceURL.pathExtension) {
             return type.identifier

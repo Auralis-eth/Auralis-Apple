@@ -2,7 +2,15 @@ import Foundation
 import SwiftData
 
 public protocol AuraPlayPlaylistManaging: Sendable {
+    func fetchPlaylistSnapshots() async throws -> [AuraPlayPlaylistSnapshot]
+    func fetchPlaylistSnapshot(id: String) async throws -> AuraPlayPlaylistSnapshot?
     func createID(name: String, at date: Date) async throws -> String
+    func createSmartPlaylistID(
+        name: String,
+        mediaItemIDs: [String],
+        smartQueryData: Data,
+        at date: Date
+    ) async throws -> String
     func rename(id: String, name: String, at date: Date) async throws
     func delete(id: String) async throws
     func add(mediaItemID: String, toPlaylist playlistID: String, at date: Date) async throws
@@ -31,6 +39,50 @@ public actor AuraPlayPlaylistService: AuraPlayPlaylistManaging {
         try create(name: name, at: date).id
     }
 
+    @discardableResult
+    public func createSmartPlaylist(
+        name: String,
+        mediaItemIDs: [String],
+        smartQueryData: Data,
+        at date: Date = .now
+    ) throws -> AuraPlayPlaylist {
+        let playlist = AuraPlayPlaylist(
+            name: Self.cleanedName(name),
+            isSmart: true,
+            smartQueryData: smartQueryData,
+            createdAt: date,
+            updatedAt: date
+        )
+        modelContext.insert(playlist)
+        for (index, mediaItemID) in Self.uniqueMediaItemIDs(mediaItemIDs).enumerated() {
+            let item = AuraPlayPlaylistItem(
+                playlistID: playlist.id,
+                mediaItemID: mediaItemID,
+                position: index,
+                addedAt: date.addingTimeInterval(Double(index) / 1_000),
+                playlist: playlist
+            )
+            modelContext.insert(item)
+        }
+        try modelContext.save()
+        return playlist
+    }
+
+    @discardableResult
+    public func createSmartPlaylistID(
+        name: String,
+        mediaItemIDs: [String],
+        smartQueryData: Data,
+        at date: Date = .now
+    ) throws -> String {
+        try createSmartPlaylist(
+            name: name,
+            mediaItemIDs: mediaItemIDs,
+            smartQueryData: smartQueryData,
+            at: date
+        ).id
+    }
+
     public func rename(id: String, name: String, at date: Date = .now) throws {
         guard let playlist = try fetchPlaylist(id: id) else { return }
         playlist.name = Self.cleanedName(name)
@@ -53,6 +105,14 @@ public actor AuraPlayPlaylistService: AuraPlayPlaylistManaging {
             ]
         )
         return try modelContext.fetch(descriptor)
+    }
+
+    public func fetchPlaylistSnapshots() throws -> [AuraPlayPlaylistSnapshot] {
+        try fetchPlaylists().map(AuraPlayPlaylistSnapshot.init)
+    }
+
+    public func fetchPlaylistSnapshot(id: String) throws -> AuraPlayPlaylistSnapshot? {
+        try fetchPlaylist(id: id).map(AuraPlayPlaylistSnapshot.init)
     }
 
     public func fetchItems(playlistID: String) throws -> [AuraPlayPlaylistItem] {
@@ -164,6 +224,39 @@ public actor AuraPlayPlaylistService: AuraPlayPlaylistManaging {
     private static func cleanedName(_ name: String) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "Untitled Playlist" : trimmed
+    }
+
+    private static func uniqueMediaItemIDs(_ ids: [String]) -> [String] {
+        var seen: Set<String> = []
+        return ids.filter { id in
+            seen.insert(id).inserted
+        }
+    }
+}
+
+public struct AuraPlayPlaylistSnapshot: Identifiable, Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let coverImageURLString: String?
+    public let isSmart: Bool
+    public let createdAt: Date
+    public let updatedAt: Date
+    public let itemIDs: [String]
+
+    public var itemCount: Int {
+        itemIDs.count
+    }
+
+    public init(playlist: AuraPlayPlaylist) {
+        self.id = playlist.id
+        self.name = playlist.name
+        self.coverImageURLString = playlist.coverImageURLString
+        self.isSmart = playlist.isSmart
+        self.createdAt = playlist.createdAt
+        self.updatedAt = playlist.updatedAt
+        self.itemIDs = playlist.items
+            .sorted { $0.position < $1.position }
+            .map(\.mediaItemID)
     }
 }
 

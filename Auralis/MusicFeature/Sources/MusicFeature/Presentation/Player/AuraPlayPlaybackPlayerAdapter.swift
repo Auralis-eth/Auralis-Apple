@@ -290,7 +290,8 @@ private extension AuraPlayPlayerItemPresentation {
             mediaKind: currentItem.mediaKind,
             chainDisplayName: currentItem.chainDisplayName,
             contractAddress: currentItem.contractAddress,
-            tokenID: currentItem.tokenID
+            tokenID: currentItem.tokenID,
+            explorerURL: currentItem.explorerURL
         )
     }
 }

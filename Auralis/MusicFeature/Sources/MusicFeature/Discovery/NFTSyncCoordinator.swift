@@ -69,12 +69,22 @@ public final class NFTSyncCoordinator {
         progress.itemsClassified = mediaItems.count
         progress.itemsPlayable = mediaItems.filter(\.isPlayable).count
 
+        let syncedAt = clock()
+
         try await tokenStore.upsertAll(tokensWithMetadata)
         try await mediaStore.upsertAll(mediaItems)
 
         let discoveredIDs = Set(tokensWithMetadata.map(\.compositeID))
         let inactiveIDs = existingActiveIDs.subtracting(discoveredIDs)
         try await tokenStore.markInactive(ids: inactiveIDs)
+
+        // Reconcile out media rows for tokens that left the wallet, capturing a
+        // Smart Resume tombstone for any resumable position, then restore
+        // positions for tokens whose exact on-chain identity has returned. Media
+        // `sourceNFTID` == token `compositeID`, so `inactiveIDs` map directly to
+        // media rows. Restore runs after `upsertAll` re-inserted returned rows.
+        try await mediaStore.removeItems(ids: Array(inactiveIDs), capturedAt: syncedAt)
+        try await mediaStore.restorePlaybackTombstones(at: syncedAt)
 
         let mediaIDs = mediaItems.map(\.id)
         await mediaItemIndexer.indexItems(mediaIDs)
@@ -86,7 +96,6 @@ public final class NFTSyncCoordinator {
             await artworkPrefetcher.prefetch(artworkURLs: mediaItems.compactMap(\.artworkURL))
         }
 
-        let syncedAt = clock()
         progress.lastSyncedAt = syncedAt
         progress.state = .complete
     }

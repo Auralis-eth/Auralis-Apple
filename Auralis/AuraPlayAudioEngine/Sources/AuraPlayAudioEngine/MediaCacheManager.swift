@@ -12,13 +12,14 @@ public actor MediaCacheManager: MediaCacheManaging {
 
     private let cacheDirectory: URL
     private let indexURL: URL
-    private let diskCapBytes: Int64
+    private var diskCapBytes: Int64
     private let fileManager: FileManager
     private let downloader: any MediaDownloading
     private let resolver: any MediaURLResolving
     private let gatewayFallbackResolver: (any MediaGatewayFallbackResolving)?
     private let networkStatusProvider: any MediaNetworkStatusProviding
     private let loudnessAnalyzer: ApproximateLoudnessAnalyzer
+    private let settingsDefaults: UserDefaults
     private nonisolated let progressBroadcast = AsyncBroadcast<CacheProgress>()
     private nonisolated let loudnessBroadcast = AsyncBroadcast<CachedLoudnessMeasurement>()
     private var index: [String: CacheEntry]
@@ -27,21 +28,25 @@ public actor MediaCacheManager: MediaCacheManaging {
 
     public init(
         cacheDirectory: URL? = nil,
-        diskCapBytes: Int64 = 1_000_000_000,
+        diskCapBytes: Int64? = nil,
         fileManager: FileManager = .default,
         downloader: any MediaDownloading = URLSessionMediaDownloader(),
         resolver: any MediaURLResolving = GatewayMediaURLResolver(),
         gatewayFallbackResolver: (any MediaGatewayFallbackResolving)? = nil,
         networkStatusProvider: any MediaNetworkStatusProviding = FixedMediaNetworkStatusProvider(),
-        loudnessAnalyzer: ApproximateLoudnessAnalyzer = ApproximateLoudnessAnalyzer()
+        loudnessAnalyzer: ApproximateLoudnessAnalyzer = ApproximateLoudnessAnalyzer(),
+        settingsDefaults: UserDefaults = .standard
     ) throws {
         self.fileManager = fileManager
-        self.diskCapBytes = diskCapBytes
+        self.diskCapBytes = AuraPlayCacheSettings.clampedDiskCapBytes(
+            diskCapBytes ?? AuraPlayCacheSettings.diskCapBytes(from: settingsDefaults)
+        )
         self.downloader = downloader
         self.resolver = resolver
         self.gatewayFallbackResolver = gatewayFallbackResolver
         self.networkStatusProvider = networkStatusProvider
         self.loudnessAnalyzer = loudnessAnalyzer
+        self.settingsDefaults = settingsDefaults
 
         let baseDirectory = cacheDirectory ?? fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appending(path: "AuraPlayAudioEngine", directoryHint: .isDirectory)
@@ -187,6 +192,33 @@ public actor MediaCacheManager: MediaCacheManaging {
         index[key]?.isPinned = false
         index[key]?.state = AuraCachedFileState.cached.rawValue
         try persistIndex()
+    }
+
+    public func cacheSettingsSummary() -> AuraPlayCacheSettingsSummary {
+        makeCacheSettingsSummary()
+    }
+
+    @discardableResult
+    public func updateDiskCapBytes(_ bytes: Int64) throws -> AuraPlayCacheSettingsSummary {
+        diskCapBytes = AuraPlayCacheSettings.storeDiskCapBytes(bytes, in: settingsDefaults)
+        try evictIfNeeded()
+        return makeCacheSettingsSummary()
+    }
+
+    @discardableResult
+    public func clearUnpinnedCache() throws -> AuraPlayCacheSettingsSummary {
+        let removableKeys = index
+            .filter { key, entry in
+                entry.isPinned == false && activeReaderCounts[key, default: 0] == 0
+            }
+            .map(\.key)
+
+        for key in removableKeys {
+            removeCachedEntry(key: key)
+        }
+
+        try persistIndex()
+        return makeCacheSettingsSummary()
     }
 
     public func beginReading<M: AuraPlayableMedia>(_ media: M) {
@@ -632,6 +664,17 @@ public actor MediaCacheManager: MediaCacheManaging {
         }
 
         try persistIndex()
+    }
+
+    private func makeCacheSettingsSummary() -> AuraPlayCacheSettingsSummary {
+        let pinnedEntries = index.values.filter(\.isPinned)
+        return AuraPlayCacheSettingsSummary(
+            totalBytes: index.values.reduce(Int64(0)) { $0 + $1.byteCount },
+            pinnedBytes: pinnedEntries.reduce(Int64(0)) { $0 + $1.byteCount },
+            diskCapBytes: diskCapBytes,
+            cachedEntryCount: index.count,
+            pinnedEntryCount: pinnedEntries.count
+        )
     }
 
     private func cachedURL(forKey key: String, matching fingerprint: CacheFingerprint) -> URL? {

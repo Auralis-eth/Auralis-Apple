@@ -239,6 +239,13 @@ enum LocalDataStoragePolicy {
             rationale: "AuraPlay playback positions are wallet-scoped listening state tied to local media rows and are cleared with the AuraPlay persistence store."
         ),
         LocalDataStorageDecision(
+            identifier: "AuraPlayPlaybackPositionTombstone",
+            classification: .walletMetadata,
+            storage: .swiftData,
+            resetPhase: .auraPlayPersistence,
+            rationale: "AuraPlay playback tombstones preserve recent wallet-scoped listening positions long enough to restore returned tokens, so they clear with AuraPlay persistence."
+        ),
+        LocalDataStorageDecision(
             identifier: GasPriceCache.storageDecisionIdentifier,
             classification: .publicIdentifierMetadata,
             storage: .memoryCache,

@@ -37,7 +37,7 @@ public final class AuraPlayMediaItem {
     public var hasVideo: Bool
     public var isPlayable: Bool
     public var isSearchable: Bool
-    public var cachedFileStateRawValue: String
+    public var cachedFileStateRawValue: String = "notCached"
     public var approxLoudnessLUFS: Double?
     public var lastPlayedAt: Date?
     public var createdAt: Date

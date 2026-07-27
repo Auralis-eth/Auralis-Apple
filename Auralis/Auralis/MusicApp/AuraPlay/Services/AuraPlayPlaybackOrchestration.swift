@@ -155,6 +155,9 @@ final class PlaybackOrchestrator {
     private let positionCadenceNanoseconds: UInt64
     private var playbackGeneration = 0
     private var positionCadenceTask: Task<Void, Never>?
+    private var isSmartShuffleEnabled = false
+    private var smartShuffleHistory: [String: SmartShufflePlaybackHistory] = [:]
+    private var shuffleSeed: UInt64 = 0
 
     private(set) var state: OrchestratorState = .idle
     private(set) var queue = AuraPlayPlaybackQueue()
@@ -329,6 +332,20 @@ final class PlaybackOrchestrator {
 
     func setShuffleMode(_ mode: AuraPlayShuffleMode) {
         shuffleCoordinator.setMode(mode, queue: queue)
+        rebuildShuffleOrderIfNeeded()
+    }
+
+    func setSmartShuffleEnabled(
+        _ isEnabled: Bool,
+        history: [SmartShufflePlaybackHistory],
+        now: Date = .now
+    ) {
+        isSmartShuffleEnabled = isEnabled
+        smartShuffleHistory = Dictionary(
+            history.map { ($0.mediaID, $0) },
+            uniquingKeysWith: { current, _ in current }
+        )
+        rebuildShuffleOrderIfNeeded(now: now)
     }
 
     func failCurrentItem(_ error: Error) async {
@@ -422,7 +439,7 @@ final class PlaybackOrchestrator {
             }
             if repeatMode == .all {
                 queue.restartFromBeginning()
-                shuffleCoordinator.rebuildOrder(queue: queue)
+                rebuildShuffleOrderIfNeeded(advanceSeed: true)
                 return queue.currentEntry
             }
             return nil
@@ -434,6 +451,19 @@ final class PlaybackOrchestrator {
             return queue.currentEntry
         }
         return nextEntry
+    }
+
+    private func rebuildShuffleOrderIfNeeded(now: Date = .now, advanceSeed: Bool = false) {
+        guard shuffleCoordinator.mode == .on else { return }
+        if advanceSeed {
+            shuffleSeed &+= 1
+        }
+        shuffleCoordinator.rebuildOrder(
+            queue: queue,
+            smartHistory: isSmartShuffleEnabled ? smartShuffleHistory : [:],
+            now: now,
+            seed: shuffleSeed
+        )
     }
 
     private static func userFacingMessage(for error: Error) -> String {

@@ -5,21 +5,23 @@ public enum AuraPlayModelContainer {
     private static let storeDirectoryName = "AuraPlay"
     private static let storeFileName = "AuraPlay.store"
 
-    public static func make(inMemory: Bool) throws -> ModelContainer {
+    public static func make(inMemory: Bool, baseDirectory: URL? = nil) throws -> ModelContainer {
+        let schema = Schema(versionedSchema: AuraPlaySchemaV2.self)
         let configuration = if inMemory {
             ModelConfiguration(
-                schema: Schema(AuraPlaySchema.models),
+                schema: schema,
                 isStoredInMemoryOnly: true
             )
         } else {
             ModelConfiguration(
-                schema: Schema(AuraPlaySchema.models),
-                url: try storeURL()
+                schema: schema,
+                url: try storeURL(baseDirectory: baseDirectory)
             )
         }
 
         return try ModelContainer(
-            for: Schema(AuraPlaySchema.models),
+            for: schema,
+            migrationPlan: AuraPlayMigrationPlan.self,
             configurations: [configuration]
         )
     }

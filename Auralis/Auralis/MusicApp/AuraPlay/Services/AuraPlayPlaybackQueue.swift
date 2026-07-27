@@ -1,5 +1,6 @@
 import AuraPlayMediaCore
 import Foundation
+import MusicFeature
 
 struct QueueEntry: Identifiable, Sendable {
     let id: UUID
@@ -17,10 +18,12 @@ extension QueueEntry: Equatable {
     }
 }
 
-enum QueueOrigin: Equatable, Sendable {
+public enum QueueOrigin: Equatable, Sendable {
     case playlist(id: String)
     case collection(contractAddress: String)
+    case creator(id: String)
     case search(query: String)
+    case moreLikeThis(sourceID: String)
     case single(mediaItemID: String)
     case aiGenerated
     case restored
@@ -172,12 +175,33 @@ struct ShuffleCoordinator: Equatable, Sendable {
     }
 
     mutating func rebuildOrder(queue: AuraPlayPlaybackQueue) {
+        rebuildOrder(queue: queue, smartHistory: [:], now: .now, seed: 0)
+    }
+
+    mutating func rebuildOrder(
+        queue: AuraPlayPlaybackQueue,
+        smartHistory: [String: SmartShufflePlaybackHistory],
+        now: Date,
+        seed: UInt64
+    ) {
         guard let currentEntryID = queue.currentEntryID else {
             shuffledOrder = queue.entries.map(\.id)
             return
         }
-        let remaining = queue.entries.map(\.id).filter { $0 != currentEntryID }
-        shuffledOrder = [currentEntryID] + remaining.shuffled()
+        let remainingEntries = queue.entries.filter { $0.id != currentEntryID }
+        if smartHistory.isEmpty {
+            shuffledOrder = [currentEntryID] + remainingEntries.map(\.id).shuffled()
+        } else {
+            let orderedEntries = SmartShuffleWeighting.orderedItems(
+                remainingEntries,
+                id: { $0.id.uuidString },
+                historyID: { $0.item.id },
+                history: smartHistory,
+                now: now,
+                seed: seed
+            )
+            shuffledOrder = [currentEntryID] + orderedEntries.map(\.id)
+        }
     }
 
     func nextEntry(after entryID: UUID, queue: AuraPlayPlaybackQueue) -> QueueEntry? {

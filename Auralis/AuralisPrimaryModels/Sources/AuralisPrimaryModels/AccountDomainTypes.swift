@@ -18,6 +18,7 @@ public enum EOAccountSource: String, Codable, Sendable {
     case manualEntry
     case qrScan
     case guestPass
+    case walletConnect
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -29,6 +30,8 @@ public enum EOAccountSource: String, Codable, Sendable {
             self = .qrScan
         case Self.guestPass.rawValue:
             self = .guestPass
+        case Self.walletConnect.rawValue:
+            self = .walletConnect
         default:
             self = .manualEntry
         }

@@ -9,7 +9,7 @@ struct AuraPlayPersistenceSpineTests {
     func inMemoryContainerBoots() throws {
         let container = try AuraPlayModelContainer.make(inMemory: true)
 
-        #expect(container.migrationPlan == nil)
-        #expect(container.schema == Schema(AuraPlaySchema.models))
+        #expect(container.migrationPlan != nil)
+        #expect(container.schema == Schema(versionedSchema: AuraPlaySchemaV2.self))
     }
 }

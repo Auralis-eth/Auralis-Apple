@@ -12,6 +12,7 @@ public struct LibraryItemCellViewModel: Identifiable, Equatable {
     public let chain: Chain
     public let contractAddress: String?
     public let tokenID: String?
+    public let tokenType: String?
     public let duration: String?
     public let mediaType: String
     public let isPlayable: Bool
@@ -28,6 +29,7 @@ public struct LibraryItemCellViewModel: Identifiable, Equatable {
         self.chain = item.chain
         self.contractAddress = item.contractAddressRawValue
         self.tokenID = item.tokenID
+        self.tokenType = item.tokenType
         self.duration = item.durationSeconds.map(Self.durationText)
         self.mediaType = item.hasVideo ? "Video" : "Audio"
         self.isPlayable = item.isPlayable
@@ -45,6 +47,7 @@ public struct LibraryItemCellViewModel: Identifiable, Equatable {
         self.chain = item.chain
         self.contractAddress = item.contractAddress
         self.tokenID = item.tokenID
+        self.tokenType = item.tokenType
         self.duration = item.durationSeconds.map(Self.durationText)
         self.mediaType = item.hasVideo ? "Video" : "Audio"
         self.isPlayable = item.isPlayable
@@ -55,4 +58,3 @@ public struct LibraryItemCellViewModel: Identifiable, Equatable {
         AuraPlayPlayerTimeFormatter.string(from: seconds)
     }
 }
-

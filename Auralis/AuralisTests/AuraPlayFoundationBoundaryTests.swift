@@ -17,6 +17,7 @@ struct AuraPlayFoundationBoundaryTests {
             "AuraPlayMediaItem",
             "AuraPlayMediaEmbedding",
             "AuraPlayPlaybackPositionState",
+            "AuraPlayPlaybackPositionTombstone",
             "AuraPlayPlaylist",
             "AuraPlayPlaylistItem"
         ])
@@ -159,8 +160,7 @@ struct AuraPlayFoundationBoundaryTests {
             guard case .library(let message) = lastError else {
                 return false
             }
-            return message.contains("AuraPlay could not load the music library summary yet:")
-                && message.contains("FixtureError")
+            return message == "AuraPlay could not refresh the music library yet. Please try again."
         }())
         #expect(logger.events.contains { $0.category == .library && $0.level == .error })
     }
@@ -220,6 +220,78 @@ struct AuraPlayFoundationBoundaryTests {
 
         #expect(model.semanticSearchText.isEmpty)
         #expect(model.semanticSearchResults.isEmpty)
+    }
+
+    @Test("root model gates More Like This by the scoped stored embedding set")
+    func rootModelGatesRecommendationsByStoredEmbeddingSet() async throws {
+        let account = EOAccount(
+            address: "0x1234567890abcdef1234567890abcdef12345678",
+            access: .readonly
+        )
+        let recommendationProvider = MockAuraPlayRecommendationProvider(
+            embeddedIDs: ["media-with-embedding"]
+        )
+        let model = AuraPlayRootModel(
+            libraryRepository: MockAuraPlayLibraryRepository(),
+            librarySyncService: NoOpAuraPlayLibrarySyncService(),
+            nftDiscoverySyncService: NoOpAuraPlayNFTDiscoverySyncService(),
+            embeddingAvailabilityProvider: AlwaysAvailableAuraPlayEmbeddingAvailabilityProvider(),
+            recommendationProvider: recommendationProvider,
+            playlistManager: MockAuraPlayPlaylistManager(),
+            playbackController: MockAuraPlayPlaybackController(),
+            queueCoordinator: MockAuraPlayQueueCoordinator(),
+            artworkLoader: MockAuraPlayArtworkLoader(),
+            logger: MockAuraPlayLogger(),
+            configuration: .validFixture,
+            urlResolver: URLResolver(),
+            currentAccount: account,
+            currentChain: .ethMainnet
+        )
+
+        await model.refreshEmbeddingAvailability()
+
+        let expectedScope = AuraPlayLibraryScope(accountAddress: account.address, chain: .ethMainnet)
+        #expect(model.shouldShowPlaylistPlayground)
+        #expect(model.canRecommend(mediaItemID: "media-with-embedding"))
+        #expect(!model.canRecommend(mediaItemID: "media-without-embedding"))
+        #expect(recommendationProvider.embeddedIDScopes == [expectedScope])
+
+        model.updateContext(currentAccount: account, currentChain: .baseMainnet)
+
+        #expect(!model.canRecommend(mediaItemID: "media-with-embedding"))
+    }
+
+    @Test("root model hides More Like This when embedding availability is unavailable")
+    func rootModelHidesRecommendationsWhenEmbeddingsAreUnavailable() async throws {
+        let account = EOAccount(
+            address: "0x1234567890abcdef1234567890abcdef12345678",
+            access: .readonly
+        )
+        let recommendationProvider = MockAuraPlayRecommendationProvider(
+            embeddedIDs: ["media-with-embedding"]
+        )
+        let model = AuraPlayRootModel(
+            libraryRepository: MockAuraPlayLibraryRepository(),
+            librarySyncService: NoOpAuraPlayLibrarySyncService(),
+            nftDiscoverySyncService: NoOpAuraPlayNFTDiscoverySyncService(),
+            embeddingAvailabilityProvider: UnavailableAuraPlayEmbeddingAvailabilityProvider(),
+            recommendationProvider: recommendationProvider,
+            playlistManager: MockAuraPlayPlaylistManager(),
+            playbackController: MockAuraPlayPlaybackController(),
+            queueCoordinator: MockAuraPlayQueueCoordinator(),
+            artworkLoader: MockAuraPlayArtworkLoader(),
+            logger: MockAuraPlayLogger(),
+            configuration: .validFixture,
+            urlResolver: URLResolver(),
+            currentAccount: account,
+            currentChain: .ethMainnet
+        )
+
+        await model.refreshEmbeddingAvailability()
+
+        #expect(!model.shouldShowPlaylistPlayground)
+        #expect(!model.canRecommend(mediaItemID: "media-with-embedding"))
+        #expect(recommendationProvider.embeddedIDScopes.isEmpty)
     }
 
     @Test("Phase 10 player adapter presents live NFT metadata and context actions")
@@ -289,6 +361,19 @@ struct AuraPlayFoundationBoundaryTests {
         #expect(presenter.shuffleRequests == [true])
         #expect(presenter.didCycleRepeatMode)
         #expect(presenter.videoCommands == ["startPiP", "subtitle:English", "speed:1.5", "toggleGravity"])
+    }
+
+    @Test("playback preference settings round-trip default shuffle and repeat modes")
+    func playbackPreferenceSettingsRoundTripDefaultModes() throws {
+        let suiteName = "AuraPlayPlaybackPreferenceSettings.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(AuraPlayShuffleMode.on.rawValue, forKey: AuraPlayPlaybackPreferenceSettings.shuffleModeDefaultsKey)
+        defaults.set(AuraPlayRepeatMode.all.rawValue, forKey: AuraPlayPlaybackPreferenceSettings.repeatModeDefaultsKey)
+
+        #expect(AuraPlayPlaybackPreferenceSettings.shuffleMode(from: defaults) == .on)
+        #expect(AuraPlayPlaybackPreferenceSettings.repeatMode(from: defaults) == .all)
     }
 }
 
@@ -402,14 +487,65 @@ private final class MockAuraPlaySemanticSearchService: AuraPlaySemanticSearching
     }
 }
 
+private final class MockAuraPlayRecommendationProvider: AuraPlayRecommendationProviding, @unchecked Sendable {
+    private let embeddedIDs: Set<String>
+    private let lock = NSLock()
+    private var embeddedIDScopeValues: [AuraPlayLibraryScope] = []
+
+    init(embeddedIDs: Set<String>) {
+        self.embeddedIDs = embeddedIDs
+    }
+
+    var embeddedIDScopes: [AuraPlayLibraryScope] {
+        lock.withLock { embeddedIDScopeValues }
+    }
+
+    func moreLikeThis(
+        mediaItemID: String,
+        in scope: AuraPlayLibraryScope,
+        limit: Int,
+        minimumScore: Float
+    ) async throws -> [AuraPlayRecommendationResult] {
+        []
+    }
+
+    func hasEmbedding(mediaItemID: String) async throws -> Bool {
+        embeddedIDs.contains(mediaItemID)
+    }
+
+    func embeddedMediaItemIDs(in scope: AuraPlayLibraryScope) async throws -> Set<String> {
+        lock.withLock {
+            embeddedIDScopeValues.append(scope)
+        }
+        return embeddedIDs
+    }
+}
+
 private final class MockAuraPlayPlaylistManager: AuraPlayPlaylistManaging, @unchecked Sendable {
     private(set) var createdNames: [String] = []
     private(set) var renamedIDs: [String] = []
     private(set) var deletedIDs: [String] = []
 
+    func fetchPlaylistSnapshots() async throws -> [AuraPlayPlaylistSnapshot] {
+        []
+    }
+
+    func fetchPlaylistSnapshot(id: String) async throws -> AuraPlayPlaylistSnapshot? {
+        nil
+    }
+
     func createID(name: String, at date: Date) async throws -> String {
         createdNames.append(name)
         return "playlist-\(createdNames.count)"
+    }
+
+    func createSmartPlaylistID(
+        name: String,
+        mediaItemIDs: [String],
+        smartQueryData: Data,
+        at date: Date
+    ) async throws -> String {
+        try await createID(name: name, at: date)
     }
 
     func rename(id: String, name: String, at date: Date) async throws {

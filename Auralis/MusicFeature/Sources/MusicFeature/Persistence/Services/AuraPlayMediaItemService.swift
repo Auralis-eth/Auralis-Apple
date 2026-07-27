@@ -76,8 +76,10 @@ public actor AuraPlayMediaItemService {
         }
 
         for item in existingItems where !retainedIDs.contains(item.id) {
+            try capturePlaybackTombstoneIfNeeded(for: item, capturedAt: syncedAt)
             modelContext.delete(item)
         }
+        try restorePlaybackTombstonesIfPossible(at: syncedAt)
 
         try modelContext.save()
     }
@@ -233,6 +235,39 @@ public actor AuraPlayMediaItemService {
             .map(MediaItemQueryItem.init)
     }
 
+    public func fetchCreatorProfile(
+        creatorIdentifier: String,
+        accountAddresses: [String],
+        chains: Set<Chain>?,
+        sort: MediaItemSort
+    ) async throws -> AuraPlayCreatorProfile? {
+        let normalizedAccounts = Set(
+            accountAddresses.compactMap { NFTTokenDTO.normalizedScopeComponent($0) ?? Self.nonEmpty($0) }
+        )
+        guard !normalizedAccounts.isEmpty else { return nil }
+
+        let chainRawValues = chains.map { Set($0.map(\.rawValue)) }
+        // Bound the fetch to the connected accounts and playable rows in SwiftData
+        // instead of loading the whole media table; the creator-identity match is a
+        // computed key, so it stays an in-memory filter over this scoped result.
+        let descriptor = FetchDescriptor<AuraPlayMediaItem>(
+            predicate: #Predicate<AuraPlayMediaItem> { item in
+                normalizedAccounts.contains(item.accountAddressRawValue) && item.isPlayable
+            }
+        )
+        let matching = try modelContext.fetch(descriptor).filter { item in
+            if let chainRawValues, !chainRawValues.contains(item.chainRawValue) {
+                return false
+            }
+            return Self.creatorGroupID(for: item) == creatorIdentifier
+        }
+
+        guard let first = matching.first else { return nil }
+        let sorted = Self.sort(matching, by: sort).map(MediaItemQueryItem.init)
+        let displayName = Self.nonEmpty(first.artistName) ?? "Unknown Creator"
+        return AuraPlayCreatorProfile(id: creatorIdentifier, displayName: displayName, items: sorted)
+    }
+
     static func collectionGroupID(for item: AuraPlayMediaItem) -> String {
         "\(item.chainRawValue)|\(item.contractAddressRawValue ?? item.normalizedCollectionKey)"
     }
@@ -261,11 +296,144 @@ public actor AuraPlayMediaItemService {
         descriptor.fetchLimit = 1
         return try modelContext.fetch(descriptor).first
     }
+
+    private func capturePlaybackTombstoneIfNeeded(for item: AuraPlayMediaItem, capturedAt: Date) throws {
+        guard let state = try fetchPlaybackState(mediaID: item.sourceNFTID) else { return }
+        let snapshot = AuraPlayPlaybackPositionStateSnapshot(
+            mediaID: state.mediaID,
+            positionMilliseconds: state.positionMilliseconds,
+            durationMilliseconds: state.durationMilliseconds,
+            lastPlayedAt: state.lastPlayedAt,
+            completedAt: state.completedAt
+        )
+        guard snapshot.isResumable else { return }
+
+        let tombstone = AuraPlayPlaybackPositionTombstone(
+            originalMediaID: item.sourceNFTID,
+            accountAddressRawValue: item.accountAddressRawValue,
+            chainRawValue: item.chainRawValue,
+            contractAddressRawValue: item.contractAddressRawValue,
+            tokenID: item.tokenID,
+            positionMilliseconds: snapshot.positionMilliseconds,
+            durationMilliseconds: snapshot.durationMilliseconds,
+            lastPlayedAt: snapshot.lastPlayedAt,
+            completedAt: snapshot.completedAt,
+            playCount: state.playCount,
+            capturedAt: capturedAt
+        )
+        modelContext.insert(tombstone)
+
+        // The tombstone now owns this position. Delete the source state row so it
+        // does not linger as an orphan after the media item is removed; resume is
+        // driven exclusively by `restorePlaybackTombstonesIfPossible` when the
+        // token returns.
+        modelContext.delete(state)
+    }
+
+    private func restorePlaybackTombstonesIfPossible(at date: Date) throws {
+        let cutoff = AuraPlayPersistentHistoryTombstonePolicy.recencyCutoff(before: date)
+        let tombstones = try modelContext.fetch(
+            FetchDescriptor<AuraPlayPlaybackPositionTombstone>(
+                predicate: #Predicate<AuraPlayPlaybackPositionTombstone> { tombstone in
+                    tombstone.consumedAt == nil && tombstone.lastPlayedAt >= cutoff
+                },
+                sortBy: [SortDescriptor(\.lastPlayedAt, order: .reverse)]
+            )
+        )
+
+        for tombstone in tombstones {
+            // Restore whenever the exact on-chain identity has a playable row again
+            // and that row has no live position yet. The returned row may reuse the
+            // original `sourceNFTID` (same token) or arrive under a new one; both are
+            // valid because the source state was deleted when the tombstone was cut.
+            guard let returned = try matchingReturnedMediaItem(for: tombstone) else {
+                // The token has not returned yet; leave the tombstone until it
+                // either matches on a later sync or ages out of the recency window.
+                continue
+            }
+            guard try fetchPlaybackState(mediaID: returned.sourceNFTID) == nil else {
+                // The returned row already has a live position — either restored
+                // from a newer tombstone earlier in this pass (tombstones are
+                // sorted newest-first) or written by the user. Consume this now
+                // redundant same-identity tombstone so it does not linger.
+                tombstone.consumedAt = date
+                continue
+            }
+            modelContext.insert(
+                AuraPlayPlaybackPositionState(
+                    mediaID: returned.sourceNFTID,
+                    positionMilliseconds: tombstone.positionMilliseconds,
+                    durationMilliseconds: tombstone.durationMilliseconds,
+                    lastPlayedAt: tombstone.lastPlayedAt,
+                    completedAt: tombstone.completedAt,
+                    playCount: tombstone.playCount,
+                    updatedAt: date
+                )
+            )
+            returned.lastPlayedAt = tombstone.lastPlayedAt
+            returned.updatedAt = date
+            tombstone.consumedAt = date
+        }
+    }
+
+    private func fetchPlaybackState(mediaID: String) throws -> AuraPlayPlaybackPositionState? {
+        var descriptor = FetchDescriptor<AuraPlayPlaybackPositionState>(
+            predicate: #Predicate<AuraPlayPlaybackPositionState> { state in
+                state.mediaID == mediaID
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
+    }
+
+    private func matchingReturnedMediaItem(
+        for tombstone: AuraPlayPlaybackPositionTombstone
+    ) throws -> AuraPlayMediaItem? {
+        let identity = tombstone.persistentHistoryIdentity
+        let account = identity.accountAddressRawValue
+        let chain = identity.chainRawValue
+        let contract = identity.contractAddressRawValue
+        let tokenID = identity.tokenID
+        var descriptor = FetchDescriptor<AuraPlayMediaItem>(
+            predicate: #Predicate<AuraPlayMediaItem> { item in
+                item.accountAddressRawValue == account
+                    && item.chainRawValue == chain
+                    && item.contractAddressRawValue == contract
+                    && item.tokenID == tokenID
+                    && item.isPlayable
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
+    }
 }
 
 extension AuraPlayMediaItemService: AuraPlayMediaItemQuerying {}
 
 extension AuraPlayMediaItemService: AuraPlayMediaPersisting {
+    public func removeItems(ids: [String], capturedAt: Date) throws {
+        guard !ids.isEmpty else { return }
+        let removedIDs = Set(ids)
+        let items = try modelContext.fetch(
+            FetchDescriptor<AuraPlayMediaItem>(
+                predicate: #Predicate<AuraPlayMediaItem> { item in
+                    removedIDs.contains(item.sourceNFTID)
+                }
+            )
+        )
+        guard !items.isEmpty else { return }
+        for item in items {
+            try capturePlaybackTombstoneIfNeeded(for: item, capturedAt: capturedAt)
+            modelContext.delete(item)
+        }
+        try modelContext.save()
+    }
+
+    public func restorePlaybackTombstones(at date: Date) throws {
+        try restorePlaybackTombstonesIfPossible(at: date)
+        try modelContext.save()
+    }
+
     public func upsertAll(_ items: [MediaItemDTO]) async throws {
         let now = Date()
         // Batch-fetch existing rows for the incoming IDs once instead of a
@@ -412,5 +580,11 @@ private extension AuraPlayMediaItemService {
         }
 
         return "\(request.chain.rawValue):unknown:\(request.sourceNFTID)"
+    }
+
+    static func nonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmed, !trimmed.isEmpty else { return nil }
+        return trimmed
     }
 }

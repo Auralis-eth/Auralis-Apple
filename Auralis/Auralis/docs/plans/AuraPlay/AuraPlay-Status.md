@@ -4,6 +4,8 @@ This is the single living status doc for the AuraPlay rebuild. It describes what
 
 Each new phase should fold its reality into the relevant section here.
 
+Current Phase 14 planning lives in `AuraPlay-Phase14-Settings-Accessibility-Hardening-Plan.md`. That plan is a hardening pass over the current Settings, accessibility, privacy, error, performance, App Store, and regression surfaces rather than a greenfield feature phase. Phase 14 automation and audit artifacts were refreshed on 2026-07-25; remaining ship gates are manual device accessibility/performance QA and App Store archive/upload review.
+
 ## Shape Of The Foundation
 
 AuraPlay is the rebuild path for the Music tab inside the **Auralis** iOS app. The module lives in the local Swift package `MusicFeature/` and is composed at the app level by `MusicAssembly`.

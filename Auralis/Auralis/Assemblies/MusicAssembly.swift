@@ -185,11 +185,20 @@ struct MusicAssembly {
         }
         configureMediaResolver(playbackRuntime)
         playbackRuntime.configureAuraPlayModelContainer(auraPlayModelContainer)
+        let textEmbeddingProvider = NaturalLanguageTextEmbeddingProvider()
         let semanticSearchService = AuraPlayEmbeddingService(
+            modelContainer: auraPlayModelContainer,
+            embeddingProvider: textEmbeddingProvider
+        )
+        let mediaQueryService = AuraPlayMediaItemService(modelContainer: auraPlayModelContainer)
+        let playlistGenerator = AuraPlayPlaylistGenerator(
+            semanticSearch: semanticSearchService,
+            mediaQueryService: mediaQueryService
+        )
+        let recommendationProvider = AuraPlayRecommendationService(
             modelContainer: auraPlayModelContainer
         )
 
-        let mediaQueryService = AuraPlayMediaItemService(modelContainer: auraPlayModelContainer)
         let nftResolver: @MainActor ([String]) -> [NFT] = { ids in
             let requested = Set(ids)
             guard !requested.isEmpty else { return [] }
@@ -218,6 +227,11 @@ struct MusicAssembly {
             nftDiscoverySyncService: nftDiscoverySyncService,
             syncProgressProvider: syncProgressProvider,
             semanticSearchService: semanticSearchService,
+            embeddingAvailabilityProvider: AuraPlayEmbeddingAvailabilityProvider(
+                embeddingProvider: textEmbeddingProvider
+            ),
+            playlistGenerator: playlistGenerator,
+            recommendationProvider: recommendationProvider,
             playlistManager: AuraPlayPlaylistService(modelContainer: auraPlayModelContainer),
             playbackController: playbackRuntime,
             playbackPresenter: playbackRuntime,

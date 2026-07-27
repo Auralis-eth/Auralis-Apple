@@ -47,20 +47,42 @@ struct LibraryGroupDetailLoaderView: View {
 }
 
 /// Resolves playlist rows into ordered query items before rendering.
-struct LibraryPlaylistDetailLoaderView: View {
+public struct LibraryPlaylistDetailLoaderView: View {
     let model: AuraPlayRootModel
-    let playlist: AuraPlayPlaylist
+    let playlist: AuraPlayPlaylistSnapshot
     let currentTrackID: String?
-    let rename: () -> Void
-    let delete: () -> Void
+    let rename: (() -> Void)?
+    let delete: (() -> Void)?
     let onOpenItem: (String) -> Void
     let onPlayItem: (String, [MediaItemQueryItem], AuraPlayQueueOriginPresentation) async -> Void
-    let onRemoveItem: (String) -> Void
-    let onMoveItem: (Int, Int) -> Void
+    let onRemoveItem: ((String) -> Void)?
+    let onMoveItem: ((Int, Int) -> Void)?
 
     @State private var items: [MediaItemQueryItem] = []
 
-    var body: some View {
+    public init(
+        model: AuraPlayRootModel,
+        playlist: AuraPlayPlaylistSnapshot,
+        currentTrackID: String?,
+        rename: (() -> Void)? = nil,
+        delete: (() -> Void)? = nil,
+        onOpenItem: @escaping (String) -> Void,
+        onPlayItem: @escaping (String, [MediaItemQueryItem], AuraPlayQueueOriginPresentation) async -> Void,
+        onRemoveItem: ((String) -> Void)? = nil,
+        onMoveItem: ((Int, Int) -> Void)? = nil
+    ) {
+        self.model = model
+        self.playlist = playlist
+        self.currentTrackID = currentTrackID
+        self.rename = rename
+        self.delete = delete
+        self.onOpenItem = onOpenItem
+        self.onPlayItem = onPlayItem
+        self.onRemoveItem = onRemoveItem
+        self.onMoveItem = onMoveItem
+    }
+
+    public var body: some View {
         LibraryPlaylistDetailView(
             playlist: playlist,
             items: items,
@@ -73,16 +95,111 @@ struct LibraryPlaylistDetailLoaderView: View {
             onMoveItem: onMoveItem
         )
         .task(id: taskKey) {
-            let orderedEntries = playlist.items.sorted { $0.position < $1.position }
-            let fetched = await model.items(withIDs: orderedEntries.map(\.mediaItemID))
-            items = orderedEntries.compactMap { entry in
-                fetched.first { $0.sourceNFTID == entry.mediaItemID || $0.id == entry.mediaItemID }
+            let fetched = await model.items(withIDs: playlist.itemIDs)
+            items = playlist.itemIDs.compactMap { mediaItemID in
+                fetched.first { $0.sourceNFTID == mediaItemID || $0.id == mediaItemID }
             }
         }
     }
 
     private var taskKey: String {
-        "\(playlist.id)|\(playlist.updatedAt.timeIntervalSince1970)|\(playlist.items.count)"
+        "\(playlist.id)|\(playlist.updatedAt.timeIntervalSince1970)|\(playlist.itemCount)"
+    }
+}
+
+struct CreatorProfileLoaderView: View {
+    let model: AuraPlayRootModel
+    let creatorIdentifier: String
+    let fallbackTitle: String
+    let accountAddresses: [String]
+    let sort: MediaItemSort
+    let currentTrackID: String?
+    let onOpenItem: (String) -> Void
+    let onPlayItem: (String, [MediaItemQueryItem], AuraPlayQueueOriginPresentation) async -> Void
+    let onAddToPlaylist: (String) -> Void
+
+    @State private var profile: AuraPlayCreatorProfile?
+
+    var body: some View {
+        CreatorProfileView(
+            profile: profile,
+            fallbackTitle: fallbackTitle,
+            currentTrackID: currentTrackID,
+            onOpenItem: onOpenItem,
+            onPlayItem: { id, items in
+                await onPlayItem(id, items, .creator(id: creatorIdentifier))
+            },
+            onAddToPlaylist: onAddToPlaylist
+        )
+        .task(id: taskKey) {
+            profile = await model.creatorProfile(
+                creatorIdentifier: creatorIdentifier,
+                accountAddresses: accountAddresses,
+                sort: sort
+            )
+        }
+    }
+
+    private var taskKey: String {
+        "\(creatorIdentifier)|\(sort.rawValue)|\(accountAddresses.sorted().joined(separator: ","))"
+    }
+}
+
+struct CreatorProfileView: View {
+    let profile: AuraPlayCreatorProfile?
+    let fallbackTitle: String
+    let currentTrackID: String?
+    let onOpenItem: (String) -> Void
+    let onPlayItem: (String, [MediaItemQueryItem]) async -> Void
+    let onAddToPlaylist: (String) -> Void
+
+    var body: some View {
+        List {
+            if let profile {
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("\(profile.itemCount) media items", systemImage: "rectangle.stack")
+                        Label("\(profile.playedItemCount) played locally", systemImage: "clock.arrow.circlepath")
+                        if !profile.chains.isEmpty {
+                            Text(profile.chains.map(\.routingDisplayName).joined(separator: ", "))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                } header: {
+                    Text("Cross-wallet summary")
+                        .textCase(nil)
+                }
+
+                Section {
+                    ForEach(profile.items, id: \.sourceNFTID) { item in
+                        LibraryDetailItemRow(
+                            item: item,
+                            isCurrent: currentTrackID == item.sourceNFTID,
+                            onOpen: { onOpenItem(item.sourceNFTID) },
+                            onPlay: { Task { await onPlayItem(item.sourceNFTID, profile.items) } },
+                            onAddToPlaylist: { onAddToPlaylist(item.sourceNFTID) }
+                        )
+                    }
+                } header: {
+                    Text("All connected wallets")
+                        .textCase(nil)
+                }
+            } else {
+                AuraEmptyState(
+                    title: "No Local Creator Media",
+                    message: "You don't have any AuraPlay media from this creator in your connected wallets yet.",
+                    systemImage: "person.crop.square"
+                )
+                .listRowBackground(Color.clear)
+                .accessibilityIdentifier(A11yID.AuraPlay.creatorProfileEmpty)
+            }
+        }
+        .auraPlayInsetGroupedListStyle()
+        .navigationTitle(profile?.displayName ?? fallbackTitle)
+        .auraPlayInlineNavigationTitle()
+        .accessibilityIdentifier(A11yID.AuraPlay.creatorProfile)
     }
 }
 
@@ -98,19 +215,29 @@ struct LibraryGroupDetailView: View {
 
     var body: some View {
         List {
-            Section {
-                ForEach(items, id: \.sourceNFTID) { item in
-                    LibraryDetailItemRow(
-                        item: item,
-                        isCurrent: currentTrackID == item.sourceNFTID,
-                        onOpen: { onOpenItem(item.sourceNFTID) },
-                        onPlay: { Task { await onPlayItem(item.sourceNFTID) } },
-                        onAddToPlaylist: { onAddToPlaylist(item.sourceNFTID) }
-                    )
+            if items.isEmpty {
+                AuraEmptyState(
+                    title: "No Local Collection Media",
+                    message: "You don't have any NFTs from this collection yet.",
+                    systemImage: systemImage
+                )
+                .listRowBackground(Color.clear)
+                .accessibilityIdentifier(A11yID.AuraPlay.collectionDetailEmpty)
+            } else {
+                Section {
+                    ForEach(items, id: \.sourceNFTID) { item in
+                        LibraryDetailItemRow(
+                            item: item,
+                            isCurrent: currentTrackID == item.sourceNFTID,
+                            onOpen: { onOpenItem(item.sourceNFTID) },
+                            onPlay: { Task { await onPlayItem(item.sourceNFTID) } },
+                            onAddToPlaylist: { onAddToPlaylist(item.sourceNFTID) }
+                        )
+                    }
+                } header: {
+                    Label(subtitle, systemImage: systemImage)
+                        .textCase(nil)
                 }
-            } header: {
-                Label(subtitle, systemImage: systemImage)
-                    .textCase(nil)
             }
         }
         .auraPlayInsetGroupedListStyle()
@@ -130,15 +257,15 @@ struct LibraryGroupDetailView: View {
 }
 
 struct LibraryPlaylistDetailView: View {
-    let playlist: AuraPlayPlaylist
+    let playlist: AuraPlayPlaylistSnapshot
     let items: [MediaItemQueryItem]
     let currentTrackID: String?
-    let rename: () -> Void
-    let delete: () -> Void
+    let rename: (() -> Void)?
+    let delete: (() -> Void)?
     let onOpenItem: (String) -> Void
     let onPlayItem: (String) async -> Void
-    let onRemoveItem: (String) -> Void
-    let onMoveItem: (Int, Int) -> Void
+    let onRemoveItem: ((String) -> Void)?
+    let onMoveItem: ((Int, Int) -> Void)?
 
     var body: some View {
         List {
@@ -152,26 +279,26 @@ struct LibraryPlaylistDetailView: View {
                 .accessibilityIdentifier(A11yID.AuraPlay.playlists)
             } else {
                 Section {
-                    ForEach(items, id: \.sourceNFTID) { item in
-                        LibraryDetailItemRow(
-                            item: item,
-                            isCurrent: currentTrackID == item.sourceNFTID,
-                            onOpen: { onOpenItem(item.sourceNFTID) },
-                            onPlay: { Task { await onPlayItem(item.sourceNFTID) } },
-                            onAddToPlaylist: {},
-                            onRemove: { onRemoveItem(item.sourceNFTID) }
-                        )
-                        .accessibilityIdentifier(A11yID.AuraPlay.playlistItem(id: item.sourceNFTID))
-                    }
-                    .onDelete { offsets in
-                        for index in offsets {
-                            guard items.indices.contains(index) else { continue }
-                            onRemoveItem(items[index].sourceNFTID)
+                    if isEditable {
+                        ForEach(items, id: \.sourceNFTID) { item in
+                            playlistRow(for: item)
                         }
-                    }
-                    .onMove { source, destination in
-                        guard let first = source.first else { return }
-                        onMoveItem(first, destination)
+                        .onDelete { offsets in
+                            guard let onRemoveItem else { return }
+                            for index in offsets {
+                                guard items.indices.contains(index) else { continue }
+                                onRemoveItem(items[index].sourceNFTID)
+                            }
+                        }
+                        .onMove { source, destination in
+                            guard let onMoveItem else { return }
+                            guard let first = source.first else { return }
+                            onMoveItem(first, destination)
+                        }
+                    } else {
+                        ForEach(items, id: \.sourceNFTID) { item in
+                            playlistRow(for: item)
+                        }
                     }
                 } header: {
                     Text("\(items.count) items")
@@ -183,21 +310,47 @@ struct LibraryPlaylistDetailView: View {
         .navigationTitle(playlist.name)
         .auraPlayInlineNavigationTitle()
         .toolbar {
-            ToolbarItem(placement: .auraPlayBarTrailing) {
-                Menu {
-                    Button("Rename", systemImage: "pencil", action: rename)
-                    Button("Delete", systemImage: "trash", role: .destructive, action: delete)
-                } label: {
-                    Image(systemName: "ellipsis.circle")
+            if rename != nil || delete != nil {
+                ToolbarItem(placement: .auraPlayBarTrailing) {
+                    Menu {
+                        if let rename {
+                            Button("Rename", systemImage: "pencil", action: rename)
+                        }
+                        if let delete {
+                            Button("Delete", systemImage: "trash", role: .destructive, action: delete)
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("Playlist actions")
                 }
-                .accessibilityLabel("Playlist actions")
             }
             #if os(iOS)
-            ToolbarItem(placement: .auraPlayBarBottom) {
-                EditButton()
+            if isEditable {
+                ToolbarItem(placement: .auraPlayBarBottom) {
+                    EditButton()
+                }
             }
             #endif
         }
+    }
+
+    private var isEditable: Bool {
+        onRemoveItem != nil || onMoveItem != nil
+    }
+
+    private func playlistRow(for item: MediaItemQueryItem) -> some View {
+        LibraryDetailItemRow(
+            item: item,
+            isCurrent: currentTrackID == item.sourceNFTID,
+            onOpen: { onOpenItem(item.sourceNFTID) },
+            onPlay: { Task { await onPlayItem(item.sourceNFTID) } },
+            onAddToPlaylist: {},
+            onRemove: onRemoveItem.map { remove in
+                { remove(item.sourceNFTID) }
+            }
+        )
+        .accessibilityIdentifier(A11yID.AuraPlay.playlistItem(id: item.sourceNFTID))
     }
 }
 
@@ -302,7 +455,7 @@ struct PlaylistNameEditorSheet: View {
 }
 
 struct AddToPlaylistSheet: View {
-    let playlists: [AuraPlayPlaylist]
+    let playlists: [AuraPlayPlaylistSnapshot]
     let mediaItemID: String
     let createAndAdd: (String) async -> Void
     let toggle: (String) async -> Void
@@ -371,7 +524,7 @@ struct AddToPlaylistSheet: View {
         }
     }
 
-    private func contains(_ playlist: AuraPlayPlaylist) -> Bool {
-        playlist.items.contains { $0.mediaItemID == mediaItemID }
+    private func contains(_ playlist: AuraPlayPlaylistSnapshot) -> Bool {
+        playlist.itemIDs.contains(mediaItemID)
     }
 }

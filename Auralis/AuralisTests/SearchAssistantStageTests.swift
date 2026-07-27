@@ -29,12 +29,18 @@ private func makeItem(
     return CSSearchableItem(uniqueIdentifier: id, domainIdentifier: domain, attributeSet: attributes)
 }
 
+// The stage receives `[CoreSpotlight.SearchableItem]` (no public initializer, so it
+// cannot be fabricated in tests) and re-wraps them into `ScoredSearchableItem`. We
+// therefore exercise the stage's extracted `score(for:)` over `CSSearchableItem`
+// directly and mirror the ordering `execute` applies.
 @available(iOS 27.0, *)
-private func scoredItems(from data: SearchPipelineData) -> [(id: String, score: Double)]? {
-    guard case .scoredItems(let items) = data.payload else {
-        return nil
-    }
-    return items.map { (id: $0.item.uniqueIdentifier, score: $0.score) }
+private func scoredItems(
+    _ stage: AuralisMediaCapabilityStage,
+    _ items: [CSSearchableItem]
+) -> [(id: String, score: Double)] {
+    items
+        .compactMap { item in stage.score(for: item).map { (id: item.uniqueIdentifier, score: $0) } }
+        .sorted { $0.score > $1.score }
 }
 
 struct SearchAssistantMediaCapabilityStageTests {
@@ -56,8 +62,7 @@ struct SearchAssistantMediaCapabilityStageTests {
         ]
 
         let stage = AuralisMediaCapabilityStage(preferredMediaKind: nil, threshold: nil)
-        let result = try await stage.execute(items: items)
-        let scored = try #require(scoredItems(from: result))
+        let scored = scoredItems(stage, items)
 
         // Visual non-playable item scores 0 and is dropped by the default threshold.
         #expect(scored.count == 1)
@@ -81,8 +86,7 @@ struct SearchAssistantMediaCapabilityStageTests {
 
         // "music" should canonicalize to "audio" and add the preference weight.
         let stage = AuralisMediaCapabilityStage(preferredMediaKind: "music", threshold: nil)
-        let result = try await stage.execute(items: items)
-        let scored = try #require(scoredItems(from: result))
+        let scored = scoredItems(stage, items)
         let audio = try #require(scored.first)
         // 0.75 + preference (0.35) capped at 1.0
         #expect(abs(audio.score - 1.0) < 0.0001)
@@ -102,8 +106,7 @@ struct SearchAssistantMediaCapabilityStageTests {
         )
 
         let stage = AuralisMediaCapabilityStage(preferredMediaKind: nil, threshold: nil)
-        let result = try await stage.execute(items: [item])
-        let scored = try #require(scoredItems(from: result))
+        let scored = scoredItems(stage, [item])
         #expect(scored.isEmpty)
     }
 
@@ -132,7 +135,7 @@ struct SearchAssistantReceiptRollupStageTests {
         ]
 
         let stage = AuralisReceiptRollupStage(groupBy: nil)
-        let result = try await stage.execute(items: items)
+        let result = stage.rollup(coreItems: items)
         guard case .table(let table) = result.payload else {
             Issue.record("Expected a table payload")
             return
@@ -156,7 +159,7 @@ struct SearchAssistantReceiptRollupStageTests {
         ]
 
         let stage = AuralisReceiptRollupStage(groupBy: "chain")
-        let result = try await stage.execute(items: items)
+        let result = stage.rollup(coreItems: items)
         guard case .table(let table) = result.payload else {
             Issue.record("Expected a table payload")
             return
@@ -179,7 +182,7 @@ struct SearchAssistantReceiptRollupStageTests {
         ]
 
         let stage = AuralisReceiptRollupStage(groupBy: nil)
-        let result = try await stage.execute(items: items)
+        let result = stage.rollup(coreItems: items)
         if case .count = result.payload {
             // Expected: a zero count rather than a table when no receipts match.
         } else {

@@ -10,6 +10,7 @@ public struct LibraryItemCell: View {
 
     @Environment(\.auraPlayContextActions) private var contextActions
     @Environment(\.auraPlayExplorerResolver) private var explorerResolver
+    @State private var provenancePresentation: AuraPlayProvenancePresentation?
 
     public init(
         viewModel: LibraryItemCellViewModel,
@@ -38,9 +39,15 @@ public struct LibraryItemCell: View {
                 open: open,
                 addToPlaylist: addToPlaylist,
                 share: shareAction,
+                showProvenance: provenanceAction,
                 viewOnExplorer: explorerAction,
                 copyContract: copyAction
             )
+        }
+        .sheet(item: $provenancePresentation) { presentation in
+            ProvenancePanelView(presentation: presentation) { contractAddress in
+                Task { await contextActions?.copy(contractAddress) }
+            }
         }
         .opacity(viewModel.isPlayable ? 1 : 0.58)
         .accessibilityElement(children: .ignore)
@@ -130,16 +137,20 @@ public struct LibraryItemCell: View {
         let url = explorerURL
         return {
             Task {
-                await contextActions.share(
-                    AuraPlayShareRequest(
-                        text: [viewModel.title, viewModel.creator, viewModel.collection]
-                            .filter { !$0.isEmpty }
-                            .joined(separator: " - "),
-                        url: url,
-                        artworkURLString: viewModel.artworkURLString
-                    )
-                )
+                await contextActions.share(AuraPlaySharePolicy().mediaShareRequest(item: viewModel, explorerURL: url))
             }
+        }
+    }
+
+    private var provenanceAction: (() -> Void)? {
+        guard viewModel.contractAddress?.isEmpty == false || viewModel.tokenID?.isEmpty == false else {
+            return nil
+        }
+        return {
+            provenancePresentation = AuraPlayProvenancePresentation(
+                item: viewModel,
+                explorerURL: explorerURL
+            )
         }
     }
 

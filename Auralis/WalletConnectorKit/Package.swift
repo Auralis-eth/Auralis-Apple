@@ -13,20 +13,10 @@ let package = Package(
             name: "WalletConnectorKit",
             targets: ["WalletConnectorKit"]
         ),
-        .executable(
-            name: "WalletConnectorDemo",
-            targets: ["WalletConnectorDemo"]
-        ),
     ],
     targets: [
         .target(
             name: "WalletConnectorKit"
-        ),
-        .executableTarget(
-            name: "WalletConnectorDemo",
-            dependencies: [
-                "WalletConnectorKit",
-            ]
         ),
         .testTarget(
             name: "WalletConnectorKitTests",

@@ -25,6 +25,15 @@ public final class AuraPlayRootModel {
     let semanticSearchService: any AuraPlaySemanticSearching
 
     @ObservationIgnored
+    let embeddingAvailabilityProvider: any AuraPlayEmbeddingAvailabilityProviding
+
+    @ObservationIgnored
+    let playlistGenerator: (any AuraPlayPlaylistGenerating)?
+
+    @ObservationIgnored
+    let recommendationProvider: any AuraPlayRecommendationProviding
+
+    @ObservationIgnored
     let playlistManager: any AuraPlayPlaylistManaging
 
     @ObservationIgnored
@@ -77,6 +86,21 @@ public final class AuraPlayRootModel {
     public private(set) var searchStatus: String
     public private(set) var searchDiagnostics: AuraPlaySearchDiagnostics
     public var searchFilter: MediaItemFilter
+    public private(set) var embeddingAvailability: AuraPlayEmbeddingAvailability
+    /// False until the first availability probe resolves, so semantic entry points
+    /// stay hidden rather than flashing visible under the optimistic default.
+    public private(set) var embeddingAvailabilityResolved: Bool
+    /// Scoped media IDs that have a stored embedding; drives per-item gating of
+    /// the "More Like This" action so it is hidden when the source item has no
+    /// vector (P13-002 acceptance criterion C).
+    public private(set) var recommendableItemIDs: Set<String>
+    public var shouldShowPlaylistPlayground: Bool {
+        embeddingAvailabilityResolved && embeddingAvailability.isAvailable
+    }
+    public var playlistPlaygroundPrompt: String
+    public private(set) var playlistPlaygroundPreview: AuraPlayGeneratedPlaylistPreview?
+    public private(set) var isPlaylistPlaygroundRunning: Bool
+    public private(set) var playlistPlaygroundStatus: String
 
     /// Reads sync progress live from the `@Observable` provider rather than
     /// snapshotting it at discrete points. `syncProgressProvider` is
@@ -107,6 +131,9 @@ public final class AuraPlayRootModel {
         nftDiscoverySyncService: any AuraPlayNFTDiscoverySyncing,
         syncProgressProvider: any AuraPlaySyncProgressProviding = NoOpAuraPlaySyncProgressProvider(),
         semanticSearchService: any AuraPlaySemanticSearching = NoOpAuraPlaySemanticSearchService(),
+        embeddingAvailabilityProvider: any AuraPlayEmbeddingAvailabilityProviding = AlwaysAvailableAuraPlayEmbeddingAvailabilityProvider(),
+        playlistGenerator: (any AuraPlayPlaylistGenerating)? = nil,
+        recommendationProvider: any AuraPlayRecommendationProviding = NoOpAuraPlayRecommendationProvider(),
         recentSearchStore: AuraPlayRecentSearchStore = AuraPlayRecentSearchStore(),
         playlistManager: any AuraPlayPlaylistManaging,
         playbackController: any AuraPlayPlaybackControlling,
@@ -126,6 +153,9 @@ public final class AuraPlayRootModel {
         self.nftDiscoverySyncService = nftDiscoverySyncService
         self.syncProgressProvider = syncProgressProvider
         self.semanticSearchService = semanticSearchService
+        self.embeddingAvailabilityProvider = embeddingAvailabilityProvider
+        self.playlistGenerator = playlistGenerator
+        self.recommendationProvider = recommendationProvider
         self.recentSearchStore = recentSearchStore
         self.playlistManager = playlistManager
         self.playbackController = playbackController
@@ -162,6 +192,13 @@ public final class AuraPlayRootModel {
             selectedChains: [currentChain],
             includeNonPlayable: true
         )
+        self.embeddingAvailability = .available
+        self.embeddingAvailabilityResolved = false
+        self.recommendableItemIDs = []
+        self.playlistPlaygroundPrompt = ""
+        self.playlistPlaygroundPreview = nil
+        self.isPlaylistPlaygroundRunning = false
+        self.playlistPlaygroundStatus = "Describe a playlist to generate it from this library."
     }
 
     public var scope: AuraPlayLibraryScope {
@@ -187,6 +224,7 @@ public final class AuraPlayRootModel {
         configurationStatus = Self.makeConfigurationStatus(configuration)
         clearSemanticSearch()
         clearSearch()
+        clearPlaylistPlayground()
         searchFilter = MediaItemFilter(
             scope: scope,
             selectedChains: [scope.chain],
@@ -200,6 +238,40 @@ public final class AuraPlayRootModel {
         browseContext = nil
         groupedIndex = nil
         groupedIndexScopeKey = nil
+        recommendableItemIDs = []
+    }
+
+    public func refreshEmbeddingAvailability() async {
+        embeddingAvailability = await embeddingAvailabilityProvider.availability()
+        embeddingAvailabilityResolved = true
+        await refreshRecommendableItems()
+    }
+
+    /// Refreshes the scoped set of items that have an embedding so the UI can
+    /// hide "More Like This" per item. Clears when embeddings are unavailable.
+    public func refreshRecommendableItems() async {
+        guard embeddingAvailability.isAvailable else {
+            recommendableItemIDs = []
+            return
+        }
+        do {
+            recommendableItemIDs = try await recommendationProvider.embeddedMediaItemIDs(in: scope)
+        } catch {
+            recommendableItemIDs = []
+        }
+    }
+
+    /// Whether the "More Like This" action should be offered for a media item.
+    public func canRecommend(mediaItemID: String) -> Bool {
+        embeddingAvailability.isAvailable && recommendableItemIDs.contains(mediaItemID)
+    }
+
+    public func playlistSnapshot(id: String) async -> AuraPlayPlaylistSnapshot? {
+        try? await playlistManager.fetchPlaylistSnapshot(id: id)
+    }
+
+    public func playlistSnapshots() async throws -> [AuraPlayPlaylistSnapshot] {
+        try await playlistManager.fetchPlaylistSnapshots()
     }
 
     public func refreshLibrarySummary() async {
@@ -217,7 +289,7 @@ public final class AuraPlayRootModel {
             try await nftDiscoverySyncService.syncAll()
         } catch {
             lastError = AuraPlayError.library(error)
-            statusMessage = "AuraPlay could not sync NFT discovery for this wallet yet."
+            statusMessage = AuraPlayErrorPresentation.message(for: error, context: .librarySync)
             logger.log(
                 AuraPlayLogEvent(
                     category: .sync,
@@ -314,6 +386,25 @@ public final class AuraPlayRootModel {
         }
     }
 
+    public func creatorProfile(
+        creatorIdentifier: String,
+        accountAddresses: [String],
+        sort: MediaItemSort
+    ) async -> AuraPlayCreatorProfile? {
+        guard let mediaQueryService else { return nil }
+        do {
+            return try await mediaQueryService.fetchCreatorProfile(
+                creatorIdentifier: creatorIdentifier,
+                accountAddresses: accountAddresses,
+                chains: nil,
+                sort: sort
+            )
+        } catch {
+            lastError = AuraPlayError.library(error)
+            return nil
+        }
+    }
+
     public func items(withIDs ids: [String]) async -> [MediaItemQueryItem] {
         guard let mediaQueryService, !ids.isEmpty else { return [] }
         do {
@@ -396,6 +487,7 @@ public final class AuraPlayRootModel {
             return
         }
         lastSyncCompletionDate = syncProgress.lastSyncedAt
+        await refreshRecommendableItems()
         await reloadGroupedIndexIfNeeded(force: true)
         if let context = browseContext {
             await reloadBrowseWindow(
@@ -547,6 +639,152 @@ public final class AuraPlayRootModel {
         )
     }
 
+    public func generatePlaylistPreview(regenerate: Bool = false) async {
+        guard embeddingAvailability.isAvailable else {
+            playlistPlaygroundPreview = nil
+            playlistPlaygroundStatus = embeddingAvailability.explanation
+                ?? "Smart playlist features are not available right now."
+            return
+        }
+        guard let playlistGenerator else {
+            playlistPlaygroundPreview = nil
+            playlistPlaygroundStatus = "Playlist generation is unavailable right now."
+            return
+        }
+
+        let previousIDs = regenerate
+            ? Set(playlistPlaygroundPreview?.items.map(\.sourceNFTID) ?? [])
+            : []
+        isPlaylistPlaygroundRunning = true
+        do {
+            let preview = try await playlistGenerator.preview(
+                prompt: playlistPlaygroundPrompt,
+                scope: scope,
+                excludingPreviousIDs: previousIDs
+            )
+            playlistPlaygroundPreview = preview
+            playlistPlaygroundStatus = preview.note
+                ?? "\(preview.items.count) candidate \(preview.items.count == 1 ? "track" : "tracks") ready."
+        } catch {
+            playlistPlaygroundPreview = nil
+            playlistPlaygroundStatus = AuraPlayErrorPresentation.message(for: error, context: .playlistGeneration)
+            logger.log(
+                AuraPlayLogEvent(
+                    category: .library,
+                    level: .error,
+                    message: "AuraPlay playlist generation failed: \(error.localizedDescription)"
+                )
+            )
+        }
+        isPlaylistPlaygroundRunning = false
+    }
+
+    public func savePlaylistPreview(at date: Date = .now) async {
+        guard let preview = playlistPlaygroundPreview, preview.canSave else {
+            playlistPlaygroundStatus = "Try a broader prompt before saving."
+            return
+        }
+
+        do {
+            let metadataData = try AuraPlaySmartPlaylistMetadata.metadataData(
+                prompt: preview.prompt,
+                resultIDs: preview.items.map(\.sourceNFTID),
+                minimumScore: AuraPlayIntelligenceSettings.defaultSemanticMinimumScore,
+                modelVersion: nil,
+                createdAt: date
+            )
+            _ = try await playlistManager.createSmartPlaylistID(
+                name: Self.playlistName(for: preview.prompt),
+                mediaItemIDs: preview.items.map(\.sourceNFTID),
+                smartQueryData: metadataData,
+                at: date
+            )
+            playlistPlaygroundStatus = "Saved smart playlist."
+        } catch {
+            playlistPlaygroundStatus = AuraPlayErrorPresentation.message(for: error, context: .playlistSave)
+            logger.log(
+                AuraPlayLogEvent(
+                    category: .library,
+                    level: .error,
+                    message: "AuraPlay smart playlist save failed: \(error.localizedDescription)"
+                )
+            )
+        }
+    }
+
+    public func clearPlaylistPlayground() {
+        playlistPlaygroundPrompt = ""
+        playlistPlaygroundPreview = nil
+        isPlaylistPlaygroundRunning = false
+        playlistPlaygroundStatus = "Describe a playlist to generate it from this library."
+    }
+
+    public func moreLikeThis(mediaItemID: String, limit: Int = 25) async -> [AuraPlayRecommendationResult] {
+        guard embeddingAvailability.isAvailable else { return [] }
+        do {
+            return try await recommendationProvider.moreLikeThis(
+                mediaItemID: mediaItemID,
+                in: scope,
+                limit: limit,
+                minimumScore: AuraPlayIntelligenceSettings.recommendationStrictMinimumScore
+            )
+        } catch {
+            logger.log(
+                AuraPlayLogEvent(
+                    category: .library,
+                    level: .error,
+                    message: "AuraPlay recommendations failed: \(error.localizedDescription)"
+                )
+            )
+            return []
+        }
+    }
+
+    /// Saves a "More Like This" result set as a smart playlist, reusing the same
+    /// materialization path as Playlist Playground (P13-002).
+    @discardableResult
+    public func saveRecommendationsPlaylist(
+        sourceTitle: String,
+        results: [AuraPlayRecommendationResult],
+        at date: Date = .now
+    ) async -> Bool {
+        let ids = results.map(\.item.sourceNFTID)
+        guard !ids.isEmpty else { return false }
+
+        let prompt = "More like \(sourceTitle.trimmingCharacters(in: .whitespacesAndNewlines))"
+        do {
+            let metadataData = try AuraPlaySmartPlaylistMetadata.metadataData(
+                prompt: prompt,
+                resultIDs: ids,
+                minimumScore: 0.18,
+                modelVersion: nil,
+                createdAt: date
+            )
+            _ = try await playlistManager.createSmartPlaylistID(
+                name: Self.playlistName(for: prompt),
+                mediaItemIDs: ids,
+                smartQueryData: metadataData,
+                at: date
+            )
+            return true
+        } catch {
+            logger.log(
+                AuraPlayLogEvent(
+                    category: .library,
+                    level: .error,
+                    message: "AuraPlay recommendation playlist save failed: \(error.localizedDescription)"
+                )
+            )
+            return false
+        }
+    }
+
+    private static func playlistName(for prompt: String) -> String {
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Generated Playlist" }
+        return "Smart: \(trimmed.prefix(48))"
+    }
+
     private func performSearch(query: String, generation: Int) async {
         do {
             let snapshot = try await fetchSearchSnapshot()
@@ -593,7 +831,7 @@ public final class AuraPlayRootModel {
             guard generation == searchGeneration else { return }
             isSearchRunning = false
             searchStatus = searchResults.isEmpty
-                ? "Search is unavailable right now."
+                ? AuraPlayErrorPresentation.message(for: error, context: .search)
                 : "Semantic search is unavailable; local matches are shown."
             logger.log(
                 AuraPlayLogEvent(
@@ -639,7 +877,7 @@ public final class AuraPlayRootModel {
         } catch {
             libraryItemCount = nil
             lastError = AuraPlayError.library(error)
-            statusMessage = "AuraPlay could not refresh the library summary yet."
+            statusMessage = AuraPlayErrorPresentation.message(for: error, context: .librarySummary)
             logger.log(
                 AuraPlayLogEvent(
                     category: .library,
@@ -679,7 +917,7 @@ public final class AuraPlayRootModel {
         }
 
         if let lastError {
-            statusMessage = lastError.localizedDescription
+            statusMessage = AuraPlayErrorPresentation.message(for: lastError, context: .librarySummary)
         } else if configuration.missingRequirements.isEmpty {
             statusMessage = "AuraPlay is ready. Library, playback, queue, artwork, and account-scoped storage are available."
         } else {

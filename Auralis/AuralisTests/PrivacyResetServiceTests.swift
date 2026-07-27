@@ -577,6 +577,62 @@ struct PrivacyResetServiceTests {
 
         #expect(pinnedItemsStore.pinnedCount(for: "0x1111111111111111111111111111111111111111") == 1)
     }
+
+    @Test("privacy reset invokes every reset boundary without hosted SwiftData fixture coupling")
+    func resetLocalPrivacyDataInvokesEveryBoundary() async throws {
+        let transactionalResetService = RecordingTransactionalPrivacyResetService()
+        let ensCacheResetService = RecordingENSCacheResetService()
+        let auraPlayPersistenceResetService = RecordingAuraPlayPersistenceResetService()
+        let credentialResetService = RecordingCredentialPrivacyResetter()
+        let selectionPersistence = RecordingShellSelectionPersistence()
+        let pinnedItemsStore = makeIsolatedPinnedItemsStore()
+        let accountAddress = "0x1111111111111111111111111111111111111111"
+        try pinnedItemsStore.togglePin(.openNews, accountAddress: accountAddress)
+        let service = PrivacyResetService(
+            transactionalResetService: transactionalResetService,
+            ensCacheResetService: ensCacheResetService,
+            auraPlayPersistenceResetService: auraPlayPersistenceResetService,
+            credentialResetService: credentialResetService,
+            selectionPersistence: selectionPersistence,
+            homePinnedItemsStore: pinnedItemsStore
+        )
+
+        try await service.resetLocalPrivacyData()
+
+        #expect(await transactionalResetService.resetCount() == 1)
+        #expect(await ensCacheResetService.resetCount() == 1)
+        #expect(await auraPlayPersistenceResetService.resetCount() == 1)
+        #expect(await credentialResetService.clearCount() == 1)
+        #expect(selectionPersistence.clearSelectionCallCount == 1)
+        #expect(pinnedItemsStore.pinnedActions(for: accountAddress).isEmpty)
+    }
+
+    @Test("disconnect all wallets removes every account before clearing local privacy data")
+    func disconnectAllWalletsRemovesAccountsAndClearsPrivacyData() async throws {
+        let accountStore = RecordingAccountStore(accounts: [
+            EOAccount(address: "0x1111111111111111111111111111111111111111"),
+            EOAccount(address: "0x2222222222222222222222222222222222222222"),
+        ])
+        let privacyResetService = RecordingPrivacyResetService()
+        let service = AllWalletDisconnectService(
+            accountStore: accountStore,
+            privacyResetService: privacyResetService,
+            activeAddressProvider: { "0x1111111111111111111111111111111111111111" }
+        )
+
+        try await service.disconnectAllWalletsAndEraseLocalData()
+
+        #expect(try accountStore.listAccounts().isEmpty)
+        #expect(accountStore.removedAddresses == [
+            "0x1111111111111111111111111111111111111111",
+            "0x2222222222222222222222222222222222222222",
+        ])
+        #expect(accountStore.activeAddresses == [
+            "0x1111111111111111111111111111111111111111",
+            "0x1111111111111111111111111111111111111111",
+        ])
+        #expect(privacyResetService.resetCallCount == 1)
+    }
 }
 
 @MainActor
@@ -601,6 +657,102 @@ private func makeIsolatedPinnedItemsStore() -> HomePinnedItemsStore {
     let defaults = UserDefaults(suiteName: suiteName) ?? UserDefaults()
     defaults.removePersistentDomain(forName: suiteName)
     return HomePinnedItemsStore(userDefaults: defaults)
+}
+
+@MainActor
+private final class RecordingAccountStore: AccountStoring {
+    private var accounts: [EOAccount]
+    private(set) var removedAddresses: [String] = []
+    private(set) var activeAddresses: [String?] = []
+
+    init(accounts: [EOAccount]) {
+        self.accounts = accounts
+    }
+
+    func listAccounts() throws -> [EOAccount] {
+        accounts
+    }
+
+    func account(for rawAddress: String) throws -> EOAccount? {
+        accounts.first { $0.address == rawAddress }
+    }
+
+    func createWatchAccount(
+        from rawAddress: String,
+        name: String?,
+        source: EOAccountSource,
+        overwriteExisting: Bool,
+        now: Date,
+        correlationID: String?
+    ) async throws -> EOAccount {
+        EOAccount(address: rawAddress)
+    }
+
+    func activateWatchAccount(
+        from rawAddress: String,
+        name: String?,
+        source: EOAccountSource,
+        selectedAt: Date,
+        correlationID: String?
+    ) async throws -> AccountActivationResult {
+        AccountActivationResult(account: EOAccount(address: rawAddress), wasCreated: false)
+    }
+
+    func selectAccount(
+        address rawAddress: String,
+        selectedAt: Date,
+        correlationID: String?
+    ) async throws -> EOAccount {
+        EOAccount(address: rawAddress)
+    }
+
+    func removeAccount(
+        address rawAddress: String,
+        activeAddress: String?,
+        correlationID: String?
+    ) async throws -> AccountRemovalResult {
+        removedAddresses.append(rawAddress)
+        activeAddresses.append(activeAddress)
+        accounts.removeAll { $0.address == rawAddress }
+        return AccountRemovalResult(removedAddress: rawAddress, fallbackAccount: accounts.first)
+    }
+
+    func persistCurrentChain(
+        address rawAddress: String,
+        chain: Chain,
+        correlationID: String?
+    ) async throws -> EOAccount {
+        EOAccount(address: rawAddress)
+    }
+
+    func persistPreferredChain(
+        address rawAddress: String,
+        chain: Chain,
+        correlationID: String?
+    ) async throws -> EOAccount {
+        EOAccount(address: rawAddress)
+    }
+}
+
+@MainActor
+private final class RecordingPrivacyResetService: PrivacyResetting {
+    private(set) var resetCallCount = 0
+
+    func resetLocalPrivacyData() async throws {
+        resetCallCount += 1
+    }
+}
+
+private actor RecordingTransactionalPrivacyResetService: TransactionalPrivacyResetting {
+    private var resetCallCount = 0
+
+    func resetTransactionalPrivacyData() async throws {
+        resetCallCount += 1
+    }
+
+    func resetCount() -> Int {
+        resetCallCount
+    }
 }
 
 private actor RecordingENSCacheResetService: ENSCacheResetting {

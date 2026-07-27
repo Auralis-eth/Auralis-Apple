@@ -13,6 +13,10 @@ public final class AuraPlayPlaybackPositionState {
     public var durationMilliseconds: Int?
     public var lastPlayedAt: Date
     public var completedAt: Date?
+    /// Number of completed plays; drives Smart Shuffle's play-count downweight.
+    /// The declaration-site default lets SwiftData lightweight-migrate existing
+    /// stores that predate this attribute instead of failing to open.
+    public var playCount: Int = 0
     public var updatedAt: Date
 
     public init(
@@ -21,6 +25,7 @@ public final class AuraPlayPlaybackPositionState {
         durationMilliseconds: Int?,
         lastPlayedAt: Date = .now,
         completedAt: Date? = nil,
+        playCount: Int = 0,
         updatedAt: Date = .now
     ) {
         self.mediaID = mediaID
@@ -28,6 +33,7 @@ public final class AuraPlayPlaybackPositionState {
         self.durationMilliseconds = durationMilliseconds.map { max(0, $0) }
         self.lastPlayedAt = lastPlayedAt
         self.completedAt = completedAt
+        self.playCount = max(0, playCount)
         self.updatedAt = updatedAt
     }
 }

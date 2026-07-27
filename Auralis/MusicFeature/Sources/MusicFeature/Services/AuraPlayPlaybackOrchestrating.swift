@@ -67,6 +67,7 @@ public enum AuraPlayQueueOriginPresentation: Codable, Equatable, Sendable {
     case collection(contractAddress: String)
     case creator(id: String)
     case search(query: String)
+    case moreLikeThis(sourceID: String)
     case single(mediaItemID: String)
     case restored
     case unknown

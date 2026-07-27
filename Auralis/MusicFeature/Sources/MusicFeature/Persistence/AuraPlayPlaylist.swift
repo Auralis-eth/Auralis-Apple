@@ -11,7 +11,7 @@ public final class AuraPlayPlaylist {
     @Attribute(.unique) public var id: String
     public var name: String
     public var coverImageURLString: String?
-    public var isSmart: Bool
+    public var isSmart: Bool = false
     public var smartQueryData: Data?
     public var createdAt: Date
     public var updatedAt: Date

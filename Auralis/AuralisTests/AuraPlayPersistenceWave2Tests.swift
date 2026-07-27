@@ -19,9 +19,10 @@ struct AuraPlayPersistenceWave2Tests {
         #expect(modelNames.contains("AuraPlayMediaItem"))
         #expect(modelNames.contains("AuraPlayMediaEmbedding"))
         #expect(modelNames.contains("AuraPlayPlaybackPositionState"))
+        #expect(modelNames.contains("AuraPlayPlaybackPositionTombstone"))
         #expect(modelNames.contains("AuraPlayPlaylist"))
         #expect(modelNames.contains("AuraPlayPlaylistItem"))
-        #expect(modelNames.count == 6)
+        #expect(modelNames.count == 7)
     }
 
     @Test("playback cache state and loudness persist on AuraPlay media rows")

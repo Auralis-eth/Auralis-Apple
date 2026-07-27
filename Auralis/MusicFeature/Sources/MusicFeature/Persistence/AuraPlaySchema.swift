@@ -8,6 +8,7 @@ public enum AuraPlaySchema {
             AuraPlayMediaItem.self,
             AuraPlayMediaEmbedding.self,
             AuraPlayPlaybackPositionState.self,
+            AuraPlayPlaybackPositionTombstone.self,
             AuraPlayPlaylist.self,
             AuraPlayPlaylistItem.self,
         ]

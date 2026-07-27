@@ -1,4 +1,5 @@
 import ENS
+import AccountsCore
 import AuralisShellCore
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
@@ -19,6 +20,11 @@ protocol AuraPlayPersistenceResetting: Sendable {
 
 protocol CredentialPrivacyResetting: Sendable {
     func clearCredentials() async throws
+}
+
+@MainActor
+protocol AllWalletDisconnecting {
+    func disconnectAllWalletsAndEraseLocalData() async throws
 }
 
 struct PasswordCredentialPrivacyResetter: CredentialPrivacyResetting {
@@ -242,6 +248,38 @@ struct PrivacyResetService: PrivacyResetting {
             )
         }
         completedPhases.append(.localPreferences)
+    }
+}
+
+@MainActor
+struct AllWalletDisconnectService: AllWalletDisconnecting {
+    private let accountStore: any AccountStoring
+    private let privacyResetService: any PrivacyResetting
+    private let activeAddressProvider: @MainActor () -> String?
+
+    init(
+        accountStore: any AccountStoring,
+        privacyResetService: any PrivacyResetting,
+        activeAddressProvider: @escaping @MainActor () -> String?
+    ) {
+        self.accountStore = accountStore
+        self.privacyResetService = privacyResetService
+        self.activeAddressProvider = activeAddressProvider
+    }
+
+    func disconnectAllWalletsAndEraseLocalData() async throws {
+        let activeAddress = activeAddressProvider()
+        let accounts = try accountStore.listAccounts()
+
+        for account in accounts {
+            _ = try await accountStore.removeAccount(
+                address: account.address,
+                activeAddress: activeAddress,
+                correlationID: nil
+            )
+        }
+
+        try await privacyResetService.resetLocalPrivacyData()
     }
 }
 

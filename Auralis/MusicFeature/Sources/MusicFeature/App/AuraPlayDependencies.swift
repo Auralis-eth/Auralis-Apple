@@ -7,6 +7,9 @@ public struct AuraPlayDependencies {
     public let nftDiscoverySyncService: any AuraPlayNFTDiscoverySyncing
     public let syncProgressProvider: any AuraPlaySyncProgressProviding
     public let semanticSearchService: any AuraPlaySemanticSearching
+    public let embeddingAvailabilityProvider: any AuraPlayEmbeddingAvailabilityProviding
+    public let playlistGenerator: (any AuraPlayPlaylistGenerating)?
+    public let recommendationProvider: any AuraPlayRecommendationProviding
     public let playlistManager: any AuraPlayPlaylistManaging
     public let playbackController: any AuraPlayPlaybackControlling
     public let playbackPresenter: (any AuraPlayPlaybackPresenting)?
@@ -24,6 +27,9 @@ public struct AuraPlayDependencies {
         nftDiscoverySyncService: any AuraPlayNFTDiscoverySyncing = NoOpAuraPlayNFTDiscoverySyncService(),
         syncProgressProvider: any AuraPlaySyncProgressProviding = NoOpAuraPlaySyncProgressProvider(),
         semanticSearchService: any AuraPlaySemanticSearching = NoOpAuraPlaySemanticSearchService(),
+        embeddingAvailabilityProvider: any AuraPlayEmbeddingAvailabilityProviding = AlwaysAvailableAuraPlayEmbeddingAvailabilityProvider(),
+        playlistGenerator: (any AuraPlayPlaylistGenerating)? = nil,
+        recommendationProvider: any AuraPlayRecommendationProviding = NoOpAuraPlayRecommendationProvider(),
         playlistManager: any AuraPlayPlaylistManaging,
         playbackController: any AuraPlayPlaybackControlling,
         playbackPresenter: (any AuraPlayPlaybackPresenting)? = nil,
@@ -40,6 +46,9 @@ public struct AuraPlayDependencies {
         self.nftDiscoverySyncService = nftDiscoverySyncService
         self.syncProgressProvider = syncProgressProvider
         self.semanticSearchService = semanticSearchService
+        self.embeddingAvailabilityProvider = embeddingAvailabilityProvider
+        self.playlistGenerator = playlistGenerator
+        self.recommendationProvider = recommendationProvider
         self.playlistManager = playlistManager
         self.playbackController = playbackController
         self.playbackPresenter = playbackPresenter

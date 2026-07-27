@@ -42,6 +42,24 @@ public struct LibraryCreatorGroup: Identifiable, Equatable, Sendable {
     }
 }
 
+public struct AuraPlayCreatorProfile: Equatable, Sendable {
+    public let id: String
+    public let displayName: String
+    public let items: [MediaItemQueryItem]
+    public let itemCount: Int
+    public let chains: [Chain]
+    public let playedItemCount: Int
+
+    public init(id: String, displayName: String, items: [MediaItemQueryItem]) {
+        self.id = id
+        self.displayName = displayName
+        self.items = items
+        self.itemCount = items.count
+        self.chains = Array(Set(items.map(\.chain))).sorted { $0.routingDisplayName < $1.routingDisplayName }
+        self.playedItemCount = items.filter { $0.lastPlayedAt != nil }.count
+    }
+}
+
 /// Cached grouping result for one scope. Rebuilt only when the scope changes
 /// or a sync generation completes, never per render.
 public struct AuraPlayGroupedLibraryIndex: Equatable, Sendable {
@@ -80,4 +98,21 @@ public protocol AuraPlayMediaItemQuerying: Sendable {
         sort: MediaItemSort
     ) async throws -> [MediaItemQueryItem]
     func fetchItems(scope: AuraPlayLibraryScope, ids: [String]) async throws -> [MediaItemQueryItem]
+    func fetchCreatorProfile(
+        creatorIdentifier: String,
+        accountAddresses: [String],
+        chains: Set<Chain>?,
+        sort: MediaItemSort
+    ) async throws -> AuraPlayCreatorProfile?
+}
+
+public extension AuraPlayMediaItemQuerying {
+    func fetchCreatorProfile(
+        creatorIdentifier: String,
+        accountAddresses: [String],
+        chains: Set<Chain>?,
+        sort: MediaItemSort
+    ) async throws -> AuraPlayCreatorProfile? {
+        nil
+    }
 }

@@ -3,7 +3,6 @@ import AppKit
 import AuralisPrimaryModels
 import Foundation
 import MusicFeature
-import SnapshotTesting
 import SwiftUI
 import Testing
 
@@ -24,13 +23,44 @@ struct LibraryAndPlayerSnapshotTests {
         let hostingView = NSHostingView(rootView: AnyView(view.frame(width: width, height: height)))
         hostingView.frame = CGRect(x: 0, y: 0, width: width, height: height)
         hostingView.appearance = NSAppearance(named: .aqua)
-        assertSnapshot(
-            of: hostingView,
-            as: .image,
-            named: name,
-            file: filePath,
-            testName: testName
-        )
+        hostingView.layoutSubtreeIfNeeded()
+
+        guard let bitmap = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) else {
+            Issue.record("Unable to create a bitmap representation for snapshot \(name).")
+            return
+        }
+        hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+        guard let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            Issue.record("Unable to create PNG data for snapshot \(name).")
+            return
+        }
+
+        let normalizedTestName = testName.replacingOccurrences(of: "()", with: "")
+        let snapshotURL = URL(fileURLWithPath: "\(filePath)")
+            .deletingLastPathComponent()
+            .appendingPathComponent("__Snapshots__")
+            .appendingPathComponent("LibraryAndPlayerSnapshotTests")
+            .appendingPathComponent("\(normalizedTestName).\(name).png")
+
+        if ProcessInfo.processInfo.environment["AURAPLAY_RECORD_SNAPSHOTS"] == "1" {
+            do {
+                try FileManager.default.createDirectory(
+                    at: snapshotURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                try pngData.write(to: snapshotURL)
+            } catch {
+                Issue.record("Unable to record snapshot \(snapshotURL.path): \(error.localizedDescription)")
+            }
+            return
+        }
+
+        guard let referenceData = try? Data(contentsOf: snapshotURL) else {
+            Issue.record("Missing reference snapshot at \(snapshotURL.path). Re-run with AURAPLAY_RECORD_SNAPSHOTS=1 to create it.")
+            return
+        }
+
+        #expect(pngData == referenceData, "Snapshot \(normalizedTestName).\(name) does not match its reference image.")
     }
 
     // MARK: Library cells (P9-002)

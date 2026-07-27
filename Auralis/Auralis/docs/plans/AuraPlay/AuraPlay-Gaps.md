@@ -92,11 +92,11 @@ Anything actually shipped lives in `AuraPlay-Status.md`. Do not duplicate.
 
 ## Phase 2 Gaps
 
-### Versioned schema and migration plan are not in place
+### Versioned schema and migration plan are in place
 
 - Expected: `AuraPlaySchemaV1` defined as a `VersionedSchema` with a `Schema.Version`, and an `AuraPlayMigrationPlan` conforming to `SchemaMigrationPlan` that the container is built against. New models register through the versioned schema; new releases add stages without modifying the v1 enum.
-- Actual: `AuraPlaySchema` is a plain enum exposing a flat `models` array. `AuraPlayModelContainer` builds a `ModelContainer` directly from that schema without passing a migration plan. No `AuraPlayMigrationPlan` type exists.
-- Why it matters: the first additive schema change has no migration hook to extend. The next model that lands should be the one that motivates introducing the versioned schema.
+- Actual: resolved in Phase 14. `AuraPlaySchemaV1`, `AuraPlaySchemaV2`, and `AuraPlayMigrationPlan` now exist, and `AuraPlayModelContainer` opens through the migration plan.
+- Why it matters: future schema changes now have an explicit staged migration hook instead of relying on an unversioned flat model list.
 
 ### AuraPlay-owned wallet service is not built
 
@@ -150,11 +150,11 @@ Anything actually shipped lives in `AuraPlay-Status.md`. Do not duplicate.
 - Actual: not built.
 - Why it matters: when `EmbeddingService` lands, semantic-search tests need a stable corpus; otherwise tests will drift the moment Apple updates the embedding model.
 
-### Playback history analytics and tombstone policy are incomplete
+### Playback history analytics and tombstone policy use an AuraPlay-owned contract — RESOLVED FOR PHASE 13 (2026-07-25)
 
-- Expected: playback state covers position, duration cache, play count, completed count, last played, and deletion-preserved identifying fields so persistent-history tombstones can drive Smart Resume after a token is burned or transferred.
-- Actual: `AuraPlayPlaybackPositionState` and `AuraPlayPlaybackPositionStateService` persist position, duration, completion, and `lastPlayedAt`, and the service denormalizes `lastPlayedAt` / duration onto `AuraPlayMediaItem` for library sorting. Play counts, completed counts, and deletion-preserved tombstone policy are not built.
-- Why it matters: Smart Resume has a real position store now, but richer recently-played analytics and post-transfer history recovery still need explicit schema and service work.
+- Was: the older April ticket expected persistent-history tombstones with deletion-preserved fields on playback state, while the current codebase had no such infrastructure.
+- Decision: Phase 13 accepts the explicit `AuraPlayPlaybackPositionTombstone` model as the recovery contract. It stores exact token identity plus resumable position/play-count data during sync reconciliation and restores only when the same on-chain token returns.
+- Remaining follow-up: a broader analytics model with completed-count reporting can still land later, but it is no longer a Phase 13 Smart Resume blocker.
 
 ### Sendable DTOs for cross-actor work are not defined
 
@@ -239,3 +239,38 @@ The legacy helpers (`URLConverter.convertToPreferredHTTPS`, `URL.toPinataGateway
 
 - Done (2026-07-19): `AuralisMediaCapabilityStage` now scores off the structured Spotlight metadata tokens the indexer already emits (`mediaKind`, `isPlayable`, `artistName`, `collectionName`) with named weight constants, and no longer scans free text for `"music"`/`"artist:"` substrings. `AuralisReceiptRollupStage.receiptValue` reads grouping values straight from structured tokens and dropped the fragile `"Trigger: …"` free-text parsing — this also fixed a latent bug where chain grouping looked up a non-existent `receiptChain` token instead of the shared `chain` token. Table cells are now formatted by pattern-matching the typed `SearchResultsTable.Value` at the source, so `SearchAssistantTableView.cleanedCellValue` (which string-stripped `.string(...)` syntax) is deleted. Unit tests live in `SearchAssistantStageTests` (structured scoring, threshold filtering, synonym mapping, receipt grouping incl. the chain regression, typed cell formatting).
 - Validated (2026-07-19): run on a physical iOS 27.0 device, all 11 stage/cell/evaluation-seed tests pass, and the pre-existing `SearchSpotlightSupportTests` stage tests still pass (no regression from the refactor). The app-hosted test crash seen under the Xcode beta simulator did not occur on device. Unblocking the device lane required one fix to the vendored `CodeScanner` package: `ScannerViewController.useSimulatedCodeFromButton` referenced the simulator-only `sendSimulatedCode()` without a `#if targetEnvironment(simulator)` guard, which broke every device build.
+
+## Phase 12/13 (Ecosystem / Intelligence) Gaps
+
+### Smart Shuffle play-count weighting is inert — RESOLVED (2026-07-23)
+
+- Was: `playbackHistories()` always built `SmartShufflePlaybackHistory` with `playCount: 0`, so the `1 / (playCount + 1)` term in `SmartShuffleWeighting.weight` was dead and Smart Shuffle was recency-only.
+- Fix: `AuraPlayPlaybackPositionState` now persists `playCount`, `AuraPlayPlaybackPositionStateService.markCompleted` increments it, `playbackHistories()` threads it through, and `AuraPlayPlaybackPositionTombstone` carries it so Smart Resume restores it. Covered by `AuraPlayPhase13IntelligenceTests`.
+
+### Unparseable incoming deep links are silently ignored — DECISION: intended (2026-07-23)
+
+- `MainAuraView.handleIncomingURL` routes through `IncomingDeepLinkPolicy`, which logs and drops URLs that fail to parse. This is the intended product behavior for user-tapped bad links (no "link not supported" alert); tests assert the drop. No further action.
+
+### Collection share identifier can double-prefix the chain — RESOLVED (2026-07-23)
+
+- Was: `AuraPlaySharePolicy.collectionShareRequest` fell back to `group.id` (already `"chain|contract"`) when `contractAddress` was nil, and the handler prefixed the chain again → `"chain|chain|contract"`.
+- Fix: the share builder now emits a bare identifier (strips the leading `"<chain>|"` from `group.id`), and `ShellCollaborators` guards against an already-qualified `"chain|…"` identifier before re-prefixing. Round-trip covered by `AuraPlayEcosystemTests`.
+
+### More Like This per-item embedding gate — RESOLVED (2026-07-25)
+
+- Was: the context action was only gated by global embedding availability.
+- Fix: `AuraPlayRootModel` now maintains a scoped set of media IDs with stored embeddings and hides the action per item. The set is scoped by account/chain, cleared on scope changes, and not fetched when embeddings are globally unavailable. Covered by `AuraPlayFoundationBoundaryTests`.
+
+## Phase 14 Gaps
+
+### Phase 14 artifacts exist, but manual release gates are not signed off
+
+- Expected: Phase 14 produces the final accessibility findings, error-presentation audit, App Review checklist, master QA checklist, and known-limitations release notes described in `AuraPlay-Phase14-Settings-Accessibility-Hardening-Plan.md`.
+- Actual: the artifacts now exist:
+  - `AuraPlay-Phase14-Accessibility-Findings.md`
+  - `AuraPlay-Phase14-Error-Presentation-Audit.md`
+  - `AuraPlay-Phase14-App-Review-Checklist.md`
+  - `AuraPlay-Phase14-Master-QA-Checklist.md`
+  - `AuraPlay-Phase14-Known-Limitations.md`
+- Remaining gate: physical-device QA, Accessibility Inspector/VoiceOver sign-off, App Store archive/upload review, and release screenshots still require a human release pass.
+- Why it matters: automated coverage is green, but the app is not truthfully "100% ready to ship" until those device and submission gates are completed.

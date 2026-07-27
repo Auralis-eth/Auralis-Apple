@@ -71,8 +71,36 @@ final class AuraPlayOrchestratorAdapter: AuraPlayPlaybackOrchestrating {
             id: item.id,
             in: orderedNFTs,
             queryContext: queue?.queryContext,
-            nextOffset: queue?.nextOffset
+            nextOffset: queue?.nextOffset,
+            origin: mapOrigin(origin, fallbackMediaID: item.id)
         )
+    }
+
+    /// Maps the package-level queue-origin presentation onto the app-target
+    /// runtime `QueueOrigin`. `.unknown` has no runtime equivalent, so it falls
+    /// back to a single-item origin keyed by the starting media ID.
+    private func mapOrigin(
+        _ presentation: AuraPlayQueueOriginPresentation,
+        fallbackMediaID: String
+    ) -> QueueOrigin {
+        switch presentation {
+        case .playlist(let id):
+            return .playlist(id: id)
+        case .collection(let contractAddress):
+            return .collection(contractAddress: contractAddress)
+        case .creator(let id):
+            return .creator(id: id)
+        case .search(let query):
+            return .search(query: query)
+        case .moreLikeThis(let sourceID):
+            return .moreLikeThis(sourceID: sourceID)
+        case .single(let mediaItemID):
+            return .single(mediaItemID: mediaItemID)
+        case .restored:
+            return .restored
+        case .unknown:
+            return .single(mediaItemID: fallbackMediaID)
+        }
     }
 
     func restoreVideoPresentation() {

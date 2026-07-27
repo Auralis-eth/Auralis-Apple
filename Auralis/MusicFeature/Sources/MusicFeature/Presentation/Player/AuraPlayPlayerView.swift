@@ -16,6 +16,7 @@ public struct AuraPlayPlayerView<Commander: AuraPlayPlayerCommanding, VideoSurfa
     @State private var showsAudioControls = false
     @State private var isVideoChromeVisible = true
     @State private var showsCopyToast = false
+    @State private var provenancePresentation: AuraPlayProvenancePresentation?
     /// One coalescer serves the scrubber and both gesture layers (P10-002).
     @State private var seekCoalescer = SeekCoalescer()
 
@@ -79,6 +80,14 @@ public struct AuraPlayPlayerView<Commander: AuraPlayPlayerCommanding, VideoSurfa
         .sheet(isPresented: $showsAudioControls) {
             if let audioCapabilities = presentation.audioCapabilities {
                 AuraPlayAudioControlsSheet(capabilities: audioCapabilities, commander: commander)
+            }
+        }
+        .sheet(item: $provenancePresentation) { presentation in
+            ProvenancePanelView(presentation: presentation) { _ in
+                Task {
+                    await commander.copyContractAddress()
+                    presentCopyToast()
+                }
             }
         }
         .task(id: isVideoChromeVisible) {
@@ -358,6 +367,17 @@ public struct AuraPlayPlayerView<Commander: AuraPlayPlayerCommanding, VideoSurfa
                 AuraPlayPlayerContextMenuBuilder.playerMenu(
                     item: item,
                     commander: commander,
+                    showProvenance: {
+                        provenancePresentation = AuraPlayProvenancePresentation(
+                            title: item.title,
+                            chainName: item.chainDisplayName ?? "Unknown Chain",
+                            contractAddress: item.contractAddress,
+                            tokenID: item.tokenID,
+                            tokenType: nil,
+                            collectionName: item.collection,
+                            explorerURL: item.explorerURL
+                        )
+                    },
                     onCopied: { presentCopyToast() }
                 )
             } label: {

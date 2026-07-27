@@ -172,14 +172,14 @@ struct SearchSpotlightSupportTests {
         )
 
         let stage = AuralisMediaCapabilityStage(preferredMediaKind: "audio", threshold: 0.2)
-        let output = try await stage.execute(items: [visual, playable])
+        // `SearchableItem` (the wrapper the stage receives) has no public initializer, so
+        // exercise the stage's extracted scoring over `CSSearchableItem` and mirror the
+        // ordering `execute` applies.
+        let scoredItems = [visual, playable]
+            .compactMap { item in stage.score(for: item).map { (id: item.uniqueIdentifier, score: $0) } }
+            .sorted { $0.score > $1.score }
 
-        guard case .scoredItems(let scoredItems) = output.payload else {
-            Issue.record("Expected scored media results")
-            return
-        }
-
-        #expect(scoredItems.first?.item.uniqueIdentifier == "auralis.search.nft:music-nft-1")
+        #expect(scoredItems.first?.id == "auralis.search.nft:music-nft-1")
         #expect(scoredItems.count == 1)
         #expect((scoredItems.first?.score ?? 0) >= 0.2)
     }
@@ -192,7 +192,7 @@ struct SearchSpotlightSupportTests {
         let anotherFailed = receiptSearchableItem(id: "failed-2", status: "Failed")
 
         let stage = AuralisReceiptRollupStage(groupBy: "status")
-        let output = try await stage.execute(items: [success, failed, anotherFailed])
+        let output = stage.rollup(coreItems: [success, failed, anotherFailed])
 
         guard case .table(let table) = output.payload else {
             Issue.record("Expected receipt rollup table")

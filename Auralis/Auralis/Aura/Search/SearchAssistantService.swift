@@ -232,49 +232,60 @@ struct AuralisMediaCapabilityStage: CustomStage {
     static let preferenceWeight = 0.35
     static let defaultThreshold = 0.15
 
-    func execute(items: [CSSearchableItem]) async throws -> SearchPipelineData {
-        let normalizedPreference = Self.canonicalMediaKind(from: preferredMediaKind)
-        let minimumScore = threshold ?? Self.defaultThreshold
-        let scoredItems = items.compactMap { item -> ScoredSearchableItem? in
-            let keywords = item.attributeSet.keywords ?? []
-            let mediaKind = SearchSpotlightMetadataToken.value(for: "mediaKind", in: keywords)?.lowercased()
-            let isPlayable = SearchSpotlightMetadataToken.value(for: "isPlayable", in: keywords) == "true"
-            let hasArtist = SearchSpotlightMetadataToken.value(for: "artistName", in: keywords) != nil
-            let hasCollection = SearchSpotlightMetadataToken.value(for: "collectionName", in: keywords) != nil
-
-            var score = 0.0
-            switch mediaKind {
-            case "audio":
-                score += Self.audioWeight
-            case "video":
-                score += Self.videoWeight
-            default:
-                break
-            }
-            if isPlayable {
-                score += Self.playableWeight
-            }
-            if hasArtist || hasCollection {
-                score += Self.attributionWeight
-            }
-            if let normalizedPreference {
-                let matchesPreference = normalizedPreference == "playable"
-                    ? isPlayable
-                    : mediaKind == normalizedPreference
-                if matchesPreference {
-                    score += Self.preferenceWeight
-                }
-            }
-
-            guard score >= minimumScore else {
-                return nil
-            }
-
-            return ScoredSearchableItem(item: item, score: min(score, 1.0))
+    // The framework hands stages `[CoreSpotlight.SearchableItem]` (a wrapper with no
+    // public initializer); unwrap via `.item` to read the structured attribute set and
+    // re-wrap the same value into `ScoredSearchableItem`.
+    func execute(items: [SearchableItem]) async throws -> SearchPipelineData {
+        let scoredItems = items.compactMap { searchable -> ScoredSearchableItem? in
+            score(for: searchable.item).map { ScoredSearchableItem(item: searchable, score: $0) }
         }
         .sorted { $0.score > $1.score }
 
         return .scoredItems(scoredItems)
+    }
+
+    // Pure scoring over a Spotlight item's structured tokens. Returns the clamped score
+    // when it clears the threshold, or `nil` when the item should be filtered out.
+    // Extracted from `execute` so it stays unit-testable: `SearchableItem` cannot be
+    // fabricated in tests (no public init), but `CSSearchableItem` can.
+    func score(for item: CSSearchableItem) -> Double? {
+        let normalizedPreference = Self.canonicalMediaKind(from: preferredMediaKind)
+        let minimumScore = threshold ?? Self.defaultThreshold
+        let keywords = item.attributeSet.keywords ?? []
+        let mediaKind = SearchSpotlightMetadataToken.value(for: "mediaKind", in: keywords)?.lowercased()
+        let isPlayable = SearchSpotlightMetadataToken.value(for: "isPlayable", in: keywords) == "true"
+        let hasArtist = SearchSpotlightMetadataToken.value(for: "artistName", in: keywords) != nil
+        let hasCollection = SearchSpotlightMetadataToken.value(for: "collectionName", in: keywords) != nil
+
+        var score = 0.0
+        switch mediaKind {
+        case "audio":
+            score += Self.audioWeight
+        case "video":
+            score += Self.videoWeight
+        default:
+            break
+        }
+        if isPlayable {
+            score += Self.playableWeight
+        }
+        if hasArtist || hasCollection {
+            score += Self.attributionWeight
+        }
+        if let normalizedPreference {
+            let matchesPreference = normalizedPreference == "playable"
+                ? isPlayable
+                : mediaKind == normalizedPreference
+            if matchesPreference {
+                score += Self.preferenceWeight
+            }
+        }
+
+        guard score >= minimumScore else {
+            return nil
+        }
+
+        return min(score, 1.0)
     }
 
     // Maps free-form user media-kind phrasing onto the canonical values written by the
@@ -326,7 +337,12 @@ struct AuralisReceiptRollupStage: CustomStage {
     @Guide(description: "Optional receipt field to group by: status, trigger, chain, or scope.")
     var groupBy: String?
 
-    func execute(items: [CSSearchableItem]) async throws -> SearchPipelineData {
+    func execute(items: [SearchableItem]) async throws -> SearchPipelineData {
+        rollup(coreItems: items.map(\.item))
+    }
+
+    // Testable core of the stage over plain `CSSearchableItem`s (see `score(for:)` note).
+    func rollup(coreItems items: [CSSearchableItem]) -> SearchPipelineData {
         let receiptItems = items.filter { item in
             item.domainIdentifier == SearchIndexedDocument.Domain.receipt.rawValue ||
             SearchSpotlightMetadataToken.value(for: "documentDomain", in: item.attributeSet.keywords ?? []) == SearchIndexedDocument.Domain.receipt.rawValue ||
@@ -635,11 +651,11 @@ extension SearchAssistantPayload {
     init?(replyContent: SpotlightSearchTool.SearchReply.Content) {
         switch replyContent {
         case .items(let items):
-            self = .matches(Self.matches(from: items))
+            self = .matches(Self.matches(from: items.map(\.item)))
         case .scoredItems(let scoredItems):
             self = .scoredMatches(
                 scoredItems.compactMap { scoredItem in
-                    SearchLocalMatch(searchableItem: scoredItem.item).map {
+                    SearchLocalMatch(searchableItem: scoredItem.item.item).map {
                         ScoredMatch(match: $0, score: scoredItem.score)
                     }
                 }
@@ -650,7 +666,7 @@ extension SearchAssistantPayload {
                     GroupedMatches(
                         id: String(describing: key),
                         label: String(describing: key),
-                        matches: Self.matches(from: items)
+                        matches: Self.matches(from: items.map(\.item))
                     )
                 }
                 .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }

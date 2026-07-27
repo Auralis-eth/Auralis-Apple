@@ -364,6 +364,27 @@ struct AppRouterShellEffectHandler: ShellRouterEffectHandling {
             case .receipt(let id):
                 router.showReceipt(id: id)
                 return nil
+
+            case .auraPlayPlaylist(let id):
+                router.showMusicPlaylist(id: id)
+                return nil
+
+            case .auraPlayCollection(let identifier, let chain):
+                let resolvedChain = chain ?? inheritedChain ?? selection.chain
+                // Guard against an already-qualified `"chain|identifier"` value so
+                // a composite id is not double-prefixed into `"chain|chain|id"`.
+                let key = identifier.contains("|")
+                    ? identifier
+                    : "\(resolvedChain.rawValue)|\(identifier)"
+                router.showMusicCollectionDetail(
+                    key: key,
+                    title: "Collection"
+                )
+                return nil
+
+            case .auraPlayCreator(let identifier):
+                router.showMusicCreator(id: identifier)
+                return nil
             }
         }
     }

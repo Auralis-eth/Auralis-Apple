@@ -1,6 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisShellCore
 import AuralisTestSupport
 import Testing
 
@@ -23,6 +24,25 @@ struct AppRouterTests {
         #expect(router.selectedTab == .music)
         #expect(router.musicPath.isEmpty)
         #expect(router.currentRouteDepth == 0)
+    }
+
+    @Test("AuraPlay ecosystem routes append to the music tab")
+    func auraPlayEcosystemRoutesUseMusicTab() {
+        let router = AppRouter()
+
+        router.showMusicPlaylist(id: "playlist-1")
+        router.showMusicCreator(id: "creator:cross", title: "Cross Creator")
+        router.showMusicCollectionDetail(key: "eth-mainnet|0xabc", title: "Waves")
+
+        #expect(router.selectedTab == .music)
+        #expect(
+            router.musicPath == [
+                .playlist(id: "playlist-1"),
+                .creator(id: "creator:cross", title: "Cross Creator"),
+                .collection(key: "eth-mainnet|0xabc", title: "Waves")
+            ]
+        )
+        #expect(router.currentRouteDepth == 3)
     }
 
     @Test("PiP restoration returns to the music video route without stacking duplicates")
@@ -212,6 +232,44 @@ struct AppRouterTests {
         #expect(router.auxiliarySurface == .nftTokens)
         #expect(router.currentRouteDepth == 1)
         #expect(router.selectedTabName == "nftTokens")
+    }
+
+    @Test("AuraPlay collection deep links resolve the chain-qualified key using the chain raw value")
+    func auraPlayCollectionDeepLinkUsesChainRawValue() throws {
+        let router = AppRouter()
+        let handler = try AppRouterShellEffectHandler(
+            router: router,
+            modelContext: TestModelContainers.primary().mainContext
+        )
+        let selection = ActiveShellSelection(
+            address: "0x1111111111111111111111111111111111111111",
+            chain: .ethMainnet
+        )
+
+        // Explicit chain on the destination wins and must use its raw value ("base-mainnet"),
+        // matching the "chain|contract" key format the collection detail resolves against.
+        let explicitError = handler.handle(
+            .routeDeepLink(
+                destination: .auraPlayCollection(identifier: "0xabc", chain: .baseMainnet),
+                selection: selection,
+                inheritedChain: nil
+            )
+        )
+        #expect(explicitError == nil)
+        #expect(router.selectedTab == .music)
+        #expect(router.musicPath == [.collection(key: "base-mainnet|0xabc", title: "Collection")])
+
+        // With no explicit chain, the inherited chain is used — still as its raw value.
+        router.resetAllPaths()
+        let inheritedError = handler.handle(
+            .routeDeepLink(
+                destination: .auraPlayCollection(identifier: "0xdef", chain: nil),
+                selection: selection,
+                inheritedChain: .arbMainnet
+            )
+        )
+        #expect(inheritedError == nil)
+        #expect(router.musicPath == [.collection(key: "arb-mainnet|0xdef", title: "Collection")])
     }
 
     @Test("release tab policy presents ERC-20 details as an auxiliary surface")

@@ -29,6 +29,28 @@ struct ExternalLinkDestinationTests {
         #expect(arbitrumLabel == "Arbiscan")
     }
 
+    @Test("Phase 12 AuraPlay provenance URLs cover the six supported chains")
+    func auraPlayProvenanceURLsCoverSupportedChains() throws {
+        let supportedChainURLs: [(Chain, String)] = [
+            (.ethMainnet, "https://etherscan.io/token/0x1234567890abcdef1234567890abcdef12345678?a=42"),
+            (.baseMainnet, "https://basescan.org/token/0x1234567890abcdef1234567890abcdef12345678?a=42"),
+            (.arbMainnet, "https://arbiscan.io/token/0x1234567890abcdef1234567890abcdef12345678?a=42"),
+            (.optMainnet, "https://optimistic.etherscan.io/token/0x1234567890abcdef1234567890abcdef12345678?a=42"),
+            (.polygonMainnet, "https://polygonscan.com/token/0x1234567890abcdef1234567890abcdef12345678?a=42"),
+            (.solanaMainnet, "https://solscan.io/token/0x1234567890abcdef1234567890abcdef12345678"),
+        ]
+
+        for (chain, expectedURLString) in supportedChainURLs {
+            let url = AuraPlayExplorerURLBuilder.nftURL(
+                chain: chain,
+                contractAddress: contract,
+                tokenID: "42"
+            )
+
+            #expect(url?.absoluteString == expectedURLString)
+        }
+    }
+
     @Test("external link policy accepts every supported explorer host")
     func policyAcceptsAllSupportedExplorerHosts() throws {
         let policy = ExternalLinkPolicy()

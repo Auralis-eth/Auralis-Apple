@@ -139,6 +139,13 @@ public enum A11yID {
         public static let searchMediaTypeFilter = "auraplay.search.filter.mediaType"
         public static let searchClearFilters = "auraplay.search.filter.clear"
         public static let searchClearRecents = "auraplay.search.recents.clear"
+        public static let playlistPlayground = "auraplay.playground"
+        public static let playlistPlaygroundPrompt = "auraplay.playground.prompt"
+        public static let playlistPlaygroundGenerate = "auraplay.playground.generate"
+        public static let playlistPlaygroundRegenerate = "auraplay.playground.regenerate"
+        public static let playlistPlaygroundSave = "auraplay.playground.save"
+        public static let playlistPlaygroundResults = "auraplay.playground.results"
+        public static let recommendationsSavePlaylist = "auraplay.recommendations.savePlaylist"
         public static let libraryEmptyNoWallet = "auraplay.library.empty.noWallet"
         public static let libraryEmptySyncing = "auraplay.library.empty.syncing"
         public static let libraryEmptyNoPlayable = "auraplay.library.empty.noPlayable"
@@ -170,6 +177,18 @@ public enum A11yID {
         public static let audioTuningCustomEQ = "auraplay.audioTuning.customEQ"
         public static let audioTuningDownloadOffline = "auraplay.audioTuning.downloadOffline"
         public static let settingsAudioTuning = "auraplay.settings.audioTuning"
+        public static let settingsPlayback = "auraplay.settings.playback"
+        public static let settingsShuffleDefault = "auraplay.settings.playback.shuffleDefault"
+        public static let settingsRepeatDefault = "auraplay.settings.playback.repeatDefault"
+        public static let settingsVideoSpeed = "auraplay.settings.playback.videoSpeed"
+        public static let settingsStorage = "auraplay.settings.storage"
+        public static let settingsCacheUsage = "auraplay.settings.storage.cacheUsage"
+        public static let settingsCacheLimit = "auraplay.settings.storage.cacheLimit"
+        public static let settingsClearCache = "auraplay.settings.storage.clearCache"
+        public static let settingsDisconnectAllWallets = "auraplay.settings.privacy.disconnectAllWallets"
+        public static let settingsIntelligence = "auraplay.settings.intelligence"
+        public static let settingsSmartShuffle = "auraplay.settings.intelligence.smartShuffle"
+        public static let settingsEmbeddingUnavailable = "auraplay.settings.intelligence.embeddingUnavailable"
         public static let visualizer = "auraplay.visualizer"
         public static let sharedSession = "auraplay.sharedSession"
         public static let videoWireframe = "auraplay.videoWireframe"
@@ -182,6 +201,9 @@ public enum A11yID {
         public static let detailPlayback = "auraplay.detail.playback"
         public static let detailUnavailable = "auraplay.detail.unavailable"
         public static let collectionDetail = "auraplay.collection.detail"
+        public static let collectionDetailEmpty = "auraplay.collection.detail.empty"
+        public static let creatorProfile = "auraplay.creator.profile"
+        public static let creatorProfileEmpty = "auraplay.creator.profile.empty"
         public static let creators = "auraplay.creators"
         public static let playlists = "auraplay.playlists"
         public static let addToPlaylistSheet = "auraplay.playlists.addToPlaylist"
@@ -208,10 +230,21 @@ public enum A11yID {
         public static let playerShare = "auraplay.player.share"
         public static let playerViewOnExplorer = "auraplay.player.viewOnExplorer"
         public static let playerCopyContract = "auraplay.player.copyContract"
+        public static let provenancePanel = "auraplay.provenance.panel"
+        public static let provenanceCopyContract = "auraplay.provenance.copyContract"
+        public static let provenanceExplorerLink = "auraplay.provenance.explorerLink"
         public static let playerSkipBack10 = "auraplay.player.skipBack10"
         public static let playerSkipForward10 = "auraplay.player.skipForward10"
         public static let playerCopyToast = "auraplay.player.copyToast"
         public static let collectionPlayAll = "auraplay.collection.playAll"
+        public static let walletPicker = "auraplay.walletPicker"
+        public static let walletPickerConnect = "auraplay.walletPicker.connect"
+        public static let walletPickerProviderList = "auraplay.walletPicker.providers"
+        public static let walletPickerQR = "auraplay.walletPicker.qr"
+        public static let walletPickerCancel = "auraplay.walletPicker.cancel"
+        public static let walletPickerError = "auraplay.walletPicker.error"
+        public static let walletPickerSignDenied = "auraplay.walletPicker.signDenied"
+        public static let walletPickerRemoveConfirmation = "auraplay.walletPicker.removeConfirmation"
 
         public static func collectionTrack(id: String) -> String {
             "auraplay.collection.track.\(id)"
@@ -219,6 +252,14 @@ public enum A11yID {
 
         public static func trackRow(id: String) -> String {
             "auraplay.track.\(id)"
+        }
+
+        public static func walletPickerProvider(id: String) -> String {
+            "auraplay.walletPicker.provider.\(sanitizedIdentifierComponent(id))"
+        }
+
+        public static func walletPickerRow(address: String) -> String {
+            "auraplay.walletPicker.row.\(sanitizedIdentifierComponent(address))"
         }
 
         public static func libraryCell(id: String) -> String {

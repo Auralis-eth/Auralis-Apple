@@ -132,6 +132,7 @@ public struct MediaItemQueryItem: Identifiable, Equatable, Sendable {
     public let chain: Chain
     public let contractAddress: String?
     public let tokenID: String?
+    public let tokenType: String?
     public let creatorIdentifier: String?
 
     public init(item: AuraPlayMediaItem) {
@@ -149,6 +150,7 @@ public struct MediaItemQueryItem: Identifiable, Equatable, Sendable {
         self.chain = item.chain
         self.contractAddress = item.contractAddressRawValue
         self.tokenID = item.tokenID
+        self.tokenType = item.tokenType
         self.creatorIdentifier = item.creatorIdentifierRawValue
     }
 

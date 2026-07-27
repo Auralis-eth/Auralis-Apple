@@ -311,7 +311,7 @@ public struct AuraPlayMusicItemDetailPresentation: Equatable {
         self.navigationTitle = resolvedTitle
         self.artist = resolvedArtist
         self.collection = resolvedCollection
-        self.collectionKey = Self.cleanedText(libraryItem?.normalizedCollectionKey)
+        self.collectionKey = Self.collectionKey(nft: nft, libraryItem: libraryItem)
         self.description = resolvedDescription
         self.artworkURL = resolvedArtworkURL
         self.chainTitle = resolvedChainTitle
@@ -366,6 +366,21 @@ public struct AuraPlayMusicItemDetailPresentation: Equatable {
             return nil
         }
         return trimmed
+    }
+
+    private static func collectionKey(nft: NFT?, libraryItem: MusicLibraryItem?) -> String? {
+        guard let chainRawValue = cleanedText(nft?.networkRawValue ?? libraryItem?.networkRawValue) else {
+            return nil
+        }
+
+        if let contractAddress = NFT.normalizedScopeComponent(nft?.contract.address) {
+            return "\(chainRawValue)|\(contractAddress)"
+        }
+
+        guard let normalizedCollectionKey = cleanedText(libraryItem?.normalizedCollectionKey) else {
+            return nil
+        }
+        return "\(chainRawValue)|\(normalizedCollectionKey)"
     }
 
     private static func url(from value: String?) -> URL? {

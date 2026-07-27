@@ -6,6 +6,8 @@
 	<string>$(AURALIS_ALCHEMY_API_KEY)</string>
 	<key>AURALIS_HELIUS_API_KEY</key>
 	<string>$(AURALIS_HELIUS_API_KEY)</string>
+	<key>AURALIS_WALLETCONNECT_PROJECT_ID</key>
+	<string>$(AURALIS_WALLETCONNECT_PROJECT_ID)</string>
 	<key>AVInitialRouteSharingPolicy</key>
 	<string>LongFormAudio</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
@@ -30,6 +32,10 @@
 		<string>cbwallet</string>
 		<string>rainbow</string>
 		<string>ledgerlive</string>
+		<string>rabby</string>
+		<string>phantom</string>
+		<string>backpack</string>
+		<string>solflare</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Auralis uses the camera to scan Ethereum wallet QR codes and capture playlist cover art.</string>

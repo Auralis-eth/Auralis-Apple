@@ -242,6 +242,15 @@ public protocol NFTTokenPersisting: Sendable {
 
 public protocol AuraPlayMediaPersisting: Sendable {
     func upsertAll(_ items: [MediaItemDTO]) async throws
+
+    /// Reconciles out media rows whose backing tokens are no longer owned,
+    /// capturing a Smart Resume tombstone for any resumable playback position
+    /// before deletion (P13-003).
+    func removeItems(ids: [String], capturedAt: Date) async throws
+
+    /// Restores tombstoned playback positions for any media rows whose exact
+    /// on-chain identity has returned to the library (P13-003).
+    func restorePlaybackTombstones(at date: Date) async throws
 }
 
 public protocol ArtworkPrefetching: Sendable {

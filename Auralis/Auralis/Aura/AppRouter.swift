@@ -55,6 +55,8 @@ enum NFTDetailRoute: Hashable {
 enum MusicRoute: Hashable {
     case item(id: String)
     case collection(key: String, title: String)
+    case playlist(id: String)
+    case creator(id: String, title: String)
     case video
 }
 
@@ -124,6 +126,16 @@ final class AppRouter {
     func showMusicCollectionDetail(key: String, title: String) {
         selectedTab = .music
         musicPath = musicPath + [.collection(key: key, title: title)]
+    }
+
+    func showMusicPlaylist(id: String) {
+        selectedTab = .music
+        musicPath = musicPath + [.playlist(id: id)]
+    }
+
+    func showMusicCreator(id: String, title: String = "Creator") {
+        selectedTab = .music
+        musicPath = musicPath + [.creator(id: id, title: title)]
     }
 
     func showMusicVideoWireframe() {

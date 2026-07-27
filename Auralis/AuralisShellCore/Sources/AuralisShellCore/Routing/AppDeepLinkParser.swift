@@ -39,6 +39,12 @@ public struct AppDeepLinkParser {
                 url: url,
                 routeName: "Receipt"
             )
+        case "playlist", "collection", "creator":
+            return wrapTopLevelDestination(
+                parseDestination(url: url, segments: segments, requireTokenChain: false),
+                url: url,
+                routeName: "AuraPlay"
+            )
         default:
             return .failure(
                 AppRouteError(
@@ -176,6 +182,12 @@ public struct AppDeepLinkParser {
             case .failure(let error):
                 return .failure(error)
             }
+        case "playlist":
+            return parseAuraPlayPlaylistDestination(url: url, segments: segments).map(Optional.some)
+        case "collection":
+            return parseAuraPlayCollectionDestination(url: url, segments: segments).map(Optional.some)
+        case "creator":
+            return parseAuraPlayCreatorDestination(url: url, segments: segments).map(Optional.some)
         default:
             return .failure(
                 AppRouteError(
@@ -306,6 +318,75 @@ public struct AppDeepLinkParser {
         }
 
         return .success(.receipt(id: identifier))
+    }
+
+    private func parseAuraPlayPlaylistDestination(
+        url: URL,
+        segments: [String]
+    ) -> Result<AppDeepLinkDestination, AppRouteError> {
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let identifier = queryValue(named: "id", in: components) ?? segments.dropFirst().first
+        guard let identifier, !identifier.isEmpty else {
+            return .failure(
+                AppRouteError(
+                    title: "Invalid AuraPlay Link",
+                    message: "The playlist link must include a playlist identifier.",
+                    urlString: url.absoluteString
+                )
+            )
+        }
+        return .success(.auraPlayPlaylist(id: identifier))
+    }
+
+    private func parseAuraPlayCollectionDestination(
+        url: URL,
+        segments: [String]
+    ) -> Result<AppDeepLinkDestination, AppRouteError> {
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let identifier = queryValue(named: "id", in: components)
+            ?? queryValue(named: "contract", in: components)
+            ?? queryValue(named: "contractAddress", in: components)
+            ?? segments.dropFirst().first
+        guard let identifier, !identifier.isEmpty else {
+            return .failure(
+                AppRouteError(
+                    title: "Invalid AuraPlay Link",
+                    message: "The collection link must include a collection identifier.",
+                    urlString: url.absoluteString
+                )
+            )
+        }
+
+        let chainCandidate = queryValue(named: "chain", in: components)
+        let chain = chainCandidate.flatMap(Chain.init(rawValue:))
+        if chainCandidate != nil && chain == nil {
+            return .failure(
+                AppRouteError(
+                    title: "Invalid AuraPlay Link",
+                    message: "The collection link included an unknown chain.",
+                    urlString: url.absoluteString
+                )
+            )
+        }
+        return .success(.auraPlayCollection(identifier: identifier, chain: chain))
+    }
+
+    private func parseAuraPlayCreatorDestination(
+        url: URL,
+        segments: [String]
+    ) -> Result<AppDeepLinkDestination, AppRouteError> {
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let identifier = queryValue(named: "id", in: components) ?? segments.dropFirst().first
+        guard let identifier, !identifier.isEmpty else {
+            return .failure(
+                AppRouteError(
+                    title: "Invalid AuraPlay Link",
+                    message: "The creator link must include a creator identifier.",
+                    urlString: url.absoluteString
+                )
+            )
+        }
+        return .success(.auraPlayCreator(identifier: identifier))
     }
 
     private func queryValue(named name: String, in components: URLComponents?) -> String? {

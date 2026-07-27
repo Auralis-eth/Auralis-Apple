@@ -14,7 +14,8 @@ public struct LibraryRootView: View {
     let onAddItemToQueue: (String) async -> Void
     let openWalletPicker: () -> Void
 
-    @Query private var playlists: [AuraPlayPlaylist]
+    @Query private var connectedAccounts: [EOAccount]
+    @Environment(\.auraPlayContextActions) private var contextActions
     @AppStorage("auraplay.library.segment") private var selectedSegmentRawValue = LibrarySegment.all.rawValue
     @AppStorage("auraplay.library.layout.all") private var allLayoutRawValue = LibraryLayoutMode.grid.rawValue
     @AppStorage("auraplay.library.layout.audio") private var audioLayoutRawValue = LibraryLayoutMode.grid.rawValue
@@ -24,7 +25,9 @@ public struct LibraryRootView: View {
     @State private var unplayedOnly = false
     @State private var path: [LibraryRoute] = []
     @State private var playlistSheet: PlaylistSheet?
-    @State private var pendingPlaylistDeletion: AuraPlayPlaylist?
+    @State private var recommendationSheet: RecommendationSheet?
+    @State private var playlists: [AuraPlayPlaylistSnapshot] = []
+    @State private var pendingPlaylistDeletion: AuraPlayPlaylistSnapshot?
     @State private var playlistMutationError: String?
     @State private var showsSearchDiagnostics = false
     @Namespace private var playerTransitionNamespace
@@ -55,10 +58,10 @@ public struct LibraryRootView: View {
         self.onAddItemToQueue = onAddItemToQueue
         self.openWalletPicker = openWalletPicker
 
-        _playlists = Query(
+        _connectedAccounts = Query(
             sort: [
-                SortDescriptor(\AuraPlayPlaylist.updatedAt, order: .reverse),
-                SortDescriptor(\AuraPlayPlaylist.name)
+                SortDescriptor(\EOAccount.lastSelectedAt, order: .reverse),
+                SortDescriptor(\EOAccount.addedAt, order: .reverse)
             ]
         )
     }
@@ -131,6 +134,9 @@ public struct LibraryRootView: View {
             .sheet(item: $playlistSheet) { sheet in
                 playlistSheetView(sheet)
             }
+            .sheet(item: $recommendationSheet) { sheet in
+                recommendationSheetView(sheet)
+            }
             .alert("Delete Playlist?", isPresented: deletePlaylistBinding) {
                 Button("Delete", role: .destructive) {
                     deletePendingPlaylist()
@@ -153,6 +159,8 @@ public struct LibraryRootView: View {
         }
         .task(id: "\(model.currentAccount?.address ?? "none")|\(model.currentChain.rawValue)") {
             await model.refreshLibrarySummary()
+            await model.refreshEmbeddingAvailability()
+            await reloadPlaylists()
         }
         .task(id: browseReloadKey) {
             await model.reloadBrowseWindow(
@@ -374,6 +382,7 @@ public struct LibraryRootView: View {
     private var searchContent: some View {
         LazyVStack(alignment: .leading, spacing: 14) {
             searchControls
+            playlistPlayground
             if model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 emptySearchContent
             } else {
@@ -383,6 +392,7 @@ public struct LibraryRootView: View {
         .accessibilityIdentifier(A11yID.AuraPlay.searchRoot)
         .task(id: "\(model.currentAccount?.address ?? "none")|\(model.currentChain.rawValue)") {
             model.refreshSearchRecents()
+            await model.refreshEmbeddingAvailability()
         }
     }
 
@@ -565,6 +575,96 @@ public struct LibraryRootView: View {
     }
 
     @ViewBuilder
+    private var playlistPlayground: some View {
+        if model.shouldShowPlaylistPlayground {
+            AuraSurfaceCard(style: .soft, cornerRadius: 18, padding: 14) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Playlist Playground", systemImage: "sparkles")
+                        .font(.headline)
+                        .accessibilityAddTraits(.isHeader)
+
+                    Text("Generated on this device from your AuraPlay library.")
+                        .font(.caption)
+                        .foregroundStyle(Color.textSecondary)
+
+                    TextField("Describe a playlist", text: $model.playlistPlaygroundPrompt)
+                        #if os(iOS)
+                        .textInputAutocapitalization(.sentences)
+                        #endif
+                        .submitLabel(.done)
+                        .accessibilityIdentifier(A11yID.AuraPlay.playlistPlaygroundPrompt)
+
+                    ViewThatFits(in: .horizontal) {
+                        HStack {
+                            playlistGenerateButton
+                            playlistRegenerateButton
+                            playlistSaveButton
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            playlistGenerateButton
+                            playlistRegenerateButton
+                            playlistSaveButton
+                        }
+                    }
+
+                    Text(model.playlistPlaygroundStatus)
+                        .font(.caption)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let preview = model.playlistPlaygroundPreview, !preview.items.isEmpty {
+                        LazyVStack(spacing: 8) {
+                            ForEach(preview.items) { item in
+                                LibraryItemCell(
+                                    viewModel: LibraryItemCellViewModel(
+                                        queryItem: item,
+                                        isCurrent: model.playbackController.currentTrackID == item.sourceNFTID
+                                    ),
+                                    layout: .list,
+                                    play: { Task { await playFromList(itemID: item.sourceNFTID, items: preview.items, origin: .search(query: preview.prompt)) } },
+                                    open: { onOpenItem(item.sourceNFTID) },
+                                    addToPlaylist: { playlistSheet = .addItem(item.sourceNFTID) }
+                                )
+                            }
+                        }
+                        .accessibilityIdentifier(A11yID.AuraPlay.playlistPlaygroundResults)
+                    }
+                }
+            }
+            .accessibilityIdentifier(A11yID.AuraPlay.playlistPlayground)
+        } else {
+            EmptyView()
+        }
+    }
+
+    private var playlistGenerateButton: some View {
+        Button("Generate", systemImage: "sparkles") {
+            Task { await model.generatePlaylistPreview() }
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(model.playlistPlaygroundPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isPlaylistPlaygroundRunning)
+        .accessibilityIdentifier(A11yID.AuraPlay.playlistPlaygroundGenerate)
+    }
+
+    private var playlistRegenerateButton: some View {
+        Button("Regenerate", systemImage: "arrow.triangle.2.circlepath") {
+            Task { await model.generatePlaylistPreview(regenerate: true) }
+        }
+        .buttonStyle(.bordered)
+        .disabled(model.playlistPlaygroundPreview == nil || model.isPlaylistPlaygroundRunning)
+        .accessibilityIdentifier(A11yID.AuraPlay.playlistPlaygroundRegenerate)
+    }
+
+    private var playlistSaveButton: some View {
+        Button("Save Playlist", systemImage: "music.note.list") {
+            Task { await model.savePlaylistPreview() }
+        }
+        .buttonStyle(.bordered)
+        .disabled(model.playlistPlaygroundPreview?.canSave != true || model.isPlaylistPlaygroundRunning)
+        .accessibilityIdentifier(A11yID.AuraPlay.playlistPlaygroundSave)
+    }
+
+    @ViewBuilder
     private var searchResultsContent: some View {
         let results = model.filteredSearchResults
         VStack(alignment: .leading, spacing: 12) {
@@ -663,6 +763,13 @@ public struct LibraryRootView: View {
                 .accessibilityHidden(true)
             #endif
         }
+        .contextMenu {
+            if model.canRecommend(mediaItemID: result.item.sourceNFTID) {
+                Button("More Like This", systemImage: "sparkles") {
+                    openRecommendations(sourceID: result.item.sourceNFTID, sourceTitle: result.item.title)
+                }
+            }
+        }
         .accessibilityIdentifier(A11yID.AuraPlay.searchResult(id: result.id))
     }
 
@@ -696,6 +803,13 @@ public struct LibraryRootView: View {
         )
         .onAppear {
             Task { await model.loadMoreBrowseItemsIfNeeded(visibleItemID: item.sourceNFTID) }
+        }
+        .contextMenu {
+            if model.canRecommend(mediaItemID: item.sourceNFTID) {
+                Button("More Like This", systemImage: "sparkles") {
+                    openRecommendations(sourceID: item.sourceNFTID, sourceTitle: item.title)
+                }
+            }
         }
     }
 
@@ -757,8 +871,18 @@ public struct LibraryRootView: View {
                 }
                 .buttonStyle(.plain)
                 .contextMenu {
+                    if let contextActions {
+                        Button("Share", systemImage: "square.and.arrow.up") {
+                            Task {
+                                await contextActions.share(
+                                    AuraPlaySharePolicy().collectionShareRequest(group: group)
+                                )
+                            }
+                        }
+                        .accessibilityIdentifier(A11yID.AuraPlay.playerShare)
+                    }
                     Button("Open in App Detail", systemImage: "arrow.up.forward.square") {
-                        onOpenCollection(group.contractAddress ?? group.collectionName, group.collectionName)
+                        onOpenCollection(group.id, group.collectionName)
                     }
                 }
                 .accessibilityIdentifier(A11yID.AuraPlay.collectionRow(id: group.id))
@@ -776,6 +900,18 @@ public struct LibraryRootView: View {
                     groupRow(title: group.displayName, subtitle: "\(group.itemCount) items", systemImage: "person.crop.square")
                 }
                 .buttonStyle(.plain)
+                .contextMenu {
+                    if let contextActions {
+                        Button("Share", systemImage: "square.and.arrow.up") {
+                            Task {
+                                await contextActions.share(
+                                    AuraPlaySharePolicy().creatorShareRequest(group: group)
+                                )
+                            }
+                        }
+                        .accessibilityIdentifier(A11yID.AuraPlay.playerShare)
+                    }
+                }
                 .accessibilityIdentifier(A11yID.AuraPlay.creatorRow(id: group.id))
             }
         }
@@ -798,12 +934,25 @@ public struct LibraryRootView: View {
                     } label: {
                         groupRow(
                             title: playlist.name,
-                            subtitle: "\(playlist.items.count) items",
+                            subtitle: "\(playlist.itemCount) items",
                             systemImage: playlist.isSmart ? "sparkles" : "music.note.list"
                         )
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
+                        if let contextActions {
+                            Button("Share", systemImage: "square.and.arrow.up") {
+                                Task {
+                                    await contextActions.share(
+                                        AuraPlaySharePolicy().playlistShareRequest(
+                                            id: playlist.id,
+                                            name: playlist.name
+                                        )
+                                    )
+                                }
+                            }
+                            .accessibilityIdentifier(A11yID.AuraPlay.playerShare)
+                        }
                         Button("Rename", systemImage: "pencil") {
                             playlistSheet = .rename(playlist.id, playlist.name)
                         }
@@ -879,14 +1028,13 @@ public struct LibraryRootView: View {
             )
             .accessibilityIdentifier(A11yID.AuraPlay.collectionDetail)
         case .creator(let id):
-            LibraryGroupDetailLoaderView(
+            CreatorProfileLoaderView(
                 model: model,
-                group: .creator(id: id),
-                title: model.groupedIndex?.creators.first(where: { $0.id == id })?.displayName ?? "Creator",
-                systemImage: "person.crop.square",
+                creatorIdentifier: id,
+                fallbackTitle: model.groupedIndex?.creators.first(where: { $0.id == id })?.displayName ?? "Creator",
+                accountAddresses: connectedAccounts.map(\.address),
                 sort: sort,
                 currentTrackID: model.playbackController.currentTrackID,
-                origin: .creator(id: id),
                 onOpenItem: onOpenItem,
                 onPlayItem: playFromList,
                 onAddToPlaylist: { playlistSheet = .addItem($0) }
@@ -985,6 +1133,51 @@ public struct LibraryRootView: View {
         }
     }
 
+    private func recommendationSheetView(_ sheet: RecommendationSheet) -> some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    if sheet.results.isEmpty {
+                        emptyState(
+                            id: A11yID.AuraPlay.searchNoResults,
+                            title: "No Similar Tracks",
+                            message: "This item does not have enough nearby matches in the current AuraPlay library.",
+                            systemImage: "sparkles"
+                        )
+                    } else {
+                        HStack(spacing: 12) {
+                            Button("Play All", systemImage: "play.fill") {
+                                Task { await playRecommendations(sheet.results, sourceID: sheet.sourceID) }
+                            }
+                            .buttonStyle(.borderedProminent)
+
+                            Button("Save as Playlist", systemImage: "text.badge.plus") {
+                                Task { await saveRecommendationsAsPlaylist(sheet) }
+                            }
+                            .buttonStyle(.bordered)
+                            .accessibilityIdentifier(A11yID.AuraPlay.recommendationsSavePlaylist)
+                        }
+
+                        ForEach(sheet.results) { result in
+                            LibraryItemCell(
+                                viewModel: LibraryItemCellViewModel(
+                                    queryItem: result.item,
+                                    isCurrent: model.playbackController.currentTrackID == result.item.sourceNFTID
+                                ),
+                                layout: .list,
+                                play: { Task { await playRecommendations(sheet.results, sourceID: sheet.sourceID, startingAt: result.item.sourceNFTID) } },
+                                open: { onOpenItem(result.item.sourceNFTID) },
+                                addToPlaylist: { playlistSheet = .addItem(result.item.sourceNFTID) }
+                            )
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .navigationTitle("More Like This")
+        }
+    }
+
     private var deletePlaylistBinding: Binding<Bool> {
         Binding(
             get: { pendingPlaylistDeletion != nil },
@@ -1015,6 +1208,41 @@ public struct LibraryRootView: View {
         }
     }
 
+    private func openRecommendations(sourceID: String, sourceTitle: String) {
+        Task {
+            let results = await model.moreLikeThis(mediaItemID: sourceID)
+            recommendationSheet = RecommendationSheet(
+                sourceID: sourceID,
+                sourceTitle: sourceTitle,
+                results: results
+            )
+        }
+    }
+
+    private func saveRecommendationsAsPlaylist(_ sheet: RecommendationSheet) async {
+        let saved = await model.saveRecommendationsPlaylist(
+            sourceTitle: sheet.sourceTitle,
+            results: sheet.results
+        )
+        if saved {
+            recommendationSheet = nil
+        }
+    }
+
+    private func playRecommendations(
+        _ results: [AuraPlayRecommendationResult],
+        sourceID: String,
+        startingAt itemID: String? = nil
+    ) async {
+        let items = results.map(\.item)
+        guard let startID = itemID ?? items.first?.sourceNFTID else { return }
+        await playFromList(
+            itemID: startID,
+            items: items,
+            origin: .moreLikeThis(sourceID: sourceID)
+        )
+    }
+
     @MainActor
     private func mutatePlaylist(
         closeOnSuccess: Bool = true,
@@ -1023,11 +1251,22 @@ public struct LibraryRootView: View {
         do {
             try await operation()
             playlistMutationError = nil
+            await reloadPlaylists()
             if closeOnSuccess {
                 playlistSheet = nil
             }
         } catch {
-            playlistMutationError = error.localizedDescription
+            playlistMutationError = AuraPlayErrorPresentation.message(for: error, context: .playlistMutation)
+        }
+    }
+
+    @MainActor
+    private func reloadPlaylists() async {
+        do {
+            playlists = try await model.playlistManager.fetchPlaylistSnapshots()
+            playlistMutationError = nil
+        } catch {
+            playlistMutationError = AuraPlayErrorPresentation.message(for: error, context: .playlistMutation)
         }
     }
 
@@ -1057,6 +1296,14 @@ private enum PlaylistSheet: Identifiable, Hashable {
             "add-\(id)"
         }
     }
+}
+
+private struct RecommendationSheet: Identifiable {
+    let sourceID: String
+    let sourceTitle: String
+    let results: [AuraPlayRecommendationResult]
+
+    var id: String { sourceID }
 }
 
 private extension AuraPlaySearchSuggestion.Kind {

@@ -23,6 +23,13 @@ struct AuraPlayBundleContractTests {
         #expect(querySchemes.contains("cbwallet"))
         #expect(querySchemes.contains("rainbow"))
         #expect(querySchemes.contains("ledgerlive"))
+        #expect(querySchemes.contains("rabby"))
+        #expect(querySchemes.contains("phantom"))
+        #expect(querySchemes.contains("backpack"))
+        #expect(querySchemes.contains("solflare"))
+
+        let walletConnectProjectID = try #require(infoPlist["AURALIS_WALLETCONNECT_PROJECT_ID"] as? String)
+        #expect(!walletConnectProjectID.isEmpty)
 
         let urlTypes = try #require(infoPlist["CFBundleURLTypes"] as? [[String: Any]])
         let declaredSchemes = urlTypes

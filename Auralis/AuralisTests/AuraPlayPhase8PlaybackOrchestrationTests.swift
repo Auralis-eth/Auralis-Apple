@@ -242,6 +242,60 @@ struct AuraPlayPhase8PlaybackOrchestrationTests {
         #expect(shuffle.shuffledOrder.first == queue.currentEntryID)
     }
 
+    @Test("plain shuffle keeps the existing random coordinator path when Smart Shuffle is disabled")
+    func plainShuffleKeepsExistingCoordinatorPathWhenSmartShuffleDisabled() throws {
+        let queueSource = try String(
+            contentsOf: sourceFileURL(relativePath: "Auralis/MusicApp/AuraPlay/Services/AuraPlayPlaybackQueue.swift"),
+            encoding: .utf8
+        )
+        let orchestratorSource = try String(
+            contentsOf: sourceFileURL(relativePath: "Auralis/MusicApp/AuraPlay/Services/AuraPlayPlaybackOrchestration.swift"),
+            encoding: .utf8
+        )
+
+        #expect(queueSource.contains("if smartHistory.isEmpty"))
+        #expect(queueSource.contains("remainingEntries.map(\\.id).shuffled()"))
+        #expect(queueSource.contains("SmartShuffleWeighting.orderedItems"))
+        #expect(orchestratorSource.contains("smartHistory: isSmartShuffleEnabled ? smartShuffleHistory : [:]"))
+    }
+
+    @Test("Smart Shuffle repeat all rebuilds the weighted order with a fresh seed")
+    func smartShuffleRepeatAllRebuildsWeightedOrderWithFreshSeed() async {
+        let recorder = CallRecorder()
+        let audio = MockPlaybackEngine(kind: .audio, recorder: recorder)
+        let video = MockPlaybackEngine(kind: .video, recorder: recorder)
+        let orchestrator = PlaybackOrchestrator(
+            arbiter: EngineArbiter(audioController: audio, videoController: video)
+        )
+        let items = (0..<8).map { mediaItem(id: "smart-\($0)", kind: .music) }
+        let history = items.dropFirst(4).map {
+            SmartShufflePlaybackHistory(
+                mediaID: $0.id,
+                lastPlayedAt: Date(timeIntervalSince1970: 1_800_000_000).addingTimeInterval(-60),
+                playCount: 4
+            )
+        }
+
+        _ = await orchestrator.play(item: items[0], queue: items, startAt: 0, origin: .playlist(id: "smart-loop"))
+        orchestrator.setRepeatMode(.all)
+        orchestrator.setShuffleMode(.on)
+        orchestrator.setSmartShuffleEnabled(
+            true,
+            history: history,
+            now: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let firstOrder = orchestrator.shuffleCoordinator.shuffledOrder
+
+        for _ in 0..<items.count {
+            await orchestrator.skipToNext()
+        }
+
+        #expect(orchestrator.shuffleCoordinator.shuffledOrder.count == firstOrder.count)
+        #expect(Set(orchestrator.shuffleCoordinator.shuffledOrder) == Set(firstOrder))
+        #expect(orchestrator.shuffleCoordinator.shuffledOrder != firstOrder)
+        #expect(orchestrator.state != .idle)
+    }
+
     @Test("error recovery trips circuit breaker after three consecutive failures")
     func errorRecoveryTripsCircuitBreaker() async {
         let recorder = CallRecorder()
@@ -359,6 +413,53 @@ struct AuraPlayPhase8PlaybackOrchestrationTests {
         #expect(orchestrator.state == .paused(item))
         #expect(orchestrator.queue.origin == .restored)
         #expect(orchestrator.queue.entries.count == 1)
+    }
+
+    @Test("More Like This Play All tags the resulting queue with the moreLikeThis origin")
+    func moreLikeThisPlayAllTagsQueueOrigin() async {
+        let recorder = CallRecorder()
+        let audio = MockPlaybackEngine(kind: .audio, recorder: recorder)
+        let video = MockPlaybackEngine(kind: .video, recorder: recorder)
+        let source = mediaItem(id: "source", kind: .music)
+        let similarFirst = mediaItem(id: "similar-1", kind: .music)
+        let similarSecond = mediaItem(id: "similar-2", kind: .music)
+        let orchestrator = PlaybackOrchestrator(
+            arbiter: EngineArbiter(audioController: audio, videoController: video)
+        )
+
+        _ = await orchestrator.play(
+            item: similarFirst,
+            queue: [similarFirst, similarSecond],
+            startAt: 0,
+            origin: .moreLikeThis(sourceID: source.id)
+        )
+
+        #expect(orchestrator.queue.origin == .moreLikeThis(sourceID: "source"))
+        #expect(orchestrator.queue.entries.map(\.item.id) == ["similar-1", "similar-2"])
+    }
+
+    @Test("library window playback threads the caller origin instead of hardcoding single")
+    func libraryWindowThreadsCallerOrigin() throws {
+        let runtimeSource = try String(
+            contentsOf: sourceFileURL(relativePath: "Auralis/MusicApp/AuraPlay/Services/AuraPlayPlaybackRuntime.swift"),
+            encoding: .utf8
+        )
+        let adapterSource = try String(
+            contentsOf: sourceFileURL(relativePath: "Auralis/MusicApp/AuraPlay/Player/AuraPlayOrchestratorAdapter.swift"),
+            encoding: .utf8
+        )
+
+        // The runtime must accept and forward the queue origin down to the
+        // orchestrator rather than always tagging library playback as `.single`.
+        #expect(runtimeSource.contains("origin: origin ?? .single(mediaItemID: mediaItem.id)"))
+        #expect(runtimeSource.contains("try await playLibraryItem(id: id, in: orderedNFTs, origin: origin)"))
+        #expect(runtimeSource.contains("try await loadAndPlay(nft: nft, triggerCause: .userInitiated, origin: origin)"))
+
+        // The adapter must map the presentation origin (including `.moreLikeThis`)
+        // and pass it into the runtime window call.
+        #expect(adapterSource.contains("origin: mapOrigin(origin, fallbackMediaID: item.id)"))
+        #expect(adapterSource.contains("case .moreLikeThis(let sourceID):"))
+        #expect(adapterSource.contains("return .moreLikeThis(sourceID: sourceID)"))
     }
 
     @Test("orchestrator advances on completion without overwriting completed position")

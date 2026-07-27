@@ -1,11 +1,35 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisShellCore
 import Foundation
 import Testing
 
 struct MainAuraShellLogicTests {
     private let logic = MainAuraShellLogic()
+
+    @Test("incoming deep link policy keeps valid routes for shell replay")
+    func incomingDeepLinkPolicyKeepsValidRoutes() {
+        let deepLink = AppDeepLink.destination(.auraPlayCreator(identifier: "creator:cross"))
+        let decision = IncomingDeepLinkPolicy().decision(for: .success(deepLink))
+
+        #expect(decision.deepLink == deepLink)
+        #expect(decision.routeError == nil)
+    }
+
+    @Test("incoming deep link policy preserves parser failures for shell route error presentation")
+    func incomingDeepLinkPolicyPreservesParserFailures() {
+        let routeError = AppRouteError(
+            title: "Unknown Route",
+            message: "The link route is not supported.",
+            urlString: "auraplay://unknown/path"
+        )
+        let decision = IncomingDeepLinkPolicy().decision(for: .failure(routeError))
+
+        #expect(decision.deepLink == nil)
+        #expect(decision.routeError?.title == "Unknown Route")
+        #expect(decision.routeError?.urlString == "auraplay://unknown/path")
+    }
 
     @Test("initial restore falls back to Ethereum mainnet and no account when storage is empty")
     func restoreInitialStateWithNoAccount() {

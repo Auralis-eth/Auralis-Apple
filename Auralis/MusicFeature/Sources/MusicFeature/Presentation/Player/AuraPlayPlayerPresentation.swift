@@ -24,6 +24,7 @@ public struct AuraPlayPlayerItemPresentation: Identifiable, Codable, Equatable, 
     public let chainDisplayName: String?
     public let contractAddress: String?
     public let tokenID: String?
+    public let explorerURL: URL?
 
     public init(
         id: String,
@@ -34,7 +35,8 @@ public struct AuraPlayPlayerItemPresentation: Identifiable, Codable, Equatable, 
         mediaKind: AuraPlayPlayerContentKind,
         chainDisplayName: String? = nil,
         contractAddress: String? = nil,
-        tokenID: String? = nil
+        tokenID: String? = nil,
+        explorerURL: URL? = nil
     ) {
         self.id = id
         self.title = title
@@ -45,6 +47,7 @@ public struct AuraPlayPlayerItemPresentation: Identifiable, Codable, Equatable, 
         self.chainDisplayName = chainDisplayName
         self.contractAddress = contractAddress
         self.tokenID = tokenID
+        self.explorerURL = explorerURL
     }
 }
 

@@ -80,6 +80,7 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     @ObservationIgnored private var selectedEQPreset: AuraPlayEQPresetID
     @ObservationIgnored private var customEQGains: [Float]
     @ObservationIgnored private var normalizationEnabled: Bool
+    @ObservationIgnored private var smartShuffleEnabled: Bool
     @ObservationIgnored private var crossfadeDuration: Double
     @ObservationIgnored private var currentApproxLoudnessLUFS: Double?
     @ObservationIgnored private var currentArtworkData: Data?
@@ -136,7 +137,12 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         let resolvedEQPreset = AuraPlayAudioSettings.eqPreset(from: defaults)
         let resolvedCustomEQGains = AuraPlayAudioSettings.customEQGains(from: defaults)
         let resolvedNormalizationEnabled = AuraPlayAudioSettings.normalizationEnabled(from: defaults)
+        let resolvedSmartShuffleEnabled = defaults.bool(
+            forKey: AuraPlayIntelligenceSettings.smartShuffleEnabledDefaultsKey
+        )
         let resolvedCrossfadeDuration = AuraPlayAudioSettings.crossfadeDuration(from: defaults)
+        let resolvedShuffleMode = AuraPlayPlaybackPreferenceSettings.shuffleMode(from: defaults)
+        let resolvedRepeatMode = AuraPlayPlaybackPreferenceSettings.repeatMode(from: defaults)
         let audioOrchestratorController = RuntimeAudioOrchestratorController()
         let videoOrchestratorController = RuntimeVideoOrchestratorController()
         let playbackStateWriter = RuntimePlaybackStateWriter()
@@ -176,6 +182,7 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         self.selectedEQPreset = resolvedEQPreset
         self.customEQGains = resolvedCustomEQGains
         self.normalizationEnabled = resolvedNormalizationEnabled
+        self.smartShuffleEnabled = resolvedSmartShuffleEnabled
         self.crossfadeDuration = resolvedCrossfadeDuration
         self.audioTuningPresentation = AuraPlayAudioTuningPresentation(
             eqPreset: resolvedEQPreset,
@@ -183,12 +190,15 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
             crossfadeDuration: resolvedCrossfadeDuration,
             customEQGains: resolvedCustomEQGains
         )
+        playbackOrchestrator.setShuffleMode(resolvedShuffleMode)
+        playbackOrchestrator.setRepeatMode(resolvedRepeatMode)
         startCacheProgressUpdates()
         startLoudnessMeasurementUpdates()
         startRecoveryUpdates()
         audioOrchestratorController.attach(runtime: self)
         videoOrchestratorController.attach(runtime: self)
         playbackStateWriter.attach(runtime: self)
+        applySmartShuffleSetting()
         bindRemoteCommands()
 
         Task { [weak self] in
@@ -311,6 +321,10 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         playbackOrchestrator.shuffleCoordinator.mode == .on
     }
 
+    public var auraPlaySmartShuffleEnabled: Bool {
+        smartShuffleEnabled
+    }
+
     public var auraPlayRepeatModeTitle: String {
         switch playbackOrchestrator.repeatMode {
         case .off:
@@ -336,6 +350,19 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
 
     public func auraPlaySetShuffleEnabled(_ isEnabled: Bool) {
         playbackOrchestrator.setShuffleMode(isEnabled ? .on : .off)
+        defaults.set(
+            (isEnabled ? AuraPlayShuffleMode.on : AuraPlayShuffleMode.off).rawValue,
+            forKey: AuraPlayPlaybackPreferenceSettings.shuffleModeDefaultsKey
+        )
+        if isEnabled {
+            applySmartShuffleSetting()
+        }
+    }
+
+    public func auraPlaySetSmartShuffleEnabled(_ isEnabled: Bool) {
+        smartShuffleEnabled = isEnabled
+        defaults.set(isEnabled, forKey: AuraPlayIntelligenceSettings.smartShuffleEnabledDefaultsKey)
+        applySmartShuffleSetting()
     }
 
     public func auraPlayCycleRepeatMode() {
@@ -349,6 +376,24 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
             nextMode = .off
         }
         playbackOrchestrator.setRepeatMode(nextMode)
+        defaults.set(nextMode.rawValue, forKey: AuraPlayPlaybackPreferenceSettings.repeatModeDefaultsKey)
+    }
+
+    func auraPlaySetRepeatMode(_ mode: AuraPlayRepeatMode) {
+        playbackOrchestrator.setRepeatMode(mode)
+        defaults.set(mode.rawValue, forKey: AuraPlayPlaybackPreferenceSettings.repeatModeDefaultsKey)
+    }
+
+    func auraPlayCacheSettingsSummary() async -> AuraPlayCacheSettingsSummary {
+        await cacheManager.cacheSettingsSummary()
+    }
+
+    func auraPlaySetCacheDiskCapBytes(_ bytes: Int64) async throws -> AuraPlayCacheSettingsSummary {
+        try await cacheManager.updateDiskCapBytes(bytes)
+    }
+
+    func auraPlayClearUnpinnedCache() async throws -> AuraPlayCacheSettingsSummary {
+        try await cacheManager.clearUnpinnedCache()
     }
 
     public func auraPlayStartPiP() {
@@ -381,6 +426,7 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
 
     func configureAuraPlayModelContainer(_ modelContainer: ModelContainer?) {
         auraPlayModelContainer = modelContainer
+        applySmartShuffleSetting()
     }
 
     func auraPlayRegisterVideoRemoteControls(_ controls: (any AuraPlayVideoRemoteControlling)?) {
@@ -781,9 +827,10 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         id: String,
         in orderedNFTs: [NFT],
         queryContext: MediaItemQueryContext?,
-        nextOffset: Int?
+        nextOffset: Int?,
+        origin: QueueOrigin? = nil
     ) async throws {
-        try await playLibraryItem(id: id, in: orderedNFTs)
+        try await playLibraryItem(id: id, in: orderedNFTs, origin: origin)
         libraryQueueQueryContext = queryContext
         libraryQueueNextOffset = nextOffset
     }
@@ -846,7 +893,7 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         Self.isVideoMedia(nft: nft, media: nil)
     }
 
-    public func playLibraryItem(id: String, in scopedNFTs: [NFT]) async throws {
+    public func playLibraryItem(id: String, in scopedNFTs: [NFT], origin: QueueOrigin? = nil) async throws {
         let uniqueNFTs = scopedNFTs.uniquedByID()
         guard let startIndex = uniqueNFTs.firstIndex(where: { $0.id == id }) else {
             playbackState = .error
@@ -861,7 +908,7 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         seedUpcomingQueue(after: startIndex)
 
         do {
-            try await loadAndPlay(nft: nft, triggerCause: .userInitiated)
+            try await loadAndPlay(nft: nft, triggerCause: .userInitiated, origin: origin)
         } catch {
             if isUnsupportedFormat(error), !nextAudio.tracks.isEmpty {
                 await playNext(triggerCause: .autoAdvance)
@@ -952,7 +999,11 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         }
     }
 
-    private func loadAndPlay(nft: NFT, triggerCause: MusicReceiptTriggerCause) async throws {
+    private func loadAndPlay(
+        nft: NFT,
+        triggerCause: MusicReceiptTriggerCause,
+        origin: QueueOrigin? = nil
+    ) async throws {
         pendingPlaybackTriggerCause = triggerCause
         let mediaItem = try await playableMediaItem(for: nft)
         orchestratedNFTs[mediaItem.id] = nft
@@ -960,7 +1011,7 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
             item: mediaItem,
             queue: [mediaItem],
             startAt: 0,
-            origin: .single(mediaItemID: mediaItem.id)
+            origin: origin ?? .single(mediaItemID: mediaItem.id)
         )
         guard didPlay else {
             let error = AuraPlayError.engineStartFailed
@@ -1777,6 +1828,17 @@ private extension AuraPlayPlaybackRuntime {
     var positionPersistenceCoordinator: PositionPersistenceCoordinator? {
         guard let playbackPositionStateService else { return nil }
         return PositionPersistenceCoordinator(store: playbackPositionStateService)
+    }
+
+    func applySmartShuffleSetting() {
+        Task { [weak self] in
+            guard let self else { return }
+            let histories = (try? await self.playbackPositionStateService?.playbackHistories()) ?? []
+            self.playbackOrchestrator.setSmartShuffleEnabled(
+                self.smartShuffleEnabled,
+                history: histories
+            )
+        }
     }
 
     func writePlaybackPosition(

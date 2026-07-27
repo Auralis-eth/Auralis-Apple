@@ -14,6 +14,22 @@ import NFTPresentation
 import NFTProviderAdapters
 import NFTLibraryFeature
 
+struct IncomingDeepLinkHandlingDecision {
+    let deepLink: AppDeepLink?
+    let routeError: AppRouteError?
+}
+
+struct IncomingDeepLinkPolicy {
+    func decision(for parseResult: Result<AppDeepLink, AppRouteError>) -> IncomingDeepLinkHandlingDecision {
+        switch parseResult {
+        case .success(let deepLink):
+            IncomingDeepLinkHandlingDecision(deepLink: deepLink, routeError: nil)
+        case .failure(let routeError):
+            IncomingDeepLinkHandlingDecision(deepLink: nil, routeError: routeError)
+        }
+    }
+}
+
 struct MainAuraView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
@@ -35,6 +51,7 @@ struct MainAuraView: View {
 
     private let dependencies: ShellBootstrapDependencies
     private let deepLinkParser = AppDeepLinkParser()
+    private let deepLinkPolicy = IncomingDeepLinkPolicy()
     private let primaryStoreInitializationErrorMessage: String?
 
     @MainActor
@@ -242,18 +259,20 @@ struct MainAuraView: View {
     }
 
     private func handleIncomingURL(_ url: URL) {
-        switch deepLinkParser.parse(url: url) {
-        case .success(let deepLink):
+        let decision = deepLinkPolicy.decision(for: deepLinkParser.parse(url: url))
+
+        if let deepLink = decision.deepLink {
             guard let shellStore else {
                 pendingStartupDeepLink = deepLink
-                pendingStartupRouteError = nil
                 return
             }
             Task {
                 await shellStore.send(.deepLinkReceived(deepLink))
             }
+            return
+        }
 
-        case .failure(let routeError):
+        if let routeError = decision.routeError {
             guard let shellStore else {
                 pendingStartupRouteError = routeError
                 pendingStartupDeepLink = nil

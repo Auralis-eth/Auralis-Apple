@@ -337,6 +337,85 @@ func lruEvictionRemovesOldestUnpinnedFile() async throws {
     #expect(await manager.isCached(second) == true)
 }
 
+@Test("Cache cap preference is clamped and persisted")
+func cacheCapPreferenceIsClampedAndPersisted() async throws {
+    let source = try makeFixtureWAV(name: "settings-cap")
+    let cacheDirectory = FileManager.default.temporaryDirectory
+        .appending(path: "AuraPlaySettingsCap-\(UUID().uuidString)", directoryHint: .isDirectory)
+    let suiteName = "AuraPlayCacheSettings.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defer { UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName) }
+    let manager = try MediaCacheManager(
+        cacheDirectory: cacheDirectory,
+        diskCapBytes: 10_000_000,
+        settingsDefaults: defaults
+    )
+    let media = FixtureMedia(
+        id: "settings-cap",
+        sourceURL: source,
+        declaredFormat: "wav",
+        contentKind: .music,
+        cachedFileState: .notCached,
+        approxLoudnessLUFS: nil
+    )
+
+    _ = try await manager.localFile(for: media)
+    let summary = try await manager.updateDiskCapBytes(1)
+
+    #expect(summary.diskCapBytes == AuraPlayCacheSettings.minimumDiskCapBytes)
+    #expect(await manager.isCached(media) == true)
+    let observedDefaults = try #require(UserDefaults(suiteName: suiteName))
+    #expect(AuraPlayCacheSettings.diskCapBytes(from: observedDefaults) == AuraPlayCacheSettings.minimumDiskCapBytes)
+}
+
+@Test("Clearing cache preserves pinned and actively read files")
+func clearUnpinnedCachePreservesPinnedAndActiveFiles() async throws {
+    let pinnedSource = try makeFixtureWAV(name: "clear-pinned")
+    let activeSource = try makeFixtureWAV(name: "clear-active")
+    let removableSource = try makeFixtureWAV(name: "clear-removable")
+    let cacheDirectory = FileManager.default.temporaryDirectory
+        .appending(path: "AuraPlayClearCache-\(UUID().uuidString)", directoryHint: .isDirectory)
+    let manager = try MediaCacheManager(cacheDirectory: cacheDirectory, diskCapBytes: 10_000_000)
+    let pinned = FixtureMedia(
+        id: "clear-pinned",
+        sourceURL: pinnedSource,
+        declaredFormat: "wav",
+        contentKind: .music,
+        cachedFileState: .notCached,
+        approxLoudnessLUFS: nil
+    )
+    let active = FixtureMedia(
+        id: "clear-active",
+        sourceURL: activeSource,
+        declaredFormat: "wav",
+        contentKind: .music,
+        cachedFileState: .notCached,
+        approxLoudnessLUFS: nil
+    )
+    let removable = FixtureMedia(
+        id: "clear-removable",
+        sourceURL: removableSource,
+        declaredFormat: "wav",
+        contentKind: .music,
+        cachedFileState: .notCached,
+        approxLoudnessLUFS: nil
+    )
+
+    _ = try await manager.localFile(for: pinned)
+    try await manager.pin(pinned)
+    _ = try await manager.localFile(for: active)
+    await manager.beginReading(active)
+    _ = try await manager.localFile(for: removable)
+
+    let summary = try await manager.clearUnpinnedCache()
+
+    #expect(await manager.isCached(pinned) == true)
+    #expect(await manager.isCached(active) == true)
+    #expect(await manager.isCached(removable) == false)
+    #expect(summary.cachedEntryCount == 2)
+    #expect(summary.pinnedEntryCount == 1)
+}
+
 @Test("Pinned and actively-read files survive cache eviction")
 func pinnedAndActivelyReadFilesSurviveEviction() async throws {
     let pinnedSource = try makeFixtureWAV(name: "pinned")

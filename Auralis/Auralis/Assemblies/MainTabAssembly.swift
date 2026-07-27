@@ -54,7 +54,8 @@ struct MainTabAssembly {
     func makeMainTabDependencies(
         modelContext: ModelContext,
         homePinnedItemsStore: HomePinnedItemsStore? = nil,
-        privacyResetServiceFactory: (@MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting)? = nil
+        privacyResetServiceFactory: (@MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting)? = nil,
+        allWalletDisconnectServiceFactory: (@MainActor (ModelContext, ModelContainer?, String?) -> any AllWalletDisconnecting)? = nil
     ) -> MainTabDependencies {
         MainTabDependencies(
             accountStoreFactory: { [accounts] modelContext in
@@ -95,6 +96,14 @@ struct MainTabAssembly {
                     auraPlayModelContainer: auraPlayModelContainer
                 )
             },
+            allWalletDisconnectServiceFactory: allWalletDisconnectServiceFactory ?? { [accounts, privacy] modelContext, auraPlayModelContainer, activeAddress in
+                privacy.makeAllWalletDisconnectService(
+                    accountStore: accounts.makeAccountStore(modelContext: modelContext),
+                    modelContext: modelContext,
+                    auraPlayModelContainer: auraPlayModelContainer,
+                    activeAddressProvider: { activeAddress }
+                )
+            },
             policyActionHandlerFactory: { [policy] modelContext, modeState in
                 policy.makePolicyActionHandler(
                     modelContext: modelContext,
@@ -132,6 +141,7 @@ struct MainTabDependencies {
     let erc20HoldingsSyncerFactory: @MainActor (ModelContext) -> any ERC20HoldingsSyncing
     let logoutCleanupServiceFactory: @MainActor (ModelContext) -> any LogoutCleaning
     let privacyResetServiceFactory: @MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting
+    let allWalletDisconnectServiceFactory: @MainActor (ModelContext, ModelContainer?, String?) -> any AllWalletDisconnecting
     let policyActionHandlerFactory: @MainActor (ModelContext, ModeState) -> any PolicyActionGating
     let musicFeatureDependenciesFactory: @MainActor (
         AuraPlayPlaybackRuntime,

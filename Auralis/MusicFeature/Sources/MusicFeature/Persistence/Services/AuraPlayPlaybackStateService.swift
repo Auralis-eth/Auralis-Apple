@@ -42,6 +42,7 @@ public actor AuraPlayPlaybackPositionStateService {
                 durationMilliseconds: nil,
                 lastPlayedAt: date,
                 completedAt: date,
+                playCount: 0,
                 updatedAt: date
             )
             modelContext.insert(newRow)
@@ -51,6 +52,7 @@ public actor AuraPlayPlaybackPositionStateService {
         row.positionMilliseconds = 0
         row.lastPlayedAt = date
         row.completedAt = date
+        row.playCount += 1
         row.updatedAt = date
         try updateMediaItemPlaybackMetadata(
             mediaID: mediaID,
@@ -70,6 +72,17 @@ public actor AuraPlayPlaybackPositionStateService {
         )
         descriptor.fetchLimit = 1
         return try modelContext.fetch(descriptor).first.map(Self.snapshot(from:))
+    }
+
+    public func playbackHistories() throws -> [SmartShufflePlaybackHistory] {
+        try modelContext.fetch(FetchDescriptor<AuraPlayPlaybackPositionState>())
+            .map { state in
+                SmartShufflePlaybackHistory(
+                    mediaID: state.mediaID,
+                    lastPlayedAt: state.lastPlayedAt,
+                    playCount: state.playCount
+                )
+            }
     }
 
     private func fetchState(mediaID: String) throws -> AuraPlayPlaybackPositionState? {

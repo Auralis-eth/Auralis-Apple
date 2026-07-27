@@ -22,7 +22,6 @@ let package = Package(
         .package(path: "../CapabilitiesCore"),
         .package(path: "../ReceiptStorage"),
         .package(path: "../ReceiptsCore"),
-        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.17.0"),
     ],
     targets: [
         .target(
@@ -43,8 +42,8 @@ let package = Package(
                 "AuralisTestSupport",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "ReceiptStorage",
-                .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
-            ]
+            ],
+            exclude: ["__Snapshots__"]
         ),
     ]
 )

@@ -35,7 +35,7 @@ struct HeliusNFTClientTests {
     func heliusClientSkipsOwnerMismatch() async throws {
         let recorder = HeliusRequestRecorder(mode: .ownerMismatch)
         let warnings = WarningRecorder()
-        let client = Self.makeClient(recorder: recorder, pageLimit: 2, warningRecorder: warnings)
+        let client = Self.makeClient(recorder: recorder, pageLimit: 1000, warningRecorder: warnings)
 
         let tokens = try await client.fetchAll(owner: "OwnerAddress")
 

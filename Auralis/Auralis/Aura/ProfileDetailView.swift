@@ -291,6 +291,8 @@ private extension EOAccountSource {
             return "QR"
         case .guestPass:
             return "Guest Pass"
+        case .walletConnect:
+            return "WalletConnect"
         }
     }
 }

@@ -9,6 +9,7 @@ public enum AuraPlayPlayerContextMenuBuilder {
     public static func playerMenu<Commander: AuraPlayPlayerCommanding>(
         item: AuraPlayPlayerItemPresentation,
         commander: Commander,
+        showProvenance: (() -> Void)? = nil,
         onCopied: (@MainActor @Sendable () -> Void)? = nil
     ) -> some View {
         Button("Share", systemImage: "square.and.arrow.up") {
@@ -17,6 +18,11 @@ public enum AuraPlayPlayerContextMenuBuilder {
         .accessibilityIdentifier(A11yID.AuraPlay.playerShare)
 
         if item.contractAddress?.isEmpty == false || item.tokenID?.isEmpty == false {
+            if let showProvenance {
+                Button("View On-Chain Details", systemImage: "info.circle", action: showProvenance)
+                    .accessibilityIdentifier(A11yID.AuraPlay.provenancePanel)
+            }
+
             Button("View on Explorer", systemImage: "safari") {
                 Task { await commander.viewOnExplorer() }
             }
@@ -40,6 +46,7 @@ public enum AuraPlayPlayerContextMenuBuilder {
         open: @escaping () -> Void,
         addToPlaylist: @escaping () -> Void,
         share: (() -> Void)? = nil,
+        showProvenance: (() -> Void)? = nil,
         viewOnExplorer: (() -> Void)? = nil,
         copyContract: (() -> Void)? = nil
     ) -> some View {
@@ -50,6 +57,11 @@ public enum AuraPlayPlayerContextMenuBuilder {
         if let share {
             Button("Share", systemImage: "square.and.arrow.up", action: share)
                 .accessibilityIdentifier(A11yID.AuraPlay.playerShare)
+        }
+
+        if let showProvenance {
+            Button("View On-Chain Details", systemImage: "info.circle", action: showProvenance)
+                .accessibilityIdentifier(A11yID.AuraPlay.provenancePanel)
         }
 
         if let viewOnExplorer {
