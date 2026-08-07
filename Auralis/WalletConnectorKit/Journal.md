@@ -2,89 +2,117 @@
 
 ## The Big Picture
 
-WalletConnectorKit is the wallet handshake counter at the front of Auralis. It knows how to describe wallets, start WalletConnect-style pairings, remember sessions, and hand the app a clean QR or deep-link payload. Think of it as the host who checks IDs, points people to the right table, and keeps the reservation book tidy.
+WalletConnectorKit is the wallet doorway for Auralis. It gives the app one vocabulary for wallet providers, account IDs, WalletConnect pairings, request payloads, return URLs, and session lifecycle work without forcing every screen to know whether the real work is happening through Reown, Coinbase, MetaMask, Privy, Dynamic, SolanaSwift, or a package-local transport.
+
+Think of it as the front desk at a busy venue. The wallets are different guests with different ID cards, entrances, and habits. The app should not need a different clipboard for every guest; WalletConnectorKit makes the clipboard consistent while still recording which entrance each guest actually used.
 
 ## Architecture Deep Dive
 
-The package is split between pure wallet domain types, transport contracts, persistence, registry/catalog data, request builders, and crypto boundaries. The domain layer is the menu everyone agrees on. The transport layer is the phone line to wallets and relays. The app-opening boundary is the doorman: the package can ask whether a wallet URL can open, but the host app owns the platform call.
+The core target is the shared language layer. It owns provider metadata, CAIP parsing, request builders, typed errors, lifecycle persistence contracts, deep-link helpers, and the experimental WalletConnect transport boundary. Adapter targets sit beside it and depend on it: Reown handles production WalletConnect/AppKit flows, while Coinbase, MetaMask, Privy, Dynamic, and Solana adapters provide provider-specific doorways.
+
+The important architecture rule is that a connector is not automatically a WalletConnect WebSocket. Reown owns its SDK state. Coinbase is direct request/response. Privy and Dynamic are embedded-wallet/auth providers. SolanaSwift is closer to chain/client plumbing than wallet discovery. The package now models those differences with runtime families, readiness, roles, custody models, support status, and capability flags.
+
+The lifecycle service is deliberately boring. It receives approved sessions, extracts supported wallet addresses, persists a lightweight address-to-topic index, refreshes metadata through injected app adapters, and clears stale saved topics when a connector cannot restore them. It is an expeditor, not a storage engine for every provider's private protocol state.
 
 ## The Codebase Map
 
-- `Sources/WalletConnectorKit/Domain/` holds wallet accounts, connections, namespaces, and providers.
-- `Sources/WalletConnectorKit/Transport/` owns WalletConnect pairing values, return URL handling, request routing contracts, and app-opening boundaries.
-- `Sources/WalletConnectorKit/Crypto/` contains envelope and relay auth helpers.
-- `Sources/WalletConnectorKit/Persistence/` stores wallet sessions.
-- `Sources/WalletConnectorKit/Registry/` lists known wallet providers.
-- `Tests/WalletConnectorKitTests/` covers domain, transport, registry, and session-store behavior.
+- `Sources/WalletConnectorKit/Domain/` contains the shared nouns: providers, chains, accounts, namespaces, sessions, lifecycle states, capabilities, and errors.
+- `Sources/WalletConnectorKit/Requests/` contains typed JSON values, raw wallet requests, and semantic EVM/Solana operation wrappers.
+- `Sources/WalletConnectorKit/Transport/` contains WalletConnect URI/deep-link helpers, app-opening boundaries, return URL coordination, relay JSON-RPC plumbing, and the experimental custom DApp connector.
+- `Sources/WalletConnectorKit/Persistence/` contains active-wallet and lightweight session-topic stores.
+- `Sources/WalletConnectorKit*Adapter/` targets are adapter rooms for SDK-backed providers.
+- `Tests/WalletConnectorKitTests/` covers the core target with Swift Testing.
 
 ## Tech Stack & Why
 
-Swift Package Manager keeps the wallet connector independently buildable and testable. Swift concurrency is used for connection and request flows because wallet work is naturally asynchronous: open an app, wait for approval, wait for relay messages, then resolve or time out. The package intentionally has no wallet SDK dependency; Reown and WalletConnect SDKs are references, not ingredients in production source.
+The package uses Swift 6 because the host app is moving toward strict, explicit concurrency boundaries. Actors protect mutable stores and pending request maps. Async/await keeps connector flows readable without callback mazes.
+
+Reown AppKit is the preferred production WalletConnect path because WalletConnect v2 is a full protocol engine, not just a WebSocket. The local IRN code remains useful for tests and experiments, but it is not promoted to production until it has the missing protocol pieces: relay auth, encryption envelopes, settlement, fetch/dedupe, expiry, and complete protocol-state persistence.
+
+Swift Testing is used for package tests because the suite is mostly pure Swift behavior: CAIP parsing, request shapes, callback routing, registry filtering, and persistence contracts. Those tests should stay small, deterministic, and mostly parallel-safe.
+
+Keychain is used for wallet session topic indexing because wallet topics and protocol references should not live in ordinary app defaults. `UserDefaults` is only used for the active public wallet address, which this product treats as a non-secret display/selection value.
 
 ## The Journey
 
-### 2026-06-29: Reset to Reown AppKit Only
+### 2026-07-26: The Clean-Room Wallet Kit Begins
 
-We deliberately stopped trying to be a WalletConnect implementation. The package had grown a parallel universe: local relay clients, envelope crypto, session stores, wallet registries, request builders, fake transports, and tests for all of it. Useful learning, but too much machinery when the product decision is "use Reown AppKit first, learn from what they provide, then customize only when we have a real reason."
-
-The reset keeps the package as a small adapter around Reown AppKit. The remaining local code is just the Auralis-facing shape: supported chains, parsed wallet accounts, session summaries, namespace method lists, configuration, and the main `ReownAppKitWalletCoordinator`. Everything that tried to manually speak WalletConnect IRN went away. It is like replacing a home-built train system with a ticket counter for the actual railway.
-
-Build result: the focused `WalletConnectorKit` scheme built successfully after the reset.
-
-Follow-up alignment pass: the coordinator now reads `PROJECT_ID` from the app bundle first, then environment, and fails with a useful message if no project ID exists. It applies AppKit session params before presentation, uses `AppKit.present(from: nil)`, handles callbacks through `AppKit.instance.handleDeeplink(url)`, and exposes a compact `personal_sign` proof that reads the connected address from AppKit and launches the current wallet for approval.
-
-### 2026-06-29: Reown Product Names and Swift 6 Singleton Checks
-
-The package failed before compilation with `product 'WalletConnectRelay' required by package 'walletconnectorkit' target 'WalletConnectorKit' not found in package 'reown-swift'`. The trick was that Reown 2.3.0 has targets named `WalletConnectRelay` and `WalletConnectSigner`, but it does not vend them as SwiftPM products. SwiftPM only lets a dependency target depend on another package's public products, not arbitrary internal targets. The manifest was asking the bouncer for a guest who was working in the kitchen.
-
-The fix was to keep the public Reown products this package actually needs: `ReownAppKit` and `WalletConnectNetworking`. Once the package graph resolved, Swift 6 reached the source files and flagged Reown's singleton-style `AppKit.instance` as shared mutable state. The coordinator is already `@MainActor`, so the bridge now uses `@preconcurrency` imports with a clear invariant: all AppKit access stays inside that main-actor coordinator until Reown publishes full Swift 6 annotations.
-
-A second Swift 6 warning appeared in the local `URLSessionWebSocketTask` adapter. Reown's `WebSocketConnecting` protocol is callback based and pre-concurrency, so the adapter now carries an explicit `@unchecked Sendable` conformance with a safety note. That is not a decoration; it is a promise that each socket instance is owned as a single connection lifecycle by Reown's networking layer.
-
-Build result: the focused `WalletConnectorKit` scheme built successfully after the manifest and concurrency bridge fixes.
-
-### 2026-06-29: Package-Owned Wallet Surface and Guard Rails
-
-The Reown adapter grew the pieces that belong in the package instead of the host app: a reusable SwiftUI `WalletConnectorPanel`, configuration validation that reports missing `PROJECT_ID`, URL scheme, query schemes, and app-group alignment, and a Swift Testing target for the pure wallet logic. The package is now less like a mystery box and more like a preflight checklist taped to the cockpit: it cannot install the app's entitlements, but it can tell you exactly what the app forgot to wire.
-
-Crypto got an important course correction. The old placeholder claimed Keccak work with SHA-256, which is the kind of bug that wears a fake mustache and gets past casual review. The default provider now computes Ethereum Keccak-256 directly in the package, while public-key recovery is explicitly injectable through `WalletConnectorCryptoProvider`. That keeps basic AppKit/signing flows honest without pretending SIWE-grade recovery exists when the host has not supplied it.
-
-The URLSession socket bridge also lost its remaining Swift 6 sendability warning by boxing the legacy callback before handing it to the send completion closure. Small fix, but it states the ownership boundary clearly: Reown owns the socket lifecycle, and our adapter only bridges the callback world into Swift 6's stricter checker.
-
-One sneaky validation bug got corrected after the setup audit: the package can accept a Reown project ID directly in `ReownAppKitConfiguration`, but the preflight checker only looked in the host app's `Info.plist` and launch environment. That was like asking someone for ID after they had already handed it to you. Validation now honors the explicit configuration value first, then falls back to the host-app sources, and a focused Swift Testing case guards that behavior.
-
-Lifecycle follow-through: signing is no longer a half-lit dashboard bulb. The coordinator now records typed signing approvals and rejections with request ID, topic, chain, payload, and JSON-RPC failure details. It also records connection approval/rejection, disconnection reasons, auth results, wallet events such as account or chain changes, and expiry transitions when stale sessions are refreshed. The host app still has to perform real wallet QA, but the package now has the lifecycle hooks it needs instead of asking callers to reverse-engineer strings.
-
-AppKit coverage pass: the package now wraps the remaining useful Reown AppKit surface instead of leaving it as a trapdoor. We added package-owned types for pairing URIs, pairings, custom wallets, custom chain presets, SIWE auth params/results, and AppKit JSON-RPC requests. The coordinator can create QR/pairing URIs, refresh pairings, extend sessions, send arbitrary AppKit-supported RPC requests, read the current address, snapshot Reown's selected chain, set fresh SIWE auth params, and toggle Reown analytics. It is still intentionally not a replacement for live wallet QA; it is the control panel and instrumentation for that QA.
-
-Build result: `BuildProject(buildForTesting: true)` succeeded, and `RunAllTests` passed with 30 executed test cases because parameterized Swift Testing cases are counted individually at runtime.
-
-### 2026-07-03: Unit Tests Become the Flight Recorder
-
-The package tests grew from a handful of headline checks into a proper flight recorder for the wallet connector's value layer. The new suites cover CAIP parsing, exact chain metadata, RPC method names, Codable round trips, configuration preflight warnings, Keccak vectors, and the coordinator's pure mapping/state helpers. None of these tests opens a wallet or talks to Reown's network; they test the knobs and gauges we own.
-
-The useful lesson: wallet integrations have a lot of tiny strings that look harmless until one changes shape. `eip155:8453`, `wallet_addEthereumChain`, `LSApplicationQueriesSchemes`, and `group.` entitlements are all small labels with big blast radiuses. Good unit tests pin those labels down like luggage tags before the live-wallet QA trip begins.
-
-### 2026-07-26: The Clean-Room Rule Wins
-
-The wallet connector briefly wandered into the wrong kitchen. The Markdown plans said one thing clearly: use Reown and WalletConnect as maps, not as cookware. Production `WalletConnectorKit` should be SDK-free, with the host app owning presentation and platform URL opening. The code had drifted into a Reown AppKit coordinator, a SwiftUI panel, AppKit configuration validation, and a SwiftPM dependency on `reown-swift`. That was not "not integrated yet"; it was the wrong dependency boundary.
-
-The repair reset the package to the documented clean-room baseline. The provider catalog now covers the Phase 4 families: Rabby, Rainbow, Coinbase Wallet, MetaMask, Phantom, Backpack, Solflare, Privy, Dynamic, and Generic Wallet. WalletConnect URI formatting/parsing lives in the package, nested deep-link encoding happens exactly once, return URLs are classified without dispatching SDK envelopes, and `WalletConnectDAppConnector` talks through injected transport and app-opening protocols. The app can later bring a QR sheet or wallet picker, but the reusable wallet rules already live where they belong.
-
-The war story is simple: a third-party SDK can make a demo look alive while quietly moving the architecture's center of gravity. The fix was to make the package own the language of the feature first — CAIP accounts, namespace proposals, pairings, sessions, request IDs, and typed errors — then leave live relay and app UI as follow-up wiring.
-
-## Engineer's Wisdom
-
-When a package dependency looks overstuffed, check the architecture decision before debugging the manifest. Product names are the public contract; target names are implementation detail, but the more important question is whether the dependency belongs in the package at all. For wallet connection, the durable boundary is our own domain and transport protocols; SDKs stay outside unless a later accepted plan deliberately adds an adapter.
-
-## If I Were Starting Over...
-
-I would start with the clean-room package contracts and fake relay tests before touching any live wallet SDK. A good wallet package should first prove it can describe a session, validate an account, create a pairing URI, and persist a session without opening a single real wallet.
+The first package shape focused on building a clean vocabulary before wiring live wallets. Providers, chains, CAIP accounts, namespaces, WalletConnect URIs, and request models landed as small value types. That mattered because wallet integrations are easy to make look simple by hiding everything in strings, but the moment Solana joins EVM, string soup starts spilling on the floor.
 
 ### 2026-07-26: Lifecycle Without App Gravity
 
-The clean-room package now owns more than nouns. `WalletSessionAddressExtractor` turns approved sessions into deduplicated supported wallet addresses, `WalletSessionTopicStoring` captures the secure session-topic contract, `KeychainWalletSessionTopicStore` uses foreground-only device-bound storage with iCloud synchronization explicitly disabled, and `WalletConnectionLifecycleService` coordinates approved sessions, launch restoration, expired-topic cleanup, and wallet removal through injected app adapters.
+The clean-room package grew a lifecycle service. `WalletSessionAddressExtractor` turns approved sessions into deduplicated supported wallet addresses, `WalletSessionTopicStoring` captures the secure topic-index contract, and `WalletConnectionLifecycleService` coordinates approved sessions, launch restoration, expired-topic cleanup, and wallet removal through injected app adapters.
 
-That last part matters. The service can call "upsert this wallet," "deactivate this wallet," "clean local media," and "refresh metadata" without importing SwiftData, ENS, Spotlight, UIKit, or a wallet SDK. It is the restaurant expeditor, not the chef at every station. The host app still has to provide real adapters, but the lifecycle rules are no longer scattered across a future sheet, a future relay client, and a future settings button.
+The service can say "upsert this wallet," "deactivate this wallet," "clean local media," and "refresh metadata" without importing SwiftData, ENS, UIKit, or a wallet SDK. It is the restaurant expeditor, not the chef at every station.
 
-The Solana CAIP reference also moved to `solana:mainnet`, matching the Phase 4 contract. Wallet strings are tiny hinges; when they swing the wrong way, an entire integration door sticks.
+The Solana CAIP reference initially moved to the package-friendly `solana:mainnet` shorthand, but later research corrected that: new wallet output must use the Chain Agnostic mainnet genesis reference, while `solana:mainnet` remains a legacy input alias. Wallet strings are tiny hinges; when they swing the wrong way, an entire integration door sticks.
+
+### 2026-07-27: SDK Adapters Move Into the House
+
+The product direction changed again, and this time the architecture has a sturdier compromise: `WalletConnectorKit` stays the clean kitchen where the nouns live, while SDK-backed adapter targets move into separate rooms of the same package. Reown becomes the main dining room for wallet discovery and WalletConnect-style flows. Coinbase, MetaMask, Privy, Dynamic, and Solana each get their own adapter doorway so we can use direct SDKs without stapling their assumptions onto every caller.
+
+Dependency boundaries are like plumbing. You can run more pipes through the building, but you still want shutoff valves. The core target owns shared state, QR presentation, request builders, capability filtering, and error mapping. The SDK targets depend on the core target, not the other way around.
+
+### 2026-07-27: Readiness Badges for Wallet Engines
+
+After the WalletConnect/Reown/IRN research pass, we added an explicit `WalletConnectorReadiness` contract. This is a small badge with a big job: it lets app composition tell the difference between a live SDK-backed connector and a hand-built transport that can only make it through part of the handshake.
+
+`WalletConnectDAppConnector` now defaults to `experimental` because the custom transport can create pairings, but session settlement and request publishing are not production-complete. That is the wallet equivalent of having a front door and no cash register: useful for rehearsing the entrance, not enough to run the shop.
+
+### 2026-07-27: Five Iterations, Fewer Trapdoors
+
+The research pass turned into practical guardrails. Connector readiness prevents the custom WalletConnect transport from wearing a production badge. Request validation checks namespace/method fit and parameter counts before requests reach Reown, provider SDKs, or the experimental relay path. Return URL handling can be scoped to expected schemes and hosts. Session restoration reports stale topic cleanup and deactivates stale Solana-looking address records as Solana.
+
+Provider metadata now exposes query schemes, universal links, SDK identifiers, and launch families so the host app can build its Info.plist and adapter routing from package facts instead of scattered notes.
+
+### 2026-07-27: Gemini Pass Tightens the Wallet Doorframe
+
+The second research pass sharpened places where mobile wallet integrations usually wobble. We added connector runtime families so a Reown-backed WalletConnect SDK path and the custom IRN experiment cannot be mistaken for interchangeable engines. We also added `WalletSessionProposalRequest`, which can keep broad EVM and Solana capabilities optional instead of over-stuffing required namespaces and inviting wallets to reject the session at the front desk.
+
+Keychain topic storage moved to `AfterFirstUnlockThisDeviceOnly`. The session topic still stays device-bound and unsynchronized, but now the app has a fighting chance to read it during background/return-from-wallet work after the first unlock.
+
+Deep links now carry the native redirect URL when metadata provides it. That gives wallets a clean route home after approval and keeps callback filtering paired with the exact host-app scheme the package expects.
+
+### 2026-07-27: Gemini v2 Adds the Receipt Window
+
+The relay and app-lifecycle contracts became less wishful. `WalletConnectIRNRelayClient` now waits for matching JSON-RPC acknowledgements from `irn_subscribe` and `irn_publish` before reporting success. Writing bytes to a WebSocket is not the same thing as the relay accepting the message; this change gives the custom IRN experiment a receipt window instead of a shrug.
+
+URL callbacks also got a coordinator. `WalletInboundURLCoordinator` deduplicates repeated lifecycle deliveries and queues cold-launch wallet returns until the connector layer is ready. That gives SwiftUI `.onOpenURL`, SceneDelegate, and universal-link routing a single package-level funnel without putting `UIApplication.shared` inside the core target.
+
+Provider errors now have `WalletProviderErrorContext`, which lets adapters record a vendor error type, provider ID, code, and message while still mapping back into package errors.
+
+### 2026-07-27: JSON Params Stop Wearing String Costumes
+
+Wallet requests stopped hiding objects inside strings. `wallet_switchEthereumChain` now carries an actual `{ chainId }` object, `wallet_addEthereumChain` and transactions stay structured, and `wallet_watchAsset` uses the wallet-standard `{ type, options }` shape. Reown gets typed JSON values instead of being asked to decode private string envelopes.
+
+Pending Reown responses now resolve by request ID, not by oldest outstanding request. Two signing prompts in flight should not be a coin toss with better branding.
+
+### 2026-07-27: ChatGPT Research Turns Into New Guardrails
+
+The third research pass was blunt in a useful way: a WalletConnect topic is not a wallet session, and a connector is not always a WebSocket with a topic. So the package now has a capability matrix, connector roles, custody models, and support status. That lets MetaMask's legacy native route, Coinbase's direct request/response model, Privy/Dynamic embedded-wallet auth, Solana RPC helpers, Reown SDK state, and the custom IRN experiment stop pretending to be the same thing in different coats.
+
+Lifecycle state also got more honest. Pairing creation, wallet launch, proposal pending, settlement, offline-connected restoration, disconnecting, and restoration failure are now expressible states instead of being flattened into `pairing`, `awaitingApproval`, or `connected`.
+
+The persistence lesson was the sharpest one. `WalletConnectProtocolState` now makes restoration completeness visible: pairing key, session key, relay identity, expiry, namespaces, and subscribed topics are separate ingredients. A stored topic by itself is just a locker number without the combination.
+
+### 2026-07-27: Provider Claims Learn Some Humility
+
+The latest implementation pass tightened a subtle but important boundary: provider metadata no longer implies the package is using a custom WalletConnect IRN engine. A wallet can be external, support EVM, support Solana, or have a direct SDK route without inheriting `.walletConnectIRN` just because it has a deep link. That flag now belongs to actual connector runtime behavior, not casual catalog inference.
+
+MetaMask also got a more honest label. The legacy native iOS SDK dependency still exists for source compatibility, but the catalog marks that path as deprecated because the upstream repo was archived on February 26, 2026. That is not a reason to panic; it is a reason to route production external-wallet flows through Reown/WalletConnect or a current embedded-wallet product instead of pretending the old native bridge is fresh lumber.
+
+Solana transaction validation also stopped accepting base58 for WalletConnect-shaped transaction requests. Base58 still exists as a vocabulary word because provider-specific deep links may need it, but the shared WalletConnect/Reown request path now expects base64 serialized transactions. The package is learning to ask, "which counter are we standing at?" before accepting a payload.
+
+## Engineer's Wisdom
+
+A wallet package should not make unsupported things look supported. It is better to expose a sharp `experimental` badge, a deprecated provider route, or a typed `unavailable` error than to let the host app discover the truth in a live signing flow.
+
+Typed values beat clever strings. The closer request payloads stay to their real JSON shape, the easier it is to test method order, validate quantities, and bridge into SDKs without accidental double encoding.
+
+Transport is not identity. Provider, connector, transport, custody model, and chain client are separate ideas. Mixing them together creates APIs that feel convenient right up until the first restoration, callback, or provider upgrade.
+
+## If I Were Starting Over...
+
+I would start by making Reown the only production WalletConnect engine and keep the custom IRN path behind an explicit experimental module until it can pass protocol-level restoration tests. I would also separate provider catalog metadata from connector runtime metadata on day one; wallet support is not the same thing as our chosen transport.
+
+For Solana, I would begin with semantic operations and serialized transaction bytes before adding any provider adapter. Solana is not EVM with a different method prefix, and the code gets cleaner when it stops pretending otherwise.
