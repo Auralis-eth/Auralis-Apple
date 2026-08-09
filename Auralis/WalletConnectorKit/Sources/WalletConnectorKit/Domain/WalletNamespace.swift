@@ -5,9 +5,13 @@ public enum WalletRequestMethod: String, Hashable, Codable, Sendable {
     case ethPersonalSign = "personal_sign"
     case ethSignTypedData = "eth_signTypedData"
     case ethSignTypedDataV4 = "eth_signTypedData_v4"
+    case walletSwitchEthereumChain = "wallet_switchEthereumChain"
+    case walletAddEthereumChain = "wallet_addEthereumChain"
+    case walletWatchAsset = "wallet_watchAsset"
     case solanaSignMessage = "solana_signMessage"
     case solanaSignTransaction = "solana_signTransaction"
     case solanaSignAllTransactions = "solana_signAllTransactions"
+    case solanaSignAndSendTransaction = "solana_signAndSendTransaction"
 }
 
 public struct WalletSessionNamespace: Hashable, Codable, Sendable {
@@ -43,6 +47,12 @@ public struct WalletNamespaceProposalSet: Hashable, Codable, Sendable {
         self.proposals = proposals
     }
 
+    public var isEmpty: Bool {
+        proposals.isEmpty
+    }
+
+    public static let empty = WalletNamespaceProposalSet(proposals: [:])
+
     public static let defaultV1 = WalletNamespaceProposalSet(
         proposals: [
             "eip155": WalletNamespaceProposal(
@@ -59,12 +69,37 @@ public struct WalletNamespaceProposalSet: Hashable, Codable, Sendable {
     )
 }
 
+public struct WalletSessionProposalRequest: Hashable, Codable, Sendable {
+    public let requiredNamespaces: WalletNamespaceProposalSet
+    public let optionalNamespaces: WalletNamespaceProposalSet
+
+    public init(
+        requiredNamespaces: WalletNamespaceProposalSet,
+        optionalNamespaces: WalletNamespaceProposalSet = .empty
+    ) {
+        self.requiredNamespaces = requiredNamespaces
+        self.optionalNamespaces = optionalNamespaces
+    }
+
+    public static let defaultV1Optional = WalletSessionProposalRequest(
+        requiredNamespaces: .empty,
+        optionalNamespaces: .defaultV1
+    )
+
+    public var mergedProposalSet: WalletNamespaceProposalSet {
+        WalletNamespaceProposalSet(proposals: requiredNamespaces.proposals.merging(optionalNamespaces.proposals) { required, _ in required })
+    }
+}
+
 public enum WalletConnectionNamespaces {
     public static let evmMethods: [String] = [
         WalletRequestMethod.ethPersonalSign.rawValue,
         WalletRequestMethod.ethSendTransaction.rawValue,
         WalletRequestMethod.ethSignTypedData.rawValue,
         WalletRequestMethod.ethSignTypedDataV4.rawValue,
+        WalletRequestMethod.walletSwitchEthereumChain.rawValue,
+        WalletRequestMethod.walletAddEthereumChain.rawValue,
+        WalletRequestMethod.walletWatchAsset.rawValue,
     ]
 
     public static let evmEvents: [String] = [
@@ -76,6 +111,7 @@ public enum WalletConnectionNamespaces {
         WalletRequestMethod.solanaSignMessage.rawValue,
         WalletRequestMethod.solanaSignTransaction.rawValue,
         WalletRequestMethod.solanaSignAllTransactions.rawValue,
+        WalletRequestMethod.solanaSignAndSendTransaction.rawValue,
     ]
 
     public static let solanaEvents: [String] = []

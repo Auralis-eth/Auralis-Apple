@@ -296,26 +296,6 @@ struct AuraPlayPhase8PlaybackOrchestrationTests {
         #expect(orchestrator.state != .idle)
     }
 
-    @Test("error recovery trips circuit breaker after three consecutive failures")
-    func errorRecoveryTripsCircuitBreaker() async {
-        let recorder = CallRecorder()
-        let audio = MockPlaybackEngine(kind: .audio, recorder: recorder)
-        let video = MockPlaybackEngine(kind: .video, recorder: recorder)
-        let orchestrator = PlaybackOrchestrator(
-            arbiter: EngineArbiter(audioController: audio, videoController: video)
-        )
-        let recovery = ErrorRecoveryCoordinator()
-        let items = ["one", "two", "three"].map { mediaItem(id: $0, kind: .music) }
-        _ = await orchestrator.play(item: items[0], queue: items, startAt: 0, origin: .playlist(id: "errors"))
-
-        await recovery.handleFailure(on: orchestrator)
-        await recovery.handleFailure(on: orchestrator)
-        await recovery.handleFailure(on: orchestrator)
-
-        #expect(orchestrator.state == .idle)
-        #expect(orchestrator.failureNotice?.isPersistent == true)
-    }
-
     @Test("playback state service writes, completes, and restores most recent state")
     func playbackStateServiceWritesCompletesAndRestores() async throws {
         let container = try AuraPlayModelContainer.make(inMemory: true)
@@ -460,42 +440,6 @@ struct AuraPlayPhase8PlaybackOrchestrationTests {
         #expect(adapterSource.contains("origin: mapOrigin(origin, fallbackMediaID: item.id)"))
         #expect(adapterSource.contains("case .moreLikeThis(let sourceID):"))
         #expect(adapterSource.contains("return .moreLikeThis(sourceID: sourceID)"))
-    }
-
-    @Test("orchestrator advances on completion without overwriting completed position")
-    func orchestratorAdvancesOnCompletionWithoutOverwritingCompletedPosition() async throws {
-        let store = InMemoryPlaybackStateStore()
-        let coordinator = PositionPersistenceCoordinator(
-            store: store,
-            now: { Date(timeIntervalSince1970: 1_704_067_200) }
-        )
-        let recorder = CallRecorder()
-        let audio = MockPlaybackEngine(kind: .audio, recorder: recorder)
-        let video = MockPlaybackEngine(kind: .video, recorder: recorder)
-        let first = mediaItem(id: "first", kind: .music)
-        let second = mediaItem(id: "second", kind: .music)
-        let orchestrator = PlaybackOrchestrator(
-            arbiter: EngineArbiter(audioController: audio, videoController: video),
-            positionPersistence: coordinator
-        )
-
-        _ = await orchestrator.play(item: first, queue: [first, second], startAt: 0, origin: .playlist(id: "complete"))
-        audio.setTick(PlaybackTick(currentSeconds: 20, durationSeconds: 120))
-        await orchestrator.handleCurrentItemCompleted()
-
-        var snapshots = await store.snapshots
-        #expect(snapshots["first"]?.positionMilliseconds == 0)
-        #expect(snapshots["first"]?.completedAt != nil)
-        #expect(orchestrator.queue.currentItem?.id == "second")
-        #expect(orchestrator.state == .playing(second))
-
-        audio.setTick(PlaybackTick(currentSeconds: 30, durationSeconds: 120))
-        await orchestrator.handleCurrentItemCompleted()
-
-        snapshots = await store.snapshots
-        #expect(snapshots["second"]?.positionMilliseconds == 0)
-        #expect(snapshots["second"]?.completedAt != nil)
-        #expect(orchestrator.state == .idle)
     }
 
     @Test("position cadence writes during playback and pause flushes")

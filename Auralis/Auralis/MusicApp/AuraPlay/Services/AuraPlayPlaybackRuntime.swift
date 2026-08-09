@@ -95,6 +95,7 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     @ObservationIgnored private var nowPlayingElapsedTickSignature: String?
     @ObservationIgnored private let libraryQueueWindowSize = 24
     @ObservationIgnored private let libraryQueueLowWatermark = 6
+    @ObservationIgnored private let maxConsecutivePlaybackFailures = 3
 
     public var previousAudio = Playlist(name: "Previous")
     public var nextAudio = Playlist(name: "Next")
@@ -1231,28 +1232,45 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
             return
         }
 
-        let beforeSummary = queueStateSummary()
-        let next = nextAudio.tracks.removeFirst()
-
+        // Push the outgoing track into history once, before iterating: on a
+        // failed attempt the current track is unchanged, so re-pushing per
+        // attempt would accumulate duplicates.
         if let currentNFT {
             previousAudio.tracks.append(currentNFT)
         }
 
-        do {
-            try await loadAndPlay(nft: next, triggerCause: triggerCause)
-            extendUpcomingQueueIfNeeded(after: next.id)
-            await recordQueueChangedIfPossible(
-                operation: "next",
-                affectedMediaIDs: [next.id],
-                beforeSummary: beforeSummary,
-                afterSummary: queueStateSummary(),
-                triggerCause: triggerCause,
-                nft: next
-            )
-        } catch {
-            if error is CancellationError { return }
-            await playNext(triggerCause: triggerCause)
+        // Walk the upcoming queue until a track plays or the consecutive-failure
+        // limit is reached. Iterative (not recursive) so a large unplayable
+        // queue cannot build an unbounded async call chain.
+        var consecutiveFailures = 0
+        while !nextAudio.tracks.isEmpty {
+            let beforeSummary = queueStateSummary()
+            let next = nextAudio.tracks.removeFirst()
+
+            do {
+                try await loadAndPlay(nft: next, triggerCause: triggerCause)
+                extendUpcomingQueueIfNeeded(after: next.id)
+                await recordQueueChangedIfPossible(
+                    operation: "next",
+                    affectedMediaIDs: [next.id],
+                    beforeSummary: beforeSummary,
+                    afterSummary: queueStateSummary(),
+                    triggerCause: triggerCause,
+                    nft: next
+                )
+                return
+            } catch {
+                if error is CancellationError { return }
+                presentPlaybackAlert(for: error)
+                consecutiveFailures += 1
+                if consecutiveFailures >= maxConsecutivePlaybackFailures {
+                    await presentRepeatedFailureAlertAndStop()
+                    return
+                }
+            }
         }
+
+        await stop()
     }
 
     private func playPrevious(triggerCause: MusicReceiptTriggerCause) async {
@@ -1261,27 +1279,47 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
             return
         }
 
-        let beforeSummary = queueStateSummary()
-        let previous = previousAudio.tracks.removeLast()
-
+        // Move the outgoing track to the front of up-next once (see playNext).
         if let currentNFT {
             nextAudio.tracks.insert(currentNFT, at: 0)
         }
 
-        do {
-            try await loadAndPlay(nft: previous, triggerCause: triggerCause)
-            await recordQueueChangedIfPossible(
-                operation: "previous",
-                affectedMediaIDs: [previous.id],
-                beforeSummary: beforeSummary,
-                afterSummary: queueStateSummary(),
-                triggerCause: triggerCause,
-                nft: previous
-            )
-        } catch {
-            if error is CancellationError { return }
-            await playPrevious(triggerCause: triggerCause)
+        var consecutiveFailures = 0
+        while !previousAudio.tracks.isEmpty {
+            let beforeSummary = queueStateSummary()
+            let previous = previousAudio.tracks.removeLast()
+
+            do {
+                try await loadAndPlay(nft: previous, triggerCause: triggerCause)
+                await recordQueueChangedIfPossible(
+                    operation: "previous",
+                    affectedMediaIDs: [previous.id],
+                    beforeSummary: beforeSummary,
+                    afterSummary: queueStateSummary(),
+                    triggerCause: triggerCause,
+                    nft: previous
+                )
+                return
+            } catch {
+                if error is CancellationError { return }
+                presentPlaybackAlert(for: error)
+                consecutiveFailures += 1
+                if consecutiveFailures >= maxConsecutivePlaybackFailures {
+                    await presentRepeatedFailureAlertAndStop()
+                    return
+                }
+            }
         }
+
+        await stop()
+    }
+
+    private func presentRepeatedFailureAlertAndStop() async {
+        playbackAlert = AuraPlayPlaybackAlertPresentation(
+            title: "Playback Stopped",
+            message: "Several items couldn't play. Playback stopped."
+        )
+        await stop()
     }
 
     private func stop() async {

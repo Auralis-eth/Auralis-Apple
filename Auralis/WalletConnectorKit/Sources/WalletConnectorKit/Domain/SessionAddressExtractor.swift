@@ -38,7 +38,8 @@ public enum WalletSessionAddressExtractor {
                 continue
             }
 
-            let key = "\(parsed.blockchain.caip2):\(parsed.address.lowercased())"
+            let addressKey = chain.namespace == "eip155" ? parsed.address.lowercased() : parsed.address
+            let key = "\(parsed.blockchain.caip2):\(addressKey)"
             guard seen.insert(key).inserted else {
                 continue
             }

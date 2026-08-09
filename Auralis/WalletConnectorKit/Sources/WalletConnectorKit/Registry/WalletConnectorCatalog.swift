@@ -1,13 +1,65 @@
 import Foundation
 
 public enum WalletConnectorCatalog {
+    private static let evmExternalCapabilities: WalletConnectorCapabilities = [
+        .externalWallet,
+        .evm,
+        .messageSigning,
+        .transactionSigning,
+        .chainSwitching,
+        .chainAddition,
+        .assetWatching,
+        .customSchemeReturn,
+    ]
+
+    private static let evmUniversalExternalCapabilities: WalletConnectorCapabilities = [
+        .externalWallet,
+        .evm,
+        .messageSigning,
+        .transactionSigning,
+        .chainSwitching,
+        .chainAddition,
+        .assetWatching,
+        .universalLinkReturn,
+        .customSchemeReturn,
+    ]
+
+    private static let multichainExternalCapabilities: WalletConnectorCapabilities = [
+        .externalWallet,
+        .evm,
+        .solana,
+        .messageSigning,
+        .transactionSigning,
+        .batchTransactionSigning,
+        .signAndSend,
+        .chainSwitching,
+        .chainAddition,
+        .assetWatching,
+        .universalLinkReturn,
+        .customSchemeReturn,
+    ]
+
+    private static let privyEmbeddedProviderCapabilities: WalletConnectorCapabilities = [
+        .embeddedWallet,
+        .evm,
+        .messageSigning,
+    ]
+
+    private static let dynamicEmbeddedProviderCapabilities: WalletConnectorCapabilities = [
+        .embeddedWallet,
+        .evm,
+        .messageSigning,
+        .transactionSigning,
+    ]
+
     public static let rabby = ThirdPartyWalletProvider(
         id: "rabby",
         displayName: "Rabby",
         supportedChains: WalletChain.evmChains,
         connectionMethods: [
             .deepLink(scheme: "rabby"),
-        ]
+        ],
+        capabilities: evmExternalCapabilities
     )
 
     public static let metamask = ThirdPartyWalletProvider(
@@ -18,7 +70,9 @@ public enum WalletConnectorCatalog {
             .universalLink("https://metamask.app.link"),
             .deepLink(scheme: "metamask"),
             .mobileSDK(identifier: "metamask-mobile-sdk"),
-        ]
+        ],
+        supportStatus: .deprecated("The legacy MetaMask native iOS SDK repository was archived on February 26, 2026; prefer WalletConnect/Reown or MetaMask's current embedded-wallet route."),
+        capabilities: evmUniversalExternalCapabilities
     )
 
     public static let rainbow = ThirdPartyWalletProvider(
@@ -28,7 +82,8 @@ public enum WalletConnectorCatalog {
         connectionMethods: [
             .universalLink("https://rnbwapp.com"),
             .deepLink(scheme: "rainbow"),
-        ]
+        ],
+        capabilities: evmUniversalExternalCapabilities
     )
 
     public static let coinbaseWallet = ThirdPartyWalletProvider(
@@ -39,6 +94,18 @@ public enum WalletConnectorCatalog {
             .universalLink("https://go.cb-w.com"),
             .deepLink(scheme: "cbwallet"),
             .mobileSDK(identifier: "coinbase-wallet-sdk"),
+        ],
+        supportStatus: .limited("Coinbase Mobile Wallet Protocol is direct request/response, not a WalletConnect IRN session."),
+        capabilities: [
+            .externalWallet,
+            .evm,
+            .messageSigning,
+            .transactionSigning,
+            .chainAddition,
+            .assetWatching,
+            .directRequestResponse,
+            .universalLinkReturn,
+            .customSchemeReturn,
         ]
     )
 
@@ -49,7 +116,8 @@ public enum WalletConnectorCatalog {
         connectionMethods: [
             .universalLink("https://phantom.app/ul"),
             .deepLink(scheme: "phantom"),
-        ]
+        ],
+        capabilities: multichainExternalCapabilities
     )
 
     public static let backpack = ThirdPartyWalletProvider(
@@ -58,7 +126,8 @@ public enum WalletConnectorCatalog {
         supportedChains: [.solana] + WalletChain.evmChains,
         connectionMethods: [
             .deepLink(scheme: "backpack"),
-        ]
+        ],
+        capabilities: multichainExternalCapabilities.subtracting(.universalLinkReturn)
     )
 
     public static let solflare = ThirdPartyWalletProvider(
@@ -67,6 +136,15 @@ public enum WalletConnectorCatalog {
         supportedChains: [.solana],
         connectionMethods: [
             .deepLink(scheme: "solflare"),
+        ],
+        capabilities: [
+            .externalWallet,
+            .solana,
+            .messageSigning,
+            .transactionSigning,
+            .batchTransactionSigning,
+            .signAndSend,
+            .customSchemeReturn,
         ]
     )
 
@@ -76,7 +154,10 @@ public enum WalletConnectorCatalog {
         supportedChains: WalletChain.evmChains,
         connectionMethods: [
             .mobileSDK(identifier: "privy-adapter"),
-        ]
+        ],
+        role: .embeddedWalletProvider,
+        custodyModel: .providerManaged,
+        capabilities: privyEmbeddedProviderCapabilities
     )
 
     public static let dynamic = ThirdPartyWalletProvider(
@@ -85,7 +166,10 @@ public enum WalletConnectorCatalog {
         supportedChains: WalletChain.evmChains,
         connectionMethods: [
             .mobileSDK(identifier: "dynamic-adapter"),
-        ]
+        ],
+        role: .embeddedWalletProvider,
+        custodyModel: .providerManaged,
+        capabilities: dynamicEmbeddedProviderCapabilities
     )
 
     public static let genericWallet = ThirdPartyWalletProvider(
@@ -94,6 +178,19 @@ public enum WalletConnectorCatalog {
         supportedChains: [.solana] + WalletChain.evmChains,
         connectionMethods: [
             .browserExtension(identifier: "walletconnect-uri"),
+        ],
+        capabilities: [
+            .externalWallet,
+            .evm,
+            .solana,
+            .messageSigning,
+            .transactionSigning,
+            .batchTransactionSigning,
+            .signAndSend,
+            .chainSwitching,
+            .chainAddition,
+            .assetWatching,
+            .persistentSession,
         ]
     )
 

@@ -20,6 +20,15 @@
       }
     },
     {
+      "identity" : "privy-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/privy-io/privy-ios",
+      "state" : {
+        "revision" : "2d25a1e9bfcd5e4d5d268c44bdfbb8d50a9b7517",
+        "version" : "2.14.0"
+      }
+    },
+    {
       "identity" : "qrcode",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/WalletConnect/QRCode",
@@ -161,6 +170,15 @@
       "state" : {
         "revision" : "5ca09b6a2ad190f94aa3d6ddef45b187f8c0343b",
         "version" : "1.0.3"
+      }
+    },
+    {
+      "identity" : "swift-sdk-and-sample-app",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/dynamic-labs/swift-sdk-and-sample-app",
+      "state" : {
+        "revision" : "8a4da6300bc32b0366149d9882135ebc5b75223f",
+        "version" : "1.2.0"
       }
     },
     {

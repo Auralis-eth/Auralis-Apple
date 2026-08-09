@@ -9,13 +9,14 @@ public struct DeepLinkWalletLauncher: Sendable {
 
     public func launch(
         provider: ThirdPartyWalletProvider,
-        pairingURI: WalletConnectURI
+        pairingURI: WalletConnectURI,
+        redirect: WalletConnectionRedirect? = nil
     ) async throws {
         guard let scheme = provider.deepLinkScheme else {
             throw WalletConnectionError.walletNotInstalled(provider.id)
         }
         let link = WalletProviderDeepLink(providerID: provider.id, scheme: scheme)
-        guard let url = link.url(pairingURI: pairingURI) else {
+        guard let url = link.url(pairingURI: pairingURI, redirect: redirect) else {
             throw WalletConnectionError.invalidPairingURI
         }
         guard await opener.canOpenURL(url) else {

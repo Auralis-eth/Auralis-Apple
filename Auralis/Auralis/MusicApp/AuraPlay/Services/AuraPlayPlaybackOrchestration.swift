@@ -292,18 +292,6 @@ final class PlaybackOrchestrator {
         await play(item: nextEntry.item, flushExistingPosition: false)
     }
 
-    func handleCurrentItemCompleted() async {
-        guard let item = queue.currentItem else { return }
-        stopPositionCadence()
-        try? await positionPersistence?.markCompleted(mediaID: item.id)
-
-        guard let nextEntry = nextEntryForAdvance() else {
-            await stop(flushPosition: false)
-            return
-        }
-        await play(item: nextEntry.item, flushExistingPosition: false)
-    }
-
     func skipToPrevious(restartThreshold: TimeInterval = 3) async {
         let tick = await arbiter.currentTick()
         if tick.currentSeconds > restartThreshold {
@@ -346,12 +334,6 @@ final class PlaybackOrchestrator {
             uniquingKeysWith: { current, _ in current }
         )
         rebuildShuffleOrderIfNeeded(now: now)
-    }
-
-    func failCurrentItem(_ error: Error) async {
-        guard let item = queue.currentItem else { return }
-        stopPositionCadence()
-        mutateState(.failed(item, Self.userFacingMessage(for: error)))
     }
 
     func restorePaused(item: AuraPlayableMediaItem, position: AuraPlayPlaybackPositionStateSnapshot) {
@@ -541,33 +523,6 @@ final class RemoteCommandCoordinator {
 
     private func currentPosition() async -> TimeInterval {
         await orchestrator.currentPosition()
-    }
-}
-
-@MainActor
-final class ErrorRecoveryCoordinator {
-    private var consecutiveFailures = 0
-
-    func handleFailure(on orchestrator: PlaybackOrchestrator) async {
-        consecutiveFailures += 1
-        if consecutiveFailures >= 3 {
-            orchestrator.failureNotice = PlaybackFailureNotice(
-                message: "Several items could not play. Playback stopped.",
-                isPersistent: true
-            )
-            await orchestrator.stop()
-            return
-        }
-
-        orchestrator.failureNotice = PlaybackFailureNotice(
-            message: "Could not play that item. Skipping ahead.",
-            isPersistent: false
-        )
-        await orchestrator.skipToNext()
-    }
-
-    func recordSuccessfulPlayback() {
-        consecutiveFailures = 0
     }
 }
 

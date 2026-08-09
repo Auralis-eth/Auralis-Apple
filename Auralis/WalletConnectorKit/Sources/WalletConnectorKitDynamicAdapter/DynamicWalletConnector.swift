@@ -56,6 +56,10 @@ public actor DynamicWalletConnector: WalletConnector {
 
     public nonisolated var events: AsyncStream<WalletConnectorEvent> { client.events }
 
+    public nonisolated var capabilities: WalletConnectorCapabilities {
+        [.embeddedWallet, .evm, .messageSigning, .transactionSigning]
+    }
+
     /// Production readiness is gated on the dependencies EVM ownership
     /// verification actually needs. Dynamic is an EVM embedded wallet, so a
     /// configured live client is necessary but not sufficient: without a
@@ -132,13 +136,14 @@ public actor DynamicWalletConnector: WalletConnector {
             ),
             in: sessionId
         )
-        guard let signature = WalletEthereumSignature(hexSignature: response.result) else {
-            throw WalletConnectionError.invalidResponse
-        }
-        return try WalletOwnershipVerifier.verifyPersonalSign(
+        // Accepts an EOA signature (secp256k1 recovery) or, when the injected
+        // provider supports it, an EIP-1271 smart-contract-wallet signature —
+        // Dynamic embedded wallets may be provisioned as smart accounts.
+        return try await WalletOwnershipVerifier.verifyPersonalSign(
             expectedAddress: address,
             message: Data(message.utf8),
-            signature: signature,
+            signatureHex: response.result,
+            chain: chain,
             using: cryptoProvider
         )
     }

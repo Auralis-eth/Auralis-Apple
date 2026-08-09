@@ -57,6 +57,13 @@ public final class LivePrivySDKClient: PrivySDKClient, @unchecked Sendable {
         guard let embedded = await currentEthereumWallet() else {
             throw WalletConnectionError.sessionExpired
         }
+        // Honor `sessionId`: it must name this embedded wallet's derived session.
+        // Previously `sessionId` was ignored and every request was served by
+        // `embeddedEthereumWallets.first`, so a request routed at a different wallet
+        // silently signed with the first one. A mismatch now fails closed.
+        guard sessionId.rawValue == Self.topic(forAddress: embedded.address) else {
+            throw WalletConnectionError.sessionExpired
+        }
         // Re-run the grant guard against the live wallet's session, matching the
         // safety the Coinbase/Reown live clients apply before submitting.
         try WalletSessionGrantValidator.validate(request, in: Self.session(address: embedded.address, chain: chain))
@@ -70,7 +77,14 @@ public final class LivePrivySDKClient: PrivySDKClient, @unchecked Sendable {
         return [Self.session(address: embedded.address, chain: chain)]
     }
 
+    /// Single-session contract: Privy surfaces one embedded wallet here and
+    /// `logout` tears down the whole authenticated user (every embedded wallet), so
+    /// only honor a disconnect that targets the live wallet's derived session id.
+    /// Any other id is a no-op rather than logging the user out from an unrelated
+    /// session.
     public func disconnect(sessionId: WalletSessionID) async throws {
+        guard let embedded = await currentEthereumWallet(),
+              sessionId.rawValue == Self.topic(forAddress: embedded.address) else { return }
         await privy.getUser()?.logout()
     }
 
@@ -78,13 +92,28 @@ public final class LivePrivySDKClient: PrivySDKClient, @unchecked Sendable {
         await privy.getUser()?.embeddedEthereumWallets.first
     }
 
+    /// The stable session id/topic for an embedded wallet — derived from its
+    /// address so `request`/`disconnect` can honor the `sessionId` they are handed
+    /// instead of silently operating on `embeddedEthereumWallets.first`.
+    private static func topic(forAddress address: String) -> String {
+        "privy-\(address.lowercased())"
+    }
+
     private static func session(address: String, chain: WalletChain) -> WalletConnectorSession {
-        let caip10 = "\(chain.namespace):\(chain.chainReference):\(address)"
-        let topic = "privy-\(address.lowercased())"
+        // An embedded wallet is a single EOA valid on every EVM chain, so advertise
+        // the account across all supported EVM chains rather than pinning the grant
+        // to one. Pinning to a single chain made `WalletSessionGrantValidator` reject
+        // any request on a different EVM chain even though the key controls it. The
+        // configured `chain` is listed first so callers reading `accounts.first`
+        // still see the primary network.
+        let evmChains = WalletChain.evmChains
+        let orderedChains = evmChains.contains(chain) ? [chain] + evmChains.filter { $0 != chain } : evmChains
+        let accounts = orderedChains.map { WalletAccount(caip10: "\($0.namespace):\($0.chainReference):\(address)") }
+        let topic = topic(forAddress: address)
         let namespace = WalletSessionNamespace(
             name: "eip155",
-            accounts: [WalletAccount(caip10: caip10)],
-            methods: WalletConnectionNamespaces.evmMethods,
+            accounts: accounts,
+            methods: Self.supportedEVMMethods,
             events: WalletConnectionNamespaces.evmEvents
         )
         return WalletConnectorSession(
@@ -92,11 +121,17 @@ public final class LivePrivySDKClient: PrivySDKClient, @unchecked Sendable {
             topic: WalletPairingTopic(rawValue: topic),
             providerID: WalletConnectorCatalog.privy.id.rawValue,
             providerName: WalletConnectorCatalog.privy.displayName,
-            accounts: [WalletAccount(caip10: caip10)],
+            accounts: accounts,
             namespaces: [namespace],
             expiryDate: Date().addingTimeInterval(defaultSessionValidity)
         )
     }
+
+    private static let supportedEVMMethods: [String] = [
+        WalletRequestMethod.ethPersonalSign.rawValue,
+        WalletRequestMethod.ethSignTypedData.rawValue,
+        WalletRequestMethod.ethSignTypedDataV4.rawValue,
+    ]
 
     /// Maps a `WalletRequest` onto Privy's `EthereumRpcRequest`. `personal_sign`
     /// uses the typed convenience (message ‖ address, EIP-191); typed-data uses the

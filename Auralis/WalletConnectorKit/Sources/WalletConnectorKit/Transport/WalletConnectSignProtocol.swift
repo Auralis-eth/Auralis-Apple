@@ -11,18 +11,26 @@ enum WalletConnectSignTag {
     static let sessionProposeResponseReject = 1120
     static let sessionSettle = 1102
     static let sessionSettleResponse = 1103
+    static let sessionUpdate = 1104
+    static let sessionUpdateResponse = 1105
+    static let sessionExtend = 1106
+    static let sessionExtendResponse = 1107
     static let sessionRequest = 1108
     static let sessionRequestResponse = 1109
     static let sessionEvent = 1110
+    static let sessionEventResponse = 1111
     static let sessionDelete = 1112
     static let sessionDeleteResponse = 1113
     static let sessionPing = 1114
+    static let sessionPingResponse = 1115
 }
 
 enum WalletConnectSignMethod {
     static let propose = "wc_sessionPropose"
     static let settle = "wc_sessionSettle"
     static let request = "wc_sessionRequest"
+    static let update = "wc_sessionUpdate"
+    static let extend = "wc_sessionExtend"
     static let event = "wc_sessionEvent"
     static let delete = "wc_sessionDelete"
     static let ping = "wc_sessionPing"
@@ -111,6 +119,28 @@ struct WCReason: Codable, Equatable {
     static let userDisconnected = WCReason(code: 6000, message: "User disconnected.")
 }
 
+/// `wc_sessionUpdate` params: the wallet's revised namespace/account grant.
+struct WCUpdateParams: Codable, Equatable {
+    let namespaces: [String: WCSessionNamespace]
+}
+
+/// `wc_sessionExtend` params: the new absolute session expiry (Unix seconds).
+struct WCExtendParams: Codable, Equatable {
+    let expiry: Int64
+}
+
+/// `wc_sessionEvent` params: a wallet-emitted event (e.g. `accountsChanged`,
+/// `chainChanged`) scoped to a chain.
+struct WCEventParams: Codable, Equatable {
+    struct Event: Codable, Equatable {
+        let name: String
+        let data: WalletJSONValue
+    }
+
+    let event: Event
+    let chainId: String
+}
+
 struct WCRequestParams: Codable, Equatable {
     struct Request: Codable, Equatable {
         let method: String
@@ -144,8 +174,13 @@ extension WalletConnectSignTag {
             return 300
         case sessionRequest, sessionRequestResponse:
             return 300
+        case sessionUpdate, sessionUpdateResponse, sessionExtend, sessionExtendResponse:
+            return 86_400
         case sessionDelete, sessionDeleteResponse:
             return 86_400
+        case sessionPing, sessionPingResponse:
+            // Matches the reference implementation's short-lived ping TTL.
+            return 30
         default:
             return 300
         }
@@ -153,9 +188,10 @@ extension WalletConnectSignTag {
 }
 
 extension WalletJSONValue {
-    /// Re-decodes a JSON value into a typed `Decodable` by round-tripping JSON.
+    /// Re-decodes a JSON value into a typed `Decodable` by round-tripping through
+    /// `WalletJSONValue`'s own Codable conformance (handles nulls correctly).
     func decoded<T: Decodable>(as type: T.Type) throws -> T {
-        let data = try JSONSerialization.data(withJSONObject: jsonObject ?? NSNull())
+        let data = try JSONEncoder().encode(self)
         return try JSONDecoder().decode(T.self, from: data)
     }
 }

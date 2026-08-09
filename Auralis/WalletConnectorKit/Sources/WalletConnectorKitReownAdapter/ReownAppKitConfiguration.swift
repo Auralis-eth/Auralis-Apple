@@ -60,7 +60,7 @@ public enum ReownAppKitConfiguration {
         let metadata: ReownAppMetadata
     }
 
-    typealias ConfigureDriver = (String, AppMetadata, any CryptoProvider, @escaping (Error) -> Void) -> Void
+    typealias ConfigureDriver = @MainActor (String, AppMetadata, any CryptoProvider, @escaping (Error) -> Void) -> Void
 
     private static var configuredKey: ConfigurationKey?
     static var configureDriver: ConfigureDriver = defaultConfigureDriver

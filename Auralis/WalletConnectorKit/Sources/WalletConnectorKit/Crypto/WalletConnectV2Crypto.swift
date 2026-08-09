@@ -2,8 +2,10 @@ import CryptoKit
 import Foundation
 
 /// Low-level WalletConnect v2 cryptographic primitives, implemented with
-/// CryptoKit and kept bit-for-bit compatible with the reference implementation
-/// (reown-swift `WalletConnectKMS`).
+/// CryptoKit. The envelope layout and key derivation match the reference
+/// implementation (reown-swift `WalletConnectKMS`); note that higher-level
+/// phase/envelope-type rules are enforced by `WalletConnectIRNTransportClient`,
+/// not here.
 ///
 /// - Symmetric encryption is ChaCha20-Poly1305. The sealed box layout is
 ///   `nonce(12) ‖ ciphertext ‖ tag(16)` — identical to CryptoKit's

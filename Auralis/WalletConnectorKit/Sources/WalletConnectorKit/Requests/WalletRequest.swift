@@ -1,96 +1,5 @@
 import Foundation
 
-public enum WalletJSONValue: Hashable, Codable, Sendable {
-    case string(String)
-    case bool(Bool)
-    case int(Int)
-    case double(Double)
-    case array([WalletJSONValue])
-    case object([String: WalletJSONValue])
-    case null
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if container.decodeNil() {
-            self = .null
-        } else if let value = try? container.decode(Bool.self) {
-            self = .bool(value)
-        } else if let value = try? container.decode(Int.self) {
-            self = .int(value)
-        } else if let value = try? container.decode(Double.self) {
-            self = .double(value)
-        } else if let value = try? container.decode(String.self) {
-            self = .string(value)
-        } else if let value = try? container.decode([WalletJSONValue].self) {
-            self = .array(value)
-        } else if let value = try? container.decode([String: WalletJSONValue].self) {
-            self = .object(value)
-        } else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unsupported wallet JSON value.")
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-        case .string(let value):
-            try container.encode(value)
-        case .bool(let value):
-            try container.encode(value)
-        case .int(let value):
-            try container.encode(value)
-        case .double(let value):
-            try container.encode(value)
-        case .array(let value):
-            try container.encode(value)
-        case .object(let value):
-            try container.encode(value)
-        case .null:
-            try container.encodeNil()
-        }
-    }
-
-    public var stringValue: String? {
-        if case .string(let value) = self { return value }
-        return nil
-    }
-
-    public var objectValue: [String: WalletJSONValue]? {
-        if case .object(let value) = self { return value }
-        return nil
-    }
-
-    public var arrayValue: [WalletJSONValue]? {
-        if case .array(let value) = self { return value }
-        return nil
-    }
-
-    public var jsonObject: Any? {
-        switch self {
-        case .string(let value):
-            return value
-        case .bool(let value):
-            return value
-        case .int(let value):
-            return value
-        case .double(let value):
-            return value
-        case .array(let values):
-            return values.map(\.jsonObject)
-        case .object(let values):
-            return values.mapValues { $0.jsonObject }
-        case .null:
-            return nil
-        }
-    }
-}
-
-public extension WalletJSONValue {
-    static func strings(_ values: [String]) -> [WalletJSONValue] {
-        values.map(WalletJSONValue.string)
-    }
-}
-
 public struct WalletRequest: Identifiable, Hashable, Codable, Sendable {
     public let id: WalletSignRequestID
     public let chain: WalletBlockchain
@@ -166,7 +75,13 @@ public struct WalletSolanaTransactionSetPayload: Hashable, Codable, Sendable {
 }
 
 public enum WalletRequestValidation {
+    private static let minimumRequestExpiryInterval: TimeInterval = 300
+    private static let maximumRequestExpiryInterval: TimeInterval = 604_800
+    private static let expiryClockTolerance: TimeInterval = 1
+
     public static func validate(_ request: WalletRequest) throws {
+        try validateExpiry(request)
+
         switch request.method {
         case .ethPersonalSign, .ethSignTypedData, .ethSignTypedDataV4, .ethSendTransaction, .walletSwitchEthereumChain, .walletAddEthereumChain, .walletWatchAsset:
             guard request.chain.namespace == "eip155" else {
@@ -206,6 +121,14 @@ public enum WalletRequestValidation {
         }
     }
 
+    private static func validateExpiry(_ request: WalletRequest) throws {
+        let interval = request.expiryDate.timeIntervalSinceNow
+        guard interval >= minimumRequestExpiryInterval - expiryClockTolerance,
+              interval <= maximumRequestExpiryInterval else {
+            throw WalletConnectionError.requestTimedOut(request.id)
+        }
+    }
+
     private static func validateTransactionParam(_ value: WalletJSONValue) throws {
         guard let transaction = WalletTransactionRequest(jsonValue: value) else {
             throw WalletConnectionError.invalidResponse
@@ -213,7 +136,13 @@ public enum WalletRequestValidation {
         guard isValidEVMQuantity(transaction.chainId) else {
             throw WalletConnectionError.invalidChain(transaction.chainId)
         }
-        guard isValidEVMQuantity(transaction.value) else {
+        guard isValidEVMAddress(transaction.from) else {
+            throw WalletConnectionError.invalidAccount(transaction.from)
+        }
+        if let to = transaction.to, !isValidEVMAddress(to) {
+            throw WalletConnectionError.invalidAccount(to)
+        }
+        guard isValidEVMQuantity(transaction.value), isValidHexData(transaction.data) else {
             throw WalletConnectionError.invalidResponse
         }
         for quantity in [transaction.gas, transaction.gasPrice, transaction.maxFeePerGas, transaction.maxPriorityFeePerGas, transaction.gasLimit] {
@@ -235,13 +164,18 @@ public enum WalletRequestValidation {
         guard let object = value.objectValue,
               object["type"]?.stringValue?.isEmpty == false,
               let options = object["options"]?.objectValue,
-              options["address"]?.stringValue?.isEmpty == false else {
+              let address = options["address"]?.stringValue,
+              !address.isEmpty else {
             throw WalletConnectionError.invalidResponse
+        }
+        guard isValidEVMAddress(address) else {
+            throw WalletConnectionError.invalidAccount(address)
         }
     }
 
     private static func validateSolanaTransactionSetParam(_ value: WalletJSONValue) throws {
         guard let payload = WalletSolanaTransactionSetPayload(jsonValue: value),
+              payload.encoding == .base64,
               !payload.transactions.isEmpty,
               payload.transactions.allSatisfy({ !$0.isEmpty }) else {
             throw WalletConnectionError.invalidResponse
@@ -255,12 +189,26 @@ public enum WalletRequestValidation {
         return digits.count == 1 || digits.first != "0"
     }
 
+    /// A 20-byte EVM address: `0x` followed by exactly 40 hex characters.
+    private static func isValidEVMAddress(_ value: String) -> Bool {
+        guard value.hasPrefix("0x") else { return false }
+        let digits = value.dropFirst(2)
+        return digits.count == 40 && digits.allSatisfy(\.isHexDigit)
+    }
+
+    /// `0x`-prefixed even-length hex (calldata). `0x` alone is valid (empty data).
+    private static func isValidHexData(_ value: String) -> Bool {
+        guard value.hasPrefix("0x") else { return false }
+        let digits = value.dropFirst(2)
+        return digits.count.isMultiple(of: 2) && digits.allSatisfy(\.isHexDigit)
+    }
+
     private static func isValidSolanaSerializedTransactionParam(_ value: WalletJSONValue) -> Bool {
         guard let object = value.objectValue,
               let transaction = object["transaction"]?.stringValue,
               !transaction.isEmpty,
               let encodingValue = object["encoding"]?.stringValue,
-              WalletSolanaTransactionEncoding(rawValue: encodingValue) != nil else {
+              WalletSolanaTransactionEncoding(rawValue: encodingValue) == .base64 else {
             return false
         }
         return true
@@ -281,6 +229,13 @@ public extension WalletRequestMethod {
 }
 
 public enum WalletRequestBuilder {
+    /// Builds an EIP-191 `personal_sign` request.
+    ///
+    /// - Important: `message` is placed on the wire **verbatim**. Per EIP-191 the
+    ///   `personal_sign` data parameter is expected to be a `0x`-prefixed hex
+    ///   string; pass already-hex data here. To sign human-readable text and let
+    ///   the wallet display it, use ``personalSignText(id:address:text:chain:expiryDate:)``,
+    ///   which hex-encodes the UTF-8 bytes for you.
     public static func personalSign(
         id: WalletSignRequestID,
         address: String,
@@ -295,6 +250,19 @@ public enum WalletRequestBuilder {
             params: [.string(message), .string(address)],
             expiryDate: expiryDate
         )
+    }
+
+    /// Builds an EIP-191 `personal_sign` request for human-readable `text`,
+    /// hex-encoding its UTF-8 bytes to the canonical `0x…` form wallets expect.
+    public static func personalSignText(
+        id: WalletSignRequestID,
+        address: String,
+        text: String,
+        chain: WalletChain = .ethereum,
+        expiryDate: Date = Date().addingTimeInterval(300)
+    ) -> WalletRequest {
+        let hexMessage = "0x" + Data(text.utf8).map { String(format: "%02x", $0) }.joined()
+        return personalSign(id: id, address: address, message: hexMessage, chain: chain, expiryDate: expiryDate)
     }
 
     public static func solanaSignMessage(
@@ -474,11 +442,15 @@ private extension WalletTransactionRequest {
     init?(jsonValue: WalletJSONValue) {
         guard let object = jsonValue.objectValue,
               let from = object["from"]?.stringValue,
-              let value = object["value"]?.stringValue,
-              let data = object["data"]?.stringValue,
               let chainId = object["chainId"]?.stringValue else {
             return nil
         }
+        // Per EIP-1193, `eth_sendTransaction` only requires `from`; `value` and
+        // `data` are optional (a plain transfer omits `data`, a contract call
+        // may omit `value`). Default them so sparse transactions round-trip
+        // instead of being rejected as invalid.
+        let value = object["value"]?.stringValue ?? "0x0"
+        let data = object["data"]?.stringValue ?? "0x"
         self.init(
             from: from,
             to: object["to"]?.stringValue,

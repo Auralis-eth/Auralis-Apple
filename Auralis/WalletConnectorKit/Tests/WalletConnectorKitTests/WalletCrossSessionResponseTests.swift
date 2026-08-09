@@ -23,7 +23,11 @@ struct WalletCrossSessionResponseTests {
             taskFactory: SingleTaskFactory(task: wallet),
             authProvider: nil
         )
-        let transport = WalletConnectIRNTransportClient(relayClient: relay)
+        let transport = WalletConnectIRNTransportClient(relayClient: relay, stateStore: InMemoryWalletConnectSessionStateStore())
+
+        let collector = ReSettleApprovalCollector()
+        let events = transport.events()
+        Task { for await event in events { await collector.add(event) } }
 
         // Settle a session.
         let pairing = try await transport.createPairing(
@@ -41,8 +45,9 @@ struct WalletCrossSessionResponseTests {
         let symKey = try #require(WalletConnectV2Crypto.data(hexEncoded: uri.symKey))
         await wallet.setPairing(topic: uri.topic, symKey: symKey)
 
-        // Wait for the session topic to be derived + subscribed.
-        let sessionTopic = try await wallet.awaitSessionTopic()
+        // Only issue the request once the session has actually settled (symmetric
+        // key installed), then send it on the settled session's topic.
+        let session = await collector.waitForApproval()
         let request = WalletRequest(
             id: WalletSignRequestID(rawValue: "req-1"),
             chain: WalletBlockchain(namespace: "eip155", reference: "1"),
@@ -50,12 +55,74 @@ struct WalletCrossSessionResponseTests {
             params: [.string("0xdeadbeef"), .string(Self.walletAddress)]
         )
 
-        let response = try await transport.request(request, topic: WalletPairingTopic(rawValue: sessionTopic))
+        let response = try await transport.request(request, topic: session.topic)
 
         // The forged response (pushed first, on the pairing topic) must have been
         // dropped; only the legit response on the session topic resolves.
         #expect(response.result == Self.legitResult)
     }
+
+    @Test("A second settle for an already-live session does not swap its accounts")
+    func reSettleDoesNotOverwriteAccounts() async throws {
+        let otherAccount = "eip155:1:0xBad0000000000000000000000000000000000002"
+        let wallet = InjectingWalletRelay(account: Self.account, reSettleAccount: otherAccount)
+        let relay = WalletConnectIRNRelayClient(
+            configuration: WalletConnectRelayConfiguration(projectID: "test-project"),
+            taskFactory: SingleTaskFactory(task: wallet),
+            authProvider: nil
+        )
+        let transport = WalletConnectIRNTransportClient(relayClient: relay, stateStore: InMemoryWalletConnectSessionStateStore())
+
+        let collector = ReSettleApprovalCollector()
+        let events = transport.events()
+        Task { for await event in events { await collector.add(event) } }
+
+        let pairing = try await transport.createPairing(
+            request: WalletPairingRequest(
+                providerID: "mock",
+                supportedChains: [.ethereum],
+                metadata: WalletConnectionMetadata(
+                    appName: "AuraPlay",
+                    appDescription: "test",
+                    appURL: URL(string: "https://auraplay.app")!
+                )
+            )
+        )
+        let uri = try #require(pairing.uri.flatMap(WalletConnectURI.init(absoluteString:)))
+        let symKey = try #require(WalletConnectV2Crypto.data(hexEncoded: uri.symKey))
+        await wallet.setPairing(topic: uri.topic, symKey: symKey)
+
+        _ = await collector.waitForApproval()
+        // Give the second settle time to be received and (correctly) ignored.
+        try await Task.sleep(for: .milliseconds(250))
+
+        #expect(await collector.approvalCount() == 1)
+        let sessions = try await transport.sessions()
+        #expect(sessions.count == 1)
+        let addresses = sessions.first?.accounts.map(\.caip10) ?? []
+        #expect(addresses == [Self.account])
+        #expect(!addresses.contains(otherAccount))
+    }
+}
+
+private actor ReSettleApprovalCollector {
+    private var approvals: [WalletSession] = []
+    private var waiter: CheckedContinuation<WalletSession, Never>?
+
+    func add(_ event: WalletTransportEvent) {
+        if case .sessionApproved(let session) = event {
+            approvals.append(session)
+            waiter?.resume(returning: session)
+            waiter = nil
+        }
+    }
+
+    func waitForApproval() async -> WalletSession {
+        if let first = approvals.first { return first }
+        return await withCheckedContinuation { waiter = $0 }
+    }
+
+    func approvalCount() -> Int { approvals.count }
 }
 
 private struct SingleTaskFactory: WalletConnectRelayTaskFactory {
@@ -68,6 +135,7 @@ private struct SingleTaskFactory: WalletConnectRelayTaskFactory {
 /// still decrypt) and then the genuine response on the session topic.
 private actor InjectingWalletRelay: WalletConnectRelayTask {
     private let account: String
+    private let reSettleAccount: String?
     private let walletKey = WalletConnectV2Crypto.generateKeyPair()
 
     private var outbox: [String] = []
@@ -79,10 +147,11 @@ private actor InjectingWalletRelay: WalletConnectRelayTask {
     private var sessionSymKey: Data?
     private var sessionTopic: String?
     private var pendingSettle: (topic: String, message: String)?
-    private var sessionTopicWaiter: CheckedContinuation<String, Never>?
+    private var pendingReSettle: (topic: String, message: String)?
 
-    init(account: String) {
+    init(account: String, reSettleAccount: String? = nil) {
         self.account = account
+        self.reSettleAccount = reSettleAccount
     }
 
     func setPairing(topic: String, symKey: Data) {
@@ -92,11 +161,6 @@ private actor InjectingWalletRelay: WalletConnectRelayTask {
             bufferedPropose = nil
             processPropose(message)
         }
-    }
-
-    func awaitSessionTopic() async -> String {
-        if let sessionTopic { return sessionTopic }
-        return await withCheckedContinuation { sessionTopicWaiter = $0 }
     }
 
     // MARK: WalletConnectRelayTask
@@ -110,14 +174,20 @@ private actor InjectingWalletRelay: WalletConnectRelayTask {
 
         switch method {
         case "irn_subscribe":
-            enqueueAck(id: id)
+            enqueueAck(id: id, result: "subscription-\(params["topic"] as? String ?? "unknown")")
             if let topic = params["topic"] as? String, topic == sessionTopic, let settle = pendingSettle {
                 pendingSettle = nil
                 enqueue(settle.message)
+                if let reSettle = pendingReSettle {
+                    pendingReSettle = nil
+                    enqueue(reSettle.message)
+                }
             }
         case "irn_publish":
             enqueueAck(id: id)
             handlePublished(params: params)
+        case "irn_fetchMessages":
+            enqueueAck(id: id, result: ["messages": [], "hasMore": false])
         default:
             enqueueAck(id: id)
         }
@@ -164,8 +234,6 @@ private actor InjectingWalletRelay: WalletConnectRelayTask {
         self.sessionSymKey = sessionSymKey
         let sessionTopic = WalletConnectV2Crypto.topic(forSymmetricKey: sessionSymKey)
         self.sessionTopic = sessionTopic
-        sessionTopicWaiter?.resume(returning: sessionTopic)
-        sessionTopicWaiter = nil
 
         let response: [String: Any] = [
             "id": proposeID,
@@ -176,8 +244,18 @@ private actor InjectingWalletRelay: WalletConnectRelayTask {
             enqueue(push)
         }
 
+        if let push = settlePush(account: account, id: Int(Date().timeIntervalSince1970 * 1000), topic: sessionTopic, symKey: sessionSymKey) {
+            pendingSettle = (sessionTopic, push)
+        }
+        if let reSettleAccount,
+           let push = settlePush(account: reSettleAccount, id: Int(Date().timeIntervalSince1970 * 1000) + 1, topic: sessionTopic, symKey: sessionSymKey) {
+            pendingReSettle = (sessionTopic, push)
+        }
+    }
+
+    private func settlePush(account: String, id: Int, topic: String, symKey: Data) -> String? {
         let settle: [String: Any] = [
-            "id": Int(Date().timeIntervalSince1970 * 1000),
+            "id": id,
             "jsonrpc": "2.0",
             "method": "wc_sessionSettle",
             "params": [
@@ -187,9 +265,7 @@ private actor InjectingWalletRelay: WalletConnectRelayTask {
                 "expiry": Int(Date().addingTimeInterval(3600).timeIntervalSince1970),
             ],
         ]
-        if let push = encryptedPush(json: settle, topic: sessionTopic, tag: WalletConnectSignTag.sessionSettle, symKey: sessionSymKey) {
-            pendingSettle = (sessionTopic, push)
-        }
+        return encryptedPush(json: settle, topic: topic, tag: WalletConnectSignTag.sessionSettle, symKey: symKey)
     }
 
     private func handleSessionRequest(_ message: String) {
@@ -227,8 +303,8 @@ private actor InjectingWalletRelay: WalletConnectRelayTask {
         return String(data: data, encoding: .utf8)
     }
 
-    private func enqueueAck(id: Int) {
-        let ack: [String: Any] = ["id": id, "jsonrpc": "2.0", "result": true]
+    private func enqueueAck(id: Int, result: Any = true) {
+        let ack: [String: Any] = ["id": id, "jsonrpc": "2.0", "result": result]
         if let data = try? JSONSerialization.data(withJSONObject: ack), let string = String(data: data, encoding: .utf8) {
             enqueue(string)
         }

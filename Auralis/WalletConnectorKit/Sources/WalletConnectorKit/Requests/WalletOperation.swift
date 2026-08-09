@@ -18,6 +18,9 @@ public enum WalletOperation: Hashable, Codable, Sendable {
 }
 
 public enum EVMWalletOperation: Hashable, Codable, Sendable {
+    /// Human-readable EIP-191 `personal_sign` text. The semantic operation hex-encodes
+    /// UTF-8 before building the request; use `WalletRequestBuilder.personalSign`
+    /// directly when the payload is already `0x`-prefixed hex.
     case personalSign(address: String, message: String, chain: WalletChain = .ethereum)
     case signTypedDataV4(address: String, typedDataJSON: String, chain: WalletChain = .ethereum)
     case sendTransaction(WalletTransactionRequest, chain: WalletChain = .ethereum)
@@ -28,7 +31,7 @@ public enum EVMWalletOperation: Hashable, Codable, Sendable {
     public func walletRequest(id: WalletSignRequestID, expiryDate: Date = Date().addingTimeInterval(300)) -> WalletRequest {
         switch self {
         case .personalSign(let address, let message, let chain):
-            return WalletRequestBuilder.personalSign(id: id, address: address, message: message, chain: chain, expiryDate: expiryDate)
+            return WalletRequestBuilder.personalSignText(id: id, address: address, text: message, chain: chain, expiryDate: expiryDate)
         case .signTypedDataV4(let address, let typedDataJSON, let chain):
             return WalletRequestBuilder.signTypedDataV4(id: id, address: address, typedDataJSON: typedDataJSON, chain: chain, expiryDate: expiryDate)
         case .sendTransaction(let transaction, let chain):

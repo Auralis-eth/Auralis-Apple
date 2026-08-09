@@ -28,10 +28,14 @@ import web3
 /// value.
 ///
 /// - The validated `_hash` is the **EIP-191 personal-sign digest** of the challenge
-///   message (what a standard `personal_sign` smart wallet validates against). Wallets
-///   that wrap the hash in their own domain separator, or that are counterfactual /
-///   not-yet-deployed (ERC-6492), are **not** covered by this straight
-///   `isValidSignature` call and will fail closed — acceptable for an ownership gate.
+///   message (what a standard `personal_sign` smart wallet validates against; wallets
+///   like Coinbase Smart Wallet apply their own replay-safe wrapping *inside*
+///   `isValidSignature`, so the plain digest is the correct input).
+/// - **ERC-6492-wrapped** signatures (the `0x6492…6492` suffix) from *deployed*
+///   accounts are unwrapped to their inner ERC-1271 signature and validated.
+///   *Counterfactual* (not-yet-deployed) accounts have no on-chain code to call and
+///   therefore fail closed — connecting requires the smart wallet to already be
+///   deployed, which is the normal case for a wallet a user connects.
 /// - The default RPC endpoints are public nodes (rate-limited, best-effort). Inject a
 ///   keyed endpoint map (Infura/Alchemy/etc.) for production reliability.
 struct Web3SwiftWalletConnectorCryptoProvider: WalletConnectorCryptoProvider {
@@ -110,6 +114,14 @@ struct Web3SwiftWalletConnectorCryptoProvider: WalletConnectorCryptoProvider {
     /// or non-magic return is treated as "not owned" (fail-closed, no throw). A
     /// missing endpoint or transport failure throws so the caller fails loud rather
     /// than silently reporting a smart wallet as unowned.
+    ///
+    /// **ERC-6492:** wallets (incl. Coinbase Smart Wallet) may return a signature
+    /// wrapped with the `0x6492…6492` magic suffix — `abi.encode(factory, factoryData,
+    /// innerSignature)`. For an already-deployed account the wrapper is unnecessary, so
+    /// the inner signature is unwrapped and validated via `isValidSignature`. A
+    /// *counterfactual* (not-yet-deployed) account cannot be validated by a plain
+    /// `isValidSignature` call (there is no code at the address yet) and therefore
+    /// fails closed — connecting requires the smart wallet to already be deployed.
     func isValidERC1271Signature(address: String, message: Data, signature: Data, chain: WalletChain) async throws -> Bool {
         guard let endpoint = rpcEndpoints[chain] else {
             throw WalletConnectionError.unavailable(
@@ -117,15 +129,23 @@ struct Web3SwiftWalletConnectorCryptoProvider: WalletConnectorCryptoProvider {
             )
         }
 
+        // Unwrap an ERC-6492 envelope down to the inner ERC-1271 signature so a
+        // deployed wallet that still wraps its output validates. A malformed wrapper
+        // is rejected (fail-closed); an unwrapped signature is used as-is.
+        guard let innerSignature = Self.unwrapERC6492Signature(signature) else {
+            return false
+        }
+
         // The EIP-1271 magic value is identically the 4-byte selector of
         // `isValidSignature(bytes32,bytes)`: `bytes4(keccak256(...)) == 0x1626ba7e`.
         let magicValue = Data([0x16, 0x26, 0xba, 0x7e])
         let digest = WalletOwnershipVerifier.personalSignDigest(message: message)
-        let calldata = Self.encodeIsValidSignatureCall(selector: magicValue, hash: digest, signature: signature)
+        let calldata = Self.encodeIsValidSignatureCall(selector: magicValue, hash: digest, signature: innerSignature)
 
         switch try await ethCall(to: address, data: calldata, endpoint: endpoint) {
         case .reverted:
-            // Contract rejected the signature (or is not a 1271 validator here).
+            // Contract rejected the signature, or there is no code at the address
+            // (EOA, or a counterfactual ERC-6492 account not yet deployed).
             return false
         case .result(let returned):
             // Return is a left-aligned bytes4 in a 32-byte word: `0x1626ba7e00…00`.
@@ -158,6 +178,46 @@ struct Web3SwiftWalletConnectorCryptoProvider: WalletConnectorCryptoProvider {
         case reverted
     }
 
+    /// The ERC-6492 magic suffix: the two-byte pattern `0x6492` repeated to 32 bytes.
+    private static let erc6492MagicSuffix = Data((0..<16).flatMap { _ in [UInt8(0x64), UInt8(0x92)] })
+
+    /// Returns the inner ERC-1271 signature to validate.
+    ///
+    /// - A plain (non-wrapped) signature is returned unchanged.
+    /// - An ERC-6492-wrapped signature (`abi.encode(address, bytes, bytes)` ‖
+    ///   `0x6492…6492`) is decoded to its third element, the inner signature.
+    /// - Returns `nil` if the envelope is present but malformed (fail-closed).
+    private static func unwrapERC6492Signature(_ signature: Data) -> Data? {
+        guard signature.count >= erc6492MagicSuffix.count,
+              signature.suffix(erc6492MagicSuffix.count) == erc6492MagicSuffix else {
+            return signature // Not ERC-6492-wrapped — use as-is.
+        }
+
+        // ABI body = the wrapped payload with the 32-byte magic suffix removed.
+        let body = [UInt8](signature.prefix(signature.count - erc6492MagicSuffix.count))
+        func word(at index: Int) -> [UInt8]? {
+            let start = index * 32
+            guard start + 32 <= body.count else { return nil }
+            return Array(body[start..<start + 32])
+        }
+        // word0 = address (ignored here); word2 = offset to the third param (bytes signature).
+        guard let offsetWord = word(at: 2) else { return nil }
+        let signatureFieldOffset = Int(bigEndianUInt64(low8: offsetWord))
+        guard signatureFieldOffset + 32 <= body.count else { return nil }
+        let lengthWord = Array(body[signatureFieldOffset..<signatureFieldOffset + 32])
+        let signatureLength = Int(bigEndianUInt64(low8: lengthWord))
+        let dataStart = signatureFieldOffset + 32
+        guard signatureLength >= 0, dataStart + signatureLength <= body.count else { return nil }
+        return Data(body[dataStart..<dataStart + signatureLength])
+    }
+
+    /// Reads the low 8 bytes of a 32-byte big-endian ABI word as a `UInt64`. ABI
+    /// offsets/lengths in a well-formed calldata never exceed `UInt64`, and a value
+    /// that overflowed the low 8 bytes would fail the subsequent bounds checks.
+    private static func bigEndianUInt64(low8 word: [UInt8]) -> UInt64 {
+        word.suffix(8).reduce(UInt64(0)) { ($0 << 8) | UInt64($1) }
+    }
+
     /// ABI-encodes `isValidSignature(bytes32 hash, bytes signature)`.
     private static func encodeIsValidSignatureCall(selector: Data, hash: Data, signature: Data) -> Data {
         var data = Data()
@@ -183,14 +243,13 @@ struct Web3SwiftWalletConnectorCryptoProvider: WalletConnectorCryptoProvider {
     }
 
     private func ethCall(to address: String, data: Data, endpoint: URL) async throws -> EthCallOutcome {
+        let callObject: [String: String] = ["to": address, "data": "0x" + Self.hexString(data)]
+        let params: [Any] = [callObject, "latest"]
         let body: [String: Any] = [
             "jsonrpc": "2.0",
             "id": 1,
             "method": "eth_call",
-            "params": [
-                ["to": address, "data": "0x" + Self.hexString(data)],
-                "latest",
-            ],
+            "params": params,
         ]
 
         var request = URLRequest(url: endpoint)

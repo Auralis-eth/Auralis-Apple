@@ -3099,3 +3099,17 @@ The next wallet pass moved from labels to lifecycle. A wallet connector that can
 `WalletConnectorKit` now has those rules without swallowing app infrastructure. Settled sessions can be reduced to deduplicated wallet addresses, session topics can be stored behind a Keychain-backed contract with device-only, non-synchronizing attributes, active wallet selection has a tiny store boundary, and `WalletConnectionLifecycleService` coordinates approve, restore, expire, and remove flows through injected persistence and cleanup adapters. The package still does not know about SwiftData, ENS, Spotlight, or UIKit. It just hands the host app the clipboard and says, "Here is what must be written down."
 
 The small gotcha was Solana. The old code used a long chain reference while the Phase 4 ticket text expected `solana:mainnet`. That kind of mismatch is one character away from "why does this wallet not show up?" The fix normalized the package to the ticket contract and pinned it in tests.
+
+## AuraPlay Privacy Reset: Sweep The Crumbs Under The Toaster
+
+The Phase 14 audit found a privacy reset bug with the personality of a loose floorboard. The reset looked like it was deleting the AuraPlay store, but SQLite keeps two sidecar files beside the main store: `-wal` and `-shm`. The code was looking for `.wal` and `.shm` instead. Close enough for a tired human eye, completely different filenames to a filesystem.
+
+The live SwiftData reset had the same shape of problem at the model layer. It cleared `AuraPlayMediaItem`, which is the big visible shelf, but left the smaller drawers alone: tokens, embeddings, playback positions, tombstones, playlists, and playlist items. A privacy reset cannot just clean the display case while leaving receipts in the register.
+
+The fix made both brooms honest. File reset now removes the real SQLite sidecars, and the live-container reset deletes every model in the AuraPlay schema in an order that respects playlist relationships. The test now seeds all AuraPlay persisted model types before pressing the reset button. Lesson: when a feature has its own pantry, reset tests should put something on every shelf before proving the pantry is empty.
+
+## The Wallet Audit Log Retires Into the QA Plan
+
+WalletConnectorKit had carried a long, append-only `AI-Audit-Log.md` — a multi-model ledger that hardened the SDK-free core over many passes. It had done its job, and its one truth that no desk-bound session could ever close kept repeating: the live vendor wallet clients (Reown, Coinbase, Privy, Dynamic) have never been run against a real wallet on a real device. That is a device-QA fact, so it belongs in the plan a human actually runs on hardware, not buried in a 1,200-line package ledger.
+
+So the log was retired into the docs people open on purpose. Inside the package, the QA checklist absorbed the standing live-wallet ship gate, the known-limitations table, and a verification-status summary. In the app, `P0-Physical-Device-QA-Suite.md` gained `P0-Device-020`, a live-wallet connection pass covering connect/reject/sign/disconnect/restore and ownership verification with the real crypto provider. The lesson mirrors the AuraPlay one: findings should end up either fixed with a guarding test or distilled into the contract docs a maintainer reads, never left to grow in a ledger nobody reopens.

@@ -56,8 +56,8 @@ public enum AuraPlayModelContainer {
         let primaryStoreURL = try storeURL(baseDirectory: baseDirectory)
         let candidateURLs = [
             primaryStoreURL,
-            primaryStoreURL.appendingPathExtension("shm"),
-            primaryStoreURL.appendingPathExtension("wal"),
+            URL(filePath: primaryStoreURL.path() + "-shm"),
+            URL(filePath: primaryStoreURL.path() + "-wal")
         ]
 
         for candidateURL in candidateURLs where fileManager.fileExists(atPath: candidateURL.path()) {

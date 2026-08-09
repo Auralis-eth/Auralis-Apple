@@ -411,6 +411,38 @@ Pass criteria:
 - QR scanner permission, scan success, scan failure, and dismissal remain coherent with assistive technologies enabled
 - any failure is filed against the matching `ACCS-00x` ticket or a new follow-up before ship/no-go
 
+## P0-Device-020: WalletConnect live-wallet connection
+
+Goal:
+
+- verify the live wallet routes that automated tests cannot reach
+
+This is the standing ship gate for every live wallet route. All of WalletConnectorKit's automated tests run against in-process mocks (mock relay sockets, mock SDK clients, stub crypto providers), so the four live vendor clients — Reown AppKit, Coinbase, Privy, and Dynamic — are iOS-compile-verified only and have never been exercised against a real wallet/account on a device. Do not enable Reown, Coinbase, Privy, or Dynamic as a production route until this test passes on hardware. See the Manual Live-Wallet Suite in `WalletConnectorKit/WalletConnectorKit-QA-Checklist.md` for the per-wallet smoke matrix.
+
+Setup:
+
+- one real device, one iOS version, one build; record wallet app versions used
+- at least one external WalletConnect wallet installed (e.g. MetaMask, Rainbow, Rabby), Coinbase Wallet, and — if testing embedded routes — a real Privy app ID / Dynamic environment ID
+
+Steps:
+
+1. Start a connection and confirm the QR / deep-link presentation appears with provider, URI, and expiry.
+2. Connect an external wallet through WalletConnect/Reown; approve on the wallet and confirm the deep-link return round-trips back into the app through the callback coordinator (no duplicate deliveries, no stuck "connecting" state).
+3. Repeat the connect via the direct Coinbase adapter, and (if in scope) via Privy/Dynamic embedded login → `connect`.
+4. For each connected wallet, run `personal_sign` and confirm ownership is proven — `addressVerified == true` recovers the connected address with the real injected secp256k1 provider, not a stub.
+5. Reject a connection request from the wallet and confirm the app fails safely.
+6. Disconnect from the app and confirm the wallet no longer shows a live session; disconnect from the wallet and confirm the app reflects it.
+7. Relaunch the app and confirm the session restores (or fails closed) without exposing a half-live session.
+8. Run the wallet-specific rows from the Manual Live-Wallet Suite (switch/add chain, typed-data sign, Solana sign message where applicable).
+
+Pass criteria:
+
+- connect, reject, sign, disconnect, and restore all behave correctly for every live route in scope
+- deep-link returns round-trip exactly once and never strand the shell in a connecting state
+- ownership verification recovers the real connected address; unverified sessions are gated per the ownership policy
+- no route reports `.productionReady` in the app without a live client, a recovery-capable crypto provider, and real metadata
+- any failure blocks enabling that live wallet route for production
+
 ## Severity rubric
 
 - `Blocker`: crash, stuck flow, corrupted scope, broken playback, unrecoverable navigation, privacy-reset failure

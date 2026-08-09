@@ -44,16 +44,31 @@ public struct WalletConnectURI: Hashable, Codable, Sendable {
         guard !topic.isEmpty, !version.isEmpty else { return nil }
 
         let items = Self.queryItems(from: query)
-        guard let symKey = items["symKey"], !symKey.isEmpty else { return nil }
+        // The symmetric key must be lowercase-or-uppercase hex of even length.
+        // WalletConnect v2 uses a 32-byte (64 hex character) key; we reject any
+        // non-hex/odd-length value here so malformed pairing URIs never reach the
+        // transport. Full 32-byte length enforcement is deferred to the live
+        // transport so this value type stays usable for shorter test fixtures.
+        guard let symKey = items["symKey"], Self.isValidSymKey(symKey) else { return nil }
         self.init(
             topic: topic,
             symKey: symKey,
             relayProtocol: items["relay-protocol"] ?? "irn",
             relayData: items["relay-data"],
             expiryTimestamp: items["expiryTimestamp"].flatMap(Int64.init) ?? 0,
-            methods: items["methods"].map { $0.split(separator: ",").map(String.init) },
+            methods: items["methods"].map(Self.parseMethods),
             version: version
         )
+    }
+
+    /// Parses an **externally-sourced** pairing URI (e.g. a scanned QR code or a
+    /// URI pasted by the user) and rejects anything that is not a canonical
+    /// WalletConnect v2 pairing — in particular a truncated/malformed symmetric
+    /// key. Use this (not `init?(absoluteString:)`) whenever the URI comes from
+    /// outside the app, so a bad key never reaches key derivation.
+    public init?(externalScannedString: String) {
+        self.init(absoluteString: externalScannedString)
+        guard isCanonicalV2 else { return nil }
     }
 
     public var absoluteString: String {
@@ -63,16 +78,51 @@ public struct WalletConnectURI: Hashable, Codable, Sendable {
             "expiryTimestamp=\(expiryTimestamp)",
         ]
         if let relayData {
-            parts.append("relay-data=\(relayData)")
+            // Percent-encode so a value containing reserved characters (`&`, `=`)
+            // cannot corrupt the query on re-parse; the parser percent-decodes.
+            parts.append("relay-data=\(relayData.walletConnectPercentEncoded)")
         }
         if let methods, !methods.isEmpty {
-            parts.append("methods=\(methods.joined(separator: ","))")
+            // ERC-1328 encodes methods as bracket-grouped arrays, e.g. `methods=[a,b]`.
+            parts.append("methods=[\(methods.joined(separator: ","))]")
         }
         return "wc:\(topic)@\(version)?\(parts.joined(separator: "&"))"
     }
 
     public var deeplinkURIValue: String {
         absoluteString.walletConnectPercentEncoded
+    }
+
+    /// `true` when this URI carries a full 32-byte (64 hex character) symmetric
+    /// key and a 32-byte (64 hex character) topic — a canonical WalletConnect v2
+    /// pairing.
+    ///
+    /// `init?(absoluteString:)` deliberately accepts shorter even-length hex
+    /// keys and an unconstrained topic so the value type round-trips and stays
+    /// usable for test fixtures, so length is *not* enforced at parse time. A live
+    /// transport that ingests an externally-scanned URI should gate on this before
+    /// attempting to pair, so a truncated/malformed key or topic never reaches key
+    /// derivation.
+    public var isCanonicalV2: Bool {
+        topic.count == 64
+            && topic.allSatisfy(\.isHexDigit)
+            && symKey.count == 64
+            && symKey.allSatisfy(\.isHexDigit)
+    }
+
+    /// Flattens ERC-1328 bracket-grouped method arrays (`[a,b],[c]`) into a flat
+    /// list, tolerating the unbracketed legacy form as well.
+    private static func parseMethods(_ raw: String) -> [String] {
+        raw
+            .split(whereSeparator: { $0 == "," || $0 == "[" || $0 == "]" })
+            .map(String.init)
+            .filter { !$0.isEmpty }
+    }
+
+    private static func isValidSymKey(_ symKey: String) -> Bool {
+        !symKey.isEmpty
+            && symKey.count.isMultiple(of: 2)
+            && symKey.allSatisfy(\.isHexDigit)
     }
 
     private static func queryItems(from query: String) -> [String: String] {

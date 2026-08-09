@@ -1,5 +1,13 @@
 import Foundation
 
+/// A bitset describing what a connector/provider can do (transport family,
+/// chains, signing surface, session persistence, return-URL modes).
+///
+/// - Note: This is a **host-facing capability vocabulary** for gating and
+///   telemetry. The registry/catalog does not yet filter on it internally — it is
+///   deliberately available ahead of that wiring so hosts can describe and reason
+///   about connectors today. Treat it as a stable, additive vocabulary; wiring it
+///   into `WalletConnectorRegistry` filtering is tracked as forthcoming work.
 public struct WalletConnectorCapabilities: OptionSet, Hashable, Codable, Sendable {
     public let rawValue: UInt64
 

@@ -4,6 +4,7 @@ import AuraUI
 import CoreImage.CIFilterBuiltins
 import Foundation
 import Observation
+import Security
 import SwiftData
 import SwiftUI
 import UIKit
@@ -32,6 +33,64 @@ struct AuralisWalletConnectionConfig: Sendable {
             iconURL: URL(string: "https://auraplay.app/icon.png"),
             redirect: WalletConnectionRedirect(native: "auraplay://walletconnect", linkMode: true)
         )
+    }
+}
+
+/// Resolves the shared Keychain access group for the WalletConnector stores at
+/// runtime, so no team id is hard-coded in source.
+///
+/// The group base name is `com.auraplay.walletconnect.shared`; the app-identifier
+/// (team) prefix is discovered by probing the Keychain for the access group the
+/// system assigns a default item, then taking the segment before the first `.`.
+///
+/// This shared group is how the app and its extension(s) read the same
+/// WalletConnect session key material — an App Group container does **not** share
+/// Keychain items. It therefore requires **both** the app target and every
+/// consuming extension target to enable **Signing & Capabilities → Keychain
+/// Sharing** with the matching group (`$(AppIdentifierPrefix)com.auraplay.walletconnect.shared`).
+/// Until that entitlement is present the store operations fail closed (the stores
+/// already handle a missing entitlement gracefully); once it is present, sessions
+/// become visible cross-process.
+///
+/// Returns `nil` if the prefix cannot be probed, in which case the stores fall
+/// back to the app's private default group (no sharing) rather than breaking.
+enum WalletConnectKeychainAccessGroup {
+    static let baseIdentifier = "com.auraplay.walletconnect.shared"
+
+    /// Resolved once per process.
+    static let resolved: String? = resolve()
+
+    private static func resolve() -> String? {
+        guard let prefix = appIdentifierPrefix() else { return nil }
+        return "\(prefix).\(baseIdentifier)"
+    }
+
+    /// The team/app-identifier prefix (e.g. `ABCDE12345`) discovered by adding a
+    /// throwaway Keychain item with no explicit access group and reading back the
+    /// group the system assigned. The prefix is the segment before the first `.`.
+    /// The probe does not require the Keychain Sharing entitlement, so the prefix
+    /// resolves even before the capability is wired up.
+    private static func appIdentifierPrefix() -> String? {
+        let baseQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "com.auraplay.walletconnect",
+            kSecAttrAccount as String: "walletconnect-accessgroup-probe",
+        ]
+        // Clean slate, then add + read back the assigned access group.
+        SecItemDelete(baseQuery as CFDictionary)
+        defer { SecItemDelete(baseQuery as CFDictionary) }
+
+        var addQuery = baseQuery
+        addQuery[kSecValueData as String] = Data([0x00])
+        addQuery[kSecReturnAttributes as String] = true
+        var result: CFTypeRef?
+        guard SecItemAdd(addQuery as CFDictionary, &result) == errSecSuccess,
+              let attributes = result as? [String: Any],
+              let group = attributes[kSecAttrAccessGroup as String] as? String,
+              let firstDot = group.firstIndex(of: ".") else {
+            return nil
+        }
+        return String(group[group.startIndex..<firstDot])
     }
 }
 
@@ -138,10 +197,10 @@ final class AuralisWalletConnectionService {
         case failed(String)
     }
 
-    private let connector: WalletConnectDAppConnector
+    private let connector: any WalletConnector
     private let accountAdapter: AuralisWalletAccountAdapter
-    private let topicStore: KeychainWalletSessionTopicStore
-    private let activeWalletStore: UserDefaultsActiveWalletStore
+    private let topicStore: any WalletSessionTopicStoring
+    private let activeWalletStore: any ActiveWalletStoring
 
     var phase: Phase = .idle
     var latestPairingPayload: String?
@@ -150,21 +209,34 @@ final class AuralisWalletConnectionService {
     let providers: [ThirdPartyWalletProvider] = WalletConnectorCatalog.defaultProviders
 
     init(modelContext: ModelContext, bundle: Bundle = .main) {
+        // Shared Keychain access group so an extension can read the same
+        // WalletConnect sessions/relay identity. All three keychain stores must
+        // use the *same* group (topic index, session-state, relay identity), or
+        // the extension sees a partial view. `nil` (probe failed) falls back to
+        // the app's private default group.
+        let accessGroup = WalletConnectKeychainAccessGroup.resolved
         self.accountAdapter = AuralisWalletAccountAdapter(modelContext: modelContext)
-        self.topicStore = KeychainWalletSessionTopicStore()
+        self.topicStore = KeychainWalletSessionTopicStore(accessGroup: accessGroup)
         self.activeWalletStore = UserDefaultsActiveWalletStore()
 
         do {
             let config = try AuralisWalletConnectionConfig(bundle: bundle)
             let relay = WalletConnectIRNRelayClient(
-                configuration: WalletConnectRelayConfiguration(projectID: config.projectID)
+                configuration: WalletConnectRelayConfiguration(projectID: config.projectID),
+                authProvider: WalletConnectKeychainRelayAuthProvider(accessGroup: accessGroup)
             )
-            let transport = WalletConnectIRNTransportClient(relayClient: relay)
+            let transport = WalletConnectIRNTransportClient(
+                relayClient: relay,
+                stateStore: KeychainWalletConnectSessionStateStore(accessGroup: accessGroup)
+            )
             self.connector = WalletConnectDAppConnector(
                 transport: transport,
                 launcher: DeepLinkWalletLauncher(opener: UIApplicationWalletOpener()),
                 metadata: config.metadata,
-                callbackURL: config.callbackURL
+                callbackURL: config.callbackURL,
+                // Real secp256k1 recovery so EVM ownership verification succeeds
+                // instead of failing closed; also lifts readiness to productionReady.
+                cryptoProvider: Web3SwiftWalletConnectorCryptoProvider()
             )
         } catch {
             self.connector = WalletConnectDAppConnector(
@@ -173,11 +245,30 @@ final class AuralisWalletConnectionService {
                     appName: "AuraPlay",
                     appDescription: "NFT media player",
                     appURL: URL(string: "https://auraplay.app")!
-                )
+                ),
+                cryptoProvider: Web3SwiftWalletConnectorCryptoProvider()
             )
             self.phase = .failed(error.localizedDescription)
         }
 
+        observeConnectorEvents()
+    }
+
+    /// Test seam. Injects the connector and stores directly so interaction tests
+    /// can drive the connect → settle → remove flows without a live relay, the
+    /// Keychain, or `UserDefaults`. The app uses `init(modelContext:bundle:)`.
+    init(
+        connector: any WalletConnector,
+        accountAdapter: AuralisWalletAccountAdapter,
+        topicStore: any WalletSessionTopicStoring,
+        activeWalletStore: any ActiveWalletStoring,
+        phase: Phase = .idle
+    ) {
+        self.connector = connector
+        self.accountAdapter = accountAdapter
+        self.topicStore = topicStore
+        self.activeWalletStore = activeWalletStore
+        self.phase = phase
         observeConnectorEvents()
     }
 
@@ -318,7 +409,7 @@ private actor UnavailableWalletTransportClient: WalletTransportClient {
     }
 
     func disconnect(topic: WalletPairingTopic) async throws {}
-    func publish(_ request: WalletRequest, topic: WalletPairingTopic) async throws {
+    func request(_ request: WalletRequest, topic: WalletPairingTopic) async throws -> WalletResponse {
         throw WalletConnectionError.unavailable(message)
     }
     func sessions() async throws -> [WalletSession] { [] }

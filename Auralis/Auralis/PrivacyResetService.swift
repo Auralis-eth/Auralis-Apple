@@ -132,7 +132,13 @@ actor AuraPlayStoreResetService: AuraPlayPersistenceResetting {
 actor SwiftDataAuraPlayPersistenceResetService: AuraPlayPersistenceResetting {
     func resetAuraPlayPersistence() throws {
         try modelContext.performRollbackSafeMutation {
+            try modelContext.deleteFetchedModels(matching: FetchDescriptor<AuraPlayPlaylistItem>())
+            try modelContext.deleteFetchedModels(matching: FetchDescriptor<AuraPlayPlaylist>())
+            try modelContext.deleteFetchedModels(matching: FetchDescriptor<AuraPlayMediaEmbedding>())
+            try modelContext.deleteFetchedModels(matching: FetchDescriptor<AuraPlayPlaybackPositionTombstone>())
+            try modelContext.deleteFetchedModels(matching: FetchDescriptor<AuraPlayPlaybackPositionState>())
             try modelContext.deleteFetchedModels(matching: FetchDescriptor<AuraPlayMediaItem>())
+            try modelContext.deleteFetchedModels(matching: FetchDescriptor<AuraPlayNFTToken>())
         }
     }
 }

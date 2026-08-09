@@ -29,22 +29,30 @@ import Security
 enum KeychainAccessGroupMigration {
     private static let lock = NSLock()
     /// `"service|targetGroup"` keys for which consolidation is fully complete, so
-    /// steady-state operations skip the extra enumeration.
-    private static var completed: Set<String> = []
+    /// steady-state operations skip the extra enumeration. All access is serialized
+    /// through `lock`, so the unchecked isolation is sound.
+    nonisolated(unsafe) private static var completed: Set<String> = []
 
     /// Runs the consolidation once per `(service, targetGroup)` per process. Cheap
     /// no-op after the first fully-successful run.
+    ///
+    /// The lock is held across the whole migration, not just the `completed`
+    /// check: all three stores (topic, session-state, relay-identity) call this
+    /// for the *same* `(service, targetGroup)` on first launch, so releasing the
+    /// lock before `migrate()` let them each run a redundant full-service
+    /// enumeration + copy concurrently — and, worse, let a caller proceed to read
+    /// the service before a concurrent migration finished moving items into the
+    /// shared group. Serializing the body closes both: the first caller performs
+    /// the move, the rest block briefly and then observe `completed`. `migrate`
+    /// never re-enters this method, so the non-recursive lock cannot deadlock.
     static func migrateServiceIfNeeded(service: String, targetGroup: String) {
         let key = "\(service)|\(targetGroup)"
         lock.lock()
-        let alreadyDone = completed.contains(key)
-        lock.unlock()
-        guard !alreadyDone else { return }
+        defer { lock.unlock() }
+        guard !completed.contains(key) else { return }
 
         if migrate(service: service, targetGroup: targetGroup) {
-            lock.lock()
             completed.insert(key)
-            lock.unlock()
         }
     }
 
@@ -103,7 +111,43 @@ enum KeychainAccessGroupMigration {
 #endif
 
             let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
-            guard addStatus == errSecSuccess || addStatus == errSecDuplicateItem else {
+            switch addStatus {
+            case errSecSuccess:
+                break
+            case errSecDuplicateItem:
+                // A copy already exists in the target group — e.g. from an earlier
+                // interrupted migration. It may hold *stale* bytes, so reconcile it
+                // to the source's current value/metadata before deleting the source;
+                // otherwise the newer source bytes would be silently discarded.
+                var targetQuery: [String: Any] = [
+                    kSecClass as String: kSecClassGenericPassword,
+                    kSecAttrService as String: service,
+                    kSecAttrAccount as String: account,
+                    kSecAttrAccessGroup as String: targetGroup,
+                    kSecAttrSynchronizable as String: false,
+                ]
+#if os(macOS)
+                targetQuery[kSecUseDataProtectionKeychain as String] = true
+#endif
+                var reconcile: [String: Any] = [
+                    kSecValueData as String: data,
+                    kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+                ]
+                if let label = row[kSecAttrLabel as String] as? String {
+                    reconcile[kSecAttrLabel as String] = label
+                }
+                if let description = row[kSecAttrDescription as String] as? String {
+                    reconcile[kSecAttrDescription as String] = description
+                }
+                let reconcileStatus = SecItemUpdate(targetQuery as CFDictionary, reconcile as CFDictionary)
+                // `errSecItemNotFound` means the duplicate vanished between the add
+                // and the update (another process moved it) — the source can still
+                // be deleted safely. Any other failure leaves the source in place.
+                guard reconcileStatus == errSecSuccess || reconcileStatus == errSecItemNotFound else {
+                    allMoved = false
+                    continue
+                }
+            default:
                 // e.g. `errSecMissingEntitlement` before Keychain Sharing is wired.
                 allMoved = false
                 continue

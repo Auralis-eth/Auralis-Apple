@@ -26,9 +26,14 @@ WalletConnectorKit is the reusable wallet-connection package for Auralis. The co
 - Build with Xcode or the MCP `BuildProject` tool.
 - Run the package test suite with Swift Testing; UI tests do not belong in this package.
 
+## Verification & QA Status
+
+- The former append-only `AI-Audit-Log.md` has been retired. Its durable conclusions now live in `WalletConnectorKit-QA-Checklist.md`: the Manual Live-Wallet Suite (the standing on-device ship gate), the Known Limitations & Deliberate Non-Fixes table, and the Verification Status summary.
+- The SDK-free core is production-grade by static/unit verification; the single outstanding ship gate for live wallets (Reown/Coinbase/Privy/Dynamic) is on-device QA, which cannot be closed by an automated session (no device or real wallet credentials available). Treat it as a hard gate before routing any live vendor client to production.
+
 ## Quirks And Gotchas
 
 - `KeychainWalletConnectSessionStateStore` is production storage for the custom IRN transport; the in-memory store is test-only.
-- Restoration is lazy. Call `sessions()` or `WalletConnectionLifecycleService.restoreSavedSessions()` during app launch so restored topics re-subscribe early.
+- Restoration is lazy. Call `sessions()` or `WalletConnectionLifecycleService.restoreSavedSessions()` during app launch so restored topics drain `irn_fetchMessages` and re-subscribe early; relay recovery failure must leave persisted user state untouched.
 - Reown/AppKit is iOS-only in this package. Unsupported platforms should report unavailable rather than pretending the live SDK path exists.
 - App Groups are code-signing capabilities. Do not add entitlement files or hard-coded App Group IDs to this reusable Swift package unless it grows an actual signed app or extension target.

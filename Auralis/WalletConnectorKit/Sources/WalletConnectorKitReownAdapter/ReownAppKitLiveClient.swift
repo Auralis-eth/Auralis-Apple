@@ -17,20 +17,28 @@ public final class ReownAppKitLiveClient: ReownAppKitClient, @unchecked Sendable
         let stream = AsyncStream<WalletConnectorEvent>.makeStream()
         self.eventsStream = stream.stream
         self.eventsContinuation = stream.continuation
-        bridgeAppKitEvents()
+        Task { @MainActor in
+            self.bridgeAppKitEvents()
+        }
     }
 
     public var events: AsyncStream<WalletConnectorEvent> {
         eventsStream
     }
 
-    public func connect(proposal: WalletNamespaceProposalSet = .defaultV1, wallet: ThirdPartyWalletProvider?) async throws -> WalletConnectionStart {
-        AppKit.set(sessionParams: SessionParams(namespaces: proposal.reownNamespaces))
+    public func connect(proposalRequest: WalletSessionProposalRequest = .defaultV1Optional, wallet: ThirdPartyWalletProvider?) async throws -> WalletConnectionStart {
         let universalLink = wallet?.universalLinkString
-        let pairingURI = try await AppKit.instance.connect(walletUniversalLink: universalLink)
-        await MainActor.run {
+        let pairingURI = try await Task { @MainActor in
+            AppKit.set(
+                sessionParams: SessionParams(
+                    requiredNamespaces: proposalRequest.requiredNamespaces.reownNamespaces,
+                    optionalNamespaces: proposalRequest.optionalNamespaces.reownOptionalNamespaces
+                )
+            )
+            let pairingURI = try await AppKit.instance.connect(walletUniversalLink: universalLink)
             AppKit.present(from: nil)
-        }
+            return pairingURI
+        }.value
 
         guard let pairingURI else {
             throw WalletConnectionError.invalidPairingURI
@@ -47,35 +55,68 @@ public final class ReownAppKitLiveClient: ReownAppKitClient, @unchecked Sendable
         return WalletConnectionStart(pairingURI: connectorURI, qrPayload: connectorURI.absoluteString)
     }
 
+    public func connect(proposal: WalletNamespaceProposalSet = .defaultV1, wallet: ThirdPartyWalletProvider?) async throws -> WalletConnectionStart {
+        try await connect(proposalRequest: WalletSessionProposalRequest(requiredNamespaces: .empty, optionalNamespaces: proposal), wallet: wallet)
+    }
+
     public func handleCallback(url: URL) async throws {
-        guard AppKit.instance.handleDeeplink(url) else {
+        let handled = await MainActor.run {
+            AppKit.instance.handleDeeplink(url)
+        }
+        guard handled else {
             throw WalletConnectionError.invalidResponse
         }
     }
 
     public func sessions() async throws -> [WalletConnectorSession] {
-        AppKit.instance.getSessions().map(Self.connectorSession(from:))
+        await MainActor.run {
+            AppKit.instance.getSessions().map(Self.connectorSession(from:))
+        }
     }
 
     public func disconnect(sessionId: WalletSessionID) async throws {
-        try await AppKit.instance.disconnect(topic: sessionId.rawValue)
+        try await Task { @MainActor in
+            try await AppKit.instance.disconnect(topic: sessionId.rawValue)
+        }.value
     }
 
     public func request(_ request: WalletRequest, in sessionId: WalletSessionID) async throws -> WalletResponse {
+        try WalletRequestValidation.validate(request)
+        let liveSessions = await MainActor.run {
+            AppKit.instance.getSessions().map(Self.connectorSession(from:))
+        }
+        guard let session = liveSessions.first(where: { $0.id == sessionId }) else {
+            throw WalletConnectionError.sessionExpired
+        }
+        try WalletSessionGrantValidator.validate(request, in: session)
+        // The SDK assigns its own JSON-RPC id when the `Request` is created; the
+        // caller's `request.id` never reaches the wallet. Build the request once,
+        // then correlate the response by the id the SDK actually used.
+        let reownReq = try reownRequest(from: request, sessionId: sessionId)
+        let wireID = WalletSignRequestID(rawValue: reownReq.id.string)
         let task = Task {
-            try await pendingRequests.wait(for: request)
+            try await pendingRequests.wait(id: wireID, expiryDate: request.expiryDate)
         }
         do {
-            try await AppKit.instance.request(params: try reownRequest(from: request, sessionId: sessionId))
-            return try await task.value
+            try await Task { @MainActor in
+                try await AppKit.instance.request(params: reownReq)
+            }.value
+            let response = try await task.value
+            // Hand the caller a response tagged with the id they supplied.
+            return WalletResponse(id: request.id, result: response.result)
         } catch {
             task.cancel()
-            await pendingRequests.reject(request.id, error: WalletSDKErrorMapper.connectionError(message: error.localizedDescription, fallback: .internalFailure(error.localizedDescription)))
+            await pendingRequests.reject(wireID, error: WalletSDKErrorMapper.connectionError(message: error.localizedDescription, fallback: .internalFailure(error.localizedDescription)))
             throw error
         }
     }
 
+    @MainActor
     private func bridgeAppKitEvents() {
+        // ReownAppKit exposes session/response/socket updates only through Combine
+        // publishers, so the bridge subscribes with `sink` and republishes onto
+        // WalletConnectorKit's `AsyncStream`. Combine is confined to this SDK
+        // boundary; the rest of the kit stays async/await.
         AppKit.instance.sessionSettlePublisher
             .sink { [eventsContinuation] session in
                 eventsContinuation.yield(.sessionSettled(Self.connectorSession(from: session)))
@@ -97,7 +138,24 @@ public final class ReownAppKitLiveClient: ReownAppKitClient, @unchecked Sendable
         AppKit.instance.sessionResponsePublisher
             .sink { [pendingRequests] response in
                 Task {
-                    await pendingRequests.resolveOldest(result: Self.responseString(from: response))
+                    guard let requestID = Self.requestID(from: response) else { return }
+                    switch response.result {
+                    case .response(let value):
+                        if let result = Self.encode(value) {
+                            await pendingRequests.resolve(WalletResponse(id: requestID, result: result))
+                        } else {
+                            // A successful result we cannot re-encode is surfaced as
+                            // an error rather than a misleading empty-string result.
+                            await pendingRequests.fail(requestID, error: WalletConnectionError.invalidResponse)
+                        }
+                    case .error(let rpcError):
+                        // An error response must fail the pending request rather
+                        // than resolve it with the error encoded as a "result".
+                        await pendingRequests.fail(
+                            requestID,
+                            error: WalletSDKErrorMapper.connectionError(code: rpcError.code, message: rpcError.message, fallback: .invalidResponse)
+                        )
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -124,33 +182,13 @@ public final class ReownAppKitLiveClient: ReownAppKitClient, @unchecked Sendable
 
     private func reownParams(from request: WalletRequest) throws -> Any {
         switch request.method {
-        case .ethPersonalSign:
+        case .ethPersonalSign, .ethSignTypedData, .ethSignTypedDataV4, .solanaSignMessage:
             guard request.params.count == 2 else { throw WalletConnectionError.invalidResponse }
-            return [request.params[0], request.params[1]]
-        case .ethSignTypedData, .ethSignTypedDataV4:
-            guard request.params.count == 2 else { throw WalletConnectionError.invalidResponse }
-            return [request.params[0], request.params[1]]
-        case .ethSendTransaction:
-            guard let transaction = try decodeFirstParam(WalletTransactionRequest.self, from: request) else {
-                throw WalletConnectionError.invalidResponse
-            }
-            return [transaction.reownDictionary]
-        case .walletSwitchEthereumChain:
-            guard let chainId = request.params.first else { throw WalletConnectionError.invalidResponse }
-            return [["chainId": chainId]]
-        case .walletAddEthereumChain:
-            guard let addChain = try decodeFirstParam(WalletAddEthereumChainRequest.self, from: request) else {
-                throw WalletConnectionError.invalidResponse
-            }
-            return [addChain.reownDictionary]
-        case .solanaSignMessage, .solanaSignTransaction, .solanaSignAllTransactions:
-            return request.params
+            return request.params.map { $0.jsonObject as Any }
+        case .ethSendTransaction, .walletSwitchEthereumChain, .walletAddEthereumChain, .walletWatchAsset, .solanaSignTransaction, .solanaSignAllTransactions, .solanaSignAndSendTransaction:
+            guard request.params.count == 1 else { throw WalletConnectionError.invalidResponse }
+            return request.params.map { $0.jsonObject as Any }
         }
-    }
-
-    private func decodeFirstParam<Value: Decodable>(_ type: Value.Type, from request: WalletRequest) throws -> Value? {
-        guard let first = request.params.first, let data = first.data(using: .utf8) else { return nil }
-        return try JSONDecoder().decode(type, from: data)
     }
 
     private static func connectorSession(from session: Session) -> WalletConnectorSession {
@@ -172,19 +210,21 @@ public final class ReownAppKitLiveClient: ReownAppKitClient, @unchecked Sendable
         )
     }
 
-    private static func responseString(from response: W3MResponse) -> String {
-        if let data = try? JSONEncoder().encode(response.result), let string = String(data: data, encoding: .utf8) {
-            return string
-        }
-        return String(describing: response.result)
+    private static func requestID(from response: W3MResponse) -> WalletSignRequestID? {
+        // `RPCID.string` is the canonical wire form (matches `Request.id.string`
+        // used when the request was submitted).
+        response.id.map { WalletSignRequestID(rawValue: $0.string) }
+    }
+
+    private static func encode(_ value: AnyCodable) -> String? {
+        guard let data = try? JSONEncoder().encode(value) else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     private static func socketStatus(from status: SocketConnectionStatus) -> WalletSocketStatus {
         switch status {
         case .connected:
             return .connected
-        case .connecting:
-            return .connecting
         case .disconnected:
             return .disconnected
         }
@@ -201,6 +241,10 @@ private extension WalletNamespaceProposalSet {
             )
         }
     }
+
+    var reownOptionalNamespaces: [String: ProposalNamespace]? {
+        isEmpty ? nil : reownNamespaces
+    }
 }
 
 private extension ThirdPartyWalletProvider {
@@ -214,42 +258,4 @@ private extension ThirdPartyWalletProvider {
     }
 }
 
-private extension WalletTransactionRequest {
-    var reownDictionary: [String: Any] {
-        var value: [String: Any] = [
-            "from": from,
-            "value": self.value,
-            "data": data,
-            "chainId": chainId,
-        ]
-        value["to"] = to
-        value["nonce"] = nonce
-        value["gas"] = gas
-        value["gasPrice"] = gasPrice
-        value["maxFeePerGas"] = maxFeePerGas
-        value["maxPriorityFeePerGas"] = maxPriorityFeePerGas
-        value["gasLimit"] = gasLimit
-        return value.compactMapValues { $0 }
-    }
-}
-
-private extension WalletAddEthereumChainRequest {
-    var reownDictionary: [String: Any] {
-        var value: [String: Any] = [
-            "chainId": chainId,
-            "rpcUrls": rpcUrls,
-        ]
-        value["blockExplorerUrls"] = blockExplorerUrls
-        value["chainName"] = chainName
-        value["iconUrls"] = iconUrls
-        if let nativeCurrency {
-            value["nativeCurrency"] = [
-                "name": nativeCurrency.name,
-                "symbol": nativeCurrency.symbol,
-                "decimals": nativeCurrency.decimals,
-            ]
-        }
-        return value.compactMapValues { $0 }
-    }
-}
 #endif

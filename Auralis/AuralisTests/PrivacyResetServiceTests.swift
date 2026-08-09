@@ -391,8 +391,8 @@ struct PrivacyResetServiceTests {
         }
 
         let storeURL = try AuraPlayModelContainer.storeURL(baseDirectory: temporaryDirectory)
-        let shmURL = storeURL.appendingPathExtension("shm")
-        let walURL = storeURL.appendingPathExtension("wal")
+        let shmURL = URL(filePath: storeURL.path() + "-shm")
+        let walURL = URL(filePath: storeURL.path() + "-wal")
         FileManager.default.createFile(atPath: storeURL.path(), contents: Data("store".utf8))
         FileManager.default.createFile(atPath: shmURL.path(), contents: Data("shm".utf8))
         FileManager.default.createFile(atPath: walURL.path(), contents: Data("wal".utf8))

@@ -40,11 +40,18 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/reown-com/reown-swift", .upToNextMajor(from: "2.3.0")),
+        // Coinbase Mobile Wallet Protocol SDK backing the live Coinbase adapter.
         .package(url: "https://github.com/MobileWalletProtocol/wallet-mobile-sdk", .upToNextMajor(from: "1.1.2")),
-        .package(url: "https://github.com/MetaMask/metamask-ios-sdk", branch: "main"),
+        // Privy embedded-wallet SDK (binary XCFramework distribution) backing the
+        // live Privy adapter.
         .package(url: "https://github.com/privy-io/privy-ios", .upToNextMajor(from: "2.14.0")),
-        .package(url: "https://github.com/dynamic-labs-oss/swift-sdk-and-sample-app", .upToNextMajor(from: "1.0.11")),
-        .package(url: "https://github.com/p2p-org/solana-swift", .upToNextMajor(from: "5.0.0")),
+        // Dynamic embedded-wallet SDK backing the live Dynamic adapter.
+        .package(url: "https://github.com/dynamic-labs/swift-sdk-and-sample-app", .upToNextMajor(from: "1.2.0")),
+        // NOTE: The MetaMask and Solana adapters still ship only protocol shims +
+        // `Unconfigured…` stubs; neither links a vendor SDK. MetaMask's native iOS
+        // SDK (metamask-ios-sdk) was archived read-only on 2026-02-26, and Solana
+        // has no native-Swift SPM Mobile Wallet Adapter SDK for dApps — route both
+        // through WalletConnect/Reown instead.
     ],
     targets: [
         .target(
@@ -68,7 +75,6 @@ let package = Package(
             name: "WalletConnectorKitMetaMaskAdapter",
             dependencies: [
                 "WalletConnectorKit",
-                .product(name: "metamask-ios-sdk", package: "metamask-ios-sdk", condition: .when(platforms: [.iOS])),
             ]
         ),
         .target(
@@ -89,13 +95,18 @@ let package = Package(
             name: "WalletConnectorKitSolanaAdapter",
             dependencies: [
                 "WalletConnectorKit",
-                .product(name: "SolanaSwift", package: "solana-swift", condition: .when(platforms: [.iOS])),
             ]
         ),
         .testTarget(
             name: "WalletConnectorKitTests",
             dependencies: [
                 "WalletConnectorKit",
+                "WalletConnectorKitReownAdapter",
+                "WalletConnectorKitCoinbaseAdapter",
+                "WalletConnectorKitMetaMaskAdapter",
+                "WalletConnectorKitPrivyAdapter",
+                "WalletConnectorKitDynamicAdapter",
+                "WalletConnectorKitSolanaAdapter",
             ]
         ),
     ]

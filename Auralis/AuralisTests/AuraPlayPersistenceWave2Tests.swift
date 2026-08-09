@@ -368,6 +368,68 @@ struct AuraPlayPersistenceWave2Tests {
         let resetService = SwiftDataAuraPlayPersistenceResetService(modelContainer: container)
         let syncedAt = Fixture.referenceDate
 
+        let seedContext = ModelContext(container)
+        let playlist = AuraPlayPlaylist(id: "playlist-1", name: "Privacy Reset Mix")
+        playlist.items = [
+            AuraPlayPlaylistItem(
+                id: "playlist-item-1",
+                playlistID: "playlist-1",
+                mediaItemID: "nft-1",
+                position: 0,
+                playlist: playlist
+            )
+        ]
+        seedContext.insert(
+            AuraPlayNFTToken(
+                dto: NFTTokenDTO(
+                    chain: .ethMainnet,
+                    walletAddress: "0x1234567890abcdef1234567890abcdef12345678",
+                    contractAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                    tokenId: "1",
+                    tokenStandard: "ERC721",
+                    name: "Genesis Track"
+                ),
+                now: syncedAt
+            )
+        )
+        seedContext.insert(
+            AuraPlayMediaEmbedding(
+                mediaItemID: "nft-1",
+                vectorData: Data([1, 2, 3]),
+                embeddingModelVersion: "test-model",
+                sourceFingerprint: "nft-1:fingerprint",
+                indexedAt: syncedAt
+            )
+        )
+        seedContext.insert(
+            AuraPlayPlaybackPositionState(
+                mediaID: "nft-1",
+                positionMilliseconds: 12_000,
+                durationMilliseconds: 120_000,
+                lastPlayedAt: syncedAt,
+                playCount: 1,
+                updatedAt: syncedAt
+            )
+        )
+        seedContext.insert(
+            AuraPlayPlaybackPositionTombstone(
+                id: "tombstone-1",
+                originalMediaID: "nft-1",
+                accountAddressRawValue: "0x1234567890abcdef1234567890abcdef12345678",
+                chainRawValue: Chain.ethMainnet.rawValue,
+                contractAddressRawValue: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                tokenID: "1",
+                positionMilliseconds: 24_000,
+                durationMilliseconds: 120_000,
+                lastPlayedAt: syncedAt,
+                completedAt: nil,
+                playCount: 1,
+                capturedAt: syncedAt
+            )
+        )
+        seedContext.insert(playlist)
+        try seedContext.save()
+
         try await mediaItemService.replaceAll(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             chain: .ethMainnet,
@@ -402,7 +464,13 @@ struct AuraPlayPersistenceWave2Tests {
         try await resetService.resetAuraPlayPersistence()
 
         let verificationContext = ModelContext(container)
+        #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayNFTToken>()).isEmpty)
         #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayMediaItem>()).isEmpty)
+        #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayMediaEmbedding>()).isEmpty)
+        #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayPlaybackPositionState>()).isEmpty)
+        #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayPlaybackPositionTombstone>()).isEmpty)
+        #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayPlaylist>()).isEmpty)
+        #expect(try verificationContext.fetch(FetchDescriptor<AuraPlayPlaylistItem>()).isEmpty)
 
         try await mediaItemService.replaceAll(
             accountAddress: "0x9999999999999999999999999999999999999999",
