@@ -4,6 +4,7 @@ import Foundation
 import Testing
 @testable import ProviderKit
 
+@Suite(.serialized)
 struct HeliusDASNFTServiceTests {
     @Test("Helius DAS service maps paged Solana assets into NFT rows")
     func mapsPagedAssetsIntoNFTs() async throws {
@@ -139,7 +140,12 @@ private final class HeliusDASRequestRecorder: @unchecked Sendable {
 
     private let lock = NSLock()
     private let mode: Mode
-    private var requests: [URLRequest] = []
+    private struct RecordedRequest {
+        let url: URL?
+        let body: Data?
+    }
+
+    private var requests: [RecordedRequest] = []
 
     init(mode: Mode = .paged) {
         self.mode = mode
@@ -155,39 +161,40 @@ private final class HeliusDASRequestRecorder: @unchecked Sendable {
 
     var pages: [Int] {
         lock.withLock {
-            requests.compactMap { Self.requestParams(from: $0)?["page"] as? Int }
+            requests.compactMap { Self.requestParams(from: $0.body)?["page"] as? Int }
         }
     }
 
     var methods: [String] {
         lock.withLock {
-            requests.compactMap { Self.requestDictionary(from: $0)?["method"] as? String }
+            requests.compactMap { Self.requestDictionary(from: $0.body)?["method"] as? String }
         }
     }
 
     var tokenTypes: [String] {
         lock.withLock {
-            requests.compactMap { Self.requestParams(from: $0)?["tokenType"] as? String }
+            requests.compactMap { Self.requestParams(from: $0.body)?["tokenType"] as? String }
         }
     }
 
     func optionValues(for key: String) -> [Bool] {
         lock.withLock {
             requests.compactMap { request in
-                let options = Self.requestParams(from: request)?["options"] as? [String: Any]
+                let options = Self.requestParams(from: request.body)?["options"] as? [String: Any]
                 return options?[key] as? Bool
             }
         }
     }
 
     func record(_ request: URLRequest) {
-        lock.withLock { requests.append(request) }
+        let recordedRequest = RecordedRequest(url: request.url, body: Self.requestBody(from: request))
+        lock.withLock { requests.append(recordedRequest) }
     }
 
     func response(for request: URLRequest) -> (URLResponse, Data) {
         switch mode {
         case .paged:
-            return successResponse(request: request, payload: pagedPayload(page: pages.last ?? 1))
+            return successResponse(request: request, payload: pagedPayload(page: lastRequestedPage()))
         case .ownerMismatch:
             return successResponse(request: request, payload: ownerMismatchPayload)
         case .rpcUnauthorized:
@@ -202,20 +209,49 @@ private final class HeliusDASRequestRecorder: @unchecked Sendable {
                     headers: ["Retry-After": "0"]
                 )
             }
-            return successResponse(request: request, payload: pagedPayload(page: pages.last ?? 1))
+            return successResponse(request: request, payload: pagedPayload(page: lastRequestedPage()))
         }
     }
 
-    private static func requestDictionary(from request: URLRequest) -> [String: Any]? {
-        guard let body = request.httpBody,
+    private func lastRequestedPage() -> Int {
+        lock.withLock {
+            guard let body = requests.last?.body else { return 1 }
+            return Self.requestParams(from: body)?["page"] as? Int ?? 1
+        }
+    }
+
+    private static func requestDictionary(from body: Data?) -> [String: Any]? {
+        guard let body,
               let object = try? JSONSerialization.jsonObject(with: body) else {
             return nil
         }
         return object as? [String: Any]
     }
 
-    private static func requestParams(from request: URLRequest) -> [String: Any]? {
-        requestDictionary(from: request)?["params"] as? [String: Any]
+    private static func requestParams(from body: Data?) -> [String: Any]? {
+        requestDictionary(from: body)?["params"] as? [String: Any]
+    }
+
+    private static func requestBody(from request: URLRequest) -> Data? {
+        if let body = request.httpBody {
+            return body
+        }
+
+        guard let stream = request.httpBodyStream else {
+            return nil
+        }
+
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            guard count > 0 else { break }
+            data.append(buffer, count: count)
+        }
+        return data
     }
 
     private func pagedPayload(page: Int) -> String {

@@ -101,6 +101,7 @@ public enum MetadataSchema: String, Codable, Equatable, Sendable {
     case metaplex
     case erc1155
     case openSea
+    case heliusDAS
     case unknown
 }
 

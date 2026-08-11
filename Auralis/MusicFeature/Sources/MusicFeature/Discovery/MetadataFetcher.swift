@@ -29,7 +29,7 @@ public actor MetadataFetcher: TokenMetadataFetching {
         self.negativeCache = negativeCache
         self.clock = clock
         self.maxPayloadBytes = maxPayloadBytes
-        self.retryCount = retryCount
+        self.retryCount = max(retryCount, 1)
         self.retryDelayNanoseconds = retryDelayNanoseconds
         self.resolvedURLCache = [:]
     }

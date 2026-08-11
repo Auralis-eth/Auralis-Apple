@@ -17,6 +17,11 @@ struct WalletPickerHostSheet: View {
     ) private var accounts: [EOAccount]
 
     let onSelectAccount: @MainActor (String) -> Void
+    /// An app-lifetime service injected by the host so there is a single live
+    /// connector (and a single relay subscription) across launch-time restore and
+    /// every picker presentation. When `nil` (e.g. a brand-new user with no
+    /// wallets to restore, or previews/tests), the sheet lazily creates its own.
+    var walletConnectionService: AuralisWalletConnectionService?
 
     @State private var service: AuralisWalletConnectionService?
 
@@ -37,7 +42,7 @@ struct WalletPickerHostSheet: View {
         .presentationDragIndicator(.visible)
         .task {
             if service == nil {
-                service = AuralisWalletConnectionService(modelContext: modelContext)
+                service = walletConnectionService ?? AuralisWalletConnectionService(modelContext: modelContext)
             }
         }
     }
@@ -49,6 +54,13 @@ struct WalletPickerSheet: View {
     let onSelectAccount: @MainActor (String) -> Void
 
     @State private var pendingRemoval: EOAccount?
+    @State private var signInResult: WalletSignInResult?
+    @State private var signingAddress: String?
+
+    private struct WalletSignInResult: Identifiable {
+        let id = UUID()
+        let message: String
+    }
 
     var body: some View {
         NavigationStack {
@@ -82,8 +94,31 @@ struct WalletPickerSheet: View {
             } message: { account in
                 Text("AuraPlay will disconnect \(account.walletDisplayName) and keep local history for future reconnects.")
             }
+            .alert("Sign-In with Ethereum", item: $signInResult) { _ in
+                Button("OK", role: .cancel) {}
+            } message: { result in
+                Text(result.message)
+            }
         }
         .accessibilityIdentifier(A11yID.AuraPlay.walletPicker)
+    }
+
+    /// Runs a Sign-In with Ethereum challenge for `account` and surfaces the
+    /// outcome. `signingAddress` gates the row's spinner/disabled state so a
+    /// double-tap can't fire two concurrent challenges for the same wallet.
+    private func signIn(_ account: EOAccount) async {
+        signingAddress = account.address
+        defer { signingAddress = nil }
+        do {
+            let verified = try await service.signInWithEthereum(account: account)
+            signInResult = WalletSignInResult(
+                message: verified
+                    ? "\(account.walletDisplayName) proved ownership via Sign-In with Ethereum."
+                    : "The wallet did not prove ownership of \(account.walletDisplayName)."
+            )
+        } catch {
+            signInResult = WalletSignInResult(message: error.localizedDescription)
+        }
     }
 
     @ViewBuilder
@@ -158,13 +193,15 @@ struct WalletPickerSheet: View {
                     WalletPickerAccountRow(
                         account: account,
                         isActive: service.activeAddress()?.caseInsensitiveCompare(account.address) == .orderedSame,
+                        isSigningIn: signingAddress == account.address,
                         select: {
                             service.setActive(account: account)
                             onSelectAccount(account.address)
                         },
                         remove: {
                             pendingRemoval = account
-                        }
+                        },
+                        signIn: account.access?.canSign == true ? { Task { await signIn(account) } } : nil
                     )
                 }
             }
@@ -280,8 +317,10 @@ struct WalletPickerSheet: View {
 private struct WalletPickerAccountRow: View {
     let account: EOAccount
     let isActive: Bool
+    let isSigningIn: Bool
     let select: () -> Void
     let remove: () -> Void
+    let signIn: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -302,7 +341,11 @@ private struct WalletPickerAccountRow: View {
 
             Spacer(minLength: 8)
 
-            if isActive {
+            if isSigningIn {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel("Signing in")
+            } else if isActive {
                 Circle()
                     .fill(Color.green)
                     .frame(width: 10, height: 10)
@@ -318,6 +361,11 @@ private struct WalletPickerAccountRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: select)
         .contextMenu {
+            if let signIn {
+                Button(action: signIn) {
+                    Label("Sign-In with Ethereum", systemImage: "signature")
+                }
+            }
             Button(role: .destructive, action: remove) {
                 Label("Remove Wallet", systemImage: "trash")
             }
@@ -325,9 +373,10 @@ private struct WalletPickerAccountRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(account.walletDisplayName), \(account.currentChain.routingDisplayName)")
         .accessibilityValue(isActive ? "Active wallet" : "Inactive wallet")
-        .accessibilityHint("Double tap to use this wallet for AuraPlay discovery. Use actions to remove it.")
+        .accessibilityHint("Double tap to use this wallet for AuraPlay discovery. Use actions to sign in or remove it.")
         .accessibilityIdentifier(A11yID.AuraPlay.walletPickerRow(address: account.address))
         .accessibilityAction(named: "Remove Wallet", remove)
+        .accessibilityAction(named: "Sign-In with Ethereum") { signIn?() }
     }
 }
 

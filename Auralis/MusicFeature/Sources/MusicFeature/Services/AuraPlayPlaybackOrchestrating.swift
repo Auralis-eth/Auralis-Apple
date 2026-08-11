@@ -10,6 +10,8 @@ public struct AuraPlayPlaybackItemPresentation: Identifiable, Codable, Equatable
     public let title: String
     public let creator: String?
     public let artworkURLString: String?
+    public let playbackURLString: String?
+    public let declaredFormat: String?
     public let duration: TimeInterval?
     public let mediaKind: AuraPlayMediaKind
     public let isPiPActive: Bool
@@ -19,6 +21,8 @@ public struct AuraPlayPlaybackItemPresentation: Identifiable, Codable, Equatable
         title: String,
         creator: String?,
         artworkURLString: String?,
+        playbackURLString: String? = nil,
+        declaredFormat: String? = nil,
         duration: TimeInterval?,
         mediaKind: AuraPlayMediaKind,
         isPiPActive: Bool = false
@@ -27,6 +31,8 @@ public struct AuraPlayPlaybackItemPresentation: Identifiable, Codable, Equatable
         self.title = title
         self.creator = creator
         self.artworkURLString = artworkURLString
+        self.playbackURLString = playbackURLString
+        self.declaredFormat = declaredFormat
         self.duration = duration.map { max(0, $0) }
         self.mediaKind = mediaKind
         self.isPiPActive = isPiPActive

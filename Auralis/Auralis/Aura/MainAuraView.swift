@@ -48,6 +48,11 @@ struct MainAuraView: View {
     @State private var pendingStartupDeepLink: AppDeepLink?
     @State private var pendingStartupRouteError: AppRouteError?
     @State private var primaryStoreWarningDismissed = false
+    @State private var showWalletPicker = false
+    /// App-lifetime wallet connection service. Created once at launch (only when
+    /// there are wallet-connect accounts to reconcile) so restore and every picker
+    /// presentation share a single connector; injected into both picker sheets.
+    @State private var walletConnectionService: AuralisWalletConnectionService?
 
     private let dependencies: ShellBootstrapDependencies
     private let deepLinkParser = AppDeepLinkParser()
@@ -137,6 +142,9 @@ struct MainAuraView: View {
         .task {
             initializeShellStoreIfNeeded()
         }
+        .task {
+            await restoreWalletSessionsIfNeeded()
+        }
         .onOpenURL { url in
             handleIncomingURL(url)
         }
@@ -173,7 +181,8 @@ struct MainAuraView: View {
                         retryMusicSetup: reloadMusicServices,
                         modeState: modeState,
                         dependencies: mainTabDependencies,
-                        auraPlayModelContainer: auraPlayModelContainer
+                        auraPlayModelContainer: auraPlayModelContainer,
+                        walletConnectionService: walletConnectionService
                     )
                     .tabBarMinimizeBehavior(.onScrollDown)
                     .tabViewBottomAccessory {
@@ -210,10 +219,26 @@ struct MainAuraView: View {
                                     )
                                 )
                             }
-                        }
+                        },
+                        onConnectWallet: { showWalletPicker = true }
                     )
                 }
             }
+        }
+        .sheet(isPresented: $showWalletPicker) {
+            WalletPickerHostSheet(
+                onSelectAccount: { address in
+                    Task {
+                        await shellStore.send(
+                            .accountSelectionRequested(
+                                address: address,
+                                correlationID: UUID().uuidString
+                            )
+                        )
+                    }
+                },
+                walletConnectionService: walletConnectionService
+            )
         }
         .sheet(item: routeErrorBinding(for: shellStore)) { routeError in
             RouteErrorScreen(routeError: routeError) {
@@ -237,6 +262,19 @@ struct MainAuraView: View {
                 .accessibilityLabel(String(localized: "Loading Auralis"))
                 .accessibilityValue(String(localized: "Preparing wallet and local data"))
         }
+    }
+
+    /// Reconciles persisted wallet-connect sessions on launch. Skipped entirely
+    /// for users with no wallet-connect accounts so a first-time user never pays
+    /// the cost of spinning up the connector/relay just to restore nothing.
+    @MainActor
+    private func restoreWalletSessionsIfNeeded() async {
+        guard walletConnectionService == nil else { return }
+        guard accounts.contains(where: { $0.source == .walletConnect }) else { return }
+
+        let service = AuralisWalletConnectionService(modelContext: modelContext)
+        walletConnectionService = service
+        await service.restore()
     }
 
     private func initializeShellStoreIfNeeded() {

@@ -13,13 +13,16 @@ import Observation
 final class AuraPlayOrchestratorAdapter: AuraPlayPlaybackOrchestrating {
     @ObservationIgnored private let runtime: AuraPlayPlaybackRuntime
     @ObservationIgnored private let resolveNFTs: @MainActor ([String]) -> [NFT]
+    @ObservationIgnored private let openVideoPlayer: @MainActor () -> Void
 
     init(
         runtime: AuraPlayPlaybackRuntime,
-        resolveNFTs: @escaping @MainActor ([String]) -> [NFT]
+        resolveNFTs: @escaping @MainActor ([String]) -> [NFT],
+        openVideoPlayer: @escaping @MainActor () -> Void
     ) {
         self.runtime = runtime
         self.resolveNFTs = resolveNFTs
+        self.openVideoPlayer = openVideoPlayer
     }
 
     var state: AuraPlayOrchestratorState {
@@ -64,16 +67,34 @@ final class AuraPlayOrchestratorAdapter: AuraPlayPlaybackOrchestrating {
         startAt index: Int,
         origin: AuraPlayQueueOriginPresentation
     ) async {
-        let windowIDs = queue?.items.map(\.id) ?? [item.id]
-        let orderedNFTs = orderedResolvedNFTs(for: windowIDs)
-        guard !orderedNFTs.isEmpty else { return }
-        try? await runtime.playLibraryWindow(
-            id: item.id,
-            in: orderedNFTs,
-            queryContext: queue?.queryContext,
-            nextOffset: queue?.nextOffset,
-            origin: mapOrigin(origin, fallbackMediaID: item.id)
-        )
+        let presentationItems = queue?.items ?? [item]
+        let mediaItems = presentationItems.compactMap { mediaItem(for: $0) }
+        guard let startingItem = mediaItem(for: item), !mediaItems.isEmpty else {
+            runtime.presentAuraPlayPlaybackFailure(AuraPlayError.invalidMediaURL(URL(fileURLWithPath: item.id)))
+            return
+        }
+
+        if startingItem.contentKind == .video {
+            openVideoPlayer()
+            let didMountVideoControls = await runtime.waitForVideoRemoteControls()
+            guard didMountVideoControls else {
+                runtime.presentAuraPlayPlaybackFailure(AuraPlayError.engineStartFailed)
+                return
+            }
+        }
+
+        do {
+            try await runtime.playPlaybackWindow(
+                item: startingItem,
+                queue: mediaItems,
+                startAt: index,
+                queryContext: queue?.queryContext,
+                nextOffset: queue?.nextOffset,
+                origin: mapOrigin(origin, fallbackMediaID: item.id)
+            )
+        } catch {
+            runtime.presentAuraPlayPlaybackFailure(error)
+        }
     }
 
     /// Maps the package-level queue-origin presentation onto the app-target
@@ -115,15 +136,43 @@ final class AuraPlayOrchestratorAdapter: AuraPlayPlaybackOrchestrating {
         return ids.compactMap { byID[$0] }
     }
 
+    private func mediaItem(for item: AuraPlayPlaybackItemPresentation) -> AuraPlayableMediaItem? {
+        guard let playbackURLString = item.playbackURLString,
+              let sourceURL = URL(string: playbackURLString) else {
+            return nil
+        }
+
+        return AuraPlayableMediaItem(
+            id: item.id,
+            sourceURL: sourceURL,
+            declaredFormat: item.declaredFormat ?? sourceURL.pathExtension.nilIfEmpty,
+            contentKind: item.mediaKind == .video ? .video : .music,
+            metadata: MediaMetadata(
+                id: item.id,
+                title: item.title,
+                artist: item.creator,
+                artworkURL: item.artworkURLString.flatMap(URL.init(string:))
+            )
+        )
+    }
+
     private func presentation(for item: AuraPlayableMediaItem) -> AuraPlayPlaybackItemPresentation {
         AuraPlayPlaybackItemPresentation(
             id: item.id,
             title: item.metadata.title,
             creator: item.metadata.artist,
             artworkURLString: item.metadata.artworkURL?.absoluteString,
+            playbackURLString: item.sourceURL.absoluteString,
+            declaredFormat: item.declaredFormat,
             duration: nil,
             mediaKind: item.contentKind == .video ? .video : .audio,
             isPiPActive: runtime.auraPlayVideoCapabilities?.isPiPActive ?? false
         )
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }

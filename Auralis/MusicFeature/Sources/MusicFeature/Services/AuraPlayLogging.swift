@@ -12,6 +12,7 @@ public enum AuraPlayLogCategory: String, Sendable {
 public enum AuraPlayLogLevel: Sendable {
     case debug
     case info
+    case warning
     case error
 }
 
@@ -44,6 +45,8 @@ public struct LiveAuraPlayLogger: AuraPlayLogging, Sendable {
             logger.debug("\(event.message, privacy: .public)")
         case .info:
             logger.info("\(event.message, privacy: .public)")
+        case .warning:
+            logger.warning("\(event.message, privacy: .public)")
         case .error:
             logger.error("\(event.message, privacy: .public)")
         }

@@ -26,7 +26,7 @@ It answers four questions:
 3. What is placeholder-only or partially wired?
 4. What is missing and should be added deliberately?
 
-The short version: the app shell is broadly wired, Home/Search/Gas/token surfaces have useful product UI, audio now has backed system metadata, remote-command, and offline-cache controls, and video now loads wallet-scoped media items through a production-shaped player surface. A code-first pass shows the video engine package has more capability than the host app consumes: Now Playing, remote commands, gateway fallback, poster generation, progressive cache, and offline downloads exist as package seams or tests, but the app video surface still bypasses `VideoPlaybackIntegrationCoordinator` and wires only a narrower direct `VideoPlayerController` flow. Shared MediaCore session contracts still need real host-app adapters before they should be exposed.
+The short version: the app shell is broadly wired, Home/Search/Gas/token surfaces have useful product UI, audio now has backed system metadata, remote-command, and offline-cache controls, and video now loads wallet-scoped media items through a production-shaped player surface. A code-first pass shows the app video surface now composes `VideoPlaybackIntegrationCoordinator` and consumes Now Playing, remote commands, gateway fallback, and poster generation through it; progressive cache and offline downloads remain package seams the app does not yet expose. Shared MediaCore session contracts still need real host-app adapters before they should be exposed.
 
 ## Audit Coverage
 
@@ -121,7 +121,7 @@ This audit checked the files that matter for UI requirements and host integratio
 | Video entry | `AuraPlayVideoWireframeView` | App opens a wallet-scoped video library and loads selected media items through `URLResolver` | Present | Add direct video entry from item/detail cards if product wants a shorter path. |
 | Video player surface | `PlayerContainerView` | Inline player has loading, empty, buffering, ended, and error overlays plus transport controls | Present | Device QA real rendering, large-text layout, and system color/contrast variants. |
 | Video load | `VideoPlayerController.load(resolvedURL:)`, `VideoPlayableMedia` | Video load is driven by wallet-scoped `MusicLibraryItem` selection through `AuraPlayableMediaItem`; raw URL entry is hidden from production users | Present | Device QA with representative NFT video URLs, unsupported formats, and failed resolver output. |
-| Video play/pause | `VideoPlayerController.play/pause` | A single stateful primary play/pause/replay button is wired; app-level interruption handling only configures the session and relies on controller/player events | Partial | Compose `VideoPlaybackIntegrationCoordinator` or equivalent host adapter so session events flush position, pause/resume, and PiP background policy consistently. |
+| Video play/pause | `VideoPlayerController.play/pause` | A single stateful primary play/pause/replay button is wired, and `AuraPlayVideoWireframeView` composes `VideoPlaybackIntegrationCoordinator` so session events flush position and drive pause/resume consistently | Present | Device QA session interruption (calls, Siri) and PiP background policy on real hardware. |
 | Video seek/progress | `PlaybackTick`, `seek(to:kind:)` | Slider, elapsed/duration labels, 15-second skip buttons, and previous/next video controls are wired directly to `VideoPlayerController` | Present | Add buffered-progress indication and richer scrubbing feedback; device QA smooth scrubbing on unbuffered positions. |
 | Video speed | `PlaybackSpeedController`, `PlaybackSpeedOption` | Production options menu exposes supported playback speeds and applies changes to the current `AVPlayer` | Present | Confirm persisted speed restoration through controller/package tests and device QA audible pitch preservation. |
 | Video AirPlay | `VideoRoutePickerView`, `externalPlaybackChanged` event | Route picker exists, prioritizes video devices, and app status reflects external playback events from the controller | Present | Device QA real AirPlay route discovery/mirroring and local-control behavior. |
@@ -135,16 +135,16 @@ This audit checked the files that matter for UI requirements and host integratio
 | Video chapters | `VideoMediaTrackManager.chapters` | Chapter list appears when chapter metadata exists and seeks to selected chapter start times | Present | Add scrubber markers if product wants chapter markers on the timeline. |
 | Video queue | `VideoPlaybackQueueController` | App UI supports selected item plus previous/next navigation by adjacent wallet-scoped rows; package queue controller exists separately | Partial | Wire end-of-item auto-advance to a durable queue model if product wants long-form video playlists. |
 | Video resume position | `VideoPositionPersistenceCoordinator`, `VideoPlaybackStateStoring` | App video playback now composes `VideoPlaybackIntegrationCoordinator` with a SwiftData-backed `AuraPlayPlaybackPositionStateService` adapter; pause/stop/disappear flush through the coordinator and completion resets use the same shared store. | Present | Physical-device QA still needs to confirm restore prompts and completion resets with real media. |
-| Video Now Playing | `VideoNowPlayingPublishing`, shared Now Playing contracts | Package coordinator can publish video ticks to a Now Playing adapter; app video UI does not instantiate that coordinator or a concrete video adapter | Package Only | Compose the coordinator with the existing shared publisher so Lock Screen/Control Center show video media type, title, artwork/poster, elapsed/duration, and playback rate. |
-| Video remote commands | `VideoRemoteCommandStreaming`, dispatcher | Package coordinator can dispatch play/pause/seek/skip commands; app video UI does not bind a remote-command stream | Package Only | Bind system remote commands to the active video coordinator and arbitrate with audio runtime ownership. |
+| Video Now Playing | `VideoNowPlayingPublishing`, shared Now Playing contracts | App composes the coordinator with a `VideoNowPlayingPublisherAdapter` over the shared publisher, so active video publishes Now Playing metadata | Present | Device QA Lock Screen/Control Center metadata (media type, title, artwork/poster, elapsed/duration, rate) and arbitration with audio. |
+| Video remote commands | `VideoRemoteCommandStreaming`, dispatcher | App binds system remote commands to the active video coordinator via `AuraPlayPlaybackRuntime.dispatchVideoRemoteCommand` | Present | Device QA headphone/Lock Screen/Control Center commands and audio-vs-video ownership arbitration. |
 | Video buffering/waiting | `VideoPlaybackState.buffering`, `VideoWaitingReason`, stalled event | Player overlays show loading/buffering/ended/error product copy with progress where appropriate | Present | Add gateway-specific recovering/retrying copy after a host gateway resolver is composed. |
-| Video gateway fallback | `StallFallbackCoordinator`, gateway resolver protocol | Package coordinator can retry a gateway after a stall; app video UI handles stall as buffering only and has no host gateway resolver composition | Package Only | Wire host gateway resolver into `VideoPlaybackIntegrationCoordinator` and show subtle recovering/retrying state when fallback happens. |
+| Video gateway fallback | `StallFallbackCoordinator`, gateway resolver protocol | App composes an `AuralisVideoGatewayFallbackResolver` (`VideoGatewayResolving`) into `VideoPlaybackIntegrationCoordinator`, so a stall retries an alternate gateway | Present | Surface a subtle recovering/retrying status in the UI (fallback currently reads as buffering) and device QA real gateway failover. |
 | Video error handling | `VideoPlaybackError`, failure events | Overlay/status copy covers no item, unresolved URL, load failure, unsupported PiP, and playback errors | Present | Device QA unsupported formats and provider failures. |
-| Video poster fallback | `PosterFrameGenerator`, `CachedPosterFrameGenerator` | Package can generate/cache posters; app video rows use metadata artwork via `AsyncImage` and a generic symbol placeholder when artwork is missing | Package Only | Generate/store poster when metadata artwork is absent; use poster in library rows, video detail, and Now Playing. |
+| Video poster fallback | `PosterFrameGenerator`, `CachedPosterFrameGenerator` | App generates posters via `CachedPosterFrameGenerator` for items lacking metadata artwork (`generateMissingPosterFrames`) and renders them in library rows | Present | Extend poster reuse to video detail and Now Playing; device QA generation cost on large libraries. |
 | Video aspect/orientation | `VideoPresentationAnalyzer`, `VideoPresentationInfo` | Inline player adapts to detected landscape, portrait, or square source aspect and reports the detected shape in capabilities | Present | Device QA with representative portrait, square, and landscape NFT video URLs. |
 | Video HDR badge | `HDRDetector` | Capability row appears only when HDR content is detected, with display-capability copy kept honest for target hardware verification | Present | Device QA on HDR-capable and non-HDR displays. |
 | Video high-frame-rate badge | `VideoPlaybackCapabilities.isHighFrameRate` | Capability row appears only when the asset reports 48 fps or higher | Present | Device QA with representative HFR content. |
-| Video immersive/spatial capability | `VideoImmersivePlaybackPolicy`, `VideoPlaybackCapabilities` | No UI | Missing | Add badges and correct handoff controls; do not imply custom inline layer is full spatial/immersive playback. |
+| Video immersive/spatial capability | `VideoImmersivePlaybackPolicy`, `VideoPlaybackCapabilities` | Capability row reports the detected immersive profile (e.g. Apple Immersive Video, unknown immersive) as an honest badge | Partial | Add the correct host handoff control for immersive content; the inline custom layer still does not render full immersive playback. |
 | Video AVKit immersive handoff | `VideoAVKitImmersiveHandoffPresenting` | No UI | Missing | Add host-owned expanded/immersive presentation action where supported. |
 | Video multiview | `VideoMultiviewCoordinator` | No UI | Missing | Add participant/player grid, sync mode, route preference, network priority, and duplicate/failed state only if multiview becomes product scope. |
 | Shared session launch | `SharedMediaActivityLaunchPolicy`, activity identity | Shared session card with disabled `Start Watch Together` and `Invite` | Placeholder | Build GroupActivities/SharePlay adapter, activity metadata, launch/invite UI, and share sheet registration. |
@@ -187,7 +187,7 @@ This audit checked the files that matter for UI requirements and host integratio
 | Shared queue identity | Queue reconciliation and selected item display | Missing |
 | Attachments | Attachment tray/list with add/remove and size/status | Missing |
 | Offline/network state | Cross-media unavailable/offline/cached states | Audio active-track cache controls present; cross-media banner still missing |
-| Now Playing/remote commands | System metadata and external command handling for active media | Audio wired; video still package only |
+| Now Playing/remote commands | System metadata and external command handling for active media | Audio and video both wired; needs device QA |
 
 ### AuraPlayAudioEngine
 
@@ -207,7 +207,7 @@ Audio is product-shaped for the current release scope because `AuraPlayPlaybackR
 
 ### AuraPlayVideoEngine
 
-Video now has a production-shaped app surface for wallet-scoped 2D playback. Offline video downloads, gateway fallback, poster/HDR/aspect analysis, immersive handoff, and multiview remain package-backed or future product scope.
+Video now has a production-shaped app surface for wallet-scoped 2D playback, including composed `VideoPlaybackIntegrationCoordinator`, Now Playing, remote commands, gateway fallback, and poster generation. Offline video downloads, immersive handoff, and multiview remain package-backed or future product scope.
 
 | Capability | UI Needed | Current State |
 |---|---|---|
@@ -220,10 +220,10 @@ Video now has a production-shaped app surface for wallet-scoped 2D playback. Off
 | Chapters | Chapter list/markers | Present when metadata exists |
 | Queue | Video queue list and next/previous | Partial wallet-scoped list |
 | Resume | Continue prompt and persisted position | Present with local store |
-| Poster/HDR/aspect | Poster fallback, HDR/HFR badges, aspect-aware layout | HDR/HFR/aspect present; poster fallback still missing |
-| Gateway fallback | Recovering state and retry path | Package only |
+| Poster/HDR/aspect | Poster fallback, HDR/HFR badges, aspect-aware layout | HDR/HFR/aspect present; poster fallback present in library rows |
+| Gateway fallback | Recovering state and retry path | Resolver composed; explicit recovering-status UI still missing |
 | Multiview | Participant grid/sync/route priority controls | Missing |
-| Immersive/spatial | Honest badges and host handoff controls | Missing |
+| Immersive/spatial | Honest badges and host handoff controls | Honest badge present; host handoff control missing |
 
 ## Completed Implementation Pass
 
@@ -265,8 +265,8 @@ Video now has a production-shaped app surface for wallet-scoped 2D playback. Off
 | P0 | Run release-device AuraPlay media QA | Audio/video | Real hardware coverage for Lock Screen, Control Center, AirPlay, AirPods, interruptions, background/foreground restore, poor-network buffering, gapless playback, and battery |
 | P1 | Add video offline download controls | Video | Manifest store and download managers composed in app |
 | P1 | Wire AirPlay optimized audio route | Audio | Explicit route handoff design, queue/position transfer, and QA |
-| P1 | Add video poster fallback UI | Video | Poster cache adapter composed in app |
-| P1 | Add gateway fallback recovery status | Video | Host `VideoGatewayResolving` adapter |
+| P2 | Extend poster fallback to detail/Now Playing | Video | Poster generation already composed and used in library rows |
+| P1 | Surface gateway fallback recovering status in UI | Video | `VideoGatewayResolving` adapter already composed; fallback currently reads as buffering |
 | P2 | Add media storage quota controls | Audio/video | Product decision on global offline storage management |
 | P2 | Add playlists and durable history | Library/playback | Persistence models/services |
 | P3 | Add shared session launch/presence/lobby | MediaCore/shared | Real GroupActivities adapter |

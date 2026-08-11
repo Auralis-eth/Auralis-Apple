@@ -10,10 +10,7 @@ import TokenStorage
 
 @MainActor
 struct SwiftDataViewServicesTests {
-    @Test(
-        "home summary service returns scoped counts and recent activity",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because NFT and receipt SwiftData models are loaded from both the app and test bundles.")
-    )
+    @Test("home summary service returns scoped counts and recent activity")
     func homeSummaryServiceReturnsScopedCountsAndActivity() throws {
         let context = try makeContext()
         let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
@@ -92,10 +89,7 @@ struct SwiftDataViewServicesTests {
         #expect(index.tokenSymbols.contains { $0.symbol == "TOK" && $0.label == "Search Token" })
     }
 
-    @Test(
-        "profile asset summary service returns account and scoped counts",
-        .disabled("Fails in the Xcode 26 beta app-hosted runner while fetching duplicated EOAccount SwiftData models from the hosted test process.")
-    )
+    @Test("profile asset summary service returns account and scoped counts")
     func profileAssetSummaryServiceReturnsScopedCounts() throws {
         let context = try makeContext()
         let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"

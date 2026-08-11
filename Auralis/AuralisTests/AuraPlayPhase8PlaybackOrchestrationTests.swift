@@ -518,9 +518,11 @@ struct AuraPlayPhase8PlaybackOrchestrationTests {
         #expect(runtimeSource.contains("markExternalPlaybackActive"))
         #expect(runtimeSource.contains("dispatchVideoRemoteCommand"))
         #expect(runtimeSource.contains("phase8ActiveEngine"))
+        #expect(runtimeSource.contains("configureVideoRouteOpening"))
+        #expect(runtimeSource.contains("openVideoPlayer?()"))
     }
 
-    @Test("production AuraPlay audio commands route through the playback orchestrator")
+    @Test("production AuraPlay audio playback routes through the playback orchestrator")
     func productionAuraPlayAudioRouteUsesPlaybackOrchestrator() throws {
         let runtimeSource = try String(
             contentsOf: sourceFileURL(relativePath: "Auralis/MusicApp/AuraPlay/Services/AuraPlayPlaybackRuntime.swift"),
@@ -529,10 +531,13 @@ struct AuraPlayPhase8PlaybackOrchestrationTests {
 
         #expect(runtimeSource.contains("private let playbackOrchestrator: PlaybackOrchestrator"))
         #expect(runtimeSource.contains("RuntimeAudioOrchestratorController"))
-        #expect(runtimeSource.contains("RemoteCommandCoordinator(orchestrator: playbackOrchestrator)"))
-        #expect(runtimeSource.contains("remoteCommandCoordinator.bind(to: remoteCommandPublisher)"))
         #expect(runtimeSource.contains("await playbackOrchestrator.play("))
-        #expect(!runtimeSource.contains("let events = remoteCommandPublisher.events"))
+        // Remote commands must flow through the runtime's richer handler so that
+        // cold-launch restored sessions load media before playing and video
+        // commands reach the video controls — not straight to the orchestrator.
+        #expect(runtimeSource.contains("let events = remoteCommandPublisher.events"))
+        #expect(runtimeSource.contains("self?.handleRemoteCommand(event)"))
+        #expect(!runtimeSource.contains("remoteCommandCoordinator.bind(to: remoteCommandPublisher)"))
     }
 }
 

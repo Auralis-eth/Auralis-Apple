@@ -1,3 +1,4 @@
+import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import MusicFeature
@@ -121,12 +122,8 @@ struct MusicAssembly {
         )
 
         return NFTSyncCoordinator(
-            evmClient: AlchemyNFTClient(
-                apiKey: try Secrets.apiKey(.alchemy)
-            ),
-            solanaClient: HeliusNFTClient(
-                apiKey: try Secrets.apiKey(.helius)
-            ),
+            evmClient: Self.makeEVMDiscoveryClient(),
+            solanaClient: Self.makeSolanaDiscoveryClient(),
             metadataFetcher: MetadataFetcher(
                 gatewayFallbackChain: gatewayFallbackChain
             ),
@@ -156,11 +153,28 @@ struct MusicAssembly {
         )
     }
 
+    private static func makeEVMDiscoveryClient() -> any EVMNFTDiscovering {
+        do {
+            return AlchemyNFTClient(apiKey: try Secrets.apiKey(.alchemy))
+        } catch {
+            return UnavailableEVMNFTDiscoveryClient(error: error)
+        }
+    }
+
+    private static func makeSolanaDiscoveryClient() -> any SolanaNFTDiscovering {
+        do {
+            return HeliusNFTClient(apiKey: try Secrets.apiKey(.helius))
+        } catch {
+            return UnavailableSolanaNFTDiscoveryClient(error: error)
+        }
+    }
+
     func makeMusicFeatureDependencies(
         playbackRuntime: AuraPlayPlaybackRuntime,
         auraPlayModelContainer: ModelContainer,
         accountModelContext: ModelContext,
-        musicLibraryIndexer: any MusicLibraryIndexing
+        musicLibraryIndexer: any MusicLibraryIndexing,
+        videoRouteOpening: AuraPlayVideoRouteOpening
     ) -> AuraPlayDependencies {
         let logger = LiveAuraPlayLogger()
         let nftDiscoverySyncService: any AuraPlayNFTDiscoverySyncing
@@ -184,6 +198,7 @@ struct MusicAssembly {
             syncProgressProvider = NoOpAuraPlaySyncProgressProvider()
         }
         configureMediaResolver(playbackRuntime)
+        playbackRuntime.configureVideoRouteOpening(videoRouteOpening.open)
         playbackRuntime.configureAuraPlayModelContainer(auraPlayModelContainer)
         let textEmbeddingProvider = NaturalLanguageTextEmbeddingProvider()
         let semanticSearchService = AuraPlayEmbeddingService(
@@ -237,7 +252,8 @@ struct MusicAssembly {
             playbackPresenter: playbackRuntime,
             playbackOrchestrator: AuraPlayOrchestratorAdapter(
                 runtime: playbackRuntime,
-                resolveNFTs: nftResolver
+                resolveNFTs: nftResolver,
+                openVideoPlayer: videoRouteOpening.open
             ),
             mediaQueryService: mediaQueryService,
             queueCoordinator: playbackRuntime,
@@ -266,5 +282,29 @@ private actor SwiftDataNFTDiscoveryScopeProvider: NFTDiscoveryScopeProviding {
                 chain: account.currentChain
             )
         }
+    }
+}
+
+private struct UnavailableEVMNFTDiscoveryClient: EVMNFTDiscovering {
+    let errorMessage: String
+
+    init(error: Error) {
+        self.errorMessage = error.localizedDescription
+    }
+
+    func fetchAll(owner: String, chain: Chain) async throws -> [NFTTokenDTO] {
+        throw ProviderAbstractionError.providerError(errorMessage)
+    }
+}
+
+private struct UnavailableSolanaNFTDiscoveryClient: SolanaNFTDiscovering {
+    let errorMessage: String
+
+    init(error: Error) {
+        self.errorMessage = error.localizedDescription
+    }
+
+    func fetchAll(owner: String) async throws -> [NFTTokenDTO] {
+        throw ProviderAbstractionError.providerError(errorMessage)
     }
 }

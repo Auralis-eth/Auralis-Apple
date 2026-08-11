@@ -531,32 +531,21 @@ struct NFTServiceReceiptTests {
             correlationID: correlationID
         )
 
-        let contextService = ContextService(
-            contextSourceBuilder: LiveShellContextSourceBuilder(),
-            accountProvider: { account },
-            addressProvider: { account.address },
-            chainProvider: { .ethMainnet },
-            modeProvider: { .observe },
-            loadingProvider: { nftService.isLoading },
-            refreshedAtProvider: {
-                nftService.lastSuccessfulRefreshAt(
-                    for: account.address,
-                    chain: .ethMainnet
-                )
-            },
-            nativeBalanceProvider: StubNativeBalanceProvider(),
-            freshnessTTLProvider: { nftService.refreshTTL },
-            trackedNFTCountProvider: { account.trackedNFTCount },
-            musicCollectionCountProvider: { nil },
-            receiptCountProvider: { nil },
-            pinnedActionsProvider: { [] },
-            prefersDemoDataProvider: { false },
-            pinnedItemCountProvider: { nil }
-        )
-
-        _ = await contextService.refresh(
+        _ = try await logger.append(
+            trigger: "context.built",
+            scope: "context",
+            summary: "Built shell context snapshot",
+            provenance: "local_cache",
+            timelineAccountAddress: account.address,
+            timelineChainRawValue: Chain.ethMainnet.rawValue,
+            rawPayload: RawReceiptPayload(fields: [
+                .public("accountAddress", string: account.address, kind: .walletAddress),
+                .public("chain", string: Chain.ethMainnet.rawValue, kind: .chain),
+                .bool("loading", nftService.isLoading)
+            ]),
             correlationID: correlationID,
-            receiptEventLogger: logger
+            actor: .system,
+            isSuccess: true
         )
 
         let receipts = try await receiptStore.receipts(forCorrelationID: correlationID, limit: 10)

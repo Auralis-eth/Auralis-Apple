@@ -37,10 +37,62 @@ public actor MediaCacheManager: MediaCacheManaging {
         loudnessAnalyzer: ApproximateLoudnessAnalyzer = ApproximateLoudnessAnalyzer(),
         settingsDefaults: UserDefaults = .standard
     ) throws {
-        self.fileManager = fileManager
-        self.diskCapBytes = AuraPlayCacheSettings.clampedDiskCapBytes(
-            diskCapBytes ?? AuraPlayCacheSettings.diskCapBytes(from: settingsDefaults)
+        try self.init(
+            cacheDirectory: cacheDirectory,
+            diskCapBytes: diskCapBytes,
+            fileManager: fileManager,
+            downloader: downloader,
+            resolver: resolver,
+            gatewayFallbackResolver: gatewayFallbackResolver,
+            networkStatusProvider: networkStatusProvider,
+            loudnessAnalyzer: loudnessAnalyzer,
+            settingsDefaults: settingsDefaults,
+            clampsDiskCapBytes: true
         )
+    }
+
+    init(
+        cacheDirectory: URL,
+        unclampedDiskCapBytesForTesting diskCapBytes: Int64,
+        fileManager: FileManager = .default,
+        downloader: any MediaDownloading = URLSessionMediaDownloader(),
+        resolver: any MediaURLResolving = GatewayMediaURLResolver(),
+        gatewayFallbackResolver: (any MediaGatewayFallbackResolving)? = nil,
+        networkStatusProvider: any MediaNetworkStatusProviding = FixedMediaNetworkStatusProvider(),
+        loudnessAnalyzer: ApproximateLoudnessAnalyzer = ApproximateLoudnessAnalyzer(),
+        settingsDefaults: UserDefaults = .standard
+    ) throws {
+        try self.init(
+            cacheDirectory: cacheDirectory,
+            diskCapBytes: diskCapBytes,
+            fileManager: fileManager,
+            downloader: downloader,
+            resolver: resolver,
+            gatewayFallbackResolver: gatewayFallbackResolver,
+            networkStatusProvider: networkStatusProvider,
+            loudnessAnalyzer: loudnessAnalyzer,
+            settingsDefaults: settingsDefaults,
+            clampsDiskCapBytes: false
+        )
+    }
+
+    private init(
+        cacheDirectory: URL?,
+        diskCapBytes: Int64?,
+        fileManager: FileManager,
+        downloader: any MediaDownloading,
+        resolver: any MediaURLResolving,
+        gatewayFallbackResolver: (any MediaGatewayFallbackResolving)?,
+        networkStatusProvider: any MediaNetworkStatusProviding,
+        loudnessAnalyzer: ApproximateLoudnessAnalyzer,
+        settingsDefaults: UserDefaults,
+        clampsDiskCapBytes: Bool
+    ) throws {
+        self.fileManager = fileManager
+        let resolvedDiskCapBytes = diskCapBytes ?? AuraPlayCacheSettings.diskCapBytes(from: settingsDefaults)
+        self.diskCapBytes = clampsDiskCapBytes
+            ? AuraPlayCacheSettings.clampedDiskCapBytes(resolvedDiskCapBytes)
+            : resolvedDiskCapBytes
         self.downloader = downloader
         self.resolver = resolver
         self.gatewayFallbackResolver = gatewayFallbackResolver

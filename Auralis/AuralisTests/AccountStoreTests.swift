@@ -6,10 +6,7 @@ import Testing
 
 @MainActor
 struct AccountStoreTests {
-    @Test(
-        "create normalizes addresses and lists accounts by activity then recency added",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData @Model classes are loaded from both the app and test bundles.")
-    )
+    @Test("create normalizes addresses and lists accounts by activity then recency added")
     @MainActor
     func createAndListAccounts() async throws {
         let container = try TestModelContainers.primary()
@@ -39,10 +36,7 @@ struct AccountStoreTests {
         ])
     }
 
-    @Test(
-        "account lookup uses canonical normalization for raw addresses",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData @Model classes are loaded from both the app and test bundles.")
-    )
+    @Test("account lookup uses canonical normalization for raw addresses")
     @MainActor
     func accountLookupNormalizesInput() async throws {
         let container = try TestModelContainers.primary()
@@ -86,10 +80,7 @@ struct AccountStoreTests {
         #expect(invalid.normalizedAddress == nil)
     }
 
-    @Test(
-        "select updates lastSelectedAt and moves the account to the front",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData @Model classes are loaded from both the app and test bundles.")
-    )
+    @Test("select updates lastSelectedAt and moves the account to the front")
     @MainActor
     func selectAccount() async throws {
         let container = try TestModelContainers.primary()
@@ -118,10 +109,7 @@ struct AccountStoreTests {
         #expect(recorder.events.last == .selected(address: first.address))
     }
 
-    @Test(
-        "activate creates a new account once and selects an existing duplicate deterministically",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData @Model classes are loaded from both the app and test bundles.")
-    )
+    @Test("activate creates a new account once and selects an existing duplicate deterministically")
     @MainActor
     func activateWatchAccountCreatesOrSelects() async throws {
         let container = try TestModelContainers.primary()
@@ -154,10 +142,7 @@ struct AccountStoreTests {
         ])
     }
 
-    @Test(
-        "duplicate create is case-insensitive and requires explicit overwrite",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData @Model classes are loaded from both the app and test bundles.")
-    )
+    @Test("duplicate create is case-insensitive and requires explicit overwrite")
     @MainActor
     func duplicateCreateAndOverwrite() async throws {
         let container = try TestModelContainers.primary()
@@ -207,10 +192,7 @@ struct AccountStoreTests {
         ])
     }
 
-    @Test(
-        "invalid create and missing account operations fail with deterministic errors",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData @Model classes are loaded from both the app and test bundles.")
-    )
+    @Test("invalid create and missing account operations fail with deterministic errors")
     @MainActor
     func invalidAndMissingAccountErrors() async throws {
         let container = try TestModelContainers.primary()
@@ -230,10 +212,7 @@ struct AccountStoreTests {
         }
     }
 
-    @Test(
-        "remove returns the sorted fallback only when removing the active account",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData @Model classes are loaded from both the app and test bundles.")
-    )
+    @Test("remove returns the sorted fallback only when removing the active account")
     @MainActor
     func removeAccountAndFallback() async throws {
         let container = try TestModelContainers.primary()
@@ -267,10 +246,7 @@ struct AccountStoreTests {
         #expect(recorder.events.last == .removed(address: first.address))
     }
 
-    @Test(
-        "remove does not compute a fallback when deleting an inactive account",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData @Model classes are loaded from both the app and test bundles.")
-    )
+    @Test("remove does not compute a fallback when deleting an inactive account")
     @MainActor
     func removeInactiveAccountDoesNotFallback() async throws {
         let container = try TestModelContainers.primary()
@@ -304,10 +280,7 @@ struct AccountStoreTests {
         #expect(recorder.events.last == .removed(address: inactive.address))
     }
 
-    @Test(
-        "activate reuses one caller-provided correlation ID across chained add and select events",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData @Model classes are loaded from both the app and test bundles.")
-    )
+    @Test("activate reuses one caller-provided correlation ID across chained add and select events")
     @MainActor
     func activateWatchAccountPreservesCorrelationID() async throws {
         let container = try TestModelContainers.primary()
@@ -330,10 +303,7 @@ struct AccountStoreTests {
         #expect(recorder.recordedEvents.map(\.correlationID) == [correlationID, correlationID])
     }
 
-    @Test(
-        "list orders by lastSelectedAt first and then newest added for ties",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData @Model classes are loaded from both the app and test bundles.")
-    )
+    @Test("list orders by lastSelectedAt first and then newest added for ties")
     @MainActor
     func listAccountsUsesSelectionThenAddedAtOrdering() async throws {
         let container = try TestModelContainers.primary()

@@ -113,15 +113,14 @@ struct UIApplicationWalletOpener: WalletApplicationOpening {
 }
 
 @MainActor
-final class AuralisWalletAccountAdapter {
+final class AuralisWalletAccountAdapter: WalletAccountPersisting {
     private let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
 
-    @discardableResult
-    func upsert(_ walletAddress: WalletSessionAddress, selectedAt: Date) throws -> EOAccount {
+    func upsert(_ walletAddress: WalletSessionAddress, selectedAt: Date) async throws {
         let address = canonicalAddress(walletAddress.account.address, chain: walletAddress.chain)
         let chain = walletAddress.chain.auralisChain
         let account = try existingAccount(address: address) ?? EOAccount(
@@ -143,10 +142,9 @@ final class AuralisWalletAccountAdapter {
         account.preferredChain = chain
         account.lastSelectedAt = selectedAt
         try modelContext.save()
-        return account
     }
 
-    func deactivate(address: String, chain: WalletChain, at date: Date) throws {
+    func deactivate(address: String, chain: WalletChain, at date: Date) async throws {
         guard let account = try existingAccount(address: canonicalAddress(address, chain: chain)) else {
             return
         }
@@ -156,7 +154,7 @@ final class AuralisWalletAccountAdapter {
         try modelContext.save()
     }
 
-    func mostRecentlyUsedActiveAddress(excluding address: String?) throws -> String? {
+    func mostRecentlyUsedActiveAddress(excluding address: String?) async throws -> String? {
         let excluded = address?.lowercased()
         let accounts = try modelContext.fetch(FetchDescriptor<EOAccount>())
         return accounts
@@ -178,7 +176,7 @@ final class AuralisWalletAccountAdapter {
 
     private func canonicalAddress(_ address: String, chain: WalletChain) -> String {
         switch chain {
-        case .ethereum, .polygon, .base, .optimism, .arbitrum:
+        case .ethereum, .polygon, .base, .optimism, .arbitrum, .avalanche, .bnb, .zksync, .linea:
             address.lowercased()
         case .solana:
             address
@@ -201,6 +199,12 @@ final class AuralisWalletConnectionService {
     private let accountAdapter: AuralisWalletAccountAdapter
     private let topicStore: any WalletSessionTopicStoring
     private let activeWalletStore: any ActiveWalletStoring
+    /// The kit's canonical persistence/restore/remove pipeline. Routing through
+    /// it (rather than hand-rolling upsert/topic writes) is what enforces the
+    /// `.requireVerified` ownership policy — the connected wallet must prove it
+    /// controls an address via a signing challenge before it is ever saved as a
+    /// signing-capable account.
+    private let lifecycle: WalletConnectionLifecycleService
 
     var phase: Phase = .idle
     var latestPairingPayload: String?
@@ -251,6 +255,14 @@ final class AuralisWalletConnectionService {
             self.phase = .failed(error.localizedDescription)
         }
 
+        self.lifecycle = WalletConnectionLifecycleService(
+            connector: connector,
+            accountStore: accountAdapter,
+            topicStore: topicStore,
+            activeWalletStore: activeWalletStore,
+            ownershipPolicy: .requireVerified
+        )
+
         observeConnectorEvents()
     }
 
@@ -269,6 +281,13 @@ final class AuralisWalletConnectionService {
         self.topicStore = topicStore
         self.activeWalletStore = activeWalletStore
         self.phase = phase
+        self.lifecycle = WalletConnectionLifecycleService(
+            connector: connector,
+            accountStore: accountAdapter,
+            topicStore: topicStore,
+            activeWalletStore: activeWalletStore,
+            ownershipPolicy: .requireVerified
+        )
         observeConnectorEvents()
     }
 
@@ -297,22 +316,29 @@ final class AuralisWalletConnectionService {
     func remove(account: EOAccount) async {
         let chain = WalletChain(auralisChain: account.currentChain)
         do {
-            if let topic = try await topicStore.load(walletAddress: account.address) {
-                try await connector.disconnect(sessionId: WalletSessionID(rawValue: topic.rawValue))
-            }
-            try await topicStore.delete(walletAddress: account.address)
-            try accountAdapter.deactivate(address: account.address, chain: chain, at: Date())
-
-            if activeWalletStore.get()?.caseInsensitiveCompare(account.address) == .orderedSame {
-                if let fallback = try accountAdapter.mostRecentlyUsedActiveAddress(excluding: account.address) {
-                    activeWalletStore.set(fallback)
-                } else {
-                    activeWalletStore.clear()
-                }
-            }
+            // Delegate disconnect + topic teardown + deactivation + active-wallet
+            // fallback to the kit's lifecycle service so the removal path matches
+            // the persistence path (same case-insensitive matching, same rollback
+            // semantics) instead of a hand-rolled duplicate.
+            try await lifecycle.remove(address: account.address, chain: chain)
             phase = .idle
         } catch {
             phase = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Reconciles persisted wallet sessions with the connector's live sessions on
+    /// launch: re-hydrates still-verified sessions, deactivates accounts whose
+    /// session expired or can no longer prove ownership, and preserves the
+    /// previously-active wallet when it is still restorable. Non-fatal — a restore
+    /// failure leaves the UI idle rather than surfacing an error.
+    func restore() async {
+        do {
+            let result = try await lifecycle.restoreSavedSessions()
+            connectedAddress = result.activeAddress
+        } catch {
+            // Intentionally swallowed: restore runs unattended at launch, and a
+            // transient store/connector hiccup must not block the app.
         }
     }
 
@@ -334,6 +360,49 @@ final class AuralisWalletConnectionService {
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    // MARK: Signing & SIWE
+
+    /// Requests an EIP-191 `personal_sign` over human-readable `text` from the
+    /// wallet that owns `account`, returning the signature. Only a connected,
+    /// signing-capable wallet can sign; throws if `account` has no live session.
+    func signPersonalMessage(_ text: String, account: EOAccount) async throws -> String {
+        let sessionId = try await sessionID(for: account)
+        let request = WalletRequestBuilder.personalSignText(
+            id: WalletSignRequestID(rawValue: UUID().uuidString),
+            address: account.address,
+            text: text,
+            chain: WalletChain(auralisChain: account.currentChain)
+        )
+        let response = try await connector.request(request, in: sessionId)
+        return response.result
+    }
+
+    /// Runs a Sign-In with Ethereum (EIP-4361) challenge for `account`: the
+    /// connector issues a SIWE-shaped `personal_sign` and verifies the returned
+    /// signature recovers the address. Returns whether ownership was proven.
+    @discardableResult
+    func signInWithEthereum(
+        account: EOAccount,
+        statement: String = "Sign in to AuraPlay."
+    ) async throws -> Bool {
+        let sessionId = try await sessionID(for: account)
+        return try await connector.verifyOwnership(
+            of: account.address,
+            chain: WalletChain(auralisChain: account.currentChain),
+            in: sessionId,
+            statement: statement,
+            expiryDate: Date().addingTimeInterval(300)
+        )
+    }
+
+    /// Resolves the live WalletConnect session for `account` from the topic store.
+    private func sessionID(for account: EOAccount) async throws -> WalletSessionID {
+        guard let topic = try await topicStore.load(walletAddress: account.address) else {
+            throw WalletConnectionError.unavailable("Connect this wallet before signing.")
+        }
+        return WalletSessionID(rawValue: topic.rawValue)
     }
 
     private func connectWithGenericPairing(label: String) async {
@@ -360,6 +429,8 @@ final class AuralisWalletConnectionService {
             latestPairingPayload = uri.absoluteString
         case .sessionSettled(let session):
             await persist(session)
+        case .sessionUpdated(let session):
+            await persist(session)
         case .sessionRejected(let error):
             phase = .failed(error.localizedDescription)
         case .sessionDeleted:
@@ -371,26 +442,38 @@ final class AuralisWalletConnectionService {
             connectedAddress = nil
         case .requestExpired(let requestID):
             phase = .failed("Wallet request \(requestID.rawValue) expired.")
+        case .sessionEvent(let event):
+            await handleSessionEvent(event)
+        case .peerAcknowledgementFailed(let failure):
+            // The relay never acknowledged a request we sent; surface it so the
+            // user isn't left staring at a silent, stuck connection.
+            phase = .failed(failure.error.localizedDescription)
         case .responseReceived, .socketStatusChanged:
             break
         }
     }
 
-    private func persist(_ session: WalletConnectorSession) async {
-        let addresses = WalletSessionAddressExtractor.extract(from: session)
-        guard !addresses.isEmpty else {
-            phase = .failed("The wallet approved the connection, but no supported address was returned.")
-            return
+    /// Reacts to a wallet-emitted session event. An `accountsChanged` /
+    /// `chainChanged` means the wallet swapped the authorized account or network,
+    /// which the custom IRN transport treats as ownership-invalidating; reconcile
+    /// so a no-longer-verified account is dropped from the active set rather than
+    /// silently trusted.
+    private func handleSessionEvent(_ event: WalletSessionEvent) async {
+        switch event.name {
+        case "accountsChanged", "chainChanged":
+            await restore()
+        default:
+            break
         }
+    }
 
+    private func persist(_ session: WalletConnectorSession) async {
         do {
-            for address in addresses {
-                let account = try accountAdapter.upsert(address, selectedAt: Date())
-                try await topicStore.save(topic: session.topic, walletAddress: account.address)
-                activeWalletStore.set(account.address)
-                connectedAddress = account.address
+            let result = try await lifecycle.persistApprovedSession(session)
+            connectedAddress = result.activeAddress
+            if let activeAddress = result.activeAddress {
+                phase = .connected(activeAddress)
             }
-            phase = .connected(connectedAddress ?? addresses.last!.account.address)
         } catch {
             phase = .failed(error.localizedDescription)
         }
@@ -419,7 +502,9 @@ private actor UnavailableWalletTransportClient: WalletTransportClient {
 private extension WalletChain {
     var auralisChain: Chain {
         switch self {
-        case .ethereum:
+        case .ethereum, .avalanche, .bnb, .zksync, .linea:
+            // Auralis's Chain model has no dedicated case for these EVM chains yet;
+            // fall back to Ethereum mainnet as a best-effort EVM default.
             .ethMainnet
         case .polygon:
             .polygonMainnet

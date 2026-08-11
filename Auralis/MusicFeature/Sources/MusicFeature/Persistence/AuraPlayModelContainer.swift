@@ -6,7 +6,7 @@ public enum AuraPlayModelContainer {
     private static let storeFileName = "AuraPlay.store"
 
     public static func make(inMemory: Bool, baseDirectory: URL? = nil) throws -> ModelContainer {
-        let schema = Schema(versionedSchema: AuraPlaySchemaV2.self)
+        let schema = Schema(AuraPlaySchema.models)
         let configuration = if inMemory {
             ModelConfiguration(
                 schema: schema,
@@ -21,7 +21,6 @@ public enum AuraPlayModelContainer {
 
         return try ModelContainer(
             for: schema,
-            migrationPlan: AuraPlayMigrationPlan.self,
             configurations: [configuration]
         )
     }

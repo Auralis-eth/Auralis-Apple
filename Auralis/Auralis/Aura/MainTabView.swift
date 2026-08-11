@@ -30,6 +30,10 @@ struct MainTabView: View {
     let modeState: ModeState
     let dependencies: MainTabDependencies
     let auraPlayModelContainer: ModelContainer?
+    /// The app-lifetime wallet connection service owned by `MainAuraView`, shared
+    /// so the tab picker reuses the same connector as launch-time restore rather
+    /// than spinning up a second one. `nil` falls back to lazy creation.
+    let walletConnectionService: AuralisWalletConnectionService?
     private let homePinnedItemsStore: HomePinnedItemsStore
 
     @State private var showAccountSwitcher = false
@@ -105,7 +109,10 @@ struct MainTabView: View {
         let musicDependencies = dependencies.makeMusicFeatureDependencies(
             playbackRuntime: playbackRuntime,
             auraPlayModelContainer: auraPlayModelContainer,
-            accountModelContext: modelContext
+            accountModelContext: modelContext,
+            videoRouteOpening: AuraPlayVideoRouteOpening {
+                _ = router.restoreMusicVideoWireframe()
+            }
         )
         return AuraPlayRootModel(
             libraryRepository: musicDependencies.libraryRepository,
@@ -142,7 +149,8 @@ struct MainTabView: View {
         retryMusicSetup: @escaping @MainActor () async -> Void,
         modeState: ModeState,
         dependencies: MainTabDependencies,
-        auraPlayModelContainer: ModelContainer?
+        auraPlayModelContainer: ModelContainer?,
+        walletConnectionService: AuralisWalletConnectionService? = nil
     ) {
         self.shellStore = shellStore
         self.resolveCurrentAccount = resolveCurrentAccount
@@ -155,6 +163,7 @@ struct MainTabView: View {
         self.modeState = modeState
         self.dependencies = dependencies
         self.auraPlayModelContainer = auraPlayModelContainer
+        self.walletConnectionService = walletConnectionService
 
         let homePinnedItemsStore = dependencies.homePinnedItemsStore
         self.homePinnedItemsStore = homePinnedItemsStore
@@ -194,7 +203,8 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $showWalletPicker) {
             WalletPickerHostSheet(
-                onSelectAccount: selectAccount
+                onSelectAccount: selectAccount,
+                walletConnectionService: walletConnectionService
             )
         }
         .sheet(isPresented: $showContextInspector) {
@@ -353,7 +363,10 @@ struct MainTabView: View {
                                     dependencies: dependencies.makeMusicFeatureDependencies(
                                         playbackRuntime: playbackRuntime,
                                         auraPlayModelContainer: auraPlayModelContainer,
-                                        accountModelContext: modelContext
+                                        accountModelContext: modelContext,
+                                        videoRouteOpening: AuraPlayVideoRouteOpening {
+                                            _ = router.restoreMusicVideoWireframe()
+                                        }
                                     ),
                                     onOpenItem: { itemID in
                                         router.showMusicNFTDetail(id: itemID)
@@ -362,10 +375,7 @@ struct MainTabView: View {
                                         router.showMusicCollectionDetail(key: key, title: title)
                                     },
                                     onPlayItem: { itemID in
-                                        try? await playbackRuntime.playLibraryItem(
-                                            id: itemID,
-                                            in: scopedMusicNFTs
-                                        )
+                                        await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
                                     },
                                     onAddItemToQueue: { itemID in
                                         playbackRuntime.addLibraryItemToQueue(
@@ -392,10 +402,7 @@ struct MainTabView: View {
                                             )
                                         },
                                         onPlay: { itemID in
-                                            try? await playbackRuntime.playLibraryItem(
-                                                id: itemID,
-                                                in: scopedMusicNFTs
-                                            )
+                                            await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
                                         },
                                         onAddToQueue: { itemID in
                                             playbackRuntime.addLibraryItemToQueue(
@@ -422,10 +429,7 @@ struct MainTabView: View {
                                                 router.showMusicNFTDetail(id: itemID)
                                             },
                                             onPlayItem: { itemID, _, _ in
-                                                try? await playbackRuntime.playLibraryItem(
-                                                    id: itemID,
-                                                    in: scopedMusicNFTs
-                                                )
+                                                await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
                                             },
                                             onAddToPlaylist: { _ in }
                                         )
@@ -447,10 +451,7 @@ struct MainTabView: View {
                                                 router.showMusicNFTDetail(id: itemID)
                                             },
                                             onPlayItem: { itemID, _, _ in
-                                                try? await playbackRuntime.playLibraryItem(
-                                                    id: itemID,
-                                                    in: scopedMusicNFTs
-                                                )
+                                                await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
                                             },
                                             missingContent: {
                                                 AuraScenicScreen {
@@ -486,10 +487,7 @@ struct MainTabView: View {
                                                 router.showMusicNFTDetail(id: itemID)
                                             },
                                             onPlayItem: { itemID, _, _ in
-                                                try? await playbackRuntime.playLibraryItem(
-                                                    id: itemID,
-                                                    in: scopedMusicNFTs
-                                                )
+                                                await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
                                             }
                                         )
                                     }
@@ -770,6 +768,20 @@ struct MainTabView: View {
                         router.dismissAuxiliarySurface(resetPaths: true)
                     }
                 }
+        }
+    }
+
+    private func playLibraryItem(
+        _ itemID: String,
+        playbackRuntime: AuraPlayPlaybackRuntime
+    ) async {
+        do {
+            try await playbackRuntime.playLibraryItem(
+                id: itemID,
+                in: scopedMusicNFTs
+            )
+        } catch {
+            playbackRuntime.presentAuraPlayPlaybackFailure(error)
         }
     }
 

@@ -237,7 +237,7 @@ struct NFTMetadataUpdaterTests {
         NFTMetadataUpdater.updateNFTFromMetadata(
             nft: nft,
             metadata: [
-                "seller_fee_basis_points": .number(750)
+                "seller_fee_basis_points": .int(750)
             ]
         )
 

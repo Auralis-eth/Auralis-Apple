@@ -3,6 +3,7 @@ import SwiftUI
 public struct AuraActionButton: View {
     public enum Style {
         case hero
+        case heroSecondary
         case surface
     }
 
@@ -42,7 +43,7 @@ public struct AuraActionButton: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundStyle(Color.textPrimary)
-            .frame(maxWidth: style == .hero ? .infinity : nil, minHeight: 44)
+            .frame(maxWidth: isFullWidth ? .infinity : nil, minHeight: 44)
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
             .background(backgroundShape)
@@ -54,12 +55,16 @@ public struct AuraActionButton: View {
         .accessibilityLabel(title)
     }
 
+    private var isFullWidth: Bool {
+        style == .hero || style == .heroSecondary
+    }
+
     private var horizontalPadding: CGFloat {
-        style == .hero ? heroHorizontalPadding : surfaceHorizontalPadding
+        isFullWidth ? heroHorizontalPadding : surfaceHorizontalPadding
     }
 
     private var verticalPadding: CGFloat {
-        style == .hero ? heroVerticalPadding : surfaceVerticalPadding
+        isFullWidth ? heroVerticalPadding : surfaceVerticalPadding
     }
 
     @ViewBuilder
@@ -68,7 +73,7 @@ public struct AuraActionButton: View {
         case .hero:
             Capsule()
                 .fill(Color.accent.gradient)
-        case .surface:
+        case .heroSecondary, .surface:
             Capsule()
                 .fill(Color.deepBlue.opacity(0.35))
                 .overlay {

@@ -92,6 +92,17 @@ struct AuraPlayPlaybackQueue: Equatable, Sendable {
     }
 
     @discardableResult
+    mutating func removeNonCurrent(mediaID: String) -> Bool {
+        let originalEntryCount = entries.count
+        entries.removeAll { entry in
+            entry.id != currentEntryID && entry.item.id == mediaID
+        }
+        let originalHistoryCount = history.count
+        history.removeAll { $0.item.id == mediaID }
+        return entries.count != originalEntryCount || history.count != originalHistoryCount
+    }
+
+    @discardableResult
     mutating func reorder(entryID: UUID, toIndex: Int) -> Bool {
         guard let sourceIndex = entries.firstIndex(where: { $0.id == entryID }),
               entries.indices.contains(sourceIndex) else {
@@ -101,6 +112,28 @@ struct AuraPlayPlaybackQueue: Equatable, Sendable {
         let destination = min(max(0, toIndex), entries.count)
         entries.insert(entry, at: destination)
         return true
+    }
+
+    @discardableResult
+    mutating func reorderUpcoming(mediaID: String, toUpcomingIndex: Int) -> Bool {
+        guard let currentIndex,
+              let sourceIndex = entries.indices.dropFirst(currentIndex + 1).first(where: { entries[$0].item.id == mediaID }) else {
+            return false
+        }
+
+        let entry = entries.remove(at: sourceIndex)
+        let upcomingStartIndex = min(entries.count, currentIndex + 1)
+        let destination = min(max(upcomingStartIndex, upcomingStartIndex + toUpcomingIndex), entries.count)
+        entries.insert(entry, at: destination)
+        return true
+    }
+
+    mutating func clearUpcoming() {
+        guard let currentIndex else {
+            entries.removeAll(keepingCapacity: true)
+            return
+        }
+        entries.removeSubrange(entries.index(after: currentIndex)..<entries.endIndex)
     }
 
     mutating func advance() -> QueueEntry? {

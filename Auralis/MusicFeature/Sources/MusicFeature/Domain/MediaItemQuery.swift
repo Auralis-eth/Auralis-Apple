@@ -124,6 +124,7 @@ public struct MediaItemQueryItem: Identifiable, Equatable, Sendable {
     public let artistName: String?
     public let collectionName: String?
     public let artworkURLString: String?
+    public let playbackURLString: String?
     public let durationSeconds: Double?
     public let hasAudio: Bool
     public let hasVideo: Bool
@@ -142,6 +143,7 @@ public struct MediaItemQueryItem: Identifiable, Equatable, Sendable {
         self.artistName = item.artistName
         self.collectionName = item.collectionName
         self.artworkURLString = item.artworkURLString
+        self.playbackURLString = item.playbackURLString
         self.durationSeconds = item.durationSeconds
         self.hasAudio = item.hasAudio
         self.hasVideo = item.hasVideo
@@ -161,9 +163,17 @@ public struct MediaItemQueryItem: Identifiable, Equatable, Sendable {
             title: title.isEmpty ? "Untitled" : title,
             creator: artistName,
             artworkURLString: artworkURLString,
+            playbackURLString: playbackURLString,
+            declaredFormat: playbackURLString.flatMap { URL(string: $0)?.pathExtension.nilIfEmpty },
             duration: durationSeconds,
             mediaKind: hasVideo ? .video : .audio
         )
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
 

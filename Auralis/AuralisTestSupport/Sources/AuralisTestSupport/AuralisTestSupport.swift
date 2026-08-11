@@ -156,10 +156,14 @@ public struct NFTFixture: @unchecked Sendable {
             tokenType: tokenType,
             name: name ?? "Fixture \(tokenId)",
             nftDescription: nftDescription,
-            image: includeOwnedChildren || imageOriginalUrl != nil || imageThumbnailUrl != nil ? NFT.Image(
-                originalUrl: resolvedImageOriginalUrl,
-                thumbnailUrl: resolvedImageThumbnailUrl
-            ) : nil,
+            image: includeOwnedChildren || imageOriginalUrl != nil || imageThumbnailUrl != nil ? {
+                let image = NFT.Image(
+                    originalUrl: resolvedImageOriginalUrl,
+                    thumbnailUrl: resolvedImageThumbnailUrl
+                )
+                image.secureUrl = resolvedImageOriginalUrl
+                return image
+            }() : nil,
             raw: raw,
             collection: collectionName.map {
                 NFT.Collection(

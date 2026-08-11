@@ -151,7 +151,7 @@ struct ProviderConfigurationTests {
                 payload: #"{"jsonrpc":"2.0","id":1,"error":{"code":-32003,"message":"upstream failed"}}"#,
                 expectedCode: -32003,
                 expectedMessage: "upstream failed",
-                expectedError: .providerError("upstream failed")
+                expectedError: .providerError("provider_error_payload_redacted reason=unclassified_message sha256=fbf483cb811705e59268dac16b4706991c0c5625a8c0d8531da68931331f2289")
             ),
         ]
     )
@@ -190,7 +190,7 @@ struct ProviderConfigurationTests {
                 payload: #"{"jsonrpc":"2.0","id":1,"error":{"code":-32003,"message":"upstream failed"}}"#,
                 expectedCode: -32003,
                 expectedMessage: "upstream failed",
-                expectedError: .providerError("upstream failed")
+                expectedError: .providerError("provider_error_payload_redacted reason=unclassified_message sha256=fbf483cb811705e59268dac16b4706991c0c5625a8c0d8531da68931331f2289")
             ),
         ]
 

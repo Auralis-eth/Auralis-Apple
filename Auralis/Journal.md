@@ -3108,8 +3108,32 @@ The live SwiftData reset had the same shape of problem at the model layer. It cl
 
 The fix made both brooms honest. File reset now removes the real SQLite sidecars, and the live-container reset deletes every model in the AuraPlay schema in an order that respects playlist relationships. The test now seeds all AuraPlay persisted model types before pressing the reset button. Lesson: when a feature has its own pantry, reset tests should put something on every shelf before proving the pantry is empty.
 
+## AuraPlay Playback: One Queue, One Stage
+
+The latest playback bug was a stagehand problem. The new library rows could hand the orchestrator a perfectly good video item, but the app only built the video stage when someone tapped the toolbar's Video button. Press Play on a video row and the performer arrived before the stage existed. The adapter now opens the video route first, waits briefly for the SwiftUI video surface to register its controls, and only then tells the orchestrator to load the item.
+
+The Now Playing sheet had a similar split-brain. Playback started through the new media-item orchestrator, but Skip Next and the queue sheet were still reading the old audio playlists. That meant a new AuraPlay queue could be playing while the UI stared at an empty old notebook. The public controls now read and mutate the orchestrator queue directly; the old preload helpers can still do narrow audio transition work, but the user-facing contract has one source of truth.
+
+The sync cooldown got its own release lesson. Partial provider failures used to mark progress as error but return as if everything was fine, so `syncAllIfNeeded()` wrote a fresh cooldown timestamp after a failed scope. That is like putting a "closed for cleaning" sign on a door nobody cleaned. Partial failures now throw a typed coordinator error after preserving successful scopes, and failed sync attempts do not poison the retry window.
+
 ## The Wallet Audit Log Retires Into the QA Plan
 
 WalletConnectorKit had carried a long, append-only `AI-Audit-Log.md` — a multi-model ledger that hardened the SDK-free core over many passes. It had done its job, and its one truth that no desk-bound session could ever close kept repeating: the live vendor wallet clients (Reown, Coinbase, Privy, Dynamic) have never been run against a real wallet on a real device. That is a device-QA fact, so it belongs in the plan a human actually runs on hardware, not buried in a 1,200-line package ledger.
 
 So the log was retired into the docs people open on purpose. Inside the package, the QA checklist absorbed the standing live-wallet ship gate, the known-limitations table, and a verification-status summary. In the app, `P0-Physical-Device-QA-Suite.md` gained `P0-Device-020`, a live-wallet connection pass covering connect/reject/sign/disconnect/restore and ownership verification with the real crypto provider. The lesson mirrors the AuraPlay one: findings should end up either fixed with a guarding test or distilled into the contract docs a maintainer reads, never left to grow in a ledger nobody reopens.
+
+## AuraPlay Audit: The Package Tests Were Holding Receipts
+
+The Phase 14 audit did the thing release audits are supposed to do: it made the quiet corners talk. The Xcode app suite was green, but standalone package tests found stale test contracts and one real metadata blind spot. `audio_url` was common enough provider vocabulary that ignoring it meant some playable NFTs could walk right past AuraPlay wearing the wrong nametag. The metadata updater now accepts the snake-case field and preserves MIME types from ERC-1155 file arrays, even when the IPFS URL has no useful extension.
+
+The test fixtures had their own lesson. A cached image fixture set `originalUrl` but not `secureUrl`, and a persistence merge test created its "existing" NFT under a different account scope than the refresh. That is the test equivalent of checking whether two keys open the same door while standing in two different buildings. The fixtures now model the real scoped identity and secure-image cache contract more honestly.
+
+The remaining smoke alarm turned out to be two alarms sharing one hallway. `AVAudioPlayerNode` can throw an Objective-C exception before Swift has a chance to catch it when the macOS SwiftPM runner lacks the scheduled-player audio unit, so the real-engine tests now check Core Audio component availability before constructing the graph. The cache tests had a different issue: they tried to test eviction with caps below the production minimum, so they now use a test-only unclamped cache manager path while the public settings path still clamps user values. The suite now runs to completion; the skipped real-engine cases move to the device QA contract where actual audio hardware and codecs exist.
+
+## Auralis-Fast: Taking The Training Wheels Off
+
+The Xcode 26 beta runner used to make app-hosted SwiftData tests act like a trapdoor: load the same `@Model` class from the app and test bundles, and some account, receipt, search, privacy, and AuraPlay persistence checks would crash or hang before they could tell us anything useful. Those skips were honest at the time, but by Phase 14 they had become a release-proofing blind spot.
+
+The recheck started ugly: the first direct account-store probe timed out, which looked like the old trapdoor was still there. After isolating the runner and sampling nearby tests, the pattern changed. Pure model presentation checks passed, then SearchHistory, receipts, view services, AuraPlay persistence, music receipt integration, undo, privacy reset, P0201 flows, and finally the direct AccountStore suite all ran cleanly. The lesson is a good beta-era one: do not blindly trust stale skip labels, but also do not delete them on faith. Make each locked door prove it is still locked.
+
+The result is better than "not failing": `Auralis-Fast` now runs 650 app tests with zero skips. That turns the former beta workaround back into a real release gate.

@@ -11,4 +11,3 @@ public struct NoOpMediaEngineLogger: MediaEngineLogging {
     public func info(_ message: String) {}
     public func error(_ message: String) {}
 }
-

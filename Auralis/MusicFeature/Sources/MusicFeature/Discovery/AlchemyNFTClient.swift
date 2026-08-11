@@ -21,7 +21,7 @@ public actor AlchemyNFTClient: EVMNFTDiscovering {
         self.urlSession = urlSession
         self.endpointBaseURLs = endpointBaseURLs ?? Self.liveEndpointBaseURLs(apiKey: apiKey)
         self.pageSize = pageSize
-        self.retryCount = retryCount
+        self.retryCount = max(retryCount, 1)
         self.retryDelayNanoseconds = retryDelayNanoseconds
     }
 

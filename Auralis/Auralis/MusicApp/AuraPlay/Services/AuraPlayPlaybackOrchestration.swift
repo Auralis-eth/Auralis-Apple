@@ -306,6 +306,21 @@ final class PlaybackOrchestrator {
         await play(item: previous.item, flushExistingPosition: false)
     }
 
+    func removeNonCurrentQueueItem(mediaID: String) {
+        queue.removeNonCurrent(mediaID: mediaID)
+        rebuildShuffleOrderIfNeeded()
+    }
+
+    func moveUpcomingQueueItem(mediaID: String, toUpcomingIndex: Int) {
+        queue.reorderUpcoming(mediaID: mediaID, toUpcomingIndex: toUpcomingIndex)
+        rebuildShuffleOrderIfNeeded()
+    }
+
+    func clearUpcomingQueue() {
+        queue.clearUpcoming()
+        rebuildShuffleOrderIfNeeded()
+    }
+
     func seek(to seconds: TimeInterval) async {
         await arbiter.seekActiveEngine(to: max(0, seconds))
     }

@@ -110,12 +110,13 @@ struct MainTabAssembly {
                     modeState: modeState
                 )
             },
-            musicFeatureDependenciesFactory: { [music] playbackRuntime, auraPlayModelContainer, accountModelContext, musicLibraryIndexer in
+            musicFeatureDependenciesFactory: { [music] playbackRuntime, auraPlayModelContainer, accountModelContext, musicLibraryIndexer, videoRouteOpening in
                 music.makeMusicFeatureDependencies(
                     playbackRuntime: playbackRuntime,
                     auraPlayModelContainer: auraPlayModelContainer,
                     accountModelContext: accountModelContext,
-                    musicLibraryIndexer: musicLibraryIndexer
+                    musicLibraryIndexer: musicLibraryIndexer,
+                    videoRouteOpening: videoRouteOpening
                 )
             }
         )
@@ -147,20 +148,23 @@ struct MainTabDependencies {
         AuraPlayPlaybackRuntime,
         ModelContainer,
         ModelContext,
-        any MusicLibraryIndexing
+        any MusicLibraryIndexing,
+        AuraPlayVideoRouteOpening
     ) -> AuraPlayDependencies
 
 
     func makeMusicFeatureDependencies(
         playbackRuntime: AuraPlayPlaybackRuntime,
         auraPlayModelContainer: ModelContainer,
-        accountModelContext: ModelContext
+        accountModelContext: ModelContext,
+        videoRouteOpening: AuraPlayVideoRouteOpening
     ) -> AuraPlayDependencies {
         musicFeatureDependenciesFactory(
             playbackRuntime,
             auraPlayModelContainer,
             accountModelContext,
-            musicLibraryIndexer
+            musicLibraryIndexer,
+            videoRouteOpening
         )
     }
 
@@ -218,5 +222,14 @@ struct MainTabDependencies {
                 )
             }
         )
+    }
+}
+
+@MainActor
+struct AuraPlayVideoRouteOpening {
+    let open: @MainActor () -> Void
+
+    init(open: @escaping @MainActor () -> Void) {
+        self.open = open
     }
 }

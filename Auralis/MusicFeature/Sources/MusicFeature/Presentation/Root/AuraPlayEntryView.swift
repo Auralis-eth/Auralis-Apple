@@ -1248,12 +1248,6 @@ struct AuraPlayEntryView: View {
                     systemImage: "arrow.down.circle",
                     status: "Backed"
                 )
-                AuraPlayIntegrationStatusRow(
-                    title: "Shared session",
-                    message: "Shared listening and watching controls stay hidden until participant and shared-queue state are real.",
-                    systemImage: "shareplay",
-                    status: "Planned"
-                )
             }
         }
     }

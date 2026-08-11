@@ -10,6 +10,12 @@ public struct MetadataParser: MetadataParsing {
             return MetadataParsed(schemaVersion: .unknown, rawJSON: json)
         }
 
+        // Helius DAS assets nest everything under `content`; check this first
+        // because the shape is specific and would otherwise fall through every
+        // root-level detector and be classified as `.unknown` / unplayable.
+        if detectsHeliusDAS(dictionary) {
+            return parseHeliusDAS(dictionary, rawJSON: json)
+        }
         if detectsSoundXyz(dictionary) {
             return parseSoundXyz(dictionary, rawJSON: json)
         }
@@ -31,6 +37,47 @@ public struct MetadataParser: MetadataParsing {
 }
 
 private extension MetadataParser {
+    func detectsHeliusDAS(_ metadata: [String: Any]) -> Bool {
+        guard let content = dictionary(metadata["content"]) else {
+            return false
+        }
+        let hasDASMarkers = metadata["interface"] != nil
+            || metadata["ownership"] != nil
+            || content["json_uri"] != nil
+        let hasContentShape = content["metadata"] != nil
+            || content["links"] != nil
+            || content["files"] != nil
+        return hasDASMarkers && hasContentShape
+    }
+
+    // Normalizes a Helius DAS asset into the shared metadata shape. Media lives
+    // under `content.links.audio_url` / `content.links.animation_url` and
+    // `content.files[]` (uri/cdn_uri + mime), none of which the root-level
+    // detectors above can see.
+    func parseHeliusDAS(_ metadata: [String: Any], rawJSON: String) -> MetadataParsed {
+        let content = dictionary(metadata["content"]) ?? [:]
+        let contentMetadata = dictionary(content["metadata"]) ?? [:]
+        let links = dictionary(content["links"]) ?? [:]
+        let scannedFiles = mediaFiles(from: content["files"])
+        let creators = files(in: metadata["creators"])
+
+        return MetadataParsed(
+            name: string(contentMetadata["name"]),
+            description: string(contentMetadata["description"]),
+            creatorName: string(contentMetadata["artist"])
+                ?? creators?.first.flatMap { string($0["address"]) },
+            collectionName: nil,
+            artworkURL: string(links["image"]),
+            audioURL: string(links["audio_url"]) ?? scannedFiles.audioURL,
+            videoURL: scannedFiles.videoURL ?? string(links["animation_url"]),
+            duration: double(contentMetadata["duration"]),
+            format: scannedFiles.format,
+            attributes: attributes(from: contentMetadata["attributes"]),
+            schemaVersion: .heliusDAS,
+            rawJSON: rawJSON
+        )
+    }
+
     func detectsSoundXyz(_ metadata: [String: Any]) -> Bool {
         string(metadata["losslessAudio"]) != nil ||
         string(metadata["audio"]) != nil ||

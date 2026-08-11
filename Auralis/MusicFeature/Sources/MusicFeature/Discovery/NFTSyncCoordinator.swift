@@ -123,17 +123,56 @@ public final class NFTSyncCoordinator {
             progress.state = .complete
         } else {
             progress.state = .error(errors)
+            throw NFTSyncCoordinatorError.partialFailure(errors)
         }
     }
 
     public func syncAllIfNeeded() async throws {
-        if let lastSyncedAt = defaults.object(forKey: Self.lastSyncAtKey) as? Date,
-           clock().timeIntervalSince(lastSyncedAt) < syncCooldown {
-            return
+        let scopes = try await scopeProvider.activeScopes()
+        var errors: [SyncError] = []
+        var didSyncAny = false
+
+        // Cooldown is evaluated per wallet+chain scope: a freshly connected
+        // wallet or a newly added chain must not be suppressed just because a
+        // different scope synced recently. Each scope's timestamp is written
+        // only after that scope succeeds, so a failed scope stays eligible.
+        for scope in scopes where !isScopeFresh(scope) {
+            do {
+                try await sync(walletAddress: scope.walletAddress, chain: scope.chain)
+                defaults.set(
+                    clock(),
+                    forKey: Self.lastSyncAtKey(walletAddress: scope.walletAddress, chain: scope.chain)
+                )
+                didSyncAny = true
+            } catch {
+                errors.append(
+                    SyncError(
+                        walletAddress: scope.walletAddress,
+                        chain: scope.chain,
+                        message: error.localizedDescription
+                    )
+                )
+            }
         }
 
-        try await syncAll()
-        defaults.set(clock(), forKey: Self.lastSyncAtKey)
+        if !errors.isEmpty {
+            progress.state = .error(errors)
+            throw NFTSyncCoordinatorError.partialFailure(errors)
+        }
+
+        if didSyncAny {
+            progress.lastSyncedAt = clock()
+            progress.state = .complete
+        }
+    }
+
+    private func isScopeFresh(_ scope: NFTDiscoveryScope) -> Bool {
+        guard let lastSyncedAt = defaults.object(
+            forKey: Self.lastSyncAtKey(walletAddress: scope.walletAddress, chain: scope.chain)
+        ) as? Date else {
+            return false
+        }
+        return clock().timeIntervalSince(lastSyncedAt) < syncCooldown
     }
 }
 
@@ -142,7 +181,14 @@ extension NFTSyncCoordinator: AuraPlayNFTDiscoverySyncing, AuraPlaySyncProgressP
 }
 
 public extension NFTSyncCoordinator {
-    static let lastSyncAtKey = "com.auraplay.lastSyncAt"
+    static let lastSyncAtKeyPrefix = "com.auraplay.lastSyncAt"
+
+    /// Cooldown key scoped to a normalized wallet + chain so each scope
+    /// debounces independently.
+    static func lastSyncAtKey(walletAddress: String, chain: Chain) -> String {
+        let normalizedWallet = NFTTokenDTO.normalizedScopeComponent(walletAddress) ?? walletAddress
+        return "\(lastSyncAtKeyPrefix).\(chain.rawValue).\(normalizedWallet)"
+    }
 }
 
 private extension NFTSyncCoordinator {
@@ -241,6 +287,22 @@ public struct SyncError: Equatable, Sendable {
         self.walletAddress = walletAddress
         self.chain = chain
         self.message = message
+    }
+}
+
+public enum NFTSyncCoordinatorError: Error, Equatable, Sendable {
+    case partialFailure([SyncError])
+}
+
+extension NFTSyncCoordinatorError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .partialFailure(let errors):
+            let count = errors.count
+            return count == 1
+                ? "AuraPlay discovery failed for 1 scope."
+                : "AuraPlay discovery failed for \(count) scopes."
+        }
     }
 }
 

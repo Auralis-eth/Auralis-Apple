@@ -899,6 +899,11 @@ struct AuraPlayVideoWireframeView: View {
         remoteControlBridge.routePickerProvider = {
             AnyView(VideoRoutePickerView())
         }
+        remoteControlBridge.loadAction = { media in
+            await loadVideo(media)
+            guard case .failed = playbackState else { return }
+            throw AuraPlayError.engineStartFailed
+        }
         remoteControlBridge.playAction = {
             playbackRuntime?.auraPlayRegisterVideoRemoteControls(remoteControlBridge)
             controller.play()
@@ -1727,6 +1732,7 @@ private final class AuraPlayVideoRemoteControlBridge: AuraPlayVideoRemoteControl
     var capabilitiesProvider: () -> AuraPlayPlayerVideoCapabilities? = { nil }
     var surfaceProvider: () -> AnyView? = { nil }
     var routePickerProvider: () -> AnyView? = { nil }
+    var loadAction: (AuraPlayableMediaItem) async throws -> Void = { _ in }
     var playAction: () -> Void = {}
     var pauseAction: () -> Void = {}
     var toggleAction: () -> Void = {}
@@ -1767,6 +1773,10 @@ private final class AuraPlayVideoRemoteControlBridge: AuraPlayVideoRemoteControl
 
     func togglePlayPause() {
         toggleAction()
+    }
+
+    func load(_ item: AuraPlayableMediaItem) async throws {
+        try await loadAction(item)
     }
 
     func seek(to seconds: TimeInterval) async {

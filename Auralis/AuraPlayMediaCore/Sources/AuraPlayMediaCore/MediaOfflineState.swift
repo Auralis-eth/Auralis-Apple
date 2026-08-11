@@ -11,4 +11,3 @@ public enum MediaOfflineState: String, Codable, Equatable, Sendable {
     case failed
     case cancelled
 }
-

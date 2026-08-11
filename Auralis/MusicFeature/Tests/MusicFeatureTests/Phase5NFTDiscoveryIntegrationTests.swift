@@ -52,6 +52,32 @@ struct Phase5NFTDiscoveryIntegrationTests {
         ])
     }
 
+    @Test("Scenario B2: Helius DAS assets classify playable audio media end-to-end")
+    func heliusDASClassifiesPlayableAudio() async throws {
+        let fixture = try Fixture()
+        let wallet = "SolanaOwnerAddress"
+        await fixture.solana.set(tokens: [
+            Fixture.token(
+                wallet: wallet,
+                chain: .solanaMainnet,
+                contract: nil,
+                tokenId: "helius-mint-1",
+                tokenStandard: "V1_NFT",
+                metadataRaw: Fixture.heliusDASAudioJSON(id: 1)
+            )
+        ])
+
+        try await fixture.coordinator.sync(walletAddress: wallet, chain: .solanaMainnet)
+
+        let items = try fixture.fetchMediaItems()
+        let item = try #require(items.first)
+        #expect(item.title == "Helius Track 1")
+        #expect(item.hasAudio)
+        #expect(item.isPlayable)
+        #expect(item.playbackURLString == "https://media.example/ipfs/helius-song-1.mp3")
+        #expect(item.artworkURLString == "https://media.example/ipfs/helius-cover-1.png")
+    }
+
     @Test("Scenario C: Sound.xyz schema prefers lossless audio and artist metadata")
     func soundXyzSchemaDetection() async throws {
         let fixture = try Fixture()
@@ -181,7 +207,16 @@ struct Phase5NFTDiscoveryIntegrationTests {
             Fixture.token(wallet: "0x1234567890abcdef1234567890abcdef12345678", chain: .polygonMainnet, tokenId: "polygon", metadataRaw: Fixture.openSeaAudioJSON(id: 1))
         ], for: .polygonMainnet)
 
-        try await fixture.coordinator.syncAll()
+        do {
+            try await fixture.coordinator.syncAll()
+            Issue.record("Expected syncAll to throw for the failed Ethereum scope.")
+        } catch let error as NFTSyncCoordinatorError {
+            guard case .partialFailure(let errors) = error else {
+                Issue.record("Expected a partial failure error.")
+                return
+            }
+            #expect(errors.map(\.chain) == [.ethMainnet])
+        }
 
         let mediaItems = try fixture.fetchMediaItems()
         #expect(mediaItems.count == 1)
@@ -190,6 +225,63 @@ struct Phase5NFTDiscoveryIntegrationTests {
             return
         }
         #expect(errors.map(\.chain) == [.ethMainnet])
+    }
+
+    @Test("Scenario H2: failed syncAllIfNeeded does not write debounce cooldown")
+    func failedSyncAllIfNeededDoesNotDebounce() async throws {
+        let clock = TestClock(Date(timeIntervalSince1970: 1_800_000_000))
+        let defaults = try #require(UserDefaults(suiteName: "phase5-failed-debounce-\(UUID().uuidString)"))
+        let fixture = try Fixture(
+            scopes: [NFTDiscoveryScope(walletAddress: "0x1234567890abcdef1234567890abcdef12345678", chain: .ethMainnet)],
+            defaults: defaults,
+            clock: { clock.now }
+        )
+        await fixture.evm.setFailure(AuraPlayError.library("Ethereum unavailable."), for: .ethMainnet)
+
+        await #expect(throws: NFTSyncCoordinatorError.self) {
+            try await fixture.coordinator.syncAllIfNeeded()
+        }
+        await #expect(throws: NFTSyncCoordinatorError.self) {
+            try await fixture.coordinator.syncAllIfNeeded()
+        }
+
+        #expect(await fixture.evm.callCount(for: .ethMainnet) == 2)
+        #expect(
+            defaults.object(
+                forKey: NFTSyncCoordinator.lastSyncAtKey(
+                    walletAddress: "0x1234567890abcdef1234567890abcdef12345678",
+                    chain: .ethMainnet
+                )
+            ) == nil
+        )
+    }
+
+    @Test("Scenario I3: a newly added scope syncs even while another scope is within cooldown")
+    func newScopeSyncsDespiteOtherScopeCooldown() async throws {
+        let clock = TestClock(Date(timeIntervalSince1970: 1_800_000_000))
+        let defaults = try #require(UserDefaults(suiteName: "phase5-per-scope-\(UUID().uuidString)"))
+        let wallet = "0x1234567890abcdef1234567890abcdef12345678"
+        let fixture = try Fixture(
+            scopes: [
+                NFTDiscoveryScope(walletAddress: wallet, chain: .ethMainnet),
+                NFTDiscoveryScope(walletAddress: wallet, chain: .baseMainnet),
+            ],
+            defaults: defaults,
+            clock: { clock.now }
+        )
+        // The eth scope already synced recently; only the base scope is new.
+        defaults.set(
+            clock.now,
+            forKey: NFTSyncCoordinator.lastSyncAtKey(walletAddress: wallet, chain: .ethMainnet)
+        )
+        await fixture.evm.set(tokens: [
+            Fixture.token(wallet: wallet, chain: .baseMainnet, tokenId: "b1", metadataRaw: Fixture.openSeaAudioJSON(id: 1))
+        ], for: .baseMainnet)
+
+        try await fixture.coordinator.syncAllIfNeeded()
+
+        #expect(await fixture.evm.callCount(for: .ethMainnet) == 0)
+        #expect(await fixture.evm.callCount(for: .baseMainnet) == 1)
     }
 
     @Test("Scenario I: syncAllIfNeeded respects the 15 minute debounce")
@@ -347,6 +439,24 @@ private final class Fixture {
             "creators": [{"address": "CreatorAddress"}],
             "files": [{"uri": "ipfs://sol-track-\(id).mp3", "type": "audio/mpeg"}]
           }
+        }
+        """
+    }
+
+    static func heliusDASAudioJSON(id: Int) -> String {
+        """
+        {
+          "id": "helius-mint-\(id)",
+          "interface": "V1_NFT",
+          "content": {
+            "metadata": {"name": "Helius Track \(id)", "description": "On-chain audio", "symbol": "AURA"},
+            "links": {"image": "ipfs://helius-cover-\(id).png", "audio_url": "ipfs://helius-song-\(id).mp3"},
+            "json_uri": "https://example.com/helius-\(id).json",
+            "files": [{"uri": "ipfs://helius-song-\(id).mp3", "cdn_uri": "https://cdn.example/\(id).mp3", "mime": "audio/mpeg"}]
+          },
+          "grouping": [{"group_key": "collection", "group_value": "helius-collection"}],
+          "creators": [{"address": "HeliusCreator"}],
+          "ownership": {"owner": "SolanaOwnerAddress"}
         }
         """
     }

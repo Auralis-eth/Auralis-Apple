@@ -14,4 +14,3 @@ enum AuraPlayPlayerTimeFormatter {
         return String(format: "%d:%02d", minutes, secondsComponent)
     }
 }
-

@@ -145,6 +145,7 @@ private actor RecordingNFTFetcher: NFTFetching {
 private struct NoOpNFTRefreshEventRecorder: NFTRefreshEventRecording {
     func recordRefreshStarted(accountAddress: String, chain: Chain, correlationID: String) async {}
     func recordFetchSucceeded(accountAddress: String, chain: Chain, correlationID: String, itemCount: Int, totalCount: Int?) async {}
-    func recordFetchFailed(accountAddress: String, chain: Chain, correlationID: String, error: Error, failure: NFTProviderFailure?) async {}
-    func recordPersistenceCompleted(accountAddress: String, chain: Chain, correlationID: String, itemCount: Int) async {}
+    func recordFetchFailed(accountAddress: String, chain: Chain, correlationID: String, failure: NFTProviderFailure) async {}
+    func recordPersistenceCompleted(accountAddress: String, chain: Chain, correlationID: String, persistedCount: Int) async {}
+    func recordPersistenceFailed(accountAddress: String, chain: Chain, correlationID: String, error: Error) async {}
 }

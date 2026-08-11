@@ -46,10 +46,7 @@ struct MainAuraShellLogicTests {
         #expect(result.shouldProcessPendingDeepLink)
     }
 
-    @Test(
-        "initial restore reuses the persisted account when it is available",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because EOAccount is loaded from both the app and test bundles.")
-    )
+    @Test("initial restore reuses the persisted account when it is available")
     func restoreInitialStateUsesPersistedAccount() throws {
         let savedAccount = EOAccount(
             address: "0x1234567890abcdef1234567890abcdef12345678",
@@ -70,10 +67,7 @@ struct MainAuraShellLogicTests {
         #expect(result.currentAccount === savedAccount)
     }
 
-    @Test(
-        "initial restore falls back to the preferred persisted account when the saved address is missing",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because EOAccount is loaded from both the app and test bundles.")
-    )
+    @Test("initial restore falls back to the preferred persisted account when the saved address is missing")
     func restoreInitialStateFallsBackToPersistedAccount() {
         let fallback = EOAccount(
             address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
@@ -112,10 +106,7 @@ struct MainAuraShellLogicTests {
         #expect(result.currentAccount == nil)
     }
 
-    @Test(
-        "account change to a different address requests route reset and NFT refresh",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because EOAccount is loaded from both the app and test bundles.")
-    )
+    @Test("account change to a different address requests route reset and NFT refresh")
     func accountChangeTriggersRefreshForDifferentAddress() {
         let newAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
         newAccount.currentChain = .baseMainnet
@@ -132,10 +123,7 @@ struct MainAuraShellLogicTests {
         #expect(result.shouldProcessPendingDeepLink)
     }
 
-    @Test(
-        "account change to the same address does not trigger a redundant refresh",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because EOAccount is loaded from both the app and test bundles.")
-    )
+    @Test("account change to the same address does not trigger a redundant refresh")
     func accountChangeDoesNotRefreshForSameAddress() {
         let newAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
         newAccount.currentChain = .baseSepoliaTestnet
@@ -166,10 +154,7 @@ struct MainAuraShellLogicTests {
         #expect(result.shouldProcessPendingDeepLink)
     }
 
-    @Test(
-        "account refresh request captures the new account and chain snapshot",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because EOAccount is loaded from both the app and test bundles.")
-    )
+    @Test("account refresh request captures the new account and chain snapshot")
     func accountRefreshRequestUsesDerivedSnapshot() throws {
         let oldAccount = EOAccount(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
         oldAccount.currentChain = .ethMainnet
@@ -193,10 +178,7 @@ struct MainAuraShellLogicTests {
         #expect(request.correlationID == "account-switch-1")
     }
 
-    @Test(
-        "only the latest account refresh request is allowed to write back",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because EOAccount is loaded from both the app and test bundles.")
-    )
+    @Test("only the latest account refresh request is allowed to write back")
     func latestRefreshRequestWinsCompletion() throws {
         let firstAccount = EOAccount(address: "0x1111111111111111111111111111111111111111")
         firstAccount.currentChain = .ethMainnet
@@ -239,10 +221,7 @@ struct MainAuraShellLogicTests {
         )
     }
 
-    @Test(
-        "address change resolves a persisted account and resets routes",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because EOAccount is loaded from both the app and test bundles.")
-    )
+    @Test("address change resolves a persisted account and resets routes")
     func addressChangeUsesPersistedAccount() {
         let savedAccount = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
         savedAccount.currentChain = .baseMainnet

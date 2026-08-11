@@ -17,4 +17,3 @@ public enum AuraPlayEmbeddingSimilarity {
         return dotProduct / (sqrt(lhsMagnitude) * sqrt(rhsMagnitude))
     }
 }
-

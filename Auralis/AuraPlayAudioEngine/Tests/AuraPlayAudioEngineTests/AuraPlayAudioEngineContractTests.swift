@@ -73,6 +73,35 @@ private actor MockAudioSessionManager: AudioSessionManaging {
     }
 }
 
+private let realAudioEngineControllerIsAvailable: Bool = {
+    var playerDescription = AudioComponentDescription(
+        componentType: kAudioUnitType_Generator,
+        componentSubType: kAudioUnitSubType_ScheduledSoundPlayer,
+        componentManufacturer: kAudioUnitManufacturer_Apple,
+        componentFlags: 0,
+        componentFlagsMask: 0
+    )
+    var dynamicsDescription = AudioComponentDescription(
+        componentType: kAudioUnitType_Effect,
+        componentSubType: kAudioUnitSubType_DynamicsProcessor,
+        componentManufacturer: kAudioUnitManufacturer_Apple,
+        componentFlags: 0,
+        componentFlagsMask: 0
+    )
+
+    return AudioComponentFindNext(nil, &playerDescription) != nil
+        && AudioComponentFindNext(nil, &dynamicsDescription) != nil
+}()
+
+private let generatedAACM4AFixtureIsAvailable = encodedFixtureWritingIsAvailable(
+    formatID: kAudioFormatMPEG4AAC,
+    pathExtension: "m4a"
+)
+private let generatedALACFixtureIsAvailable = encodedFixtureWritingIsAvailable(
+    formatID: kAudioFormatAppleLossless,
+    pathExtension: "m4a"
+)
+
 @Test("NFT-like media can be adapted without importing an NFT model")
 func mediaTypeErasurePreservesGenericFields() throws {
     let media = FixtureMedia(
@@ -165,7 +194,10 @@ func visualizationAnalyzerReportsChannelLevels() throws {
     #expect(abs(frame.channels[1].peak - 0.5) < 0.001)
 }
 
-@Test("Visualization tap lifecycle preserves playback graph")
+@Test(
+    "Visualization tap lifecycle preserves playback graph",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func visualizationTapLifecyclePreservesPlaybackGraph() async throws {
     let controller = try AudioEngineController()
     let firstStream = controller.startVisualization(configuration: AudioVisualizationConfiguration(preferredBufferFrameCount: 512))
@@ -312,7 +344,10 @@ func lruEvictionRemovesOldestUnpinnedFile() async throws {
     let secondSource = try makeFixtureWAV(name: "lru-second")
     let cacheDirectory = FileManager.default.temporaryDirectory
         .appending(path: "AuraPlayLRU-\(UUID().uuidString)", directoryHint: .isDirectory)
-    let manager = try MediaCacheManager(cacheDirectory: cacheDirectory, diskCapBytes: fileSize(firstSource) + 1)
+    let manager = try MediaCacheManager(
+        cacheDirectory: cacheDirectory,
+        unclampedDiskCapBytesForTesting: fileSize(firstSource) + 1
+    )
     let first = FixtureMedia(
         id: "lru-first",
         sourceURL: firstSource,
@@ -423,7 +458,10 @@ func pinnedAndActivelyReadFilesSurviveEviction() async throws {
     let triggerSource = try makeFixtureWAV(name: "eviction-trigger")
     let cacheDirectory = FileManager.default.temporaryDirectory
         .appending(path: "AuraPlayPinnedActive-\(UUID().uuidString)", directoryHint: .isDirectory)
-    let manager = try MediaCacheManager(cacheDirectory: cacheDirectory, diskCapBytes: fileSize(pinnedSource) + fileSize(activeSource) + 1)
+    let manager = try MediaCacheManager(
+        cacheDirectory: cacheDirectory,
+        unclampedDiskCapBytesForTesting: fileSize(pinnedSource) + fileSize(activeSource) + 1
+    )
     let pinned = FixtureMedia(
         id: "pinned-item",
         sourceURL: pinnedSource,
@@ -522,7 +560,10 @@ func cacheProgressMulticastsToMultipleSubscribers() async throws {
     #expect(secondUpdate == firstUpdate)
 }
 
-@Test("Audio engine graph description matches Phase 6 topology")
+@Test(
+    "Audio engine graph description matches Phase 6 topology",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func audioEngineGraphDescriptionMatchesTopology() throws {
     let controller = try AudioEngineController()
 
@@ -539,7 +580,10 @@ func audioEngineGraphDescriptionMatchesTopology() throws {
     #expect(controller.graphDescription.containsEnvironmentNode == false)
 }
 
-@Test("Cached next track plans a render-frame gapless boundary")
+@Test(
+    "Cached next track plans a render-frame gapless boundary",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func cachedNextTrackPlansRenderFrameBoundary() async throws {
     let cacheDirectory = FileManager.default.temporaryDirectory
         .appending(path: "AuraPlayGaplessBoundary-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -565,7 +609,10 @@ func cachedNextTrackPlansRenderFrameBoundary() async throws {
     #expect(engineController.debugPlannedGaplessBoundaryFrame() == currentLength - 1_200)
 }
 
-@Test("Gapless boundary converts source frames into render frames")
+@Test(
+    "Gapless boundary converts source frames into render frames",
+    .enabled(if: realAudioEngineControllerIsAvailable && generatedAACM4AFixtureIsAvailable)
+)
 func gaplessBoundaryConvertsSourceFramesIntoRenderFrames() async throws {
     let cacheDirectory = FileManager.default.temporaryDirectory
         .appending(path: "AuraPlayGaplessSampleRateBoundary-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -602,7 +649,10 @@ func gaplessBoundaryConvertsSourceFramesIntoRenderFrames() async throws {
     #expect(expectedRenderBoundary != remainingSourceFrames)
 }
 
-@Test("Gapless boundary uses scheduled stream metadata without reopening current file")
+@Test(
+    "Gapless boundary uses scheduled stream metadata without reopening current file",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func gaplessBoundaryUsesScheduledStreamMetadata() async throws {
     let cacheDirectory = FileManager.default.temporaryDirectory
         .appending(path: "AuraPlayGaplessMetadata-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -630,7 +680,10 @@ func gaplessBoundaryUsesScheduledStreamMetadata() async throws {
     #expect(engineController.debugPlannedGaplessBoundaryFrame() == currentLength - startingFrame)
 }
 
-@Test("Long-track scheduling keeps read-ahead bounded")
+@Test(
+    "Long-track scheduling keeps read-ahead bounded",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func longTrackSchedulingKeepsReadAheadBounded() async throws {
     let controller = try AudioEngineController()
     let fileURL = try makeLongFixtureWAV(name: "bounded-read-ahead", frameCount: AudioEngineController.scheduledChunkFrameCount * 12)
@@ -911,7 +964,7 @@ func pinnedProgressiveDownloadSurvivesEvictionAfterCompletion() async throws {
     )
     let manager = try MediaCacheManager(
         cacheDirectory: cacheDirectory,
-        diskCapBytes: fileSize(pinnedSource) + 1,
+        unclampedDiskCapBytesForTesting: fileSize(pinnedSource) + 1,
         downloader: downloader
     )
     let pinned = FixtureMedia(
@@ -1080,7 +1133,10 @@ func localFileWhenPlayableRejectsUndecodablePartialFile() async throws {
     #expect(await manager.isCached(media) == false)
 }
 
-@Test("Cached next track arms automatic gapless transition")
+@Test(
+    "Cached next track arms automatic gapless transition",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func cachedNextTrackArmsGaplessTransition() async throws {
     let cacheDirectory = FileManager.default.temporaryDirectory
         .appending(path: "AuraPlayGaplessArm-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -1135,7 +1191,10 @@ func localFileWhenPlayableReturnsValidatedLocalFile() async throws {
     #expect(await manager.isCached(media))
 }
 
-@Test("Dynamics processor receives spoken-word and normalization parameters")
+@Test(
+    "Dynamics processor receives spoken-word and normalization parameters",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func dynamicsProcessorReceivesParameters() async throws {
     let controller = try AudioEngineController()
 
@@ -1146,7 +1205,10 @@ func dynamicsProcessorReceivesParameters() async throws {
     #expect(controller.debugDynamicsParameterValue(kDynamicsProcessorParam_OverallGain) == 6)
 }
 
-@Test("Crossfade plan clamps duration and computes frame offset")
+@Test(
+    "Crossfade plan clamps duration and computes frame offset",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func crossfadePlanClampsDuration() throws {
     let engineController = try AudioEngineController()
     let cacheManager = try MediaCacheManager(cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "AuraPlayCrossfade-\(UUID().uuidString)"))
@@ -1393,7 +1455,10 @@ func audioSessionMockRecordsMultichannelSupportIntentAndSpatialCapabilityEvents(
     #expect(await events.next() == .spatialAudioEnabledChanged(true))
 }
 
-@Test("Generated AAC M4A fixture opens as native decoded audio")
+@Test(
+    "Generated AAC M4A fixture opens as native decoded audio",
+    .enabled(if: generatedAACM4AFixtureIsAvailable)
+)
 func generatedAACM4AFixtureOpensAsNativeAudio() throws {
     let url = try makeEncodedFixtureAudioFile(
         name: "native-aac-m4a",
@@ -1406,7 +1471,10 @@ func generatedAACM4AFixtureOpensAsNativeAudio() throws {
     #expect(source.frameLength > 0)
 }
 
-@Test("Generated ALAC fixture opens as native decoded audio")
+@Test(
+    "Generated ALAC fixture opens as native decoded audio",
+    .enabled(if: generatedALACFixtureIsAvailable)
+)
 func generatedALACFixtureOpensAsNativeAudio() throws {
     let url = try makeEncodedFixtureAudioFile(
         name: "native-alac",
@@ -1487,7 +1555,10 @@ func resumableDownloaderAppendsTemporaryFileContentsInBoundedChunks() throws {
     #expect(try Data(contentsOf: destination) == prefix + tail)
 }
 
-@Test("Interruption end from session events restarts and publishes recovery")
+@Test(
+    "Interruption end from session events restarts and publishes recovery",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func interruptionEndFromSessionEventsRestartsAndPublishesRecovery() async throws {
     let session = MockAudioSessionManager()
     let controller = try AudioEngineController()
@@ -1502,7 +1573,10 @@ func interruptionEndFromSessionEventsRestartsAndPublishesRecovery() async throws
     coordinator.stop()
 }
 
-@Test("Pause session events publish recovery pause state")
+@Test(
+    "Pause session events publish recovery pause state",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func pauseSessionEventsPublishRecoveryPauseState() async throws {
     let session = MockAudioSessionManager()
     let controller = try AudioEngineController()
@@ -1520,7 +1594,10 @@ func pauseSessionEventsPublishRecoveryPauseState() async throws {
     coordinator.stop()
 }
 
-@Test("Progressive underrun recovery pauses, reschedules, then publishes recovered at the same frame")
+@Test(
+    "Progressive underrun recovery pauses, reschedules, then publishes recovered at the same frame",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func progressiveUnderrunRecoveryReschedulesBeforePublishingRecovered() async throws {
     let session = MockAudioSessionManager()
     let controller = try AudioEngineController()
@@ -1552,7 +1629,10 @@ func progressiveUnderrunRecoveryReschedulesBeforePublishingRecovered() async thr
     await recoveryTask.value
 }
 
-@Test("Crossfade progress overlaps volumes and swaps roles at completion")
+@Test(
+    "Crossfade progress overlaps volumes and swaps roles at completion",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func crossfadeProgressOverlapsVolumesAndSwapsRoles() async throws {
     let engineController = try AudioEngineController()
     let cacheManager = try MediaCacheManager(cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "AuraPlayCrossfadeProgress-\(UUID().uuidString)"))
@@ -1570,7 +1650,10 @@ func crossfadeProgressOverlapsVolumesAndSwapsRoles() async throws {
     #expect(engineController.debugAutomaticTransitionCount() == 1)
 }
 
-@Test("Scheduled AutoMix ramps do not retain controller while waiting")
+@Test(
+    "Scheduled AutoMix ramps do not retain controller while waiting",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func scheduledAutoMixRampDoesNotRetainControllerWhileWaiting() async throws {
     let engineController = try AudioEngineController()
     let cacheManager = try MediaCacheManager(cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "AuraPlayCrossfadeRetention-\(UUID().uuidString)"))
@@ -1590,7 +1673,10 @@ func scheduledAutoMixRampDoesNotRetainControllerWhileWaiting() async throws {
     #expect(releasedController == nil)
 }
 
-@Test("AutoMix controller tolerates concurrent state updates")
+@Test(
+    "AutoMix controller tolerates concurrent state updates",
+    .enabled(if: realAudioEngineControllerIsAvailable)
+)
 func autoMixControllerToleratesConcurrentStateUpdates() async throws {
     let engineController = try AudioEngineController()
     let cacheManager = try MediaCacheManager(cacheDirectory: FileManager.default.temporaryDirectory.appending(path: "AuraPlayCrossfadeConcurrent-\(UUID().uuidString)"))
@@ -1926,6 +2012,37 @@ private func makeEncodedFixtureAudioFile(
 
     try file.write(from: buffer)
     return url
+}
+
+private func encodedFixtureWritingIsAvailable(
+    formatID: AudioFormatID,
+    pathExtension: String
+) -> Bool {
+    let url = FileManager.default.temporaryDirectory
+        .appending(path: "encoded-fixture-probe-\(UUID().uuidString)")
+        .appendingPathExtension(pathExtension)
+    defer { try? FileManager.default.removeItem(at: url) }
+
+    do {
+        guard let inputFormat = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2),
+              let buffer = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: 32) else {
+            return false
+        }
+        var settings: [String: Any] = [
+            AVFormatIDKey: formatID,
+            AVSampleRateKey: 44_100,
+            AVNumberOfChannelsKey: 2
+        ]
+        if formatID == kAudioFormatMPEG4AAC {
+            settings[AVEncoderBitRateKey] = 128_000
+        }
+        buffer.frameLength = 32
+        let file = try AVAudioFile(forWriting: url, settings: settings)
+        try file.write(from: buffer)
+        return true
+    } catch {
+        return false
+    }
 }
 
 private func makeFixtureAudioFile(name: String, extension pathExtension: String, frameCount: AVAudioFrameCount = 4_800) throws -> URL {

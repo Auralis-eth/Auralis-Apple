@@ -401,20 +401,22 @@ public enum NFTMetadataUpdater {
         let contentLinks = content?["links"]?.objectValue
         let audioURLString = metadata["losslessAudio"]?.stringValue ??
                            metadata["audio"]?.stringValue ??
+                           metadata["audio_url"]?.stringValue ??
                            metadata["audioUrl"]?.stringValue ??
                            metadata["audioURI"]?.stringValue ??
                            properties?["audio_url"]?.stringValue ??
                            contentLinks?["audio_url"]?.stringValue ??
                            contentLinks?["audioUrl"]?.stringValue ??
-                           firstMediaFileURL(in: properties?["files"]?.arrayValue, mimePrefix: "audio/") ??
                            firstMediaFileURL(in: content?["files"]?.arrayValue, mimePrefix: "audio/")
         if let audioURLString {
             applyAudioURL(audioURLString, patch: &patch, field: "audio")
+        } else if let audioFile = firstMediaFile(in: properties?["files"]?.arrayValue, mimePrefix: "audio/") {
+            applyAudioURL(audioFile.url, patch: &patch, field: "properties.files", contentType: audioFile.mime)
         }
 
-        if let videoURLString = firstMediaFileURL(in: properties?["files"]?.arrayValue, mimePrefix: "video/"),
+        if let videoFile = firstMediaFile(in: properties?["files"]?.arrayValue, mimePrefix: "video/"),
            case .unchanged = patch.animationURL {
-            applyVideoURL(videoURLString, patch: &patch, field: "properties.files")
+            applyVideoURL(videoFile.url, patch: &patch, field: "properties.files", contentType: videoFile.mime)
         }
     }
 
@@ -572,6 +574,10 @@ public enum NFTMetadataUpdater {
     }
 
     private static func firstMediaFileURL(in files: [JSONValue]?, mimePrefix: String) -> String? {
+        firstMediaFile(in: files, mimePrefix: mimePrefix)?.url
+    }
+
+    private static func firstMediaFile(in files: [JSONValue]?, mimePrefix: String) -> (url: String, mime: String?)? {
         files?.lazy.compactMap { file -> String? in
             guard let object = file.objectValue else {
                 return nil
@@ -581,7 +587,14 @@ public enum NFTMetadataUpdater {
                 return nil
             }
             return object["cdn_uri"]?.stringValue ?? object["uri"]?.stringValue
-        }.first
+        }.first.map { url in
+            let matchingObject = files?.lazy.compactMap(\.objectValue).first { object in
+                let mime = object["type"]?.stringValue ?? object["mime"]?.stringValue
+                let mediaURL = object["cdn_uri"]?.stringValue ?? object["uri"]?.stringValue
+                return mediaURL == url && mime?.lowercased().hasPrefix(mimePrefix) == true
+            }
+            return (url: url, mime: matchingObject?["type"]?.stringValue ?? matchingObject?["mime"]?.stringValue)
+        }
     }
 
     private static func isAudioURL(_ rawValue: String) -> Bool {

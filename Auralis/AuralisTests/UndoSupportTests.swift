@@ -11,10 +11,7 @@ import TokenStorage
 
 @MainActor
 struct UndoSupportTests {
-    @Test(
-        "playlist deletion registers an undoable transaction on the primary store schema",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because Playlist is loaded from both the app and test bundles.")
-    )
+    @Test("playlist deletion registers an undoable transaction on the primary store schema")
     func playlistDeletionCanUndo() throws {
         let container = try TestModelContainers.primaryStore(undoEnabled: true)
         let context = container.mainContext
@@ -32,10 +29,7 @@ struct UndoSupportTests {
         #expect(playlists.map(\.title) == ["Late Night"])
     }
 
-    @Test(
-        "account removal undo restores the account and its scoped support data",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData account, NFT, token, and search history models are loaded from both the app and test bundles.")
-    )
+    @Test("account removal undo restores the account and its scoped support data")
     func accountRemovalCanUndo() async throws {
         let container = try TestModelContainers.primaryStore(undoEnabled: true)
         let context = container.mainContext
@@ -92,10 +86,7 @@ struct UndoSupportTests {
         #expect(SearchHistoryStore(modelContext: context).entries(for: removed.address).map(\.query) == ["Undo"])
     }
 
-    @Test(
-        "rollback-safe delete helpers restore state after a failure",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because NFT SwiftData models are loaded from both the app and test bundles.")
-    )
+    @Test("rollback-safe delete helpers restore state after a failure")
     func rollbackSafeDeleteRestoresStateAfterFailure() throws {
         enum Failure: Error {
             case forced

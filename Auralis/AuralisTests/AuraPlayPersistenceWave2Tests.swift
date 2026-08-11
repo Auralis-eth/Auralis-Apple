@@ -137,10 +137,7 @@ struct AuraPlayPersistenceWave2Tests {
         #expect(items.map(\.position) == [0, 1])
     }
 
-    @Test(
-        "account sync state service records per-chain AuraPlay sync state on EOAccount",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because EOAccount is loaded from both the app and test bundles.")
-    )
+    @Test("account sync state service records per-chain AuraPlay sync state on EOAccount")
     func accountSyncStateServiceMarksSyncedChain() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
@@ -163,10 +160,7 @@ struct AuraPlayPersistenceWave2Tests {
         #expect(accounts.first?.auraPlayLastSyncedAt(for: .ethMainnet) == syncedAt)
     }
 
-    @Test(
-        "library repository prefers persisted AuraPlay media once EOAccount marks the chain as synced",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because EOAccount is loaded from both the app and test bundles.")
-    )
+    @Test("library repository prefers persisted AuraPlay media once EOAccount marks the chain as synced")
     func libraryRepositoryPrefersPersistedMediaGraph() async throws {
         let auraPlayContainer = try AuraPlayModelContainer.make(inMemory: true)
         let primaryContainer = try TestModelContainers.primary()
@@ -294,10 +288,7 @@ struct AuraPlayPersistenceWave2Tests {
         #expect(bundle.mediaItemRequests.map(\.sourceNFTID) == ["track-1", "track-2"])
     }
 
-    @Test(
-        "library sync records the scope timestamp without clobbering discovery-written media",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because EOAccount is loaded from both the app and test bundles. Verified passing when run in isolation.")
-    )
+    @Test("library sync records the scope timestamp without clobbering discovery-written media")
     func librarySyncMarksSyncedAndPreservesDiscoveryMedia() async throws {
         let auraPlayContainer = try AuraPlayModelContainer.make(inMemory: true)
         let primaryContainer = try TestModelContainers.primary()

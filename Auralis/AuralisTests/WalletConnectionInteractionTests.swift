@@ -42,7 +42,7 @@ struct WalletConnectionInteractionTests {
         let harness = try makeHarness()
 
         harness.connector.settle(session(topic: "topic-A", accounts: [caip10(Self.addressA)]))
-        await waitUntil { await harness.topics.load(walletAddress: Self.addressA) != nil }
+        await waitUntil { try await harness.topics.load(walletAddress: Self.addressA) != nil }
 
         let accounts = try harness.context.fetch(FetchDescriptor<EOAccount>())
         #expect(accounts.count == 1)
@@ -50,9 +50,28 @@ struct WalletConnectionInteractionTests {
         #expect(account.address == Self.addressA)
         #expect(account.access == .wallet)
         #expect(account.source == .walletConnect)
-        #expect(await harness.topics.load(walletAddress: Self.addressA)?.rawValue == "topic-A")
+        #expect(try await harness.topics.load(walletAddress: Self.addressA)?.rawValue == "topic-A")
         #expect(harness.active.get() == Self.addressA)
         #expect(isConnected(harness.service))
+    }
+
+    // MARK: Ownership verification (fail-closed)
+
+    @Test("A settled session whose ownership cannot be verified is not persisted")
+    func unverifiableSessionIsNotPersisted() async throws {
+        let harness = try makeHarness()
+        harness.connector.verifiesOwnership = false
+
+        harness.connector.settle(session(topic: "topic-A", accounts: [caip10(Self.addressA)]))
+        await waitUntil {
+            if case .failed = harness.service.phase { return true }
+            return false
+        }
+
+        let accounts = try harness.context.fetch(FetchDescriptor<EOAccount>())
+        #expect(accounts.isEmpty)
+        #expect(try await harness.topics.load(walletAddress: Self.addressA) == nil)
+        #expect(harness.active.get() == nil)
     }
 
     // MARK: Add another wallet (Scenario G)
@@ -79,10 +98,10 @@ struct WalletConnectionInteractionTests {
         let harness = try makeHarness()
 
         harness.connector.settle(session(id: "session-A1", topic: "topic-A1", accounts: [caip10(Self.addressA)]))
-        await waitUntil { await harness.topics.load(walletAddress: Self.addressA)?.rawValue == "topic-A1" }
+        await waitUntil { try await harness.topics.load(walletAddress: Self.addressA)?.rawValue == "topic-A1" }
 
         harness.connector.settle(session(id: "session-A2", topic: "topic-A2", accounts: [caip10(Self.addressA)]))
-        await waitUntil { await harness.topics.load(walletAddress: Self.addressA)?.rawValue == "topic-A2" }
+        await waitUntil { try await harness.topics.load(walletAddress: Self.addressA)?.rawValue == "topic-A2" }
 
         let accounts = try harness.context.fetch(FetchDescriptor<EOAccount>())
         #expect(accounts.count == 1)
@@ -105,7 +124,7 @@ struct WalletConnectionInteractionTests {
         await harness.service.remove(account: try account(for: Self.addressA, in: harness.context))
 
         #expect(harness.connector.disconnectedTopics.contains("topic-A"))
-        #expect(await harness.topics.load(walletAddress: Self.addressA) == nil)
+        #expect(try await harness.topics.load(walletAddress: Self.addressA) == nil)
         #expect(try account(for: Self.addressA, in: harness.context).access == .readonly)
         #expect(try account(for: Self.addressB, in: harness.context).access == .wallet)
         #expect(harness.active.get() == Self.addressB)
@@ -121,9 +140,55 @@ struct WalletConnectionInteractionTests {
         await harness.service.remove(account: try account(for: Self.addressA, in: harness.context))
 
         #expect(harness.connector.disconnectedTopics.contains("topic-A"))
-        #expect(await harness.topics.load(walletAddress: Self.addressA) == nil)
+        #expect(try await harness.topics.load(walletAddress: Self.addressA) == nil)
         #expect(try account(for: Self.addressA, in: harness.context).access == .readonly)
         #expect(harness.active.get() == nil)
+    }
+
+    // MARK: Signing & SIWE
+
+    @Test("Signing a personal message routes to the connector and returns the signature")
+    func signPersonalMessageReturnsSignature() async throws {
+        let harness = try makeHarness()
+        harness.connector.settle(session(topic: "topic-A", accounts: [caip10(Self.addressA)]))
+        await waitUntil { try await harness.topics.load(walletAddress: Self.addressA) != nil }
+        harness.connector.cannedSignature = "0xdeadbeef"
+
+        let account = try account(for: Self.addressA, in: harness.context)
+        let signature = try await harness.service.signPersonalMessage("Hello Auralis", account: account)
+
+        #expect(signature == "0xdeadbeef")
+        #expect(harness.connector.lastRequest?.method == .ethPersonalSign)
+    }
+
+    @Test("Sign-In with Ethereum succeeds when the wallet proves ownership")
+    func signInWithEthereumSucceedsForVerifiedWallet() async throws {
+        let harness = try makeHarness()
+        harness.connector.settle(session(topic: "topic-A", accounts: [caip10(Self.addressA)]))
+        await waitUntil { try await harness.topics.load(walletAddress: Self.addressA) != nil }
+
+        let account = try account(for: Self.addressA, in: harness.context)
+        let verified = try await harness.service.signInWithEthereum(account: account)
+
+        #expect(verified)
+    }
+
+    @Test("Signing an account with no live session throws")
+    func signingWithoutSessionThrows() async throws {
+        let harness = try makeHarness()
+        let account = EOAccount(
+            address: Self.addressB,
+            access: .readonly,
+            name: nil,
+            source: .walletConnect,
+            addedAt: .now,
+            lastSelectedAt: .now
+        )
+        harness.context.insert(account)
+
+        await #expect(throws: WalletConnectionError.self) {
+            try await harness.service.signPersonalMessage("hi", account: account)
+        }
     }
 
     // MARK: - Harness
@@ -217,12 +282,12 @@ struct WalletConnectionInteractionTests {
     /// tests wait on a deterministic signal rather than a fixed sleep.
     private func waitUntil(
         timeout: Duration = .seconds(2),
-        _ condition: @MainActor () async -> Bool
+        _ condition: @MainActor () async throws -> Bool
     ) async {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: timeout)
         while clock.now < deadline {
-            if await condition() { return }
+            if (try? await condition()) == true { return }
             try? await Task.sleep(for: .milliseconds(5))
         }
     }
@@ -239,6 +304,9 @@ private final class RecordingWalletConnector: WalletConnector, @unchecked Sendab
     private var _connectCount = 0
     private var _lastProviderID: String?
     private var _disconnectedTopics: [String] = []
+    private var _verifiesOwnership = true
+    private var _cannedSignature: String?
+    private var _lastRequest: WalletRequest?
 
     private let stream: AsyncStream<WalletConnectorEvent>
     private let continuation: AsyncStream<WalletConnectorEvent>.Continuation
@@ -273,7 +341,21 @@ private final class RecordingWalletConnector: WalletConnector, @unchecked Sendab
     }
 
     func request(_ request: WalletRequest, in sessionId: WalletSessionID) async throws -> WalletResponse {
-        throw WalletConnectionError.unavailable("RecordingWalletConnector does not service requests.")
+        lock.withLock { _lastRequest = request }
+        guard let signature = lock.withLock({ _cannedSignature }) else {
+            throw WalletConnectionError.unavailable("RecordingWalletConnector does not service requests.")
+        }
+        return WalletResponse(id: request.id, result: signature)
+    }
+
+    func verifyOwnership(
+        of address: String,
+        chain: WalletChain,
+        in sessionId: WalletSessionID,
+        statement: String,
+        expiryDate: Date
+    ) async throws -> Bool {
+        lock.withLock { _verifiesOwnership }
     }
 
     // Test controls
@@ -281,6 +363,23 @@ private final class RecordingWalletConnector: WalletConnector, @unchecked Sendab
     func settle(_ session: WalletConnectorSession) {
         continuation.yield(.sessionSettled(session))
     }
+
+    /// Toggles whether the connector proves ownership. Defaults to `true` so the
+    /// happy-path tests persist; set `false` to exercise the fail-closed
+    /// `.requireVerified` policy.
+    var verifiesOwnership: Bool {
+        get { lock.withLock { _verifiesOwnership } }
+        set { lock.withLock { _verifiesOwnership = newValue } }
+    }
+
+    /// The signature `request(_:in:)` returns. When `nil` the connector rejects
+    /// requests (the default), so a signing test must set it first.
+    var cannedSignature: String? {
+        get { lock.withLock { _cannedSignature } }
+        set { lock.withLock { _cannedSignature = newValue } }
+    }
+
+    var lastRequest: WalletRequest? { lock.withLock { _lastRequest } }
 
     var connectCount: Int { lock.withLock { _connectCount } }
     var lastProviderID: String? { lock.withLock { _lastProviderID } }

@@ -177,20 +177,24 @@ public struct GatewayBackgroundImage: View {
 public struct AccountsGatewayView: View {
     private let dependencies: AccountsGatewayDependencies
     private let onAccountActivated: @MainActor (EOAccount, String?) -> Void
+    private let onConnectWallet: (@MainActor () -> Void)?
 
     public init(
         dependencies: AccountsGatewayDependencies,
-        onAccountActivated: @escaping @MainActor (EOAccount, String?) -> Void
+        onAccountActivated: @escaping @MainActor (EOAccount, String?) -> Void,
+        onConnectWallet: (@MainActor () -> Void)? = nil
     ) {
         self.dependencies = dependencies
         self.onAccountActivated = onAccountActivated
+        self.onConnectWallet = onConnectWallet
     }
 
     public var body: some View {
         AccountsScenicScreen(contentAlignment: .center) {
             AddressInputView(
                 dependencies: dependencies,
-                onAccountActivated: onAccountActivated
+                onAccountActivated: onAccountActivated,
+                onConnectWallet: onConnectWallet
             )
         }
     }
@@ -210,6 +214,14 @@ public struct AccountsGatewayView: View {
         onAccountActivated: { _, _ in }
     )
     .preferredColorScheme(.dark)
+}
+
+#Preview("Gateway With Connect Wallet") {
+    AccountsGatewayView(
+        dependencies: .preview,
+        onAccountActivated: { _, _ in },
+        onConnectWallet: { }
+    )
 }
 
 // NOTE: `accessibilityReduceMotion`, `accessibilityReduceTransparency`, and
@@ -347,15 +359,18 @@ public struct AddressInputView: View {
 
     private let dependencies: AccountsGatewayDependencies
     private let onAccountActivated: @MainActor (EOAccount, String?) -> Void
+    private let onConnectWallet: (@MainActor () -> Void)?
     private let activationErrorPresenter = AccountActivationErrorPresenter()
     private let ensResolutionPresenter = AccountENSResolutionPresenter()
 
     public init(
         dependencies: AccountsGatewayDependencies,
-        onAccountActivated: @escaping @MainActor (EOAccount, String?) -> Void
+        onAccountActivated: @escaping @MainActor (EOAccount, String?) -> Void,
+        onConnectWallet: (@MainActor () -> Void)? = nil
     ) {
         self.dependencies = dependencies
         self.onAccountActivated = onAccountActivated
+        self.onConnectWallet = onConnectWallet
     }
 
     private var validationPresentation: AddressEntryValidationPresentation {
@@ -381,7 +396,8 @@ public struct AddressInputView: View {
             accountActivator: dependencies.accountActivator,
             isAddressFieldFocused: $isAddressFieldFocused,
             isAddressFieldAccessibilityFocused: $isAddressFieldAccessibilityFocused,
-            onAccountActivated: onAccountActivated
+            onAccountActivated: onAccountActivated,
+            onConnectWallet: onConnectWallet
         )
         .background(Color.surface.opacity(0.08))
         .transition(accessibilityReduceMotion ? .opacity : .scale.combined(with: .opacity))
@@ -624,6 +640,7 @@ private struct AddressEntryContentView: View {
     let isAddressFieldFocused: FocusState<Bool>.Binding
     let isAddressFieldAccessibilityFocused: AccessibilityFocusState<Bool>.Binding
     let onAccountActivated: @MainActor (EOAccount, String?) -> Void
+    let onConnectWallet: (@MainActor () -> Void)?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -676,6 +693,18 @@ private struct AddressEntryContentView: View {
             AuraActionButton("Enter Auralis", style: .hero, action: handleSubmit)
                 .disabled(isSubmitting)
                 .padding(.horizontal, 30)
+
+            if let onConnectWallet {
+                AuraActionButton(
+                    "Connect Wallet",
+                    systemImage: "link",
+                    style: .heroSecondary,
+                    action: onConnectWallet
+                )
+                .disabled(isSubmitting)
+                .padding(.horizontal, 30)
+                .padding(.top, 4)
+            }
 
             if isSubmitting {
                 ProgressView("Resolving account...")

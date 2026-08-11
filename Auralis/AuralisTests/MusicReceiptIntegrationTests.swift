@@ -9,10 +9,7 @@ import SwiftData
 import Testing
 
 struct MusicReceiptIntegrationTests {
-    @Test(
-        "playlist creation and modification emit namespaced music receipts through the shared receipt store",
-        .disabled("Times out in the Xcode 26 beta app-hosted runner while exercising duplicated SwiftData receipt and playlist models.")
-    )
+    @Test("playlist creation and modification emit namespaced music receipts through the shared receipt store")
     @MainActor
     func playlistMutationsWriteMusicReceipts() async throws {
         let container = try TestModelContainers.primary()
@@ -83,10 +80,7 @@ struct MusicReceiptIntegrationTests {
         #expect(afterSummary["itemCount"] == .number(0))
     }
 
-    @Test(
-        "music policy receipts extend the existing policy gate instead of replacing it",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData receipt models are loaded from both the app and test bundles.")
-    )
+    @Test("music policy receipts extend the existing policy gate instead of replacing it")
     @MainActor
     func policyGateCanWriteGenericAndMusicSpecificReceipts() async throws {
         let container = try TestModelContainers.primary()
@@ -130,10 +124,7 @@ struct MusicReceiptIntegrationTests {
         #expect(musicReceipt.details.values["surface"] == .string("music.export"))
     }
 
-    @Test(
-        "auto-organization dry runs emit dry-run receipts through the shared store",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData receipt models are loaded from both the app and test bundles.")
-    )
+    @Test("auto-organization dry runs emit dry-run receipts through the shared store")
     @MainActor
     func autoOrganizationDryRunWritesReceipt() async throws {
         let container = try TestModelContainers.primary()

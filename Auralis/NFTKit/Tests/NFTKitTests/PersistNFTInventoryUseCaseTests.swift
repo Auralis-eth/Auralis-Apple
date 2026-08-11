@@ -53,7 +53,8 @@ struct PersistNFTInventoryUseCaseTests {
         let container = try NFTKitTestModelContainers.refresh()
         let context = ModelContext(container)
         let tag = try Tag(name: "Local Favorite")
-        let existing = NFTFixture(tokenId: "7").build()
+        let accountAddress = "0x1234567890abcdef1234567890abcdef12345678"
+        let existing = NFTFixture(tokenId: "7", accountAddress: accountAddress).build()
         existing.tags = [tag]
         context.insert(tag)
         context.insert(existing)
@@ -66,7 +67,7 @@ struct PersistNFTInventoryUseCaseTests {
 
         try await useCase.persist(
             inventory,
-            accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+            accountAddress: accountAddress,
             chain: .ethMainnet,
             modelContainer: container
         )
@@ -90,9 +91,9 @@ struct PersistNFTInventoryUseCaseTests {
         let context = ModelContext(container)
         let account = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
         let stale = NFTFixture(
-            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             tokenId: "stale",
-            accountAddress: account.address
+            accountAddress: account.address,
+            contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         ).build()
         context.insert(account)
         context.insert(stale)

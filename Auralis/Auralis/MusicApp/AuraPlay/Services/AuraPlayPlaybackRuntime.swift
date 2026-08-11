@@ -20,6 +20,7 @@ protocol AuraPlayVideoRemoteControlling: AnyObject {
     func play()
     func pause()
     func togglePlayPause()
+    func load(_ item: AuraPlayableMediaItem) async throws
     func seek(to seconds: TimeInterval) async
     func skipToNext() async
     func skipToPrevious() async
@@ -44,10 +45,10 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     @ObservationIgnored private let nowPlayingPublisher: NowPlayingPublisher
     @ObservationIgnored private let remoteCommandPublisher: RemoteCommandPublisher
     @ObservationIgnored private let playbackOrchestrator: PlaybackOrchestrator
-    @ObservationIgnored private let remoteCommandCoordinator: RemoteCommandCoordinator
     @ObservationIgnored private let audioOrchestratorController: RuntimeAudioOrchestratorController
     @ObservationIgnored private let videoOrchestratorController: RuntimeVideoOrchestratorController
     @ObservationIgnored fileprivate weak var videoRemoteControls: (any AuraPlayVideoRemoteControlling)?
+    @ObservationIgnored private var openVideoPlayer: (@MainActor () -> Void)?
     @ObservationIgnored private var phase8ActiveEngine: EngineKind?
     @ObservationIgnored private var lastPlaybackPositionWriteSeconds: [String: TimeInterval] = [:]
     @ObservationIgnored private var orchestratedNFTs: [String: NFT] = [:]
@@ -176,7 +177,6 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         self.nowPlayingPublisher = nowPlayingPublisher
         self.remoteCommandPublisher = remoteCommandPublisher
         self.playbackOrchestrator = playbackOrchestrator
-        self.remoteCommandCoordinator = RemoteCommandCoordinator(orchestrator: playbackOrchestrator)
         self.audioOrchestratorController = audioOrchestratorController
         self.videoOrchestratorController = videoOrchestratorController
         self.defaults = defaults
@@ -254,11 +254,21 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     }
 
     public var auraPlayNextPreviewTrack: AuraPlayTrack? {
-        nextAudio.tracks.first.map(AuraPlayTrack.init(nft:))
+        playbackOrchestrator.queue.peekNext().map {
+            AuraPlayTrack(item: $0.item)
+        }
     }
 
     public var auraPlayPreviousPreviewTrack: AuraPlayTrack? {
-        previousAudio.tracks.last.map(AuraPlayTrack.init(nft:))
+        let queue = playbackOrchestrator.queue
+        if let historyItem = queue.history.last?.item {
+            return AuraPlayTrack(item: historyItem)
+        }
+        guard let currentIndex = queue.currentIndex,
+              queue.entries.indices.contains(currentIndex - 1) else {
+            return nil
+        }
+        return AuraPlayTrack(item: queue.entries[currentIndex - 1].item)
     }
 
     public var auraPlayCachePresentation: AuraPlayCachePresentation {
@@ -282,6 +292,24 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     }
 
     public var auraPlayCurrentItemPresentation: AuraPlayCurrentItemPresentation? {
+        if let currentItem = playbackOrchestrator.queue.currentItem {
+            if let currentNFT, currentNFT.id == currentItem.id {
+                return Self.currentItemPresentation(
+                    nft: currentNFT,
+                    track: currentTrack,
+                    media: currentMedia
+                )
+            }
+            return AuraPlayCurrentItemPresentation(
+                id: currentItem.id,
+                title: currentItem.metadata.title.nilIfEmpty ?? currentTrack?.title?.nilIfEmpty ?? "Unknown Title",
+                creator: currentItem.metadata.artist?.nilIfEmpty ?? currentTrack?.artist?.nilIfEmpty,
+                collection: nil,
+                artworkURLString: currentItem.metadata.artworkURL?.absoluteString ?? currentTrack?.imageURLString,
+                mediaKind: currentItem.contentKind == .video ? .video : .audio
+            )
+        }
+
         guard let currentNFT else {
             return currentTrack.map {
                 AuraPlayCurrentItemPresentation(
@@ -295,27 +323,7 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
             }
         }
 
-        let chain = currentNFT.network ?? .ethMainnet
-        let contractAddress = currentNFT.contract.address?.nilIfEmpty
-        let tokenID = currentNFT.tokenId.nilIfEmpty
-        let explorerURL = Self.explorerURL(
-            chain: chain,
-            contractAddress: contractAddress,
-            tokenID: tokenID
-        )
-        return AuraPlayCurrentItemPresentation(
-            id: currentNFT.id,
-            title: currentNFT.name?.nilIfEmpty ?? currentTrack?.title?.nilIfEmpty ?? "Unknown Title",
-            creator: currentNFT.artistName?.nilIfEmpty ?? currentTrack?.artist?.nilIfEmpty,
-            collection: currentNFT.collectionName?.nilIfEmpty ?? currentNFT.collection?.name?.nilIfEmpty,
-            artworkURLString: currentNFT.image?.thumbnailUrl ?? currentNFT.image?.originalUrl ?? currentTrack?.imageURLString,
-            mediaKind: Self.isVideoMedia(nft: currentNFT, media: currentMedia) ? .video : .audio,
-            chainDisplayName: chain.routingDisplayName,
-            contractAddress: contractAddress,
-            tokenID: tokenID,
-            shareURL: explorerURL,
-            explorerURL: explorerURL
-        )
+        return Self.currentItemPresentation(nft: currentNFT, track: currentTrack, media: currentMedia)
     }
 
     public var auraPlayShuffleEnabled: Bool {
@@ -428,6 +436,10 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     func configureAuraPlayModelContainer(_ modelContainer: ModelContainer?) {
         auraPlayModelContainer = modelContainer
         applySmartShuffleSetting()
+    }
+
+    func configureVideoRouteOpening(_ openVideoPlayer: @escaping @MainActor () -> Void) {
+        self.openVideoPlayer = openVideoPlayer
     }
 
     func auraPlayRegisterVideoRemoteControls(_ controls: (any AuraPlayVideoRemoteControlling)?) {
@@ -563,11 +575,11 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     }
 
     public func playNext() async {
-        await playNext(triggerCause: .userInitiated)
+        await playbackOrchestrator.skipToNext()
     }
 
     public func playPrevious() async {
-        await playPrevious(triggerCause: .userInitiated)
+        await playbackOrchestrator.skipToPrevious()
     }
 
     public func auraPlayPlay() throws {
@@ -602,43 +614,43 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     }
 
     public func auraPlayNext() async {
-        await playNext()
+        await playbackOrchestrator.skipToNext()
     }
 
     public func auraPlayPrevious() async {
-        await playPrevious()
+        await playbackOrchestrator.skipToPrevious()
     }
 
     public func auraPlayQueueItems() -> [AuraPlayQueuePresentationItem] {
-        let history = previousAudio.tracks.reversed().map {
-            AuraPlayQueuePresentationItem(nft: $0, role: .history)
+        let queue = playbackOrchestrator.queue
+        let history = queue.history.reversed().map {
+            AuraPlayQueuePresentationItem(item: $0.item, role: .history)
         }
-        let current = currentNFT.map {
-            [AuraPlayQueuePresentationItem(nft: $0, role: .current)]
+        let current = queue.currentItem.map {
+            [AuraPlayQueuePresentationItem(item: $0, role: .current)]
         } ?? []
-        let upcoming = nextAudio.tracks.map {
-            AuraPlayQueuePresentationItem(nft: $0, role: .upcoming)
+        let upcoming: [AuraPlayQueuePresentationItem]
+        if let currentIndex = queue.currentIndex {
+            upcoming = queue.entries.dropFirst(currentIndex + 1).map {
+                AuraPlayQueuePresentationItem(item: $0.item, role: .upcoming)
+            }
+        } else {
+            upcoming = []
         }
 
         return history + current + upcoming
     }
 
     public func auraPlayRemoveQueueItem(id: String) {
-        previousAudio.tracks.removeAll { $0.id == id }
-        nextAudio.tracks.removeAll { $0.id == id }
+        playbackOrchestrator.removeNonCurrentQueueItem(mediaID: id)
     }
 
     public func auraPlayMoveQueueItem(id: String, toUpcomingIndex: Int) {
-        guard let sourceIndex = nextAudio.tracks.firstIndex(where: { $0.id == id }) else {
-            return
-        }
-        let item = nextAudio.tracks.remove(at: sourceIndex)
-        let destinationIndex = min(max(0, toUpcomingIndex), nextAudio.tracks.count)
-        nextAudio.tracks.insert(item, at: destinationIndex)
+        playbackOrchestrator.moveUpcomingQueueItem(mediaID: id, toUpcomingIndex: toUpcomingIndex)
     }
 
     public func auraPlayClearUpcomingQueue() {
-        nextAudio.tracks.removeAll()
+        playbackOrchestrator.clearUpcomingQueue()
     }
 
     public func auraPlaySaveOffline() async {
@@ -755,6 +767,13 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         playbackAlert = nil
     }
 
+    public func presentAuraPlayPlaybackFailure(_ error: Error) {
+        playbackState = .error
+        cachePresentation = playbackFailurePresentation(for: error)
+        presentPlaybackAlert(for: error)
+        updateNowPlaying()
+    }
+
     public func auraPlayStartVisualization() async {
         visualizationTask?.cancel()
 
@@ -798,9 +817,13 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     }
 
     public func snapshot() -> AuraPlayQueueSnapshot {
-        AuraPlayQueueSnapshot(
-            upcomingCount: nextAudio.tracks.count,
-            historyCount: previousAudio.tracks.count
+        let queue = playbackOrchestrator.queue
+        let upcomingCount = queue.currentIndex.map {
+            max(0, queue.entries.count - $0 - 1)
+        } ?? 0
+        return AuraPlayQueueSnapshot(
+            upcomingCount: upcomingCount,
+            historyCount: queue.history.count
         )
     }
 
@@ -834,6 +857,49 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         try await playLibraryItem(id: id, in: orderedNFTs, origin: origin)
         libraryQueueQueryContext = queryContext
         libraryQueueNextOffset = nextOffset
+    }
+
+    /// Starts playback from resolved AuraPlay media rows. This path preserves the
+    /// media item's canonical playback URL and audio/video classification instead
+    /// of falling back to legacy `NFT.audioUrl` fields.
+    public func playPlaybackWindow(
+        item: AuraPlayableMediaItem,
+        queue items: [AuraPlayableMediaItem],
+        startAt index: Int,
+        queryContext: MediaItemQueryContext?,
+        nextOffset: Int?,
+        origin: QueueOrigin? = nil
+    ) async throws {
+        libraryQueueQueryContext = queryContext
+        libraryQueueNextOffset = nextOffset
+        let safeIndex = items.indices.contains(index) ? index : (items.firstIndex(where: { $0.id == item.id }) ?? 0)
+        let didPlay = await playbackOrchestrator.play(
+            item: item,
+            queue: items,
+            startAt: safeIndex,
+            origin: origin ?? .single(mediaItemID: item.id)
+        )
+        guard didPlay else {
+            let error = AuraPlayError.engineStartFailed
+            presentAuraPlayPlaybackFailure(error)
+            throw error
+        }
+    }
+
+    public func waitForVideoRemoteControls(timeoutNanoseconds: UInt64 = 1_000_000_000) async -> Bool {
+        if videoRemoteControls != nil {
+            return true
+        }
+
+        let clock = ContinuousClock()
+        let deadline = clock.now + .nanoseconds(Int(timeoutNanoseconds))
+        while clock.now < deadline {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            if videoRemoteControls != nil {
+                return true
+            }
+        }
+        return false
     }
 
     /// Restores the most recent playback session as paused after cold launch,
@@ -1136,6 +1202,36 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
         await stop()
     }
 
+    fileprivate func loadVideoItemForOrchestrator(_ item: AuraPlayableMediaItem) async throws {
+        if videoRemoteControls == nil {
+            openVideoPlayer?()
+            guard await waitForVideoRemoteControls() else {
+                throw AuraPlayError.engineStartFailed
+            }
+        }
+
+        guard let videoRemoteControls else {
+            throw AuraPlayError.engineStartFailed
+        }
+
+        await prepareForAudioPlayback()
+        await persistCurrentAudioPosition(force: true)
+        playbackState = .loading
+        currentMedia = NFTPlayableMedia(item)
+        currentDuration = 0
+        currentTime = 0
+        pausedAt = 0
+        currentTrack = AuraPlayTrack(
+            id: item.id,
+            title: item.metadata.title,
+            artist: item.metadata.artist,
+            duration: 0,
+            imageURLString: item.metadata.artworkURL?.absoluteString
+        )
+        updateNowPlaying()
+        try await videoRemoteControls.load(item)
+    }
+
     fileprivate func seekAudioFromOrchestrator(to time: TimeInterval) async {
         guard let currentMedia else { return }
         let clampedTime = max(0, min(time, currentDuration))
@@ -1209,7 +1305,7 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
 
     private func playPrepared(shouldRecordStart: Bool) async throws {
         guard currentMedia != nil else {
-            await playNext()
+            await playbackOrchestrator.skipToNext()
             return
         }
 
@@ -1479,7 +1575,16 @@ private extension AuraPlayPlaybackRuntime {
 
     func bindRemoteCommands() {
         remoteCommandTask?.cancel()
-        remoteCommandCoordinator.bind(to: remoteCommandPublisher)
+        // Route system remote-command events through the runtime's handler (not
+        // the orchestrator directly) so restored sessions load media before
+        // playing and video commands reach the video controls.
+        let events = remoteCommandPublisher.events
+        remoteCommandTask = Task { [weak self] in
+            for await event in events {
+                guard !Task.isCancelled else { return }
+                self?.handleRemoteCommand(event)
+            }
+        }
     }
 
     func handleRemoteCommand(_ event: RemoteCommandEvent) {
@@ -1493,7 +1598,15 @@ private extension AuraPlayPlaybackRuntime {
 
         switch event {
         case .play:
-            try? auraPlayPlay()
+            // A remote/lock-screen "play" means resume. When paused — including a
+            // cold-launch restored session whose engine has no media loaded — route
+            // through resume so media is loaded first, rather than play() which
+            // assumes prepared media and would otherwise skip to the next item.
+            if playbackState == .paused {
+                try? auraPlayResume()
+            } else {
+                try? auraPlayPlay()
+            }
         case .pause:
             auraPlayPause()
         case .togglePlayPause:
@@ -1836,7 +1949,9 @@ private extension AuraPlayPlaybackRuntime {
         }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 15
+            let (data, _) = try await URLSession.shared.data(for: request)
             return data
         } catch {
             return nil
@@ -2212,6 +2327,10 @@ private final class RuntimeVideoOrchestratorController: AuraPlayEngineControllin
 
     func load(_ item: AuraPlayableMediaItem) async throws {
         recordedCommands.append("load.\(item.id)")
+        guard let runtime else {
+            throw AuraPlayError.engineStartFailed
+        }
+        try await runtime.loadVideoItemForOrchestrator(item)
     }
 
     func play() async throws {
@@ -2325,6 +2444,16 @@ private extension AuraPlayTrack {
             imageURLString: nft.image?.thumbnailUrl ?? nft.image?.originalUrl
         )
     }
+
+    init(item: AuraPlayableMediaItem) {
+        self.init(
+            id: item.id,
+            title: item.metadata.title,
+            artist: item.metadata.artist,
+            duration: 0,
+            imageURLString: item.metadata.artworkURL?.absoluteString
+        )
+    }
 }
 
 private extension AuraPlayQueuePresentationItem {
@@ -2337,9 +2466,47 @@ private extension AuraPlayQueuePresentationItem {
             role: role
         )
     }
+
+    init(item: AuraPlayableMediaItem, role: AuraPlayQueueItemRole) {
+        self.init(
+            id: item.id,
+            title: item.metadata.title.nilIfEmpty ?? "Unknown Track",
+            artist: item.metadata.artist,
+            imageURLString: item.metadata.artworkURL?.absoluteString,
+            role: role
+        )
+    }
 }
 
 private extension AuraPlayPlaybackRuntime {
+    static func currentItemPresentation(
+        nft: NFT,
+        track: AuraPlayTrack?,
+        media: NFTPlayableMedia?
+    ) -> AuraPlayCurrentItemPresentation {
+        let chain = nft.network ?? .ethMainnet
+        let contractAddress = nft.contract.address?.nilIfEmpty
+        let tokenID = nft.tokenId.nilIfEmpty
+        let explorerURL = explorerURL(
+            chain: chain,
+            contractAddress: contractAddress,
+            tokenID: tokenID
+        )
+        return AuraPlayCurrentItemPresentation(
+            id: nft.id,
+            title: nft.name?.nilIfEmpty ?? track?.title?.nilIfEmpty ?? "Unknown Title",
+            creator: nft.artistName?.nilIfEmpty ?? track?.artist?.nilIfEmpty,
+            collection: nft.collectionName?.nilIfEmpty ?? nft.collection?.name?.nilIfEmpty,
+            artworkURLString: nft.image?.thumbnailUrl ?? nft.image?.originalUrl ?? track?.imageURLString,
+            mediaKind: isVideoMedia(nft: nft, media: media) ? .video : .audio,
+            chainDisplayName: chain.routingDisplayName,
+            contractAddress: contractAddress,
+            tokenID: tokenID,
+            shareURL: explorerURL,
+            explorerURL: explorerURL
+        )
+    }
+
     static func isVideoMedia(nft: NFT, media: NFTPlayableMedia?) -> Bool {
         if let media {
             let pathExtension = media.sourceURL.pathExtension.lowercased()

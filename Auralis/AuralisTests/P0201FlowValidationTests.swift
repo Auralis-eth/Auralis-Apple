@@ -9,10 +9,7 @@ import SwiftData
 import Testing
 
 struct P0201FlowValidationTests {
-    @Test(
-        "end-to-end flow covers add switch duplicate delete-active and relaunch persistence",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData account models are loaded from both the app and test bundles.")
-    )
+    @Test("end-to-end flow covers add switch duplicate delete-active and relaunch persistence")
     @MainActor
     func validatesPrimaryWatchAccountFlow() async throws {
         let container = try TestModelContainers.inMemory(TestSchemas.primary)
@@ -60,10 +57,7 @@ struct P0201FlowValidationTests {
         #expect(try #require(restore.currentAccount).address == secondAccount.account.address)
     }
 
-    @Test(
-        "logout preserves the roster and restore safely returns to onboarding without an active selection",
-        .disabled("Crashes in the Xcode 26 beta app-hosted runner because SwiftData account models are loaded from both the app and test bundles.")
-    )
+    @Test("logout preserves the roster and restore safely returns to onboarding without an active selection")
     @MainActor
     func validatesLogoutAndRelaunchBehavior() async throws {
         let container = try TestModelContainers.inMemory(TestSchemas.primary)
