@@ -3,34 +3,30 @@
 import PackageDescription
 
 let package = Package(
-    name: "PolicyCore",
+    name: "PlannerCore",
     platforms: [
         .iOS(.v18),
         .macOS(.v15),
     ],
     products: [
         .library(
-            name: "PolicyCore",
-            targets: ["PolicyCore"]
+            name: "PlannerCore",
+            targets: ["PlannerCore"]
         ),
     ],
     dependencies: [
-        .package(path: "../AuralisPrimaryModels"),
         .package(path: "../CapabilitiesCore"),
-        .package(path: "../ReceiptsCore"),
     ],
     targets: [
         .target(
-            name: "PolicyCore",
+            name: "PlannerCore",
             dependencies: [
-                "AuralisPrimaryModels",
                 "CapabilitiesCore",
-                "ReceiptsCore",
             ]
         ),
         .testTarget(
-            name: "PolicyCoreTests",
-            dependencies: ["PolicyCore"]
+            name: "PlannerCoreTests",
+            dependencies: ["PlannerCore"]
         ),
     ]
 )

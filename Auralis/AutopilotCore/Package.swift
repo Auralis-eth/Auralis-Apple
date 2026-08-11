@@ -3,34 +3,34 @@
 import PackageDescription
 
 let package = Package(
-    name: "PolicyCore",
+    name: "AutopilotCore",
     platforms: [
         .iOS(.v18),
         .macOS(.v15),
     ],
     products: [
         .library(
-            name: "PolicyCore",
-            targets: ["PolicyCore"]
+            name: "AutopilotCore",
+            targets: ["AutopilotCore"]
         ),
     ],
     dependencies: [
-        .package(path: "../AuralisPrimaryModels"),
         .package(path: "../CapabilitiesCore"),
-        .package(path: "../ReceiptsCore"),
+        .package(path: "../PolicyCore"),
+        .package(path: "../PlannerCore"),
     ],
     targets: [
         .target(
-            name: "PolicyCore",
+            name: "AutopilotCore",
             dependencies: [
-                "AuralisPrimaryModels",
                 "CapabilitiesCore",
-                "ReceiptsCore",
+                "PolicyCore",
+                "PlannerCore",
             ]
         ),
         .testTarget(
-            name: "PolicyCoreTests",
-            dependencies: ["PolicyCore"]
+            name: "AutopilotCoreTests",
+            dependencies: ["AutopilotCore"]
         ),
     ]
 )
