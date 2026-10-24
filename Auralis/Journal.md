@@ -1,5 +1,24 @@
 # Journal
 
+## 2026-10-24 - The Scheduler Stopped Owning the Filing Cabinet
+
+`SchedulingCore` has joined the RuntimeCore package, but the interesting part was the doorway we
+had to build first. The scheduler used to accept a receipts-owned `ArtifactDraft` and write directly
+to `ArtifactStore`. That was like asking the restaurant's order desk to know the filing system in
+the accountant's vault: convenient locally, but it pointed the dependency outward and would have
+made the consolidated packages circular.
+
+The runtime now owns a small `RoutineArtifactDraft` plus the `RoutineArtifactPersisting` protocol.
+RuntimeKit is the translator at the boundary: it turns the routine request into the durable artifact
+model and hands it to the receipts store. Scheduling still gets the resulting artifact ID, output
+allow-list enforcement still happens before persistence, and persistence failure still fails the run
+closed. Its tests use a scheduling-local recorder, so the 51-test target proves the contract without
+quietly importing the receipts domain.
+
+The lesson is a useful one: when moving a module exposes a cycle, don't paper over the package
+graph. Find the sentence the inner domain actually needs to say, make that sentence its protocol,
+and let the outer composition layer translate it into infrastructure.
+
 ## 2026-10-24 - The Receipt Ledger Joined Its Own Vault
 
 `ReceiptStorage` is no longer a separate building from the receipt and artifact contracts it

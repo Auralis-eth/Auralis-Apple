@@ -28,6 +28,10 @@ let package = Package(
         .library(
             name: "EvalCore",
             targets: ["EvalCore"]
+        ),
+        .library(
+            name: "SchedulingCore",
+            targets: ["SchedulingCore"]
         )
     ],
     dependencies: [
@@ -64,6 +68,14 @@ let package = Package(
                 "PerformanceCore"
             ]
         ),
+        .target(
+            name: "SchedulingCore",
+            dependencies: [
+                "PlaybookCore",
+                "PerformanceCore",
+                "RuntimeCore"
+            ]
+        ),
         .testTarget(
             name: "RuntimeCoreTests",
             dependencies: ["RuntimeCore"]
@@ -90,6 +102,10 @@ let package = Package(
                 "RuntimeCore",
                 "PerformanceCore"
             ]
+        ),
+        .testTarget(
+            name: "SchedulingCoreTests",
+            dependencies: ["SchedulingCore", "RuntimeCore"]
         )
     ]
 )

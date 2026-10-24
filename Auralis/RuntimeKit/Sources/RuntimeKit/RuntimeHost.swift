@@ -394,7 +394,7 @@ public final class RuntimeHost {
                 operators: routineOperators,
                 fallback: routineOperatorFallback
             ),
-            artifacts: artifactStore,
+            artifacts: ArtifactStoreRoutineArtifactPersister(store: artifactStore),
             performance: resolvedPerformanceStore,
             executionRecords: executionRecordStore,
             // Scheduled work resolves a real grant and writes a real trace, same as interactive work.

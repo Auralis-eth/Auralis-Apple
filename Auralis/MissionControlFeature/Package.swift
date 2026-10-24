@@ -23,7 +23,6 @@ let package = Package(
         .package(path: "../AuralisFoundation"),
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../OperatorsFeature"),
-        .package(path: "../SchedulingCore"),
         .package(path: "../SocialCore"),
         .package(path: "../TrustedUIKit"),
         .package(path: "../AuraUI"),
@@ -43,7 +42,7 @@ let package = Package(
                 .product(name: "PlaybookCore", package: "RuntimeCore"),
                 .product(name: "ArtifactCore", package: "ReceiptsCore"),
                 "OperatorsFeature",
-                "SchedulingCore",
+                .product(name: "SchedulingCore", package: "RuntimeCore"),
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
                 .product(name: "EvalCore", package: "RuntimeCore"),
                 "SocialCore",
@@ -75,7 +74,7 @@ let package = Package(
                 .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
                 .product(name: "EvalCore", package: "RuntimeCore"),
-                "SchedulingCore",
+                .product(name: "SchedulingCore", package: "RuntimeCore"),
                 "OperatorsFeature",
                 // Imported/used directly by the test sources. Declared explicitly rather than
                 // relying on SPM's transitive module search path, which is not a contract.

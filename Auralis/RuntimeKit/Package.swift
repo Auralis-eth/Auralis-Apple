@@ -19,7 +19,6 @@ let package = Package(
         .package(path: "../AutopilotCore"),
         .package(path: "../ReceiptsCore"),
         .package(path: "../AuralisPrimaryModels"),
-        .package(path: "../SchedulingCore"),
         .package(path: "../OperatorsFeature"),
         .package(path: "../PolicyCore"),
         .package(path: "../AuralisFoundation"),
@@ -36,7 +35,7 @@ let package = Package(
                 "ReceiptsCore",
                 "AuralisPrimaryModels",
                 .product(name: "PlaybookCore", package: "RuntimeCore"),
-                "SchedulingCore",
+                .product(name: "SchedulingCore", package: "RuntimeCore"),
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
                 .product(name: "ArtifactCore", package: "ReceiptsCore"),
                 // The hardened SwiftData artifact store. Named explicitly rather than taken

@@ -1,4 +1,3 @@
-import ArtifactCore
 import CapabilitiesCore
 import Foundation
 import PerformanceCore
@@ -6,6 +5,20 @@ import PlaybookCore
 import RuntimeCore
 @testable import SchedulingCore
 import Testing
+
+private actor InMemoryRoutineArtifactPersister: RoutineArtifactPersisting {
+    private var drafts: [(id: UUID, draft: RoutineArtifactDraft)] = []
+
+    func create(_ draft: RoutineArtifactDraft) async throws -> UUID {
+        let id = UUID()
+        drafts.append((id, draft))
+        return id
+    }
+
+    func latest(limit: Int) -> [RoutineArtifactDraft] {
+        Array(drafts.suffix(limit).reversed().map(\.draft))
+    }
+}
 
 private struct StaticContext: ContextProviding {
     func gather(for playbook: Playbook) async -> ContextBundle {
@@ -191,7 +204,7 @@ struct TriggerEvaluatorTests {
 struct SchedulingEngineTests {
     private func playbook(
         _ state: PlaybookInstallState,
-        outputs: [ArtifactType] = [.brief],
+        outputs: [ArtifactOutputType] = [.brief],
         supportedFlows: [PlaybookFlowKind] = [.read, .prepare]
     ) -> Playbook {
         Playbook(
@@ -205,8 +218,8 @@ struct SchedulingEngineTests {
         )
     }
 
-    private func makeEngine(playbook: Playbook, result: RoutineRunResult) async -> (SchedulingEngine, InMemoryArtifactStore, PerformanceStore) {
-        let artifacts = InMemoryArtifactStore()
+    private func makeEngine(playbook: Playbook, result: RoutineRunResult) async -> (SchedulingEngine, InMemoryRoutineArtifactPersister, PerformanceStore) {
+        let artifacts = InMemoryRoutineArtifactPersister()
         let perf = PerformanceStore()
         let engine = SchedulingEngine(
             playbooks: InMemoryPlaybookStore(seed: [playbook]),
@@ -223,29 +236,14 @@ struct SchedulingEngineTests {
         return (engine, artifacts, perf)
     }
 
-    private func brief() -> ArtifactDraft {
-        ArtifactDraft(type: .brief, title: "b", provenance: ArtifactProvenance(actor: .system), content: "x")
+    private func brief() -> RoutineArtifactDraft {
+        RoutineArtifactDraft(type: .brief, title: "b", actor: .system, content: "x")
     }
 
-    private struct FailingArtifactStore: ArtifactStore {
+    private struct FailingArtifactStore: RoutineArtifactPersisting {
         private struct PersistenceFailure: Error { }
 
-        func create(_ draft: ArtifactDraft) async throws -> Artifact { throw PersistenceFailure() }
-        func addVersion(toGroup groupID: UUID, _ draft: ArtifactDraft) async throws -> Artifact { throw PersistenceFailure() }
-        func get(id: UUID) async throws -> Artifact? { throw PersistenceFailure() }
-        func latest(limit: Int) async throws -> [Artifact] { throw PersistenceFailure() }
-        func versions(ofGroup groupID: UUID) async throws -> [Artifact] { throw PersistenceFailure() }
-        func all(ofType type: ArtifactType, limit: Int) async throws -> [Artifact] { throw PersistenceFailure() }
-        func setApprovalState(id: UUID, to state: ArtifactApprovalState) async throws { throw PersistenceFailure() }
-        func linkRelatedReceipt(id receiptID: UUID, toArtifact artifactID: UUID) async throws { throw PersistenceFailure() }
-        func updateLifecycle(
-            id: UUID,
-            to state: ArtifactApprovalState,
-            destination: String?,
-            exportFormat: String?
-        ) async throws { throw PersistenceFailure() }
-        func exportAll() async throws -> Data { throw PersistenceFailure() }
-        func resetAll() async throws { throw PersistenceFailure() }
+        func create(_ draft: RoutineArtifactDraft) async throws -> UUID { throw PersistenceFailure() }
     }
 
     @Test
@@ -280,7 +278,7 @@ struct SchedulingEngineTests {
                 ])
             ]),
             operator: FixedOperator(result: RoutineRunResult(outcome: .needsApproval)),
-            artifacts: InMemoryArtifactStore(),
+            artifacts: InMemoryRoutineArtifactPersister(),
             performance: PerformanceStore(),
             worklog: worklog
         )
@@ -687,15 +685,15 @@ struct SchedulingEngineAuthorityTests {
             operator: FixedOperator(
                 result: RoutineRunResult(
                     outcome: .success,
-                    artifact: ArtifactDraft(
+                    artifact: RoutineArtifactDraft(
                         type: .brief,
                         title: "b",
-                        provenance: ArtifactProvenance(actor: .system),
+                        actor: .system,
                         content: "x"
                     )
                 )
             ),
-            artifacts: InMemoryArtifactStore(),
+            artifacts: InMemoryRoutineArtifactPersister(),
             performance: PerformanceStore(),
             leaseRegistry: leaseRegistry
         )
@@ -840,15 +838,15 @@ struct ContextContractEnforcementTests {
         )
     }
 
-    private func brief() -> ArtifactDraft {
-        ArtifactDraft(type: .brief, title: "b", provenance: ArtifactProvenance(actor: .system), content: "x")
+    private func brief() -> RoutineArtifactDraft {
+        RoutineArtifactDraft(type: .brief, title: "b", actor: .system, content: "x")
     }
 
     private func makeEngine(
         fields: [ContextField],
         contract: ContextBundleContract
-    ) -> (SchedulingEngine, InMemoryArtifactStore) {
-        let artifacts = InMemoryArtifactStore()
+    ) -> (SchedulingEngine, InMemoryRoutineArtifactPersister) {
+        let artifacts = InMemoryRoutineArtifactPersister()
         let engine = SchedulingEngine(
             playbooks: InMemoryPlaybookStore(seed: [playbook()]),
             context: FixedBundleContext(fields: fields),
@@ -930,7 +928,7 @@ struct ContextContractEnforcementTests {
             context: FixedBundleContext(fields: []),
             contracts: ContextContractRegistry(contracts: [:]),
             operator: FixedOperator(result: RoutineRunResult(outcome: .success)),
-            artifacts: InMemoryArtifactStore(),
+            artifacts: InMemoryRoutineArtifactPersister(),
             performance: PerformanceStore()
         )
 
@@ -957,7 +955,7 @@ struct ContextContractEnforcementTests {
                 )
             ]),
             operator: ContextEchoOperator(),
-            artifacts: InMemoryArtifactStore(),
+            artifacts: InMemoryRoutineArtifactPersister(),
             performance: PerformanceStore()
         )
 
@@ -992,7 +990,7 @@ struct ContextContractEnforcementTests {
                 ])
             ]),
             operator: ContextEchoOperator(),
-            artifacts: InMemoryArtifactStore(),
+            artifacts: InMemoryRoutineArtifactPersister(),
             performance: PerformanceStore()
         )
 

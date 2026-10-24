@@ -446,8 +446,8 @@ struct DefaultRoutineOperatorTests {
             context: try await governedContext(for: subject)
         )
 
-        #expect(result.artifact?.provenance.actor.kind == .scheduledRoutine)
-        #expect(result.artifact?.provenance.actor.identifier == "test.playbook")
+        #expect(result.artifact?.actor.kind == .scheduledRoutine)
+        #expect(result.artifact?.actor.identifier == "test.playbook")
         #expect(result.artifact?.creatorPlaybookID == "test.playbook")
     }
 }

@@ -1,4 +1,3 @@
-import ArtifactCore
 import Foundation
 import PerformanceCore
 import PlaybookCore
@@ -31,10 +30,56 @@ public extension TriggerSource {
     }
 }
 
+/// A scheduling-owned description of a work product an operator wants persisted.
+///
+/// The durable artifact model belongs to ReceiptsCore. Keeping this request in the runtime domain
+/// lets scheduling describe its output without depending outward on a persistence implementation.
+public struct RoutineArtifactDraft: Equatable, Sendable {
+    public let type: ArtifactOutputType
+    public let title: String
+    public let creatorPlaybookID: String?
+    public let creatorOperatorID: String?
+    public let actor: ActorRef
+    public let inference: InferenceProvenance?
+    public let relatedReceiptIDs: [UUID]
+    public let destination: String?
+    public let exportFormat: String?
+    public let content: String
+
+    public init(
+        type: ArtifactOutputType,
+        title: String,
+        creatorPlaybookID: String? = nil,
+        creatorOperatorID: String? = nil,
+        actor: ActorRef,
+        inference: InferenceProvenance? = nil,
+        relatedReceiptIDs: [UUID] = [],
+        destination: String? = nil,
+        exportFormat: String? = nil,
+        content: String
+    ) {
+        self.type = type
+        self.title = title
+        self.creatorPlaybookID = creatorPlaybookID
+        self.creatorOperatorID = creatorOperatorID
+        self.actor = actor
+        self.inference = inference
+        self.relatedReceiptIDs = relatedReceiptIDs
+        self.destination = destination
+        self.exportFormat = exportFormat
+        self.content = content
+    }
+}
+
+/// Persists a routine output without exposing the receipts-owned artifact model to scheduling.
+public protocol RoutineArtifactPersisting: Sendable {
+    func create(_ draft: RoutineArtifactDraft) async throws -> UUID
+}
+
 /// The result an operator returns from a run.
 public struct RoutineRunResult: Sendable {
     public let outcome: PlaybookRunOutcome
-    public let artifact: ArtifactDraft?
+    public let artifact: RoutineArtifactDraft?
     /// A short, stable reason for a `.failed` outcome (e.g. "provider timeout"). Used to group
     /// recurring failures into patterns (P1-603). Ignored for non-failing outcomes.
     public let failureReason: String?
@@ -42,7 +87,7 @@ public struct RoutineRunResult: Sendable {
 
     public init(
         outcome: PlaybookRunOutcome,
-        artifact: ArtifactDraft? = nil,
+        artifact: RoutineArtifactDraft? = nil,
         failureReason: String? = nil,
         blockCategory: PerformanceBlockCategory? = nil
     ) {
@@ -528,7 +573,7 @@ public actor SchedulingEngine {
     private let context: any ContextProviding
     private let contracts: any ContextContractResolving
     private let op: any RoutineOperator
-    private let artifacts: any ArtifactStore
+    private let artifacts: any RoutineArtifactPersisting
     private let performance: any PerformanceRecording
     private let records: any ExecutionRecordStoring
     /// Resolves *what* permits a routine run, so the execution record can name the grant rather than
@@ -553,7 +598,7 @@ public actor SchedulingEngine {
         context: any ContextProviding,
         contracts: any ContextContractResolving,
         operator op: any RoutineOperator,
-        artifacts: any ArtifactStore,
+        artifacts: any RoutineArtifactPersisting,
         performance: any PerformanceRecording,
         executionRecords: any ExecutionRecordStoring = InMemoryExecutionRecordStore(),
         leaseRegistry: CapabilityLeaseRegistry? = nil,
@@ -816,7 +861,7 @@ public actor SchedulingEngine {
             // rather than only the happy one.
             if playbook.authority.allowedOutputs.contains(draft.type) {
                 do {
-                    artifactID = try await artifacts.create(draft).id
+                    artifactID = try await artifacts.create(draft)
                     await trace(.artifactProduced, detail: draft.type.rawValue, authority: resolvedAuthority)
                 } catch {
                     return await finish(

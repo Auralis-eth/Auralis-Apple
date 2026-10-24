@@ -81,7 +81,7 @@ struct ArchitectureBoundaryTests {
             contentsOf: projectRoot.appending(path: "RuntimeCore/Package.swift"),
             encoding: .utf8
         )
-        for target in ["PlannerCore", "PlaybookCore", "PerformanceCore", "EvalCore"] {
+        for target in ["PlannerCore", "PlaybookCore", "PerformanceCore", "EvalCore", "SchedulingCore"] {
             #expect(runtimeManifest.contains("name: \"\(target)\""))
             #expect(
                 FileManager.default.fileExists(

@@ -134,7 +134,7 @@ The kernel. Owns doing work.
 | `InferenceCore` | Existing `ModelRouting`, `ModelInferring`, route registry, inference telemetry and provider-neutral request/result contracts |
 | `Planner` | **Merged 2026-10-24.** The unchanged `PlannerCore` module and its independent test target now live inside the `RuntimeCore` package root. |
 | `Playbooks` | **Merged 2026-10-24.** The unchanged `PlaybookCore` module and its independent test target now live inside the `RuntimeCore` package root. Its portable output declaration is runtime-owned as `ArtifactOutputType`; `ArtifactCore.ArtifactType` remains a source-compatible alias in the receipts domain. |
-| `Scheduling` | `SchedulingCore` |
+| `Scheduling` | **Merged 2026-10-24.** `SchedulingCore` and its 51-test target now live inside the `RuntimeCore` package root. Scheduling publishes `RoutineArtifactDraft` and `RoutineArtifactPersisting`; RuntimeKit adapts those requests to the receipts-owned `ArtifactStore`, preventing a RuntimeCore → ReceiptsCore cycle. |
 | `Performance` | **Merged 2026-10-24.** The unchanged `PerformanceCore` module and its 28-test target now live inside the `RuntimeCore` package root. |
 | `Eval` | **Merged 2026-10-24.** The unchanged `EvalCore` module and its 49-test target now live inside the `RuntimeCore` package root. |
 | `OperatorRegistry` | Canonical `OperatorManifest`, registry, lifecycle/status and compatibility vocabulary; evolves existing `OperatorSpec`, `ToolDefinition` and registry contracts |

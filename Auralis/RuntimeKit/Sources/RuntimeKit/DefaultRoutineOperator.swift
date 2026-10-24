@@ -1,4 +1,3 @@
-import ArtifactCore
 import Foundation
 import PlaybookCore
 import RuntimeCore
@@ -61,11 +60,11 @@ public struct DefaultRoutineOperator: RoutineOperator {
 
     public func run(playbook: Playbook, context: GovernedContext) async -> RoutineRunResult {
         let type = playbook.authority.allowedOutputs.first ?? .brief
-        let draft = ArtifactDraft(
+        let draft = RoutineArtifactDraft(
             type: type,
             title: "\(playbook.name) — \(type.rawValue)",
             creatorPlaybookID: playbook.id,
-            provenance: ArtifactProvenance(actor: ActorRef(kind: .scheduledRoutine, identifier: playbook.id)),
+            actor: ActorRef(kind: .scheduledRoutine, identifier: playbook.id),
             content: "Prepared by the \(playbook.name) playbook. \(playbook.completionCondition)"
         )
         return RoutineRunResult(outcome: .success, artifact: draft)

@@ -16,8 +16,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../ReceiptsCore"),
-        .package(path: "../RuntimeCore"),
-        .package(path: "../SchedulingCore")
+        .package(path: "../RuntimeCore")
     ],
     targets: [
         .target(
@@ -31,7 +30,7 @@ let package = Package(
                 .product(name: "PlaybookCore", package: "RuntimeCore"),
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
                 "RuntimeCore",
-                "SchedulingCore",
+                .product(name: "SchedulingCore", package: "RuntimeCore"),
                 .product(name: "EvalCore", package: "RuntimeCore")
             ]
         ),

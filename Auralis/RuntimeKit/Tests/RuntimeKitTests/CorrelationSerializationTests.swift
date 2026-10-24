@@ -332,11 +332,11 @@ private struct QuickSuccessRoutineOperator: RoutineOperator {
     func run(playbook: Playbook, context: GovernedContext) async -> RoutineRunResult {
         RoutineRunResult(
             outcome: .success,
-            artifact: ArtifactDraft(
+            artifact: RoutineArtifactDraft(
                 type: .brief,
                 title: "\(playbook.name) brief",
                 creatorPlaybookID: playbook.id,
-                provenance: ArtifactProvenance(actor: ActorRef(kind: .scheduledRoutine, identifier: playbook.id)),
+                actor: ActorRef(kind: .scheduledRoutine, identifier: playbook.id),
                 content: "produced promptly"
             )
         )
