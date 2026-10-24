@@ -1,5 +1,17 @@
 # Journal
 
+## 2026-10-24 - TokenStorage Moved Into the Account Vault
+
+`TokenStorage` is now an internal target of AccountsCore. Its module boundary remains intact, so
+token persistence still owns token rows, freshness rules, native-token presentation, and its
+account-lifecycle transaction participant. What disappeared is only the extra package root—the
+shipping unit that made two tightly coordinated account stores look more independent than they are.
+
+The combined package passed 22 tests: two account-contract tests, ten account-storage tests, and ten
+token-storage tests. Think of this as moving the token safe into the same bank building, not handing
+its keys to the account clerk. Separate modules keep the duties legible; one package root keeps the
+dependency graph honest.
+
 ## 2026-10-24 - Accounts and Their Ledger Share a Roof
 
 `AccountStorage` now lives as an internal target of AccountsCore. The split between portable account

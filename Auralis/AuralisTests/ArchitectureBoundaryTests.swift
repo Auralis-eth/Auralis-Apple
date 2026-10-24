@@ -126,6 +126,13 @@ struct ArchitectureBoundaryTests {
             ) == false,
             "AccountStorage must remain an internal AuralisCrypto target, not return as a package root."
         )
+        #expect(accountsManifest.contains("name: \"TokenStorage\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "TokenStorage/Package.swift").path()
+            ) == false,
+            "TokenStorage must remain an internal AuralisCrypto target, not return as a package root."
+        )
 
         let receiptsManifest = try String(
             contentsOf: projectRoot.appending(path: "ReceiptsCore/Package.swift"),
@@ -143,13 +150,13 @@ struct ArchitectureBoundaryTests {
 
         let tokenNativePresentation = try String(
             contentsOf: projectRoot.appending(
-                path: "TokenStorage/Sources/TokenStorage/Chain+NativeToken.swift"
+                path: "AccountsCore/Sources/TokenStorage/Chain+NativeToken.swift"
             ),
             encoding: .utf8
         )
         let tokenFreshnessPolicy = try String(
             contentsOf: projectRoot.appending(
-                path: "TokenStorage/Sources/TokenStorage/TokenHoldingsMetadataFreshnessPolicy.swift"
+                path: "AccountsCore/Sources/TokenStorage/TokenHoldingsMetadataFreshnessPolicy.swift"
             ),
             encoding: .utf8
         )
@@ -248,7 +255,7 @@ struct ArchitectureBoundaryTests {
         )
         let tokenParticipant = try String(
             contentsOf: projectRoot.appending(
-                path: "TokenStorage/Sources/TokenStorage/TokenHoldingAccountPersistenceParticipant.swift"
+                path: "AccountsCore/Sources/TokenStorage/TokenHoldingAccountPersistenceParticipant.swift"
             ),
             encoding: .utf8
         )
@@ -786,13 +793,14 @@ struct ArchitectureBoundaryTests {
     func tokenStorageDoesNotDependOnNFTKit() throws {
         let projectRoot = try projectRootURL()
         let packageFile = projectRoot
-            .appending(path: "TokenStorage")
+            .appending(path: "AccountsCore")
             .appending(path: "Package.swift")
         let packageText = try String(contentsOf: packageFile, encoding: .utf8)
         let sourceImports = try swiftImports(
             under: projectRoot
-                .appending(path: "TokenStorage")
+                .appending(path: "AccountsCore")
                 .appending(path: "Sources")
+                .appending(path: "TokenStorage")
         )
 
         #expect(packageText.contains("../NFTKit") == false)

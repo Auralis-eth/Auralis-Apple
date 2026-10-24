@@ -31,7 +31,6 @@
 		6F84E0292FAE829200CD4102 /* OperatorCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E0282FAE829200CD4102 /* OperatorCore */; };
 		6F84E02C2FAE901500CD4102 /* NFTKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E02B2FAE901500CD4102 /* NFTKit */; };
 		6F84E2FF2FAFF7FE00CD4102 /* AccountStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E2FE2FAFF7FE00CD4102 /* AccountStorage */; };
-		6F84E3022FB0C5BC00CD4102 /* TokenStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3012FB0C5BC00CD4102 /* TokenStorage */; };
 		6F84E3132FB66B8200CD4102 /* AuraUI in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3122FB66B8200CD4102 /* AuraUI */; };
 		6F8748BA308BF7E100E51115 /* RuntimeCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748B9308BF7E100E51115 /* RuntimeCore */; };
 		6F8748C7308C110600E51115 /* AuraPlayAudioEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748C6308C110600E51115 /* AuraPlayAudioEngine */; };
@@ -45,6 +44,7 @@
 		6F8748E4308D33CF00E51115 /* ReceiptStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748E3308D33CF00E51115 /* ReceiptStorage */; };
 		6F8748E6308D33E300E51115 /* ReceiptStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748E5308D33E300E51115 /* ReceiptStorage */; };
 		6F8748EB308D449F00E51115 /* SocialCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748EA308D449F00E51115 /* SocialCore */; };
+		6F8748ED308D77C700E51115 /* TokenStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748EC308D77C700E51115 /* TokenStorage */; };
 		6FA256402FB683EB00292ECA /* AuralisShellCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA2563F2FB683EB00292ECA /* AuralisShellCore */; };
 		6FA256432FB6A28400292ECA /* NFTLibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA256422FB6A28400292ECA /* NFTLibraryFeature */; };
 		6FA256482FB77B4800292ECA /* MusicFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA256472FB77B4800292ECA /* MusicFeature */; };
@@ -147,7 +147,6 @@
 				6F4179322DA96363002A78F5 /* web3.swift in Frameworks */,
 				6F8748C9308C110600E51115 /* AuraPlayMediaCore in Frameworks */,
 				6F5898F93016E7FC007EBF19 /* WalletConnectorKit in Frameworks */,
-				6F84E3022FB0C5BC00CD4102 /* TokenStorage in Frameworks */,
 				6FA256482FB77B4800292ECA /* MusicFeature in Frameworks */,
 				6F84E3132FB66B8200CD4102 /* AuraUI in Frameworks */,
 				6FDB39872FBA7B8F00075FCE /* ChainProviders in Frameworks */,
@@ -156,6 +155,7 @@
 				6F84E2FF2FAFF7FE00CD4102 /* AccountStorage in Frameworks */,
 				6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */,
 				6F84E0262FAE705B00CD4102 /* PolicyCore in Frameworks */,
+				6F8748ED308D77C700E51115 /* TokenStorage in Frameworks */,
 				6FA2564B2FB79FC600292ECA /* AccountsFeature in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -258,7 +258,6 @@
 				6F84E0282FAE829200CD4102 /* OperatorCore */,
 				6F84E02B2FAE901500CD4102 /* NFTKit */,
 				6F84E2FE2FAFF7FE00CD4102 /* AccountStorage */,
-				6F84E3012FB0C5BC00CD4102 /* TokenStorage */,
 				6F84E3122FB66B8200CD4102 /* AuraUI */,
 				6FA2563F2FB683EB00292ECA /* AuralisShellCore */,
 				6FA256422FB6A28400292ECA /* NFTLibraryFeature */,
@@ -285,6 +284,7 @@
 				6F8748D9308C3D4600E51115 /* AuralisFoundation */,
 				6F8748E3308D33CF00E51115 /* ReceiptStorage */,
 				6F8748EA308D449F00E51115 /* SocialCore */,
+				6F8748EC308D77C700E51115 /* TokenStorage */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -387,7 +387,6 @@
 				6F84E0242FAE705B00CD4102 /* XCLocalSwiftPackageReference "PolicyCore" */,
 				6F84E0272FAE829200CD4102 /* XCLocalSwiftPackageReference "OperatorCore" */,
 				6F84E02A2FAE901500CD4102 /* XCLocalSwiftPackageReference "NFTKit" */,
-				6F84E3002FB0C5BC00CD4102 /* XCLocalSwiftPackageReference "TokenStorage" */,
 				6F84E3112FB66B8200CD4102 /* XCLocalSwiftPackageReference "AuraUI" */,
 				6FA2563E2FB683EB00292ECA /* XCLocalSwiftPackageReference "AuralisShellCore" */,
 				6FA256412FB6A28400292ECA /* XCLocalSwiftPackageReference "NFTLibraryFeature" */,
@@ -875,10 +874,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = NFTKit;
 		};
-		6F84E3002FB0C5BC00CD4102 /* XCLocalSwiftPackageReference "TokenStorage" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = TokenStorage;
-		};
 		6F84E3112FB66B8200CD4102 /* XCLocalSwiftPackageReference "AuraUI" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = AuraUI;
@@ -1062,10 +1057,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = AccountStorage;
 		};
-		6F84E3012FB0C5BC00CD4102 /* TokenStorage */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = TokenStorage;
-		};
 		6F84E3122FB66B8200CD4102 /* AuraUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AuraUI;
@@ -1128,6 +1119,11 @@
 		6F8748EA308D449F00E51115 /* SocialCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SocialCore;
+		};
+		6F8748EC308D77C700E51115 /* TokenStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
+			productName = TokenStorage;
 		};
 		6FA2563F2FB683EB00292ECA /* AuralisShellCore */ = {
 			isa = XCSwiftPackageProductDependency;
