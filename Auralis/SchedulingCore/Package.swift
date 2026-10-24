@@ -15,7 +15,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(path: "../ArtifactCore"),
+        .package(path: "../ReceiptsCore"),
         .package(path: "../RuntimeCore")
     ],
     targets: [
@@ -24,7 +24,7 @@ let package = Package(
             dependencies: [
                 .product(name: "PlaybookCore", package: "RuntimeCore"),
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
-                "ArtifactCore",
+                .product(name: "ArtifactCore", package: "ReceiptsCore"),
                 "RuntimeCore"
             ]
         ),

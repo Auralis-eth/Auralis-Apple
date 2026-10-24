@@ -91,6 +91,20 @@ struct ArchitectureBoundaryTests {
             )
         }
 
+        let receiptsManifest = try String(
+            contentsOf: projectRoot.appending(path: "ReceiptsCore/Package.swift"),
+            encoding: .utf8
+        )
+        for target in ["ArtifactCore", "ArtifactStorage"] {
+            #expect(receiptsManifest.contains("name: \"\(target)\""))
+            #expect(
+                FileManager.default.fileExists(
+                    atPath: projectRoot.appending(path: "\(target)/Package.swift").path()
+                ) == false,
+                "\(target) must remain an internal AuralisReceipts target, not return as a package root."
+            )
+        }
+
         let tokenNativePresentation = try String(
             contentsOf: projectRoot.appending(
                 path: "TokenStorage/Sources/TokenStorage/Chain+NativeToken.swift"

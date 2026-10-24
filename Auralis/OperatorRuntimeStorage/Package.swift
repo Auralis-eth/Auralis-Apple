@@ -15,8 +15,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(path: "../ArtifactCore"),
-        .package(path: "../ArtifactStorage"),
+        .package(path: "../ReceiptsCore"),
         .package(path: "../RuntimeCore"),
         .package(path: "../SchedulingCore")
     ],
@@ -24,11 +23,11 @@ let package = Package(
         .target(
             name: "OperatorRuntimeStorage",
             dependencies: [
-                "ArtifactCore",
+                .product(name: "ArtifactCore", package: "ReceiptsCore"),
                 // Owns the artifact row and store this package used to duplicate (weakly).
                 // The edge points this way because `makeContainer` has to register
                 // `StoredArtifact`, and the legacy-row migration needs to see both shapes.
-                "ArtifactStorage",
+                .product(name: "ArtifactStorage", package: "ReceiptsCore"),
                 .product(name: "PlaybookCore", package: "RuntimeCore"),
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
                 "RuntimeCore",

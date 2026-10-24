@@ -16,14 +16,14 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../RuntimeCore"),
-        .package(path: "../ArtifactCore")
+        .package(path: "../ReceiptsCore")
     ],
     targets: [
         .target(
             name: "OperatorsFeature",
             dependencies: [
                 "RuntimeCore",
-                "ArtifactCore"
+                .product(name: "ArtifactCore", package: "ReceiptsCore")
             ]
         ),
         .testTarget(

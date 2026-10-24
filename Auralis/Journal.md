@@ -1,5 +1,17 @@
 # Journal
 
+## 2026-10-24 - The Artifacts Moved Into the Evidence Vault
+
+Scheduling exposed an honest boundary: it does not merely name an output; it persists real artifact
+drafts through an artifact store. Pulling that implementation into Runtime would create a circular
+hallway and put evidence storage in the execution kernel. So the next move went the other direction:
+`ArtifactCore` and `ArtifactStorage` joined `ReceiptsCore`, their final owner.
+
+Both modules kept their names and independent tests. Consumers changed only the package address.
+This is the evidence-vault model: Runtime may describe work, while receipts and artifacts own what
+was actually produced and how it is durably stored. The combined owner passed 162 tests, five
+consumers passed 627, and the graph guard plus Xcode build-for-testing remained green.
+
 ## 2026-10-24 - Eval Joined the Runtime Lab
 
 `EvalCore` followed Performance into the RuntimeCore package without changing its module name,

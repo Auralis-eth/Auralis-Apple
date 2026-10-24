@@ -20,8 +20,6 @@ let package = Package(
         .package(path: "../ReceiptsCore"),
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../SchedulingCore"),
-        .package(path: "../ArtifactCore"),
-        .package(path: "../ArtifactStorage"),
         .package(path: "../OperatorsFeature"),
         .package(path: "../PolicyCore"),
         .package(path: "../AuralisFoundation"),
@@ -40,11 +38,11 @@ let package = Package(
                 .product(name: "PlaybookCore", package: "RuntimeCore"),
                 "SchedulingCore",
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
-                "ArtifactCore",
+                .product(name: "ArtifactCore", package: "ReceiptsCore"),
                 // The hardened SwiftData artifact store. Named explicitly rather than taken
                 // transitively through OperatorRuntimeStorage, because `PersistentRuntimeHost`
                 // constructs it directly and a transitive import is not a dependency.
-                "ArtifactStorage",
+                .product(name: "ArtifactStorage", package: "ReceiptsCore"),
                 "OperatorsFeature",
                 "PolicyCore",
                 .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
@@ -60,7 +58,7 @@ let package = Package(
                 "OperatorRuntimeStorage",
                 // The persistent-host suite builds the container itself, so it names the artifact
                 // row type directly.
-                "ArtifactStorage",
+                .product(name: "ArtifactStorage", package: "ReceiptsCore"),
                 .product(name: "EvalCore", package: "RuntimeCore")
             ]
         )

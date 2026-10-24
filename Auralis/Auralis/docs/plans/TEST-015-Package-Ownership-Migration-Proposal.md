@@ -248,6 +248,9 @@ the manifest or source import. Before Phase 1, continue to:
 
 ### Slice 3 — Receipts, context and memory
 
+- [x] preserve `ArtifactCore`, `ArtifactStorage`, and their independent test targets while moving
+  them into the `ReceiptsCore` package root (2026-10-24). The owner passed 162/162, five direct
+  consumers passed 627/627, the graph guard passed, and Xcode build-for-testing succeeded;
 - preserve every receipt envelope golden vector unchanged;
 - keep storage/tamper/export compatibility tests distinct from receipt UI tests;
 - move current app Context tests with extracted ContextCore;

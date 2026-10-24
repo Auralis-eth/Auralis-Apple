@@ -232,6 +232,14 @@ Xcode build-for-testing succeeded.
 
 Runtime does not import concrete policy engines, providers, operators, renderers or transports.
 
+### AuralisReceipts
+
+The first physical receipts consolidation landed on 2026-10-24: `ArtifactCore` and
+`ArtifactStorage` moved into the `ReceiptsCore` package as independent products and test targets.
+This keeps artifact contracts and persistence in their final receipts owner while allowing Runtime
+to remain inward-only. The owner package passed 162 tests, five direct consumers passed 627 tests,
+the package-graph guard passed, and Xcode build-for-testing succeeded.
+
 ### AuralisContext
 
 Own current-context assembly and durable memory as different targets:
