@@ -185,7 +185,7 @@ The trust core.
 | Target | Absorbs |
 |---|---|
 | `PolicyCore` | `PolicyCore` (modes, scopes, leases, revocation, blast radius) |
-| `Autopilot` | `AutopilotCore` (hosts `DomainJudge` — the judge is a policy decision, not a runtime one) |
+| `Autopilot` | **Merged 2026-10-24.** The unchanged `AutopilotCore` module and its 35-test target now live inside the `PolicyCore` package root. It hosts `DomainJudge` because the judge is a policy decision, not a runtime one. |
 
 Depends on: Foundation and `AuralisRuntime`. Receipt persistence is performed by the governed host,
 not imported by the policy decision targets.

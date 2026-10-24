@@ -16,7 +16,6 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../RuntimeCore"),
-        .package(path: "../AutopilotCore"),
         .package(path: "../ReceiptsCore"),
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../OperatorsFeature"),
@@ -29,7 +28,7 @@ let package = Package(
             name: "RuntimeKit",
             dependencies: [
                 "RuntimeCore",
-                "AutopilotCore",
+                .product(name: "AutopilotCore", package: "PolicyCore"),
                 .product(name: "PlannerCore", package: "RuntimeCore"),
                 "ReceiptsCore",
                 "AuralisPrimaryModels",

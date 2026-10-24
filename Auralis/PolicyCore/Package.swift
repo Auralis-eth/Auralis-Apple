@@ -12,6 +12,10 @@ let package = Package(
         .library(
             name: "PolicyCore",
             targets: ["PolicyCore"]
+        ),
+        .library(
+            name: "AutopilotCore",
+            targets: ["AutopilotCore"]
         )
     ],
     dependencies: [
@@ -30,9 +34,22 @@ let package = Package(
                 "RuntimeCore"
             ]
         ),
+        .target(
+            name: "AutopilotCore",
+            dependencies: [
+                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                "PolicyCore",
+                .product(name: "PlannerCore", package: "RuntimeCore"),
+                "RuntimeCore"
+            ]
+        ),
         .testTarget(
             name: "PolicyCoreTests",
             dependencies: ["PolicyCore"]
+        ),
+        .testTarget(
+            name: "AutopilotCoreTests",
+            dependencies: ["AutopilotCore"]
         )
     ]
 )

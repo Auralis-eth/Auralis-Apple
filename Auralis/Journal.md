@@ -1,5 +1,18 @@
 # Journal
 
+## 2026-10-24 - Autopilot Joined the Policy Desk
+
+`AutopilotCore` is now an internal target of the PolicyCore package. The module name and its
+35-test suite stayed intact; only the package boundary disappeared. This is the natural owner
+because Autopilot's `DomainJudge` decides whether planned work may proceed, escalate, or stop. It
+uses runtime plans as evidence, but it does not own planning itself—much like a flight controller
+reviews a route without becoming the navigation system.
+
+The earlier CapabilitiesCore move made this consolidation possible. Capability vocabulary sits
+below both Runtime and Policy in AuralisFoundation, so placing Autopilot beside Policy no longer
+creates a package cycle. The architecture guard now prevents the standalone AutopilotCore root from
+quietly returning.
+
 ## 2026-10-24 - Social Moved to the Workshop, Not the Kernel
 
 The SocialCore package root is gone, and its module now lives beside concrete operators in
