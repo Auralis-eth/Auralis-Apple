@@ -387,7 +387,6 @@
 				6F84E0242FAE705B00CD4102 /* XCLocalSwiftPackageReference "PolicyCore" */,
 				6F84E0272FAE829200CD4102 /* XCLocalSwiftPackageReference "OperatorCore" */,
 				6F84E02A2FAE901500CD4102 /* XCLocalSwiftPackageReference "NFTKit" */,
-				6F84E2FD2FAFF7FE00CD4102 /* XCLocalSwiftPackageReference "AccountStorage" */,
 				6F84E3002FB0C5BC00CD4102 /* XCLocalSwiftPackageReference "TokenStorage" */,
 				6F84E3112FB66B8200CD4102 /* XCLocalSwiftPackageReference "AuraUI" */,
 				6FA2563E2FB683EB00292ECA /* XCLocalSwiftPackageReference "AuralisShellCore" */,
@@ -875,10 +874,6 @@
 		6F84E02A2FAE901500CD4102 /* XCLocalSwiftPackageReference "NFTKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = NFTKit;
-		};
-		6F84E2FD2FAFF7FE00CD4102 /* XCLocalSwiftPackageReference "AccountStorage" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = AccountStorage;
 		};
 		6F84E3002FB0C5BC00CD4102 /* XCLocalSwiftPackageReference "TokenStorage" */ = {
 			isa = XCLocalSwiftPackageReference;

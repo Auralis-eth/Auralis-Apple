@@ -16,10 +16,18 @@ let package = Package(
         .library(
             name: "AccountsCore",
             targets: ["AccountsCore"]
+        ),
+        .library(
+            name: "AccountStorage",
+            targets: ["AccountStorage"]
         )
     ],
     dependencies: [
-        .package(path: "../AuralisPrimaryModels")
+        .package(path: "../AuralisPrimaryModels"),
+        .package(path: "../ReceiptsCore"),
+        .package(path: "../AuralisFoundation"),
+        .package(path: "../TokenStorage"),
+        .package(path: "../NFTKit")
     ],
     targets: [
         .target(
@@ -29,9 +37,28 @@ let package = Package(
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
             ]
         ),
+        .target(
+            name: "AccountStorage",
+            dependencies: [
+                "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "AccountsCore",
+                .product(name: "ReceiptStorage", package: "ReceiptsCore"),
+                .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
+                "TokenStorage",
+                .product(name: "NFTPersistence", package: "NFTKit")
+            ]
+        ),
         .testTarget(
             name: "AccountsCoreTests",
             dependencies: ["AccountsCore"]
+        ),
+        .testTarget(
+            name: "AccountStorageTests",
+            dependencies: [
+                "AccountStorage",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
+            ]
         )
     ]
 )

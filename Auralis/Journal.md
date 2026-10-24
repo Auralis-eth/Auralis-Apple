@@ -1,5 +1,18 @@
 # Journal
 
+## 2026-10-24 - Accounts and Their Ledger Share a Roof
+
+`AccountStorage` now lives as an internal target of AccountsCore. The split between portable account
+contracts and SwiftData persistence remains visible as two modules, but they no longer pretend to be
+separately shipped products. The storage target still coordinates receipt, token, NFT, music, and
+search cleanup through injected transaction participants; moving the roof did not move those
+domains' rules back into account code.
+
+The combined package passed both AccountsCore's two contract tests and AccountStorage's ten
+transaction-heavy tests, including the forced rollback case. This is the architectural equivalent
+of putting the records room in the same courthouse while leaving every department responsible for
+the contents of its own files.
+
 ## 2026-10-24 - Autopilot Joined the Policy Desk
 
 `AutopilotCore` is now an internal target of the PolicyCore package. The module name and its

@@ -115,6 +115,18 @@ struct ArchitectureBoundaryTests {
             "AutopilotCore must remain an internal AuralisPolicy target, not return as a package root."
         )
 
+        let accountsManifest = try String(
+            contentsOf: projectRoot.appending(path: "AccountsCore/Package.swift"),
+            encoding: .utf8
+        )
+        #expect(accountsManifest.contains("name: \"AccountStorage\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "AccountStorage/Package.swift").path()
+            ) == false,
+            "AccountStorage must remain an internal AuralisCrypto target, not return as a package root."
+        )
+
         let receiptsManifest = try String(
             contentsOf: projectRoot.appending(path: "ReceiptsCore/Package.swift"),
             encoding: .utf8
@@ -224,7 +236,7 @@ struct ArchitectureBoundaryTests {
 
         let accountStorage = try String(
             contentsOf: projectRoot.appending(
-                path: "AccountStorage/Sources/AccountStorage/SwiftDataAccountStore.swift"
+                path: "AccountsCore/Sources/AccountStorage/SwiftDataAccountStore.swift"
             ),
             encoding: .utf8
         )
