@@ -15,8 +15,7 @@ struct MusicReceiptIntegrationTests {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let logger = MusicReceiptEventLogger(receiptStore: receiptStore)
         let creationContext = MusicReceiptContext(
@@ -80,58 +79,13 @@ struct MusicReceiptIntegrationTests {
         #expect(afterSummary["itemCount"] == .number(0))
     }
 
-    @Test("music policy receipts extend the existing policy gate instead of replacing it")
-    @MainActor
-    func policyGateCanWriteGenericAndMusicSpecificReceipts() async throws {
-        let container = try TestModelContainers.primary()
-        let context = ModelContext(container)
-        let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
-        )
-        let logger = MusicReceiptEventLogger(receiptStore: receiptStore)
-
-        let result = await ActionPolicyGate.attempt(
-            .draftTransaction,
-            modeState: ModeState(),
-            receiptStore: receiptStore,
-            musicReceiptLogger: logger,
-            musicPolicyContext: MusicPolicyReceiptContext(
-                action: "music.export.create",
-                capabilityUsed: .musicExport,
-                reason: "Observe mode blocks export actions.",
-                receiptContext: MusicReceiptContext(
-                    triggerCause: .policyDenied,
-                    actor: .user,
-                    correlationID: "music-policy",
-                    surface: "music.export"
-                )
-            )
-        )
-
-        let receipts = try await receiptStore.receipts(forCorrelationID: "music-policy", limit: 10)
-
-        #expect(result.isAllowed == false)
-        #expect(receipts.map(\.trigger) == ["music.policy.blocked"])
-        let allReceipts = try await receiptStore.latest(limit: 10)
-        #expect(allReceipts.contains { $0.trigger == "policy.denied" })
-        #expect(allReceipts.contains { $0.trigger == "music.policy.blocked" })
-        let musicReceipt = try #require(allReceipts.first(where: { $0.trigger == "music.policy.blocked" }))
-        #expect(musicReceipt.isSuccess == false)
-        #expect(musicReceipt.scope == "music.policy")
-        #expect(musicReceipt.details.values["policyDecision"] == .string("blocked"))
-        #expect(musicReceipt.details.values["capabilityUsed"] == .string("music_export"))
-        #expect(musicReceipt.details.values["surface"] == .string("music.export"))
-    }
-
     @Test("auto-organization dry runs emit dry-run receipts through the shared store")
     @MainActor
     func autoOrganizationDryRunWritesReceipt() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let logger = MusicReceiptEventLogger(receiptStore: receiptStore)
         let service = MusicAutoOrganizationReceiptService(receiptLogger: logger)

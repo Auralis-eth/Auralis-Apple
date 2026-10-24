@@ -2,15 +2,15 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisTestSupport
-import SwiftData
-import SwiftUI
 import AuraUI
-import Testing
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
+import SwiftData
+import SwiftUI
+import Testing
 import TokenStorage
 
 struct HelperConsistencyTests {

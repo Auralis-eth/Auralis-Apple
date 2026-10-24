@@ -1,7 +1,9 @@
-import AccountStorage
 import AccountsCore
 import AccountsFeature
+import AccountStorage
+import AuralisPrimaryModels
 import ENS
+import ReceiptsCore
 import SwiftData
 
 @MainActor
@@ -9,31 +11,41 @@ struct AccountAssembly {
     private let providerAssembly: ProviderAssembly
     private let receiptAssembly: ReceiptAssembly
     private let accountStoreFactory: @MainActor (ModelContext, any AccountEventRecorder) -> any AccountStoring
-    private let ensResolverFactory: @MainActor (ModelContext) -> any ENSResolving
+    private let ensResolverFactory: @MainActor (ModelContext, @escaping @MainActor () -> ReceiptMode) -> any ENSResolving
 
     init(
         providerAssembly: ProviderAssembly,
         receiptAssembly: ReceiptAssembly,
         accountStoreFactory: (@MainActor (ModelContext, any AccountEventRecorder) -> any AccountStoring)? = nil,
-        ensResolverFactory: (@MainActor (ModelContext) -> any ENSResolving)? = nil
+        ensResolverFactory: (@MainActor (ModelContext, @escaping @MainActor () -> ReceiptMode) -> any ENSResolving)? = nil
     ) {
         self.providerAssembly = providerAssembly
         self.receiptAssembly = receiptAssembly
         self.accountStoreFactory = accountStoreFactory ?? { modelContext, eventRecorder in
             SwiftDataAccountStore(
                 modelContext: modelContext,
-                eventRecorder: eventRecorder
+                eventRecorder: eventRecorder,
+                scopedPersistenceParticipants: makeAppAccountScopedPersistenceParticipants()
             )
         }
-        self.ensResolverFactory = ensResolverFactory ?? { modelContext in
-            ENSResolvers.live(modelContext: modelContext)
+        self.ensResolverFactory = ensResolverFactory ?? { modelContext, modeProvider in
+            ENSResolvers.live(
+                modelContext: modelContext,
+                modeProvider: modeProvider
+            )
         }
     }
 
-    func makeAccountStore(modelContext: ModelContext) -> any AccountStoring {
+    func makeAccountStore(
+        modelContext: ModelContext,
+        modeProvider: @escaping @MainActor () -> ReceiptMode = { PersistedCryptoMode.currentReceiptMode }
+    ) -> any AccountStoring {
         accountStoreFactory(
             modelContext,
-            receiptAssembly.makeAccountEventRecorder(modelContext: modelContext)
+            receiptAssembly.makeAccountEventRecorder(
+                modelContext: modelContext,
+                modeProvider: modeProvider
+            )
         )
     }
 
@@ -44,20 +56,40 @@ struct AccountAssembly {
         accountStoreFactory(modelContext, eventRecorder)
     }
 
-    func makeAccountEventRecorder(modelContext: ModelContext) -> any AccountEventRecorder {
-        receiptAssembly.makeAccountEventRecorder(modelContext: modelContext)
+    func makeAccountEventRecorder(
+        modelContext: ModelContext,
+        modeProvider: @escaping @MainActor () -> ReceiptMode = { PersistedCryptoMode.currentReceiptMode }
+    ) -> any AccountEventRecorder {
+        receiptAssembly.makeAccountEventRecorder(
+            modelContext: modelContext,
+            modeProvider: modeProvider
+        )
     }
 
-    func makeENSResolver(modelContext: ModelContext) -> any ENSResolving {
-        ensResolverFactory(modelContext)
+    func makeENSResolver(
+        modelContext: ModelContext,
+        modeProvider: @escaping @MainActor () -> ReceiptMode = { PersistedCryptoMode.currentReceiptMode }
+    ) -> any ENSResolving {
+        ensResolverFactory(modelContext, modeProvider)
     }
 
-    func makeGatewayDependencies(modelContext: ModelContext) -> GatewayDependencies {
+    func makeGatewayDependencies(
+        modelContext: ModelContext,
+        modeProvider: @escaping @MainActor () -> ReceiptMode = { PersistedCryptoMode.currentReceiptMode }
+    ) -> GatewayDependencies {
         GatewayDependencies(
             featureDependencies: AccountsGatewayDependencies(
-                ensResolver: AppAccountENSResolver(resolver: makeENSResolver(modelContext: modelContext)),
+                ensResolver: AppAccountENSResolver(
+                    resolver: makeENSResolver(
+                        modelContext: modelContext,
+                        modeProvider: modeProvider
+                    )
+                ),
                 accountActivator: AccountStoreAccountActivator(
-                    store: makeAccountStore(modelContext: modelContext)
+                    store: makeAccountStore(
+                        modelContext: modelContext,
+                        modeProvider: modeProvider
+                    )
                 )
             )
         )
@@ -67,10 +99,16 @@ struct AccountAssembly {
         SwiftDataShellAccountResolver(modelContext: modelContext)
     }
 
-    func makeShellAccountMutator(modelContext: ModelContext) -> SwiftDataShellAccountMutator {
+    func makeShellAccountMutator(
+        modelContext: ModelContext,
+        modeProvider: @escaping @MainActor () -> ReceiptMode = { PersistedCryptoMode.currentReceiptMode }
+    ) -> SwiftDataShellAccountMutator {
         SwiftDataShellAccountMutator(
             modelContext: modelContext,
-            eventRecorder: makeAccountEventRecorder(modelContext: modelContext)
+            eventRecorder: makeAccountEventRecorder(
+                modelContext: modelContext,
+                modeProvider: modeProvider
+            )
         )
     }
 }

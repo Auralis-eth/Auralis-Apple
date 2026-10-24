@@ -1,8 +1,8 @@
+import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import AuraPlayAudioEngine
 import AuraPlayMediaCore
 import AuraPlayVideoEngine
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
 import AVFoundation
 import Foundation
 import MusicFeature
@@ -73,6 +73,7 @@ public final class AuraPlayPlaybackRuntime: AuraPlayPlaybackControlling, AuraPla
     @ObservationIgnored private var underrunRecoveryTask: Task<Void, Never>?
     @ObservationIgnored private var musicReceiptLogger: MusicReceiptEventLogger?
     @ObservationIgnored private var pendingPlaybackTriggerCause: MusicReceiptTriggerCause?
+    @ObservationIgnored private var completedReceiptMediaIDs: Set<String> = []
     @ObservationIgnored private var mediaResolver: GatewayFallbackChain?
     @ObservationIgnored private var mediaGatewayHosts: Set<String> = []
     @ObservationIgnored private var auraPlayModelContainer: ModelContainer?
@@ -2212,19 +2213,31 @@ private extension AuraPlayPlaybackRuntime {
     }
 
     func recordPlaybackStartedIfPossible() {
-        guard let musicReceiptLogger, let currentNFT else {
+        guard musicReceiptLogger != nil, let currentNFT else {
             return
         }
 
         let triggerCause = pendingPlaybackTriggerCause ?? .userInitiated
         Task { @MainActor in
-            _ = try? await musicReceiptLogger.recordPlaybackStarted(
-                mediaID: currentNFT.id,
-                title: currentNFT.name,
-                artist: currentNFT.artistName,
-                context: receiptContext(for: currentNFT, triggerCause: triggerCause)
-            )
+            await recordPlaybackStartedIfPossible(for: currentNFT, triggerCause: triggerCause)
         }
+    }
+
+    func recordPlaybackStartedIfPossible(
+        for nft: NFT,
+        triggerCause: MusicReceiptTriggerCause
+    ) async {
+        guard let musicReceiptLogger else {
+            return
+        }
+
+        completedReceiptMediaIDs.remove(nft.id)
+        _ = try? await musicReceiptLogger.recordPlaybackStarted(
+            mediaID: nft.id,
+            title: nft.name,
+            artist: nft.artistName,
+            context: receiptContext(for: nft, triggerCause: triggerCause)
+        )
     }
 
     func recordQueueChangedIfPossible(
@@ -2254,15 +2267,60 @@ private extension AuraPlayPlaybackRuntime {
         artist: String?,
         triggerCause: MusicReceiptTriggerCause
     ) async {
-        guard let musicReceiptLogger else {
+        guard let musicReceiptLogger,
+              !completedReceiptMediaIDs.contains(mediaID) else {
             return
         }
 
-        _ = try? await musicReceiptLogger.recordPlaybackCompleted(
+        let receipt = try? await musicReceiptLogger.recordPlaybackCompleted(
             mediaID: mediaID,
             title: title,
             artist: artist,
             context: receiptContext(for: currentNFT, triggerCause: triggerCause)
+        )
+        if receipt != nil {
+            completedReceiptMediaIDs.insert(mediaID)
+        }
+    }
+}
+
+extension AuraPlayPlaybackRuntime {
+    func testRecordPlaybackStarted(
+        for nft: NFT,
+        triggerCause: MusicReceiptTriggerCause
+    ) async {
+        await recordPlaybackStartedIfPossible(for: nft, triggerCause: triggerCause)
+    }
+
+    func testRecordQueueChanged(
+        operation: String,
+        affectedMediaIDs: [String],
+        beforeSummary: MusicReceiptStateSummary,
+        afterSummary: MusicReceiptStateSummary,
+        triggerCause: MusicReceiptTriggerCause,
+        nft: NFT
+    ) async {
+        await recordQueueChangedIfPossible(
+            operation: operation,
+            affectedMediaIDs: affectedMediaIDs,
+            beforeSummary: beforeSummary,
+            afterSummary: afterSummary,
+            triggerCause: triggerCause,
+            nft: nft
+        )
+    }
+
+    func testRecordPlaybackCompleted(
+        mediaID: String,
+        title: String?,
+        artist: String?,
+        triggerCause: MusicReceiptTriggerCause
+    ) async {
+        await recordPlaybackCompletedIfPossible(
+            mediaID: mediaID,
+            title: title,
+            artist: artist,
+            triggerCause: triggerCause
         )
     }
 }

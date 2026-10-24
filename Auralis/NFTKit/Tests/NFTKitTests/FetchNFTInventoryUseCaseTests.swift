@@ -1,11 +1,11 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
-import Testing
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import Testing
 
 struct FetchNFTInventoryUseCaseTests {
     @Test("returns fetched inventory and marks a completed full refresh")

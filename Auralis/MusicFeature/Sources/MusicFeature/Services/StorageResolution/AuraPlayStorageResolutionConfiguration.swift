@@ -28,6 +28,36 @@ public struct AuraPlayStorageResolutionConfiguration: Equatable, Sendable {
 
     public static let liveDefault = AuraPlayStorageResolutionConfiguration()
 
+    /// Loads optional deployment overrides from an Info.plist-style dictionary.
+    /// Missing keys retain the audited defaults; present values must be HTTPS URLs.
+    public init(infoDictionary: [String: Any]) throws {
+        let ipfsGatewayURL = try Self.gatewayURL(
+            from: infoDictionary,
+            key: "AURALIS_AURAPLAY_IPFS_GATEWAY_URL"
+        )
+        let arweaveGatewayURL = try Self.gatewayURL(
+            from: infoDictionary,
+            key: "AURALIS_AURAPLAY_ARWEAVE_GATEWAY_URL"
+        )
+        let fallbackIPFSGatewayURLs = try Self.gatewayURLs(
+            from: infoDictionary,
+            key: "AURALIS_AURAPLAY_IPFS_FALLBACK_GATEWAY_URLS",
+            defaultValue: Self.defaultFallbackIPFSGatewayURLs
+        )
+        let fallbackArweaveGatewayURLs = try Self.gatewayURLs(
+            from: infoDictionary,
+            key: "AURALIS_AURAPLAY_ARWEAVE_FALLBACK_GATEWAY_URLS",
+            defaultValue: Self.defaultFallbackArweaveGatewayURLs
+        )
+
+        self.init(
+            ipfsGatewayURL: ipfsGatewayURL,
+            arweaveGatewayURL: arweaveGatewayURL,
+            fallbackIPFSGatewayURLs: fallbackIPFSGatewayURLs,
+            fallbackArweaveGatewayURLs: fallbackArweaveGatewayURLs
+        )
+    }
+
     public static let defaultIPFSGatewayURL = URL.auraplayHTTPSURL(host: "cloudflare-ipfs.com")
     public static let defaultArweaveGatewayURL = URL.auraplayHTTPSURL(host: "arweave.net")
     public static let defaultFallbackIPFSGatewayURLs = [
@@ -61,6 +91,60 @@ public struct AuraPlayStorageResolutionConfiguration: Equatable, Sendable {
         components.query = nil
         components.fragment = nil
         return components.url ?? fallback
+    }
+
+    private static func gatewayURL(from dictionary: [String: Any], key: String) throws -> URL? {
+        guard let rawValue = dictionary[key] else { return nil }
+        guard let string = rawValue as? String else {
+            throw AuraPlayStorageConfigurationError.invalidValueType(key: key)
+        }
+
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let url = URL(string: trimmed),
+              normalizedGatewayURL(url, fallback: nil) != nil else {
+            throw AuraPlayStorageConfigurationError.invalidGatewayURL(key: key, value: string)
+        }
+        return url
+    }
+
+    private static func gatewayURLs(
+        from dictionary: [String: Any],
+        key: String,
+        defaultValue: [URL]
+    ) throws -> [URL] {
+        guard let rawValue = dictionary[key] else { return defaultValue }
+        guard let strings = rawValue as? [String] else {
+            throw AuraPlayStorageConfigurationError.invalidValueType(key: key)
+        }
+
+        return try strings.map { string in
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty,
+                  let url = URL(string: trimmed),
+                  normalizedGatewayURL(url, fallback: nil) != nil else {
+                throw AuraPlayStorageConfigurationError.invalidGatewayURL(key: key, value: string)
+            }
+            return url
+        }
+    }
+}
+
+public enum AuraPlayStorageConfigurationError: Error, Equatable, LocalizedError, Sendable {
+    case invalidValueType(key: String)
+    case invalidGatewayURL(key: String, value: String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidValueType(let key):
+            "The \(key) configuration value has the wrong type."
+        case .invalidGatewayURL(let key, _):
+            "The \(key) configuration value must contain an HTTPS gateway URL."
+        }
+    }
+
+    public var recoverySuggestion: String? {
+        "Use an HTTPS URL with a non-empty host, or remove the override to use AuraPlay defaults."
     }
 }
 

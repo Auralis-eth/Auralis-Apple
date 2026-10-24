@@ -1,5 +1,5 @@
-import ENS
 import AuralisPrimaryModels
+import ENS
 import Foundation
 
 struct ProfileAvatarArtworkSupport {

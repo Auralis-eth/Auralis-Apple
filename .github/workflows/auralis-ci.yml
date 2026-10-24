@@ -1,0 +1,324 @@
+name: Auralis CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  lint-build-test:
+    # macOS 26, not 15. Nine local packages declare a `.macOS("26.0")` platform floor — AuraUI,
+    # MusicFeature, MissionControlFeature, NFTLibraryFeature, AccountsFeature, WalletConnectorKit and
+    # the three AuraPlay engines — and four of those are tested below against a macOS destination. A
+    # macOS 15 host cannot load a test bundle built with `minos 26.0`, so those lanes fail before a
+    # single assertion runs, while the surrounding `.macOS(.v15)` lanes pass and make it look
+    # package-specific rather than an image-version problem. Do not lower the package floors to match
+    # a runner instead: MissionControlFeature and AuraUI need the 26 SDK.
+    runs-on: macos-26
+
+    # The Xcode project and every local package live in the `Auralis/` subdirectory, but a workflow
+    # only runs if it sits in `.github/workflows/` at the *repository* root — GitHub does not
+    # discover workflows nested any deeper. This file previously lived at
+    # `Auralis/.github/workflows/`, so Actions never registered it and not one of the steps below had
+    # ever executed.
+    #
+    # This default reproduces the working directory those steps were written against. Steps that set
+    # their own `working-directory` override this default rather than nesting inside it, so those are
+    # spelled out from the repository root (`Auralis/<Package>`).
+    defaults:
+      run:
+        working-directory: Auralis
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Pinned to a major version rather than `latest-stable`. The Mission Control snapshot baselines
+      # are host- and Xcode-sensitive (see that step's comment), so letting the resolved Xcode float
+      # means an image refresh can fail image comparison with no code change and no signal that the
+      # toolchain moved. `26` also guarantees the iOS 26 runtime the simulator destinations below
+      # pin explicitly.
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26'
+
+      - name: Resolve package dependencies
+        run: xcodebuild -resolvePackageDependencies -project Auralis.xcodeproj -scheme Auralis
+
+      # Pinned to the *same* version the project already pins through the `SwiftLintPlugins` package
+      # (see `Package.resolved`), so the rule set CI enforces is the rule set a developer and the
+      # Xcode build phase see. `brew install swiftlint` installed whatever Homebrew shipped that day,
+      # which is a different program from one week to the next: a release that adds a rule, or
+      # changes one, turns this lane red on code nobody touched, and a *stale* installation does the
+      # reverse. That is not hypothetical — on one machine during the Round 8 audit, 0.47.0 reported
+      # 34 serious violations on the identical tree that 0.63.2 reports 0 on. Bump both together.
+      - name: Install SwiftLint
+        env:
+          SWIFTLINT_VERSION: 0.63.2
+        run: |
+          curl -fsSL -o portable_swiftlint.zip \
+            "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip"
+          unzip -o -q portable_swiftlint.zip -d "$RUNNER_TEMP/swiftlint"
+          chmod +x "$RUNNER_TEMP/swiftlint/swiftlint"
+          "$RUNNER_TEMP/swiftlint/swiftlint" version
+
+      # `--strict` because without it this step cannot fail on a warning, and most of the rule set —
+      # including the two `custom_rules` declared at `severity: warning` (`auraplay_ticketed_todo`
+      # and the icon-only-control accessibility rule) — is warning severity. Those rules were written
+      # to be gates; unstrict they were decoration. The tree is 0 violations / 0 serious in 833 files
+      # under `--strict` at the pinned version, so this asserts the state that already holds rather
+      # than raising the bar.
+      - name: Run SwiftLint
+        run: "$RUNNER_TEMP/swiftlint/swiftlint lint --config .swiftlint.yml --strict"
+
+      - name: Build Auralis
+        run: xcodebuild build -project Auralis.xcodeproj -scheme Auralis -destination "generic/platform=iOS"
+
+      - name: Run MusicFeature package tests
+        working-directory: Auralis/MusicFeature
+        run: xcodebuild test -scheme MusicFeature -destination "platform=macOS"
+
+      - name: Run receipt security package tests
+        working-directory: Auralis/ReceiptStorage
+        run: xcodebuild test -scheme ReceiptStorage -destination "platform=macOS"
+
+      - name: Run capability firewall package tests
+        working-directory: Auralis/RuntimeCore
+        run: xcodebuild test -scheme RuntimeCore -destination "platform=macOS"
+
+      - name: Run policy enforcement package tests
+        working-directory: Auralis/PolicyCore
+        run: xcodebuild test -scheme PolicyCore -destination "platform=macOS"
+
+      - name: Run adversarial planner package tests
+        working-directory: Auralis/AutopilotCore
+        run: xcodebuild test -scheme AutopilotCore -destination "platform=macOS"
+
+      - name: Run scheduling package tests
+        working-directory: Auralis/SchedulingCore
+        run: xcodebuild test -scheme SchedulingCore -destination "platform=macOS"
+
+      - name: Run runtime host package tests
+        working-directory: Auralis/RuntimeKit
+        run: xcodebuild test -scheme RuntimeKit -destination "platform=macOS"
+
+      # Operator execution + the governed end-to-end suite, which asserts that an operator's own
+      # `ActorRef` is what reaches the Judge. This target silently stopped compiling against a
+      # changed `GovernedToolPipeline` initializer and, being absent from CI, stayed broken; the
+      # four governance tests had never run.
+      - name: Run operator package tests
+        working-directory: Auralis/OperatorsFeature
+        run: xcodebuild test -scheme OperatorsFeature -destination "platform=macOS"
+
+      # The external-link allowlist — the only thing standing between a tap in the app and an
+      # arbitrary URL — plus the provenance-to-`ReceiptActorDetail` mapping those receipts persist.
+      # This target was added by a commit named "Determinism & Coverage" but never wired up here,
+      # and the app test plan contains only `AuralisTests`, so it had never executed anywhere.
+      - name: Run external link policy package tests
+        working-directory: Auralis/OperatorCore
+        run: xcodebuild test -scheme OperatorCore -destination "platform=macOS"
+
+      # Actor attribution (P0.5-601/602) is persisted here as JSON blobs read back with `try?`, so a
+      # decode regression drops history silently rather than failing loudly. This package went
+      # uncovered by CI while its test target did not even compile; keep it wired up.
+      - name: Run runtime persistence package tests
+        working-directory: Auralis/OperatorRuntimeStorage
+        run: xcodebuild test -scheme OperatorRuntimeStorage -destination "platform=macOS"
+
+      # Attribution contract + display coverage (P0.5-601/602). `ReceiptsCore` owns the required
+      # `actorDetail`/`authorityDetail` columns, `MissionControlFeature` holds the only tests for the
+      # renderers that turn an `ActorRef` into a trust-surface label, and the artifact packages carry
+      # `ArtifactProvenance.actor`. None of these are reachable from the app test plan, which contains
+      # only `AuralisTests`, so without these steps the attribution seams ship untested.
+      - name: Run receipt contract package tests
+        working-directory: Auralis/ReceiptsCore
+        run: xcodebuild test -scheme ReceiptsCore -destination "platform=macOS"
+
+      - name: Run Mission Control feature tests
+        run: swift test --package-path MissionControlFeature
+
+      # The step above runs on macOS, where `MissionControlSnapshotTests` skips itself: image
+      # snapshots need UIKit, and the AppKit path is gated behind
+      # `MISSION_CONTROL_ENABLE_APPKIT_SNAPSHOTS`. So every one of the section baselines — the only
+      # coverage the Mission Control *views* have — went unexecuted anywhere, which is how blank and
+      # duplicated baselines were able to sit in `__Snapshots__` passing forever. This lane is the
+      # one place they actually render.
+      #
+      # Scoped to the snapshot suite so the 112 logic tests are not run a second time, and pinned to
+      # the same simulator as the app test step below. Image comparison is host-sensitive: these
+      # baselines are tied to this destination *and* to the pinned Xcode, so an Xcode bump can require
+      # re-recording them (`SNAPSHOT_TESTING_RECORD=all`) rather than signalling a real regression.
+      #
+      # `OS=26.0` is explicit. The project's `IPHONEOS_DEPLOYMENT_TARGET` is 26.0, and a bare
+      # `name=iPhone 16` resolves to whatever runtime that device happens to have installed — if that
+      # is older than the deployment target, `xcodebuild` refuses the destination outright. That
+      # failure has previously been misread in this repo as a toolchain crash rather than a
+      # destination-selection problem.
+      - name: Run Mission Control snapshot tests
+        working-directory: Auralis/MissionControlFeature
+        run: >-
+          xcodebuild test
+          -scheme MissionControlFeature-Package
+          -destination "platform=iOS Simulator,name=iPhone 16,OS=26.0"
+          -only-testing:MissionControlFeatureTests/MissionControlSnapshotTests
+          -resultBundlePath MissionControlSnapshots.xcresult
+
+      # Without this, a red snapshot lane is undebuggable from a CI log: the log names the mismatched
+      # baseline but the rendered image and its diff live only in the result bundle.
+      #
+      # `path` is resolved from the workspace root — this is not a `run` step, so the job's
+      # `working-directory` default does not apply to it.
+      - name: Upload Mission Control snapshot failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mission-control-snapshot-results
+          path: Auralis/MissionControlFeature/MissionControlSnapshots.xcresult
+          retention-days: 7
+
+      - name: Run artifact package tests
+        working-directory: Auralis/ArtifactCore
+        run: xcodebuild test -scheme ArtifactCore -destination "platform=macOS"
+
+      - name: Run artifact persistence package tests
+        working-directory: Auralis/ArtifactStorage
+        run: xcodebuild test -scheme ArtifactStorage -destination "platform=macOS"
+
+      # The thirteen packages below had passing suites that no lane executed. The app test plan holds
+      # only `AuralisTests`, and none of these had a step here, so ~180 tests guarded nothing.
+      # `SocialCore` is why this matters concretely: a session-takeover privilege escalation
+      # (audit F-13) sat behind its fully green 35-test suite, in a package CI never ran. Keep every
+      # package that has a test target wired to a lane, and add one when you create a package.
+
+      # Social v1 shared-state projection: the abuse gate deciding who may end a session, eject a
+      # participant, or write a participant record. F-13 lived here.
+      - name: Run social coordination package tests
+        working-directory: Auralis/SocialCore
+        run: xcodebuild test -scheme SocialCore -destination "platform=macOS"
+
+      # Deep-link routing — untrusted URL input reaching account, token, and artifact destinations.
+      # This suite had never run anywhere: the package could not build on macOS and is in no test
+      # plan (audit F-15).
+      - name: Run shell routing package tests
+        working-directory: Auralis/AuralisShellCore
+        run: xcodebuild test -scheme AuralisShellCore -destination "platform=macOS"
+
+      # Trusted UI renders the approval surface, and its registry decides which component a runtime
+      # payload is allowed to draw.
+      - name: Run trusted UI package tests
+        working-directory: Auralis/TrustedUIKit
+        run: xcodebuild test -scheme TrustedUIKit -destination "platform=macOS"
+
+      - name: Run evaluation package tests
+        working-directory: Auralis/EvalCore
+        run: xcodebuild test -scheme EvalCore -destination "platform=macOS"
+
+      - name: Run planner package tests
+        working-directory: Auralis/PlannerCore
+        run: xcodebuild test -scheme PlannerCore -destination "platform=macOS"
+
+      - name: Run playbook package tests
+        working-directory: Auralis/PlaybookCore
+        run: xcodebuild test -scheme PlaybookCore -destination "platform=macOS"
+
+      - name: Run performance package tests
+        working-directory: Auralis/PerformanceCore
+        run: xcodebuild test -scheme PerformanceCore -destination "platform=macOS"
+
+      # EIP-55 checksumming and the shared domain types every other package decodes against.
+      # `swift test` rather than `xcodebuild test`: this package's generated scheme carries no test
+      # action ("Scheme AuralisPrimaryModels is not currently configured for the test action"), the
+      # same Xcode behaviour that makes the Mission Control step above use SwiftPM.
+      - name: Run primary model package tests
+        run: swift test --package-path AuralisPrimaryModels
+
+      - name: Run capability mapping package tests
+        working-directory: Auralis/CapabilitiesCore
+        run: xcodebuild test -scheme CapabilitiesCore -destination "platform=macOS"
+
+      - name: Run design system package tests
+        working-directory: Auralis/AuraUI
+        run: xcodebuild test -scheme AuraUI -destination "platform=macOS"
+
+      # Provider transport: request throttling (audit F-20) and the secret-redacting error mapping.
+      - name: Run provider package tests
+        working-directory: Auralis/ProviderKit
+        run: xcodebuild test -scheme ProviderKit -destination "platform=macOS"
+
+      # Untrusted NFT metadata JSON parsing and inventory persistence. `swift test` for the same
+      # reason as the primary-model step above: no test action on the generated scheme.
+      - name: Run NFT package tests
+        run: swift test --package-path NFTKit
+
+      # Account domain validation, and the package carrying the macOS platform floor that
+      # `AuralisShellCore` depends on (audit F-15).
+      - name: Run accounts package tests
+        working-directory: Auralis/AccountsCore
+        run: xcodebuild test -scheme AccountsCore -destination "platform=macOS"
+
+      # The persistence and chain-data boundary packages. Every one of these had a written test
+      # target reachable from no CI lane and no Xcode test plan, so none of them had ever been
+      # executed by automation — and four of the six did not even *compile*: missing `.macOS`
+      # platform declarations (`AccountStorage`, `TokenStorage`, `UserDefaultsAdapters`), a
+      # nonisolated test helper calling a `@MainActor` container factory (`SwiftDataAdapters`,
+      # `TokenStorage`), a `LockedValue` helper that did not exist (`ChainProviders`), and a bare
+      # `Tag` resolving to Swift Testing's `Tag` instead of the SwiftData model (`AccountStorage`).
+      # Running `AccountStorage` for the first time then found a real product defect: an account
+      # overwrite orphaned its `Tag` rows.
+      #
+      # `swift test` rather than `xcodebuild test` because none of these has a committed shared
+      # scheme, which `xcodebuild -scheme` requires.
+      - name: Run account storage package tests
+        run: swift test --package-path AccountStorage
+
+      - name: Run token storage package tests
+        run: swift test --package-path TokenStorage
+
+      - name: Run SwiftData adapter package tests
+        run: swift test --package-path SwiftDataAdapters
+
+      - name: Run UserDefaults adapter package tests
+        run: swift test --package-path UserDefaultsAdapters
+
+      - name: Run chain provider package tests
+        run: swift test --package-path ChainProviders
+
+      - name: Run explorer adapter package tests
+        run: swift test --package-path ExplorerAdapter
+
+      # The narrowed external-link allowlist (`NFTExternalLinkPolicies`) and library presentation.
+      # `swift test` because this package's generated scheme reports no supported platforms, so
+      # `xcodebuild` cannot pick a destination for it at all. Until this step existed the target ran
+      # nowhere — not here, and not in any app test plan — while carrying the only coverage for
+      # which hosts the marketplace and explorer buttons may open.
+      - name: Run NFT library feature tests
+        run: swift test --package-path NFTLibraryFeature
+
+      # `NFTImageLoaderTests` is wrapped in `#if canImport(UIKit)`, so the macOS step above elides it
+      # entirely. That left the oversized-download guard (`maxDownloadSizeBytes`), the mp4-rejection
+      # case, and the 404 mapping executing *nowhere* — the package is in no app test plan either — so
+      # the macOS step would report green while the image loader had no coverage at all. This lane is
+      # the one place that suite runs.
+      #
+      # Scoped to the one suite so the macOS lane's tests are not re-run, and pinned to the same
+      # simulator as the Mission Control snapshot step and the app test step. Requires the shared
+      # `NFTLibraryFeature-Package` scheme committed under `.swiftpm/xcode/xcshareddata/xcschemes/` —
+      # without it `xcodebuild -list` reports no schemes at all for this package and the step cannot
+      # resolve a destination.
+      - name: Run NFT image loader tests
+        working-directory: Auralis/NFTLibraryFeature
+        run: >-
+          xcodebuild test
+          -scheme NFTLibraryFeature-Package
+          -destination "platform=iOS Simulator,name=iPhone 16,OS=26.0"
+          -only-testing:NFTLibraryFeatureTests/NFTImageLoaderTests
+
+      - name: Run unit tests
+        run: >-
+          xcodebuild test
+          -project Auralis.xcodeproj
+          -scheme Auralis
+          -testPlan Auralis-Full
+          -destination "platform=iOS Simulator,name=iPhone 16,OS=26.0"

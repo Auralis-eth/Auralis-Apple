@@ -1,8 +1,8 @@
-import ReceiptsCore
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
+import ReceiptsCore
 import Testing
 
 struct ReceiptContractTests {
@@ -13,6 +13,8 @@ struct ReceiptContractTests {
             sequenceID: 42,
             createdAt: Date(timeIntervalSince1970: 456),
             actor: .system,
+            actorDetail: .system,
+            authorityDetail: nil,
             mode: .observe,
             trigger: "nft.refresh.started",
             scope: "networking",

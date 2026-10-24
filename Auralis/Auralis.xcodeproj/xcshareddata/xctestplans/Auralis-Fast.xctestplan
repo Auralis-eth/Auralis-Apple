@@ -34,6 +34,34 @@
         "identifier" : "6FB455EE2CC5BEBD009A055C",
         "name" : "AuralisTests"
       }
+    },
+    {
+      "parallelizable" : false,
+      "skippedTests" : [
+        "AccessibilityAuditUITests/testAccountSwitcherRemovalConfirmationAccessibilityAudit()",
+        "AccessibilityAuditUITests/testExternalLinkConfirmationAccessibilityAudit()",
+        "AccessibilityAuditUITests/testGasAccessibilityAudit()",
+        "AccessibilityAuditUITests/testGatewayAccessibilityAudit()",
+        "AccessibilityAuditUITests/testGatewayValidationErrorAccessibilityAudit()",
+        "AccessibilityAuditUITests/testHomeAccessibilityAudit()",
+        "AccessibilityAuditUITests/testHomeLargeTextAccessibilityAudit()",
+        "AccessibilityAuditUITests/testMusicAccessibilityAudit()",
+        "AccessibilityAuditUITests/testNFTAccessibilityAudit()",
+        "AccessibilityAuditUITests/testNFTActionMenuAccessibilityAudit()",
+        "AccessibilityAuditUITests/testNewsFeedAccessibilityAudit()",
+        "AccessibilityAuditUITests/testNowPlayingSheetAccessibilityAudit()",
+        "AccessibilityAuditUITests/testPopulatedSearchHistoryAccessibilityAudit()",
+        "AccessibilityAuditUITests/testReceiptDetailAccessibilityAudit()",
+        "AccessibilityAuditUITests/testReceiptsAccessibilityAudit()",
+        "AccessibilityAuditUITests/testScannerSimulatorFallbackAccessibilityAudit()",
+        "AccessibilityAuditUITests/testSearchAccessibilityAudit()",
+        "AccessibilityAuditUITests/testSettingsResetConfirmationAccessibilityAudit()"
+      ],
+      "target" : {
+        "containerPath" : "container:Auralis.xcodeproj",
+        "identifier" : "6FB455F82CC5BEBD009A055C",
+        "name" : "AuralisUITests"
+      }
     }
   ],
   "version" : 1

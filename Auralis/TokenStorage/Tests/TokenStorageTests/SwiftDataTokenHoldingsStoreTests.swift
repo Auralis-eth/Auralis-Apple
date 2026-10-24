@@ -7,6 +7,34 @@ import TokenStorage
 
 @MainActor
 struct SwiftDataTokenHoldingsStoreTests {
+    @Test("token metadata remains fresh before the twelve-hour boundary")
+    func tokenMetadataRemainsFreshBeforeBoundary() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let updatedAt = now.addingTimeInterval(-(TokenHoldingsMetadataFreshnessPolicy.ttl - 1))
+
+        #expect(TokenHoldingsMetadataFreshnessPolicy.isStale(updatedAt: updatedAt, now: now) == false)
+    }
+
+    @Test("token metadata becomes stale at the twelve-hour boundary")
+    func tokenMetadataBecomesStaleAtBoundary() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let updatedAt = now.addingTimeInterval(-TokenHoldingsMetadataFreshnessPolicy.ttl)
+
+        #expect(TokenHoldingsMetadataFreshnessPolicy.isStale(updatedAt: updatedAt, now: now))
+    }
+
+    @Test("future metadata timestamps are not stale")
+    func futureMetadataTimestampsAreNotStale() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+
+        #expect(
+            TokenHoldingsMetadataFreshnessPolicy.isStale(
+                updatedAt: now.addingTimeInterval(60),
+                now: now
+            ) == false
+        )
+    }
+
     @Test("save native token holding for account and chain scope")
     func saveNativeTokenHoldingForAccountAndChainScope() async throws {
         let context = try makeContext()
@@ -237,6 +265,11 @@ struct SwiftDataTokenHoldingsStoreTests {
     }
 }
 
+/// `@MainActor` to match `TokenStorageTestModelContainers.context()`, which is main-actor isolated
+/// like every sibling package's test container helper. Without it this free function was nonisolated
+/// and the call failed to compile, so the whole suite was unbuildable — nothing caught that because
+/// this package has no CI lane. Every caller is already inside the `@MainActor` test type.
+@MainActor
 private func makeContext() throws -> ModelContext {
     try TokenStorageTestModelContainers.context()
 }

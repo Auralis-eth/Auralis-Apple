@@ -5,6 +5,7 @@
 //  Created by Codex on 8/26/25.
 //
 
+import AuralisFoundation
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
@@ -151,7 +152,7 @@ public struct LivePersistNFTInventoryUseCase: PersistNFTInventoryUsing, Sendable
             minted: nft.minted,
             isStatic: nft.isStatic,
             aspectRatio: nft.aspectRatio,
-            attributes: (nft.attributes ?? []).map {
+            attributes: nft.attributes.map {
                 .init(value: $0.value, traitType: $0.traitType)
             }
         )

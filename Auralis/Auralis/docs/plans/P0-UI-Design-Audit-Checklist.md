@@ -2,6 +2,8 @@
 
 This checklist audits whether Phase 0 looks and feels like a coherent product. It is not a pixel-police exercise. The goal is to catch places where the app accidentally feels unfinished, misleading, or internally inconsistent.
 
+Whole-app visual consistency belongs here. AuraPlay-specific playback, video, search, playlist, metadata, accessibility, and hardware behavior is gated only by `AuraPlay/AuraPlay-Physical-Device-QA-Suite.md`; do not recreate those checks in feature requirement or phase-master documents.
+
 ## Audit Rules
 
 - review on at least one real device, not only simulator

@@ -15,20 +15,24 @@ enum MusicFeatureTestModelContainers {
             NFT.Raw.self,
             Tag.self,
             StoredReceipt.self,
-            MusicLibraryItem.self,
+            MusicLibraryItem.self
         ])
     }
 
     static func receipts() throws -> ModelContainer {
         try inMemory(models: [
-            StoredReceipt.self,
+            StoredReceipt.self
         ])
     }
 
     private static func inMemory(models: [any PersistentModel.Type]) throws -> ModelContainer {
         try ModelContainer(
             for: Schema(models),
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            // `cloudKitDatabase` defaults to `.automatic`, which picks up the host app's iCloud
+            // entitlement. These schemas carry unique attributes that CloudKit rejects, so an
+            // entitled host turns every container here into a 134060 load failure. `swift test`
+            // runs unentitled and cannot surface that, so the opt-out is explicit.
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
     }
 }

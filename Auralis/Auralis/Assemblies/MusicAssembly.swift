@@ -24,6 +24,11 @@ struct MusicRuntime {
     }
 }
 
+struct MusicPlaybackRuntimeResult {
+    let playbackRuntime: AuraPlayPlaybackRuntime?
+    let initializationErrorMessage: String?
+}
+
 private extension ProcessInfo {
     static var isHostedUnitTest: Bool {
         processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -42,6 +47,12 @@ struct MusicAssembly {
     ) {
         self.providerAssembly = providerAssembly
         self.receiptAssembly = receiptAssembly
+    }
+
+    private var storageResolutionConfiguration: AuraPlayStorageResolutionConfiguration {
+        (try? AuraPlayStorageResolutionConfiguration(
+            infoDictionary: Bundle.main.infoDictionary ?? [:]
+        )) ?? .liveDefault
     }
 
     func makeNFTService() -> NFTService {
@@ -66,25 +77,38 @@ struct MusicAssembly {
             auraPlayResult = (nil, "AuraPlay storage could not be opened on this launch.")
         }
 
-        let audioResult: (AuraPlayPlaybackRuntime?, String?)
-        if ProcessInfo.isHostedUnitTest {
-            audioResult = (nil, nil)
-        } else {
-            do {
-                let playbackRuntime = try AuraPlayPlaybackRuntime()
-                configureMediaResolver(playbackRuntime)
-                audioResult = (playbackRuntime, nil)
-            } catch {
-                audioResult = (nil, error.localizedDescription)
-            }
-        }
-
         return MusicRuntime(
-            playbackRuntime: audioResult.0,
-            playbackRuntimeInitializationErrorMessage: audioResult.1,
+            playbackRuntime: nil,
+            playbackRuntimeInitializationErrorMessage: nil,
             auraPlayModelContainer: auraPlayResult.0,
             auraPlayInitializationErrorMessage: auraPlayResult.1
         )
+    }
+
+    /// Constructs the audio graph only after the user opens Music. AVAudioEngine may
+    /// synchronously contact the audio server while its output node is created, so it
+    /// must not be part of the app-launch composition path.
+    func makePlaybackRuntime() -> MusicPlaybackRuntimeResult {
+        guard !ProcessInfo.isHostedUnitTest else {
+            return MusicPlaybackRuntimeResult(
+                playbackRuntime: nil,
+                initializationErrorMessage: nil
+            )
+        }
+
+        do {
+            let playbackRuntime = try AuraPlayPlaybackRuntime()
+            configureMediaResolver(playbackRuntime)
+            return MusicPlaybackRuntimeResult(
+                playbackRuntime: playbackRuntime,
+                initializationErrorMessage: nil
+            )
+        } catch {
+            return MusicPlaybackRuntimeResult(
+                playbackRuntime: nil,
+                initializationErrorMessage: error.localizedDescription
+            )
+        }
     }
 
     func configureReceiptLogger(playbackRuntime: AuraPlayPlaybackRuntime?, modelContext: ModelContext) {
@@ -96,7 +120,7 @@ struct MusicAssembly {
     }
 
     func configureMediaResolver(_ playbackRuntime: AuraPlayPlaybackRuntime?) {
-        let configuration = AuraPlayStorageResolutionConfiguration.liveDefault
+        let configuration = storageResolutionConfiguration
         playbackRuntime?.configureMediaResolver(
             GatewayFallbackChain(
                 resolver: URLResolver(configuration: configuration),
@@ -114,7 +138,7 @@ struct MusicAssembly {
         auraPlayModelContainer: ModelContainer,
         accountModelContext: ModelContext
     ) throws -> NFTSyncCoordinator {
-        let storageConfiguration = AuraPlayStorageResolutionConfiguration.liveDefault
+        let storageConfiguration = storageResolutionConfiguration
         let resolver = URLResolver(configuration: storageConfiguration)
         let gatewayFallbackChain = GatewayFallbackChain(
             resolver: resolver,
@@ -247,7 +271,22 @@ struct MusicAssembly {
             ),
             playlistGenerator: playlistGenerator,
             recommendationProvider: recommendationProvider,
-            playlistManager: AuraPlayPlaylistService(modelContainer: auraPlayModelContainer),
+            playlistManager: ReceiptBackedAuraPlayPlaylistManager(
+                base: AuraPlayPlaylistService(modelContainer: auraPlayModelContainer),
+                receiptLogger: MusicReceiptEventLogger(
+                    receiptStore: receiptAssembly.makeReceiptStore(modelContext: accountModelContext)
+                ),
+                context: MusicReceiptContext(
+                    triggerCause: .userInitiated,
+                    actor: .user,
+                    surface: "music.library.playlist"
+                )
+            ),
+            autoOrganizationRunner: MusicAutoOrganizationReceiptService(
+                receiptLogger: MusicReceiptEventLogger(
+                    receiptStore: receiptAssembly.makeReceiptStore(modelContext: accountModelContext)
+                )
+            ),
             playbackController: playbackRuntime,
             playbackPresenter: playbackRuntime,
             playbackOrchestrator: AuraPlayOrchestratorAdapter(
@@ -263,7 +302,7 @@ struct MusicAssembly {
                 infoDictionary: Bundle.main.infoDictionary ?? [:]
             ),
             urlResolver: URLResolver(
-                configuration: .liveDefault
+                configuration: storageResolutionConfiguration
             )
         )
     }

@@ -35,6 +35,7 @@ public final class AuraPlayRootModel {
 
     @ObservationIgnored
     let playlistManager: any AuraPlayPlaylistManaging
+    let autoOrganizationRunner: (any MusicAutoOrganizationRunning)?
 
     @ObservationIgnored
     public let playbackController: any AuraPlayPlaybackControlling
@@ -101,6 +102,9 @@ public final class AuraPlayRootModel {
     public private(set) var playlistPlaygroundPreview: AuraPlayGeneratedPlaylistPreview?
     public private(set) var isPlaylistPlaygroundRunning: Bool
     public private(set) var playlistPlaygroundStatus: String
+    public private(set) var isAutoOrganizationRunning: Bool
+    public private(set) var autoOrganizationResult: MusicAutoOrganizationDryRunResult?
+    public private(set) var autoOrganizationStatus: String
 
     /// Reads sync progress live from the `@Observable` provider rather than
     /// snapshotting it at discrete points. `syncProgressProvider` is
@@ -136,6 +140,7 @@ public final class AuraPlayRootModel {
         recommendationProvider: any AuraPlayRecommendationProviding = NoOpAuraPlayRecommendationProvider(),
         recentSearchStore: AuraPlayRecentSearchStore = AuraPlayRecentSearchStore(),
         playlistManager: any AuraPlayPlaylistManaging,
+        autoOrganizationRunner: (any MusicAutoOrganizationRunning)? = nil,
         playbackController: any AuraPlayPlaybackControlling,
         playbackPresenter: (any AuraPlayPlaybackPresenting)? = nil,
         playbackOrchestrator: (any AuraPlayPlaybackOrchestrating)? = nil,
@@ -158,6 +163,7 @@ public final class AuraPlayRootModel {
         self.recommendationProvider = recommendationProvider
         self.recentSearchStore = recentSearchStore
         self.playlistManager = playlistManager
+        self.autoOrganizationRunner = autoOrganizationRunner
         self.playbackController = playbackController
         self.playbackPresenter = playbackPresenter
         self.playbackOrchestrator = playbackOrchestrator
@@ -199,6 +205,9 @@ public final class AuraPlayRootModel {
         self.playlistPlaygroundPreview = nil
         self.isPlaylistPlaygroundRunning = false
         self.playlistPlaygroundStatus = "Describe a playlist to generate it from this library."
+        self.isAutoOrganizationRunning = false
+        self.autoOrganizationResult = nil
+        self.autoOrganizationStatus = "Preview how AuraPlay would organize this library. No playlists are changed."
     }
 
     public var scope: AuraPlayLibraryScope {
@@ -272,6 +281,64 @@ public final class AuraPlayRootModel {
 
     public func playlistSnapshots() async throws -> [AuraPlayPlaylistSnapshot] {
         try await playlistManager.fetchPlaylistSnapshots()
+    }
+
+    public func runAutoOrganizationPreview() async {
+        guard let autoOrganizationRunner, let mediaQueryService else {
+            autoOrganizationStatus = "Auto-organization is unavailable."
+            return
+        }
+
+        isAutoOrganizationRunning = true
+        defer { isAutoOrganizationRunning = false }
+
+        do {
+            let query = MediaItemQueryContext(
+                scope: scope,
+                sort: .dateAdded,
+                filter: MediaItemFilter(scope: scope, includeNonPlayable: true),
+                limit: 5_000
+            )
+            let library = try await mediaQueryService.fetchWindow(context: query)
+            let playable = library.items.filter(\.isPlayable)
+            let collectionCount = Self.collectionCount(of: playable)
+            // Both summaries report the same two measures so a receipt reader can diff them: the
+            // "before" side is the whole scoped library as it stands, the "proposed" side is the
+            // playable subset this run would group. Reporting zero collections before would claim
+            // the library is currently ungrouped, which is not something this run established.
+            let proposal = MusicAutoOrganizationDryRunProposal(
+                affectedMediaIDs: playable.map(\.sourceNFTID),
+                beforeSummary: .autoOrganization(
+                    candidateCount: library.totalCount,
+                    collectionCount: Self.collectionCount(of: library.items)
+                ),
+                proposedSummary: .autoOrganization(
+                    candidateCount: playable.count,
+                    collectionCount: collectionCount
+                ),
+                reason: "User requested an AuraPlay library organization preview."
+            )
+            autoOrganizationResult = try await autoOrganizationRunner.runDryRun(
+                proposal: proposal,
+                context: MusicReceiptContext(
+                    triggerCause: .userInitiated,
+                    actor: .user,
+                    accountAddress: currentAccount?.address,
+                    chain: currentChain,
+                    surface: "music.library.autoOrganization"
+                )
+            )
+            autoOrganizationStatus = playable.isEmpty
+                ? "No playable media is available to organize."
+                : "Preview complete: \(playable.count) playable items across \(collectionCount) collections."
+        } catch {
+            autoOrganizationResult = nil
+            autoOrganizationStatus = AuraPlayErrorPresentation.message(for: error, context: .playlistGeneration)
+        }
+    }
+
+    private static func collectionCount(of items: [MediaItemQueryItem]) -> Int {
+        Set(items.compactMap(\.collectionName).filter { !$0.isEmpty }).count
     }
 
     public func refreshLibrarySummary() async {

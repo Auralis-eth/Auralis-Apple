@@ -15,16 +15,16 @@ let package = Package(
         ),
     ],
     dependencies: [
+        .package(path: "../AuralisFoundation"),
         .package(path: "../AuralisPrimaryModels"),
-        .package(path: "../ReceiptStorage"),
     ],
     targets: [
         .target(
             name: "AuralisTestSupport",
             dependencies: [
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "AuralisPrimaryModels",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
-                "ReceiptStorage",
             ]
         ),
     ]

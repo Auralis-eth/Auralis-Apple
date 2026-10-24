@@ -39,6 +39,9 @@
          <TestPlanReference
             reference = "container:Auralis.xcodeproj/xcshareddata/xctestplans/Auralis-Full.xctestplan">
          </TestPlanReference>
+         <TestPlanReference
+            reference = "container:Auralis.xcodeproj/xcshareddata/xctestplans/Auralis-Slow.xctestplan">
+         </TestPlanReference>
       </TestPlans>
       <Testables>
          <TestableReference

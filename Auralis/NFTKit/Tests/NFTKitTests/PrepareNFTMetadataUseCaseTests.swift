@@ -1,11 +1,12 @@
+import AuralisFoundation
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
-import Testing
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import Testing
 
 struct PrepareNFTMetadataUseCaseTests {
     @Test("applies refresh scope to prepared NFTs")

@@ -1,5 +1,14 @@
 #include? "Secrets.local.xcconfig"
 
+AURALIS_SOCIAL_RELAY_ENABLED = YES
 INFOPLIST_KEY_AURALIS_ALCHEMY_API_KEY = $(AURALIS_ALCHEMY_API_KEY)
 INFOPLIST_KEY_AURALIS_HELIUS_API_KEY = $(AURALIS_HELIUS_API_KEY)
 INFOPLIST_KEY_AURALIS_WALLETCONNECT_PROJECT_ID = $(AURALIS_WALLETCONNECT_PROJECT_ID)
+INFOPLIST_KEY_AURALIS_SOCIAL_RELAY_ENABLED = $(AURALIS_SOCIAL_RELAY_ENABLED)
+
+// The CloudKit container backing the external receipt-ledger witness.
+// Empty disables the witness: verification then behaves exactly as it did before it existed, plus a
+// log line. Setting it requires the iCloud entitlement below to list the SAME identifier and that
+// container to be provisioned for this team, or CloudKit calls fail (caught, reported as an advisory).
+AURALIS_RECEIPT_WITNESS_CLOUDKIT_CONTAINER =
+INFOPLIST_KEY_AURALIS_RECEIPT_WITNESS_CLOUDKIT_CONTAINER = $(AURALIS_RECEIPT_WITNESS_CLOUDKIT_CONTAINER)

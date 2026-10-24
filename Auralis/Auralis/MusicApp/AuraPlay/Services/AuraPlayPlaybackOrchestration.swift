@@ -152,7 +152,7 @@ final class PlaybackOrchestrator {
     private let arbiter: EngineArbiter
     private let positionPersistence: PositionPersistenceCoordinator?
     private let queueAdvanceCoordinator: QueueAdvanceCoordinator?
-    private let positionCadenceNanoseconds: UInt64
+    private let waitForPositionCadence: @Sendable () async throws -> Void
     private var playbackGeneration = 0
     private var positionCadenceTask: Task<Void, Never>?
     private var isSmartShuffleEnabled = false
@@ -184,12 +184,15 @@ final class PlaybackOrchestrator {
         arbiter: EngineArbiter,
         positionPersistence: PositionPersistenceCoordinator? = nil,
         queueAdvanceCoordinator: QueueAdvanceCoordinator? = nil,
-        positionCadenceNanoseconds: UInt64 = 5_000_000_000
+        positionCadenceNanoseconds: UInt64 = 5_000_000_000,
+        waitForPositionCadence: (@Sendable () async throws -> Void)? = nil
     ) {
         self.arbiter = arbiter
         self.positionPersistence = positionPersistence
         self.queueAdvanceCoordinator = queueAdvanceCoordinator
-        self.positionCadenceNanoseconds = positionCadenceNanoseconds
+        self.waitForPositionCadence = waitForPositionCadence ?? {
+            try await Task.sleep(nanoseconds: positionCadenceNanoseconds)
+        }
     }
 
     @discardableResult
@@ -404,9 +407,10 @@ final class PlaybackOrchestrator {
     private func startPositionCadence(for mediaID: String, generation: Int) {
         guard positionPersistence != nil else { return }
         stopPositionCadence()
+        let waitForPositionCadence = waitForPositionCadence
         positionCadenceTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: self?.positionCadenceNanoseconds ?? 5_000_000_000)
+                try? await waitForPositionCadence()
                 guard !Task.isCancelled else { return }
                 guard let self, self.playbackGeneration == generation else { return }
                 await self.flushPosition(for: mediaID)

@@ -1,8 +1,8 @@
 import AuralisPrimaryModels
 import AuralisTestSupport
 import Foundation
-import Testing
 @testable import ProviderKit
+import Testing
 
 @Suite(.serialized)
 struct HeliusDASNFTServiceTests {

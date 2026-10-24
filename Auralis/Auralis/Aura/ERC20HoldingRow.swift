@@ -1,5 +1,5 @@
-import SwiftUI
 import AuraUI
+import SwiftUI
 
 struct ERC20HoldingRow: View {
     let row: TokenHoldingRowModel

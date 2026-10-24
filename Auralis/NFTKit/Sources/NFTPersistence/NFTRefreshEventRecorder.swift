@@ -123,7 +123,6 @@ public final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecordin
     }
 }
 
-
 private extension ReceiptBackedNFTRefreshEventRecorder {
     func append(
         kind: String,
@@ -139,7 +138,9 @@ private extension ReceiptBackedNFTRefreshEventRecorder {
         do {
             _ = try await receiptStore.append(
                 ReceiptDraft(
-                    actor: .system,
+                    actorDetail: .workflow("nft.refresh"),
+                    // A read-only chain refresh resolves no lease; standing policy is what allows it.
+                    authorityDetail: ReceiptAuthorityDetail(source: "policyDefault", reason: "Read-only NFT refresh allowed by standing policy."),
                     mode: .observe,
                     trigger: kind,
                     scope: "networking",

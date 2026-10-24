@@ -192,7 +192,7 @@ private extension MusicLibraryIndexPersistenceStore {
         descriptor.relationshipKeyPathsForPrefetching = [
             \NFT.contract,
             \NFT.image,
-            \NFT.collection,
+            \NFT.collection
         ]
 
         let eligibleNFTs = try modelContext.fetch(descriptor)

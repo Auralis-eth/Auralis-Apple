@@ -1,8 +1,8 @@
-import CapabilitiesCore
-import ReceiptsCore
 import AuralisPrimaryModels
+import CapabilitiesCore
 import Foundation
 import OSLog
+import ReceiptsCore
 
 public struct MusicReceiptEventLogger: Sendable {
     private let receiptStore: any ReceiptStore
@@ -24,6 +24,22 @@ public struct MusicReceiptEventLogger: Sendable {
         itemCount: Int,
         context: MusicReceiptContext
     ) async throws -> ReceiptRecord {
+        try await recordPlaylistCreated(
+            playlistID: playlistID.uuidString,
+            playlistTitle: playlistTitle,
+            affectedMediaIDs: affectedMediaIDs,
+            itemCount: itemCount,
+            context: context
+        )
+    }
+
+    public func recordPlaylistCreated(
+        playlistID: String,
+        playlistTitle: String,
+        affectedMediaIDs: [String],
+        itemCount: Int,
+        context: MusicReceiptContext
+    ) async throws -> ReceiptRecord {
         try await append(
             eventType: .playlistCreated,
             capabilityUsed: .playlistManagement,
@@ -37,7 +53,7 @@ public struct MusicReceiptEventLogger: Sendable {
             ),
             rollbackAvailability: .deletePlaylist,
             context: context,
-            playlistID: playlistID.uuidString,
+            playlistID: playlistID,
             playlistTitle: playlistTitle,
             operation: "create",
             dryRun: nil,
@@ -55,6 +71,26 @@ public struct MusicReceiptEventLogger: Sendable {
         changedFields: [String],
         context: MusicReceiptContext
     ) async throws -> ReceiptRecord {
+        try await recordPlaylistModified(
+            playlistID: playlistID.uuidString,
+            playlistTitle: playlistTitle,
+            affectedMediaIDs: affectedMediaIDs,
+            beforeSummary: beforeSummary,
+            afterSummary: afterSummary,
+            changedFields: changedFields,
+            context: context
+        )
+    }
+
+    public func recordPlaylistModified(
+        playlistID: String,
+        playlistTitle: String,
+        affectedMediaIDs: [String],
+        beforeSummary: MusicReceiptStateSummary,
+        afterSummary: MusicReceiptStateSummary,
+        changedFields: [String],
+        context: MusicReceiptContext
+    ) async throws -> ReceiptRecord {
         try await append(
             eventType: .playlistModified,
             capabilityUsed: .playlistManagement,
@@ -64,9 +100,34 @@ public struct MusicReceiptEventLogger: Sendable {
             afterSummary: afterSummary,
             rollbackAvailability: .manualReverseChange,
             context: context,
-            playlistID: playlistID.uuidString,
+            playlistID: playlistID,
             playlistTitle: playlistTitle,
             operation: changedFields.sorted().joined(separator: ","),
+            dryRun: nil,
+            reason: nil,
+            isSuccess: true
+        )
+    }
+
+    public func recordPlaylistDeleted(
+        playlistID: String,
+        playlistTitle: String,
+        affectedMediaIDs: [String],
+        beforeSummary: MusicReceiptStateSummary,
+        context: MusicReceiptContext
+    ) async throws -> ReceiptRecord {
+        try await append(
+            eventType: .playlistDeleted,
+            capabilityUsed: .playlistManagement,
+            policyDecision: .allowed,
+            affectedMediaIDs: affectedMediaIDs,
+            beforeSummary: beforeSummary,
+            afterSummary: nil,
+            rollbackAvailability: .none,
+            context: context,
+            playlistID: playlistID,
+            playlistTitle: playlistTitle,
+            operation: "delete",
             dryRun: nil,
             reason: nil,
             isSuccess: true
@@ -147,29 +208,23 @@ public struct MusicReceiptEventLogger: Sendable {
         )
     }
 
-    public func recordPolicyBlocked(
-        action: String,
-        capabilityUsed: CapabilityID,
-        reason: String?,
-        context: MusicReceiptContext
-    ) async throws -> ReceiptRecord {
-        try await append(
-            eventType: .policyBlocked,
-            capabilityUsed: capabilityUsed,
-            policyDecision: .blocked,
-            affectedMediaIDs: [],
-            beforeSummary: nil,
-            afterSummary: nil,
-            rollbackAvailability: .none,
-            context: context,
-            playlistID: nil,
-            playlistTitle: nil,
-            operation: action,
-            dryRun: nil,
-            reason: reason,
-            isSuccess: false
-        )
-    }
+    // `recordPolicyBlocked(action:capabilityUsed:reason:context:)` was removed here, along with
+    // `MusicPolicyReceiptContext`. Its only caller was the app-side `AppActionPolicyGate`, deleted
+    // when policy enforcement consolidated onto `PipelineBackedPolicyGate` → `StandingToolPolicy` →
+    // `GovernedToolPipeline`. `ArchitectureBoundaryTests` now fails the build if app source reaches
+    // for the old direct path at all.
+    //
+    // Audit coverage moved rather than staying identical, and the difference is worth stating
+    // precisely: every policy decision on the *concrete* path — `attempt(_:payload:actorDetail:)`,
+    // the only way to actually run an action — is receipted by the pipeline's receipt sink. The
+    // class-level `attempt(_:actorDetail:)` overload answers a standing-posture question without
+    // executing anything, and writes no receipt by design (see its doc comment); `ProfileDetailView`
+    // uses it to populate a "Policy decision" alert. So "was this action permitted when attempted"
+    // is fully evidenced; "what did policy say when asked" is deliberately not.
+    //
+    // `MusicReceiptEventType.policyBlocked` deliberately stays. Its raw value
+    // (`"music.policy.blocked"`) is persisted in receipts this build must still decode and render —
+    // the *producer* is dead, the case is not.
 
     public func recordBackgroundMusicTaskRun(
         taskName: String,
@@ -344,11 +399,33 @@ private extension MusicReceiptEventLogger {
             reason: reason
         )
         let payload = payloadSanitizer.sanitize(rawPayload)
+        // The caller's own attribution wins when it has one. `context.actor` is a kind, not an
+        // identity, so deriving from it alone stamps every operator pack with the in-tree
+        // `music.operator` id — correct only while MusicFeature is the sole owner of that id, and
+        // silently wrong for the first pack that is not. Falls back to the derivation so the call
+        // sites that genuinely have no identity keep recording what they always did.
+        let actorDetail = context.actorDetail ?? context.actor.actorDetail
 
         do {
             return try await receiptStore.append(
                 ReceiptDraft(
-                    actor: context.actor.receiptActor,
+                    // Derived from the structured column, matching `ReceiptsCore.ReceiptEventLogger`:
+                    // setting the two from independent switches lets the coarse filter drift out of
+                    // agreement with the real attribution, and a receipt whose columns disagree about
+                    // whether a human acted is worse than one that is merely coarse.
+                    // Preserves which non-human actor acted, which `coarseActor` collapses to
+                    // `.system` (P0.5-602).
+                    actorDetail: actorDetail,
+                    // Local library/playback events resolve no capability lease, so standing policy
+                    // is the authority. Built through the `policyDefault` factory rather than the
+                    // raw initialiser so the source string is not spelled by hand, and carrying
+                    // `capabilityUsed` — the capability is already a parameter of this function, and
+                    // dropping it would persist an authority row that cannot say *what* was
+                    // permitted, which is most of the column's audit value.
+                    authorityDetail: .policyDefault(
+                        capability: capabilityUsed.rawValue,
+                        reason: "Local music activity allowed by standing policy."
+                    ),
                     mode: .observe,
                     trigger: eventType.rawValue,
                     scope: eventType.scope,

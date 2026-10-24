@@ -1,14 +1,14 @@
 import AccountsCore
-import AuralisShellCore
-import ENS
 import AccountsFeature
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisShellCore
+import AuraUI
+import ENS
 import ImagePlayground
 import OSLog
 import SwiftData
 import SwiftUI
-import AuraUI
 
 private struct HomeImagePreviewTransitionModifier: ViewModifier {
     let reduceMotion: Bool
@@ -306,6 +306,8 @@ struct HomeTabView: View {
                         Text(accountSummaryPresentation.addressLine)
                             .font(.subheadline)
                             .foregroundStyle(Color.textSecondary)
+                            .accessibilityLabel("Wallet address")
+                            .accessibilityValue(currentAddress)
                         if let lastActivityLabel = accountSummaryPresentation.lastActivityLabel {
                             Text(lastActivityLabel)
                                 .font(.caption)
@@ -396,6 +398,8 @@ struct HomeTabView: View {
                         }
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color.accent)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                     }
                 )
 

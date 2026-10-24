@@ -74,7 +74,7 @@ enum WalletConnectKeychainAccessGroup {
         let baseQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: "com.auraplay.walletconnect",
-            kSecAttrAccount as String: "walletconnect-accessgroup-probe",
+            kSecAttrAccount as String: "walletconnect-accessgroup-probe"
         ]
         // Clean slate, then add + read back the assigned access group.
         SecItemDelete(baseQuery as CFDictionary)
@@ -205,12 +205,26 @@ final class AuralisWalletConnectionService {
     /// controls an address via a signing challenge before it is ever saved as a
     /// signing-capable account.
     private let lifecycle: WalletConnectionLifecycleService
+    @ObservationIgnored private var connectorEventTask: Task<Void, Never>?
 
     var phase: Phase = .idle
     var latestPairingPayload: String?
     var connectedAddress: String?
 
     let providers: [ThirdPartyWalletProvider] = WalletConnectorCatalog.defaultProviders
+
+    // MARK: Social v1 join-verification seam
+
+    /// The live connector, so app features (Social v1 join verification) can prove wallet ownership
+    /// through the same connector the app connected with rather than spinning up a second one.
+    var walletConnector: any WalletConnector { connector }
+
+    /// The live WalletConnect session id for `address`, or `nil` when that wallet is not connected.
+    /// Social v1 join verification runs its signature challenge against this session.
+    func walletSessionID(forAddress address: String) async -> WalletSessionID? {
+        guard let topic = try? await topicStore.load(walletAddress: address) else { return nil }
+        return WalletSessionID(rawValue: topic.rawValue)
+    }
 
     init(modelContext: ModelContext, bundle: Bundle = .main) {
         // Shared Keychain access group so an extension can read the same
@@ -264,6 +278,13 @@ final class AuralisWalletConnectionService {
         )
 
         observeConnectorEvents()
+        // Expose this connected service to the governed wallet executor so an approved Operate action
+        // can sign/submit through the same connector the app connected with.
+        WalletSignerBox.shared.externalSigner = self
+    }
+
+    deinit {
+        connectorEventTask?.cancel()
     }
 
     /// Test seam. Injects the connector and stores directly so interaction tests
@@ -416,8 +437,10 @@ final class AuralisWalletConnectionService {
     }
 
     private func observeConnectorEvents() {
-        Task { [weak self, connector] in
+        connectorEventTask?.cancel()
+        connectorEventTask = Task { [weak self, connector] in
             for await event in connector.events {
+                guard !Task.isCancelled else { return }
                 await self?.handle(event)
             }
         }
@@ -433,13 +456,8 @@ final class AuralisWalletConnectionService {
             await persist(session)
         case .sessionRejected(let error):
             phase = .failed(error.localizedDescription)
-        case .sessionDeleted:
-            if let address = connectedAddress {
-                try? await topicStore.delete(walletAddress: address)
-            }
-            phase = .idle
-            latestPairingPayload = nil
-            connectedAddress = nil
+        case .sessionDeleted(let sessionID):
+            await handleSessionDeleted(sessionID)
         case .requestExpired(let requestID):
             phase = .failed("Wallet request \(requestID.rawValue) expired.")
         case .sessionEvent(let event):
@@ -451,6 +469,50 @@ final class AuralisWalletConnectionService {
         case .responseReceived, .socketStatusChanged:
             break
         }
+    }
+
+    /// Tears down the wallet whose session the relay says is gone, then reconciles what is left.
+    ///
+    /// The address is resolved from the deleted session's own topic, not from `connectedAddress`,
+    /// which names the *active* wallet — with more than one wallet connected, routinely not the one
+    /// whose session ended. Keying teardown off it did nothing useful and one harmful thing:
+    ///
+    /// - It tore down nothing. Topic records are keyed `"\(chain.caip2):\(address)"` and a settled
+    ///   session always carries a chain, so the chain-less `delete(walletAddress:)` overload computed
+    ///   a bare-address key that matched no record. (`load` survives the same mismatch because it
+    ///   falls back to scanning by address when `chain == nil`; `delete` has no such fallback.) The
+    ///   wallet whose session ended therefore kept its topic record and its `EOAccount.access ==
+    ///   .wallet`, i.e. signing-capable, with no deactivation anywhere on this path.
+    /// - It cleared `connectedAddress`/`phase` unconditionally, dropping a *second, still-live*
+    ///   wallet from the connected state because the first one's session had ended.
+    ///
+    /// Signing still failed closed throughout (`requireSession` throws), so this was custody-state
+    /// corruption rather than a mis-signing risk.
+    private func handleSessionDeleted(_ sessionID: WalletSessionID) async {
+        let deletedRecord = try? await topicStore.loadAll()
+            .first { $0.topic.rawValue == sessionID.rawValue }
+
+        if let deletedRecord {
+            // Legacy records predate the stored chain; infer it from the address shape, matching
+            // the kit's own fallback, so a Solana record is not canonicalized as EVM and missed.
+            let chain = deletedRecord.chain
+                ?? (deletedRecord.address.hasPrefix("0x") ? .ethereum : .solana)
+            // The session is already gone, so the lifecycle service's disconnect leg can throw.
+            // The topic and account teardown still has to happen, hence the explicit delete after.
+            try? await lifecycle.remove(address: deletedRecord.address, chain: chain)
+            try? await topicStore.delete(
+                walletAddress: deletedRecord.address,
+                chain: deletedRecord.chain
+            )
+        }
+
+        // Reconcile the surviving sessions the same way an account/chain change does, so
+        // `connectedAddress` and every `EOAccount.access` match the connector's live set rather
+        // than being cleared unconditionally while another wallet is still connected.
+        await restore()
+        // The pairing that produced the dead session is spent either way.
+        latestPairingPayload = nil
+        phase = connectedAddress.map(Phase.connected) ?? .idle
     }
 
     /// Reacts to a wallet-emitted session event. An `accountsChanged` /
@@ -497,6 +559,105 @@ private actor UnavailableWalletTransportClient: WalletTransportClient {
     }
     func sessions() async throws -> [WalletSession] { [] }
     nonisolated func events() -> AsyncStream<WalletTransportEvent> { AsyncStream { $0.finish() } }
+}
+
+extension AuralisWalletConnectionService: WalletActionSigning {
+    func signPersonalMessage(_ text: String, address: String, chainID: String?) async throws -> String {
+        let sessionID = try await requireSession(forAddress: address)
+        // An absent chain id is legitimate for `personal_sign` — EIP-191 binds no chain, so the chain
+        // only selects the session namespace to route through. A *present* but unresolvable id is not:
+        // the caller meant a specific chain, and silently routing elsewhere is the bug this guards.
+        let chain = try Self.requireChain(chainID, allowingUnspecified: true)
+        let request = WalletRequestBuilder.personalSignText(
+            id: WalletSignRequestID(rawValue: UUID().uuidString),
+            address: address,
+            text: text,
+            chain: chain
+        )
+        return try await connector.request(request, in: sessionID).result
+    }
+
+    func sendTransaction(
+        from address: String,
+        to: String?,
+        value: String,
+        data: String,
+        chainID: String
+    ) async throws -> String {
+        let sessionID = try await requireSession(forAddress: address)
+        let chain = try Self.requireChain(chainID, allowingUnspecified: false)
+        let transaction = WalletTransactionRequest(
+            from: address,
+            to: to,
+            value: value,
+            data: data,
+            chainId: try Self.hexChainID(for: chain)
+        )
+        let request = WalletRequestBuilder.sendTransaction(
+            id: WalletSignRequestID(rawValue: UUID().uuidString),
+            transaction: transaction,
+            chain: chain
+        )
+        return try await connector.request(request, in: sessionID).result
+    }
+
+    /// Resolves the live session for `address`, throwing when the wallet is not connected so a cleared
+    /// action fails closed rather than signing against a stale/absent session.
+    private func requireSession(forAddress address: String) async throws -> WalletSessionID {
+        guard let sessionID = await walletSessionID(forAddress: address) else {
+            throw WalletConnectionError.unavailable("Connect this wallet before signing.")
+        }
+        return sessionID
+    }
+
+    /// Maps a payload chain id (`0x1`, `1`, or `eip155:1`) to a known EVM ``WalletChain``, or `nil` when
+    /// the id is absent, malformed, or names a chain this connector cannot route.
+    ///
+    /// This deliberately does **not** fall back to Ethereum mainnet. `WalletChain.evmChains` covers nine
+    /// chain references while the app's own `Chain` enum routes thirty, so a fallback would re-point an
+    /// approved Sepolia/Zora/Unichain transfer at mainnet with the same `to`, `value`, and calldata —
+    /// spending real funds against a prompt the user reviewed for a different chain.
+    static func resolveChain(_ chainID: String?) -> WalletChain? {
+        guard let decimal = decimalChainID(chainID) else { return nil }
+        return WalletChain.evmChains.first { $0.chainReference == decimal }
+    }
+
+    /// Resolves `chainID` or throws, so an unroutable chain fails closed at the signing boundary.
+    ///
+    /// - Parameter allowingUnspecified: when `true`, an absent/empty id resolves to Ethereum mainnet.
+    ///   Only `personal_sign` may pass `true`; a transaction must always name its chain.
+    static func requireChain(_ chainID: String?, allowingUnspecified: Bool) throws -> WalletChain {
+        let trimmed = chainID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if allowingUnspecified, trimmed?.isEmpty ?? true { return .ethereum }
+        guard let chain = resolveChain(chainID) else {
+            throw WalletConnectionError.invalidChain(trimmed ?? "")
+        }
+        return chain
+    }
+
+    private static func decimalChainID(_ raw: String?) -> String? {
+        guard var value = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+        if let colon = value.range(of: ":", options: .backwards) {
+            value = String(value[colon.upperBound...])
+        }
+        if value.lowercased().hasPrefix("0x") {
+            guard let parsed = Int(value.dropFirst(2), radix: 16) else { return nil }
+            return String(parsed)
+        }
+        return Int(value) != nil ? value : nil
+    }
+
+    /// Renders a resolved chain's reference as a `0x`-prefixed quantity. Throws rather than defaulting to
+    /// `0x1`, for the same reason ``resolveChain(_:)`` refuses to: a mainnet fallback here would contradict
+    /// the chain the request is actually routed on.
+    private static func hexChainID(for chain: WalletChain) throws -> String {
+        guard let decimal = Int(chain.chainReference) else {
+            throw WalletConnectionError.invalidChain(chain.chainReference)
+        }
+        return "0x" + String(decimal, radix: 16)
+    }
 }
 
 private extension WalletChain {

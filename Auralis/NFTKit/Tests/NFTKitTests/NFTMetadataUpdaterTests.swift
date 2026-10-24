@@ -1,11 +1,11 @@
-import AuralisTestSupport
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import Testing
+import AuralisTestSupport
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import Testing
 
 struct NFTMetadataUpdaterTests {
     @Test("metadata image updates create a missing image submodel")

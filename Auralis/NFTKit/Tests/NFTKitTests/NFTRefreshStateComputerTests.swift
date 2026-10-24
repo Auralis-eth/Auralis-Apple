@@ -1,10 +1,10 @@
 import AuralisPrimaryModels
 import Foundation
-import Testing
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import Testing
 
 struct NFTRefreshStateComputerTests {
     @Test("tracks success timestamps per account and chain scope")

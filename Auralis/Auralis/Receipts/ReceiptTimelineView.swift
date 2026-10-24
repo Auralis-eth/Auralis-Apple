@@ -1,9 +1,10 @@
 import AuralisPrimaryModels
+import AuraUI
 import Foundation
+import ReceiptsCore
 import ReceiptStorage
 import SwiftData
 import SwiftUI
-import AuraUI
 import UIKit
 
 // SwiftLint currently misclassifies these file-scope receipt snapshot helpers as overly nested.
@@ -143,7 +144,24 @@ struct ReceiptsRootView: View {
     private static func makeStoredReceiptsDescriptor(
         for scope: ReceiptTimelineScope
     ) -> FetchDescriptor<StoredReceipt> {
-        let normalizedAccountAddress = AuralisEthereumAddress.normalized(scope.accountAddress)
+        // Shares `ReceiptTimelineRecord.accountKey` with `matches(_:)` so the predicate and the
+        // in-memory comparison cannot diverge. What this actually changes is the **non-address**
+        // case: `AuralisEthereumAddress.normalized` returns `nil` for anything that is not 40 hex
+        // digits, which dropped the account narrowing entirely and fell back to a full fetch, while
+        // `accountKey` falls through to `trimmed.lowercased()` — exactly what the write side stored —
+        // so an ENS-style or otherwise non-address account key now narrows correctly.
+        //
+        // It does **not** fix the unprefixed-address hole, and must not be read as having done so:
+        // `accountKey` tries `AuralisEthereumAddress.normalized` *first* and returns it on success, so
+        // for any valid 40-hex address — prefixed, unprefixed, or checksummed — it yields the same
+        // `0x…` string the old call did. The write side is the asymmetric half and still is:
+        // `ReceiptAccountAddress.resolve` stores `trimmed.lowercased()` and deliberately adds no
+        // prefix, and `ReceiptPayload.timelineAccountAddress` is free-form and normalized nowhere. A
+        // row stored unprefixed therefore remains invisible to this predicate, permanently, and no
+        // post-fetch filter can recover it — a filter can only narrow. Latent today because every
+        // production writer supplies a `0x`-prefixed address; tracked as **F-100**. Closing it means
+        // normalizing on the write path, which touches a hashed column.
+        let normalizedAccountAddress = ReceiptTimelineRecord.accountKey(scope.accountAddress)
 
         if let normalizedAccountAddress, !normalizedAccountAddress.isEmpty {
             return FetchDescriptor(

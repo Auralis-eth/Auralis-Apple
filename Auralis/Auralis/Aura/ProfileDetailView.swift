@@ -1,9 +1,9 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuraUI
 import PolicyCore
 import SwiftData
 import SwiftUI
-import AuraUI
 
 struct ProfileDetailPresentation: Equatable {
     let title: String
@@ -141,7 +141,7 @@ struct ProfileDetailView: View {
                 }
             }
         }
-        .alert("Not available in Observe mode", isPresented: denialAlertBinding) {
+        .alert("Policy decision", isPresented: denialAlertBinding) {
             Button("OK", role: .cancel) {
                 denialMessage = nil
             }
@@ -159,10 +159,10 @@ struct ProfileDetailView: View {
     @ViewBuilder
     private var observeModeSection: some View {
         ShellStatusCard(
-            eyebrow: "Observe Mode",
-            title: "Execution Is Locked",
-            message: "Auralis is currently read-only. Signing, approvals, and transaction drafting stay blocked until a later phase unlocks them intentionally.",
-            systemImage: "eye.slash",
+            eyebrow: "\(modeState?.mode.rawValue ?? CryptoMode.observe.rawValue) Mode",
+            title: "Governed Actions",
+            message: "Signing, approvals, and transaction drafting route through policy. Observe blocks them, Assist asks for approval, and Operate still requires checks and receipts.",
+            systemImage: "checkmark.shield",
             tone: .warning
         )
 
@@ -206,7 +206,7 @@ struct ProfileDetailView: View {
         }
 
         Task {
-            let result = await policyActionHandlerFactory(modelContext, modeState).attempt(action)
+            let result = await policyActionHandlerFactory(modelContext, modeState).attempt(action, actor: .human)
             if !result.isAllowed {
                 denialMessage = result.userMessage
             }
@@ -293,6 +293,8 @@ private extension EOAccountSource {
             return "Guest Pass"
         case .walletConnect:
             return "WalletConnect"
+        case .inAppWallet:
+            return "Auralis Wallet"
         }
     }
 }

@@ -1,8 +1,8 @@
-import ReceiptsCore
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import MusicFeature
+import ReceiptsCore
 import SwiftData
 
 /// Projects the account's local music-NFT inventory for receipt/telemetry
@@ -157,7 +157,7 @@ private actor AuraPlaySourceNFTSnapshotStore {
         descriptor.relationshipKeyPathsForPrefetching = [
             \NFT.contract,
             \NFT.image,
-            \NFT.collection,
+            \NFT.collection
         ]
 
         return try modelContext.fetch(descriptor).map(LiveAuraPlayLibrarySyncService.SourceNFTSnapshot.init)
@@ -398,11 +398,11 @@ struct AuraPlayLibrarySyncRequestBuilder: Sendable {
     }
 
     private static let videoContentTypeMarkers: [String] = [
-        "video", "mp4", "mov", "webm", "mpegurl", "hls",
+        "video", "mp4", "mov", "webm", "mpegurl", "hls"
     ]
 
     private static let videoFileExtensions: Set<String> = [
-        "mp4", "mov", "webm", "m4v",
+        "mp4", "mov", "webm", "m4v"
     ]
 
     private func artworkURLString(from snapshot: SourceNFTSnapshot) -> String? {

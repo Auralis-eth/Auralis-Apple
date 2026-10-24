@@ -1,8 +1,8 @@
-import OperatorCore
 @testable import Auralis
 import AuralisPrimaryModels
 import ExplorerAdapter
 import Foundation
+import OperatorCore
 import Testing
 
 struct ExternalLinkDestinationTests {
@@ -37,7 +37,7 @@ struct ExternalLinkDestinationTests {
             (.arbMainnet, "https://arbiscan.io/token/0x1234567890abcdef1234567890abcdef12345678?a=42"),
             (.optMainnet, "https://optimistic.etherscan.io/token/0x1234567890abcdef1234567890abcdef12345678?a=42"),
             (.polygonMainnet, "https://polygonscan.com/token/0x1234567890abcdef1234567890abcdef12345678?a=42"),
-            (.solanaMainnet, "https://solscan.io/token/0x1234567890abcdef1234567890abcdef12345678"),
+            (.solanaMainnet, "https://solscan.io/token/0x1234567890abcdef1234567890abcdef12345678")
         ]
 
         for (chain, expectedURLString) in supportedChainURLs {
@@ -80,7 +80,7 @@ struct ExternalLinkDestinationTests {
             ("Zora Explorer", .zoraMainnet),
             ("Zora Explorer", .zoraSepoliaTestnet),
             ("PolynomialScan", .polynomialMainnet),
-            ("PolynomialScan", .polynomialSepoliaTestnet),
+            ("PolynomialScan", .polynomialSepoliaTestnet)
         ]
         let builder = ExplorerURLBuilder()
 

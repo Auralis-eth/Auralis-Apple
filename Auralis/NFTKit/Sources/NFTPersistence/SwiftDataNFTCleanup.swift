@@ -41,5 +41,11 @@ extension ModelContext {
         for collection in persistedCollections where !referencedCollectionIDs.contains(collection.id) {
             delete(collection)
         }
+
+        let persistedTags = try fetch(FetchDescriptor<Tag>())
+        let referencedTagNames = Set(allNFTs.flatMap { $0.tags ?? [] }.map(\.name))
+        for tag in persistedTags where !referencedTagNames.contains(tag.name) {
+            delete(tag)
+        }
     }
 }

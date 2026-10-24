@@ -1,7 +1,70 @@
+# Every first-party source root. `included:` overrides path arguments, so a root missing from this
+# list is not lintable even by naming it explicitly on the command line — `swiftlint SomePackage`
+# silently re-lints only what is listed here. Add new packages here when you create them.
 included:
   - Auralis
   - AuralisTests
   - AuralisUITests
+  - AccountsCore
+  - ArtifactCore
+  - ArtifactStorage
+  - AuraUI
+  - AuralisPrimaryModels
+  - AuralisShellCore
+  - AutopilotCore
+  - CapabilitiesCore
+  - EvalCore
+  - MissionControlFeature
+  - MusicFeature
+  - NFTKit
+  - OperatorCore
+  - OperatorRuntimeStorage
+  - OperatorsFeature
+  - PerformanceCore
+  - PlannerCore
+  - PlaybookCore
+  - PolicyCore
+  - ProviderKit
+  - ReceiptStorage
+  - ReceiptsCore
+  - RuntimeCore
+  - RuntimeKit
+  - SchedulingCore
+  - SocialCore
+  - TrustedUIKit
+
+# SwiftPM writes generated sources (notably `test_entry_point.swift`, whose SwiftPM-internal
+# `__SwiftPM*` type names trip `type_name` at *error* severity) into each package's `.build`.
+# Linting them fails the CI lint step over code nobody in this repository wrote or can change.
+# One entry per package: `excluded:` matches path prefixes, not globs.
+excluded:
+  - AccountsCore/.build
+  - ArtifactCore/.build
+  - ArtifactStorage/.build
+  - AuraUI/.build
+  - AuralisPrimaryModels/.build
+  - AuralisShellCore/.build
+  - AutopilotCore/.build
+  - CapabilitiesCore/.build
+  - EvalCore/.build
+  - MissionControlFeature/.build
+  - MusicFeature/.build
+  - NFTKit/.build
+  - OperatorCore/.build
+  - OperatorRuntimeStorage/.build
+  - OperatorsFeature/.build
+  - PerformanceCore/.build
+  - PlannerCore/.build
+  - PlaybookCore/.build
+  - PolicyCore/.build
+  - ProviderKit/.build
+  - ReceiptStorage/.build
+  - ReceiptsCore/.build
+  - RuntimeCore/.build
+  - RuntimeKit/.build
+  - SchedulingCore/.build
+  - SocialCore/.build
+  - TrustedUIKit/.build
 
 reporter: xcode
 
@@ -21,6 +84,21 @@ opt_in_rules:
   - first_where
   - sorted_imports
   - toggle_bool
+
+# This codebase deliberately favours long, fully-qualified type names
+# (`AlwaysAvailableAuraPlayEmbeddingAvailabilityProvider`) over short ambiguous ones, which is why
+# `identifier_name` is disabled above. 60 keeps the rule useful as a runaway-name guard without
+# fighting that convention.
+type_name:
+  max_length: 60
+
+# Provider response DTOs (`AlchemyNFTResponse`, `NFTInventoryItemSnapshot`) nest `Codable` payload
+# shapes two deep to mirror the JSON they decode. Flattening them would scatter single-use types
+# across module scope and lose that correspondence. The third level is not a style choice: Swift
+# requires `CodingKeys` to be declared inside the type it serves, so a two-level DTO that needs
+# custom key mapping is forced to three.
+nesting:
+  type_level: 3
 
 custom_rules:
   auraplay_no_print:

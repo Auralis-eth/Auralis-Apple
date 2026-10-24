@@ -117,6 +117,22 @@ struct PendingDeepLinkResolverTests {
         #expect(resolution.action == .route(destination: destination, inheritedChain: nil))
     }
 
+    @Test("artifact deep links are forwarded as route requests for Mission Control")
+    func artifactLinkRoutesForMissionControlHandling() {
+        let destination = AppDeepLinkDestination.artifact(id: "1D491514-706B-4598-8631-CCEB71DCEF21")
+        let resolution = resolver.resolve(
+            .destination(destination),
+            context: PendingDeepLinkContext(
+                currentAddress: "0x1234567890abcdef1234567890abcdef12345678",
+                currentAccountAddress: "0x1234567890abcdef1234567890abcdef12345678",
+                canResolveDeferredLink: true,
+                shouldFailDeferredLink: false
+            )
+        )
+
+        #expect(resolution.action == .route(destination: destination, inheritedChain: nil))
+    }
+
     @Test("destination deep links fail safely once restore has finished without an account")
     func destinationLinkFailsAfterRestoreWithoutAccount() {
         let resolution = resolver.resolve(

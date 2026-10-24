@@ -1,10 +1,14 @@
 # AuraPlay — Status
 
-This is the single living status doc for the AuraPlay rebuild. It describes what is actually in the codebase. Anything not yet built lives in `AuraPlay-Gaps.md`.
+**Last reconciled with code:** 2026-10-22
+
+This is the single living status doc for AuraPlay. It describes what is actually in the codebase. Active follow-on work lives in `../P0-Future-Work.md`, while release constraints live in `AuraPlay-Phase14-Known-Limitations.md` and the QA checklists.
 
 Each new phase should fold its reality into the relevant section here.
 
-Current Phase 14 planning lives in `AuraPlay-Phase14-Settings-Accessibility-Hardening-Plan.md`. That plan is a hardening pass over the current Settings, accessibility, privacy, error, performance, App Store, and regression surfaces rather than a greenfield feature phase. Phase 14 automation and audit artifacts were refreshed on 2026-07-25; remaining ship gates are manual device accessibility/performance QA and App Store archive/upload review.
+Phase 14 was a hardening pass over Settings, accessibility, privacy, errors, performance, App Store, wallet-support, and regression surfaces rather than a greenfield feature phase. Its plan and master checklist are retired: durable as-built facts and automated evidence live here, accepted constraints live in `AuraPlay-Phase14-Known-Limitations.md`, and every hardware-only gate lives in `AuraPlay-Physical-Device-QA-Suite.md`. Remaining ship gates are manual device accessibility/performance QA, third-party wallet support proof, and App Store archive/upload review.
+
+Current verification record: on 2026-10-21 the standalone `MusicFeature` suite passed 132 tests across 21 suites with zero failures, and the app integration build completed with zero errors. Older phase-specific counts below are historical evidence, not the current total.
 
 ## Shape Of The Foundation
 
@@ -34,7 +38,21 @@ AuraPlay is the rebuild path for the Music tab inside the **Auralis** iOS app. T
 - `AURALIS_ALCHEMY_API_KEY` placeholder bound to the xcconfig build setting
 - Privacy strings: `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`
 
-The plist is the contract `AuraPlayModuleConfiguration.live(infoDictionary:)` validates at startup.
+The plist is the contract `AuraPlayModuleConfiguration.live(infoDictionary:)` validates at startup. These metadata entries are capability declarations, not proof that every third-party wallet route works in production.
+
+Required third-party wallet support proof before support can be claimed:
+
+| Route family | Wallet/provider | Proof still required |
+| --- | --- | --- |
+| EVM WalletConnect/Reown | Rabby | Physical-device connect, reject/cancel, ownership signature, disconnect, restore/fail-closed, and callback round-trip. |
+| EVM WalletConnect/Reown | Rainbow | Physical-device connect, reject/cancel, ownership signature, disconnect, restore/fail-closed, and callback round-trip. |
+| Direct/native EVM | Coinbase Wallet | Physical-device direct route, ownership signature, disconnect, restore/fail-closed, and callback round-trip. |
+| EVM WalletConnect/Reown | MetaMask | Physical-device connect, reject/cancel, ownership signature, disconnect, restore/fail-closed, and callback round-trip. |
+| Solana wallet route | Phantom | Physical-device connect, reject/cancel, message signing, disconnect, restore/fail-closed, and callback round-trip. |
+| Solana wallet route | Backpack | Physical-device connect, reject/cancel, message signing, disconnect, restore/fail-closed, and callback round-trip. |
+| Solana wallet route | Solflare | Physical-device connect, reject/cancel, message signing, disconnect, restore/fail-closed, and callback round-trip. |
+| Embedded/auth route | Privy | Physical-device login/connect, reject/cancel, ownership verification, logout/disconnect, restore/fail-closed, and callback round-trip. |
+| Embedded/auth route | Dynamic | Physical-device login/connect, reject/cancel, ownership verification, logout/disconnect, restore/fail-closed, and callback round-trip. |
 
 `Auralis.entitlements` exists but is empty.
 
@@ -47,7 +65,7 @@ Locked-in choices:
 - Native SwiftUI + `@Observable` presentation models
 - Initializer-based DI through composition roots
 - Module boundary: `App/`, `Core/`, `Domain/`, `Services/`, `Presentation/`
-- State ownership stays layered: `ShellStore` / `MainAuraView` / `AppRouter` (app) → `MusicAssembly` / `AuraPlayDependencies` (composition) → `@Observable` presentation models (screen) → injected playback controller over the shared `AudioEngine` (engine)
+- State ownership stays layered: `ShellStore` / `MainAuraView` / `AppRouter` (app) → `MusicAssembly` / `AuraPlayDependencies` (composition) → `@Observable` presentation models (screen) → injected playback seams backed by `AuraPlayAudioEngine` and `AuraPlayVideoEngine`
 - The Music tab is composed inside `MainTabView` and renders through `MusicFeatureRootView` from the `MusicFeature` package
 
 Related ADRs:
@@ -81,19 +99,20 @@ Module-level DI in MusicFeature is the public struct `AuraPlayDependencies` (`Mu
 - `any AuraPlayNFTDiscoverySyncing`
 - `any AuraPlaySemanticSearching`
 - `any AuraPlayPlaybackControlling`
-- optional `any AuraPlayPlaybackPresenting` for the legacy mini-player/Now Playing presenter surface
+- optional `any AuraPlayPlaybackPresenting` for the current mini-player / `AuraPlayPlayerView` presentation surface
 - `any AuraPlayQueueCoordinating`
 - `any AuraPlayArtworkLoading`
 - `any AuraPlayLogging`
 - `AuraPlayModuleConfiguration`
 - `URLResolver`
 
-Live implementations and storage-resolution utilities live next to the protocols under `MusicFeature/Sources/MusicFeature/Services/`:
+Live implementations and storage-resolution utilities live across the feature package and app composition boundary:
 
 - `LiveAuraPlayLibraryRepository`
 - `LiveAuraPlayLibrarySyncService`
-- `AuraPlayAudioEnginePlaybackController`
-- `AuraPlayAudioEngineQueueCoordinator`
+- `AuraPlayPlaybackRuntime` in the app target, wrapping `AuraPlayAudioEngine.AudioEngineController`
+- `AuraPlayVideoWireframeView` in the app target, composing `AuraPlayVideoEngine.VideoPlayerController` and `VideoPlaybackIntegrationCoordinator`
+- `AuraPlayPlaylistService`
 - `AuraPlayTrackArtworkLoader`
 - `LiveAuraPlayLogger`
 - `URLResolver`
@@ -198,7 +217,7 @@ AuraPlay persistence is SwiftData. The shape is locked by ADR-002 (`docs/decisio
 - views may use `@Query` once surfaces are query-backed; views do not orchestrate writes
 - no generic repository-protocol layer beneath the framework — the only repository seam is the product-facing `AuraPlayLibraryRepository`
 - `AuraPlayMediaItem` uses capability flags (`isPlayable`, `isSearchable`, `hasAudio`, `hasArtwork`) instead of a content-type inheritance tree
-- search stays three-tier and Apple-native (trie + CoreSpotlight + NaturalLanguage embeddings) and remains deferred
+- search uses bounded SwiftData-backed local matching, CoreSpotlight indexing, and NaturalLanguage embeddings; a trie is not required without measured pressure
 
 ### Container & Store
 
@@ -289,7 +308,7 @@ Additional persistence support:
 
 `MusicFeature/Sources/MusicFeature/Domain/AuraPlayLibraryScope.swift` captures the wallet-and-chain scope every persisted query is constrained by. It is the small value type the indexer, the sync service, and the repository all key off of.
 
-`AuraPlayLibraryRepository` (defined under `Services/`) remains the only product-facing repository seam. `LiveAuraPlayLibraryRepository` reads the persisted graph when a scoped wallet exists and falls back to the legacy library indexer otherwise.
+`AuraPlayLibraryRepository` (defined under `Services/`) remains the only product-facing repository seam. `LiveAuraPlayLibraryRepository` reads the persisted graph for the active wallet and chain. Provider discovery is authoritative; an unavailable discovery route must surface honestly and must not silently substitute primary-store inventory.
 
 ### Shared Wallet / NFT Models
 
@@ -304,9 +323,9 @@ Sibling persisted models in `AuralisPrimaryPersistence` (`NFT`, `MusicLibraryIte
 
 ### Sync Path
 
-`LiveAuraPlayLibrarySyncService` (in `MusicFeature/Sources/MusicFeature/Services/`) mirrors wallet-scoped music NFTs from the app-level model context into the AuraPlay store before the repository reads. `AuraPlayRootModel` refreshes through this sync seam before reading the library summary.
+`NFTSyncCoordinator` is the authoritative writer of wallet-and-chain-scoped `AuraPlayNFTToken` and `AuraPlayMediaItem` rows. It discovers provider inventory, fetches and classifies metadata, reconciles inactive items, and schedules indexing, embeddings, and artwork work. `LiveAuraPlayLibrarySyncService` remains only as a compatibility projection and deliberately does not write AuraPlay media rows.
 
-`MusicAssembly.makeMusicFeatureDependencies(...)` is the live wiring point — it constructs the sync service with both the account-level `ModelContext` and the `AuraPlayModelContainer` so the sync flow stays scope-aware.
+`MusicAssembly.makeMusicFeatureDependencies(...)` is the live wiring point. It composes discovery, persistence, playback, search, playlist, receipt, and compatibility adapters while keeping wallet and chain scope explicit.
 
 ### Test Containers
 
@@ -329,9 +348,7 @@ AuraPlay now owns a package-scoped storage-resolution stack under `MusicFeature/
 - `AuraPlayError.mediaResolution(String)`
   Carries storage-resolution failures through the existing module-scoped error surface.
 
-The live `URLResolver` is injected through `AuraPlayDependencies`, wired in `MusicAssembly`, passed into `AuraPlayRootModel`, and used for current-track artwork URL preparation before falling back to `AuraPlayArtworkLoading`. `GatewayFallbackChain` is implemented and tested as the network-facing wrapper, but downstream metadata/audio paths still need deliberate migration before they rely on it.
-
-The shipping boundary is intentionally narrow: Phase 3 closed the resolver and fallback seam. It did not claim that every legacy metadata, audio-engine, or image-classifier caller has already moved off app-target URL helpers.
+The live `URLResolver` is injected through `AuraPlayDependencies`, wired in `MusicAssembly`, and used by AuraPlay metadata, artwork, playback, and video URL-preparation paths. `GatewayFallbackChain` is the tested network-facing wrapper. AuraPlay caller migration is complete; legacy helpers remain only for non-AuraPlay consumers.
 
 ### Phase 3 Validation
 
@@ -343,7 +360,14 @@ Recorded Phase 3 validation on June 7, 2026:
 - `AuralisTests` through the Auralis-Full plan passed.
 - The full Xcode project build succeeded.
 
-The broader local-package sweep found unrelated package test debt. That follow-up is tracked in `Phase3-Followup-Package-Test-Restoration.md` and does not reopen Phase 3 storage resolution.
+The unrelated local-package test debt found during that sweep does not reopen Phase 3 storage resolution. Package ownership work is deliberately deferred and tracked outside AuraPlay's current reference documentation.
+
+Historical 2026-08-11 source check:
+
+- The Phase 3 storage-resolution implementation and live wiring are still present: `AuraPlayStorageResolutionConfiguration`, `URIScheme`, `URLResolver`, `GatewayFallbackChain`, `AuraPlayError.mediaResolution(String)`, `AuraPlayDependencies.urlResolver`, and `MusicAssembly` composition all exist in the current codebase.
+- Several old package-test findings are stale at source level: ProviderKit now expects redacted provider payloads, ChainProviders imports the shared `LockedValue` helper through `AuralisTestSupport`, AccountStorage imports the moved primary model packages, AuraUI's color tests no longer use the problematic nested `#expect(try #require(...))` shape, and the SwiftData storage test types are `@MainActor`.
+- Remaining source-suspect package-test cleanup includes ENS test redeclarations / throwing test signatures, NFTLibraryFeature image-loader `response` shadowing, and residual nested Swift Testing macro patterns in AuralisShellCore and NFTLibraryFeature presentation tests.
+- Package execution was blocked in that session. This is superseded by the successful 132-test standalone `MusicFeature` run recorded above on 2026-10-21.
 
 ### Legacy Compatibility References
 
@@ -370,9 +394,35 @@ The legacy shell path still contains ad-hoc helpers under `Auralis/Helpers/`. Au
 - AuraPlay caller migration is complete: the discovery pipeline (`MetadataFetcher`, `MediaClassifier`, `MediaItemArtworkPrefetcher`) resolves through `GatewayFallbackChain`/`URLResolver`; both library-sync artwork paths (`LiveAuraPlayLibrarySyncService`, `SwiftDataMusicLibraryIndexer`) normalize through `URLResolver`; the audio-engine load path resolves decentralized URIs through the runtime's `GatewayFallbackChain`; and the video gateway-fallback resolver derives its host list from `AuraPlayStorageResolutionConfiguration`.
 - The old helpers coexist only for non-AuraPlay shell callers (`NFTKit`, `AuralisPrimaryModels`).
 
-## Phase 6 — Audio Engine v1 UI Integration
+## Phase 5 — NFT Discovery & Metadata Ingestion
 
-The Audio Engine v1 host UI is implemented for the current release scope. `AuraPlayPlaybackRuntime` wires the `AuraPlayAudioEngine` package into the MusicFeature presentation contracts, and the active user-facing controls now live across Now Playing, the mini player, and Settings.
+Phase 5's planned discovery pipeline is implemented in `MusicFeature/Sources/MusicFeature/Discovery/` and wired through `MusicAssembly.makeNFTSyncCoordinator(...)`.
+
+Implemented surfaces:
+
+- `NFTTokenDTO`, `MetadataParsed`, `MetadataSchema`, `MediaItemDTO`, and the discovery/persistence/indexing protocols define the DTO boundary. Network and parser code pass plain Sendable values, not SwiftData models.
+- `AlchemyNFTClient` implements `EVMNFTDiscovering` for Ethereum, Polygon, Base, Optimism, and Arbitrum through Alchemy NFT API v3. It paginates, deduplicates by `compositeID`, maps provider payloads into `NFTTokenDTO`, retries transient/rate-limit/server failures, and clamps `retryCount` to avoid zero-range traps.
+- `HeliusNFTClient` implements `SolanaNFTDiscovering` over Helius DAS JSON-RPC. It builds `getAssetsByOwner` requests, pages with a bounded page limit, retries 429/5xx/transient network failures, respects `Retry-After`, skips owner-mismatched assets with a warning, deduplicates results, and maps DAS assets into `NFTTokenDTO`.
+- `MetadataFetcher` fetches missing token metadata through `GatewayFallbackChain`, handles `data:application/json` without network, uses `URLCache`, validates JSON/UTF-8/non-empty responses, enforces a 5 MB payload cap, retries bounded failures, and negative-caches failed metadata URLs.
+- `MetadataParser` is pure and returns `MetadataParsed` for Helius DAS, Sound.xyz, Zora, Metaplex, ERC-1155, OpenSea, or unknown JSON. Helius DAS is checked first because its media fields are nested under `content`; Sound.xyz and Zora still precede OpenSea to avoid broad-shape misclassification.
+- `MediaClassifier` converts `MetadataParsed + NFTTokenDTO` into `MediaItemDTO`, resolves media/artwork strings through `URLResolver`, classifies audio/video/non-playable items, injects dates for deterministic tests, and maps DTOs into `AuraPlayMediaItemUpsertRequest` through `MediaItemDTO.upsertRequest`.
+- `NFTSyncCoordinator` composes provider discovery, missing metadata fetch, parsing, classification, `AuraPlayNFTTokenService`, `AuraPlayMediaItemService`, per-wallet/per-chain cooldown, inactive marking, media removal, Smart Resume tombstone restoration, Spotlight indexing/deletion, embedding queue processing, and fire-and-forget artwork prefetch.
+- `MediaItemArtworkPrefetcher` resolves artwork through `GatewayFallbackChain`, batches unique URLs, skips work under Low Power Mode, uses `URLCache`, and enforces a 10 MB image guard.
+- `AuraPlayBackgroundRefreshRegistrar` schedules the same coordinator through the background refresh path; foreground and background sync share one pipeline.
+
+Test coverage:
+
+- Source count on 2026-08-11 found 43 Phase 5-focused Swift Testing tests across `AlchemyNFTClientTests`, `HeliusNFTClientTests`, `MetadataFetcherTests`, `MediaItemArtworkPrefetcherTests`, `AuraPlayDiscoveryContractTests`, and `Phase5NFTDiscoveryIntegrationTests`.
+- `Phase5NFTDiscoveryIntegrationTests` contains the mock-backed integration gate, including EVM/OpenSea, Solana/Metaplex, Helius DAS, Sound.xyz priority, visual-only persistence, animation URL audio/video disambiguation, metadata-fetch fallback, metadata-fetch partial continuation, token revocation/inactive marking, partial chain failure, failed-sync debounce behavior, per-scope cooldown, and 15-minute debounce scenarios. These tests use mock provider clients/fetchers/prefetchers/indexers and in-memory SwiftData, not real Alchemy/Helius/metadata HTTP calls.
+- Earlier journal entries record that the MusicFeature package Xcode test lane ran the Phase 5 suite through CI/local validation in July 2026. This 2026-08-11 documentation pass could not re-run it in the managed sandbox: `xcodebuild test -scheme MusicFeature -destination 'platform=macOS'` failed before package resolution because CoreSimulator was unavailable and the sandbox denied writes to DerivedData/SwiftPM cache files.
+
+Remaining Phase 5 code gate: none identified by source inspection in this pass.
+
+Remaining validation gate: re-run the MusicFeature package test lane in a clean local or CI environment when the sandbox/CoreSimulator issue is gone.
+
+## Phase 6 — Package Audio Engine UI Integration
+
+The package-backed audio-engine host UI is implemented for the current release scope. `AuraPlayPlaybackRuntime` wires the `AuraPlayAudioEngine` package into the MusicFeature presentation contracts, and the active user-facing controls now live across Now Playing, the mini player, and Settings.
 
 Implemented UI and runtime surfaces:
 
@@ -401,7 +451,7 @@ Implemented Phase 9 surfaces:
 
 Implemented Phase 10 surfaces:
 
-- `AuraPlayOrchestratorAdapter` (app target, `MusicApp/AuraPlay/Player/`) is the live conformance of `AuraPlayPlaybackOrchestrating` over the app-private `PlaybackOrchestrator`.
+- `AuraPlayPlaybackPlayerAdapter` is the package-level generic adapter that bridges the injected `AuraPlayPlaybackPresenting` seam into `AuraPlayPlayerCommanding`. `AuraPlayMiniPlayerView` constructs it when presenting the player, so the player remains independent of app-private orchestration types.
 - `AuraPlayPlayerView` renders distinct audio and video branches: audio gets a blurred-artwork ambient background (opaque fallback under Reduce Transparency) and a marquee title when Reduce Motion is off; video renders full-bleed above the scrolling controls with a contrast scrim.
 - The mini-player-to-player transition uses the zoom matched-transition (`matchedTransitionSource`/`navigationTransition(.zoom)`) on iOS, skipped under Reduce Motion.
 - One `SeekCoalescer` instance is shared by the scrubber and the gesture layer, so drags and double-taps chase a single target for both audio and video. The engine-internal `ChaseTimeSeekCoordinator` remains as the `AVPlayer`-side chase beneath that shared UI path (deliberate: it is the engine primitive the plan allows wrapping).
@@ -419,13 +469,13 @@ Remaining release gates: physical-device QA for video PiP/AirPlay/subtitle/speed
 
 ## Phase 8 — Playback Orchestration
 
-Phase 8 code-side orchestration is implemented in the app target, with `PlaybackOrchestrator` as the target playback authority. Because AuraPlay has not shipped, the remaining work should cut production paths over to the orchestrator instead of preserving `AuraPlayPlaybackRuntime` as a parallel owner.
+Phase 8 code-side orchestration is implemented in the app target, with `PlaybackOrchestrator` as the playback authority and `AuraPlayPlaybackRuntime` as the UI-facing adapter over that authority. Runtime ownership should stay in that adapter/orchestrator relationship rather than drifting back into leaf views or a resurrected app-local engine.
 
 Implemented surfaces:
 
 - `AuraPlayPlaybackQueue` stores `QueueEntry` values with per-entry UUID identity, so duplicate media items can be removed, reordered, advanced, and tracked without relying on non-unique media IDs.
 - `PlaybackOrchestrator` owns a main-actor state machine, active-engine routing through `EngineArbiter`, a playback-generation token, remote-command dispatch, repeat/shuffle state, error recovery, completion advance, cadence persistence, next-item preparation hooks, and restore-to-paused support.
-- `AuraPlayPlaybackRuntime` is now the UI-facing adapter over `PlaybackOrchestrator`: production audio starts through `playbackOrchestrator.play`, transport controls route through orchestrator commands, and remote commands bind through `RemoteCommandCoordinator` instead of a second runtime-owned stream consumer.
+- `AuraPlayPlaybackRuntime` is the UI-facing adapter over `PlaybackOrchestrator`: production audio starts through `playbackOrchestrator.play`, transport controls route through orchestrator commands, and production remote commands route through the runtime handler. `RemoteCommandCoordinator` remains only in isolated tests.
 - `PositionPersistenceCoordinator` is attached to the orchestrator for cadence writes, pause/stop/track-change flushes, completion reset, most-recent restore lookup, and shared resume-threshold logic.
 - `AuraPlayVideoWireframeView` now uses a SwiftData-backed `VideoPlaybackStateStoring` adapter over `AuraPlayPlaybackPositionStateService`; the old video-local `UserDefaults` writer is removed from the app path.
 - ADR-006 records that playback position persistence is now orchestrator-owned and no longer a video-local production write path.
@@ -434,6 +484,26 @@ Implemented surfaces:
 Remaining code gate: none for Phase 8 orchestration in the current app-target scope.
 
 Remaining release gate: physical-device playback QA for real media, routes, interruptions, Lock Screen/Control Center, backgrounding, PiP restore, poor networks, resume prompts, and battery behavior.
+
+## Search — Accepted Implementation
+
+Search autocomplete and orchestration are implemented without the originally proposed trie or a type literally named `SearchService`.
+
+- `AuraPlayRootModel` loads an account-and-chain-scoped search snapshot through the SwiftData-backed media query service.
+- `AuraPlaySearchCoordinator` produces suggestions and local title, creator, and collection matches.
+- `AuraPlayEmbeddingService` produces semantic matches.
+- The model merges and deduplicates both sources, exposes local/semantic/overlap diagnostics, cancels stale tasks, and rejects results from superseded query generations.
+- `AuraPlaySearchTests` covers autocomplete, semantic-only results, result merging, recents, and stale-query behavior.
+
+This is the accepted search facade. A trie or specialized autocomplete index is a future optimization only if profiling shows the current 5,000-item snapshot approach misses a real latency or scale target.
+
+## Receipt And Lifecycle Hardening
+
+- Live playlist composition uses `ReceiptBackedAuraPlayPlaylistManager`; create, rename, membership, reorder, and delete mutations emit receipts, while no-op mutations do not.
+- Media reconciliation deletes matching `AuraPlayMediaEmbedding` rows when media leaves the active inventory, alongside the existing per-item CoreSpotlight deletion.
+- Storage resolution accepts validated optional HTTPS gateway overrides from app configuration and otherwise retains the audited gateway chain.
+- `AuraPlayError` provides structured recovery suggestions and sanitizes unknown underlying failures.
+- The MusicFeature package suite verifies these contracts with 132 passing tests across 21 suites.
 
 ## Object Index
 
@@ -450,16 +520,21 @@ Use these names. Rows marked "(not yet built)" describe a planned concept that d
 | DI plumbing                     | `*Assembly` types + `AuraPlayDependencies`     | `Auralis/Auralis/Assemblies/`, `MusicFeature/.../App/AuraPlayDependencies.swift`      |
 | Build secrets                   | `Secrets.local.xcconfig` (+ template)          | `Auralis/Auralis/Config/`                                                             |
 | Persistence container factory   | `AuraPlayModelContainer`                       | `MusicFeature/.../Persistence/AuraPlayModelContainer.swift`                           |
-| Versioned schema + migration plan | (not yet built)                              | —                                                                                     |
+| Persistence schema              | flat `AuraPlaySchema` (no migration plan shipped) | `MusicFeature/.../Persistence/`                                                   |
 | Shared wallet/account `@Model`  | `EOAccount` (shared, not AuraPlay-owned)        | `AuralisPrimaryModels/Sources/AuralisPrimaryPersistence/EOAccount.swift`             |
 | AuraPlay-owned wallet service   | (not yet built — scope held by `AuraPlayLibraryScope`) | `MusicFeature/.../Domain/AuraPlayLibraryScope.swift`                          |
 | Shared NFT `@Model`             | `NFT` (shared, not AuraPlay-owned)              | `AuralisPrimaryModels/Sources/AuralisPrimaryPersistence/NFT.swift`                   |
-| AuraPlay-owned NFT service      | (not yet built — origin fields inline on `AuraPlayMediaItem`) | `MusicFeature/.../Persistence/AuraPlayMediaItem.swift`             |
+| AuraPlay-owned NFT token model + service | `AuraPlayNFTToken` + `AuraPlayNFTTokenService` | `MusicFeature/.../Persistence/AuraPlayNFTToken.swift`, `.../Services/AuraPlayNFTTokenService.swift` |
 | Media item `@Model` + service   | `AuraPlayMediaItem` + `AuraPlayMediaItemService` | `MusicFeature/.../Persistence/AuraPlayMediaItem.swift`, `.../Services/AuraPlayMediaItemService.swift` |
-| Search index + three-tier search | (not yet built)                               | —                                                                                     |
-| Playlist + playlist-item models | (not yet built)                                | —                                                                                     |
+| NFT discovery coordinator       | `NFTSyncCoordinator`                           | `MusicFeature/Sources/MusicFeature/Discovery/NFTSyncCoordinator.swift`                |
+| EVM NFT discovery client        | `AlchemyNFTClient`                             | `MusicFeature/Sources/MusicFeature/Discovery/AlchemyNFTClient.swift`                  |
+| Solana NFT discovery client     | `HeliusNFTClient`                              | `MusicFeature/Sources/MusicFeature/Discovery/HeliusNFTClient.swift`                   |
+| Metadata fetch/parser/classifier | `MetadataFetcher`, `MetadataParser`, `MediaClassifier` | `MusicFeature/Sources/MusicFeature/Discovery/`                                |
+| Artwork prefetcher              | `MediaItemArtworkPrefetcher`                   | `MusicFeature/Sources/MusicFeature/Discovery/MediaItemArtworkPrefetcher.swift`        |
+| Search indexing + semantic search | `AuraPlaySpotlightIndexer` + `AuraPlayEmbeddingService`; visible search uses AuraPlay search coordinator | `MusicFeature/Sources/MusicFeature/Discovery/`, `MusicFeature/.../Presentation/Library/` |
+| Playlist + playlist-item models | `AuraPlayPlaylist`, `AuraPlayPlaylistItem`, `AuraPlayPlaylistService` | `MusicFeature/.../Persistence/AuraPlayPlaylist.swift`, `.../AuraPlayPlaylistItem.swift`, `.../Services/AuraPlayPlaylistService.swift` |
 | Playback-state model            | `AuraPlayPlaybackPositionState` + `AuraPlayPlaybackPositionStateService` | `MusicFeature/.../Persistence/AuraPlayPlaybackPositionState.swift`, `.../Services/AuraPlayPlaybackPositionStateService.swift` |
-| Deterministic seeder            | (not yet built — shared helpers in `AuralisTestSupport`) | `AuralisTestSupport/`                                                       |
+| Deterministic AuraPlay seeder   | `AuraPlayLibrarySeed` (test-target scoped, with minimal/standard/large tiers) | `MusicFeature/Tests/MusicFeatureTests/AuraPlayLibrarySeed.swift` |
 | Legacy URI resolver             | `URLConverter.convertToPreferredHTTPS` (legacy, app-target) | `Auralis/Auralis/Helpers/StringHelpers.swift`                            |
 | Legacy IPFS gateway rewrite     | `URL.toPinataGatewayURL()` (legacy, app-target) | `Auralis/Auralis/Helpers/URL.swift`                                                  |
 | Legacy single-call sanitiser    | `URL.sanitizedRemoteMediaURL(from:)` (legacy, app-target) | `Auralis/Auralis/Helpers/URL.swift`                                          |
@@ -469,6 +544,6 @@ Use these names. Rows marked "(not yet built)" describe a planned concept that d
 
 ## What This Doc Is Not
 
-- not a backlog (see `AuraPlay-Gaps.md`)
+- not a backlog (see `../P0-Future-Work.md`)
 - not a substitute for ADR-001 (architecture intent), ADR-002 (persistence intent), or `AuraPlay-LLM-Context.md` (compact mental model)
-- not the next-phase plan — see `AuraPlay-Phase5-Handoff.md` and `AuraPlay-Future-Work.md`
+- not the next-phase plan — see `../P0-Future-Work.md`, the known-limitations document, and the QA contracts

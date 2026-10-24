@@ -107,10 +107,12 @@ public actor NFTFetcher: NFTFetching {
 
     private let throttler = RequestThrottler()
 
-    public init(maxRetryCount: Int = 10,
-         baseDelayNanoseconds: UInt64 = 100_000_000,
-         maxDelayNanoseconds: UInt64 = 5_000_000_000,
-         nftProviderFactory: @escaping NFTProviderFactory = { try AlchemyNFTService(chain: $0) }) {
+    public init(
+        maxRetryCount: Int = 10,
+        baseDelayNanoseconds: UInt64 = 100_000_000,
+        maxDelayNanoseconds: UInt64 = 5_000_000_000,
+        nftProviderFactory: @escaping NFTProviderFactory = { try AlchemyNFTService(chain: $0) }
+    ) {
         self.maxRetryCount = maxRetryCount
         self.baseDelayNanoseconds = baseDelayNanoseconds
         self.maxDelayNanoseconds = maxDelayNanoseconds

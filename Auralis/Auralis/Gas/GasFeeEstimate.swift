@@ -6,10 +6,10 @@
 //
 
 import AuralisPrimaryModels
+import AuraUI
 import Observation
 import ProviderKit
 import SwiftUI
-import AuraUI
 import UIKit
 
 // MARK: - Enums for Type Safety

@@ -1,17 +1,18 @@
-import ReceiptsCore
-import ReceiptStorage
+@testable import Auralis
+import AuralisPrimaryModels
+import AuralisShellCore
+import AuralisTestSupport
+import ENS
+import Foundation
+import MusicFeature
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
-@testable import Auralis
-import AuralisPrimaryModels
-import AuralisTestSupport
-import AuralisShellCore
-import ENS
-import Foundation
-import MusicFeature
+import ReceiptsCore
+import ReceiptStorage
+import RuntimeCore
 import SwiftData
 import Testing
 import TokenStorage
@@ -231,12 +232,22 @@ struct ShellDependencyBuilderTests {
         defer { modeDefaultsCleanup() }
         let modeState = ModeState(userDefaults: modeDefaults, storageKey: "app.mode.tests")
 
-        let result = await dependencies.policyActionHandlerFactory(context, modeState).attempt(.signMessage)
+        let result = await dependencies.policyActionHandlerFactory(context, modeState).attempt(
+            .signMessage,
+            payload: .signMessage(
+                text: "Test Observe-mode policy wiring",
+                address: "0x0000000000000000000000000000000000000001",
+                chainID: "1"
+            ),
+            actor: .human
+        )
 
         #expect(result.isAllowed == false)
-        #expect(result.userMessage == "Not available in Observe mode")
+        // The person's wording, not the schema's: this string is rendered verbatim in the
+        // "Policy decision" alert, and it used to read "PolicyCore denied sign_message in Observe mode."
+        #expect(result.userMessage == "“Sign Message” is not available in Observe mode.")
         let receipts = try await receiptStore.latest(limit: 10)
-        #expect(receipts.contains { $0.trigger == "policy.denied" })
+        #expect(receipts.contains { $0.trigger == "tool.blocked" })
     }
 
     @Test("main tab dependencies wire privacy reset through shell preferences and pinned items")
@@ -253,8 +264,17 @@ struct ShellDependencyBuilderTests {
             homePinnedItemsStore: pinnedItemsStore,
             privacyResetServiceFactory: { modelContext, auraPlayContainer in
                 PrivacyResetService(
-                    transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+                    transactionalResetService: SwiftDataTransactionalResetService(
                         modelContainer: modelContext.container
+                    ),
+                    // The real one, like every other non-recording service in this factory: this case
+                    // mirrors `PrivacyResetServices.live`, and a no-op double here would hide exactly
+                    // the wiring mistake the mirror exists to catch.
+                    receiptLedgerResetService: ReceiptStoreLedgerResetService(
+                        store: { ReceiptStores.live(modelContext: modelContext) }
+                    ),
+                    runtimeHistoryResetService: RuntimeHostHistoryResetService(
+                        host: { RuntimeAssembly.sharedHost(modelContext: modelContext) }
                     ),
                     ensCacheResetService: ENSResolvers.cacheResetService(),
                     auraPlayPersistenceResetService: auraPlayContainer.map {
@@ -359,6 +379,8 @@ private actor RecordingReceiptStore: ReceiptStore {
             sequenceID: records.count + 1,
             createdAt: receipt.createdAt,
             actor: receipt.actor,
+            actorDetail: receipt.actorDetail,
+            authorityDetail: receipt.authorityDetail,
             mode: receipt.mode,
             trigger: receipt.trigger,
             scope: receipt.scope,

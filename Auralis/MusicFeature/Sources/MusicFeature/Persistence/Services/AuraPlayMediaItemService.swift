@@ -4,6 +4,28 @@ import SwiftData
 
 @ModelActor
 public actor AuraPlayMediaItemService {
+    /// Replaces the complete user-owned metadata overlay for one item. Passing
+    /// nil (or whitespace) clears that field and reveals the provider value.
+    /// The returned ID is the unit callers should send to Spotlight and the
+    /// embedding queue after the mutation commits.
+    @discardableResult
+    public func updateUserMetadata(
+        sourceNFTID: String,
+        title: String?,
+        artistName: String?,
+        collectionName: String?,
+        artworkURLString: String?,
+        updatedAt: Date = .now
+    ) throws -> String? {
+        guard let item = try fetchItem(sourceNFTID: sourceNFTID) else { return nil }
+        item.userTitleOverride = Self.nonEmpty(title)
+        item.userArtistNameOverride = Self.nonEmpty(artistName)
+        item.userCollectionNameOverride = Self.nonEmpty(collectionName)
+        item.userArtworkURLStringOverride = Self.nonEmpty(artworkURLString)
+        item.updatedAt = updatedAt
+        try modelContext.save()
+        return item.sourceNFTID
+    }
     public func replaceAll(
         accountAddress: String,
         chain: Chain,
@@ -75,7 +97,9 @@ public actor AuraPlayMediaItemService {
             item.updatedAt = syncedAt
         }
 
-        for item in existingItems where !retainedIDs.contains(item.id) {
+        let removedItems = existingItems.filter { !retainedIDs.contains($0.id) }
+        try deleteEmbeddings(mediaItemIDs: Set(removedItems.map(\.sourceNFTID)))
+        for item in removedItems {
             try capturePlaybackTombstoneIfNeeded(for: item, capturedAt: syncedAt)
             modelContext.delete(item)
         }
@@ -181,13 +205,13 @@ public actor AuraPlayMediaItemService {
             let first = items[0]
             return LibraryCollectionGroup(
                 id: id,
-                collectionName: first.collectionName?.isEmpty == false
-                    ? first.collectionName ?? "Untitled Collection"
+                collectionName: first.displayCollectionName?.isEmpty == false
+                    ? first.displayCollectionName ?? "Untitled Collection"
                     : "Untitled Collection",
                 contractAddress: first.contractAddressRawValue,
                 chain: first.chain,
                 itemCount: items.count,
-                artworkURLStrings: Array(items.compactMap(\.artworkURLString).prefix(4))
+                artworkURLStrings: Array(items.compactMap(\.displayArtworkURLString).prefix(4))
             )
         }
         .sorted { $0.collectionName.localizedCaseInsensitiveCompare($1.collectionName) == .orderedAscending }
@@ -196,11 +220,11 @@ public actor AuraPlayMediaItemService {
             let first = items[0]
             return LibraryCreatorGroup(
                 id: id,
-                displayName: first.artistName?.isEmpty == false
-                    ? first.artistName ?? "Unknown Creator"
+                displayName: first.displayArtistName?.isEmpty == false
+                    ? first.displayArtistName ?? "Unknown Creator"
                     : "Unknown Creator",
                 itemCount: items.count,
-                artworkURLStrings: Array(items.compactMap(\.artworkURLString).prefix(4))
+                artworkURLStrings: Array(items.compactMap(\.displayArtworkURLString).prefix(4))
             )
         }
         .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
@@ -264,7 +288,7 @@ public actor AuraPlayMediaItemService {
 
         guard let first = matching.first else { return nil }
         let sorted = Self.sort(matching, by: sort).map(MediaItemQueryItem.init)
-        let displayName = Self.nonEmpty(first.artistName) ?? "Unknown Creator"
+        let displayName = Self.nonEmpty(first.displayArtistName) ?? "Unknown Creator"
         return AuraPlayCreatorProfile(id: creatorIdentifier, displayName: displayName, items: sorted)
     }
 
@@ -422,6 +446,7 @@ extension AuraPlayMediaItemService: AuraPlayMediaPersisting {
             )
         )
         guard !items.isEmpty else { return }
+        try deleteEmbeddings(mediaItemIDs: removedIDs)
         for item in items {
             try capturePlaybackTombstoneIfNeeded(for: item, capturedAt: capturedAt)
             modelContext.delete(item)
@@ -518,6 +543,20 @@ extension AuraPlayMediaItemService: AuraPlayMediaPersisting {
 }
 
 private extension AuraPlayMediaItemService {
+    func deleteEmbeddings(mediaItemIDs: Set<String>) throws {
+        guard !mediaItemIDs.isEmpty else { return }
+        let embeddings = try modelContext.fetch(
+            FetchDescriptor<AuraPlayMediaEmbedding>(
+                predicate: #Predicate<AuraPlayMediaEmbedding> { embedding in
+                    mediaItemIDs.contains(embedding.mediaItemID)
+                }
+            )
+        )
+        for embedding in embeddings {
+            modelContext.delete(embedding)
+        }
+    }
+
     func fetchScopedItems(context: MediaItemQueryContext) throws -> [AuraPlayMediaItem] {
         let accountAddress = context.scope.accountAddress ?? ""
         let scopeChainRawValue = context.scope.chain.rawValue
@@ -543,26 +582,26 @@ private extension AuraPlayMediaItemService {
             switch sort {
             case .dateAdded:
                 if lhs.createdAt != rhs.createdAt { return lhs.createdAt > rhs.createdAt }
-                if lhs.normalizedTitleKey != rhs.normalizedTitleKey { return lhs.normalizedTitleKey < rhs.normalizedTitleKey }
+                if lhs.displayNormalizedTitleKey != rhs.displayNormalizedTitleKey { return lhs.displayNormalizedTitleKey < rhs.displayNormalizedTitleKey }
                 return lhs.sourceNFTID < rhs.sourceNFTID
             case .titleAZ:
-                if lhs.normalizedTitleKey != rhs.normalizedTitleKey { return lhs.normalizedTitleKey < rhs.normalizedTitleKey }
+                if lhs.displayNormalizedTitleKey != rhs.displayNormalizedTitleKey { return lhs.displayNormalizedTitleKey < rhs.displayNormalizedTitleKey }
                 return lhs.sourceNFTID < rhs.sourceNFTID
             case .creatorAZ:
-                if lhs.normalizedArtistKey != rhs.normalizedArtistKey { return lhs.normalizedArtistKey < rhs.normalizedArtistKey }
-                if lhs.normalizedTitleKey != rhs.normalizedTitleKey { return lhs.normalizedTitleKey < rhs.normalizedTitleKey }
+                if lhs.displayNormalizedArtistKey != rhs.displayNormalizedArtistKey { return lhs.displayNormalizedArtistKey < rhs.displayNormalizedArtistKey }
+                if lhs.displayNormalizedTitleKey != rhs.displayNormalizedTitleKey { return lhs.displayNormalizedTitleKey < rhs.displayNormalizedTitleKey }
                 return lhs.sourceNFTID < rhs.sourceNFTID
             case .duration:
                 let lhsDuration = lhs.durationSeconds ?? .greatestFiniteMagnitude
                 let rhsDuration = rhs.durationSeconds ?? .greatestFiniteMagnitude
                 if lhsDuration != rhsDuration { return lhsDuration < rhsDuration }
-                if lhs.normalizedTitleKey != rhs.normalizedTitleKey { return lhs.normalizedTitleKey < rhs.normalizedTitleKey }
+                if lhs.displayNormalizedTitleKey != rhs.displayNormalizedTitleKey { return lhs.displayNormalizedTitleKey < rhs.displayNormalizedTitleKey }
                 return lhs.sourceNFTID < rhs.sourceNFTID
             case .lastPlayed:
                 let lhsDate = lhs.lastPlayedAt ?? .distantPast
                 let rhsDate = rhs.lastPlayedAt ?? .distantPast
                 if lhsDate != rhsDate { return lhsDate > rhsDate }
-                if lhs.normalizedTitleKey != rhs.normalizedTitleKey { return lhs.normalizedTitleKey < rhs.normalizedTitleKey }
+                if lhs.displayNormalizedTitleKey != rhs.displayNormalizedTitleKey { return lhs.displayNormalizedTitleKey < rhs.displayNormalizedTitleKey }
                 return lhs.sourceNFTID < rhs.sourceNFTID
             }
         }

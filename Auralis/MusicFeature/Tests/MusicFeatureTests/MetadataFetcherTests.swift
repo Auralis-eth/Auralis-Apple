@@ -1,6 +1,6 @@
 import AuralisTestSupport
-@testable import MusicFeature
 import Foundation
+@testable import MusicFeature
 import Testing
 
 struct MetadataFetcherTests {

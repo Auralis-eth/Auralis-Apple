@@ -20,7 +20,7 @@ public struct Secrets {
         }
     }
 
-    public enum APIKeyProvider: String, CaseIterable {
+    public enum APIKeyProvider: String, CaseIterable, Sendable {
         case alchemy = "Alchemy"
         case helius = "Helius"
 

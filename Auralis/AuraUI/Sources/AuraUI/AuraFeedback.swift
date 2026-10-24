@@ -95,33 +95,50 @@ public struct AuraEmptyState: View {
                         Text(title)
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(Color.textPrimary)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .layoutPriority(1)
                             .accessibilityAddTraits(.isHeader)
 
                         Text(message)
                             .font(.body)
                             .foregroundStyle(Color.textSecondary)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .layoutPriority(1)
                     }
                 }
                 .accessibilityElement(children: .combine)
 
                 if primaryAction != nil || secondaryAction != nil {
-                    HStack(spacing: 10) {
-                        if let primaryAction {
-                            AuraActionButton(primaryAction.title, systemImage: primaryAction.systemImage, style: .surface) {
-                                primaryAction.handler()
-                            }
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 10) {
+                            actionButtons
                         }
 
-                        if let secondaryAction {
-                            AuraActionButton(secondaryAction.title, systemImage: secondaryAction.systemImage, style: .surface) {
-                                secondaryAction.handler()
-                            }
+                        VStack(alignment: .leading, spacing: 10) {
+                            actionButtons
                         }
                     }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .contain)
+        }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        if let primaryAction {
+            AuraActionButton(primaryAction.title, systemImage: primaryAction.systemImage, style: .surface) {
+                primaryAction.handler()
+            }
+        }
+
+        if let secondaryAction {
+            AuraActionButton(secondaryAction.title, systemImage: secondaryAction.systemImage, style: .surface) {
+                secondaryAction.handler()
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
+@testable import AuraUI
 import SwiftUI
 import Testing
-@testable import AuraUI
 
 @Suite("Aura colors")
 struct AuraColorTests {

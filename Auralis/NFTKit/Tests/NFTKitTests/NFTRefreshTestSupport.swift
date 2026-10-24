@@ -1,6 +1,7 @@
-import AuralisTestSupport
+import AuralisFoundation
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import Foundation
 import NFTDomain
 import ReceiptStorage
@@ -23,7 +24,7 @@ enum NFTKitTestModelContainers {
             NFT.Image.self,
             NFT.Raw.self,
             Tag.self,
-            StoredReceipt.self,
+            StoredReceipt.self
     ]
 }
 

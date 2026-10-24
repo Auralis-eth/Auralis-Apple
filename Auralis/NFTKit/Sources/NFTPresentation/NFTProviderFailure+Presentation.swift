@@ -4,7 +4,7 @@ import NFTDomain
 import NFTProviderAdapters
 
 public extension NFTProviderFailure {
-    public func presentation(
+    func presentation(
         mode: NFTProviderFailurePresentationMode
     ) -> NFTProviderFailurePresentation {
         switch mode {

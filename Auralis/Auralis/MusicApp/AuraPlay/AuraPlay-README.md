@@ -1,29 +1,43 @@
 # AuraPlay
 
-AuraPlay is the in-place rebuild of the Auralis Music tab.
+AuraPlay is the shipping Music feature inside Auralis, not a standalone app or a second shell.
 
-## Where It Lives
+## Ownership Map
 
-- `App/`
-  Composition root, dependency container, and the migration seam from `MainTabView`.
-- `Core/`
-  Module-only control types and configuration snapshots.
-- `Domain/`
-  Wallet-and-chain scoped music models plus the AuraPlay error surface.
-- `Services/`
-  Protocol seams and live adapters for library, playback, queue, artwork, and logging behavior.
-- `Presentation/`
-  SwiftUI views and `@Observable` presentation models for the rebuilt root.
+- `MusicFeature/Sources/MusicFeature/`
+  Owns the domain values, SwiftData schema and services, discovery, receipts, feature protocols, and primary SwiftUI
+  presentation hierarchy.
+- `AuraPlayAudioEngine/` and `AuraPlayVideoEngine/`
+  Own playback-engine internals.
+- `Auralis/MusicApp/AuraPlay/`
+  Owns app-specific adapters: playback composition, platform bridges, video hosting, and the separate primary-store
+  playlist compatibility helpers.
+- `Auralis/Assemblies/MusicAssembly.swift`
+  Builds the live dependency graph and injects it into `MusicFeatureRootView`.
 
-## Current Architecture
+Shell routing, account selection, and chain scope remain owned by `ShellStore`, `MainAuraView`, and `AppRouter`.
 
-AuraPlay uses native SwiftUI with `@Observable` presentation state and initializer-based dependency injection.
+## Current Production Path
 
-The active root today is `AuraPlayCompositionRoot`, which receives shell scope plus an `AuraPlayDependencies` container. The module does not own app-level routing or account state; those remain at the shell boundary.
+- `MainTabView` presents `MusicFeatureRootView`, whose primary screen is `LibraryRootView`.
+- `NFTSyncCoordinator` is the authoritative writer of AuraPlay inventory from wallet/chain provider discovery.
+- `AuraPlayModelContainer` owns AuraPlay media, NFT-token, embedding, playlist, ordered playlist-item, and playback
+  position state. The schema is currently flat; the pre-release V1-to-V2 migration scaffolding was removed.
+- Audio uses `AuraPlayAudioEngine.AudioEngineController` through the app-owned `AuraPlayPlaybackRuntime`.
+- Video uses `AuraPlayVideoEngine` through the app-owned video presentation bridge.
+- The shipping playlist path is `AuraPlayPlaylistService`, decorated by `ReceiptBackedAuraPlayPlaylistManager`.
+- `Playlist/` is a non-shipping compatibility/test path for the primary-store `Playlist` model. It is never silently
+  synchronized with AuraPlay playlists and must not be reintroduced into the Music tab.
+- Auto-organization is receipt-backed preview only. Applying changes requires a separately reviewed mutation contract.
+- Provider metadata is immutable; optional user overrides drive presentation, sorting, semantic text, and Spotlight.
 
-## Migration Notes
+## Sources Of Truth
 
-- The live music implementation still exists under `Auralis/MusicApp/AI/V1/`.
-- `AuraPlayTabRootView` is the swap seam that can point the Music tab at the legacy root or the AuraPlay root.
-- Library migration comes first because it is read-heavy and lower-risk than queue and playback orchestration.
-- Now Playing should move only after the repository, playback, queue, and artwork seams are proven.
+- `Auralis/docs/plans/AuraPlay/AuraPlay-Status.md` — detailed as-built record and dated automated evidence.
+- `Auralis/docs/plans/AuraPlay/AuraPlay-LLM-Context.md` — compact orientation for future work.
+- `Auralis/docs/plans/AuraPlay/AuraPlay-Physical-Device-QA-Suite.md` — single manual hardware release gate.
+- `Auralis/docs/plans/AuraPlay/AuraPlay-Phase14-Known-Limitations.md` — accepted constraints and release disclosures.
+- `Auralis/docs/plans/P0-Future-Work.md` — genuine follow-on backlog.
+
+Completed phase plans, the UI requirements/gaps ledger, the old production-readiness session log, and the Phase 14
+master checklist are retired. Do not recreate them as competing sources of truth.

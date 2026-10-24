@@ -19,6 +19,8 @@ public enum EOAccountSource: String, Codable, Sendable {
     case qrScan
     case guestPass
     case walletConnect
+    /// Auralis's own in-app self-custodial wallet (keys generated and stored on-device).
+    case inAppWallet
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -32,6 +34,8 @@ public enum EOAccountSource: String, Codable, Sendable {
             self = .guestPass
         case Self.walletConnect.rawValue:
             self = .walletConnect
+        case Self.inAppWallet.rawValue:
+            self = .inAppWallet
         default:
             self = .manualEntry
         }

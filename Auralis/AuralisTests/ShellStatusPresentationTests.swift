@@ -1,11 +1,11 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
-import Testing
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import Testing
 
 @MainActor
 struct ShellStatusPresentationTests {

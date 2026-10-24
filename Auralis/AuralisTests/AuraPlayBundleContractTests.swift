@@ -44,24 +44,69 @@ struct AuraPlayBundleContractTests {
             atProjectRelativePath: "Auralis/Info.plist"
         )
 
-        let cameraUsage = try #require(infoPlist["NSCameraUsageDescription"] as? String)
+        let configuredCameraUsage = try infoPlistBuildSettingValue(for: "NSCameraUsageDescription")
+        let cameraUsage = try #require(
+            (infoPlist["NSCameraUsageDescription"] as? String) ?? configuredCameraUsage
+        )
         #expect(cameraUsage.localizedCaseInsensitiveContains("camera"))
         #expect(cameraUsage.localizedCaseInsensitiveContains("wallet"))
 
-        let photoUsage = try #require(infoPlist["NSPhotoLibraryUsageDescription"] as? String)
+        let configuredPhotoUsage = try infoPlistBuildSettingValue(for: "NSPhotoLibraryUsageDescription")
+        let photoUsage = try #require(
+            (infoPlist["NSPhotoLibraryUsageDescription"] as? String) ?? configuredPhotoUsage
+        )
         #expect(photoUsage.localizedCaseInsensitiveContains("photo library"))
         #expect(photoUsage.localizedCaseInsensitiveContains("playlist"))
 
         #expect(infoPlist["NSMotionUsageDescription"] == nil)
     }
 
-    @Test("music bundle contract does not rely on extra entitlements for background audio")
+    /// Background audio must still need **no** entitlement, and the entitlement file must contain
+    /// nothing beyond the three the receipt-ledger witness deliberately introduced.
+    ///
+    /// This asserted `entitlements.isEmpty`, which expressed the rule only for as long as the file
+    /// happened to be empty. The witness work then added an iCloud container, the CloudKit service
+    /// and `aps-environment`, and the assertion failed for a change that was intended — while
+    /// losing the guarantee it existed for, since "empty" cannot describe a deliberate set.
+    ///
+    /// Pinning the exact key set keeps the anti-creep property that mattered: a fourth entitlement
+    /// cannot appear without someone editing this list and saying why. Each of these is load-bearing
+    /// and none is for audio:
+    ///
+    /// - the two iCloud keys are the external receipt-ledger witness (F-54), and the container
+    ///   identifier must stay byte-identical to `AURALIS_RECEIPT_WITNESS_CLOUDKIT_CONTAINER`;
+    /// - `aps-environment` is the CloudKit push channel the witness needs to hear about remote
+    ///   changes. It is **not yet provisioned** (F-53), which is why no signed build succeeds.
+    ///
+    /// Adding these had a consequence worth recording here, because this file is where someone will
+    /// look: an app-wide iCloud entitlement switches `ModelConfiguration`'s `cloudKitDatabase`
+    /// default from a no-op into active SwiftData mirroring, which this schema cannot satisfy. Every
+    /// container now opts out explicitly — see `PrimaryStoreSchema.configuration(isStoredInMemoryOnly:)`.
+    @Test("app entitlements contain only the deliberate receipt-witness set, and none for audio")
     func musicBundleContractKeepsEntitlementsMinimal() throws {
         let entitlements = try loadDictionary(
             atProjectRelativePath: "Auralis/Auralis.entitlements"
         )
 
-        #expect(entitlements.isEmpty)
+        #expect(
+            Set(entitlements.keys) == [
+                "aps-environment",
+                "com.apple.developer.icloud-container-identifiers",
+                "com.apple.developer.icloud-services"
+            ],
+            "unexpected entitlements: \(entitlements.keys.sorted().joined(separator: ", "))"
+        )
+        // The witness container, asserted by value: a mismatch with the xcconfig addresses a
+        // different container rather than failing, so the ledger would read as witnessed while
+        // nothing published for it (F-54).
+        #expect(
+            entitlements["com.apple.developer.icloud-container-identifiers"] as? [String]
+                == ["iCloud.ETH.Auralis.Auralis"]
+        )
+        #expect(entitlements["com.apple.developer.icloud-services"] as? [String] == ["CloudKit"])
+        // The rule this test was originally written for: background audio is declared through
+        // `UIBackgroundModes`, not an entitlement.
+        #expect(entitlements.keys.contains { $0.localizedCaseInsensitiveContains("audio") } == false)
     }
 
     @Test("Release builds run provider client key validation")
@@ -92,7 +137,7 @@ struct AuraPlayBundleContractTests {
             "changeme",
             "your[-_]?alchemy",
             "^\\$\\(.*\\)$",
-            "^api_key$",
+            "^api_key$"
         ] {
             #expect(scriptText.contains(placeholderPattern))
         }
@@ -109,6 +154,20 @@ struct AuraPlayBundleContractTests {
             throw BundleFixtureError()
         }
         return dictionary
+    }
+
+    /// Xcode may manage usage descriptions as `INFOPLIST_KEY_*` target settings even when the app also
+    /// keeps a source Info.plist. Validate the effective declaration instead of requiring one storage form.
+    private func infoPlistBuildSettingValue(for key: String) throws -> String? {
+        let projectURL = try projectRootURL().appending(path: "Auralis.xcodeproj/project.pbxproj")
+        let projectText = try String(contentsOf: projectURL, encoding: .utf8)
+        let prefix = "INFOPLIST_KEY_\(key) = \""
+        guard let line = projectText.split(separator: "\n").first(where: { $0.contains(prefix) }),
+              let valueStart = line.range(of: prefix)?.upperBound,
+              let valueEnd = line[valueStart...].firstIndex(of: "\"") else {
+            return nil
+        }
+        return String(line[valueStart..<valueEnd])
     }
 
     private func projectRootURL(filePath: String = #filePath) throws -> URL {

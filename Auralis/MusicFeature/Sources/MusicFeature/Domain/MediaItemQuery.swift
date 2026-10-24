@@ -139,10 +139,10 @@ public struct MediaItemQueryItem: Identifiable, Equatable, Sendable {
     public init(item: AuraPlayMediaItem) {
         self.id = item.id
         self.sourceNFTID = item.sourceNFTID
-        self.title = item.title
-        self.artistName = item.artistName
-        self.collectionName = item.collectionName
-        self.artworkURLString = item.artworkURLString
+        self.title = item.displayTitle
+        self.artistName = item.displayArtistName
+        self.collectionName = item.displayCollectionName
+        self.artworkURLString = item.displayArtworkURLString
         self.playbackURLString = item.playbackURLString
         self.durationSeconds = item.durationSeconds
         self.hasAudio = item.hasAudio

@@ -58,7 +58,7 @@ struct SearchAssistantMediaCapabilityStageTests {
                 id: "visual-1",
                 domain: SearchIndexedDocument.Domain.nft.rawValue,
                 keywordTokens: [("mediaKind", "visual"), ("isPlayable", "false")]
-            ),
+            )
         ]
 
         let stage = AuralisMediaCapabilityStage(preferredMediaKind: nil, threshold: nil)
@@ -131,7 +131,7 @@ struct SearchAssistantReceiptRollupStageTests {
         let items = [
             makeItem(id: "r1", domain: SearchIndexedDocument.Domain.receipt.rawValue, keywordTokens: [("receiptStatus", "Failed")]),
             makeItem(id: "r2", domain: SearchIndexedDocument.Domain.receipt.rawValue, keywordTokens: [("receiptStatus", "Failed")]),
-            makeItem(id: "r3", domain: SearchIndexedDocument.Domain.receipt.rawValue, keywordTokens: [("receiptStatus", "Succeeded")]),
+            makeItem(id: "r3", domain: SearchIndexedDocument.Domain.receipt.rawValue, keywordTokens: [("receiptStatus", "Succeeded")])
         ]
 
         let stage = AuralisReceiptRollupStage(groupBy: nil)
@@ -155,7 +155,7 @@ struct SearchAssistantReceiptRollupStageTests {
         let items = [
             makeItem(id: "r1", domain: SearchIndexedDocument.Domain.receipt.rawValue, keywordTokens: [("chain", "Ethereum")]),
             makeItem(id: "r2", domain: SearchIndexedDocument.Domain.receipt.rawValue, keywordTokens: [("chain", "Ethereum")]),
-            makeItem(id: "r3", domain: SearchIndexedDocument.Domain.receipt.rawValue, keywordTokens: [("chain", "Base")]),
+            makeItem(id: "r3", domain: SearchIndexedDocument.Domain.receipt.rawValue, keywordTokens: [("chain", "Base")])
         ]
 
         let stage = AuralisReceiptRollupStage(groupBy: "chain")
@@ -173,8 +173,8 @@ struct SearchAssistantReceiptRollupStageTests {
         #expect(SearchAssistantPayload.cellString(for: firstRow.values[1]) == "2")
     }
 
-    @Test("no receipt items returns a zero count rather than an empty table")
-    func noReceiptsReturnsCount() async throws {
+    @Test("no receipt items returns an empty table")
+    func noReceiptsReturnsEmptyTable() async throws {
         guard #available(iOS 27.0, *) else { return }
 
         let items = [
@@ -183,11 +183,11 @@ struct SearchAssistantReceiptRollupStageTests {
 
         let stage = AuralisReceiptRollupStage(groupBy: nil)
         let result = stage.rollup(coreItems: items)
-        if case .count = result.payload {
-            // Expected: a zero count rather than a table when no receipts match.
-        } else {
-            Issue.record("Expected a count payload")
+        guard case .table(let table) = result.payload else {
+            Issue.record("Expected a table payload")
+            return
         }
+        #expect(table.rows.isEmpty)
     }
 }
 

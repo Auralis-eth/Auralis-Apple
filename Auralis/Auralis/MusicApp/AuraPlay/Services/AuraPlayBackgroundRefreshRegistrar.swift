@@ -95,7 +95,13 @@ final class AuraPlayBackgroundRefreshRegistrar {
 enum AuraPlayBackgroundRefreshRuntimeFactory {
     static func makeSyncService() throws -> any AuraPlayNFTDiscoverySyncing {
         let auraPlayModelContainer = try AuraPlayModelContainer.make(inMemory: false)
-        let primaryModelContainer = try ModelContainer(for: PrimaryStoreSchema.schema)
+        // Through the shared configuration, so a background refresh opens the store the same way
+        // the app does — SwiftData's CloudKit auto-discovery is opted out of there. See
+        // ``PrimaryStoreSchema/configuration(isStoredInMemoryOnly:)``.
+        let primaryModelContainer = try ModelContainer(
+            for: PrimaryStoreSchema.schema,
+            configurations: PrimaryStoreSchema.configuration()
+        )
         let accountModelContext = ModelContext(primaryModelContainer)
         return try MusicAssembly(
             providerAssembly: ProviderAssembly(),

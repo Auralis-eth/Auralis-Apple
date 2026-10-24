@@ -44,6 +44,49 @@ struct AuraPlayIndexingAndEmbeddingTests {
         #expect(client.deletedIDs() == ["media-1", "media-3"])
     }
 
+    @Test("Spotlight indexer purges the complete AuraPlay domain")
+    func spotlightIndexerPurgesAuraPlayDomain() async throws {
+        let container = try AuraPlayModelContainer.make(inMemory: true)
+        let client = RecordingSpotlightIndexClient()
+        let indexer = AuraPlaySpotlightIndexer(modelContainer: container, indexClient: client)
+
+        try await indexer.deleteAllItems()
+
+        #expect(client.deletedDomains() == [AuraPlaySpotlightDocument.mediaDomainIdentifier])
+    }
+
+    @Test("User metadata drives presentation and indexing while provider metadata survives refresh")
+    func userMetadataOverridesProviderPresentation() async throws {
+        let container = try AuraPlayModelContainer.make(inMemory: true)
+        let service = AuraPlayMediaItemService(modelContainer: container)
+        let providerItem = Self.mediaItem(id: "media-override", title: "Provider Title")
+        let context = ModelContext(container)
+        context.insert(providerItem)
+        try context.save()
+
+        let changedID = try await service.updateUserMetadata(
+            sourceNFTID: "media-override",
+            title: "  My Title  ",
+            artistName: "My Artist",
+            collectionName: "My Collection",
+            artworkURLString: "https://example.com/mine.png"
+        )
+        #expect(changedID == "media-override")
+
+        let client = RecordingSpotlightIndexClient()
+        let indexer = AuraPlaySpotlightIndexer(modelContainer: container, indexClient: client)
+        _ = try await indexer.indexItemsReturningResult(["media-override"])
+        let document = try #require(client.documents().first)
+        #expect(document.title == "My Title")
+        #expect(document.keywords.contains("My Artist"))
+
+        let stored = try #require(try context.fetch(FetchDescriptor<AuraPlayMediaItem>()).first)
+        #expect(stored.title == "Provider Title")
+        #expect(stored.displayTitle == "My Title")
+        #expect(stored.artworkURLString == "https://example.com/media-override.png")
+        #expect(stored.displayArtworkURLString == "https://example.com/mine.png")
+    }
+
     @Test("embedding service persists vectors and respects the processing limit")
     func embeddingServicePersistsVectorsWithLimit() async throws {
         let container = try AuraPlayModelContainer.make(inMemory: true)
@@ -239,6 +282,7 @@ private final class RecordingSpotlightIndexClient: AuraPlaySpotlightIndexClient,
     private let lock = NSLock()
     private var indexedDocuments: [AuraPlaySpotlightDocument] = []
     private var deletedIDValues: [String] = []
+    private var deletedDomainValues: [String] = []
 
     func index(_ documents: [AuraPlaySpotlightDocument]) async throws {
         lock.withLock {
@@ -252,12 +296,22 @@ private final class RecordingSpotlightIndexClient: AuraPlaySpotlightIndexClient,
         }
     }
 
+    func delete(domainIdentifiers: [String]) async throws {
+        lock.withLock {
+            deletedDomainValues.append(contentsOf: domainIdentifiers)
+        }
+    }
+
     func documents() -> [AuraPlaySpotlightDocument] {
         lock.withLock { indexedDocuments }
     }
 
     func deletedIDs() -> [String] {
         lock.withLock { deletedIDValues }
+    }
+
+    func deletedDomains() -> [String] {
+        lock.withLock { deletedDomainValues }
     }
 }
 

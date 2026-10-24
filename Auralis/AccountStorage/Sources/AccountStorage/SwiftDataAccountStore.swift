@@ -2,6 +2,7 @@ import AccountsCore
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
+import NFTPersistence
 import ReceiptStorage
 import SwiftData
 import SwiftDataAdapters
@@ -18,38 +19,6 @@ private actor AccountPersistenceStore {
     struct RemovalSnapshot: Sendable {
         let removedAddress: String
         let fallbackAddress: String?
-    }
-
-    func createWatchAccount(
-        normalizedAddress: String,
-        name: String?,
-        source: EOAccountSource,
-        overwriteExisting: Bool,
-        now: Date
-    ) throws {
-        try modelContext.performRollbackSafeMutation {
-            if let existingAccount = try account(for: normalizedAddress) {
-                guard overwriteExisting else {
-                    throw AccountStoreError.duplicateAddress(normalizedAddress)
-                }
-
-                try modelContext.deleteAccountScopedSupportData(accountAddress: normalizedAddress)
-                try modelContext.deleteNFTsScopedToAccount(normalizedAddress)
-                modelContext.delete(existingAccount)
-            }
-
-            let account = EOAccount(
-                address: normalizedAddress,
-                access: .readonly,
-                name: name,
-                source: source,
-                addedAt: now,
-                lastSelectedAt: nil,
-                trackedNFTCount: 0
-            )
-
-            modelContext.insert(account)
-        }
     }
 
     func selectAccount(
@@ -105,23 +74,48 @@ public struct SwiftDataAccountStore: AccountStoring {
     private let modelContext: ModelContext
     private let eventRecorder: any AccountEventRecorder
     private let persistenceStore: AccountPersistenceStore
+    private let scopedPersistenceParticipants: [AccountScopedPersistenceParticipant]
+    private let participantDidDelete: ((String) throws -> Void)?
 
     /// Creates an account store that performs mutations without recording account events.
-    public init(modelContext: ModelContext) {
+    public init(
+        modelContext: ModelContext,
+        scopedPersistenceParticipants: [AccountScopedPersistenceParticipant] = []
+    ) {
         self.init(
             modelContext: modelContext,
-            eventRecorder: NoOpAccountEventRecorder()
+            eventRecorder: NoOpAccountEventRecorder(),
+            scopedPersistenceParticipants: scopedPersistenceParticipants
         )
     }
 
     /// Creates an account store backed by SwiftData and an explicit account event recorder.
     public init(
         modelContext: ModelContext,
-        eventRecorder: any AccountEventRecorder
+        eventRecorder: any AccountEventRecorder,
+        scopedPersistenceParticipants: [AccountScopedPersistenceParticipant] = []
+    ) {
+        self.init(
+            modelContext: modelContext,
+            eventRecorder: eventRecorder,
+            scopedPersistenceParticipants: scopedPersistenceParticipants,
+            participantDidDelete: nil
+        )
+    }
+
+    /// Internal fault-injection seam used to prove that domain participant failures roll back the
+    /// complete account mutation. Production composition always uses the public initializers.
+    init(
+        modelContext: ModelContext,
+        eventRecorder: any AccountEventRecorder,
+        scopedPersistenceParticipants: [AccountScopedPersistenceParticipant] = [],
+        participantDidDelete: ((String) throws -> Void)?
     ) {
         self.modelContext = modelContext
         self.eventRecorder = eventRecorder
         self.persistenceStore = AccountPersistenceStore(modelContainer: modelContext.container)
+        self.scopedPersistenceParticipants = scopedPersistenceParticipants
+        self.participantDidDelete = participantDidDelete
     }
 
     public func listAccounts() throws -> [EOAccount] {
@@ -166,7 +160,7 @@ public struct SwiftDataAccountStore: AccountStoring {
             throw AccountStoreError.invalidAddress
         }
 
-        try await persistenceStore.createWatchAccount(
+        try createWatchAccountInMainContext(
             normalizedAddress: normalizedAddress,
             name: name,
             source: source,
@@ -337,6 +331,41 @@ public struct SwiftDataAccountStore: AccountStoring {
 }
 
 private extension SwiftDataAccountStore {
+    func createWatchAccountInMainContext(
+        normalizedAddress: String,
+        name: String?,
+        source: EOAccountSource,
+        overwriteExisting: Bool,
+        now: Date
+    ) throws {
+        try modelContext.performRollbackSafeMutation {
+            if let existingAccount = try account(for: normalizedAddress) {
+                guard overwriteExisting else {
+                    throw AccountStoreError.duplicateAddress(normalizedAddress)
+                }
+
+                try modelContext.deleteAccountScopedData(
+                    accountAddress: normalizedAddress,
+                    scopedPersistenceParticipants: scopedPersistenceParticipants,
+                    participantDidDelete: participantDidDelete
+                )
+                modelContext.delete(existingAccount)
+            }
+
+            modelContext.insert(
+                EOAccount(
+                    address: normalizedAddress,
+                    access: .readonly,
+                    name: name,
+                    source: source,
+                    addedAt: now,
+                    lastSelectedAt: nil,
+                    trackedNFTCount: 0
+                )
+            )
+        }
+    }
+
     func removeAccountFromMainContext(
         normalizedAddress: String,
         normalizedActiveAddress: String?
@@ -358,14 +387,18 @@ private extension SwiftDataAccountStore {
         if let undoManager = modelContext.undoManager {
             let undoSnapshot = try modelContext.accountRemovalUndoSnapshot(
                 account: account,
-                accountAddress: removedAddress
+                accountAddress: removedAddress,
+                scopedPersistenceParticipants: scopedPersistenceParticipants
             )
 
             undoManager.disableUndoRegistration()
             do {
                 try modelContext.performRollbackSafeMutation {
-                    try modelContext.deleteAccountScopedSupportData(accountAddress: removedAddress)
-                    try modelContext.deleteNFTsScopedToAccount(removedAddress)
+                    try modelContext.deleteAccountScopedData(
+                        accountAddress: removedAddress,
+                        scopedPersistenceParticipants: scopedPersistenceParticipants,
+                        participantDidDelete: participantDidDelete
+                    )
                     modelContext.delete(account)
                 }
             } catch {
@@ -385,8 +418,11 @@ private extension SwiftDataAccountStore {
             undoManager.setActionName("Remove Account")
         } else {
             try modelContext.performRollbackSafeMutation {
-                try modelContext.deleteAccountScopedSupportData(accountAddress: removedAddress)
-                try modelContext.deleteNFTsScopedToAccount(removedAddress)
+                try modelContext.deleteAccountScopedData(
+                    accountAddress: removedAddress,
+                    scopedPersistenceParticipants: scopedPersistenceParticipants,
+                    participantDidDelete: participantDidDelete
+                )
                 modelContext.delete(account)
             }
         }
@@ -400,9 +436,14 @@ private extension SwiftDataAccountStore {
 
 private struct AccountRemovalUndoSnapshot {
     let account: AccountSnapshot
-    let tokenHoldings: [TokenHoldingSnapshot]
-    let searchHistory: [SearchHistorySnapshot]
-    let nfts: [NFTSnapshot]
+    let tokenHoldings: [TokenHoldingAccountSnapshot]
+    let scopedPersistenceSnapshots: [AccountScopedPersistenceSnapshot]
+    let nfts: [NFTAccountSnapshot]
+}
+
+private struct AccountScopedPersistenceSnapshot {
+    let participant: AccountScopedPersistenceParticipant
+    let value: Any
 }
 
 private struct AccountSnapshot {
@@ -447,153 +488,6 @@ private struct AccountSnapshot {
     }
 }
 
-private struct TokenHoldingSnapshot {
-    let accountAddress: String
-    let chain: Chain
-    let contractAddress: String?
-    let symbol: String?
-    let displayName: String
-    let amountDisplay: String
-    let balanceKind: TokenHoldingKind
-    let updatedAt: Date
-    let isPlaceholder: Bool
-    let sortPriority: Int
-
-    init(_ holding: TokenHolding) {
-        self.accountAddress = holding.accountAddressRawValue
-        self.chain = holding.chain
-        self.contractAddress = holding.contractAddressRawValue
-        self.symbol = holding.symbol
-        self.displayName = holding.displayName
-        self.amountDisplay = holding.amountDisplay
-        self.balanceKind = holding.balanceKind
-        self.updatedAt = holding.updatedAt
-        self.isPlaceholder = holding.isPlaceholder
-        self.sortPriority = holding.sortPriority
-    }
-
-    func model() -> TokenHolding {
-        TokenHolding(
-            accountAddress: accountAddress,
-            chain: chain,
-            contractAddress: contractAddress,
-            symbol: symbol,
-            displayName: displayName,
-            amountDisplay: amountDisplay,
-            balanceKind: balanceKind,
-            updatedAt: updatedAt,
-            isPlaceholder: isPlaceholder,
-            sortPriority: sortPriority
-        )
-    }
-}
-
-private struct SearchHistorySnapshot {
-    let accountAddressRawValue: String?
-    let normalizedQuery: String
-    let query: String
-    let recordedAt: Date
-
-    init(_ record: SearchHistoryRecord) {
-        self.accountAddressRawValue = record.accountAddressRawValue
-        self.normalizedQuery = record.normalizedQuery
-        self.query = record.query
-        self.recordedAt = record.recordedAt
-    }
-
-    func model() -> SearchHistoryRecord {
-        SearchHistoryRecord(
-            accountAddressRawValue: accountAddressRawValue,
-            normalizedQuery: normalizedQuery,
-            query: query,
-            recordedAt: recordedAt
-        )
-    }
-}
-
-private struct NFTSnapshot {
-    let id: String
-    let contractAddress: String?
-    let tokenId: String
-    let tokenType: String?
-    let name: String?
-    let nftDescription: String?
-    let collectionNameValue: String?
-    let collectionContractAddress: String?
-    let tokenUri: String?
-    let timeLastUpdated: String?
-    let acquiredAtBlockTimestamp: String?
-    let network: Chain
-    let accountAddress: String
-    let contentType: String?
-    let displayCollectionName: String?
-    let artistName: String?
-    let animationUrl: String?
-    let secureAnimationUrl: String?
-    let audioUrl: String?
-    let attributes: [AttributeSnapshot]
-
-    init(_ nft: NFT) {
-        self.id = nft.id
-        self.contractAddress = nft.contract.address
-        self.tokenId = nft.tokenId
-        self.tokenType = nft.tokenType
-        self.name = nft.name
-        self.nftDescription = nft.nftDescription
-        self.collectionNameValue = nft.collection?.name
-        self.collectionContractAddress = nft.collection?.contractAddress
-        self.tokenUri = nft.tokenUri
-        self.timeLastUpdated = nft.timeLastUpdated
-        self.acquiredAtBlockTimestamp = nft.acquiredAt?.blockTimestamp
-        self.network = nft.network ?? .ethMainnet
-        self.accountAddress = nft.accountAddressRawValue
-        self.contentType = nft.contentType
-        self.displayCollectionName = nft.collectionName
-        self.artistName = nft.artistName
-        self.animationUrl = nft.animationUrl
-        self.secureAnimationUrl = nft.secureAnimationUrl
-        self.audioUrl = nft.audioUrl
-        self.attributes = (nft.attributes ?? []).map(AttributeSnapshot.init)
-    }
-
-    func model() -> NFT {
-        NFT(
-            id: id,
-            contract: NFT.Contract(address: contractAddress, chain: network),
-            tokenId: tokenId,
-            tokenType: tokenType,
-            name: name,
-            nftDescription: nftDescription,
-            collection: NFT.Collection(
-                name: collectionNameValue,
-                chain: network,
-                contractAddress: collectionContractAddress
-            ),
-            tokenUri: tokenUri,
-            timeLastUpdated: timeLastUpdated,
-            acquiredAt: NFT.AcquiredAt(blockTimestamp: acquiredAtBlockTimestamp),
-            network: network,
-            accountAddress: accountAddress,
-            contentType: contentType,
-            collectionName: displayCollectionName,
-            artistName: artistName,
-            animationUrl: animationUrl,
-            secureAnimationUrl: secureAnimationUrl,
-            audioUrl: audioUrl
-        )
-    }
-}
-
-private struct AttributeSnapshot {
-    let value: String
-    let traitType: String?
-
-    init(_ attribute: NFT.Attribute) {
-        self.value = attribute.value
-        self.traitType = attribute.traitType
-    }
-}
-
 private extension EOAccount {
     func normalizeStoredMetadataIfNeeded() -> Bool {
         let repairedChains = normalizeStoredChainsIfNeeded()
@@ -603,145 +497,48 @@ private extension EOAccount {
 }
 
 private extension ModelContext {
-    func containsModel<T: PersistentModel>(_ modelType: T.Type) -> Bool {
-        container.schema.entity(for: modelType) != nil
-    }
-
-    func accountRemovalUndoSnapshot(account: EOAccount, accountAddress: String) throws -> AccountRemovalUndoSnapshot {
+    func accountRemovalUndoSnapshot(
+        account: EOAccount,
+        accountAddress: String,
+        scopedPersistenceParticipants: [AccountScopedPersistenceParticipant]
+    ) throws -> AccountRemovalUndoSnapshot {
         AccountRemovalUndoSnapshot(
             account: AccountSnapshot(account),
-            tokenHoldings: try fetchTokenHoldings(accountAddress: accountAddress).map(TokenHoldingSnapshot.init),
-            searchHistory: try fetchSearchHistory(accountAddress: accountAddress).map(SearchHistorySnapshot.init),
-            nfts: try fetchNFTs(accountAddress: accountAddress).map(NFTSnapshot.init)
+            tokenHoldings: try TokenHoldingAccountPersistenceParticipant.capture(scope: accountAddress, in: self),
+            scopedPersistenceSnapshots: try scopedPersistenceParticipants.map { participant in
+                AccountScopedPersistenceSnapshot(
+                    participant: participant,
+                    value: try participant.capture(scope: accountAddress, in: self)
+                )
+            },
+            nfts: try NFTAccountPersistenceParticipant.capture(scope: accountAddress, in: self)
         )
     }
 
     func restoreAccountRemovalUndoSnapshot(_ snapshot: AccountRemovalUndoSnapshot) throws {
         insert(snapshot.account.model())
 
-        for holding in snapshot.tokenHoldings where containsModel(TokenHolding.self) {
-            insert(holding.model())
+        try TokenHoldingAccountPersistenceParticipant.restore(snapshot.tokenHoldings, in: self)
+        for scopedSnapshot in snapshot.scopedPersistenceSnapshots {
+            try scopedSnapshot.participant.restore(scopedSnapshot.value, in: self)
         }
-
-        for record in snapshot.searchHistory where containsModel(SearchHistoryRecord.self) {
-            insert(record.model())
-        }
-
-        for nft in snapshot.nfts where containsModel(NFT.self) {
-            insert(nft.model())
-        }
+        try NFTAccountPersistenceParticipant.restore(snapshot.nfts, in: self)
 
         try save()
     }
 
-    func fetchTokenHoldings(accountAddress: String) throws -> [TokenHolding] {
-        guard containsModel(TokenHolding.self) else {
-            return []
+    func deleteAccountScopedData(
+        accountAddress: String,
+        scopedPersistenceParticipants: [AccountScopedPersistenceParticipant],
+        participantDidDelete: ((String) throws -> Void)? = nil
+    ) throws {
+        try TokenHoldingAccountPersistenceParticipant.delete(scope: accountAddress, in: self)
+        try participantDidDelete?("token")
+        for participant in scopedPersistenceParticipants {
+            try participant.delete(scope: accountAddress, in: self)
+            try participantDidDelete?(participant.identifier)
         }
-
-        let descriptor = FetchDescriptor<TokenHolding>(
-            predicate: #Predicate<TokenHolding> { holding in
-                holding.accountAddressRawValue == accountAddress
-            }
-        )
-        return try fetch(descriptor)
-    }
-
-    func fetchSearchHistory(accountAddress: String) throws -> [SearchHistoryRecord] {
-        guard containsModel(SearchHistoryRecord.self) else {
-            return []
-        }
-
-        let descriptor = FetchDescriptor<SearchHistoryRecord>(
-            predicate: #Predicate<SearchHistoryRecord> { record in
-                record.accountAddressRawValue == accountAddress
-            }
-        )
-        return try fetch(descriptor)
-    }
-
-    func fetchNFTs(accountAddress: String) throws -> [NFT] {
-        guard containsModel(NFT.self) else {
-            return []
-        }
-
-        let descriptor = FetchDescriptor<NFT>(
-            predicate: #Predicate<NFT> { nft in
-                nft.accountAddressRawValue == accountAddress
-            }
-        )
-        return try fetch(descriptor)
-    }
-
-    func deleteAccountScopedSupportData(accountAddress: String) throws {
-        if containsModel(TokenHolding.self) {
-            try delete(
-                model: TokenHolding.self,
-                where: #Predicate<TokenHolding> { holding in
-                    holding.accountAddressRawValue == accountAddress
-                }
-            )
-        }
-        if containsModel(MusicLibraryItem.self) {
-            try delete(
-                model: MusicLibraryItem.self,
-                where: #Predicate<MusicLibraryItem> { item in
-                    item.accountAddressRawValue == accountAddress
-                }
-            )
-        }
-        if containsModel(SearchHistoryRecord.self) {
-            try delete(
-                model: SearchHistoryRecord.self,
-                where: #Predicate<SearchHistoryRecord> { record in
-                    record.accountAddressRawValue == accountAddress
-                }
-            )
-        }
-
-        let accountDescriptor = FetchDescriptor<EOAccount>(
-            predicate: #Predicate<EOAccount> { account in
-                account.address == accountAddress
-            }
-        )
-        if let account = try fetch(accountDescriptor).first {
-            account.clearAllAuraPlaySyncState()
-        }
-    }
-
-    func deleteNFTsScopedToAccount(_ accountAddress: String) throws {
-        guard containsModel(NFT.self) else {
-            return
-        }
-
-        for nft in try fetchNFTs(accountAddress: accountAddress) {
-            delete(nft)
-        }
-
-        try pruneOrphanedNFTSharedModels()
-    }
-
-    func pruneOrphanedNFTSharedModels() throws {
-        guard containsModel(NFT.self) else {
-            return
-        }
-
-        let allNFTs = try fetch(FetchDescriptor<NFT>())
-        let referencedContractIDs = Set(allNFTs.map(\.contract.id))
-        let referencedCollectionIDs = Set(allNFTs.compactMap(\.collection?.id))
-
-        if containsModel(NFT.Contract.self) {
-            let persistedContracts = try fetch(FetchDescriptor<NFT.Contract>())
-            for contract in persistedContracts where !referencedContractIDs.contains(contract.id) {
-                delete(contract)
-            }
-        }
-
-        if containsModel(NFT.Collection.self) {
-            let persistedCollections = try fetch(FetchDescriptor<NFT.Collection>())
-            for collection in persistedCollections where !referencedCollectionIDs.contains(collection.id) {
-                delete(collection)
-            }
-        }
+        try NFTAccountPersistenceParticipant.delete(scope: accountAddress, in: self)
+        try participantDidDelete?("nft")
     }
 }

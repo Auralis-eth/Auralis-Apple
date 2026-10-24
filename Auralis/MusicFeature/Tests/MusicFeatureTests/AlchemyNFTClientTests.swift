@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import AuralisTestSupport
-@testable import MusicFeature
 import Foundation
+@testable import MusicFeature
 import Testing
 
 struct AlchemyNFTClientTests {
@@ -80,7 +80,7 @@ struct AlchemyNFTClientTests {
             urlSession: session,
             endpointBaseURLs: [
                 .ethMainnet: URL(string: "https://alchemy.example/nft/v3/test-key")!,
-                .polygonMainnet: URL(string: "https://polygon-alchemy.example/nft/v3/test-key")!,
+                .polygonMainnet: URL(string: "https://polygon-alchemy.example/nft/v3/test-key")!
             ],
             pageSize: pageSize,
             retryCount: retryCount,

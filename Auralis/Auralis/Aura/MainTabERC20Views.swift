@@ -1,13 +1,13 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import ChainProviders
-import SwiftData
-import SwiftUI
 import AuraUI
+import ChainProviders
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import SwiftData
+import SwiftUI
 import TokenStorage
 
 struct ERC20TokensRootView: View {

@@ -7,6 +7,24 @@ import Foundation
 /// destructive confirmations here before merge. See `AGENTS.md` for naming
 /// conventions and ownership.
 public enum A11yID {
+    public enum Settings {
+        public static let ritualNotificationStatus = "settings.ritualNotifications.status"
+        public static let ritualNotificationEnable = "settings.ritualNotifications.enable"
+        public static let ritualNotificationError = "settings.ritualNotifications.error"
+    }
+
+    public enum Social {
+        public static let root = "social.root"
+        public static let generateInvite = "social.invite.generate"
+        public static let shareInvite = "social.invite.share"
+        public static let inviteCode = "social.invite.code"
+        public static let joinCodeField = "social.join.codeField"
+        public static let join = "social.join.submit"
+        public static let scanInvite = "social.join.scan"
+        public static let status = "social.status"
+        public static let error = "social.error"
+    }
+
     public enum Tabs {
         public static let home = "tab.home"
         public static let news = "tab.news"
@@ -17,6 +35,161 @@ public enum A11yID {
         public static let search = "tab.search"
         public static let erc20 = "tab.erc20"
         public static let nftTokens = "tab.nftTokens"
+        public static let missionControl = "tab.missionControl"
+    }
+
+    /// Mission Control operator console (Ops tab). This is the single source of truth used by both
+    /// production views and UI automation.
+    public enum MissionControl {
+        /// The toolbar section `Picker`. Distinct from ``sectionList``: both drive the same selection,
+        /// so sharing one identifier made every non-`buttons` query for it ambiguous.
+        public static let sectionPicker = "missionControl.sectionPicker"
+        /// The `NavigationSplitView` sidebar section list — the compact-width navigation entry point.
+        public static let sectionList = "missionControl.sectionList"
+        public static let pauseToggle = "missionControl.pauseToggle"
+        public static let modeSection = "missionControl.modeSection"
+        public static let timeline = "missionControl.timeline"
+        public static let timelineEmpty = "missionControl.timeline.empty"
+        public static func workflowStopButton(_ correlationID: String) -> String { "missionControl.timeline.stop.\(correlationID)" }
+        public static let timelineAccountFilter = "missionControl.timeline.accountFilter"
+        public static let timelinePlaybookFilter = "missionControl.timeline.playbookFilter"
+        public static func timelineReasoning(_ correlationID: String) -> String { "missionControl.timeline.reasoning.\(correlationID)" }
+        public static let activityFeed = "missionControl.activityFeed"
+        public static let activityFeedEmpty = "missionControl.activityFeed.empty"
+        public static let homeFreshness = "missionControl.home.freshness"
+        public static let homeRevoke = "missionControl.home.revoke"
+        public static let modeSurfaces = "missionControl.mode.surfaces"
+        public static let sessions = "missionControl.sessions"
+        public static let sessionsOpen = "missionControl.sessions.open"
+        public static let sessionsEmpty = "missionControl.sessions.empty"
+        public static func sessionRow(_ id: String) -> String { "missionControl.sessions.row.\(id)" }
+        public static let sessionEnd = "missionControl.sessions.end"
+        public static let sessionParticipantName = "missionControl.sessions.participant.name"
+        public static let sessionParticipantRole = "missionControl.sessions.participant.role"
+        public static let sessionParticipantAdd = "missionControl.sessions.participant.add"
+        public static let sessionShareReceipt = "missionControl.sessions.share.receipt"
+        public static let sessionShareArtifact = "missionControl.sessions.share.artifact"
+        public static let sessionShareWorkflow = "missionControl.sessions.share.workflow"
+        public static let sessionAgentContextTitle = "missionControl.sessions.agentContext.title"
+        public static let sessionAgentContextSummary = "missionControl.sessions.agentContext.summary"
+        public static let sessionShareAgentContext = "missionControl.sessions.share.agentContext"
+        public static func sessionAgentContextRow(_ id: String) -> String { "missionControl.sessions.agentContext.row.\(id)" }
+        public static let sessionSyncStatus = "missionControl.sessions.sync.status"
+        public static let sessionQueueStatus = "missionControl.sessions.queue.status"
+        public static let sessionRitualStatus = "missionControl.sessions.ritual.status"
+        public static let ritualsEmpty = "missionControl.rituals.empty"
+        public static func ritualRow(_ id: String) -> String { "missionControl.rituals.row.\(id)" }
+        public static func ritualEnabled(_ id: String) -> String { "missionControl.rituals.enabled.\(id)" }
+        public static func ritualRun(_ id: String) -> String { "missionControl.rituals.run.\(id)" }
+        public static func ritualStatus(_ id: String) -> String { "missionControl.rituals.status.\(id)" }
+        public static let sessionApprovalRequiredCount = "missionControl.sessions.approval.requiredCount"
+        public static let sessionApprovalOpen = "missionControl.sessions.approval.open"
+        public static func sessionApprovalApprove(_ id: String) -> String { "missionControl.sessions.approval.approve.\(id)" }
+        public static func sessionApprovalReject(_ id: String) -> String { "missionControl.sessions.approval.reject.\(id)" }
+        public static let sessionModel = "missionControl.session.model"
+        public static let sessionInference = "missionControl.session.inference"
+        public static let sessionTokens = "missionControl.session.tokens"
+        public static let sessionModelHops = "missionControl.session.modelHops"
+        public static let context = "missionControl.context"
+        public static let approvals = "missionControl.approvals"
+        public static let approvalsEmpty = "missionControl.approvals.empty"
+        public static let policyCards = "missionControl.approvals.policyCards"
+        public static func approvalRisk(_ id: String) -> String { "missionControl.approvals.risk.\(id)" }
+        public static let approvalPlanLink = "missionControl.approvals.planLink"
+        public static let approvalReceiptLink = "missionControl.approvals.receiptLink"
+        public static let approvalArtifactLink = "missionControl.approvals.artifactLink"
+        public static let proposalSimulation = "missionControl.proposal.simulation"
+        public static let proposalSimulationFreshness = "missionControl.proposal.simulation.freshness"
+        public static let approvalPersistenceError = "missionControl.approvals.persistenceError"
+        public static let dataQualityWarning = "missionControl.dataQuality.warning"
+        public static let capabilities = "missionControl.capabilities"
+        public static let capabilitiesEmpty = "missionControl.capabilities.empty"
+        public static let capabilityGrantActorID = "missionControl.capabilities.grant.actorID"
+        public static let capabilityGrantReason = "missionControl.capabilities.grant.reason"
+        public static let capabilityGrantButton = "missionControl.capabilities.grant.button"
+        public static let capabilityRestrictionActorID = "missionControl.capabilities.restriction.actorID"
+        public static let capabilityRestrictionReason = "missionControl.capabilities.restriction.reason"
+        public static let capabilityDenyButton = "missionControl.capabilities.deny.button"
+        public static let pausedBanner = "missionControl.pausedBanner"
+        public static let resumeButton = "missionControl.resumeButton"
+        public static let receiptsBrowser = "missionControl.receipts.browser"
+        public static let receiptsBrowserEmpty = "missionControl.receipts.browser.empty"
+        public static let receiptsScopeFilter = "missionControl.receipts.scopeFilter"
+        public static let receiptsOutcomeFilter = "missionControl.receipts.outcomeFilter"
+        public static let receiptDetail = "missionControl.receipt.detail"
+        public static let receiptArtifactLink = "missionControl.receipt.artifactLink"
+        public static let receiptArtifactID = "missionControl.receipt.artifactID"
+        /// Per-entry actor attribution on a session's worklog trace (P0.5-602).
+        public static let worklogAttribution = "missionControl.worklog.attribution"
+        public static let worklogExport = "missionControl.worklog.export"
+        public static let worklogWorkflowExport = "missionControl.worklog.workflowExport"
+        public static let worklogDegraded = "missionControl.worklog.degraded"
+        public static let reportCardTraceHealth = "missionControl.reportCard.traceHealth"
+        public static let improvementRecommendation = "missionControl.improvement.recommendation"
+        public static let playbooks = "missionControl.playbooks"
+        public static let playbookCreate = "missionControl.playbooks.create"
+        public static let playbookDetail = "missionControl.playbook.detail"
+        public static let playbookPersistenceError = "missionControl.playbook.persistenceError"
+        /// The sticky degraded-audit-evidence banner raised when a runtime receipt could not be
+        /// written, and its explicit acknowledgement control.
+        public static let receiptPersistenceError = "missionControl.receipt.persistenceError"
+        public static let receiptPersistenceAcknowledge = "missionControl.receipt.persistenceError.acknowledge"
+        /// The banner raised when a coordination store quarantined an unreadable payload and has
+        /// stopped accepting writes, and its explicit discard control — the only way out.
+        public static let coordinationPersistenceError = "missionControl.coordination.persistenceError"
+        public static let coordinationPersistenceDiscard = "missionControl.coordination.persistenceError.discard"
+        public static let routines = "missionControl.routines"
+        public static let routinesEmpty = "missionControl.routines.empty"
+        public static let performance = "missionControl.performance"
+        public static let performanceEmpty = "missionControl.performance.empty"
+        public static let performanceRunReceiptLink = "missionControl.performance.runReceiptLink"
+        public static let performanceFailuresEmpty = "missionControl.performance.failures.empty"
+        public static let performanceFailureReceiptLink = "missionControl.performance.failureReceiptLink"
+        public static let performanceFailurePattern = "missionControl.performance.failurePattern"
+        public static func performanceHealthRow(_ playbookID: String) -> String { "missionControl.performance.health.\(playbookID)" }
+        public static let reportCards = "missionControl.reportCards"
+        public static let reportCardsEmpty = "missionControl.reportCards.empty"
+        public static let reportCard = "missionControl.reportCards.card"
+        public static let reportCardShortfall = "missionControl.reportCards.shortfall"
+        public static let operators = "missionControl.operators"
+        public static let operatorsEmpty = "missionControl.operators.empty"
+        public static func operatorRun(_ toolID: String) -> String { "missionControl.operators.run.\(toolID)" }
+        public static func operatorOutcome(_ toolID: String) -> String { "missionControl.operators.outcome.\(toolID)" }
+        public static let operatorIdentityScope = "missionControl.operators.identityScope"
+        public static let operatorWatchInput = "missionControl.operators.watch.input"
+        public static let operatorWatchAdd = "missionControl.operators.watch.add"
+        public static let operatorWatchlistEmpty = "missionControl.operators.watch.empty"
+        public static let operatorEscalate = "missionControl.operators.escalate"
+        public static let artifacts = "missionControl.artifacts"
+        public static func artifactRow(_ id: String) -> String { "missionControl.artifacts.row.\(id)" }
+        public static let artifactsEmpty = "missionControl.artifacts.empty"
+        public static let artifactsTypeFilter = "missionControl.artifacts.typeFilter"
+        public static let artifactsRecencyFilter = "missionControl.artifacts.recencyFilter"
+        public static let artifactsWorkflowFilter = "missionControl.artifacts.workflowFilter"
+        public static let artifactsAccountFilter = "missionControl.artifacts.accountFilter"
+        public static let artifactsHistoryScope = "missionControl.artifacts.historyScope"
+        public static let artifactsPlaybookObjects = "missionControl.artifacts.playbookObjects"
+        public static func artifactPlaybookObject(_ id: String) -> String { "missionControl.artifacts.playbook.\(id)" }
+        public static let artifactDetail = "missionControl.artifact.detail"
+        public static let artifactApprove = "missionControl.artifact.approve"
+        public static let artifactExport = "missionControl.artifact.export"
+        public static let artifactSupersede = "missionControl.artifact.supersede"
+        public static let mode = "missionControl.mode"
+        public static let modePicker = "missionControl.mode.picker"
+    }
+
+    public enum TrustedUI {
+        public static let approvalSurface = "trustedui.approval.surface"
+        public static let approvalApprove = "trustedui.approval.approve"
+        public static let approvalDeny = "trustedui.approval.deny"
+        public static let approvalDefer = "trustedui.approval.defer"
+        public static let approvalSubmitted = "trustedui.approval.submitted"
+        public static let draftEditor = "trustedui.draft.editor"
+        public static let draftSave = "trustedui.draft.save"
+        public static let permissionCard = "trustedui.permission.card"
+        public static let receiptCard = "trustedui.receipt.card"
+        public static let contextBundleCard = "trustedui.contextbundle.card"
+        public static let unavailable = "trustedui.unavailable"
     }
 
     public enum Home {
@@ -101,6 +274,10 @@ public enum A11yID {
         public static let root = "receipts.root"
         public static let detail = "receipts.detail"
         public static let detailUnavailable = "receipts.detail.unavailable"
+        public static let detailPostflight = "receipts.detail.postflight"
+        public static let detailReadable = "receipts.detail.readable"
+        public static let detailTimeline = "receipts.detail.timeline"
+        public static let detailArtifacts = "receipts.detail.artifacts"
 
         public static func row(id: String) -> String {
             "receipts.row.\(id)"
@@ -145,6 +322,10 @@ public enum A11yID {
         public static let playlistPlaygroundRegenerate = "auraplay.playground.regenerate"
         public static let playlistPlaygroundSave = "auraplay.playground.save"
         public static let playlistPlaygroundResults = "auraplay.playground.results"
+        public static let autoOrganizationOpen = "auraplay.autoOrganization.open"
+        public static let autoOrganizationSheet = "auraplay.autoOrganization.sheet"
+        public static let autoOrganizationRun = "auraplay.autoOrganization.run"
+        public static let autoOrganizationStatus = "auraplay.autoOrganization.status"
         public static let recommendationsSavePlaylist = "auraplay.recommendations.savePlaylist"
         public static let libraryEmptyNoWallet = "auraplay.library.empty.noWallet"
         public static let libraryEmptySyncing = "auraplay.library.empty.syncing"

@@ -1,9 +1,9 @@
-import OperatorCore
-import ReceiptsCore
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisTestSupport
 import Foundation
+import OperatorCore
+import ReceiptsCore
 import Testing
 
 struct ExternalLinkOpenFlowTests {
@@ -124,6 +124,8 @@ private final class RecordingExternalLinkEventLogger: ExternalLinkEventLogging {
             sequenceID: requests.count,
             createdAt: Fixture.referenceDate,
             actor: request.provenance.receiptActor,
+            actorDetail: request.provenance.receiptActorDetail,
+            authorityDetail: nil,
             mode: .observe,
             trigger: "external_link.opened",
             scope: "navigation.external",

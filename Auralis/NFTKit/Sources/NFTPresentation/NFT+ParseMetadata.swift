@@ -3,7 +3,7 @@ import AuralisPrimaryPersistence
 import Foundation
 
 public extension NFT {
-    public func parseMetadata() {
+    func parseMetadata() {
         let tokenURIs = Set([tokenUri, raw?.tokenUri].compactMap(\.self))
         let siftedTokenURIs = tokenURIs.siftTokenURIs()
 

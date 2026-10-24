@@ -1,10 +1,10 @@
-import ReceiptsCore
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisTestSupport
 import Foundation
 import MusicFeature
+import ReceiptsCore
 import SwiftData
 import Testing
 
@@ -277,7 +277,7 @@ struct AuraPlayPersistenceWave2Tests {
                 playbackURLString: "https://example.com/2b.mp3",
                 contentType: "audio/mpeg",
                 sourceUpdatedAtRawValue: "2025-01-03T00:00:00Z"
-            ),
+            )
         ]
 
         let bundle = requestBuilder.makeRequestBundle(
@@ -602,6 +602,8 @@ private final class NoOpReceiptStore: ReceiptStore {
             sequenceID: sequence,
             createdAt: receipt.createdAt,
             actor: receipt.actor,
+            actorDetail: receipt.actorDetail,
+            authorityDetail: receipt.authorityDetail,
             mode: receipt.mode,
             trigger: receipt.trigger,
             scope: receipt.scope,

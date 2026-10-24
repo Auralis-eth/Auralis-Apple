@@ -1,16 +1,17 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisShellCore
-import OSLog
-import SwiftData
-import SwiftUI
 import NFTDomain
 import NFTLibraryFeature
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import OSLog
 import ProviderKit
 import ReceiptStorage
+import ReceiptsCore
+import SwiftData
+import SwiftUI
 
 @main
 struct AuralisApp: App {
@@ -19,9 +20,23 @@ struct AuralisApp: App {
     private let primaryStoreInitializationErrorMessage: String?
     private let usesInMemoryPrimaryStore: Bool
     private let uiTestFixture: UITestFixture
+    /// Built here and installed directly, rather than letting
+    /// `.modelContainer(for:inMemory:isUndoEnabled:)` create one.
+    ///
+    /// That convenience modifier takes no `cloudKitDatabase` argument, so the container it builds
+    /// always uses `ModelConfiguration`'s `.automatic` default — which, now that the app carries an
+    /// iCloud entitlement for the receipt witness, means SwiftData tries to mirror this schema to
+    /// CloudKit and every store fails to load. See ``PrimaryStoreSchema/configuration(isStoredInMemoryOnly:)``
+    /// for the full argument. Installing the container is the only way to pass the opt-out.
+    ///
+    /// `nil` only if even the in-memory fallback could not be built, which the scene handles by
+    /// falling back to the convenience modifier — worse than nothing to fix, but better than a
+    /// launch with no `modelContext` in the environment at all.
+    private let primaryModelContainer: ModelContainer?
     #if canImport(UIKit)
     @UIApplicationDelegateAdaptor(AuralisAppDelegate.self) private var appDelegate
     #endif
+    @Environment(\.scenePhase) private var scenePhase
     @State private var primaryStoreRecoveryAlertPresented = false
 
     init() {
@@ -35,29 +50,46 @@ struct AuralisApp: App {
             logger.error("Launching with missing provider configuration: \(providerNames, privacy: .public)")
         }
 
-        let bootstrap = Self.makePrimaryModelContainer(logger: logger)
         let uiTestFixture = UITestFixture(arguments: ProcessInfo.processInfo.arguments)
+        // Resolved before the container is built, so a UI-test launch asks for in-memory storage on
+        // the first attempt instead of opening the real store and discarding it.
+        let bootstrap = Self.makePrimaryModelContainer(
+            logger: logger,
+            inMemory: uiTestFixture.usesInMemoryPrimaryStore
+        )
         primaryStoreInitializationErrorMessage = bootstrap.errorMessage
-        usesInMemoryPrimaryStore = bootstrap.usesInMemoryContainer || uiTestFixture.usesInMemoryPrimaryStore
+        usesInMemoryPrimaryStore = bootstrap.usesInMemoryContainer
+        primaryModelContainer = bootstrap.container
         self.uiTestFixture = uiTestFixture
     }
 
     var body: some Scene {
-        primaryStoreScene(inMemory: usesInMemoryPrimaryStore)
+        primaryStoreScene
     }
 }
 
 private extension AuralisApp {
-    @SceneBuilder
-    func primaryStoreScene(inMemory: Bool) -> some Scene {
+    var primaryStoreScene: some Scene {
         WindowGroup {
-            UITestSeededRoot(
-                fixture: uiTestFixture,
-                dependencies: uiTestFixture.shellBootstrapDependencies,
-                primaryStoreInitializationErrorMessage: primaryStoreInitializationErrorMessage
-            )
+            // The container is installed here, on the root *view*, rather than on the scene.
+            //
+            // It has to be a view modifier because the choice between the resolved container and
+            // the last-resort fallback is a conditional, and `@SceneBuilder` rejects control flow
+            // ("Closure containing control flow statement cannot be used with result builder
+            // 'SceneBuilder'"). `@ViewBuilder` accepts it, and `View/modelContainer(_:)` seeds the
+            // same environment for this subtree that the scene-level modifier would have.
+            rootView
             .task {
                 primaryStoreRecoveryAlertPresented = primaryStoreInitializationErrorMessage != nil
+                RuntimeBackgroundScheduler.scheduleNextRefresh()
+            }
+            .onChange(of: scenePhase) { _, newValue in
+                // The runtime's event-checkpoint cursors are coalesced in memory to keep steady
+                // UserDefaults churn off the event path, so backgrounding is the known-good moment
+                // to make them durable. Without this the coalescing had no counterpart and a
+                // terminated process replayed the tail of whatever burst was in flight.
+                guard newValue == .background else { return }
+                Task { await RuntimeAssembly.flushEventCheckpoints() }
             }
             .alert(primaryStoreCopy.unavailableAlertTitle, isPresented: $primaryStoreRecoveryAlertPresented) {
                 Button("Continue") { }
@@ -68,25 +100,62 @@ private extension AuralisApp {
                 )
             }
         }
-        .modelContainer(
-            for: PrimaryStoreSchema.models,
-            inMemory: inMemory,
-            isUndoEnabled: true
-        )
+        .backgroundTask(.appRefresh(RuntimeBackgroundScheduler.taskIdentifier)) {
+            await RuntimeBackgroundScheduler.runInBackground()
+        }
     }
 
-    static func makePrimaryModelContainer(logger: Logger) -> (
+    @ViewBuilder
+    var rootView: some View {
+        let content = UITestSeededRoot(
+            fixture: uiTestFixture,
+            dependencies: uiTestFixture.shellBootstrapDependencies,
+            primaryStoreInitializationErrorMessage: primaryStoreInitializationErrorMessage
+        )
+        if let primaryModelContainer {
+            content.modelContainer(primaryModelContainer)
+        } else {
+            // Unreachable unless even an in-memory container could not be built. Kept so the app
+            // still installs *a* `modelContext` rather than leaving every `@Query` without one.
+            // This path takes the `.automatic` CloudKit default and so will fail the same way, which
+            // is why it exists to avoid a worse failure rather than to be relied on.
+            content.modelContainer(
+                for: PrimaryStoreSchema.models,
+                inMemory: true,
+                isUndoEnabled: true
+            )
+        }
+    }
+
+    static func makePrimaryModelContainer(logger: Logger, inMemory: Bool) -> (
+        container: ModelContainer?,
         usesInMemoryContainer: Bool,
         errorMessage: String?
     ) {
+        // Returns the container it opened rather than discarding it. This used to build one purely
+        // to see whether it *could*, then let the scene modifier build a second — so the store was
+        // opened twice on every launch, and the configuration the probe used was not necessarily
+        // the configuration the app then ran on. Now there is one container and one configuration.
         do {
-            _ = try ModelContainer(for: PrimaryStoreSchema.schema)
-            return (false, nil)
+            let container = try ModelContainer(
+                for: PrimaryStoreSchema.schema,
+                configurations: PrimaryStoreSchema.configuration(isStoredInMemoryOnly: inMemory)
+            )
+            container.mainContext.undoManager = UndoManager()
+            return (container, inMemory, nil)
         } catch {
             logger.error(
                 "Primary SwiftData store boot failed; falling back to in-memory storage: \(error.localizedDescription, privacy: .public)"
             )
+            // `try?`: this is already the failure path, and a second throw here has no better
+            // handling available than the `nil` the scene already accounts for.
+            let fallback = try? ModelContainer(
+                for: PrimaryStoreSchema.schema,
+                configurations: PrimaryStoreSchema.configuration(isStoredInMemoryOnly: true)
+            )
+            fallback?.mainContext.undoManager = UndoManager()
             return (
+                fallback,
                 true,
                 "Local storage could not be opened on this launch. Changes will not persist after you quit Auralis."
             )
@@ -101,7 +170,11 @@ private enum UITestFixture: Equatable {
 
     init(arguments: [String]) {
         if arguments.contains("-ui-testing-authenticated") {
-            if arguments.contains("-ui-testing-search-tabs") {
+            if arguments.contains("-ui-testing-mission-control-tabs") {
+                self = .authenticatedAccount(
+                    tabBarVisibility: AppTabBarVisibility(tabBarTabs: [.home, .missionControl])
+                )
+            } else if arguments.contains("-ui-testing-search-tabs") {
                 self = .authenticatedAccount(
                     tabBarVisibility: AppTabBarVisibility(tabBarTabs: [.home, .search])
                 )
@@ -113,6 +186,17 @@ private enum UITestFixture: Equatable {
                 self = .authenticatedAccount(
                     tabBarVisibility: AppTabBarVisibility(tabBarTabs: [.home, .nftTokens]),
                     presentsSeededNFTDetail: arguments.contains("-ui-testing-seeded-nft-detail")
+                )
+            } else if arguments.contains("-ui-testing-profile-tabs") {
+                // Profile *is* in `.release`, unlike the four tabs above — but `.release` carries six
+                // tabs and a compact iPhone shows five plus an overflow, so Profile is declared late
+                // enough in `tabContent` to land in it. `selectTab` then tapped "More", failed to find
+                // the tab in the overflow list, and fell through to `openTabViaHomeLauncher`, which
+                // has no Home route to Profile — the "tab not reachable" half of F-105's harness class.
+                // Narrowing the tab bar is how the other four audits already avoid the overflow; this
+                // is the same remedy, not a new mechanism.
+                self = .authenticatedAccount(
+                    tabBarVisibility: AppTabBarVisibility(tabBarTabs: [.home, .profile])
                 )
             } else {
                 self = .authenticatedAccount(tabBarVisibility: .release)

@@ -1,21 +1,45 @@
-import ReceiptsCore
-import ReceiptStorage
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisTestSupport
 import Foundation
+import ReceiptsCore
+import ReceiptStorage
 import SwiftData
 import Testing
 
 @Suite(.tags(.swiftdata))
 struct ReceiptStoreTests {
+    /// Fixture builder for the store tests below. These tests are about sequencing, ordering, and the
+    /// hash chain, so attribution is fixed here rather than restated at every call site. P0.5-602 makes
+    /// `actorDetail`/`authorityDetail` required on ``ReceiptDraft`` so that *production* writers have to
+    /// name them; `nil` authority is the honest fixture value because these appends never pass a policy
+    /// gate, so no authority is ever resolved for them.
+    private func draft(
+        createdAt: Date,
+        category: String,
+        kind: String,
+        correlationID: String? = nil,
+        payload: ReceiptPayload,
+        timelineAccountAddress: String? = nil
+    ) -> ReceiptDraft {
+        ReceiptDraft(
+            createdAt: createdAt,
+            category: category,
+            kind: kind,
+            correlationID: correlationID,
+            payload: payload,
+            actorDetail: .system,
+            authorityDetail: nil,
+            timelineAccountAddress: timelineAccountAddress
+        )
+    }
+
     @MainActor
     private func makeStore() throws -> SwiftDataReceiptStore {
         let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         return SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
     }
 
@@ -29,10 +53,10 @@ struct ReceiptStoreTests {
         let context = ModelContext(container)
         let headStore = InMemoryReceiptIntegrityHeadStore()
         let store = SwiftDataReceiptStore(
-            modelContext: context,
             persistenceStore: ReceiptPersistenceStore(
                 modelContainer: container,
-                integrityHeadStore: headStore
+                integrityHeadStore: headStore,
+                signer: ReceiptSignerFactory.ephemeralSigner()
             )
         )
         return (store, context, headStore)
@@ -44,7 +68,7 @@ struct ReceiptStoreTests {
         let store = try makeStore()
 
         let first = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
@@ -53,7 +77,7 @@ struct ReceiptStoreTests {
             )
         )
         let second = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 101),
                 category: "accounts",
                 kind: "account.selected",
@@ -81,7 +105,7 @@ struct ReceiptStoreTests {
         let store = try makeStore()
 
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "networking",
                 kind: "refresh.started",
@@ -89,7 +113,7 @@ struct ReceiptStoreTests {
             )
         )
         let second = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "networking",
                 kind: "refresh.progress",
@@ -97,7 +121,7 @@ struct ReceiptStoreTests {
             )
         )
         let third = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 300),
                 category: "networking",
                 kind: "refresh.finished",
@@ -117,7 +141,7 @@ struct ReceiptStoreTests {
         let store = try makeStore()
 
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "networking",
                 kind: "refresh.started",
@@ -126,7 +150,7 @@ struct ReceiptStoreTests {
             )
         )
         let matchingNewest = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "networking",
                 kind: "refresh.finished",
@@ -135,7 +159,7 @@ struct ReceiptStoreTests {
             )
         )
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 300),
                 category: "networking",
                 kind: "refresh.started",
@@ -158,7 +182,7 @@ struct ReceiptStoreTests {
         let store = try makeStore()
 
         let first = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
@@ -166,7 +190,7 @@ struct ReceiptStoreTests {
             )
         )
         let second = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.selected",
@@ -175,7 +199,7 @@ struct ReceiptStoreTests {
         )
 
         let exportedData = try await store.exportAll()
-        let records = try JSONDecoder().decode([ReceiptRecord].self, from: exportedData)
+        let records = try ReceiptCanonicalJSON.decoder().decode(ReceiptProvenanceExport.self, from: exportedData).records
 
         #expect(records.map(\.sequenceID) == [first.sequenceID, second.sequenceID])
         #expect(records.map(\.kind) == ["account.added", "account.selected"])
@@ -196,7 +220,7 @@ struct ReceiptStoreTests {
         )
 
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "networking",
                 kind: "refresh.failed",
@@ -205,11 +229,79 @@ struct ReceiptStoreTests {
         )
 
         let exportedData = try await store.exportAll()
-        let records = try JSONDecoder().decode([ReceiptRecord].self, from: exportedData)
+        let records = try ReceiptCanonicalJSON.decoder().decode(ReceiptProvenanceExport.self, from: exportedData).records
 
         #expect(records.count == 1)
         #expect(records.first?.payload.values["rpcURL"] == .string("<redacted-url>"))
         #expect(records.first?.payload.values["error"] == .string("<redacted-error>"))
+    }
+
+    @Test("exportAll produces a signed provenance envelope verifiable against a pinned signer fingerprint")
+    @MainActor
+    func exportAllProducesVerifiableProvenanceEnvelope() async throws {
+        let store = try makeStore()
+        _ = try await store.append(
+            draft(
+                createdAt: Date(timeIntervalSince1970: 100),
+                category: "accounts",
+                kind: "account.added",
+                payload: ReceiptPayload(values: [:])
+            )
+        )
+
+        let data = try await store.exportAll()
+        let export = try ReceiptCanonicalJSON.decoder().decode(ReceiptProvenanceExport.self, from: data)
+        let result = try ReceiptProvenanceVerifier.verify(
+            data,
+            trustedSignerFingerprint: export.trustAnchor.fingerprint
+        )
+
+        #expect(export.format == ReceiptProvenanceExport.currentFormat)
+        #expect(export.version == ReceiptProvenanceExport.currentVersion)
+        #expect(export.manifest.recordCount == 1)
+        #expect(result.isValid)
+    }
+
+    @Test("provenance verification rejects an untrusted signer and a mutated manifest")
+    @MainActor
+    func provenanceVerificationRejectsWrongTrustAnchorAndMutation() async throws {
+        let store = try makeStore()
+        _ = try await store.append(
+            draft(
+                createdAt: Date(timeIntervalSince1970: 100),
+                category: "accounts",
+                kind: "account.added",
+                payload: ReceiptPayload(values: [:])
+            )
+        )
+
+        let data = try await store.exportAll()
+        let export = try ReceiptCanonicalJSON.decoder().decode(ReceiptProvenanceExport.self, from: data)
+        let wrongTrust = try ReceiptProvenanceVerifier.verify(
+            data,
+            trustedSignerFingerprint: String(repeating: "0", count: 64)
+        )
+        #expect(wrongTrust.isValid == false)
+
+        let mutatedManifest = ReceiptProvenanceManifest(
+            recordCount: export.manifest.recordCount + 1,
+            recordsHash: export.manifest.recordsHash,
+            chainHeads: export.manifest.chainHeads
+        )
+        let mutatedExport = ReceiptProvenanceExport(
+            records: export.records,
+            manifest: mutatedManifest,
+            manifestHash: export.manifestHash,
+            manifestSignature: export.manifestSignature,
+            trustAnchor: export.trustAnchor
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let mutationResult = try ReceiptProvenanceVerifier.verify(
+            encoder.encode(mutatedExport),
+            trustedSignerFingerprint: export.trustAnchor.fingerprint
+        )
+        #expect(mutationResult.isValid == false)
     }
 
     @Test("resetAll wipes the receipt store without introducing any per-item delete API")
@@ -218,7 +310,7 @@ struct ReceiptStoreTests {
         let store = try makeStore()
 
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
@@ -226,7 +318,7 @@ struct ReceiptStoreTests {
             )
         )
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "networking",
                 kind: "refresh.started",
@@ -238,7 +330,7 @@ struct ReceiptStoreTests {
 
         #expect(try await store.latest(limit: 10).isEmpty)
         let exportedData = try await store.exportAll()
-        let records = try JSONDecoder().decode([ReceiptRecord].self, from: exportedData)
+        let records = try ReceiptCanonicalJSON.decoder().decode(ReceiptProvenanceExport.self, from: exportedData).records
         #expect(records.isEmpty)
     }
 
@@ -248,16 +340,16 @@ struct ReceiptStoreTests {
         let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
-            modelContext: context,
             persistenceStore: ReceiptPersistenceStore(
                 modelContainer: container,
-                integrityHeadStore: FailingReceiptIntegrityHeadStore(failOnSave: true)
+                integrityHeadStore: FailingReceiptIntegrityHeadStore(failOnSave: true),
+                signer: ReceiptSignerFactory.ephemeralSigner()
             )
         )
 
         do {
             _ = try await store.append(
-                ReceiptDraft(
+                draft(
                     createdAt: Date(timeIntervalSince1970: 100),
                     category: "accounts",
                     kind: "account.added",
@@ -277,7 +369,7 @@ struct ReceiptStoreTests {
         let accountAddress = "0x2222222222222222222222222222222222222222"
 
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
@@ -300,19 +392,49 @@ struct ReceiptStoreTests {
         #expect(result.failureReason == "Receipt \(receipt.id.uuidString) is missing integrity metadata.")
     }
 
+    /// Stripping the signature from a receipt that *was* signed is tampering.
+    ///
+    /// Note this is no longer the same claim as "unsigned receipts are rejected". A receipt written
+    /// before provenance signing existed is legitimately unsigned, and rejecting those is what made
+    /// upgrading an install invalidate its whole ledger and refuse every export — so a genuine legacy
+    /// row now verifies as `.unattested` (covered in `ReceiptStorageTests`). What must still fail is
+    /// *removing* signing metadata, which this constructs: the signer's public key is part of the
+    /// hashed envelope, so clearing it breaks the chain hash whether or not the row's position in the
+    /// chain would otherwise have grandfathered it.
+    @Test("receipt integrity verification rejects a receipt whose signature was stripped")
+    @MainActor
+    func integrityVerificationRejectsStrippedSigningMetadata() async throws {
+        let (store, context, _) = try makeStoreWithInspectableIntegrityHeads()
+        _ = try await store.append(
+            draft(
+                createdAt: Date(timeIntervalSince1970: 100),
+                category: "accounts",
+                kind: "account.added",
+                payload: ReceiptPayload(values: [:])
+            )
+        )
+        let receipt = try #require(try context.fetch(FetchDescriptor<StoredReceipt>()).first)
+        receipt.signature = nil
+        receipt.signerPublicKey = nil
+        try context.save()
+
+        let result = try await store.verifyIntegrity()
+        #expect(result.isValid == false)
+        #expect(result.failureReason == "Receipt \(receipt.id.uuidString) has an invalid chain hash.")
+    }
+
     @Test("receipt integrity verification fails after out-of-band mutation or deletion")
     @MainActor
     func integrityVerificationDetectsTampering() async throws {
         let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let accountAddress = "0x1111111111111111111111111111111111111111"
 
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
@@ -321,7 +443,7 @@ struct ReceiptStoreTests {
             )
         )
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 101),
                 category: "accounts",
                 kind: "account.selected",
@@ -344,7 +466,7 @@ struct ReceiptStoreTests {
 
         try await store.resetAll()
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "accounts",
                 kind: "account.added",
@@ -353,7 +475,7 @@ struct ReceiptStoreTests {
             )
         )
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 201),
                 category: "accounts",
                 kind: "account.selected",
@@ -382,7 +504,7 @@ struct ReceiptStoreTests {
         let accountAddress = "0x1111111111111111111111111111111111111111"
 
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
@@ -391,7 +513,7 @@ struct ReceiptStoreTests {
             )
         )
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 101),
                 category: "accounts",
                 kind: "account.selected",
@@ -419,7 +541,7 @@ struct ReceiptStoreTests {
         let secondAccountAddress = "0x2222222222222222222222222222222222222222"
 
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
@@ -428,7 +550,7 @@ struct ReceiptStoreTests {
             )
         )
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 101),
                 category: "accounts",
                 kind: "account.added",
@@ -448,14 +570,28 @@ struct ReceiptStoreTests {
         #expect(result.failureReason == "Receipt integrity has protected heads without persisted receipts.")
     }
 
-    @Test("receipt integrity verification fails when persisted receipts lose their protected head")
+    /// A single-receipt account whose anchor is gone is **healed, not reported as tampering**, and
+    /// this assertion was inverted until it was checked against the behaviour the package actually
+    /// implements.
+    ///
+    /// It previously expected `.tampered` with "persisted receipts without protected heads". Round
+    /// 10 deliberately changed that: an account holding exactly its genesis row with no anchor is
+    /// indistinguishable from an append killed between the row save and the anchor write, and
+    /// branding that ordinary crash window as a forged ledger made `exportAll()` refuse the history
+    /// permanently. `ReceiptStorage`'s own `genesisAppendCrashWindowIsHealedNotTampering` pins the
+    /// rule with the full argument, and this test is the app-hosted view of the same store.
+    ///
+    /// It went unnoticed for a round because nothing re-ran the app plan after Round 10, and then
+    /// the CloudKit container regression made every test in this file fail before reaching an
+    /// assertion at all.
+    @Test("a persisted receipt that lost its protected head is healed, not reported as tampering")
     @MainActor
-    func integrityVerificationDetectsMissingProtectedHead() async throws {
+    func integrityVerificationHealsMissingProtectedHead() async throws {
         let (store, _, headStore) = try makeStoreWithInspectableIntegrityHeads()
         let accountAddress = "0x1111111111111111111111111111111111111111"
 
-        _ = try await store.append(
-            ReceiptDraft(
+        let genesis = try await store.append(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
@@ -468,8 +604,14 @@ struct ReceiptStoreTests {
         await headStore.clearHead(for: accountAddress)
 
         let result = try await store.verifyIntegrity()
-        #expect(result.isValid == false)
-        #expect(result.failureReason == "Receipt integrity has persisted receipts without protected heads.")
+        #expect(result.isValid, "a genesis crash window is not tampering: \(result.failureReason ?? "-")")
+        #expect(
+            result.failureReason?.contains("without protected heads") != true,
+            "\(result.failureReason ?? "-")"
+        )
+        // Healed in place, so the export a person came for keeps working.
+        #expect(await headStore.loadHead(for: accountAddress) == genesis.chainHash)
+        #expect(try await store.exportAll().isEmpty == false)
     }
 
     @Test("receipt integrity verification fails when a protected head does not match persisted receipts")
@@ -479,7 +621,7 @@ struct ReceiptStoreTests {
         let accountAddress = "0x1111111111111111111111111111111111111111"
 
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
@@ -503,7 +645,7 @@ struct ReceiptStoreTests {
         let accountAddress = "0x1111111111111111111111111111111111111111"
 
         _ = try await store.append(
-            ReceiptDraft(
+            draft(
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
@@ -544,5 +686,42 @@ private actor FailingReceiptIntegrityHeadStore: ReceiptIntegrityHeadStoring {
 
     func clearHead(for accountKey: String) throws { }
 
-    func clearAllHeads() throws { }
+    func clearAllHeads() throws {
+        ledgerHighWaterMark = nil
+        highestEnvelopeVersion = nil
+    }
+
+    private var ledgerHighWaterMark: Int?
+
+    func loadLedgerHighWaterMark() throws -> Int? {
+        ledgerHighWaterMark
+    }
+
+    /// Tracked rather than stubbed out, and monotonic like the real store: a double that always
+    /// answered `nil` would leave every ledger built on it reporting unconfirmed completeness, so
+    /// these tests would assert `.unattested` for a reason none of them is about.
+    func saveLedgerHighWaterMark(_ sequenceID: Int) throws {
+        if failOnSave {
+            throw Failure()
+        }
+        ledgerHighWaterMark = max(ledgerHighWaterMark ?? 0, sequenceID)
+    }
+
+    private var highestEnvelopeVersion: Int?
+
+    /// Tracked for the reason the mark above is: this one carries a *verdict*, not an advisory. A row
+    /// declaring an envelope version above the recorded floor is `.tampered`, because raising that
+    /// column is what disables the chain-hash recomputation and a store-only attacker must not be able
+    /// to license that themselves. A double that always answered `nil` would leave these tests
+    /// exercising the permissive fallback rather than the real path.
+    func loadHighestEnvelopeVersion() throws -> Int? {
+        highestEnvelopeVersion
+    }
+
+    func saveHighestEnvelopeVersion(_ version: Int) throws {
+        if failOnSave {
+            throw Failure()
+        }
+        highestEnvelopeVersion = max(highestEnvelopeVersion ?? 0, version)
+    }
 }

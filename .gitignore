@@ -10,3 +10,8 @@
 **/.swiftpm/xcode/package.xcworkspace/
 
 Auralis/Auralis/Secrets.plist
+
+# Scratch clean-room demo app for the wallet connector rebuild. Not part of the shipping project:
+# it contains its own nested `.git` repository, so staging it would record a gitlink with no
+# `.gitmodules` entry — a submodule nobody can clone.
+Auralis/WalletConnectorDemo/

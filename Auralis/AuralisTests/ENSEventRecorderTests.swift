@@ -1,9 +1,9 @@
+@testable import Auralis
+import AuralisPrimaryModels
+import ENS
+import Foundation
 import ReceiptsCore
 import ReceiptStorage
-@testable import Auralis
-import ENS
-import AuralisPrimaryModels
-import Foundation
 import SwiftData
 import Testing
 
@@ -13,8 +13,7 @@ struct ENSEventRecorderTests {
         let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         return SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
     }
 
@@ -24,7 +23,8 @@ struct ENSEventRecorderTests {
         let store = try makeReceiptStore()
         let recorder = ReceiptBackedENSEventRecorder(
             receiptStore: store,
-            payloadSanitizer: DefaultReceiptPayloadSanitizer()
+            payloadSanitizer: DefaultReceiptPayloadSanitizer(),
+            modeProvider: { .operate }
         )
         let fetchedAt = Date(timeIntervalSince1970: 123)
 
@@ -69,6 +69,7 @@ struct ENSEventRecorderTests {
             "ens.forward.started",
             "ens.forward.cache_hit"
         ])
+        #expect(receipts.allSatisfy { $0.mode == .operate })
         #expect(receipts.allSatisfy { $0.scope == "identity.ens" })
         #expect(receipts.first?.details.values["errorCode"] == ReceiptJSONValue.string("<redacted-label>"))
         #expect(receipts.last?.details.values["fetchedAt"] == ReceiptJSONValue.string("1970-01-01T00:02:03Z"))

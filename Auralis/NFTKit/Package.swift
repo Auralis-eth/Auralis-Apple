@@ -6,7 +6,7 @@ let package = Package(
     name: "NFTKit",
     platforms: [
         .iOS(.v18),
-        .macOS(.v15),
+        .macOS(.v15)
     ],
     products: [
         .library(
@@ -28,22 +28,24 @@ let package = Package(
         .library(
             name: "NFTPresentation",
             targets: ["NFTPresentation"]
-        ),
+        )
     ],
     dependencies: [
+        .package(path: "../AuralisFoundation"),
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../AuralisTestSupport"),
         .package(path: "../ChainProviders"),
         .package(path: "../ExplorerAdapter"),
         .package(path: "../ProviderKit"),
         .package(path: "../ReceiptStorage"),
-        .package(path: "../ReceiptsCore"),
+        .package(path: "../ReceiptsCore")
     ],
     targets: [
         .target(
             name: "NFTDomain",
             dependencies: [
-                "AuralisPrimaryModels",
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
+                "AuralisPrimaryModels"
             ]
         ),
         .target(
@@ -52,24 +54,27 @@ let package = Package(
                 "NFTDomain",
                 "ChainProviders",
                 "ExplorerAdapter",
-                "ProviderKit",
+                "ProviderKit"
             ]
         ),
         .target(
             name: "NFTPersistence",
             dependencies: [
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
+                .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
                 "NFTDomain",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
-                "ReceiptsCore",
+                "ReceiptsCore"
             ]
         ),
         .target(
             name: "NFTPresentation",
             dependencies: [
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "NFTDomain",
                 "NFTProviderAdapters",
                 "NFTPersistence",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
             ]
         ),
         .target(
@@ -78,12 +83,13 @@ let package = Package(
                 "NFTDomain",
                 "NFTProviderAdapters",
                 "NFTPersistence",
-                "NFTPresentation",
+                "NFTPresentation"
             ]
         ),
         .testTarget(
             name: "NFTKitTests",
             dependencies: [
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "AuralisTestSupport",
                 "NFTDomain",
@@ -91,8 +97,8 @@ let package = Package(
                 "NFTPersistence",
                 "NFTPresentation",
                 "NFTProviderAdapters",
-                "ReceiptStorage",
+                "ReceiptStorage"
             ]
-        ),
+        )
     ]
 )

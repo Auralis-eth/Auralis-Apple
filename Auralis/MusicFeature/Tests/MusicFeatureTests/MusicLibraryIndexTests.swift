@@ -1,9 +1,9 @@
-import ReceiptsCore
-import ReceiptStorage
-@testable import MusicFeature
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
+@testable import MusicFeature
+import ReceiptsCore
+import ReceiptStorage
 import SwiftData
 import Testing
 
@@ -110,8 +110,7 @@ struct MusicLibraryIndexTests {
         let container = try MusicFeatureTestModelContainers.libraryIndex()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let receiptLogger = ReceiptEventLogger(receiptStore: receiptStore)
 

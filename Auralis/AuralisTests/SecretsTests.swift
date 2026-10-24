@@ -7,12 +7,12 @@
 
 @testable import Auralis
 import Foundation
-import Testing
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
+import Testing
 
 struct SecretsTests {
     @Test("missing provider keys fail deterministically when the test bundle is not configured")

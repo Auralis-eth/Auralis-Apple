@@ -21,6 +21,7 @@ Updated: 2026-07-25
 | Permission strings | Needs final human review | `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, URL schemes, and wallet query schemes should be read against final UI copy. |
 | Background audio | Needs device sign-off | `UIBackgroundModes = audio` must be matched by real background playback behavior. |
 | Wallet posture | Needs reviewer note | Submission notes should say the app is read-only, does not request private keys/seed phrases, and has no marketplace/trading. |
+| Third-party wallet support claims | Pending device proof | Do not name or market support for Rabby, Rainbow, Coinbase Wallet, MetaMask, Phantom, Backpack, Solflare, Privy, or Dynamic until that exact route passes physical-device QA. |
 | Screenshots/previews | Pending | Capture after final device QA on the target build. |
 | Age rating | Pending | Review NFT/crypto-adjacent content wording and media playback content. |
 | Known limitations | Documented separately | See `AuraPlay-Phase14-Known-Limitations.md`. |
@@ -28,4 +29,6 @@ Updated: 2026-07-25
 ## App Review Note Draft
 
 Auralis uses wallet addresses to discover and play media associated with public NFT metadata. The app does not request private keys or seed phrases and does not provide marketplace, trading, token sale, or asset-transfer functionality. Background audio is used only for user-initiated media playback.
+
+Only name third-party wallet support after the exact route has passed physical-device QA. Required proof currently covers Rabby, Rainbow, Coinbase Wallet, MetaMask, Phantom, Backpack, Solflare, Privy, and Dynamic.
 

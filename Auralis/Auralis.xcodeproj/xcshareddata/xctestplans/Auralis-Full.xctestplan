@@ -25,6 +25,14 @@
         "identifier" : "6FB455EE2CC5BEBD009A055C",
         "name" : "AuralisTests"
       }
+    },
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:Auralis.xcodeproj",
+        "identifier" : "6FB455F82CC5BEBD009A055C",
+        "name" : "AuralisUITests"
+      }
     }
   ],
   "version" : 1

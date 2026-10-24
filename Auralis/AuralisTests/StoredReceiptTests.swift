@@ -2,6 +2,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
+import ReceiptsCore
 import ReceiptStorage
 import SwiftData
 import Testing
@@ -9,7 +10,7 @@ import Testing
 struct StoredReceiptTests {
     @MainActor
     private func makePersistentContainer(at storeURL: URL) throws -> ModelContainer {
-        let configuration = ModelConfiguration(url: storeURL)
+        let configuration = ModelConfiguration(url: storeURL, cloudKitDatabase: .none)
         return try ModelContainer(for: TestSchemas.receipts, configurations: [configuration])
     }
 

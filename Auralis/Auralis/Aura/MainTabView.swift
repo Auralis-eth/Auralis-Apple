@@ -2,18 +2,18 @@ import AccountsFeature
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisShellCore
+import AuraUI
 import MusicFeature
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import Observation
 import PolicyCore
 import ReceiptsCore
 import ReceiptStorage
 import SwiftData
 import SwiftUI
-import AuraUI
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
 
 struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext
@@ -86,6 +86,38 @@ struct MainTabView: View {
 
     private var trackedNFTCount: Int? {
         currentAccount?.trackedNFTCount
+    }
+
+    private var contextInstrumentation: ContextRefreshInstrumentation {
+        // `activeIdentityProvider` passed here too, not just from `MissionControlTabContainer`. On a
+        // cache *miss* this call site constructs the process-wide host, and whether that happens first
+        // depends on tab selection — which the default tab change made less predictable. Omitting it
+        // left any attribution written before Mission Control patched the identity unattributed.
+        let host = RuntimeAssembly.sharedHost(
+            modelContext: modelContext,
+            activeIdentityProvider: { activeAccountAddress.isEmpty ? nil : activeAccountAddress },
+            cryptoModeProvider: { modeState.mode },
+            cryptoModeSetter: { modeState.setMode($0) }
+        )
+        return ContextRefreshInstrumentation(
+            recordContextRefresh: { key, dataClass, correlationID in
+                await host.recordContextRefresh(
+                    key: key,
+                    dataClass: dataClass,
+                    correlationID: correlationID,
+                    actor: host.shellContextActor
+                )
+            },
+            recordMemoryTouch: { kind, key, dataClass, correlationID in
+                await host.recordMemoryTouch(
+                    kind: kind,
+                    key: key,
+                    dataClass: dataClass,
+                    correlationID: correlationID,
+                    actor: host.shellContextActor
+                )
+            }
+        )
     }
 
     private var scopedMusicNFTs: [NFT] {
@@ -225,14 +257,18 @@ struct MainTabView: View {
             await contextService.refresh(
                 correlationID: correlationID,
                 receiptEventLogger: dependencies.receiptEventLoggerFactory(modelContext),
-                strategy: .remoteAllowed
+                strategy: .remoteAllowed,
+                instrumentation: contextInstrumentation
             )
             if !nftService.isLoading {
                 await shellStore.send(.pendingCorrelationConsumed(correlationID))
             }
         }
         .task(id: contextLocalRefreshKey) {
-            await contextService.refresh(strategy: .reuseCachedBalance)
+            await contextService.refresh(
+                strategy: .reuseCachedBalance,
+                instrumentation: contextInstrumentation
+            )
         }
         .modeState(modeState)
     }
@@ -322,215 +358,231 @@ struct MainTabView: View {
             }
             .accessibilityIdentifier("tab.home")
 
-            Tab("NewsFeed", systemImage: "bubble.right", value: AppTab.news) {
-                NavigationStack(path: $router.newsPath) {
-                    NewsFeedView(
-                        currentAccount: readOnlyAccountBinding,
-                        nftService: $nftService,
-                        currentChain: readOnlyChainBinding,
-                        refreshAction: refreshActiveScopeFromUserAction,
-                        router: router
-                    )
-                    .navigationDestination(for: NFTDetailRoute.self) { route in
-                        SharedNFTDetailView(
-                            route: route,
-                            currentAccountAddress: currentAccount?.address,
-                            currentChain: currentChain
+            // Gated like the tabs below it, which it was not. Home, NewsFeed, Gas, Music and Profile
+            // all rendered unconditionally, so `AppTabBarVisibility` governed only six of the eleven
+            // tabs and could not actually narrow the bar — the type promised control it did not have.
+            // The visible consequence was in the audit harness (F-105): with five tabs always present,
+            // a sixth always overflowed into "More", so `-ui-testing-nft-tabs` could not put NFTs on
+            // the bar and that audit failed as "not reachable" whatever it asked for. No shipping
+            // change: `.release` — and `.live`, which returns it — contains all five.
+            if router.tabBarVisibility.showsInTabBar(.news) {
+                Tab("NewsFeed", systemImage: "bubble.right", value: AppTab.news) {
+                    NavigationStack(path: $router.newsPath) {
+                        NewsFeedView(
+                            currentAccount: readOnlyAccountBinding,
+                            nftService: $nftService,
+                            currentChain: readOnlyChainBinding,
+                            refreshAction: refreshActiveScopeFromUserAction,
+                            router: router
+                        )
+                        .navigationDestination(for: NFTDetailRoute.self) { route in
+                            SharedNFTDetailView(
+                                route: route,
+                                currentAccountAddress: currentAccount?.address,
+                                currentChain: currentChain
+                            )
+                        }
+                    }
+                    .accessibilityIdentifier("tab.news")
+                }
+            }
+
+            if router.tabBarVisibility.showsInTabBar(.gas) {
+                Tab("Gas", systemImage: "fuelpump", value: AppTab.gas) {
+                    AuraScenicScreen {
+                        GasPriceEstimateView(
+                            chain: readOnlyChainBinding,
+                            provider: dependencies.gasPricingProvider
                         )
                     }
                 }
-                .accessibilityIdentifier("tab.news")
+                .accessibilityIdentifier("tab.gas")
             }
 
-            Tab("Gas", systemImage: "fuelpump", value: AppTab.gas) {
-                AuraScenicScreen {
-                    GasPriceEstimateView(
-                        chain: readOnlyChainBinding,
-                        provider: dependencies.gasPricingProvider
-                    )
-                }
-            }
-            .accessibilityIdentifier("tab.gas")
-
-            Tab("Music", systemImage: "play.circle", value: AppTab.music) {
-                NavigationStack(path: $router.musicPath) {
-                    Group {
-                        if let playbackRuntime, let auraPlayModelContainer {
-                            VStack {
-                                MusicFeatureRootView(
-                                    currentAccount: currentAccount,
-                                    currentChain: currentChain,
-                                    dependencies: dependencies.makeMusicFeatureDependencies(
-                                        playbackRuntime: playbackRuntime,
-                                        auraPlayModelContainer: auraPlayModelContainer,
-                                        accountModelContext: modelContext,
-                                        videoRouteOpening: AuraPlayVideoRouteOpening {
-                                            _ = router.restoreMusicVideoWireframe()
-                                        }
-                                    ),
-                                    onOpenItem: { itemID in
-                                        router.showMusicNFTDetail(id: itemID)
-                                    },
-                                    onOpenCollection: { key, title in
-                                        router.showMusicCollectionDetail(key: key, title: title)
-                                    },
-                                    onPlayItem: { itemID in
-                                        await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
-                                    },
-                                    onAddItemToQueue: { itemID in
-                                        playbackRuntime.addLibraryItemToQueue(
-                                            id: itemID,
-                                            in: scopedMusicNFTs
-                                        )
-                                    },
-                                    openWalletPicker: {
-                                        showWalletPicker = true
-                                    }
-                                )
-                            }
-                            .navigationDestination(for: MusicRoute.self) { route in
-                                switch route {
-                                case .item(let id):
-                                    AuraPlayMusicItemDetailView(
-                                        itemID: id,
-                                        currentAccountAddress: currentAccount?.address,
+            if router.tabBarVisibility.showsInTabBar(.music) {
+                Tab("Music", systemImage: "play.circle", value: AppTab.music) {
+                    NavigationStack(path: $router.musicPath) {
+                        Group {
+                            if let playbackRuntime, let auraPlayModelContainer {
+                                VStack {
+                                    MusicFeatureRootView(
+                                        currentAccount: currentAccount,
                                         currentChain: currentChain,
-                                        onOpenCollection: { key, title in
-                                            router.showMusicCollectionDetail(
-                                                key: key,
-                                                title: title
-                                            )
+                                        dependencies: dependencies.makeMusicFeatureDependencies(
+                                            playbackRuntime: playbackRuntime,
+                                            auraPlayModelContainer: auraPlayModelContainer,
+                                            accountModelContext: modelContext,
+                                            videoRouteOpening: AuraPlayVideoRouteOpening {
+                                                _ = router.restoreMusicVideoWireframe()
+                                            }
+                                        ),
+                                        onOpenItem: { itemID in
+                                            router.showMusicNFTDetail(id: itemID)
                                         },
-                                        onPlay: { itemID in
+                                        onOpenCollection: { key, title in
+                                            router.showMusicCollectionDetail(key: key, title: title)
+                                        },
+                                        onPlayItem: { itemID in
                                             await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
                                         },
-                                        onAddToQueue: { itemID in
+                                        onAddItemToQueue: { itemID in
                                             playbackRuntime.addLibraryItemToQueue(
                                                 id: itemID,
                                                 in: scopedMusicNFTs
                                             )
+                                        },
+                                        openWalletPicker: {
+                                            showWalletPicker = true
                                         }
                                     )
-
-                                case .collection(let key, let title):
-                                    AuraPlayRouteModelHost(
-                                        makeModel: {
-                                            makeAuraPlayRouteModel(
-                                                playbackRuntime: playbackRuntime,
-                                                auraPlayModelContainer: auraPlayModelContainer
-                                            )
-                                        }
-                                    ) { model in
-                                        AuraPlayCollectionRouteView(
-                                            collectionIdentifier: key,
-                                            fallbackTitle: title,
-                                            model: model,
-                                            onOpenItem: { itemID in
-                                                router.showMusicNFTDetail(id: itemID)
+                                }
+                                .navigationDestination(for: MusicRoute.self) { route in
+                                    switch route {
+                                    case .item(let id):
+                                        AuraPlayMusicItemDetailView(
+                                            itemID: id,
+                                            currentAccountAddress: currentAccount?.address,
+                                            currentChain: currentChain,
+                                            onOpenCollection: { key, title in
+                                                router.showMusicCollectionDetail(
+                                                    key: key,
+                                                    title: title
+                                                )
                                             },
-                                            onPlayItem: { itemID, _, _ in
+                                            onPlay: { itemID in
                                                 await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
                                             },
-                                            onAddToPlaylist: { _ in }
-                                        )
-                                    }
-
-                                case .playlist(let id):
-                                    AuraPlayRouteModelHost(
-                                        makeModel: {
-                                            makeAuraPlayRouteModel(
-                                                playbackRuntime: playbackRuntime,
-                                                auraPlayModelContainer: auraPlayModelContainer
-                                            )
-                                        }
-                                    ) { model in
-                                        AuraPlayPlaylistRouteView(
-                                            playlistID: id,
-                                            model: model,
-                                            onOpenItem: { itemID in
-                                                router.showMusicNFTDetail(id: itemID)
-                                            },
-                                            onPlayItem: { itemID, _, _ in
-                                                await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
-                                            },
-                                            missingContent: {
-                                                AuraScenicScreen {
-                                                    AuraEmptyState(
-                                                        title: "Playlist Not Available",
-                                                        message: "This playlist isn't available on this device.",
-                                                        systemImage: "music.note.list"
-                                                    )
-                                                    .padding(24)
-                                                    .accessibilityIdentifier(A11yID.AuraPlay.playlists)
-                                                    .accessibilityValue(id)
-                                                }
+                                            onAddToQueue: { itemID in
+                                                playbackRuntime.addLibraryItemToQueue(
+                                                    id: itemID,
+                                                    in: scopedMusicNFTs
+                                                )
                                             }
                                         )
-                                    }
-                                    .modelContainer(auraPlayModelContainer)
 
-                                case .creator(let id, let title):
-                                    AuraPlayRouteModelHost(
-                                        makeModel: {
-                                            makeAuraPlayRouteModel(
-                                                playbackRuntime: playbackRuntime,
-                                                auraPlayModelContainer: auraPlayModelContainer
-                                            )
-                                        }
-                                    ) { model in
-                                        AuraPlayCreatorRouteView(
-                                            creatorIdentifier: id,
-                                            fallbackTitle: title,
-                                            accountAddresses: connectedAccountAddresses,
-                                            model: model,
-                                            onOpenItem: { itemID in
-                                                router.showMusicNFTDetail(id: itemID)
+                                    case .collection(let key, let title):
+                                        AuraPlayRouteModelHost(
+                                            makeModel: {
+                                                makeAuraPlayRouteModel(
+                                                    playbackRuntime: playbackRuntime,
+                                                    auraPlayModelContainer: auraPlayModelContainer
+                                                )
                                             },
-                                            onPlayItem: { itemID, _, _ in
-                                                await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
+                                            content: { model in
+                                                AuraPlayCollectionRouteView(
+                                                    collectionIdentifier: key,
+                                                    fallbackTitle: title,
+                                                    model: model,
+                                                    onOpenItem: { itemID in
+                                                        router.showMusicNFTDetail(id: itemID)
+                                                    },
+                                                    onPlayItem: { itemID, _, _ in
+                                                        await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
+                                                    },
+                                                    onAddToPlaylist: { _ in }
+                                                )
                                             }
                                         )
-                                    }
 
-                                case .video:
-                                    AuraPlayVideoWireframeView(
-                                        currentAccount: currentAccount,
-                                        currentChain: currentChain,
-                                        auraPlayModelContainer: auraPlayModelContainer,
-                                        playbackRuntime: playbackRuntime,
-                                        restoreVideoRoute: router.restoreMusicVideoWireframe
+                                    case .playlist(let id):
+                                        AuraPlayRouteModelHost(
+                                            makeModel: {
+                                                makeAuraPlayRouteModel(
+                                                    playbackRuntime: playbackRuntime,
+                                                    auraPlayModelContainer: auraPlayModelContainer
+                                                )
+                                            },
+                                            content: { model in
+                                                AuraPlayPlaylistRouteView(
+                                                    playlistID: id,
+                                                    model: model,
+                                                    onOpenItem: { itemID in
+                                                        router.showMusicNFTDetail(id: itemID)
+                                                    },
+                                                    onPlayItem: { itemID, _, _ in
+                                                        await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
+                                                    },
+                                                    missingContent: {
+                                                        AuraScenicScreen {
+                                                            AuraEmptyState(
+                                                                title: "Playlist Not Available",
+                                                                message: "This playlist isn't available on this device.",
+                                                                systemImage: "music.note.list"
+                                                            )
+                                                            .padding(24)
+                                                            .accessibilityIdentifier(A11yID.AuraPlay.playlists)
+                                                            .accessibilityValue(id)
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        )
+                                        .modelContainer(auraPlayModelContainer)
+
+                                    case .creator(let id, let title):
+                                        AuraPlayRouteModelHost(
+                                            makeModel: {
+                                                makeAuraPlayRouteModel(
+                                                    playbackRuntime: playbackRuntime,
+                                                    auraPlayModelContainer: auraPlayModelContainer
+                                                )
+                                            },
+                                            content: { model in
+                                                AuraPlayCreatorRouteView(
+                                                    creatorIdentifier: id,
+                                                    fallbackTitle: title,
+                                                    accountAddresses: connectedAccountAddresses,
+                                                    model: model,
+                                                    onOpenItem: { itemID in
+                                                        router.showMusicNFTDetail(id: itemID)
+                                                    },
+                                                    onPlayItem: { itemID, _, _ in
+                                                        await playLibraryItem(itemID, playbackRuntime: playbackRuntime)
+                                                    }
+                                                )
+                                            }
+                                        )
+
+                                    case .video:
+                                        AuraPlayVideoWireframeView(
+                                            currentAccount: currentAccount,
+                                            currentChain: currentChain,
+                                            auraPlayModelContainer: auraPlayModelContainer,
+                                            playbackRuntime: playbackRuntime,
+                                            restoreVideoRoute: router.restoreMusicVideoWireframe
+                                        )
+                                    }
+                                }
+                                .toolbar {
+                                    ToolbarItem(placement: .primaryAction) {
+                                        Button("Video", systemImage: "play.rectangle") {
+                                            router.showMusicVideoWireframe()
+                                        }
+                                    }
+                                }
+                                .task {
+                                    // Restored session shows as paused in the mini-player (P9-006).
+                                    await playbackRuntime.restoreMostRecentSessionIfNeeded()
+                                }
+                                .environment(\.auraPlayContextActions, .uiKitLive)
+                                .environment(\.auraPlayExplorerResolver, AuraPlayExplorerURLResolving { chain, contract, tokenID in
+                                    AuraPlayExplorerURLBuilder.nftURL(
+                                        chain: chain,
+                                        contractAddress: contract,
+                                        tokenID: tokenID
                                     )
-                                }
-                            }
-                            .toolbar {
-                                ToolbarItem(placement: .primaryAction) {
-                                    Button("Video", systemImage: "play.rectangle") {
-                                        router.showMusicVideoWireframe()
-                                    }
-                                }
-                            }
-                            .task {
-                                // Restored session shows as paused in the mini-player (P9-006).
-                                await playbackRuntime.restoreMostRecentSessionIfNeeded()
-                            }
-                            .environment(\.auraPlayContextActions, .uiKitLive)
-                            .environment(\.auraPlayExplorerResolver, AuraPlayExplorerURLResolving { chain, contract, tokenID in
-                                AuraPlayExplorerURLBuilder.nftURL(
-                                    chain: chain,
-                                    contractAddress: contract,
-                                    tokenID: tokenID
+                                })
+                            } else {
+                                AuraPlayUnavailableView(
+                                    message: musicUnavailableMessage,
+                                    showsReinstallGuidance: showsMusicReinstallGuidance,
+                                    retryAction: retryMusicSetup
                                 )
-                            })
-                        } else {
-                            AuraPlayUnavailableView(
-                                message: musicUnavailableMessage,
-                                showsReinstallGuidance: showsMusicReinstallGuidance,
-                                retryAction: retryMusicSetup
-                            )
+                            }
                         }
                     }
+                    .accessibilityIdentifier("tab.music")
                 }
-                .accessibilityIdentifier("tab.music")
             }
 
             if router.tabBarVisibility.showsInTabBar(.receipts) {
@@ -540,43 +592,47 @@ struct MainTabView: View {
                 .accessibilityIdentifier("tab.receipts")
             }
 
-            Tab("Profile", systemImage: "person.circle", value: AppTab.profile) {
-                NavigationStack(path: $router.profilePath) {
-                    ProfileDetailView(
-                        accountAddress: activeAccountAddress,
-                        currentChain: currentChain,
-                        isCurrentAccount: true,
-                        showsPolicySection: true,
-                        modeState: modeState,
-                        policyActionHandlerFactory: dependencies.policyActionHandlerFactory,
-                        onOpenSettings: router.showSettings
-                    )
-                    .navigationDestination(for: ProfileRoute.self) { route in
-                        switch route {
-                        case .detail(let address):
-                            ProfileDetailView(
-                                accountAddress: address,
-                                currentChain: currentChain,
-                                isCurrentAccount: address == activeAccountAddress
-                            )
+            if router.tabBarVisibility.showsInTabBar(.profile) {
+                Tab("Profile", systemImage: "person.circle", value: AppTab.profile) {
+                    NavigationStack(path: $router.profilePath) {
+                        ProfileDetailView(
+                            accountAddress: activeAccountAddress,
+                            currentChain: currentChain,
+                            isCurrentAccount: true,
+                            showsPolicySection: true,
+                            modeState: modeState,
+                            policyActionHandlerFactory: dependencies.policyActionHandlerFactory,
+                            onOpenSettings: router.showSettings
+                        )
+                        .navigationDestination(for: ProfileRoute.self) { route in
+                            switch route {
+                            case .detail(let address):
+                                ProfileDetailView(
+                                    accountAddress: address,
+                                    currentChain: currentChain,
+                                    isCurrentAccount: address == activeAccountAddress
+                                )
 
-                        case .settings:
-                            SettingsView(
-                                currentAccountAddress: activeAccountAddress,
-                                currentChain: currentChain,
-                                privacyResetServiceFactory: dependencies.privacyResetServiceFactory,
-                                allWalletDisconnectServiceFactory: dependencies.allWalletDisconnectServiceFactory,
-                                auraPlayModelContainer: auraPlayModelContainer,
-                                playbackRuntime: playbackRuntime,
-                                onPrivacyResetCompleted: {
-                                    await shellStore.send(.logoutRequested)
-                                }
-                            )
+                            case .settings:
+                                SettingsView(
+                                    currentAccountAddress: activeAccountAddress,
+                                    currentChain: currentChain,
+                                    modeState: modeState,
+                                    privacyResetServiceFactory: dependencies.privacyResetServiceFactory,
+                                    allWalletDisconnectServiceFactory: dependencies.allWalletDisconnectServiceFactory,
+                                    auraPlayModelContainer: auraPlayModelContainer,
+                                    playbackRuntime: playbackRuntime,
+                                    walletConnectionService: walletConnectionService,
+                                    onPrivacyResetCompleted: {
+                                        await shellStore.send(.logoutRequested)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
+                .accessibilityIdentifier("tab.profile")
             }
-            .accessibilityIdentifier("tab.profile")
 
             if router.tabBarVisibility.showsInTabBar(.search) {
                 Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
@@ -598,8 +654,50 @@ struct MainTabView: View {
                 }
                 .accessibilityIdentifier("tab.nftTokens")
             }
+
+            // Grouped so the TabView's top-level content stays within the builder's 10-tab arity.
+            operatorTabs
         }
         .tint(.accent)
+        .task(id: router.selectedTab) {
+            guard router.selectedTab == .music, playbackRuntime == nil else {
+                return
+            }
+            await retryMusicSetup()
+        }
+    }
+
+    @TabContentBuilder<AppTab>
+    private var operatorTabs: some TabContent<AppTab> {
+        if router.tabBarVisibility.showsInTabBar(.missionControl) {
+            Tab("Ops", systemImage: "gauge.with.dots.needle.bottom.50percent", value: AppTab.missionControl) {
+                MissionControlTabContainer(
+                    modelContext: modelContext,
+                    modeState: modeState,
+                    activeIdentityID: activeAccountAddress,
+                    routedArtifactID: router.missionControlArtifactRoute?.id
+                )
+                .id(activeAccountAddress)
+            }
+            .accessibilityIdentifier("tab.missionControl")
+        }
+
+        // Social v1 shared-session hub, gated on the relay flag. That flag is `YES` in *both* the
+        // Debug and Release xcconfigs as of 2026-10-12, so this tab **is** present in shipping
+        // builds. The gate is a kill switch, not an off-by-default guard.
+        if SocialFeatureConfiguration().relayEnabled, router.tabBarVisibility.showsInTabBar(.social) {
+            Tab("Social", systemImage: "person.2.wave.2", value: AppTab.social) {
+                SocialTabView(
+                    modelContext: modelContext,
+                    modeState: modeState,
+                    accountAddress: activeAccountAddress,
+                    chainID: currentChain.chainId,
+                    auraPlayModelContainer: auraPlayModelContainer,
+                    walletConnectionService: walletConnectionService
+                )
+            }
+            .accessibilityIdentifier("tab.social")
+        }
     }
 
     @ViewBuilder
@@ -651,7 +749,7 @@ struct MainTabView: View {
             currentChain: currentChain,
             historyStore: dependencies.searchHistoryStore,
             spotlightIndexer: dependencies.searchSpotlightIndexerFactory(modelContext),
-            assistantProvider: dependencies.searchAssistantFactory(modelContext.container)
+            assistantProvider: dependencies.searchAssistantFactory(modelContext)
         )
     }
 
@@ -791,6 +889,7 @@ struct MainTabView: View {
             Button("Close") {
                 router.dismissAuxiliarySurface(resetPaths: true)
             }
+            .font(.body)
         }
     }
 
@@ -799,7 +898,7 @@ struct MainTabView: View {
 private struct ContextRemoteRefreshKey: Hashable {
     let accountAddress: String
     let chain: Chain
-    let mode: AppMode
+    let mode: CryptoMode
     let isLoading: Bool
     let refreshedAt: Date?
 }

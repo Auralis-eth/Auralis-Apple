@@ -38,9 +38,12 @@ public struct AuraActionButton: View {
                 }
 
                 Text(title)
+                    .font(.body)
                     .fontWeight(.semibold)
                     .multilineTextAlignment(.center)
+                    .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
             }
             .foregroundStyle(Color.textPrimary)
             .frame(maxWidth: isFullWidth ? .infinity : nil, minHeight: 44)

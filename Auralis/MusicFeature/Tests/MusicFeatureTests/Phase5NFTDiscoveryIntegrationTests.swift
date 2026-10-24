@@ -1,6 +1,6 @@
-@testable import MusicFeature
 import AuralisPrimaryModels
 import Foundation
+@testable import MusicFeature
 import SwiftData
 import Testing
 
@@ -36,7 +36,7 @@ struct Phase5NFTDiscoveryIntegrationTests {
         let wallet = "SolanaOwnerAddress"
         await fixture.solana.set(tokens: [
             Fixture.token(wallet: wallet, chain: .solanaMainnet, contract: nil, tokenId: "mint-1", tokenStandard: "ProgrammableNFT", metadataRaw: Fixture.metaplexAudioJSON(id: 1)),
-            Fixture.token(wallet: wallet, chain: .solanaMainnet, contract: nil, tokenId: "mint-2", tokenStandard: "ProgrammableNFT", metadataRaw: Fixture.metaplexAudioJSON(id: 2)),
+            Fixture.token(wallet: wallet, chain: .solanaMainnet, contract: nil, tokenId: "mint-2", tokenStandard: "ProgrammableNFT", metadataRaw: Fixture.metaplexAudioJSON(id: 2))
         ])
 
         try await fixture.coordinator.sync(walletAddress: wallet, chain: .solanaMainnet)
@@ -122,7 +122,7 @@ struct Phase5NFTDiscoveryIntegrationTests {
         let wallet = "0x1234567890abcdef1234567890abcdef12345678"
         await fixture.evm.set(tokens: [
             Fixture.token(wallet: wallet, chain: .ethMainnet, tokenId: "mp3", metadataRaw: Fixture.openSeaAnimationJSON(name: "MP3", animationURL: "https://example.com/track.mp3")),
-            Fixture.token(wallet: wallet, chain: .ethMainnet, tokenId: "mp4", metadataRaw: Fixture.openSeaAnimationJSON(name: "MP4", animationURL: "https://example.com/video.mp4")),
+            Fixture.token(wallet: wallet, chain: .ethMainnet, tokenId: "mp4", metadataRaw: Fixture.openSeaAnimationJSON(name: "MP4", animationURL: "https://example.com/video.mp4"))
         ], for: .ethMainnet)
 
         try await fixture.coordinator.sync(walletAddress: wallet, chain: .ethMainnet)
@@ -200,7 +200,7 @@ struct Phase5NFTDiscoveryIntegrationTests {
     func partialChainFailure() async throws {
         let fixture = try Fixture(scopes: [
             NFTDiscoveryScope(walletAddress: "0x1234567890abcdef1234567890abcdef12345678", chain: .ethMainnet),
-            NFTDiscoveryScope(walletAddress: "0x1234567890abcdef1234567890abcdef12345678", chain: .polygonMainnet),
+            NFTDiscoveryScope(walletAddress: "0x1234567890abcdef1234567890abcdef12345678", chain: .polygonMainnet)
         ])
         await fixture.evm.setFailure(AuraPlayError.library("Ethereum unavailable."), for: .ethMainnet)
         await fixture.evm.set(tokens: [
@@ -264,7 +264,7 @@ struct Phase5NFTDiscoveryIntegrationTests {
         let fixture = try Fixture(
             scopes: [
                 NFTDiscoveryScope(walletAddress: wallet, chain: .ethMainnet),
-                NFTDiscoveryScope(walletAddress: wallet, chain: .baseMainnet),
+                NFTDiscoveryScope(walletAddress: wallet, chain: .baseMainnet)
             ],
             defaults: defaults,
             clock: { clock.now }

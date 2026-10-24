@@ -103,7 +103,9 @@ public struct LibraryItemCell: View {
                 Text(viewModel.title)
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Color.textPrimary)
-                    .lineLimit(2)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
                 if viewModel.isCurrent {
                     Image(systemName: "waveform")
                         .font(.caption)

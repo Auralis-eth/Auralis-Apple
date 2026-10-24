@@ -19,8 +19,15 @@ Execute steps map to a `PolicyControlledAction` via `CapabilityActionMapping` an
 through the same `PolicyActionGating` the rest of the app uses. A `TrustedRoutineAllowlist`
 only removes the per-run confirmation tap — it **never** bypasses the policy gate.
 
-Because the shipping app pins `AppMode` to `.observe`, every state change resolves to
-`blocked` today. That's the honest state of the world: the machinery is real and tested,
-and higher autonomy switches on only when policy does.
+The active `CryptoMode` comes from the same policy gate used by the rest of the app. Observe blocks
+crypto execution, Assist escalates it for approval, and Operate can proceed only when the policy gate
+and routine trust both allow it.
 
 `AutopilotRunner` wires planner + authorizer + executor into one `run(_:)` call.
+
+## Phase 1 status
+
+This package is scaffolded infrastructure, not a policy bypass. Signing, approvals, transaction
+drafting, and high-risk wallet actions are governed by `CryptoMode` and routed through policy.
+Performance metrics and successful routine history are descriptive only; they never increase authority
+or remove governance gates.

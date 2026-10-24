@@ -10,10 +10,11 @@ struct ShellBootstrapDependencies {
     let modeStateFactory: @MainActor () -> ModeState
     let nftServiceFactory: @MainActor () -> NFTService
     let makeMusicRuntime: @MainActor () -> MusicRuntime
+    let makeMusicPlaybackRuntime: @MainActor () -> MusicPlaybackRuntimeResult
     let configureMusicReceiptLogger: @MainActor (AuraPlayPlaybackRuntime?, ModelContext) -> Void
-    let makeShellStore: @MainActor (ModelContext, NFTService, AppRouter) -> ShellStore
-    let makeGatewayDependencies: @MainActor (ModelContext) -> GatewayDependencies
-    let makeMainTabDependencies: @MainActor (ModelContext) -> MainTabDependencies
+    let makeShellStore: @MainActor (ModelContext, NFTService, AppRouter, ModeState) -> ShellStore
+    let makeGatewayDependencies: @MainActor (ModelContext, ModeState) -> GatewayDependencies
+    let makeMainTabDependencies: @MainActor (ModelContext, ModeState) -> MainTabDependencies
 
     static let live = live()
 
@@ -25,20 +26,28 @@ struct ShellBootstrapDependencies {
             modeStateFactory: environment.modeStateFactory,
             nftServiceFactory: environment.music.makeNFTService,
             makeMusicRuntime: environment.music.makeRuntime,
+            makeMusicPlaybackRuntime: environment.music.makePlaybackRuntime,
             configureMusicReceiptLogger: environment.music.configureReceiptLogger,
-            makeShellStore: { modelContext, nftService, router in
+            makeShellStore: { modelContext, nftService, router, modeState in
                 environment.shell.makeShellStore(
                     modelContext: modelContext,
                     nftService: nftService,
                     router: router,
+                    modeProvider: { modeState.mode },
                     selectionPersistence: selectionPersistence
                 )
             },
-            makeGatewayDependencies: { modelContext in
-                environment.accounts.makeGatewayDependencies(modelContext: modelContext)
+            makeGatewayDependencies: { modelContext, modeState in
+                environment.accounts.makeGatewayDependencies(
+                    modelContext: modelContext,
+                    modeProvider: { modeState.mode.receiptMode }
+                )
             },
-            makeMainTabDependencies: { modelContext in
-                environment.mainTabs.makeMainTabDependencies(modelContext: modelContext)
+            makeMainTabDependencies: { modelContext, modeState in
+                environment.mainTabs.makeMainTabDependencies(
+                    modelContext: modelContext,
+                    modeState: modeState
+                )
             }
         )
     }

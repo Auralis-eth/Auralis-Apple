@@ -1,12 +1,12 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
-import SwiftData
-import Testing
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import SwiftData
+import Testing
 
 struct NFTServiceTests {
     @Test("service sequences fetch, prepare, persist, and event recording in order")

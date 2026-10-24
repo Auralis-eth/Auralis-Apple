@@ -34,3 +34,14 @@ validate_key \
   "${AURALIS_HELIUS_API_KEY:-}" \
   "AURALIS_HELIUS_API_KEY must be set for Release builds." \
   "AURALIS_HELIUS_API_KEY contains a placeholder value for Release builds."
+
+# The third secret in `Secrets.local.xcconfig.template`, and previously the one this gate did not
+# check. An empty project ID does not crash — `AuralisWalletConnectionConfig.init` fails closed with
+# "WalletConnect project ID is not configured" — so the failure mode was a Release that built,
+# shipped, and simply had no WalletConnect, discovered by a person trying to connect a wallet rather
+# than by the check that exists to catch exactly this.
+validate_key \
+  "AURALIS_WALLETCONNECT_PROJECT_ID" \
+  "${AURALIS_WALLETCONNECT_PROJECT_ID:-}" \
+  "AURALIS_WALLETCONNECT_PROJECT_ID must be set for Release builds." \
+  "AURALIS_WALLETCONNECT_PROJECT_ID contains a placeholder value for Release builds."

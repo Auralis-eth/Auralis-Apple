@@ -39,6 +39,10 @@ let package = Package(
             dependencies: [
                 "NFTLibraryFeature",
                 "AuralisTestSupport",
+                // The external-link policy tests validate URLs the builders produce against the
+                // narrowed policies, so they need both the policy types and the builders directly.
+                "OperatorCore",
+                "ExplorerAdapter",
             ]
         ),
     ]

@@ -2,6 +2,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
+import ReceiptsCore
 import Testing
 
 struct ReceiptTimelineStateTests {
@@ -170,6 +171,22 @@ struct ReceiptTimelineStateTests {
             ),
             makeRecord(
                 sequenceID: 3,
+                actor: .system,
+                trigger: "nft.fetch.succeeded",
+                scope: "networking",
+                summary: "Fetched Base NFT page successfully",
+                provenance: "on_chain",
+                isSuccess: true,
+                correlationID: "refresh-3",
+                details: ReceiptPayload(values: [
+                    "accountAddress": .string(activeScope.accountAddress),
+                    "chain": .string(Chain.baseMainnet.rawValue)
+                ]),
+                accountAddress: activeScope.accountAddress.lowercased(),
+                chainRawValue: Chain.baseMainnet.rawValue
+            ),
+            makeRecord(
+                sequenceID: 4,
                 actor: .user,
                 trigger: "copy.performed",
                 scope: "clipboard",
@@ -185,8 +202,105 @@ struct ReceiptTimelineStateTests {
 
         #expect(snapshot.totalCount == 2)
         #expect(snapshot.filteredCount == 2)
-        #expect(snapshot.visibleRecords.map(\.sequenceID) == [1, 3])
+        #expect(snapshot.visibleRecords.map(\.sequenceID) == [1, 4])
         #expect(snapshot.availableScopes == ["clipboard", "networking"])
+    }
+
+    @Test("receipt presentation builds human-readable audit sections and artifact-producing postflight")
+    func receiptPresentationBuildsReadableSections() {
+        let artifactID = UUID(uuidString: "44444444-4444-4444-4444-444444444444")!
+        let relatedArtifactID = UUID(uuidString: "55555555-5555-5555-5555-555555555555")!
+        let nestedArtifactID = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
+        let record = makeRecord(
+            sequenceID: 40,
+            actor: .system,
+            trigger: "tool.executed",
+            scope: "runtime",
+            summary: "Executed operator",
+            provenance: "runtime",
+            isSuccess: true,
+            correlationID: "operator-40",
+            details: ReceiptPayload(values: [
+                "requestedIntent": .string("Create a wallet risk report"),
+                "interpretedPlan": .array([.string("Collect balances"), .string("Write report")]),
+                "approvalID": .string("approval-40"),
+                "actionName": .string("operator.riskReport"),
+                "output": .object(["summary": .string("Report created")]),
+                "policyReason": .string("Read-only artifact generation is allowed."),
+                "capability": .string("artifact.write"),
+                "artifactID": .string(artifactID.uuidString),
+                "artifactIDs": .array([
+                    .string(artifactID.uuidString),
+                    .string(relatedArtifactID.uuidString)
+                ]),
+                "relatedArtifacts": .array([
+                    .object(["id": .string(nestedArtifactID.uuidString)])
+                ]),
+                "changeSummary": .string("Created a report artifact.")
+            ])
+        )
+
+        let presentation = ReceiptPresentation(receipt: record)
+        let sections = Dictionary(uniqueKeysWithValues: presentation.sections.map { ($0.title, $0.rows) })
+
+        #expect(presentation.outcome == .artifactProducing)
+        #expect(presentation.artifactIDs == [artifactID, relatedArtifactID, nestedArtifactID])
+        #expect(sections["Requested Intent"]?.contains { $0.value == "Create a wallet risk report" } == true)
+        #expect(sections["Interpreted Plan"]?.contains { $0.value.contains("Collect balances") } == true)
+        #expect(sections["Approvals"]?.contains { $0.value == "approval-40" } == true)
+        #expect(sections["Actions"]?.contains { $0.value == "operator.riskReport" } == true)
+        #expect(sections["Outputs"]?.contains { $0.value.contains("Report created") } == true)
+        #expect(sections["Policy Reasons"]?.contains { $0.value.contains("Read-only") } == true)
+        #expect(sections["Related Capabilities"]?.contains { $0.value == "artifact.write" } == true)
+        #expect(presentation.changeRows.contains { $0.value == "Created a report artifact." })
+        #expect(presentation.searchableText.contains("artifact.write"))
+    }
+
+    @Test("receipt presentation distinguishes draft, no-op, and blocked postflight outcomes")
+    func receiptPresentationDistinguishesPostflightOutcomes() {
+        let draft = ReceiptPresentation(receipt: makeRecord(
+            sequenceID: 41,
+            actor: .system,
+            trigger: "tool.draftPrepared",
+            scope: "runtime",
+            summary: "Prepared draft",
+            provenance: "runtime",
+            isSuccess: true,
+            correlationID: "operator-41",
+            details: ReceiptPayload(values: ["receiptDraftID": .string("draft-41")])
+        ))
+        let noOp = ReceiptPresentation(receipt: makeRecord(
+            sequenceID: 42,
+            actor: .system,
+            trigger: "account.selected",
+            scope: "accounts",
+            summary: "Selected account",
+            provenance: "user_provided",
+            isSuccess: true,
+            correlationID: "operator-42",
+            details: ReceiptPayload(values: ["outcome": .string("no-op")])
+        ))
+        let blocked = ReceiptPresentation(receipt: makeRecord(
+            sequenceID: 43,
+            actor: .system,
+            trigger: "tool.blocked",
+            scope: "runtime",
+            summary: "Blocked signing",
+            provenance: "policy",
+            isSuccess: false,
+            correlationID: "operator-43",
+            details: ReceiptPayload(values: ["policyReason": .string("Observe mode blocks signing.")])
+        ))
+
+        #expect(draft.outcome == .draftOnly)
+        #expect(draft.changeRows == [
+            ReceiptContentRow(label: "Draft", value: "Prepared for review; no artifact was committed.")
+        ])
+        #expect(noOp.outcome == .noOp)
+        #expect(blocked.outcome == .blocked)
+        #expect(blocked.changeRows == [
+            ReceiptContentRow(label: "Stopped", value: "Observe mode blocks signing.")
+        ])
     }
 
     private func makeRecord(

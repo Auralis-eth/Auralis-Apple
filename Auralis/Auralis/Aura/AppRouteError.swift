@@ -1,5 +1,5 @@
-import AuraUI
 import AuralisShellCore
+import AuraUI
 
 extension AppRouteError {
     var trustLabelKind: AuraUntrustedValueKind? {

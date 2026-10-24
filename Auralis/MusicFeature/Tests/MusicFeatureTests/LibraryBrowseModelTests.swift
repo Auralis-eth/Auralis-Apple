@@ -51,6 +51,23 @@ struct LibraryBrowseModelTests {
         func log(_ event: AuraPlayLogEvent) {}
     }
 
+    private actor CapturingAutoOrganizationRunner: MusicAutoOrganizationRunning {
+        private(set) var proposal: MusicAutoOrganizationDryRunProposal?
+
+        func runDryRun(
+            proposal: MusicAutoOrganizationDryRunProposal,
+            context: MusicReceiptContext
+        ) async throws -> MusicAutoOrganizationDryRunResult {
+            self.proposal = proposal
+            return MusicAutoOrganizationDryRunResult(
+                affectedMediaIDs: proposal.affectedMediaIDs,
+                beforeSummary: proposal.beforeSummary,
+                proposedSummary: proposal.proposedSummary,
+                dryRun: true
+            )
+        }
+    }
+
     @MainActor
     private final class FakeDiscoverySync: AuraPlayNFTDiscoverySyncing {
         private(set) var syncAllCallCount = 0
@@ -115,7 +132,8 @@ struct LibraryBrowseModelTests {
 
     private func makeModel(
         tier: AuraPlayLibrarySeed.Tier,
-        discoverySync: FakeDiscoverySync = FakeDiscoverySync()
+        discoverySync: FakeDiscoverySync = FakeDiscoverySync(),
+        autoOrganizationRunner: (any MusicAutoOrganizationRunning)? = nil
     ) throws -> (model: AuraPlayRootModel, queryService: CountingQueryService) {
         let container = try AuraPlayLibrarySeed.makeContainer()
         try AuraPlayLibrarySeed.seed(container, tier: tier)
@@ -131,6 +149,7 @@ struct LibraryBrowseModelTests {
             librarySyncService: NoOpAuraPlayLibrarySyncService(),
             nftDiscoverySyncService: discoverySync,
             playlistManager: AuraPlayPlaylistService(modelContainer: container),
+            autoOrganizationRunner: autoOrganizationRunner,
             playbackController: FakePlaybackController(),
             mediaQueryService: queryService,
             queueCoordinator: FakeQueueCoordinator(),
@@ -142,6 +161,21 @@ struct LibraryBrowseModelTests {
             currentChain: AuraPlayLibrarySeed.chain
         )
         return (model, queryService)
+    }
+
+    @Test("Auto-organization UI model runs a safe scope-wide preview")
+    func autoOrganizationRunsDryPreview() async throws {
+        let runner = CapturingAutoOrganizationRunner()
+        let (model, _) = try makeModel(tier: .standard, autoOrganizationRunner: runner)
+
+        await model.runAutoOrganizationPreview()
+
+        let capturedProposal = await runner.proposal
+        let proposal = try #require(capturedProposal)
+        #expect(proposal.affectedMediaIDs.count == 7)
+        #expect(model.autoOrganizationResult?.dryRun == true)
+        #expect(model.autoOrganizationResult?.affectedMediaIDs.count == 7)
+        #expect(model.autoOrganizationStatus.contains("7 playable items"))
     }
 
     // MARK: Browse windows

@@ -90,7 +90,7 @@ struct AuralisSearchEvaluation: Evaluation {
                 item.attributeSet.displayName,
                 item.attributeSet.contentDescription,
                 item.attributeSet.textContent,
-                item.attributeSet.keywords?.joined(separator: " "),
+                item.attributeSet.keywords?.joined(separator: " ")
             ]
             .compactMap { $0 }
             .joined(separator: " ")
@@ -162,7 +162,7 @@ struct AuralisSearchEvaluation: Evaluation {
                 title: "USDC",
                 description: "ERC-20 token on Ethereum.",
                 keywords: ["usdc", "token", "erc20", "auralis:documentdomain=erc20"]
-            ),
+            )
         ]
     }
 

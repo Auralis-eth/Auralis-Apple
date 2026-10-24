@@ -1,3 +1,10 @@
+// The loader under test is declared inside `#if canImport(UIKit)` (its API traffics in `UIImage`), so
+// this file has to be gated the same way the source is. Without the gate the whole test target failed
+// to compile for macOS on `import UIKit` — which meant *no* test in this package ran anywhere: there is
+// no CI step for it, and its generated scheme reports no supported platforms under `xcodebuild`. Gating
+// here lets the platform-independent suites — notably `NFTExternalLinkPolicyTests`, which covers the
+// narrowed external-link allowlist — run on a macOS host and in CI.
+#if canImport(UIKit)
 @testable import NFTLibraryFeature
 import AuralisTestSupport
 import Foundation
@@ -46,13 +53,15 @@ struct NFTImageLoaderTests {
         let counter = RequestCounter()
         let session = URLSession.mocked { request in
             counter.increment()
-            let response = HTTPURLResponse(
-                url: try #require(request.url),
-                statusCode: 200,
-                httpVersion: nil,
-                headerFields: ["Content-Type": "image/png"]
+            let requestURL = try #require(request.url)
+            let response = try #require(
+                HTTPURLResponse(
+                    url: requestURL,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "image/png"]
+                )
             )
-            let response = try #require(response)
             return (response, pngData)
         }
 
@@ -84,13 +93,15 @@ struct NFTImageLoaderTests {
     @Test("mp4 content type rejects and clears loading state")
     func mp4ContentTypeRejectClearsLoading() async throws {
         let session = URLSession.mocked { request in
-            let response = HTTPURLResponse(
-                url: try #require(request.url),
-                statusCode: 200,
-                httpVersion: nil,
-                headerFields: ["Content-Type": "video/mp4"]
+            let requestURL = try #require(request.url)
+            let response = try #require(
+                HTTPURLResponse(
+                    url: requestURL,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "video/mp4"]
+                )
             )
-            let response = try #require(response)
             return (response, Data())
         }
 
@@ -112,13 +123,15 @@ struct NFTImageLoaderTests {
     @Test("HTTP 404 image responses surface a not-found style failure instead of decode noise")
     func notFoundStatusSurfacesSpecificFailure() async throws {
         let session = URLSession.mocked { request in
-            let response = HTTPURLResponse(
-                url: try #require(request.url),
-                statusCode: 404,
-                httpVersion: nil,
-                headerFields: ["Content-Type": "image/png"]
+            let requestURL = try #require(request.url)
+            let response = try #require(
+                HTTPURLResponse(
+                    url: requestURL,
+                    statusCode: 404,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "image/png"]
+                )
             )
-            let response = try #require(response)
             return (response, Data())
         }
 
@@ -154,13 +167,15 @@ struct NFTImageLoaderTests {
                 throw URLError(.notConnectedToInternet)
             }
 
-            let response = HTTPURLResponse(
-                url: try #require(request.url),
-                statusCode: 200,
-                httpVersion: nil,
-                headerFields: ["Content-Type": "image/png"]
+            let requestURL = try #require(request.url)
+            let response = try #require(
+                HTTPURLResponse(
+                    url: requestURL,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "image/png"]
+                )
             )
-            let response = try #require(response)
             return (response, pngData)
         }
 
@@ -238,16 +253,18 @@ struct NFTImageLoaderTests {
             count: NFTImageLoader.maxDownloadSizeBytes + 1
         )
         let session = URLSession.mocked { request in
-            let response = HTTPURLResponse(
-                url: try #require(request.url),
-                statusCode: 200,
-                httpVersion: nil,
-                headerFields: [
-                    "Content-Type": "image/svg+xml",
-                    "Content-Length": String(oversizedData.count)
-                ]
+            let requestURL = try #require(request.url)
+            let response = try #require(
+                HTTPURLResponse(
+                    url: requestURL,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: [
+                        "Content-Type": "image/svg+xml",
+                        "Content-Length": String(oversizedData.count)
+                    ]
+                )
             )
-            let response = try #require(response)
             return (response, oversizedData)
         }
 
@@ -271,3 +288,5 @@ private func waitForLoaderToFinish(_ loadingTask: Task<Void, Never>?) async thro
     let loadingTask = try #require(loadingTask)
     await loadingTask.value
 }
+
+#endif

@@ -4,6 +4,7 @@ public enum MusicReceiptEventType: String, Sendable {
     case mediaClassified = "music.media_classified"
     case playlistCreated = "music.playlist.created"
     case playlistModified = "music.playlist.modified"
+    case playlistDeleted = "music.playlist.deleted"
     case metadataOverrideApplied = "music.metadata_override.applied"
     case queueChanged = "music.queue.changed"
     case playbackStarted = "music.playback.started"
@@ -21,6 +22,8 @@ public enum MusicReceiptEventType: String, Sendable {
             return "Created playlist"
         case .playlistModified:
             return "Updated playlist"
+        case .playlistDeleted:
+            return "Deleted playlist"
         case .metadataOverrideApplied:
             return "Applied metadata override"
         case .queueChanged:
@@ -42,7 +45,7 @@ public enum MusicReceiptEventType: String, Sendable {
 
     var scope: String {
         switch self {
-        case .playlistCreated, .playlistModified:
+        case .playlistCreated, .playlistModified, .playlistDeleted:
             return "music.playlist"
         case .queueChanged, .playbackStarted, .playbackCompleted:
             return "music.playback"

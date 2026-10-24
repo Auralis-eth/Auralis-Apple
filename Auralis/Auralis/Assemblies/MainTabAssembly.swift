@@ -53,18 +53,29 @@ struct MainTabAssembly {
 
     func makeMainTabDependencies(
         modelContext: ModelContext,
+        modeState: ModeState? = nil,
         homePinnedItemsStore: HomePinnedItemsStore? = nil,
         privacyResetServiceFactory: (@MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting)? = nil,
         allWalletDisconnectServiceFactory: (@MainActor (ModelContext, ModelContainer?, String?) -> any AllWalletDisconnecting)? = nil
     ) -> MainTabDependencies {
         MainTabDependencies(
             accountStoreFactory: { [accounts] modelContext in
-                accounts.makeAccountStore(modelContext: modelContext)
+                accounts.makeAccountStore(
+                    modelContext: modelContext,
+                    modeProvider: {
+                        modeState?.mode.receiptMode ?? PersistedCryptoMode.currentReceiptMode
+                    }
+                )
             },
             contextServiceBuilder: shell.contextServiceBuilder,
             nativeBalanceProvider: providers.makeNativeBalanceProvider(),
             gasPricingProvider: providers.makeGasPricingProvider(),
-            ensResolver: accounts.makeENSResolver(modelContext: modelContext),
+            ensResolver: accounts.makeENSResolver(
+                modelContext: modelContext,
+                modeProvider: {
+                    modeState?.mode.receiptMode ?? PersistedCryptoMode.currentReceiptMode
+                }
+            ),
             homePinnedItemsStore: homePinnedItemsStore ?? home.makePinnedItemsStore(),
             libraryContextProvider: shell.makeLibraryContextProvider(modelContext: modelContext),
             musicLibraryIndexer: music.makeMusicLibraryIndexer(modelContext: modelContext),
@@ -75,8 +86,8 @@ struct MainTabAssembly {
             searchSpotlightIndexerFactory: { [search] modelContext in
                 search.makeSpotlightIndexer(modelContext: modelContext)
             },
-            searchAssistantFactory: { [search] modelContainer in
-                search.makeAssistant(modelContainer: modelContainer)
+            searchAssistantFactory: { [search] modelContext in
+                search.makeAssistant(modelContext: modelContext)
             },
             tokenHoldingsStoreFactory: { [tokenHoldings] modelContext in
                 tokenHoldings.makeStore(modelContext: modelContext)
@@ -98,7 +109,12 @@ struct MainTabAssembly {
             },
             allWalletDisconnectServiceFactory: allWalletDisconnectServiceFactory ?? { [accounts, privacy] modelContext, auraPlayModelContainer, activeAddress in
                 privacy.makeAllWalletDisconnectService(
-                    accountStore: accounts.makeAccountStore(modelContext: modelContext),
+                    accountStore: accounts.makeAccountStore(
+                        modelContext: modelContext,
+                        modeProvider: {
+                            modeState?.mode.receiptMode ?? PersistedCryptoMode.currentReceiptMode
+                        }
+                    ),
                     modelContext: modelContext,
                     auraPlayModelContainer: auraPlayModelContainer,
                     activeAddressProvider: { activeAddress }
@@ -136,7 +152,7 @@ struct MainTabDependencies {
     let receiptEventLoggerFactory: @MainActor (ModelContext) -> ReceiptEventLogger
     let searchHistoryStore: SearchHistoryStore
     let searchSpotlightIndexerFactory: @MainActor (ModelContext) -> any SearchSpotlightIndexing
-    let searchAssistantFactory: @MainActor (ModelContainer) -> any SearchAssistantProviding
+    let searchAssistantFactory: @MainActor (ModelContext) -> any SearchAssistantProviding
     let tokenHoldingsStoreFactory: @MainActor (ModelContext) -> SwiftDataTokenHoldingsStore
     let tokenHoldingsProviderFactory: () -> any TokenHoldingsProviding
     let erc20HoldingsSyncerFactory: @MainActor (ModelContext) -> any ERC20HoldingsSyncing
@@ -151,7 +167,6 @@ struct MainTabDependencies {
         any MusicLibraryIndexing,
         AuraPlayVideoRouteOpening
     ) -> AuraPlayDependencies
-
 
     func makeMusicFeatureDependencies(
         playbackRuntime: AuraPlayPlaybackRuntime,

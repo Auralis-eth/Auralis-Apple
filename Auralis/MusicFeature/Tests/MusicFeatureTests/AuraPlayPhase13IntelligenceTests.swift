@@ -333,6 +333,21 @@ struct AuraPlayPhase13IntelligenceTests {
         #expect(restored?.positionMilliseconds == 30_000)
     }
 
+    @Test("Reconcile deletes semantic embeddings with removed media")
+    func reconcileDeletesOrphanedEmbedding() async throws {
+        let container = try AuraPlayLibrarySeed.makeContainer()
+        let service = AuraPlayMediaItemService(modelContainer: container)
+
+        try await service.upsertAll([mediaDTO(id: "old-media", tokenID: "42")])
+        try insertEmbedding(mediaID: "old-media", vector: [1, 0], in: container)
+
+        try await service.removeItems(ids: ["old-media"], capturedAt: AuraPlayLibrarySeed.baseDate)
+
+        let context = ModelContext(container)
+        let embeddings = try context.fetch(FetchDescriptor<AuraPlayMediaEmbedding>())
+        #expect(embeddings.isEmpty)
+    }
+
     @Test("Reconcile does not tombstone a non-resumable near-end position")
     func reconcileIgnoresNonResumablePosition() async throws {
         let container = try AuraPlayLibrarySeed.makeContainer()

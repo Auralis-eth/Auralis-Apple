@@ -8,7 +8,7 @@ import Testing
 struct ShellStoreTests {
     @Test("restore from persistence repairs chain mismatch from the account and records app launch once")
     @MainActor
-    func restoreFromPersistenceRepairsChainMismatchAndRecordsAppLaunch() async {
+    func restoreFromPersistenceRepairsChainMismatchAndRecordsAppLaunch() async throws {
         let account = makeAccount(
             address: "0x1234567890abcdef1234567890abcdef12345678",
             currentChain: .baseMainnet
@@ -38,7 +38,7 @@ struct ShellStoreTests {
 
     @Test("restore from persistence falls back to the first available account when the saved one is gone")
     @MainActor
-    func restoreFromPersistenceUsesFallbackAccount() async {
+    func restoreFromPersistenceUsesFallbackAccount() async throws {
         let fallbackAccount = makeAccount(
             address: "0xfedcba0987654321fedcba0987654321fedcba09",
             currentChain: .polygonMainnet
@@ -320,7 +320,7 @@ struct ShellStoreTests {
 
     @Test("deep link replay routes immediately when the shell is ready")
     @MainActor
-    func deepLinkReplayRoutesWhenReady() async {
+    func deepLinkReplayRoutesWhenReady() async throws {
         let account = makeAccount(
             address: "0xdddddddddddddddddddddddddddddddddddddddd",
             currentChain: .baseMainnet
@@ -379,7 +379,7 @@ struct ShellStoreTests {
 
     @Test("deep link replay waits when dependencies are not ready yet")
     @MainActor
-    func deepLinkReplayWaitsWhenNotReady() async {
+    func deepLinkReplayWaitsWhenNotReady() async throws {
         let replayer = TestShellDeepLinkReplayer(
             nextResolution: PendingDeepLinkResolution(
                 chainOverride: nil,

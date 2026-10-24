@@ -1,21 +1,43 @@
 # P0 UI Test QA Suite
 
 Generated: May 23, 2026
-Scope: Automated UI and accessibility-audit coverage for Phase 1 and Phase 2 accessibility readiness.
+Last refreshed: August 17, 2026
+Scope: Automated UI and accessibility-audit coverage for Phase 1 and Phase 2 accessibility readiness,
+including the Mission Control operator console.
 
-This suite is the automated companion to `P0-Physical-Device-QA-Suite.md`. It does not replace real-device QA. It catches regressions that XCTest can see: missing screens, broken identifiers, unreachable controls, and iOS 17+ accessibility audit failures.
+This suite is the automated companion to `P0-Physical-Device-QA-Suite.md` and
+`Phase-1-Physical-Device-QA-Suite.md`. It does not replace real-device QA. It catches regressions that
+XCTest can see: missing screens, broken identifiers, unreachable controls, and iOS 17+ accessibility
+audit failures.
 
 ## Current Record
 
-Last checked: May 23, 2026
+Last checked: August 17, 2026
 
 - Xcode `Auralis` build: passed
-- Active test plan: 503 passed, 0 failed
-- UI test files found: none
-- `performAccessibilityAudit` references found: none
-- Accessibility ticket status from static review: Phase 1 and Phase 2 are code-complete, but automated UI accessibility coverage is not yet implemented
+- UI test target: **present** — `AuralisUITests` (`AccessibilityAuditUITests.swift`)
+- `performAccessibilityAudit` references: **present** — used in `performAudit(in:)`, guarded with
+  `if #available(iOS 17.0, *)` and auditing `.all.subtracting(.contrast)`; a hand-rolled
+  `performLegacyAudit(in:)` covers pre-iOS 17 runtimes
+- Screens with automated audit coverage: Gateway (+ validation error, scanner fallback), Home (+ large
+  text, account-switcher removal), News Feed (+ NFT action menu), Search (+ populated history), Gas,
+  Music (+ Now Playing), NFTs (+ external-link confirmation), Receipts (+ receipt detail), Settings
+  privacy reset
+- Mission Control coverage: `testMissionControlOperatorConsoleSmoke` (pause toggle + section navigation
+  + operator run + artifact detail), `testMissionControlApprovalInboxOpensLinkedReceiptDetail`,
+  `testMissionControlArtifactBrowserOpensRelatedReceiptDetail`,
+  `testMissionControlArtifactLifecycleControlsAreReachable`
+- Known coverage gaps: no `performAccessibilityAudit` call yet inside the Mission Control sections (the
+  MC tests assert reachability/identifiers but do not run the audit); several tests `XCTSkip` when the
+  fixture does not seed the required state (Now Playing session, runnable operator, NFT action menu)
 
-Result: No-go for the automated accessibility gate until this suite exists in a UI test target and passes on iOS 17+.
+Result: The automated accessibility gate is **partially green** — the historical "no-go / no UI tests"
+record is stale and has been corrected. Remaining before a full go: add `performAccessibilityAudit` to
+the Mission Control sections and remove the fixture-driven skips by seeding deterministic state.
+
+> **Note:** the prior "503 passed / UI test files: none / no `performAccessibilityAudit`" record (dated
+> May 23, 2026) was stale — a UI test target with accessibility-audit coverage now exists, including
+> Mission Control smoke tests. Re-run the active test plan and record fresh counts here.
 
 ## Exit Rule
 
@@ -145,6 +167,34 @@ Pass criteria:
 - mini-player opens Now Playing through semantic button behavior or an equivalent reachable element
 - recently played secondary actions are not context-menu-only in accessible flows
 - iOS 17+ accessibility audit reports no unresolved blocker findings
+
+### P0-UI-007: Mission Control operator console accessibility + reachability
+
+Goal:
+
+- verify the Phase 1 operator console (the "Ops" tab, `tab.missionControl`) exposes its governance
+  controls and section navigation to automation and assistive tech
+
+Steps:
+
+1. Launch with `-ui-testing-authenticated` (and `-ui-testing-mission-control-fixtures` for seeded
+   approvals/artifacts).
+2. Select the "Ops" tab and confirm `missionControl.modeSection` is present.
+3. Toggle `missionControl.pauseToggle` and confirm the paused state text and resume path appear.
+4. Navigate to Receipts, Routines, Operators, Approvals, and Artifacts via the sidebar or
+   `Mission Control section` picker and confirm each section's identifier resolves.
+5. Open a seeded approval and confirm it links to `missionControl.receipt.detail`.
+6. Open a seeded artifact and confirm `missionControl.artifact.detail`, plus that
+   `missionControl.artifact.export` and `missionControl.artifact.supersede` are reachable.
+7. On iOS 17+, run `performAccessibilityAudit` for the Home, Approvals, Receipts, and Artifacts
+   sections. *(Not yet implemented — see Known coverage gaps.)*
+
+Pass criteria:
+
+- the pause toggle, section navigation, and lifecycle controls are reachable by identifier
+- approval → receipt and artifact → receipt links resolve to the correct detail
+- iOS 17+ accessibility audit reports no unresolved blocker findings on the covered sections
+- fixture-dependent steps that cannot seed state `XCTSkip` with a clear reason rather than failing
 
 ## Implementation Notes
 

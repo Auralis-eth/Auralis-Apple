@@ -24,7 +24,13 @@ enum AuraPlayLibrarySeed {
     static func makeContainer() throws -> ModelContainer {
         try ModelContainer(
             for: Schema(AuraPlaySchema.models),
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            // Matches `AuraPlayModelContainer.make`: `cloudKitDatabase` defaults to `.automatic`,
+            // which binds to the *host's* iCloud entitlement. This helper builds the real
+            // `AuraPlaySchema`, whose unique attributes and non-optional relationship CloudKit
+            // rejects, so under a host that carries the entitlement the container fails to load
+            // with 134060. `swift test` has no entitlements and so cannot catch that — which is
+            // exactly why the opt-out is stated here rather than relied upon.
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
     }
 

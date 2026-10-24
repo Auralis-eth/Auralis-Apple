@@ -36,6 +36,7 @@ public struct AuraPlaySpotlightDocument: Equatable, Sendable {
 public protocol AuraPlaySpotlightIndexClient: Sendable {
     func index(_ documents: [AuraPlaySpotlightDocument]) async throws
     func delete(ids: [String]) async throws
+    func delete(domainIdentifiers: [String]) async throws
 }
 
 public actor AuraPlaySpotlightIndexer: MediaItemIndexing {
@@ -60,6 +61,12 @@ public actor AuraPlaySpotlightIndexer: MediaItemIndexing {
         do {
             _ = try await deleteItemsReturningResult(ids)
         } catch { }
+    }
+
+    /// Removes every AuraPlay-owned Spotlight record without needing the
+    /// SwiftData rows to still exist. This is the privacy-reset seam.
+    public func deleteAllItems() async throws {
+        try await indexClient.delete(domainIdentifiers: [AuraPlaySpotlightDocument.mediaDomainIdentifier])
     }
 
     @discardableResult
@@ -167,22 +174,45 @@ public actor CoreSpotlightAuraPlayIndexClient: AuraPlaySpotlightIndexClient {
         }
         #endif
     }
+
+    public func delete(domainIdentifiers: [String]) async throws {
+        guard !domainIdentifiers.isEmpty else { return }
+
+        #if canImport(CoreSpotlight)
+        let index = CSSearchableIndex(name: indexName)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            index.deleteSearchableItems(withDomainIdentifiers: domainIdentifiers) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+        #endif
+    }
+}
+
+public extension AuraPlaySpotlightIndexClient {
+    /// Test doubles and alternate index stores that do not retain records by
+    /// domain can safely inherit this no-op; Core Spotlight overrides it.
+    func delete(domainIdentifiers: [String]) async throws {}
 }
 
 private extension AuraPlaySpotlightDocument {
     init(mediaItem: AuraPlayMediaItem) {
         let keywordCandidates = [
-            mediaItem.title,
-            mediaItem.artistName,
-            mediaItem.collectionName,
+            mediaItem.displayTitle,
+            mediaItem.displayArtistName,
+            mediaItem.displayCollectionName,
             mediaItem.chainRawValue,
             mediaItem.tokenType,
-            mediaItem.contentType,
+            mediaItem.contentType
         ]
 
         self.init(
             id: mediaItem.sourceNFTID,
-            title: mediaItem.title,
+            title: mediaItem.displayTitle,
             contentDescription: Self.contentDescription(for: mediaItem),
             keywords: keywordCandidates.compactMap(Self.cleanedText),
             hasVideo: mediaItem.hasVideo
@@ -191,11 +221,11 @@ private extension AuraPlaySpotlightDocument {
 
     static func contentDescription(for item: AuraPlayMediaItem) -> String {
         [
-            cleanedText(item.artistName).map { "Artist: \($0)" },
-            cleanedText(item.collectionName).map { "Collection: \($0)" },
+            cleanedText(item.displayArtistName).map { "Artist: \($0)" },
+            cleanedText(item.displayCollectionName).map { "Collection: \($0)" },
             item.hasVideo ? "Video NFT" : nil,
             item.hasAudio ? "Audio NFT" : nil,
-            cleanedText(item.chainRawValue).map { "Chain: \($0)" },
+            cleanedText(item.chainRawValue).map { "Chain: \($0)" }
         ]
         .compactMap { $0 }
         .joined(separator: ". ")

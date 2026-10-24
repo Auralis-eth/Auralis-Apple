@@ -6,6 +6,11 @@ let package = Package(
     name: "ENS",
     platforms: [
         .iOS(.v18),
+        // Required because this package depends on `AuralisPrimaryModels` and `ProviderKit`, which
+        // both declare `.macOS(.v15)`. Without a matching floor SPM assumes macOS 12.0 here and
+        // refuses to resolve either dependency on a macOS host, so `swift build`/`swift test` for
+        // this package could not run locally or in CI. Same fix, same reason, as `AccountsCore`.
+        .macOS(.v15)
     ],
     products: [
         .library(

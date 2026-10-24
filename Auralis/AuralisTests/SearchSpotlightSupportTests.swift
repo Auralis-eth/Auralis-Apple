@@ -149,7 +149,7 @@ struct SearchSpotlightSupportTests {
             "music",
             "auralis:documentdomain=nft",
             "auralis:mediakind=audio",
-            "auralis:isplayable=true",
+            "auralis:isplayable=true"
         ]
         let playable = CSSearchableItem(
             uniqueIdentifier: "auralis.search.nft:music-nft-1",
@@ -163,7 +163,7 @@ struct SearchSpotlightSupportTests {
         visualAttributes.keywords = [
             "auralis:documentdomain=nft",
             "auralis:mediakind=visual",
-            "auralis:isplayable=false",
+            "auralis:isplayable=false"
         ]
         let visual = CSSearchableItem(
             uniqueIdentifier: "auralis.search.nft:visual-nft-1",
@@ -218,7 +218,7 @@ struct SearchSpotlightSupportTests {
             "auralis:receiptstatus=\(status)",
             "auralis:receipttrigger=Search",
             "auralis:receiptscope=wallet",
-            "auralis:chain=Ethereum",
+            "auralis:chain=Ethereum"
         ]
         return CSSearchableItem(
             uniqueIdentifier: "auralis.search.receipt:\(id)",

@@ -5,8 +5,8 @@
 //  Created by Daniel Bell on 4/9/25.
 //
 
-import SwiftUI
 import AuraUI
+import SwiftUI
 
 struct TorchToggleButton: View {
     @Binding var torchOn: Bool

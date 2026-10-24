@@ -1,29 +1,48 @@
 import AuralisPrimaryModels
 import AuraPlayAudioEngine
 import AuraPlayVideoEngine
-import Foundation
-import SwiftData
-import SwiftUI
 import AuraUI
+import Foundation
+import MissionControlFeature
 import MusicFeature
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import PolicyCore
 import ProviderKit
+import RuntimeKit
+import SwiftData
+import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
 
     let currentAccountAddress: String
     let currentChain: Chain
+    let modeState: ModeState
     let privacyResetServiceFactory: @MainActor (ModelContext, ModelContainer?) -> any PrivacyResetting
     let allWalletDisconnectServiceFactory: @MainActor (ModelContext, ModelContainer?, String?) -> any AllWalletDisconnecting
     let auraPlayModelContainer: ModelContainer?
     let playbackRuntime: AuraPlayPlaybackRuntime?
     let embeddingAvailabilityProvider: any AuraPlayEmbeddingAvailabilityProviding = AuraPlayEmbeddingAvailabilityProvider()
+    /// Shared app-lifetime wallet connection, so Social v1 join verification proves ownership through the
+    /// same connector as the rest of the app. `nil` falls back to an unverified (local) join.
+    var walletConnectionService: AuralisWalletConnectionService?
     let onPrivacyResetCompleted: @MainActor () async -> Void
 
+    @State private var isShowingMissionControl = false
+    @State private var isShowingRunGoal = false
+    @State private var isShowingSocial = false
+    /// Stable for the life of this view, matching `SocialTabView`.
+    ///
+    /// Previously minted inline in the `.sheet` content closure, so any re-evaluation of `body` while
+    /// the sheet was up — and the `.task` blocks below mutate state that causes exactly that — rebuilt
+    /// `SocialInviteExchangeView` with a *new* session id against its `@State`-persisted model. Tapping
+    /// "Generate invite" again then hosted a second session instead of returning the live invite,
+    /// leaving the first session's runtime holding a relay subscription nothing could reach or stop.
+    @State private var socialSessionID = UUID()
+    @State private var isShowingInAppWallet = false
     @State private var isShowingResetConfirmation = false
     @State private var isShowingDisconnectAllConfirmation = false
     @State private var isResettingPrivacyData = false
@@ -38,6 +57,7 @@ struct SettingsView: View {
     @State private var cacheMessage: String?
     @State private var cacheErrorMessage: String?
     @State private var cacheDiskCapBytes = Double(AuraPlayCacheSettings.defaultDiskCapBytes)
+    @State private var ritualNotificationSettings = RitualNotificationSettingsModel()
     @AppStorage(AuraPlayAudioSettings.eqPresetDefaultsKey) private var eqPresetRawValue = AuraPlayEQPresetID.flat.rawValue
     @AppStorage(AuraPlayAudioSettings.normalizationEnabledDefaultsKey) private var isNormalizationEnabled = true
     @AppStorage(AuraPlayAudioSettings.crossfadeDurationDefaultsKey) private var crossfadeDuration = 0.0
@@ -59,6 +79,86 @@ struct SettingsView: View {
                     value: currentAccountAddress.isEmpty ? "None selected" : currentAccountAddress.displayAddress
                 )
                 LabeledContent("Chain Scope", value: currentChain.routingDisplayName)
+            }
+
+            Section("Wallet") {
+                Button {
+                    isShowingInAppWallet = true
+                } label: {
+                    Label("Auralis Wallet", systemImage: "key.horizontal.fill")
+                }
+                .accessibilityIdentifier("settings.inAppWallet")
+
+                Text("A self-custodial wallet whose keys are generated and stored only on this device, protected by the Secure Enclave and Face ID.")
+                    .font(.footnote)
+                    .foregroundStyle(Color.textSecondary)
+            }
+
+            Section("Operator") {
+                Button {
+                    isShowingMissionControl = true
+                } label: {
+                    Label("Mission Control", systemImage: "gauge.with.dots.needle.bottom.50percent")
+                }
+                .accessibilityIdentifier("settings.missionControl")
+
+                Text("Inspect what the operator runtime is doing: live activity, receipts, and the global pause. Crypto stays gated; the rest of Auralis operates fully.")
+                    .font(.footnote)
+                    .foregroundStyle(Color.textSecondary)
+
+                Button {
+                    isShowingRunGoal = true
+                } label: {
+                    Label("Ask Auralis to Run a Goal", systemImage: "sparkles")
+                }
+                .accessibilityIdentifier("settings.runGoal")
+
+                Text("State a goal in plain language. Auralis plans it on device and runs the safe steps, pausing for approval before anything changes state. Its reasoning and token usage appear in Mission Control.")
+                    .font(.footnote)
+                    .foregroundStyle(Color.textSecondary)
+            }
+
+            Section("Ritual Notifications") {
+                LabeledContent("Status", value: ritualNotificationSettings.authorization.description)
+                    .accessibilityIdentifier(A11yID.Settings.ritualNotificationStatus)
+
+                if ritualNotificationSettings.authorization.canRequestAuthorization {
+                    Button("Enable Ritual Notifications") {
+                        Task { await ritualNotificationSettings.requestAuthorization() }
+                    }
+                    .disabled(ritualNotificationSettings.isWorking)
+                    .accessibilityHint("Allows Auralis to report completed, skipped, or failed ritual runs")
+                    .accessibilityIdentifier(A11yID.Settings.ritualNotificationEnable)
+                } else if ritualNotificationSettings.authorization == .denied {
+                    Text("Open System Settings to allow notifications from Auralis.")
+                        .font(.footnote)
+                        .foregroundStyle(Color.textSecondary)
+                }
+
+                if let errorMessage = ritualNotificationSettings.errorMessage {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(Color.error)
+                        .accessibilityIdentifier(A11yID.Settings.ritualNotificationError)
+                }
+            }
+
+            // Gated on the relay flag, which is `YES` in *both* the Debug and Release xcconfigs as
+            // of 2026-10-12 — so this entry point ships enabled. The gate is a kill switch, not an
+            // off-by-default guard; do not read it as evidence that Social is absent in release.
+            if SocialFeatureConfiguration().relayEnabled {
+                Section("Shared Sessions (Beta)") {
+                    Button {
+                        isShowingSocial = true
+                    } label: {
+                        Label("Shared Sessions", systemImage: "person.2.wave.2")
+                    }
+                    .accessibilityIdentifier("settings.social")
+
+                    Text("Host or join a shared session: generate an invite to hand out, or paste one to join. Encrypted end-to-end; the relay only sees opaque payloads.")
+                        .font(.footnote)
+                        .foregroundStyle(Color.textSecondary)
+                }
             }
 
             Section("AuraPlay Audio") {
@@ -215,7 +315,7 @@ struct SettingsView: View {
             #endif
 
             Section("Privacy") {
-                Text("Clear local privacy and derived support data without deleting saved accounts. This reset clears receipts, search history, ENS cache, gas cache, persisted token holdings, pinned home actions, and saved active wallet selection.")
+                Text("Clear local privacy and derived support data without deleting saved accounts. This reset clears receipts, search history, ENS cache, gas cache, persisted token holdings, shared session and ritual state, pinned home actions, and saved active wallet selection.")
                     .font(.footnote)
                     .foregroundStyle(Color.textSecondary)
 
@@ -262,6 +362,60 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isShowingMissionControl) {
+            MissionControlTabContainer(
+                modelContext: modelContext,
+                modeState: modeState,
+                activeIdentityID: currentAccountAddress
+            )
+        }
+        .sheet(isPresented: $isShowingInAppWallet) {
+            NavigationStack {
+                InAppWalletView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { isShowingInAppWallet = false }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $isShowingRunGoal) {
+            NavigationStack {
+                MissionControlRunGoalView(
+                    host: RuntimeAssembly.sharedHost(
+                        modelContext: modelContext,
+                        cryptoModeProvider: { modeState.mode },
+                        cryptoModeSetter: { modeState.setMode($0) }
+                    ),
+                    surface: "settings.ask-aura"
+                )
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { isShowingRunGoal = false }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingSocial) {
+            NavigationStack {
+                SocialInviteExchangeView(
+                    composition: SocialAssembly.makeInviteExchange(
+                        modelContext: modelContext,
+                        modeState: modeState,
+                        accountAddress: currentAccountAddress.isEmpty ? nil : currentAccountAddress,
+                        chainID: currentChain.chainId,
+                        auraPlayModelContainer: auraPlayModelContainer,
+                        walletConnectionService: walletConnectionService
+                    ),
+                    sessionID: socialSessionID
+                )
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { isShowingSocial = false }
+                    }
+                }
+            }
+        }
         .onAppear {
             syncAudioSettingsFromRuntime()
         }
@@ -270,6 +424,9 @@ struct SettingsView: View {
         }
         .task {
             await refreshCacheSummary()
+        }
+        .task {
+            await ritualNotificationSettings.refresh()
         }
         .task {
             for await _ in NotificationCenter.default.notifications(

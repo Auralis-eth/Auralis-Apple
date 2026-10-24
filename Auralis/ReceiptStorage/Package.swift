@@ -6,33 +6,37 @@ let package = Package(
     name: "ReceiptStorage",
     platforms: [
         .iOS(.v18),
-        .macOS(.v15),
+        .macOS(.v15)
     ],
     products: [
         .library(
             name: "ReceiptStorage",
             targets: ["ReceiptStorage"]
-        ),
+        )
     ],
     dependencies: [
+        .package(path: "../AuralisFoundation"),
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../ReceiptsCore"),
-        .package(path: "../SwiftDataAdapters"),
+        .package(path: "../RuntimeCore")
     ],
     targets: [
         .target(
             name: "ReceiptStorage",
             dependencies: [
+                "AuralisFoundation",
                 "AuralisPrimaryModels",
                 "ReceiptsCore",
-                "SwiftDataAdapters",
+                .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
+                "RuntimeCore"
             ]
         ),
         .testTarget(
             name: "ReceiptStorageTests",
             dependencies: [
                 "ReceiptStorage",
+                .product(name: "AuralisFoundation", package: "AuralisFoundation")
             ]
-        ),
+        )
     ]
 )

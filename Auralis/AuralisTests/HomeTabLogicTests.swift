@@ -1,7 +1,8 @@
-@testable import Auralis
 import AccountsFeature
+@testable import Auralis
 import AuralisPrimaryModels
 import Foundation
+import ReceiptsCore
 import Testing
 
 struct HomeTabLogicTests {

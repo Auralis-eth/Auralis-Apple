@@ -1,5 +1,5 @@
-import ENS
 import AuralisPrimaryPersistence
+import ENS
 import Foundation
 import MusicFeature
 import ProviderKit
@@ -54,7 +54,7 @@ enum LocalDataStoragePolicy {
         String(describing: NFT.NFTMetadata.self),
         String(describing: NFT.Attribute.self),
         String(describing: NFT.Collection.self),
-        String(describing: NFT.AcquiredAt.self),
+        String(describing: NFT.AcquiredAt.self)
     ])
 
     static let requiredKnownIdentifiers: Set<String> = Set([
@@ -95,8 +95,8 @@ enum LocalDataStoragePolicy {
             identifier: KeychainReceiptIntegrityHeadStore.storageDecisionIdentifier,
             classification: .walletMetadata,
             storage: .keychain,
-            resetPhase: .transactionalStore,
-            rationale: "Receipt integrity heads bind public receipt chain hashes to wallet account keys, so they are wallet metadata cleared with receipt data."
+            resetPhase: .receiptHistory,
+            rationale: "Receipt integrity heads bind public receipt chain hashes to wallet account keys, so they are wallet metadata cleared with receipt data. Cleared by the ledger's own locked resetAll() alongside the rows, which is the only ordering that cannot leave a head without its row (F-46)."
         ),
         LocalDataStorageDecision(
             identifier: "SearchHistoryRecord",
@@ -172,8 +172,8 @@ enum LocalDataStoragePolicy {
             identifier: "StoredReceipt",
             classification: .walletMetadata,
             storage: .swiftData,
-            resetPhase: .transactionalStore,
-            rationale: "Receipts are local audit events that can include wallet scope, route context, and action summaries. Privacy reset clears them with their Keychain integrity heads."
+            resetPhase: .receiptHistory,
+            rationale: "Receipts are local audit events that can include wallet scope, route context, and action summaries. Privacy reset clears them with their Keychain integrity heads, in the ledger's own locked resetAll() rather than in the SwiftData transaction (F-46)."
         ),
         LocalDataStorageDecision(
             identifier: "Playlist",

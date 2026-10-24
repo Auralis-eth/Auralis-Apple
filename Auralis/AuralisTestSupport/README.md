@@ -15,7 +15,6 @@ Shared test scaffolding for the Auralis app target and SwiftPM package test targ
 | `Fixture.correlationID(_:)` | Stable synthetic correlation identifier. |
 | `NFTFixture` | Shared NFT builder with `.music`, `.image`, `.with { }`, and `.build()`. |
 | `MusicLibraryItemFixture` | Shared AuraPlay library item builder with `.music`, `.with { }`, and `.build()`. |
-| `StoredReceiptFixture` | Shared persisted receipt builder with `.successful`, `.with { }`, and throwing `.build()`. |
 | `TestSupport.temporaryUserDefaults(prefix:)` | Creates a UUID-suffixed `UserDefaults` suite with paired cleanup closure. Use `defer { cleanup() }`. Forwards `SourceLocation` to the `#require` macro. |
 | `UserDefaultsBox` | `@unchecked Sendable` wrapper for crossing isolation boundaries with a `UserDefaults` reference. Use instead of retroactively conforming `UserDefaults: Sendable`. |
 | `URLProtocolMock` / `URLSession.mocked(_:)` | Per-test URLSession with an injected request handler. No global state. |
@@ -49,6 +48,8 @@ Four test plans live in `Auralis.xcodeproj/xcshareddata/xctestplans/`:
 ## Authoring Guidelines
 
 - New helpers belong here only if they are consumed from more than one test target. Keep single-package helpers local.
+- Domain-storage fixtures belong with their owning package or integration test target. In particular,
+  persisted receipt fixtures must not make this package depend on ReceiptStorage.
 - Do not import `Testing` from a production-linked module. `AuralisTestSupport` is test-only.
 - All helpers that wrap `#expect` or `#require` must accept and forward `sourceLocation: SourceLocation = #_sourceLocation` so failure reports point at the call site, not the helper body.
 - Prefer `actor` recorders over `NSLock`-wrapped `final class` doubles. Reserve `@MainActor final class` for doubles whose production protocol is itself `@MainActor`.

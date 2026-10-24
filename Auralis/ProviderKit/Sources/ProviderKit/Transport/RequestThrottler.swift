@@ -6,11 +6,14 @@
 //
 
 import Foundation
-/// High-performance request throttler with precise timing and error handling
+/// Enforces a minimum interval between requests, including between *concurrent* callers.
 ///
-/// This actor ensures thread-safe throttling with consistent state management.
-/// On task cancellation or errors, the internal state remains unchanged to prevent corruption.
-/// All delays are calculated reactively after successful completion.
+/// Each caller reserves the next free slot before it suspends, so N callers arriving at once are
+/// spaced `minimumInterval` apart rather than all waking together. That reservation is the whole
+/// design: an earlier version stored the last request time and had every caller compute its delay
+/// from it, but an `actor` only serializes *between* suspension points — so every caller that
+/// arrived while one was sleeping read the same timestamp, computed the same delay, and fired
+/// simultaneously. It was thread-safe and did not throttle.
 public actor RequestThrottler {
 
     // MARK: - Configuration
@@ -18,9 +21,11 @@ public actor RequestThrottler {
     private static let nanosecondsPerSecond: UInt64 = 1_000_000_000
 
     // MARK: - State
-    /// Last successful request completion time
-    /// Only updated after successful throttling completion to maintain consistency
-    private var lastRequestTime: Date = .distantPast
+    /// The earliest instant the next request may start.
+    ///
+    /// A reservation rather than a record of the past: it is advanced when a caller claims its slot,
+    /// not when a request finishes, which is what keeps concurrent callers from sharing one slot.
+    private var nextAllowedTime: Date = .distantPast
 
     // MARK: - Initialization
 
@@ -34,46 +39,41 @@ public actor RequestThrottler {
 
     // MARK: - Core Throttling
 
-    /// Enforces minimum interval between requests with precise timing
+    /// Waits until this caller's slot is due, spacing it `minimumInterval` after the previously
+    /// reserved slot.
     ///
-    /// State consistency guarantees:
-    /// - On successful completion: lastRequestTime updated to actual completion time
-    /// - On cancellation/error: lastRequestTime remains unchanged, preserving consistent state
-    /// - All timing calculations use single timestamp to prevent drift
+    /// The reservation is taken *before* the suspension, with no `await` between reading
+    /// `nextAllowedTime` and advancing it, so it is atomic on this actor and two concurrent callers
+    /// cannot claim the same instant. A cancelled caller releases its slot when no later caller has
+    /// queued behind it, so cancellation does not leave a permanent idle gap.
     ///
-    /// - Throws: TaskCancellationError if cancelled, other Task.sleep errors
+    /// - Throws: `CancellationError` if cancelled while waiting.
     public func throttle() async throws {
-        // THROT-26: Single timestamp capture to eliminate timing drift
         let now = Date()
-        let timeElapsed = now.timeIntervalSince(lastRequestTime)
+        let scheduled = max(now, nextAllowedTime)
+        nextAllowedTime = scheduled.addingTimeInterval(minimumInterval)
 
-        // THROT-34: Compute delay once and reuse to eliminate redundancy
-        let delayNeeded = max(0, minimumInterval - timeElapsed)
+        let delay = scheduled.timeIntervalSince(now)
+        guard delay > 0 else { return }
 
-        // THROT-29: Skip overhead when no delay needed
-        if delayNeeded > 0 {
-            // THROT-37: Inline nanosecond conversion to eliminate function call overhead
-            // THROT-35: Simplified conversion without overkill overflow protection for realistic delays
-            let nanoseconds = UInt64(delayNeeded * Double(Self.nanosecondsPerSecond))
-
-            // THROT-32: Consistent error handling with proper propagation
-            try await Task.sleep(nanoseconds: nanoseconds)
+        do {
+            try await Task.sleep(nanoseconds: UInt64(delay * Double(Self.nanosecondsPerSecond)))
+        } catch {
+            if nextAllowedTime == scheduled.addingTimeInterval(minimumInterval) {
+                nextAllowedTime = scheduled
+            }
+            throw error
         }
-
-        // THROT-33 & THROT-38: Reactive state update ONLY after successful completion
-        // This prevents state corruption on cancellation/errors and maintains consistency
-        lastRequestTime = Date()
     }
 
     // MARK: - Observability
 
-    /// Returns time remaining until next request can be made immediately
-    /// - Returns: TimeInterval in seconds, 0 if request can be made now
-    /// - Note: Creates new Date() on each call for accuracy. For high-frequency polling,
-    ///   consider caching or using reactive patterns with state change publishers.
+    /// Time until the next *unreserved* slot comes due.
+    /// - Returns: seconds to wait, or 0 if a request may start now.
+    /// - Note: reflects slots already claimed by in-flight callers, so it can exceed
+    ///   `minimumInterval` when several requests are queued.
     public func timeUntilNextRequest() -> TimeInterval {
-        let timeElapsed = Date().timeIntervalSince(lastRequestTime)
-        return max(0, minimumInterval - timeElapsed)
+        max(0, nextAllowedTime.timeIntervalSince(Date()))
     }
 
     /// Checks if a request can be made without delay
@@ -103,7 +103,7 @@ public extension RequestThrottler {
     /// - Parameter operation: Async operation to execute
     /// - Returns: Result of the operation
     /// - Throws: Throttling errors or operation errors
-    public func execute<T>(_ operation: () async throws -> T) async throws -> T {
+    func execute<T>(_ operation: () async throws -> T) async throws -> T {
         try await throttle()
         return try await operation()
     }

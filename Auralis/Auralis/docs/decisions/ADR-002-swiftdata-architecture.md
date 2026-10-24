@@ -11,8 +11,8 @@ The accepted direction is still one shared AuraPlay `ModelContainer` and service
 AuraPlay Phase 2 introduces durable music data, but the module already has a clear shell boundary from Phase 1:
 
 - the shell owns account and chain selection
-- `AuraPlayTabRootView` owns live dependency construction
-- `AuraPlayCompositionRoot` owns module composition
+- `MainTabView` and `MusicAssembly` own live dependency construction
+- `MusicFeatureRootView` owns module composition
 - views already depend on explicit AuraPlay seams instead of global state
 
 The persistence layer needs to fit that shape instead of starting a parallel architecture.

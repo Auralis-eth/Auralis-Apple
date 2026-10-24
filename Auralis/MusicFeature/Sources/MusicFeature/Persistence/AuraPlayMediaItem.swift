@@ -28,6 +28,12 @@ public final class AuraPlayMediaItem {
     public var normalizedArtistKey: String
     public var normalizedCollectionKey: String
     public var artworkURLString: String?
+    /// User-owned presentation metadata. Provider values above remain untouched
+    /// so a later network refresh can never erase a person's edits.
+    public var userTitleOverride: String?
+    public var userArtistNameOverride: String?
+    public var userCollectionNameOverride: String?
+    public var userArtworkURLStringOverride: String?
     public var playbackURLString: String?
     public var durationSeconds: Double?
     public var contentType: String?
@@ -58,6 +64,10 @@ public final class AuraPlayMediaItem {
         normalizedArtistKey: String,
         normalizedCollectionKey: String,
         artworkURLString: String?,
+        userTitleOverride: String? = nil,
+        userArtistNameOverride: String? = nil,
+        userCollectionNameOverride: String? = nil,
+        userArtworkURLStringOverride: String? = nil,
         playbackURLString: String?,
         durationSeconds: Double? = nil,
         contentType: String?,
@@ -88,6 +98,10 @@ public final class AuraPlayMediaItem {
         self.normalizedArtistKey = normalizedArtistKey
         self.normalizedCollectionKey = normalizedCollectionKey
         self.artworkURLString = artworkURLString
+        self.userTitleOverride = userTitleOverride
+        self.userArtistNameOverride = userArtistNameOverride
+        self.userCollectionNameOverride = userCollectionNameOverride
+        self.userArtworkURLStringOverride = userArtworkURLStringOverride
         self.playbackURLString = playbackURLString
         self.durationSeconds = durationSeconds.map { max(0, $0) }
         self.contentType = contentType
@@ -107,5 +121,24 @@ public final class AuraPlayMediaItem {
     public var chain: Chain {
         get { Chain(rawValue: chainRawValue) ?? .ethMainnet }
         set { chainRawValue = newValue.rawValue }
+    }
+
+    public var displayTitle: String { Self.nonEmpty(userTitleOverride) ?? title }
+    public var displayArtistName: String? { Self.nonEmpty(userArtistNameOverride) ?? Self.nonEmpty(artistName) }
+    public var displayCollectionName: String? { Self.nonEmpty(userCollectionNameOverride) ?? Self.nonEmpty(collectionName) }
+    public var displayArtworkURLString: String? { Self.nonEmpty(userArtworkURLStringOverride) ?? Self.nonEmpty(artworkURLString) }
+
+    public var displayNormalizedTitleKey: String { Self.normalizedKey(displayTitle) }
+    public var displayNormalizedArtistKey: String { Self.normalizedKey(displayArtistName) }
+    public var displayNormalizedCollectionKey: String { Self.normalizedKey(displayCollectionName) }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmed, !trimmed.isEmpty else { return nil }
+        return trimmed
+    }
+
+    private static func normalizedKey(_ value: String?) -> String {
+        nonEmpty(value)?.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current) ?? ""
     }
 }

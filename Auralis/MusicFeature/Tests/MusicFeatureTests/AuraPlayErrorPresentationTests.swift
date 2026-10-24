@@ -1,5 +1,5 @@
-@testable import MusicFeature
 import Foundation
+@testable import MusicFeature
 import Testing
 
 struct AuraPlayErrorPresentationTests {
@@ -14,7 +14,7 @@ struct AuraPlayErrorPresentationTests {
             .recommendation,
             .search,
             .artwork,
-            .playback,
+            .playback
         ]
     )
     func messagesHideUnderlyingDescriptions(context: AuraPlayErrorPresentationContext) {
@@ -45,5 +45,40 @@ struct AuraPlayErrorPresentationTests {
 
         #expect(error.localizedDescription.contains("HTTP 429") == false)
         #expect(error.localizedDescription == AuraPlayErrorPresentation.message(for: error, context: .librarySummary))
+    }
+
+    @Test(
+        "AuraPlay errors provide actionable recovery guidance",
+        arguments: [
+            AuraPlayError.network(.rateLimited),
+            .library("Library unavailable."),
+            .playback("Playback unavailable."),
+            .queue("Queue unavailable."),
+            .artwork("Artwork unavailable."),
+            .configuration("Configuration unavailable."),
+            .mediaResolution("Media unavailable."),
+            .unknown("Request unavailable.")
+        ]
+    )
+    func errorsProvideRecoveryGuidance(error: AuraPlayError) {
+        #expect(error.recoverySuggestion?.isEmpty == false)
+    }
+
+    @Test("Unknown errors normalize without exposing underlying details")
+    func unknownErrorsNormalizeSafely() {
+        let rawDescription = "provider-secret-response-body"
+        let normalized = AuraPlayError.normalized(
+            NSError(domain: "Provider", code: 500, userInfo: [NSLocalizedDescriptionKey: rawDescription])
+        )
+
+        #expect(normalized == .unknown("AuraPlay could not complete the request."))
+        #expect(normalized.localizedDescription.contains(rawDescription) == false)
+    }
+
+    @Test("Known AuraPlay errors retain their typed identity during normalization")
+    func knownErrorsRemainTyped() {
+        let original = AuraPlayError.network(.rateLimited)
+
+        #expect(AuraPlayError.normalized(original) == original)
     }
 }

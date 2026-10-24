@@ -8,6 +8,7 @@ public enum AuraPlayError: Error, Equatable, LocalizedError {
     case artwork(String)
     case configuration(String)
     case mediaResolution(String)
+    case unknown(String)
 
     public var errorDescription: String? {
         switch self {
@@ -25,6 +26,29 @@ public enum AuraPlayError: Error, Equatable, LocalizedError {
             message
         case .mediaResolution(let message):
             message
+        case .unknown(let message):
+            message
+        }
+    }
+
+    public var recoverySuggestion: String? {
+        switch self {
+        case .network:
+            "Check your connection, wait briefly, then try syncing again."
+        case .library:
+            "Try refreshing the library. If the problem continues, reopen AuraPlay."
+        case .playback:
+            "Try the track again or choose another available media source."
+        case .queue:
+            "Try rebuilding the queue from the album, playlist, or library."
+        case .artwork:
+            "Playback can continue without artwork. Refresh the library to try loading it again."
+        case .configuration:
+            "Review the AuraPlay app configuration and relaunch the app."
+        case .mediaResolution:
+            "Try again to use another configured gateway, or choose a different track."
+        case .unknown:
+            "Try the action again. If the problem continues, reopen AuraPlay."
         }
     }
 
@@ -47,6 +71,13 @@ public enum AuraPlayError: Error, Equatable, LocalizedError {
     public static func mediaResolution(_ error: Error) -> AuraPlayError {
         .mediaResolution("AuraPlay could not resolve media for playback. Please try again.")
     }
+
+    public static func normalized(_ error: Error) -> AuraPlayError {
+        if let auraPlayError = error as? AuraPlayError {
+            return auraPlayError
+        }
+        return .unknown("AuraPlay could not complete the request.")
+    }
 }
 
 public enum AuraPlayNetworkError: Error, Equatable, LocalizedError {
@@ -56,6 +87,13 @@ public enum AuraPlayNetworkError: Error, Equatable, LocalizedError {
         switch self {
         case .rateLimited:
             "The NFT provider rate limit was reached. Try again later."
+        }
+    }
+
+    public var recoverySuggestion: String? {
+        switch self {
+        case .rateLimited:
+            "Wait a few minutes before refreshing the library again."
         }
     }
 }

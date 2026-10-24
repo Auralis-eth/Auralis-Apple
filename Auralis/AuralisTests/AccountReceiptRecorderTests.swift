@@ -1,10 +1,11 @@
-import ReceiptsCore
-@testable import Auralis
 import AccountsCore
 import AccountsFeature
+@testable import Auralis
 import AuralisPrimaryModels
 import Foundation
 import PolicyCore
+import ReceiptsCore
+import RuntimeCore
 import SwiftData
 import Testing
 
@@ -76,9 +77,12 @@ struct AccountReceiptRecorderTests {
         ])
         #expect(receipts.allSatisfy { $0.category == "accounts" })
         #expect(receipts.map { $0.sequenceID } == [3, 2, 1])
+        // `.hashed(kind: .walletAddress)`, so a real per-address digest. This used to pin
+        // `<redacted-opaque-token>`, which the sanitizer produced for any declared kind whose value
+        // was a 24+ character `[A-Za-z0-9_-]` run — a 42-character address included.
         #expect(receipts.allSatisfy {
             if case .string(let value)? = $0.payload.values["address"] {
-                return value == "<redacted-opaque-token>"
+                return value.hasPrefix("sha256:")
             }
             return false
         })
@@ -109,6 +113,24 @@ struct AccountReceiptRecorderTests {
         #expect(receipts.allSatisfy { $0.correlationID == correlationID })
     }
 
+    @Test("account event recorder stamps receipts with the active mode")
+    @MainActor
+    func accountRecorderUsesInjectedMode() async throws {
+        let receiptStore = try makeReceiptStore()
+        let recorder = ReceiptBackedAccountEventRecorder(
+            receiptStore: receiptStore,
+            modeProvider: { .assist }
+        )
+
+        await recorder.record(
+            .selected(address: "0x1234567890abcdef1234567890abcdef12345678"),
+            correlationID: "mode-aware-account"
+        )
+
+        let receipts = try await receiptStore.receipts(forCorrelationID: "mode-aware-account", limit: 1)
+        #expect(try #require(receipts.first).mode == .assist)
+    }
+
     @Test("policy gate denies blocked observe actions and records a denial receipt")
     @MainActor
     func observeModePolicyGateWritesReceipt() async throws {
@@ -117,7 +139,8 @@ struct AccountReceiptRecorderTests {
 
         let result = await ActionPolicyGate.attempt(
             .draftTransaction,
-            modeState: modeState,
+            mode: modeState.mode,
+            actor: .human,
             receiptStore: receiptStore
         )
 
@@ -143,7 +166,8 @@ struct AccountReceiptRecorderTests {
 
         let result = await ActionPolicyGate.attempt(
             .runPlugin,
-            modeState: modeState,
+            mode: modeState.mode,
+            actor: .human,
             receiptStore: receiptStore
         )
 

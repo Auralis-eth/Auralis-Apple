@@ -7,6 +7,63 @@ import Testing
 
 @MainActor
 struct AppRouterTests {
+    /// Pins the cold-launch tab.
+    ///
+    /// Every case below that used to assert `selectedTab == .home` was rewritten to first *set*
+    /// `.missionControl` and then assert it survived — which proves the auxiliary-surface paths do not
+    /// clobber the tab, but leaves the default itself asserted nowhere. A revert or a typo in the
+    /// initializer would have been invisible.
+    @Test("a fresh router lands on the operator console")
+    func defaultTabIsMissionControl() {
+        #expect(AppRouter().selectedTab == .missionControl)
+    }
+
+    /// The tab must also be reachable from the shipping tab bar — a default pointing at a tab release
+    /// builds do not show would strand the user on an invisible surface.
+    @Test("the default tab is present in the release tab bar")
+    func defaultTabIsReachableInRelease() {
+        #expect(AppTabBarVisibility.release.tabBarTabs.contains(AppRouter().selectedTab))
+    }
+
+    /// The initial selection is clamped to a tab the visibility set actually builds.
+    ///
+    /// `TabView(selection:)` bound to an excluded tab renders an empty content area until something
+    /// is tapped. The stored default is `.missionControl`, and three UI-test fixtures
+    /// (`-ui-testing-search-tabs`, `-ui-testing-receipts-tabs`, `-ui-testing-nft-tabs`) build
+    /// visibility sets that omit it — so each of those launched onto a blank screen.
+    @Test("a restricted tab bar clamps the initial selection to a tab it actually shows", arguments: [
+        Set<AppTab>([.home, .search]),
+        Set<AppTab>([.home, .receipts]),
+        Set<AppTab>([.home, .nftTokens]),
+        Set<AppTab>([.search])
+    ])
+    func restrictedVisibilityClampsInitialSelection(tabs: Set<AppTab>) {
+        let router = AppRouter(tabBarVisibility: AppTabBarVisibility(tabBarTabs: tabs))
+
+        #expect(
+            tabs.contains(router.selectedTab),
+            "Initial tab \(router.selectedTab) is not in the visible set \(tabs)"
+        )
+    }
+
+    /// `.home` is preferred when available, so the common restricted fixtures land somewhere sensible
+    /// rather than on whichever tab set iteration happened to yield first.
+    @Test("the clamp prefers home when home is visible")
+    func clampPrefersHome() {
+        let router = AppRouter(tabBarVisibility: AppTabBarVisibility(tabBarTabs: [.home, .search]))
+
+        #expect(router.selectedTab == .home)
+    }
+
+    /// A visibility set that *does* include the default leaves it untouched — the clamp must not
+    /// re-point the ordinary release launch.
+    @Test("a visibility set containing the default leaves the selection alone")
+    func clampLeavesValidDefaultAlone() {
+        let router = AppRouter(tabBarVisibility: AppTabBarVisibility(tabBarTabs: [.home, .missionControl]))
+
+        #expect(router.selectedTab == .missionControl)
+    }
+
     @Test("music detail flow keeps the music tab and unwinds one level at a time")
     func musicDetailFlow() {
         let router = AppRouter()
@@ -193,34 +250,81 @@ struct AppRouterTests {
         #expect(router.musicPath == [.item(id: "music-1")])
     }
 
-    @Test("release tab policy presents search as an auxiliary surface instead of a tab")
+    @Test("release tab policy presents search as an auxiliary surface without replacing the current tab")
     func releaseSearchRouteFlow() {
         let router = AppRouter(tabBarVisibility: .release)
+        router.selectedTab = .missionControl
 
         router.showSearch()
 
-        #expect(router.selectedTab == .home)
+        #expect(router.selectedTab == .missionControl)
         #expect(router.auxiliarySurface == .search)
         #expect(router.selectedTabName == "search")
         #expect(router.currentRouteDepth == 0)
     }
 
-    @Test("release tab policy presents receipts as an auxiliary surface")
+    @Test("release tab policy presents receipts as an auxiliary surface without replacing the current tab")
     func releaseReceiptsRouteFlow() {
         let router = AppRouter(tabBarVisibility: .release)
+        router.selectedTab = .missionControl
 
         router.showReceipt(id: "receipt-1")
 
-        #expect(router.selectedTab == .home)
+        #expect(router.selectedTab == .missionControl)
         #expect(router.auxiliarySurface == .receipts)
         #expect(router.receiptsPath == [.init(id: "receipt-1")])
         #expect(router.selectedTabName == "receipts")
         #expect(router.currentRouteDepth == 1)
     }
 
-    @Test("release tab policy presents NFT routes as an auxiliary surface")
+    @Test("artifact routes select Mission Control and keep the target artifact")
+    func artifactRouteFlow() {
+        let router = AppRouter()
+        let artifactID = "1D491514-706B-4598-8631-CCEB71DCEF21"
+
+        router.showArtifact(id: artifactID)
+
+        #expect(router.selectedTab == .missionControl)
+        #expect(router.missionControlArtifactRoute?.id.uuidString == artifactID)
+        #expect(router.currentRouteDepth == 1)
+
+        router.popCurrentRoute()
+
+        #expect(router.selectedTab == .missionControl)
+        #expect(router.missionControlArtifactRoute == nil)
+        #expect(router.currentRouteDepth == 0)
+    }
+
+    @Test("artifact deep links route through the shell effect handler")
+    func artifactDeepLinkUsesMissionControlRoute() throws {
+        let router = AppRouter()
+        let handler = try AppRouterShellEffectHandler(
+            router: router,
+            modelContext: TestModelContainers.primary().mainContext
+        )
+        let selection = ActiveShellSelection(
+            address: "0x1111111111111111111111111111111111111111",
+            chain: .ethMainnet
+        )
+        let artifactID = "1D491514-706B-4598-8631-CCEB71DCEF21"
+
+        let error = handler.handle(
+            .routeDeepLink(
+                destination: .artifact(id: artifactID),
+                selection: selection,
+                inheritedChain: nil
+            )
+        )
+
+        #expect(error == nil)
+        #expect(router.selectedTab == .missionControl)
+        #expect(router.missionControlArtifactRoute?.id.uuidString == artifactID)
+    }
+
+    @Test("release tab policy presents NFT routes as an auxiliary surface without replacing the current tab")
     func releaseNFTTokensRouteFlow() {
         let router = AppRouter(tabBarVisibility: .release)
+        router.selectedTab = .missionControl
 
         router.showNFTCollectionDetail(
             contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -228,7 +332,7 @@ struct AppRouterTests {
             chain: .ethMainnet
         )
 
-        #expect(router.selectedTab == .home)
+        #expect(router.selectedTab == .missionControl)
         #expect(router.auxiliarySurface == .nftTokens)
         #expect(router.currentRouteDepth == 1)
         #expect(router.selectedTabName == "nftTokens")
@@ -272,9 +376,10 @@ struct AppRouterTests {
         #expect(router.musicPath == [.collection(key: "arb-mainnet|0xdef", title: "Collection")])
     }
 
-    @Test("release tab policy presents ERC-20 details as an auxiliary surface")
+    @Test("release tab policy presents ERC-20 details as an auxiliary surface without replacing the current tab")
     func releaseERC20RouteFlow() {
         let router = AppRouter(tabBarVisibility: .release)
+        router.selectedTab = .missionControl
 
         router.showERC20Token(
             contractAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
@@ -282,7 +387,7 @@ struct AppRouterTests {
             symbol: "USDC"
         )
 
-        #expect(router.selectedTab == .home)
+        #expect(router.selectedTab == .missionControl)
         #expect(router.auxiliarySurface == .erc20Token)
         #expect(router.currentRouteDepth == 1)
         #expect(router.selectedTabName == "erc20Tokens")

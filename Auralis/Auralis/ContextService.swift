@@ -1,14 +1,20 @@
-import ReceiptsCore
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
-import Observation
-import ProviderKit
-import PolicyCore
+import MissionControlFeature
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import Observation
+import PolicyCore
+import ProviderKit
+import ReceiptsCore
+
+struct ContextRefreshInstrumentation {
+    let recordContextRefresh: @MainActor (_ key: String, _ dataClass: ContextDataClass?, _ correlationID: String) async -> Void
+    let recordMemoryTouch: @MainActor (_ kind: AgentSessionMemoryTouchKind, _ key: String, _ dataClass: ContextDataClass?, _ correlationID: String) async -> Void
+}
 
 @MainActor
 @Observable
@@ -24,14 +30,14 @@ final class ContextService {
     struct RequestScope: Equatable {
         let accountAddress: String
         let chain: Chain
-        let mode: AppMode
+        let mode: CryptoMode
     }
 
     private struct CapturedInputs {
         let account: EOAccount?
         let address: String
         let chain: Chain
-        let mode: AppMode
+        let mode: CryptoMode
         let isLoading: Bool
         let refreshedAt: Date?
         let nativeBalanceDisplay: String?
@@ -59,7 +65,7 @@ final class ContextService {
     private let accountProvider: () -> EOAccount?
     private let addressProvider: () -> String
     private let chainProvider: () -> Chain
-    private let modeProvider: () -> AppMode
+    private let modeProvider: () -> CryptoMode
     private let loadingProvider: () -> Bool
     private let refreshedAtProvider: () -> Date?
     private let nativeBalanceProvider: any NativeBalanceProviding
@@ -102,7 +108,7 @@ final class ContextService {
         accountProvider: @escaping () -> EOAccount?,
         addressProvider: @escaping () -> String,
         chainProvider: @escaping () -> Chain,
-        modeProvider: @escaping () -> AppMode,
+        modeProvider: @escaping () -> CryptoMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
         nativeBalanceProvider: any NativeBalanceProviding,
@@ -169,12 +175,22 @@ final class ContextService {
     func refresh(
         correlationID: String? = nil,
         receiptEventLogger: ReceiptEventLogger? = nil,
-        strategy: RefreshStrategy = .remoteAllowed
+        strategy: RefreshStrategy = .remoteAllowed,
+        instrumentation: ContextRefreshInstrumentation? = nil
     ) async -> ContextSnapshot {
         let capturedInputs = await captureInputs(strategy: strategy)
 
         if let inFlightTask, inFlightScope == capturedInputs.scope {
-            return await inFlightTask.value
+            let reusedSnapshot = await inFlightTask.value
+            await recordInstrumentation(
+                snapshot: reusedSnapshot,
+                inputs: capturedInputs,
+                strategy: strategy,
+                correlationID: correlationID,
+                instrumentation: instrumentation,
+                reusedInFlightRefresh: true
+            )
+            return reusedSnapshot
         }
 
         inFlightTask?.cancel()
@@ -203,12 +219,82 @@ final class ContextService {
                 correlationID: correlationID
             )
         }
+        await recordInstrumentation(
+            snapshot: resolvedSnapshot,
+            inputs: capturedInputs,
+            strategy: strategy,
+            correlationID: correlationID,
+            instrumentation: instrumentation,
+            reusedInFlightRefresh: false
+        )
 
         return didWinGeneration ? snapshot : resolvedSnapshot
     }
 }
 
 private extension ContextService {
+    private func recordInstrumentation(
+        snapshot: ContextSnapshot,
+        inputs: CapturedInputs,
+        strategy: RefreshStrategy,
+        correlationID: String?,
+        instrumentation: ContextRefreshInstrumentation?,
+        reusedInFlightRefresh: Bool
+    ) async {
+        guard let instrumentation else { return }
+        let resolvedCorrelationID = correlationID ?? Self.generatedContextCorrelationID(for: inputs.scope)
+        await instrumentation.recordContextRefresh(
+            "shell.context.snapshot",
+            .derived,
+            resolvedCorrelationID
+        )
+        await instrumentation.recordMemoryTouch(
+            .memoryRead,
+            "shell.context.account",
+            .publicIdentifier,
+            resolvedCorrelationID
+        )
+        await instrumentation.recordMemoryTouch(
+            .memoryRead,
+            "shell.context.chain",
+            .publicIdentifier,
+            resolvedCorrelationID
+        )
+        await instrumentation.recordMemoryTouch(
+            .memoryRead,
+            "shell.context.mode",
+            .localPreference,
+            resolvedCorrelationID
+        )
+        await instrumentation.recordMemoryTouch(
+            strategy == .reuseCachedBalance ? .memoryRead : .contextRefresh,
+            "shell.context.nativeBalance.\(snapshot.balances.nativeBalanceDisplay.provenance.rawValue)",
+            strategy == .reuseCachedBalance ? .localPreference : .publicIdentifier,
+            resolvedCorrelationID
+        )
+        if reusedInFlightRefresh {
+            await instrumentation.recordMemoryTouch(
+                .memoryRead,
+                "shell.context.inFlightRefresh",
+                .derived,
+                resolvedCorrelationID
+            )
+        }
+        if inputs.pinnedItemCount != nil || inputs.prefersDemoData != nil {
+            await instrumentation.recordMemoryTouch(
+                .memoryRead,
+                "shell.context.localPreferences",
+                .localPreference,
+                resolvedCorrelationID
+            )
+        }
+    }
+
+    private static func generatedContextCorrelationID(for scope: RequestScope) -> String {
+        let address = scope.accountAddress.isEmpty ? "none" : scope.accountAddress
+        return "context.refresh.\(scope.chain.rawValue).\(address).\(UUID().uuidString)"
+    }
+
     private func captureInputs(
         strategy: RefreshStrategy
     ) async -> CapturedInputs {
@@ -236,7 +322,7 @@ private extension ContextService {
         accountProvider: () -> EOAccount?,
         addressProvider: () -> String,
         chainProvider: () -> Chain,
-        modeProvider: () -> AppMode,
+        modeProvider: () -> CryptoMode,
         loadingProvider: () -> Bool,
         refreshedAtProvider: () -> Date?,
         nativeBalanceProvider: any NativeBalanceProviding,

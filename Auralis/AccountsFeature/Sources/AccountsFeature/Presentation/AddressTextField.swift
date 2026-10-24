@@ -1,3 +1,10 @@
+// The gateway's views, which genuinely need UIKit: `UIPasteboard` for Paste, and `AuraHaptics` —
+// itself `#if canImport(UIKit)` in `AuraUI` — for every feedback call below. Guarded rather than made
+// cross-platform because this package is iOS-only by intent; what the guard buys is a macOS host
+// build that compiles the platform-neutral half instead of failing on this file's `import UIKit`
+// (F-112). The protocols and value types these views are handed moved to
+// `Domain/AccountsGatewayContracts.swift` so they stay available on a host build.
+#if canImport(UIKit)
 import AccountsCore
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
@@ -81,77 +88,6 @@ public struct AddressTextField: View {
 
         address = value.address
         isFocused.wrappedValue = true
-    }
-}
-
-
-@MainActor
-public protocol AccountActivating {
-    func activateWatchAccount(
-        from rawAddress: String,
-        name: String?,
-        source: EOAccountSource,
-        correlationID: String?
-    ) async throws -> AccountActivationResult
-}
-
-public struct AccountENSResolution: Equatable, Sendable {
-    public let address: String
-    public let ensName: String
-    public let isStale: Bool
-
-    public init(address: String, ensName: String, isStale: Bool) {
-        self.address = address
-        self.ensName = ensName
-        self.isStale = isStale
-    }
-}
-
-public enum AccountENSResolutionFailure: LocalizedError, Equatable, Sendable {
-    case mappingChanged(ensName: String, cachedAddress: String, resolvedAddress: String)
-    case unavailable(String)
-
-    public var errorDescription: String? {
-        switch self {
-        case .mappingChanged:
-            return "The ENS mapping changed."
-        case .unavailable(let message):
-            return message
-        }
-    }
-}
-
-@MainActor
-public protocol AccountENSResolving {
-    func resolveAddress(forENS ensName: String, correlationID: String) async throws -> AccountENSResolution
-}
-
-@MainActor
-public protocol AccountSwitching {
-    func persistPreferredChain(
-        address rawAddress: String,
-        chain: Chain,
-        correlationID: String?
-    ) async throws -> EOAccount
-
-    func persistCurrentChain(
-        address rawAddress: String,
-        chain: Chain,
-        correlationID: String?
-    ) async throws -> EOAccount
-}
-
-@MainActor
-public struct AccountsGatewayDependencies {
-    public let ensResolver: any AccountENSResolving
-    public let accountActivator: any AccountActivating
-
-    public init(
-        ensResolver: any AccountENSResolving,
-        accountActivator: any AccountActivating
-    ) {
-        self.ensResolver = ensResolver
-        self.accountActivator = accountActivator
     }
 }
 
@@ -842,27 +778,6 @@ public struct GuestPassesHeaderView: View {
 }
 
 
-@MainActor
-public enum QRScanValidationOutcome: Equatable {
-    case valid
-    case alert(title: String, message: String)
-
-    public static func classify(_ scannedValue: String) -> QRScanValidationOutcome {
-        let validationResult = AccountStore.validateAddressInput(scannedValue)
-
-        switch validationResult {
-        case .empty:
-            return .alert(title: "Scan Failed", message: validationResult.userFacingMessage)
-        case .unsupportedENS:
-            return .alert(title: "ENS Not Supported Yet", message: validationResult.userFacingMessage)
-        case .invalidFormat:
-            return .alert(title: "Scan Failed", message: validationResult.userFacingMessage)
-        case .valid:
-            return .valid
-        }
-    }
-}
-
 public struct QRScannerView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @State private var isScanning = false
@@ -1101,16 +1016,6 @@ private struct AccountTorchToggleButton: View {
     }
 }
 
-
-public struct AccountSwitcherSelection: Equatable, Sendable {
-    public let address: String
-    public let chain: Chain
-
-    public init(address: String, chain: Chain) {
-        self.address = address
-        self.chain = chain
-    }
-}
 
 public struct AccountSwitcherSheet: View {
     private let logger = Logger(subsystem: "Auralis", category: "AccountSwitcherSheet")
@@ -1470,77 +1375,6 @@ private struct AccountSwitcherAlert: Identifiable {
     let message: String
 }
 
-public enum ChainScopeChangeKind: Equatable, Sendable {
-    case preferred
-    case current
-}
-
-public struct ChainScopeChangePlan: Equatable {
-    public let kind: ChainScopeChangeKind
-    public let to: Chain
-    public let shouldApply: Bool
-    public let shouldRefreshActiveScope: Bool
-    public let event: AccountEvent?
-
-    public init(
-        kind: ChainScopeChangeKind,
-        to: Chain,
-        shouldApply: Bool,
-        shouldRefreshActiveScope: Bool,
-        event: AccountEvent?
-    ) {
-        self.kind = kind
-        self.to = to
-        self.shouldApply = shouldApply
-        self.shouldRefreshActiveScope = shouldRefreshActiveScope
-        self.event = event
-    }
-}
-
-public struct ChainScopeChangePlanner: Sendable {
-    public init() {}
-
-    public func planPreferredChange(address: String, from: Chain, to: Chain) -> ChainScopeChangePlan {
-        makePlan(kind: .preferred, address: address, from: from, to: to)
-    }
-
-    public func planCurrentChange(address: String, from: Chain, to: Chain) -> ChainScopeChangePlan {
-        makePlan(kind: .current, address: address, from: from, to: to)
-    }
-
-    private func makePlan(
-        kind: ChainScopeChangeKind,
-        address: String,
-        from: Chain,
-        to: Chain
-    ) -> ChainScopeChangePlan {
-        guard from != to else {
-            return ChainScopeChangePlan(
-                kind: kind,
-                to: to,
-                shouldApply: false,
-                shouldRefreshActiveScope: false,
-                event: nil
-            )
-        }
-
-        let event: AccountEvent = switch kind {
-        case .preferred:
-            .preferredChainChanged(address: address, from: from, to: to)
-        case .current:
-            .currentChainChanged(address: address, from: from, to: to)
-        }
-
-        return ChainScopeChangePlan(
-            kind: kind,
-            to: to,
-            shouldApply: true,
-            shouldRefreshActiveScope: kind == .current,
-            event: event
-        )
-    }
-}
-
 private struct ChainPickerRow: View {
     let title: String
     @Binding var selection: Chain
@@ -1570,3 +1404,4 @@ private extension String {
         return "\(prefix(6))...\(suffix(4))"
     }
 }
+#endif

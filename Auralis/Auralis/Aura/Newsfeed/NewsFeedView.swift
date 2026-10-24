@@ -7,13 +7,13 @@
 
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import SwiftData
-import SwiftUI
 import AuraUI
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import SwiftData
+import SwiftUI
 
 // MARK: - Updated Views
 

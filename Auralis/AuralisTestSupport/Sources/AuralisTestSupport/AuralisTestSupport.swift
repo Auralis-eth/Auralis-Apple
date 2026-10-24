@@ -1,8 +1,8 @@
+import AuralisFoundation
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import ObjectiveC
-import ReceiptStorage
 import Testing
 
 public enum Fixture {
@@ -186,182 +186,49 @@ public struct NFTFixture: @unchecked Sendable {
     }
 }
 
-public struct MusicLibraryItemFixture: @unchecked Sendable {
-    public static let music = MusicLibraryItemFixture()
-
-    public var id: String
-    public var sourceNFTID: String
-    public var accountAddress: String
-    public var network: Chain
-    public var title: String
-    public var artistName: String?
-    public var collectionName: String?
-    public var artworkURLString: String?
-    public var contentType: String?
-    public var playbackURLString: String?
-    public var availability: MusicLibraryAvailability
-    public var availabilityReason: String?
-    public var sourceUpdatedAtRawValue: String?
-    public var indexedAt: Date
-
-    public init(
-        id: String = "fixture-track",
-        sourceNFTID: String = "fixture-source-nft",
-        accountAddress: String = Fixture.Accounts.primary,
-        network: Chain = .ethMainnet,
-        title: String = "Fixture Track",
-        artistName: String? = "Fixture Artist",
-        collectionName: String? = "Fixture Collection",
-        artworkURLString: String? = nil,
-        contentType: String? = "audio/mpeg",
-        playbackURLString: String? = "https://example.com/fixture-track.mp3",
-        availability: MusicLibraryAvailability = .ready,
-        availabilityReason: String? = nil,
-        sourceUpdatedAtRawValue: String? = nil,
-        indexedAt: Date = Fixture.referenceDate
-    ) {
-        self.id = id
-        self.sourceNFTID = sourceNFTID
-        self.accountAddress = accountAddress
-        self.network = network
-        self.title = title
-        self.artistName = artistName
-        self.collectionName = collectionName
-        self.artworkURLString = artworkURLString
-        self.contentType = contentType
-        self.playbackURLString = playbackURLString
-        self.availability = availability
-        self.availabilityReason = availabilityReason
-        self.sourceUpdatedAtRawValue = sourceUpdatedAtRawValue
-        self.indexedAt = indexedAt
-    }
-
-    public func with(_ transform: (inout MusicLibraryItemFixture) -> Void) -> MusicLibraryItemFixture {
-        var copy = self
-        transform(&copy)
-        return copy
-    }
-
-    public func build() -> MusicLibraryItem {
-        MusicLibraryItem(
-            id: id,
-            sourceNFTID: sourceNFTID,
-            accountAddressRawValue: accountAddress,
-            networkRawValue: network.rawValue,
-            title: title,
-            artistName: artistName,
-            collectionName: collectionName,
-            normalizedTitleKey: title.lowercased(),
-            normalizedArtistKey: artistName?.lowercased() ?? "",
-            normalizedCollectionKey: collectionName?.lowercased() ?? "",
-            artworkURLString: artworkURLString ?? "https://example.com/\(id).png",
-            contentType: contentType,
-            playbackURLString: playbackURLString,
-            availability: availability,
-            availabilityReason: availabilityReason,
-            sourceUpdatedAtRawValue: sourceUpdatedAtRawValue,
-            indexedAt: indexedAt
-        )
-    }
-}
-
-public struct StoredReceiptFixture: @unchecked Sendable {
-    public static var successful: StoredReceiptFixture { StoredReceiptFixture() }
-
-    public var id: UUID
-    public var sequenceID: Int
-    public var createdAt: Date
-    public var actor: ReceiptActor
-    public var mode: ReceiptMode
-    public var trigger: String
-    public var scope: String
-    public var summary: String
-    public var provenance: String
-    public var isSuccess: Bool
-    public var correlationID: String?
-    public var accountAddress: String?
-    public var chainRawValue: String?
-    public var accountSequenceID: Int
-    public var payloadHash: String
-    public var previousReceiptHash: String
-    public var chainHash: String
-    public var details: ReceiptPayload
-
-    public init(
-        id: UUID = UUID(),
-        sequenceID: Int = 1,
-        createdAt: Date = Fixture.referenceDate,
-        actor: ReceiptActor = .system,
-        mode: ReceiptMode = .observe,
-        trigger: String = "fixture.trigger",
-        scope: String = "fixture.scope",
-        summary: String = "fixture.summary",
-        provenance: String = "tests",
-        isSuccess: Bool = true,
-        correlationID: String? = nil,
-        accountAddress: String? = Fixture.Accounts.primary,
-        chainRawValue: String? = Chain.ethMainnet.rawValue,
-        accountSequenceID: Int = 1,
-        payloadHash: String = "fixture-payload-hash",
-        previousReceiptHash: String = "fixture-previous-hash",
-        chainHash: String = "fixture-chain-hash",
-        details: ReceiptPayload = ReceiptPayload(values: [:])
-    ) {
-        self.id = id
-        self.sequenceID = sequenceID
-        self.createdAt = createdAt
-        self.actor = actor
-        self.mode = mode
-        self.trigger = trigger
-        self.scope = scope
-        self.summary = summary
-        self.provenance = provenance
-        self.isSuccess = isSuccess
-        self.correlationID = correlationID
-        self.accountAddress = accountAddress
-        self.chainRawValue = chainRawValue
-        self.accountSequenceID = accountSequenceID
-        self.payloadHash = payloadHash
-        self.previousReceiptHash = previousReceiptHash
-        self.chainHash = chainHash
-        self.details = details
-    }
-
-    public func with(_ transform: (inout StoredReceiptFixture) -> Void) -> StoredReceiptFixture {
-        var copy = self
-        transform(&copy)
-        return copy
-    }
-
-    public func build() throws -> StoredReceipt {
-        try StoredReceipt(
-            id: id,
-            sequenceID: sequenceID,
-            createdAt: createdAt,
-            actor: actor,
-            mode: mode,
-            trigger: trigger,
-            scope: scope,
-            summary: summary,
-            provenance: provenance,
-            isSuccess: isSuccess,
-            correlationID: correlationID,
-            timelineAccountAddress: accountAddress,
-            timelineChainRawValue: chainRawValue,
-            accountSequenceID: accountSequenceID,
-            payloadHash: payloadHash,
-            previousReceiptHash: previousReceiptHash,
-            chainHash: chainHash,
-            details: details
-        )
-    }
-}
-
 public struct UserDefaultsBox: @unchecked Sendable {
     public let defaults: UserDefaults
 
     public init(_ defaults: UserDefaults) {
         self.defaults = defaults
+    }
+}
+
+/// A mutex-guarded box for capturing a value out of an escaping, off-main-thread callback.
+///
+/// Exists for the ``URLSession/mocked(_:)`` handler, which `URLProtocol` invokes on a background
+/// thread: a test that wants to assert *what was requested* has to write from there and read from
+/// the test body, and a plain `var` capture is a data race Swift 6 rejects outright.
+///
+/// `ChainProvidersTests` already used this type, and it did not exist — so that suite never compiled,
+/// which went unnoticed because ChainProviders has no CI lane and no Xcode test-plan entry. The build
+/// failure was the first thing a lane for it would have reported.
+public final class LockedValue<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedValue: Value
+
+    public init(_ value: Value) {
+        storedValue = value
+    }
+
+    public var value: Value {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedValue
+    }
+
+    public func set(_ newValue: Value) {
+        lock.lock()
+        defer { lock.unlock() }
+        storedValue = newValue
+    }
+
+    /// Reads and writes under one acquisition, for callers that need read-modify-write to be atomic.
+    @discardableResult
+    public func withLock<Result>(_ body: (inout Value) throws -> Result) rethrows -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return try body(&storedValue)
     }
 }
 

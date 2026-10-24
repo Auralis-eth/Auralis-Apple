@@ -1,6 +1,6 @@
 import Foundation
-import WalletConnectorKit
 import secp256k1
+import WalletConnectorKit
 import web3
 
 /// Bridges web3.swift (secp256k1) into `WalletConnectorKit`'s crypto seam so the
@@ -166,7 +166,7 @@ struct Web3SwiftWalletConnectorCryptoProvider: WalletConnectorCryptoProvider {
             .optimism: "https://optimism-rpc.publicnode.com",
             .arbitrum: "https://arbitrum-one-rpc.publicnode.com",
             .avalanche: "https://avalanche-c-chain-rpc.publicnode.com",
-            .bnb: "https://bsc-rpc.publicnode.com",
+            .bnb: "https://bsc-rpc.publicnode.com"
         ]
         return endpointsByChain.reduce(into: [:]) { result, entry in
             if let url = URL(string: entry.value) { result[entry.key] = url }
@@ -249,7 +249,7 @@ struct Web3SwiftWalletConnectorCryptoProvider: WalletConnectorCryptoProvider {
             "jsonrpc": "2.0",
             "id": 1,
             "method": "eth_call",
-            "params": params,
+            "params": params
         ]
 
         var request = URLRequest(url: endpoint)

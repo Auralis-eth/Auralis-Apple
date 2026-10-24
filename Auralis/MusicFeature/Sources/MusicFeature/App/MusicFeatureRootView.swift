@@ -44,6 +44,7 @@ public struct MusicFeatureRootView: View {
                 playlistGenerator: dependencies.playlistGenerator,
                 recommendationProvider: dependencies.recommendationProvider,
                 playlistManager: dependencies.playlistManager,
+                autoOrganizationRunner: dependencies.autoOrganizationRunner,
                 playbackController: dependencies.playbackController,
                 playbackPresenter: dependencies.playbackPresenter,
                 playbackOrchestrator: dependencies.playbackOrchestrator,

@@ -39,6 +39,12 @@ public struct AppDeepLinkParser {
                 url: url,
                 routeName: "Receipt"
             )
+        case "artifact", "artifacts", "mission-control":
+            return wrapTopLevelDestination(
+                parseDestination(url: url, segments: segments, requireTokenChain: false),
+                url: url,
+                routeName: "Artifact"
+            )
         case "playlist", "collection", "creator":
             return wrapTopLevelDestination(
                 parseDestination(url: url, segments: segments, requireTokenChain: false),
@@ -114,7 +120,8 @@ public struct AppDeepLinkParser {
         let destinationResult = parseDestination(
             url: url,
             segments: remainingSegments,
-            requireTokenChain: false
+            requireTokenChain: false,
+            allowsMediaRoutes: false
         )
 
         switch destinationResult {
@@ -141,10 +148,16 @@ public struct AppDeepLinkParser {
         }
     }
 
+    /// - Parameter allowsMediaRoutes: whether the AuraPlay routes (`playlist` / `collection` /
+    ///   `creator`) are in grammar here. They are top-level destinations only: unlike `nft`, `token`,
+    ///   `receipt`, and `artifact`, an AuraPlay destination carries no address, so nesting one under
+    ///   `/account/<address>/` would silently discard the address and produce a link whose account
+    ///   component means nothing. `rejectsInvalidNestedRoute` pins that boundary.
     private func parseDestination(
         url: URL,
         segments: [String],
-        requireTokenChain: Bool
+        requireTokenChain: Bool,
+        allowsMediaRoutes: Bool = true
     ) -> Result<AppDeepLinkDestination?, AppRouteError> {
         guard let route = segments.first?.lowercased() else {
             let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
@@ -155,6 +168,10 @@ public struct AppDeepLinkParser {
 
             if let receiptID = queryValue(named: "receiptId", in: components), !receiptID.isEmpty {
                 return .success(.receipt(id: receiptID))
+            }
+
+            if let artifactID = queryValue(named: "artifactId", in: components), !artifactID.isEmpty {
+                return parseArtifactDestination(url: url, identifier: artifactID).map(Optional.some)
             }
 
             return .success(nil)
@@ -182,11 +199,15 @@ public struct AppDeepLinkParser {
             case .failure(let error):
                 return .failure(error)
             }
-        case "playlist":
+        case "artifact", "artifacts":
+            return parseArtifactDestination(url: url, segments: segments).map(Optional.some)
+        case "mission-control":
+            return parseMissionControlDestination(url: url, segments: segments).map(Optional.some)
+        case "playlist" where allowsMediaRoutes:
             return parseAuraPlayPlaylistDestination(url: url, segments: segments).map(Optional.some)
-        case "collection":
+        case "collection" where allowsMediaRoutes:
             return parseAuraPlayCollectionDestination(url: url, segments: segments).map(Optional.some)
-        case "creator":
+        case "creator" where allowsMediaRoutes:
             return parseAuraPlayCreatorDestination(url: url, segments: segments).map(Optional.some)
         default:
             return .failure(
@@ -318,6 +339,50 @@ public struct AppDeepLinkParser {
         }
 
         return .success(.receipt(id: identifier))
+    }
+
+    private func parseArtifactDestination(
+        url: URL,
+        segments: [String]
+    ) -> Result<AppDeepLinkDestination, AppRouteError> {
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let identifier = queryValue(named: "id", in: components) ?? segments.dropFirst().first
+        return parseArtifactDestination(url: url, identifier: identifier)
+    }
+
+    private func parseArtifactDestination(
+        url: URL,
+        identifier: String?
+    ) -> Result<AppDeepLinkDestination, AppRouteError> {
+        guard let identifier, UUID(uuidString: identifier) != nil else {
+            return .failure(
+                AppRouteError(
+                    title: "Invalid Artifact Link",
+                    message: "The artifact deep link must include a valid artifact identifier.",
+                    urlString: url.absoluteString
+                )
+            )
+        }
+
+        return .success(.artifact(id: identifier))
+    }
+
+    private func parseMissionControlDestination(
+        url: URL,
+        segments: [String]
+    ) -> Result<AppDeepLinkDestination, AppRouteError> {
+        let nestedSegments = Array(segments.dropFirst())
+        guard nestedSegments.first?.lowercased() == "artifacts" || nestedSegments.first?.lowercased() == "artifact" else {
+            return .failure(
+                AppRouteError(
+                    title: "Invalid Mission Control Link",
+                    message: "Mission Control deep links must route to a supported destination.",
+                    urlString: url.absoluteString
+                )
+            )
+        }
+
+        return parseArtifactDestination(url: url, segments: nestedSegments)
     }
 
     private func parseAuraPlayPlaylistDestination(

@@ -1,14 +1,14 @@
-import ReceiptsCore
-import ReceiptStorage
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisTestSupport
 import Foundation
+import NFTDomain
+import NFTPersistence
+import NFTPresentation
+import NFTProviderAdapters
 import ProviderKit
+import ReceiptsCore
+import ReceiptStorage
 import SwiftData
 import Testing
 
@@ -19,8 +19,7 @@ struct NFTServiceReceiptTests {
         let container = try NFTKitTestModelContainers.refresh()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let recorder = ReceiptBackedNFTRefreshEventRecorder(receiptStore: receiptStore)
         let fetcher = StubNFTFetcher()
@@ -55,8 +54,7 @@ struct NFTServiceReceiptTests {
         let container = try NFTKitTestModelContainers.refresh()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let recorder = ReceiptBackedNFTRefreshEventRecorder(receiptStore: receiptStore)
         let fetcher = FlakyNFTFetcher()
@@ -116,8 +114,7 @@ struct NFTServiceReceiptTests {
         let container = try NFTKitTestModelContainers.refresh()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let recorder = ReceiptBackedNFTRefreshEventRecorder(receiptStore: receiptStore)
         let fetcher = SlowStubNFTFetcher()
@@ -511,8 +508,7 @@ struct NFTServiceReceiptTests {
         let container = try NFTKitTestModelContainers.refresh()
         let context = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let recorder = ReceiptBackedNFTRefreshEventRecorder(receiptStore: receiptStore)
         let fetcher = StubNFTFetcher()
@@ -544,7 +540,11 @@ struct NFTServiceReceiptTests {
                 .bool("loading", nftService.isLoading)
             ]),
             correlationID: correlationID,
-            actor: .system,
+            actorDetail: .workflow("nft.refresh"),
+            authorityDetail: ReceiptAuthorityDetail(
+                source: "policyDefault",
+                reason: "Local context construction is allowed by standing policy."
+            ),
             isSuccess: true
         )
 
@@ -555,6 +555,79 @@ struct NFTServiceReceiptTests {
         #expect(receipts.contains(where: { $0.kind == "nft.persistence.completed" }))
         #expect(receipts.contains(where: { $0.kind == "context.built" }))
         #expect(receipts.allSatisfy { $0.correlationID == correlationID })
+    }
+
+    /// Receipts are telemetry *about* the refresh, not a precondition for it.
+    ///
+    /// This is the contract an NFT refresh crash depended on and nothing covered. The receipt ledger
+    /// refuses a re-entrant append rather than trapping, which only helps if the refresh survives the
+    /// refusal — so a store that throws from every `append` must still leave a fetched, persisted
+    /// inventory and an unflagged service. The thrown error is a stand-in: the ledger's own
+    /// re-entrancy error is internal to `ReceiptStorage`, and the recorder only reads
+    /// `localizedDescription`, so the identity of the failure is not what is being proven here.
+    @Test("a refresh completes when every receipt append fails")
+    @MainActor
+    func refreshSurvivesReceiptAppendFailure() async throws {
+        let container = try NFTKitTestModelContainers.refresh()
+        let context = ModelContext(container)
+        let receiptStore = AppendFailingReceiptStore(
+            wrapped: SwiftDataReceiptStore(modelContext: context)
+        )
+        let recorder = ReceiptBackedNFTRefreshEventRecorder(receiptStore: receiptStore)
+        let fetcher = NFTFixtureFetcher(
+            nftsByChain: [
+                .ethMainnet: [makeRefreshFixtureSnapshot(network: .ethMainnet)]
+            ]
+        )
+        let service = NFTService(
+            nftFetcher: fetcher,
+            eventRecorderFactory: { _ in recorder }
+        )
+        let account = EOAccount(address: "0x1234567890abcdef1234567890abcdef12345678")
+
+        await service.refreshNFTs(
+            for: account,
+            chain: .ethMainnet,
+            modelContext: context,
+            correlationID: "receipts-unavailable"
+        )
+
+        // The refresh did its actual job.
+        let persistedNFT = try #require(context.fetch(FetchDescriptor<NFT>()).first)
+        #expect(persistedNFT.accountAddressRawValue == account.address)
+        #expect(service.error == nil, "a rejected receipt was reported to the user as a refresh failure")
+
+        // And swallowed the telemetry rather than half-writing it.
+        let receipts = try await receiptStore.receipts(forCorrelationID: "receipts-unavailable", limit: 10)
+        #expect(receipts.isEmpty)
+    }
+}
+
+/// Forwards every read to a real store and fails every write, so a test can ask what a refresh does
+/// when the ledger will not accept its telemetry.
+private struct AppendFailingReceiptStore: ReceiptStore {
+    struct AppendRefused: Error {}
+
+    let wrapped: SwiftDataReceiptStore
+
+    func append(_ receipt: ReceiptDraft) async throws -> ReceiptRecord {
+        throw AppendRefused()
+    }
+
+    func latest(limit: Int) async throws -> [ReceiptRecord] {
+        try await wrapped.latest(limit: limit)
+    }
+
+    func receipts(forCorrelationID correlationID: String, limit: Int) async throws -> [ReceiptRecord] {
+        try await wrapped.receipts(forCorrelationID: correlationID, limit: limit)
+    }
+
+    func exportAll() async throws -> Data {
+        try await wrapped.exportAll()
+    }
+
+    func resetAll() async throws {
+        try await wrapped.resetAll()
     }
 }
 

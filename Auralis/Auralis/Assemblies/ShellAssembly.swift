@@ -18,7 +18,7 @@ protocol ShellContextSourceBuilding {
         accountProvider: @escaping () -> EOAccount?,
         addressProvider: @escaping () -> String,
         chainProvider: @escaping () -> Chain,
-        modeProvider: @escaping () -> AppMode,
+        modeProvider: @escaping () -> CryptoMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
         nativeBalanceDisplayProvider: @escaping () -> String?,
@@ -41,7 +41,7 @@ protocol ShellContextServiceBuilding {
         accountProvider: @escaping () -> EOAccount?,
         addressProvider: @escaping () -> String,
         chainProvider: @escaping () -> Chain,
-        modeProvider: @escaping () -> AppMode,
+        modeProvider: @escaping () -> CryptoMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
         nativeBalanceProvider: any NativeBalanceProviding,
@@ -66,7 +66,7 @@ struct LiveShellContextSourceBuilder: ShellContextSourceBuilding {
         accountProvider: @escaping () -> EOAccount?,
         addressProvider: @escaping () -> String,
         chainProvider: @escaping () -> Chain,
-        modeProvider: @escaping () -> AppMode,
+        modeProvider: @escaping () -> CryptoMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
         nativeBalanceDisplayProvider: @escaping () -> String?,
@@ -155,7 +155,7 @@ struct LiveShellContextServiceBuilder: ShellContextServiceBuilding {
         accountProvider: @escaping () -> EOAccount?,
         addressProvider: @escaping () -> String,
         chainProvider: @escaping () -> Chain,
-        modeProvider: @escaping () -> AppMode,
+        modeProvider: @escaping () -> CryptoMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
         nativeBalanceProvider: any NativeBalanceProviding,
@@ -212,6 +212,7 @@ struct ShellAssembly {
         modelContext: ModelContext,
         nftService: NFTService,
         router: AppRouter,
+        modeProvider: @escaping @MainActor () -> CryptoMode = { PersistedCryptoMode.current },
         selectionPersistence: (any ShellSelectionPersisting)? = nil
     ) -> ShellStore {
         ShellStore.live(
@@ -219,6 +220,7 @@ struct ShellAssembly {
                 modelContext: modelContext,
                 nftService: nftService,
                 router: router,
+                modeProvider: modeProvider,
                 selectionPersistence: selectionPersistence
             )
         )
@@ -228,13 +230,17 @@ struct ShellAssembly {
         modelContext: ModelContext,
         nftService: NFTService,
         router: AppRouter,
+        modeProvider: @escaping @MainActor () -> CryptoMode = { PersistedCryptoMode.current },
         selectionPersistence: (any ShellSelectionPersisting)? = nil
     ) -> ShellStoreDependencies {
         let accountResolver = accountAssembly.makeShellAccountResolver(modelContext: modelContext)
         return ShellStoreDependencies(
             selectionPersistence: selectionPersistence ?? KeychainShellSelectionPersistence(),
             accountResolver: accountResolver,
-            accountMutator: accountAssembly.makeShellAccountMutator(modelContext: modelContext),
+            accountMutator: accountAssembly.makeShellAccountMutator(
+                modelContext: modelContext,
+                modeProvider: { modeProvider().receiptMode }
+            ),
             refreshCoordinator: NFTServiceShellRefreshCoordinator(
                 modelContext: modelContext,
                 nftService: nftService,
@@ -250,4 +256,3 @@ struct ShellAssembly {
         )
     }
 }
-

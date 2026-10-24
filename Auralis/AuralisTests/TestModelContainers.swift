@@ -30,7 +30,25 @@ enum TestModelContainers {
     static func inMemory(_ schema: Schema, undoEnabled: Bool = false) throws -> ModelContainer {
         let container = try ModelContainer(
             for: schema,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            // `schema:` and `cloudKitDatabase: .none`, both of which were missing and both of which
+            // matter.
+            //
+            // The CloudKit opt-out is why this line is commented: these tests are app-hosted, so
+            // they run inside the Auralis bundle and inherit its entitlements — including the
+            // iCloud container the receipt-ledger witness added. `cloudKitDatabase` defaults to
+            // `.automatic`, so every container built here tried to mirror to CloudKit and failed
+            // with `NSCocoaErrorDomain Code=134060`, taking 150 tests down at once with
+            // `SwiftDataError.loadIssueModelContainer`. Package suites run under `swift test` with
+            // no entitlement and stayed green throughout, which is exactly why this needed the app
+            // plan to surface. See `PrimaryStoreSchema.configuration(isStoredInMemoryOnly:)`.
+            //
+            // Passing `schema:` as well so the configuration describes the same models the
+            // container is built for, rather than relying on the container to reconcile them.
+            configurations: ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: true,
+                cloudKitDatabase: .none
+            )
         )
 
         if undoEnabled {

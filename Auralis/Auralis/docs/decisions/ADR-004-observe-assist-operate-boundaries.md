@@ -6,13 +6,15 @@ Accepted.
 
 ## Context
 
-Auralis currently ships as an Observe-only app. It can inspect public wallet data, maintain local receipts, and route users through read-oriented product surfaces, but it does not ship custody, WalletConnect, transaction signing, arbitrary plugin execution, or agent operation.
+Auralis originally shipped as an Observe-only app. It could inspect public wallet data, maintain local receipts, and route users through read-oriented product surfaces, but it did not ship custody, transaction signing, arbitrary plugin execution, or agent operation.
 
 The policy model already names high-risk actions such as `signMessage`, `approveSpending`, `draftTransaction`, and `runPlugin`. Those names are intentionally present before the features exist so the app has a shared vocabulary for denials, receipts, and future capability reviews.
 
 ## Decision
 
-`AppMode` remains observe-only for the current shipping target. Assist and Operate modes must not be added as enum cases until the policy gate can require all of these controls for every high-risk action:
+`AppMode` has been superseded by crypto-scoped `CryptoMode` with `Observe`, `Assist`, and `Operate` cases. These modes are not a global app read-only switch: they govern wallet/crypto capabilities, while non-crypto runtime work follows normal impact and confirmation rules.
+
+Assist and Operate may execute high-risk actions only when the policy gate can require all of these controls for that action:
 
 - address access that can sign, via `EthereumAddressAccess.canSign`
 - an explicit capability grant for the exact `CapabilityID`
@@ -24,7 +26,7 @@ Observe mode blocks `signMessage`, `approveSpending`, `draftTransaction`, and `r
 
 ### Future Action Contracts
 
-These contracts are requirements for later signing, custody, WalletConnect, plugin, or agent work. They are not implemented by WEB3-001 because the current app is Observe-only.
+These contracts are requirements for signing, custody, WalletConnect, plugin, or agent work. The current runtime exposes the modes, but high-risk execution still depends on the evidence below.
 
 | Action | Required before any approval path exists |
 |--------|------------------------------------------|
@@ -35,11 +37,11 @@ These contracts are requirements for later signing, custody, WalletConnect, plug
 
 ### Future Mode Upgrade Gate
 
-A future PR that adds `Assist` or `Operate` must include policy tests proving that every high-risk action is still denied in Observe and is only allowed outside Observe when all of these are true: `EthereumAddressAccess.canSign`, exact capability grant, confirmation, requester provenance, and receipt recording. Adding enum cases without that proof is a security regression.
+Any PR that expands what `Assist` or `Operate` can execute must include policy tests proving that every high-risk action is still denied in Observe and is only allowed outside Observe when all of these are true: `EthereumAddressAccess.canSign`, exact capability grant, confirmation, requester provenance, and receipt recording. Expanding mode power without that proof is a security regression.
 
 ## Consequences
 
-WEB3-001 is not part of the current Observe-only release scope beyond preserving and testing the denial boundary. Adding Assist or Operate is a separate future-mode release decision, not a small enum expansion.
+WEB3-001 preserved and tested the original denial boundary. The mode enum now exists, so the release decision moves from "may the cases exist?" to "which high-risk actions may each mode execute with proven evidence?"
 
 Future signing, custody, WalletConnect, agent execution, or plugin operation remains blocked until policy tests prove that Observe denies all high-risk actions and future modes only allow them when signing access, capability grant, confirmation, provenance, and receipt requirements are satisfied.
 

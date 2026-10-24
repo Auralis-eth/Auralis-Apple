@@ -47,7 +47,9 @@ public struct NFTLibraryCollectionDetailView: View {
             }
         }
         .navigationTitle("Collection")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(NavigationBarItem.TitleDisplayMode.large)
+        #endif
         .accessibilityIdentifier("nft.collection.detail")
     }
 

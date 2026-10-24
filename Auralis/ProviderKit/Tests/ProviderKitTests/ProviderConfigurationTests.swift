@@ -1,15 +1,15 @@
 import AuralisPrimaryModels
 import AuralisTestSupport
 import Foundation
-import Testing
 @testable import ProviderKit
+import Testing
 
 struct ProviderConfigurationTests {
     @Test(
         "Live resolver keeps public Alchemy client keys in expected URL paths",
         arguments: [
             "development-public-client-key",
-            "production-public-client-key",
+            "production-public-client-key"
         ]
     )
     func resolverKeepsPublicAlchemyClientKeysInURLPaths(alchemyKey: String) throws {
@@ -118,7 +118,7 @@ struct ProviderConfigurationTests {
 
     @Test("RPC envelope decodes success payloads")
     func rpcEnvelopeDecodesSuccessPayload() throws {
-        let data = try #require(#"{"jsonrpc":"2.0","id":1,"result":"0xde0b6b3a7640000"}"#.data(using: .utf8))
+        let data = Data(#"{"jsonrpc":"2.0","id":1,"result":"0xde0b6b3a7640000"}"#.utf8)
 
         let envelope = try JSONDecoder().decode(AlchemyRPCProvider.RPCEnvelope<String>.self, from: data)
 
@@ -152,11 +152,11 @@ struct ProviderConfigurationTests {
                 expectedCode: -32003,
                 expectedMessage: "upstream failed",
                 expectedError: .providerError("provider_error_payload_redacted reason=unclassified_message sha256=fbf483cb811705e59268dac16b4706991c0c5625a8c0d8531da68931331f2289")
-            ),
+            )
         ]
     )
     func rpcErrorPayloadsDecodeForProviderMapping(mappingCase: RPCErrorMappingCase) throws {
-        let data = try #require(mappingCase.payload.data(using: .utf8))
+        let data = Data(mappingCase.payload.utf8)
 
         let envelope = try JSONDecoder().decode(AlchemyRPCProvider.RPCEnvelope<String>.self, from: data)
         let error = try #require(envelope.error)
@@ -191,11 +191,11 @@ struct ProviderConfigurationTests {
                 expectedCode: -32003,
                 expectedMessage: "upstream failed",
                 expectedError: .providerError("provider_error_payload_redacted reason=unclassified_message sha256=fbf483cb811705e59268dac16b4706991c0c5625a8c0d8531da68931331f2289")
-            ),
+            )
         ]
 
         for mappingCase in mappingCases {
-            let data = try #require(mappingCase.payload.data(using: .utf8))
+            let data = Data(mappingCase.payload.utf8)
             let session = URLSession.mocked { request in
                 let response = HTTPURLResponse(
                     url: try #require(request.url),
@@ -232,7 +232,7 @@ struct ProviderConfigurationTests {
         arguments: [
             ("0x0", "0"),
             ("0xde0b6b3a7640000", "1000000000000000000"),
-            ("0xffffffffffffffff", "18446744073709551615"),
+            ("0xffffffffffffffff", "18446744073709551615")
         ]
     )
     func nativeBalanceHexQuantityConversion(hexQuantity: String, expectedDecimal: String) {

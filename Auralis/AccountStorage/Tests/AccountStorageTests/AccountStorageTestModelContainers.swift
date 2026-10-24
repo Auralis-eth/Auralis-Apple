@@ -1,12 +1,13 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import Foundation
 import ReceiptStorage
 import SwiftData
 import TokenStorage
 
 @MainActor
 enum AccountStorageTestModelContainers {
-    static func context() throws -> ModelContext {
+    static func context(undoEnabled: Bool = false) throws -> ModelContext {
         let container = try ModelContainer(
             for: Schema([
                 EOAccount.self,
@@ -14,13 +15,15 @@ enum AccountStorageTestModelContainers {
                 Tag.self,
                 StoredReceipt.self,
                 Playlist.self,
-                MusicLibraryItem.self,
                 TokenHolding.self,
-                SearchHistoryRecord.self,
             ]),
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
 
-        return ModelContext(container)
+        let context = ModelContext(container)
+        if undoEnabled {
+            context.undoManager = UndoManager()
+        }
+        return context
     }
 }

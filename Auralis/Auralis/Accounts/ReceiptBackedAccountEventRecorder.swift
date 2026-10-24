@@ -1,23 +1,28 @@
-import ReceiptsCore
-import ReceiptStorage
 import AccountsCore
 import AuralisPrimaryModels
 import Foundation
 import OSLog
+import ReceiptsCore
+import ReceiptStorage
 import SwiftData
 
 @MainActor
 struct ReceiptBackedAccountEventRecorder: AccountEventRecorder {
     private let receiptStore: any ReceiptStore
     private let payloadSanitizer: any ReceiptPayloadSanitizing
+    private let modeProvider: @MainActor () -> ReceiptMode
     private let logger = Logger(subsystem: "Auralis", category: "AccountReceipts")
 
     init(
         receiptStore: any ReceiptStore,
-        payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer()
+        payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer(),
+        // Persisted mode rather than a hardcoded `.observe`: `mode` is hashed into the receipt, so a
+        // defaulted literal is ledger corruption, not a wrong label.
+        modeProvider: @escaping @MainActor () -> ReceiptMode = { PersistedCryptoMode.currentReceiptMode }
     ) {
         self.receiptStore = receiptStore
         self.payloadSanitizer = payloadSanitizer
+        self.modeProvider = modeProvider
     }
 
     func record(_ event: AccountEvent, correlationID: String?) async {
@@ -94,8 +99,9 @@ private extension ReceiptBackedAccountEventRecorder {
         let payload = payloadSanitizer.sanitize(rawPayload)
 
         return ReceiptDraft(
-            actor: .user,
-            mode: .observe,
+            actorDetail: .human,
+            authorityDetail: ReceiptAuthorityDetail(source: "humanApproval", reason: "The person explicitly changed account or chain state."),
+            mode: modeProvider(),
             trigger: kind,
             scope: kind.contains(".chain.") ? "accounts.chain_scope" : "accounts",
             summary: summary,

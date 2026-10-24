@@ -3,6 +3,7 @@ import CapabilitiesCore
 import Foundation
 import PolicyCore
 import ReceiptsCore
+import RuntimeCore
 import Testing
 
 @MainActor
@@ -12,7 +13,7 @@ struct ActionPolicyGateReceiptTests {
         arguments: PolicyControlledAction.allCases
     )
     func observeModeBlocksHighRiskAction(_ action: PolicyControlledAction) async {
-        let result = await ActionPolicyGate.attempt(action, mode: .observe)
+        let result = await ActionPolicyGate.attempt(action, mode: .observe, actor: .human)
 
         #expect(result.isAllowed == false)
         #expect(result.userMessage == "Not available in Observe mode")
@@ -27,6 +28,7 @@ struct ActionPolicyGateReceiptTests {
         let result = await ActionPolicyGate.attempt(
             .approveSpending,
             mode: .observe,
+            actor: .human,
             receiptStore: store
         )
 
@@ -49,6 +51,7 @@ struct ActionPolicyGateReceiptTests {
         let result = await ActionPolicyGate.attempt(
             .runPlugin,
             mode: .observe,
+            actor: .human,
             receiptStore: store
         )
 
@@ -198,6 +201,8 @@ private final class RecordingReceiptStore: ReceiptStore {
             sequenceID: appendedReceipts.count,
             createdAt: receipt.createdAt,
             actor: receipt.actor,
+            actorDetail: receipt.actorDetail,
+            authorityDetail: receipt.authorityDetail,
             mode: receipt.mode,
             trigger: receipt.trigger,
             scope: receipt.scope,

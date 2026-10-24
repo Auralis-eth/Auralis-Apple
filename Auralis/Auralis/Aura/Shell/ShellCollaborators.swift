@@ -1,16 +1,16 @@
-import ReceiptsCore
-import AccountStorage
 import AccountsCore
+import AccountStorage
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisShellCore
 import Foundation
-import Security
-import SwiftData
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import ReceiptsCore
+import Security
+import SwiftData
 
 @MainActor
 /// Persists active wallet selection as protected, device-bound wallet metadata.
@@ -198,7 +198,8 @@ struct SwiftDataShellAccountMutator: ShellAccountMutating {
     func selectAccount(address: String, correlationID: String?) async throws -> EOAccount {
         try await SwiftDataAccountStore(
             modelContext: modelContext,
-            eventRecorder: eventRecorder
+            eventRecorder: eventRecorder,
+            scopedPersistenceParticipants: makeAppAccountScopedPersistenceParticipants()
         )
         .selectAccount(address: address, correlationID: correlationID)
     }
@@ -210,7 +211,8 @@ struct SwiftDataShellAccountMutator: ShellAccountMutating {
     ) async throws -> AccountRemovalResult {
         try await SwiftDataAccountStore(
             modelContext: modelContext,
-            eventRecorder: eventRecorder
+            eventRecorder: eventRecorder,
+            scopedPersistenceParticipants: makeAppAccountScopedPersistenceParticipants()
         )
         .removeAccount(
             address: address,
@@ -226,7 +228,8 @@ struct SwiftDataShellAccountMutator: ShellAccountMutating {
     ) async throws -> EOAccount {
         let store = SwiftDataAccountStore(
             modelContext: modelContext,
-            eventRecorder: eventRecorder
+            eventRecorder: eventRecorder,
+            scopedPersistenceParticipants: makeAppAccountScopedPersistenceParticipants()
         )
         guard let account = try store.account(for: address) else {
             throw AccountStoreError.accountNotFound(address)
@@ -363,6 +366,10 @@ struct AppRouterShellEffectHandler: ShellRouterEffectHandling {
 
             case .receipt(let id):
                 router.showReceipt(id: id)
+                return nil
+
+            case .artifact(let id):
+                router.showArtifact(id: id)
                 return nil
 
             case .auraPlayPlaylist(let id):

@@ -1,6 +1,6 @@
+@testable import Auralis
 import AuralisPrimaryModels
 import AuralisShellCore
-@testable import Auralis
 import Foundation
 import MusicFeature
 import Testing

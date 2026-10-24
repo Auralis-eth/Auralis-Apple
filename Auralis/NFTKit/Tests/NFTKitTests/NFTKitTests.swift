@@ -1,6 +1,6 @@
-import AuralisTestSupport
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuralisTestSupport
 import Foundation
 import NFTDomain
 import NFTKit
@@ -55,7 +55,7 @@ struct NFTKitTests {
                 "collection": .object(["name": .string("Updated Collection")]),
                 "image": .string("ipfs://new-image"),
                 "animation_url": .string("https://example.com/animation.mp4"),
-                "audio_url": .string("https://example.com/audio.mp3"),
+                "audio_url": .string("https://example.com/audio.mp3")
             ]
         )
 

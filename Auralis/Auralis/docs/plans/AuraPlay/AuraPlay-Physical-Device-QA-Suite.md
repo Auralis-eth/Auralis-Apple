@@ -1,8 +1,11 @@
 # AuraPlay Physical Device QA Suite
 
-This is the real-device QA suite for the AuraPlay rebuild path. The simulator is useful for speed. It is not where audio session behavior, background playback, interruptions, route changes, and “why does this feel wrong in the hand?” issues tell the truth.
+**Last reconciled with code:** 2026-10-22
+**Execution status:** Not run for the current release candidate unless a signed result is recorded in the final report below.
 
-The current shipping scope for this suite is the Phase 3 baseline: wallet-scoped sync into the AuraPlay store, persisted-library preference, module-owned storage resolution, shell-scope changes, and the still-shared playback engine. Search, playlists, and durable playback history are later-phase items and should be marked `Not In Scope Yet` when absent rather than filed as false regressions.
+This is the real-device QA suite for the shipping AuraPlay path. The simulator is useful for speed. It is not where audio session behavior, background playback, interruptions, route changes, and “why does this feel wrong in the hand?” issues tell the truth.
+
+The current shipping scope is the assembled AuraPlay release path: provider-authoritative wallet/chain discovery into the AuraPlay store, module-owned storage resolution, shell-scope changes, search and Spotlight, receipt-backed playlists, safe auto-organization previews, user metadata overrides, durable playback history, and package-owned audio/video engines. This is the single manual hardware gate for AuraPlay. Do not claim support for any listed wallet/provider until its route has passed on hardware.
 
 ## Test Environment Template
 
@@ -15,10 +18,11 @@ Record this before starting:
 - network condition: normal Wi-Fi, weak Wi-Fi, cellular, offline
 - account used for testing
 - chain scope(s) tested
-- whether the Music tab is running through the legacy root or AuraPlay root
-- whether the active wallet has already been mirrored into the AuraPlay persisted store
+- whether the Music tab is running through the current `MusicFeatureRootView` path and whether any legacy playlist helper path is being exercised
+- whether provider discovery has populated the active wallet/chain AuraPlay graph
 - whether the tested media/artwork includes IPFS, Arweave, HTTP/HTTPS, or `data:` URI inputs
 - whether any gateway fallback behavior was observed or deliberately exercised
+- third-party wallet/provider under test, wallet app or SDK environment version, account/network, and whether support is claimed or blocked
 
 ## Exit Rule
 
@@ -26,8 +30,25 @@ AuraPlay device QA passes only when:
 
 - all blocking tests below pass
 - no crash, stuck playback state, broken route change, or unrecoverable navigation wedge remains
-- supported Phase 3 storage inputs do not surface as raw or broken URLs in migrated AuraPlay paths
+- supported storage inputs do not surface as raw or broken URLs in AuraPlay paths
+- accessibility, privacy reset, video-system integration, search/indexing, metadata override, and safe auto-organization checks below have signed results
 - any known issues are documented with severity, repro steps, and owner
+
+## Required Third-Party Wallet Support Matrix
+
+Production support cannot be claimed for a wallet/provider below until the named route passes on a physical device. Record each pass/fail in the final test report.
+
+| Route family | Wallet/provider | Required proof |
+| --- | --- | --- |
+| EVM WalletConnect/Reown | Rabby | Connect, reject/cancel, `personal_sign` ownership verification, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| EVM WalletConnect/Reown | Rainbow | Connect, reject/cancel, `personal_sign` ownership verification, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Direct/native EVM | Coinbase Wallet | Direct route connect, reject/cancel, ownership verification, disconnect, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| EVM WalletConnect/Reown | MetaMask | Connect, reject/cancel, `personal_sign` ownership verification, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Solana wallet route | Phantom | Connect, reject/cancel, Solana message-sign ownership proof, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Solana wallet route | Backpack | Connect, reject/cancel, Solana message-sign ownership proof, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Solana wallet route | Solflare | Connect, reject/cancel, Solana message-sign ownership proof, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Embedded/auth route | Privy | Login/connect, reject/cancel where supported, ownership verification, logout/disconnect, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Embedded/auth route | Dynamic | Login/connect, reject/cancel where supported, ownership verification, logout/disconnect, restore/fail-closed on relaunch, and callback round-trip exactly once. |
 
 ## AP-Device-001: Cold launch into the Music tab
 
@@ -263,7 +284,7 @@ Steps:
 Pass criteria:
 
 - failure and retry behavior are understandable
-- a previously mirrored wallet can still surface sane persisted-library state when live refresh is impaired
+- a previously discovered wallet can surface honest persisted state when live refresh is impaired without presenting it as a successful refresh
 - the user can navigate away instead of getting trapped in a dead surface
 - degraded states do not impersonate healthy live state
 
@@ -271,7 +292,7 @@ Pass criteria:
 
 Goal:
 
-- validate that the current Phase 3 persistence and storage-resolution baseline survives normal app lifecycle churn
+- validate that the shipping persistence and storage-resolution baseline survives normal app lifecycle churn
 
 Steps:
 
@@ -282,31 +303,79 @@ Steps:
 
 Pass criteria:
 
-- the relaunch path does not lose the mirrored wallet/media graph unexpectedly
+- the relaunch path does not lose the provider-discovered wallet/media graph unexpectedly
 - the same wallet scope can re-open into a sane persisted-library state
 - account and chain changes still gate what persisted media is shown
 
-## AP-Device-011: Playlist and artwork flows
+## AP-Device-011: Shipping playlist flows
 
 Goal:
 
-- validate later-phase music-adjacent camera/photo-library paths when they are active
+- validate the receipt-backed AuraPlay playlist store and its no-op rules
 
 Steps:
 
-1. Create or edit a playlist if the flow is active.
-2. Choose photo-library artwork.
-3. Capture artwork with the camera if that path is active.
-4. Relaunch and confirm persistence.
+1. Create a playlist and add two playable items.
+2. Rename it, reorder its entries, remove an entry, and relaunch.
+3. Repeat a rename, membership, or reorder action that makes no effective change.
+4. Delete the playlist.
+5. Inspect the receipt timeline for each effective mutation and the no-op action.
 
 Pass criteria:
 
-- permission prompts match the feature being used
-- artwork selection persists and does not corrupt the flow
+- playlist membership and order persist across relaunch
+- create, rename, membership, reorder, and delete mutations emit receipts
+- no-op mutations emit no receipt
+- the compatibility primary-store playlist model is neither displayed as an AuraPlay playlist nor silently synchronized into one
 
-If inactive:
+## AP-Device-012: Video system integration
 
-- mark `Not In Scope Yet` instead of filing a product bug against the current Phase 3 baseline
+Steps:
+
+1. Play representative video in-line and full screen.
+2. Enter and restore Picture in Picture.
+3. Route playback through AirPlay when hardware is available.
+4. Exercise subtitles, audio descriptions, and playback speed on media that exposes them.
+5. Background, foreground, lock, interrupt, and rotate while video is active.
+
+Pass criteria:
+
+- player state and the visible track remain coherent across full-screen, PiP, route, and lifecycle transitions
+- advertised accessibility tracks and playback speeds work and persist as designed
+- unsupported WebM media produces the documented unsupported-format experience rather than a crash or hang
+
+## AP-Device-013: Search, Spotlight, auto-organization, and metadata overrides
+
+Steps:
+
+1. Search by title, creator, collection, and a semantic-only phrase; rapidly replace the query once.
+2. Open an indexed AuraPlay item from Spotlight and confirm it resolves to the correct scoped item.
+3. Request an auto-organization proposal and review its explanation and receipt evidence.
+4. Cancel the proposal and confirm no playlist changed; if an apply control is absent, confirm the UI does not imply that mutation occurred.
+5. Override a title, creator, or artwork value and verify it in Library, search, Spotlight, semantic results, player surfaces, and after relaunch.
+6. Refresh provider metadata and confirm the user override remains authoritative.
+
+Pass criteria:
+
+- stale search tasks never replace newer results and Spotlight opens the correct scoped item
+- auto-organization is preview-only, receipt-backed, and cannot mutate playlists
+- user metadata overrides remain consistent across every consumer and survive provider refresh
+
+## AP-Device-014: Privacy reset and accessibility
+
+Steps:
+
+1. Populate history, recents, cache, search, playlists, playback positions, Spotlight entries, and metadata overrides.
+2. Run the product privacy-reset flow, confirm it, terminate, and relaunch.
+3. Verify deleted local state does not reappear before a new authorized discovery/index operation.
+4. Repeat key Library, Search, Playlist, Now Playing, video, error, and confirmation flows with VoiceOver.
+5. Repeat at an accessibility text size, Increase Contrast, Reduce Motion, and Reduce Transparency.
+
+Pass criteria:
+
+- reset clears every state category promised by its confirmation copy and does not cross into another account unexpectedly
+- primary controls, states, errors, and destructive confirmations are named, reachable, ordered, and operable with VoiceOver
+- layouts remain usable without clipped required controls; motion and transparency respond to system accessibility settings
 
 ## Severity Rubric
 
@@ -319,7 +388,9 @@ If inactive:
 - build tested:
 - devices tested:
 - accounts/chains tested:
-- AuraPlay root or legacy root:
+- wallet/provider matrix results: Rabby, Rainbow, Coinbase Wallet, MetaMask, Phantom, Backpack, Solflare, Privy, Dynamic
+- per-case results: AP-Device-001 through AP-Device-014 (Pass / Fail / Blocked / Not Run)
+- MusicFeatureRootView path and any legacy playlist helper exercised:
 - blocker bugs:
 - major bugs:
 - minor bugs:

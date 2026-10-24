@@ -129,10 +129,11 @@ public struct AuraSectionHeader<Trailing: View>: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: subtitle == nil ? 0 : 4) {
-            ViewThatFits(in: .vertical) {
+            ViewThatFits(in: .horizontal) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     titleView
                     trailing
+                        .fixedSize(horizontal: true, vertical: false)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {

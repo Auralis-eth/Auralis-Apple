@@ -10,6 +10,36 @@ private enum NFTExternalLinkStyle {
     static let secondaryGradient = [Color.deepBlue, Color.deepBlue.opacity(0.82)]
 }
 
+/// The external-link policies these two buttons validate against.
+///
+/// Each is narrowed to the one route type its button can actually produce, rather than sharing the
+/// full built-in allowlist: `OpenSeaDestinationBuilder` only ever emits `opensea.io` and
+/// `ExplorerURLBuilder` only ever emits explorer hosts, so a policy that would also approve an IPFS
+/// gateway or a marketplace on the explorer button is authority neither button has a use for.
+enum NFTExternalLinkPolicies {
+    /// Narrowed by host, because it is one host: the literal is a tighter contract than the route
+    /// type, and the initializer reports a typo in it instead of quietly dropping it.
+    static let marketplace = builtIn { try ExternalLinkPolicy(allowedHosts: ["opensea.io"]) }
+
+    /// Narrowed by route type, not by the 26 explorer hosts: restating them invites drift, and
+    /// selecting rules rather than hosts means an explorer host that later also serves another route
+    /// type does not bring that route along with it.
+    static let explorer = builtIn { try ExternalLinkPolicy(routeTypes: [.explorer]) }
+
+    /// Fails *closed*: a narrowing above that names something the built-in rule set does not cover is
+    /// a programming error, and a policy approving nothing surfaces it on the first tap — through the
+    /// error banner these views already show — where falling back to the full built-in allowlist would
+    /// quietly hand the button more authority than it asked for.
+    private static func builtIn(_ build: () throws -> ExternalLinkPolicy) -> ExternalLinkPolicy {
+        do {
+            return try build()
+        } catch {
+            assertionFailure("External-link policy narrowing does not match the built-in rule set: \(error)")
+            return ExternalLinkPolicy(rules: [])
+        }
+    }
+}
+
 public struct NFTExternalLinkConfirmationSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -43,6 +73,14 @@ public struct NFTExternalLinkConfirmationSheet: View {
                         verifiedHostField(destination.hostDisplay)
                         destinationField(title: "Destination", value: destination.label, font: .headline)
                         destinationField(title: "Path", value: destination.pathDisplay, font: .body.monospaced())
+
+                        // The allowlist approves a host and a path prefix and says nothing about the
+                        // query, so a route line on its own would understate where an approved link
+                        // goes. Shown only when there is one, since most routes carry none.
+                        if let queryDisplay = destination.queryDisplay {
+                            destinationField(title: "Query", value: queryDisplay, font: .body.monospaced())
+                        }
+
                         destinationField(title: "Full URL", value: destination.fullURLDisplay, font: .footnote.monospaced())
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -124,7 +162,7 @@ public struct NFTMarketplaceLink: View {
     @State private var pendingDestination: ExternalLinkConfirmationDestination?
     @State private var validationFailure: ExternalLinkValidationFailure?
 
-    private let policy = ExternalLinkPolicy()
+    private let policy = NFTExternalLinkPolicies.marketplace
     private let builder = OpenSeaDestinationBuilder()
 
     public init(nft: NFT, dependencies: NFTLibraryDependencies) {
@@ -250,7 +288,7 @@ public struct NFTExplorerLink: View {
     @State private var pendingDestination: ExternalLinkConfirmationDestination?
     @State private var validationFailure: ExternalLinkValidationFailure?
 
-    private let policy = ExternalLinkPolicy()
+    private let policy = NFTExternalLinkPolicies.explorer
     private let builder = ExplorerURLBuilder()
 
     public init(nft: NFT, dependencies: NFTLibraryDependencies) {

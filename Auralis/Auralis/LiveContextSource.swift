@@ -8,7 +8,7 @@ struct LiveContextSource: ContextSource {
     let accountProvider: () -> EOAccount?
     let addressProvider: () -> String
     let chainProvider: () -> Chain
-    let modeProvider: () -> AppMode
+    let modeProvider: () -> CryptoMode
     let loadingProvider: () -> Bool
     let refreshedAtProvider: () -> Date?
     let nativeBalanceDisplayProvider: () -> String?
@@ -28,7 +28,7 @@ struct LiveContextSource: ContextSource {
         accountProvider: @escaping () -> EOAccount?,
         addressProvider: @escaping () -> String,
         chainProvider: @escaping () -> Chain,
-        modeProvider: @escaping () -> AppMode,
+        modeProvider: @escaping () -> CryptoMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
         nativeBalanceDisplayProvider: @escaping () -> String? = { nil },

@@ -1,18 +1,18 @@
-import ReceiptsCore
-import ReceiptStorage
 import AccountsFeature
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisShellCore
-import MusicFeature
-import SwiftData
-import SwiftUI
 import AuraUI
+import MusicFeature
 import NFTDomain
+import NFTLibraryFeature
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
-import NFTLibraryFeature
+import ReceiptsCore
+import ReceiptStorage
+import SwiftData
+import SwiftUI
 
 struct IncomingDeepLinkHandlingDecision {
     let deepLink: AppDeepLink?
@@ -283,9 +283,9 @@ struct MainAuraView: View {
         }
 
         dependencies.configureMusicReceiptLogger(playbackRuntime, modelContext)
-        let gatewayDependencies = dependencies.makeGatewayDependencies(modelContext)
-        let mainTabDependencies = dependencies.makeMainTabDependencies(modelContext)
-        let store = dependencies.makeShellStore(modelContext, nftService, router)
+        let gatewayDependencies = dependencies.makeGatewayDependencies(modelContext, modeState)
+        let mainTabDependencies = dependencies.makeMainTabDependencies(modelContext, modeState)
+        let store = dependencies.makeShellStore(modelContext, nftService, router, modeState)
         self.gatewayDependencies = gatewayDependencies
         self.mainTabDependencies = mainTabDependencies
         shellStore = store
@@ -368,11 +368,19 @@ struct MainAuraView: View {
 
     @MainActor
     private func reloadMusicServices() async {
-        let musicRuntime = dependencies.makeMusicRuntime()
-        auraPlayModelContainer = musicRuntime.auraPlayModelContainer
-        auraPlayInitializationErrorMessage = musicRuntime.auraPlayInitializationErrorMessage
-        playbackRuntime = musicRuntime.playbackRuntime
-        playbackRuntimeInitializationErrorMessage = musicRuntime.playbackRuntimeInitializationErrorMessage
+        guard playbackRuntime == nil else {
+            return
+        }
+
+        if auraPlayModelContainer == nil {
+            let musicRuntime = dependencies.makeMusicRuntime()
+            auraPlayModelContainer = musicRuntime.auraPlayModelContainer
+            auraPlayInitializationErrorMessage = musicRuntime.auraPlayInitializationErrorMessage
+        }
+
+        let playbackResult = dependencies.makeMusicPlaybackRuntime()
+        playbackRuntime = playbackResult.playbackRuntime
+        playbackRuntimeInitializationErrorMessage = playbackResult.initializationErrorMessage
         dependencies.configureMusicReceiptLogger(playbackRuntime, modelContext)
     }
 

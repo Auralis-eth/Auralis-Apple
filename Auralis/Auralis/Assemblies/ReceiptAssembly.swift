@@ -1,4 +1,5 @@
 import AccountsCore
+import AuralisPrimaryModels
 import AuralisShellCore
 import NFTDomain
 import NFTPersistence
@@ -24,15 +25,21 @@ struct ReceiptAssembly {
         receiptStoreFactory(modelContext)
     }
 
+    /// A store with caller-supplied integrity anchors, for tests and previews.
+    ///
+    /// The signing identity is a throwaway and is passed explicitly: this factory bypasses
+    /// ``ReceiptStores/live(modelContext:)``, so it gets neither the shared ledger queue nor the
+    /// device signing key, and receipts it writes are not attestable after the instance goes away.
+    /// Production goes through `makeReceiptStore(modelContext:)`.
     func makeReceiptStore(
         modelContext: ModelContext,
         integrityHeadStore: any ReceiptIntegrityHeadStoring
     ) -> any ReceiptStore {
         SwiftDataReceiptStore(
-            modelContext: modelContext,
             persistenceStore: ReceiptPersistenceStore(
                 modelContainer: modelContext.container,
-                integrityHeadStore: integrityHeadStore
+                integrityHeadStore: integrityHeadStore,
+                signer: ReceiptSignerFactory.ephemeralSigner()
             )
         )
     }
@@ -52,8 +59,18 @@ struct ReceiptAssembly {
         ReceiptEventShellLogger(receiptEventLogger: makeReceiptEventLogger(modelContext: modelContext))
     }
 
-    func makeAccountEventRecorder(modelContext: ModelContext) -> any AccountEventRecorder {
-        ReceiptBackedAccountEventRecorder(receiptStore: makeReceiptStore(modelContext: modelContext))
+    /// Defaults to the persisted mode, not a hardcoded `.observe`. `mode` is inside the receipt
+    /// integrity hash, so a defaulted literal stamps the wrong mode into evidence whose whole job is
+    /// to record which mode the user was in. `AccountAssembly` already threads the real provider; this
+    /// default is the backstop for any call site that omits it.
+    func makeAccountEventRecorder(
+        modelContext: ModelContext,
+        modeProvider: @escaping @MainActor () -> ReceiptMode = { PersistedCryptoMode.currentReceiptMode }
+    ) -> any AccountEventRecorder {
+        ReceiptBackedAccountEventRecorder(
+            receiptStore: makeReceiptStore(modelContext: modelContext),
+            modeProvider: modeProvider
+        )
     }
 
     func makeNFTRefreshEventRecorder(modelContext: ModelContext) -> any NFTRefreshEventRecording {

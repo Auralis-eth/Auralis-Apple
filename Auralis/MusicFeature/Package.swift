@@ -6,22 +6,22 @@ let package = Package(
     name: "MusicFeature",
     platforms: [
         .iOS("26.0"),
-        .macOS("26.0"),
+        .macOS("26.0")
     ],
     products: [
         .library(
             name: "MusicFeature",
             targets: ["MusicFeature"]
-        ),
+        )
     ],
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../AuralisTestSupport"),
-        .package(path: "../AuraPlayMediaCore"),
+        .package(path: "../AuraPlayEngines"),
         .package(path: "../AuraUI"),
-        .package(path: "../CapabilitiesCore"),
+        .package(path: "../AuralisFoundation"),
         .package(path: "../ReceiptStorage"),
-        .package(path: "../ReceiptsCore"),
+        .package(path: "../ReceiptsCore")
     ],
     targets: [
         .target(
@@ -29,10 +29,12 @@ let package = Package(
             dependencies: [
                 "AuralisPrimaryModels",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
-                "AuraPlayMediaCore",
+                .product(name: "AuraPlayMediaCore", package: "AuraPlayEngines"),
                 "AuraUI",
-                "CapabilitiesCore",
-                "ReceiptsCore",
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
+                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
+                "ReceiptsCore"
             ]
         ),
         .testTarget(
@@ -41,9 +43,9 @@ let package = Package(
                 "MusicFeature",
                 "AuralisTestSupport",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
-                "ReceiptStorage",
+                "ReceiptStorage"
             ],
             exclude: ["__Snapshots__"]
-        ),
+        )
     ]
 )

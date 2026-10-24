@@ -5,6 +5,7 @@
 //  Created by Codex on 8/26/25.
 //
 
+import AuralisFoundation
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation

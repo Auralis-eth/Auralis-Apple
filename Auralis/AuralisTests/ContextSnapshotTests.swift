@@ -1,11 +1,12 @@
-import ReceiptsCore
-import ReceiptStorage
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import PolicyCore
 import ProviderKit
+import ReceiptsCore
+import ReceiptStorage
+import RuntimeCore
 import SwiftData
 import Testing
 
@@ -32,7 +33,7 @@ struct ContextSnapshotTests {
         let snapshot = source.snapshot()
 
         #expect(snapshot.version == .v0)
-        #expect(snapshot.mode.value == AppMode.observe.rawValue)
+        #expect(snapshot.mode.value == CryptoMode.observe.rawValue)
         #expect(snapshot.scope.accountAddress.value == address)
         #expect(snapshot.scope.accountAddress.provenance == .userProvided)
         #expect(snapshot.scope.accountName.value == nil)
@@ -222,7 +223,7 @@ struct ContextSnapshotTests {
     ) -> ContextSnapshot {
         ContextSnapshot(
             version: .v0,
-            mode: ContextField(AppMode.observe.rawValue, provenance: .localCache),
+            mode: ContextField(CryptoMode.observe.rawValue, provenance: .localCache),
             scope: ContextScope(
                 accountAddress: ContextField(accountAddress, provenance: .userProvided),
                 accountName: ContextField(accountName, provenance: .localCache),
@@ -338,8 +339,7 @@ struct ContextServiceTests {
         let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let modelContext = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
-            modelContext: modelContext,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: modelContext
         )
         let logger = ReceiptEventLogger(receiptStore: receiptStore)
 
@@ -383,8 +383,7 @@ struct ContextServiceTests {
         let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let modelContext = ModelContext(container)
         let receiptStore = SwiftDataReceiptStore(
-            modelContext: modelContext,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: modelContext
         )
         let logger = ReceiptEventLogger(receiptStore: receiptStore)
 
@@ -442,8 +441,12 @@ struct ContextServiceTests {
             Issue.record("Expected hashed second account address")
             return
         }
-        #expect(firstAccountValue == "<redacted-opaque-token>")
-        #expect(secondAccountValue == "<redacted-opaque-token>")
+        // Hashed, as both guard messages above already said they expected. These used to pin
+        // `<redacted-opaque-token>` for both, which meant two *different* accounts produced the
+        // identical payload value — so this test asserted the opposite of what it was named for.
+        #expect(firstAccountValue.hasPrefix("sha256:"))
+        #expect(secondAccountValue.hasPrefix("sha256:"))
+        #expect(firstAccountValue != secondAccountValue)
     }
 
     @Test("context service resolves native balance through the injected read-only provider seam")
@@ -473,6 +476,42 @@ struct ContextServiceTests {
         #expect(await provider.requestCount() == 1)
         #expect(snapshot.balances.nativeBalanceDisplay.value == "1.5 ETH")
         #expect(snapshot.balances.nativeBalanceDisplay.provenance == .onChain)
+    }
+
+    @Test("context service records runtime instrumentation for resolved snapshots")
+    func contextServiceRecordsRuntimeInstrumentation() async {
+        let builder = CountingContextSourceBuilder()
+        let provider = StubNativeBalanceProvider()
+        let recorder = ContextInstrumentationRecorder()
+        let service = ContextService(
+            contextSourceBuilder: builder,
+            accountProvider: { nil },
+            addressProvider: { "0x1234567890abcdef1234567890abcdef12345678" },
+            chainProvider: { .ethMainnet },
+            modeProvider: { .assist },
+            loadingProvider: { false },
+            refreshedAtProvider: { nil },
+            nativeBalanceProvider: provider,
+            freshnessTTLProvider: { 300 },
+            trackedNFTCountProvider: { 9 },
+            musicCollectionCountProvider: { 2 },
+            receiptCountProvider: { 4 },
+            pinnedActionsProvider: { [.openSearch] },
+            prefersDemoDataProvider: { false },
+            pinnedItemCountProvider: { 1 }
+        )
+
+        _ = await service.refresh(
+            correlationID: "corr-context",
+            strategy: .remoteAllowed,
+            instrumentation: recorder.instrumentation
+        )
+
+        let events = await recorder.events()
+        #expect(events.contains("refresh:shell.context.snapshot:derived:corr-context"))
+        #expect(events.contains("touch:memoryRead:shell.context.account:publicIdentifier:corr-context"))
+        #expect(events.contains("touch:memoryRead:shell.context.localPreferences:localPreference:corr-context"))
+        #expect(events.contains("touch:contextRefresh:shell.context.nativeBalance.on_chain:publicIdentifier:corr-context"))
     }
 
     @Test("context service keeps the last native balance for the same scope when refresh fails")
@@ -526,7 +565,7 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
         accountProvider: @escaping () -> EOAccount?,
         addressProvider: @escaping () -> String,
         chainProvider: @escaping () -> Chain,
-        modeProvider: @escaping () -> AppMode,
+        modeProvider: @escaping () -> CryptoMode,
         loadingProvider: @escaping () -> Bool,
         refreshedAtProvider: @escaping () -> Date?,
         nativeBalanceDisplayProvider: @escaping () -> String?,
@@ -561,6 +600,52 @@ private final class CountingContextSourceBuilder: ShellContextSourceBuilding {
             prefersDemoDataProvider: prefersDemoDataProvider,
             pinnedItemCountProvider: pinnedItemCountProvider
         )
+    }
+}
+
+private actor ContextInstrumentationRecorder {
+    private var recordedEvents: [String] = []
+
+    nonisolated var instrumentation: ContextRefreshInstrumentation {
+        ContextRefreshInstrumentation(
+            recordContextRefresh: { key, dataClass, correlationID in
+                await self.record(
+                    "refresh:\(key):\(Self.describe(dataClass)):\(correlationID)"
+                )
+            },
+            recordMemoryTouch: { kind, key, dataClass, correlationID in
+                await self.record(
+                    "touch:\(Self.describe(kind)):\(key):\(Self.describe(dataClass)):\(correlationID)"
+                )
+            }
+        )
+    }
+
+    func record(_ event: String) {
+        recordedEvents.append(event)
+    }
+
+    func events() -> [String] {
+        recordedEvents
+    }
+
+    private static func describe(_ kind: AgentSessionMemoryTouchKind) -> String {
+        switch kind {
+        case .memoryRead: return "memoryRead"
+        case .memoryWrite: return "memoryWrite"
+        case .contextRefresh: return "contextRefresh"
+        }
+    }
+
+    private static func describe(_ dataClass: ContextDataClass?) -> String {
+        switch dataClass {
+        case .publicIdentifier: return "publicIdentifier"
+        case .userProvided: return "userProvided"
+        case .localPreference: return "localPreference"
+        case .sensitive: return "sensitive"
+        case .derived: return "derived"
+        case nil: return "none"
+        }
     }
 }
 

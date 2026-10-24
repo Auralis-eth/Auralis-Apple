@@ -22,7 +22,10 @@ extension ReceiptEventLogger {
                 chain: chain
             ).rawPayload,
             correlationID: correlationID,
-            actor: .system,
+            // Named, not `.system`: app launch is a specific piece of app-lifecycle work, and an
+            // anonymous system actor is exactly the unattributed history P0.5-602 exists to remove.
+            actorDetail: .workflow("app.lifecycle.launch"),
+            authorityDetail: ReceiptAuthorityDetail(source: "policyDefault", reason: "App lifecycle work is allowed by standing policy."),
             isSuccess: true
         )
     }
@@ -40,7 +43,8 @@ extension ReceiptEventLogger {
             timelineChainRawValue: snapshot.scope.selectedChains.value?.first?.rawValue,
             rawPayload: ContextBuiltReceiptPayload(snapshot: snapshot).rawPayload,
             correlationID: correlationID,
-            actor: .system,
+            actorDetail: .workflow("context.snapshot_builder"),
+            authorityDetail: ReceiptAuthorityDetail(source: "policyDefault", reason: "Local context construction is allowed by standing policy."),
             isSuccess: true
         )
     }
@@ -70,7 +74,11 @@ extension ReceiptEventLogger {
                 provenance: provenance
             ).rawPayload,
             correlationID: correlationID,
-            actor: provenance.receiptActor,
+            actorDetail: provenance.receiptActorDetail,
+            // Derived from the provenance, not hardcoded to `humanApproval`: an operator- or
+            // plugin-initiated open has no person in the loop, and a fixed source would have the
+            // receipt claim an approval nobody gave.
+            authorityDetail: provenance.receiptAuthorityDetail,
             isSuccess: true
         )
     }
@@ -98,7 +106,8 @@ extension ReceiptEventLogger {
                 chain: chain
             ).rawPayload,
             correlationID: correlationID,
-            actor: .user,
+            actorDetail: .human,
+            authorityDetail: ReceiptAuthorityDetail(source: "humanApproval", reason: "The person explicitly copied this value."),
             isSuccess: true
         )
     }

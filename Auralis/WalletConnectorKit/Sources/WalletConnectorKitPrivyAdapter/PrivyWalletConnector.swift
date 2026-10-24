@@ -50,7 +50,7 @@ public actor PrivyWalletConnector: WalletConnector {
         self.client = client
         self.cryptoProvider = cryptoProvider
         self.hasProductionMetadata = metadata != nil
-        self.metadata = metadata ?? Self.defaultOwnershipMetadata()
+        self.metadata = metadata ?? Self.defaultConnectionMetadata()
     }
 
     public nonisolated var events: AsyncStream<WalletConnectorEvent> { client.events }
@@ -147,7 +147,8 @@ public actor PrivyWalletConnector: WalletConnector {
         )
     }
 
-    private static func defaultOwnershipMetadata() -> WalletConnectionMetadata {
+    /// See `ReownWalletConnector.defaultConnectionMetadata()`: dapp handshake identity, not ownership.
+    private static func defaultConnectionMetadata() -> WalletConnectionMetadata {
         let url = URL(string: "https://walletconnectorkit.local") ?? URL(fileURLWithPath: "/")
         return WalletConnectionMetadata(
             appName: "WalletConnectorKit",

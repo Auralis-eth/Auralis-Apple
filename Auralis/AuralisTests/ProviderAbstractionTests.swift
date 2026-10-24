@@ -3,13 +3,13 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisTestSupport
 import Foundation
-import ProviderKit
-import Synchronization
-import Testing
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import ProviderKit
+import Synchronization
+import Testing
 
 @Suite(.tags(.networking, .slow))
 struct ProviderAbstractionTests {

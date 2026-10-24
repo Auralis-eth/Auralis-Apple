@@ -1,5 +1,8 @@
 import AuralisPrimaryModels
 import Foundation
+import ReceiptsCore
+import RuntimeCore
+import RuntimeKit
 import SwiftData
 
 #if canImport(CoreSpotlight)
@@ -215,7 +218,7 @@ struct AuralisMediaCapabilityStage: CustomStage {
         "Scores NFTs and AuraPlay media by audio, video, playable state, artist, collection, and media kind."
     }
     static var inputTypes: [SearchPipelineDataType] { [.items] }
-    static var outputTypes: [SearchPipelineDataType] { [.scoredItems] }
+    static var outputType: SearchPipelineDataType { .scoredItems }
 
     @Guide(description: "Optional media kind to prefer, such as audio, video, playable, music, or visual.")
     var preferredMediaKind: String?
@@ -332,7 +335,7 @@ struct AuralisReceiptRollupStage: CustomStage {
         "Groups and counts Auralis receipt search results by status, trigger, chain, and scope."
     }
     static var inputTypes: [SearchPipelineDataType] { [.items] }
-    static var outputTypes: [SearchPipelineDataType] { [.table, .count] }
+    static var outputType: SearchPipelineDataType { .table }
 
     @Guide(description: "Optional receipt field to group by: status, trigger, chain, or scope.")
     var groupBy: String?
@@ -349,10 +352,6 @@ struct AuralisReceiptRollupStage: CustomStage {
             item.attributeSet.keywords?.contains("receipt") == true
         }
 
-        guard !receiptItems.isEmpty else {
-            return .count(0)
-        }
-
         let groupingKey = groupBy?.lowercased() ?? "status"
         let groupedCounts = Dictionary(grouping: receiptItems) { item in
             receiptValue(groupingKey, in: item) ?? "Unspecified"
@@ -367,7 +366,7 @@ struct AuralisReceiptRollupStage: CustomStage {
 
         let columns = [
             SearchResultsTable.Column(name: groupingKey.capitalized, type: .string),
-            SearchResultsTable.Column(name: "Count", type: .integer),
+            SearchResultsTable.Column(name: "Count", type: .integer)
         ]
         let rows = groupedCounts.map { group in
             SearchResultsTable.Row(values: [.string(group.key), .integer(group.count)])
@@ -404,12 +403,39 @@ extension CustomStage where Self == AuralisReceiptRollupStage {
 @available(iOS 27.0, *)
 final class SearchAssistantService: SearchAssistantProviding, @unchecked Sendable {
     private let hydrationDelegate: SearchSpotlightHydrationDelegate
+    private let modelRouter: any ModelRouting
+    private let modelInferenceClient: any ModelInferring
+    private let receiptStore: (any ReceiptStore)?
+    private let allowsRoutedProviderAvailability: Bool
+    /// The mode stamped into inference receipts.
+    ///
+    /// These drafts land in the production ledger, and `mode` is inside the integrity hash, so a
+    /// hardcoded value is ledger corruption rather than a cosmetic wrong label. It used to be a
+    /// literal `.observe`, which meant every search answered while the user was in Operate recorded
+    /// the wrong mode against evidence that is supposed to be the record of what mode they were in.
+    /// Defaults to the same persisted key every `ModeState` reads — see ``PersistedCryptoMode``.
+    private let modeProvider: @MainActor @Sendable () -> ReceiptMode
 
-    init(hydrationDelegate: SearchSpotlightHydrationDelegate) {
+    init(
+        hydrationDelegate: SearchSpotlightHydrationDelegate,
+        modelRouter: any ModelRouting = TaskKindModelRouter.localFirstDefault,
+        modelInferenceClient: any ModelInferring = UnsupportedModelInferenceClient(),
+        receiptStore: (any ReceiptStore)? = nil,
+        allowsRoutedProviderAvailability: Bool = false,
+        modeProvider: @escaping @MainActor @Sendable () -> ReceiptMode = { PersistedCryptoMode.currentReceiptMode }
+    ) {
         self.hydrationDelegate = hydrationDelegate
+        self.modelRouter = modelRouter
+        self.modelInferenceClient = modelInferenceClient
+        self.receiptStore = receiptStore
+        self.allowsRoutedProviderAvailability = allowsRoutedProviderAvailability
+        self.modeProvider = modeProvider
     }
 
     var availability: SearchAssistantAvailability {
+        if allowsRoutedProviderAvailability {
+            return .available
+        }
         switch SystemLanguageModel.default.availability {
         case .available:
             return .available
@@ -433,7 +459,25 @@ final class SearchAssistantService: SearchAssistantProviding, @unchecked Sendabl
                     return
                 }
 
+                let route = await modelRouter.route(forTaskKind: ModelTaskKind.searchAssistant) ?? DefaultModelRoutes.localLanguageModel
+                // Resolved once, here, rather than inside `appendReceipt`: that function is `static`
+                // (it runs from detached stream continuations) and the mode is instance state. Read at
+                // the start of the inference so the receipt records the mode the work ran under.
+                let receiptMode = await MainActor.run { modeProvider() }
+
                 continuation.yield(.loading)
+
+                if route.locality == .remote {
+                    await Self.streamRoutedAnswer(
+                        request,
+                        route: route,
+                        modelInferenceClient: modelInferenceClient,
+                        receiptStore: receiptStore,
+                        mode: receiptMode,
+                        continuation: continuation
+                    )
+                    return
+                }
 
                 var source = CoreSpotlightSource(
                     searchableIndexDelegate: hydrationDelegate,
@@ -449,7 +493,7 @@ final class SearchAssistantService: SearchAssistantProviding, @unchecked Sendabl
                         .contentType,
                         .domainIdentifier,
                         .containerDisplayName,
-                        .containerIdentifier,
+                        .containerIdentifier
                     ]
                 )
                 source.maximumResultCount = 20
@@ -469,19 +513,17 @@ final class SearchAssistantService: SearchAssistantProviding, @unchecked Sendabl
                 }
 
                 do {
+                    let modelRequest = try Self.authorizedRequest(for: request, at: Date())
                     let session = LanguageModelSession(
                         tools: [tool],
                         instructions: Instructions {
-                            "Answer only from Auralis Spotlight search results."
-                            "Keep answers concise and mention when no grounded result is available."
-                            "Search content includes wallet accounts, NFTs, ERC-20 tokens, receipts, and AuraPlay media."
-                            if let accountAddress = request.scope.normalizedAccountAddress {
-                                "The active wallet scope is \(accountAddress)."
+                            for instruction in modelRequest.instructions {
+                                instruction
                             }
-                            "The active chain is \(request.scope.chain.routingDisplayName)."
                         }
                     )
-                    let responseStream = session.streamResponse(to: request.query)
+                    let started = Date()
+                    let responseStream = session.streamResponse(to: modelRequest.prompt)
                     for try await partialResponse in responseStream {
                         let snapshot = await snapshotAccumulator.update(
                             answer: partialResponse.content,
@@ -490,10 +532,26 @@ final class SearchAssistantService: SearchAssistantProviding, @unchecked Sendabl
                         continuation.yield(.streaming(snapshot))
                     }
                     let sections = await resultsTask.value
+                    let finalAnswer = await snapshotAccumulator.currentAnswer()
+                    let telemetry = InferenceTelemetry.estimated(
+                        route: route,
+                        prompt: (modelRequest.instructions + [modelRequest.prompt]).joined(separator: "\n"),
+                        completion: finalAnswer ?? "",
+                        durationSeconds: max(0, Date().timeIntervalSince(started))
+                    )
+                    await Self.appendReceipt(
+                        request: request,
+                        route: route,
+                        telemetry: telemetry,
+                        receiptStore: receiptStore,
+                        mode: receiptMode,
+                        isSuccess: true,
+                        failureMessage: nil
+                    )
                     continuation.yield(
                         .streaming(
                             SearchAssistantSnapshot(
-                                answer: await snapshotAccumulator.currentAnswer(),
+                                answer: finalAnswer,
                                 sections: sections,
                                 isStreaming: false
                             )
@@ -505,6 +563,15 @@ final class SearchAssistantService: SearchAssistantProviding, @unchecked Sendabl
                     continuation.finish()
                 } catch {
                     resultsTask.cancel()
+                    await Self.appendReceipt(
+                        request: request,
+                        route: route,
+                        telemetry: nil,
+                        receiptStore: receiptStore,
+                        mode: receiptMode,
+                        isSuccess: false,
+                        failureMessage: error.localizedDescription
+                    )
                     continuation.yield(.failed(error.localizedDescription))
                     continuation.finish()
                 }
@@ -514,6 +581,148 @@ final class SearchAssistantService: SearchAssistantProviding, @unchecked Sendabl
                 task.cancel()
             }
         }
+    }
+
+    private static func streamRoutedAnswer(
+        _ request: SearchAssistantRequest,
+        route: ModelRoute,
+        modelInferenceClient: any ModelInferring,
+        receiptStore: (any ReceiptStore)?,
+        mode: ReceiptMode,
+        continuation: AsyncStream<SearchAssistantState>.Continuation
+    ) async {
+        do {
+            let modelRequest = try authorizedRequest(for: request, at: Date())
+            let response = try await modelInferenceClient.respond(to: modelRequest, using: route)
+            await appendReceipt(
+                request: request,
+                route: route,
+                telemetry: response.telemetry,
+                receiptStore: receiptStore,
+                mode: mode,
+                isSuccess: true,
+                failureMessage: nil
+            )
+            continuation.yield(
+                .streaming(
+                    SearchAssistantSnapshot(
+                        answer: response.content,
+                        sections: [],
+                        isStreaming: false
+                    )
+                )
+            )
+            continuation.finish()
+        } catch {
+            await appendReceipt(
+                request: request,
+                route: route,
+                telemetry: nil,
+                receiptStore: receiptStore,
+                mode: mode,
+                isSuccess: false,
+                failureMessage: error.localizedDescription
+            )
+            continuation.yield(.failed(error.localizedDescription))
+            continuation.finish()
+        }
+    }
+
+    private static func authorizedRequest(
+        for request: SearchAssistantRequest,
+        at now: Date
+    ) throws -> ModelInferenceRequest {
+        let instructions = [
+            "Answer only from Auralis Spotlight search results.",
+            "Keep answers concise and mention when no grounded result is available.",
+            "Search content includes wallet accounts, NFTs, ERC-20 tokens, receipts, and AuraPlay media."
+        ]
+        return try ModelInferenceRequest.authorizing(
+            taskKind: ModelTaskKind.searchAssistant,
+            instructions: instructions,
+            bundle: ContextBundle(fields: [
+                RuntimeCore.ContextField(key: "search.query", stringValue: request.query, dataClass: .userProvided, source: .userProvided, lastRefreshed: now),
+                RuntimeCore.ContextField(key: "search.accountAddress", stringValue: request.scope.normalizedAccountAddress ?? "none", dataClass: .publicIdentifier, source: .walletStore, lastRefreshed: now),
+                RuntimeCore.ContextField(key: "search.chain", stringValue: request.scope.chain.routingDisplayName, dataClass: .publicIdentifier, source: .chainProvider, lastRefreshed: now)
+            ]),
+            contract: ContextBundleContract(
+                identifier: "model.search.assistant",
+                requirements: [
+                    ContextFieldRequirement(key: "search.query", allowedDataClasses: [.userProvided], maxAge: 60, authoritativeSource: .userProvided, missingFieldBehavior: .fail),
+                    ContextFieldRequirement(key: "search.accountAddress", allowedDataClasses: [.publicIdentifier], maxAge: 60, authoritativeSource: .walletStore, missingFieldBehavior: .fail),
+                    ContextFieldRequirement(key: "search.chain", allowedDataClasses: [.publicIdentifier], maxAge: 60, authoritativeSource: .chainProvider, missingFieldBehavior: .fail)
+                ]
+            ),
+            validationDate: now
+        ) { context in
+            return """
+            Query: \(context.field("search.query")?.stringValue ?? "")
+            Active wallet scope: \(context.field("search.accountAddress")?.stringValue ?? "")
+            Active chain: \(context.field("search.chain")?.stringValue ?? "")
+            """
+        }
+    }
+
+    /// `mode` is passed in rather than read here: this is `static` (it runs inside detached stream
+    /// continuations), and the value belongs to the instance's `modeProvider`. It is resolved by the
+    /// caller on the main actor, at the moment the inference happens.
+    private static func appendReceipt(
+        request: SearchAssistantRequest,
+        route: ModelRoute,
+        telemetry: InferenceTelemetry?,
+        receiptStore: (any ReceiptStore)?,
+        mode: ReceiptMode,
+        isSuccess: Bool,
+        failureMessage: String?
+    ) async {
+        guard let receiptStore else { return }
+        var values: [String: ReceiptJSONValue] = [
+            "query": .string(request.query),
+            "queryKind": .string(String(describing: request.kind)),
+            "taskKind": .string(ModelTaskKind.searchAssistant)
+        ]
+        let fields = telemetry?.outputFields ?? routeTelemetryFields(route)
+        for key in fields.keys.sorted() {
+            values[key] = .string(fields[key] ?? "")
+        }
+        if let failureMessage {
+            values["error"] = .string(failureMessage)
+        }
+        // A model produced this answer, and `route` is right here — record the model actor with its
+        // real inference provenance rather than collapsing it to an anonymous `.system` (P0.5-602).
+        // This is what lets the receipt say "on-device" vs "sent to provider" for a search answer.
+        let assistantActor = ActorRef.model(
+            identifier: "search.assistant.\(route.modelClass)",
+            route: route
+        )
+        _ = try? await receiptStore.append(
+            ReceiptDraft(
+                category: "search",
+                kind: "search.assistant.inference",
+                // Genuinely un-correlated (P0.5-602): a search answer is one shot of inference for a
+                // typed query, with no session, plan, or routine around it. A synthetic id here would
+                // only file the receipt under a workflow that never existed.
+                correlationID: nil,
+                payload: ReceiptPayload(values: values),
+                actorDetail: assistantActor.receiptActorDetail,
+                authorityDetail: ReceiptAuthorityDetail(source: "policyDefault", reason: "Read-only search inference is allowed by standing policy."),
+                mode: mode,
+                summary: isSuccess ? "Answered assistant search" : "Assistant search failed",
+                provenance: "search",
+                isSuccess: isSuccess,
+                timelineAccountAddress: request.scope.normalizedAccountAddress,
+                timelineChainRawValue: request.scope.chain.rawValue
+            )
+        )
+    }
+
+    private static func routeTelemetryFields(_ route: ModelRoute) -> [String: String] {
+        [
+            "modelProvider": route.provider,
+            "modelClass": route.modelClass,
+            "inferenceLocality": route.locality.rawValue,
+            "privacyImpact": route.privacyImpact
+        ]
     }
 
     private static func makeTool(
@@ -536,7 +745,7 @@ final class SearchAssistantService: SearchAssistantProviding, @unchecked Sendabl
                 .contentCreationDate,
                 .contentModificationDate,
                 .contentType,
-                .containerDisplayName,
+                .containerDisplayName
             ]
         )
 
@@ -592,7 +801,7 @@ final class SearchAssistantService: SearchAssistantProviding, @unchecked Sendabl
             queryTokenDescription,
             stageTokenDescription,
             label,
-            payload.identityDescription,
+            payload.identityDescription
         ].joined(separator: ":")
 
         return SearchAssistantResultSection(

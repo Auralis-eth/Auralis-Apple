@@ -5,8 +5,8 @@
 //  Created by Daniel Bell on 2/21/26.
 //
 
-import SwiftUI
 import AuraUI
+import SwiftUI
 
 struct EnergyCardView: View {
     private static let timeFormatter: DateFormatter = {
@@ -40,6 +40,7 @@ struct EnergyCardView: View {
             AuraSectionHeader(title: title) {
                 if placeholderMessage != nil {
                     AuraPill(String(localized: "Preview"), systemImage: "clock.badge.exclamationmark", emphasis: .neutral)
+                        .accessibilityHidden(true)
                 }
             }
 

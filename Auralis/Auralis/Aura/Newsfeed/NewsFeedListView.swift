@@ -8,13 +8,13 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuraUI
-import NFTLibraryFeature
-import SwiftData
-import SwiftUI
 import NFTDomain
+import NFTLibraryFeature
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import SwiftData
+import SwiftUI
 
 struct NewsFeedListView: View {
     @Binding var currentAccount: EOAccount?
@@ -46,6 +46,9 @@ struct NewsFeedListView: View {
         }
         .toolbar {
             ToolbarItemGroup {
+                // Reviewed: the accessibility label, hint, and input labels are attached to the
+                // Menu below; the rule's regex can't see modifiers that follow the label closure.
+                // swiftlint:disable:next icon_only_system_image_control_requires_accessibility_label
                 Menu {
                     NFTLibrarySortButton(title: "Acquired", field: .acquired, sortOrder: $sortOrder)
                     NFTLibrarySortButton(title: "Collection Name", field: .collectionName, sortOrder: $sortOrder)

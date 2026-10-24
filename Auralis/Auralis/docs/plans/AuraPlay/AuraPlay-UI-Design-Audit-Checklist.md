@@ -8,13 +8,14 @@ The current audit target is the shipped Phase 3 baseline. That means the checkli
 - module-owned storage resolution is part of the current product contract for migrated URL-preparation paths
 - the active AuraPlay root is still a migration surface, not the final Library/Now Playing/search product
 - `GatewayFallbackChain` exists for network-facing gateway probing, but it should not create visible design complexity unless a migrated caller actually uses it
+- third-party wallet labels and support copy must stay behind physical-device proof for Rabby, Rainbow, Coinbase Wallet, MetaMask, Phantom, Backpack, Solflare, Privy, and Dynamic
 - search, playlists, and durable playback history are later-phase items and should be treated as deferred scope unless they are explicitly activated
 
 ## Audit Rules
 
 - review on at least one real device, not only simulator
 - review both healthy data and sparse/degraded states
-- review both the legacy-root path and AuraPlay-root path if both are still available
+- review the current `MusicFeatureRootView` path and note any remaining legacy-location playlist flow if it is still reachable
 - treat misleading playback, scope, or provenance communication as design failures, not just implementation details
 
 ## 1. Visual System Integrity
@@ -72,6 +73,7 @@ The current audit target is the shipped Phase 3 baseline. That means the checkli
 - [ ] The user can tell which account and chain the visible music data belongs to
 - [ ] Persisted wallet-scoped content never looks like it belongs to a different account or chain after switching scope
 - [ ] External or provider-derived content is not presented with more certainty than the app actually has
+- [ ] Wallet support labels do not claim Rabby, Rainbow, Coinbase Wallet, MetaMask, Phantom, Backpack, Solflare, Privy, or Dynamic until that exact route has passed hardware QA
 - [ ] Outbound links are obviously outbound before the tap
 - [ ] Degraded states are honest without sounding catastrophic
 
@@ -94,7 +96,7 @@ The current audit target is the shipped Phase 3 baseline. That means the checkli
 ## 10. Migration Smell Checklist
 
 - [ ] No screen still feels like a misleading “foundation placeholder” now that the persistence and storage-resolution seams are live
-- [ ] No legacy `AI/V1` styling leak makes the module feel split-brain
+- [ ] No legacy `AI/V1` or old engine-namespace styling/copy makes the module feel split-brain
 - [ ] No duplicate playback state is implied by the UI
 - [ ] No shell-owned state looks like it is secretly being re-owned inside Music
 - [ ] Deferred later-phase features are not teased by dead buttons, fake rows, or placeholder copy

@@ -92,13 +92,13 @@ enum ProviderErrorPayloadSanitizer {
     private static let publicProviderMessagePatterns = [
         #"^rate limit(?:ed)?(?: exceeded)?(?: for 0x[0-9a-f]{40})?$"#,
         #"^too many requests(?: for 0x[0-9a-f]{40})?$"#,
-        #"^method not found$"#,
+        #"^method not found$"#
     ]
 
     private static let secretLikePatterns = [
         #""?(authorization|access[_-]?token|refresh[_-]?token|id[_-]?token|bearer|cookie|set-cookie|private[_-]?key|seed|mnemonic|password|secret|api[_-]?key)"?\s*[:=]"#,
         #"bearer\s+[A-Za-z0-9._~+/=-]{8,}"#,
         #"-----BEGIN\s+(EC\s+|RSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----"#,
-        #"\b(seed phrase|mnemonic phrase)\b"#,
+        #"\b(seed phrase|mnemonic phrase)\b"#
     ]
 }

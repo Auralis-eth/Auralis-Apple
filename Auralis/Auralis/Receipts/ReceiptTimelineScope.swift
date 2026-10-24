@@ -6,6 +6,6 @@ struct ReceiptTimelineScope: Equatable, Sendable {
 
     var displayLabel: String {
         let addressLabel = accountAddress.isEmpty ? "No active account" : accountAddress.displayAddress
-        return "\(addressLabel) • All chains"
+        return "\(addressLabel) • \(chain.routingDisplayName)"
     }
 }

@@ -4,6 +4,43 @@ import Foundation
 import Testing
 
 struct StorageResolutionTests {
+    @Test("Bundle configuration loads validated gateway overrides")
+    func gatewayOverridesLoadFromInfoDictionary() throws {
+        let configuration = try AuraPlayStorageResolutionConfiguration(infoDictionary: [
+            "AURALIS_AURAPLAY_IPFS_GATEWAY_URL": "https://ipfs.example/base/",
+            "AURALIS_AURAPLAY_ARWEAVE_GATEWAY_URL": "https://ar.example/root/",
+            "AURALIS_AURAPLAY_IPFS_FALLBACK_GATEWAY_URLS": ["https://ipfs-fallback.example"],
+            "AURALIS_AURAPLAY_ARWEAVE_FALLBACK_GATEWAY_URLS": ["https://ar-fallback.example"]
+        ])
+
+        #expect(configuration.ipfsGatewayURL.absoluteString == "https://ipfs.example/base")
+        #expect(configuration.arweaveGatewayURL.absoluteString == "https://ar.example/root")
+        #expect(configuration.fallbackIPFSGatewayURLs.map(\.host) == ["ipfs-fallback.example"])
+        #expect(configuration.fallbackArweaveGatewayURLs.map(\.host) == ["ar-fallback.example"])
+    }
+
+    @Test(
+        "Bundle configuration rejects unsafe gateway overrides",
+        arguments: ["http://cleartext.example", "file:///tmp/media", "not a URL"]
+    )
+    func gatewayOverridesRejectUnsafeValues(value: String) {
+        #expect(throws: AuraPlayStorageConfigurationError.invalidGatewayURL(
+            key: "AURALIS_AURAPLAY_IPFS_GATEWAY_URL",
+            value: value
+        )) {
+            _ = try AuraPlayStorageResolutionConfiguration(infoDictionary: [
+                "AURALIS_AURAPLAY_IPFS_GATEWAY_URL": value
+            ])
+        }
+    }
+
+    @Test("Missing bundle gateway overrides retain audited defaults")
+    func missingGatewayOverridesUseDefaults() throws {
+        let configuration = try AuraPlayStorageResolutionConfiguration(infoDictionary: [:])
+
+        #expect(configuration == .liveDefault)
+    }
+
     @Test("URI scheme detection classifies supported storage inputs")
     func uriSchemeDetection() throws {
         #expect(URIScheme.detect(from: "") == .unknown)

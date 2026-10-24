@@ -18,7 +18,7 @@ struct SearchSpotlightIndexConfiguration {
         SearchIndexedDocument.Domain.nft.rawValue,
         SearchIndexedDocument.Domain.collection.rawValue,
         SearchIndexedDocument.Domain.erc20.rawValue,
-        SearchIndexedDocument.Domain.receipt.rawValue,
+        SearchIndexedDocument.Domain.receipt.rawValue
     ]
 }
 
@@ -132,7 +132,7 @@ struct SearchSpotlightDocumentMetadata: Equatable, Sendable {
             receiptActor,
             balanceDisplay,
             isPlayable.map { $0 ? "playable" : "not playable" },
-            collectionItemCount.map { "collection count \($0)" },
+            collectionItemCount.map { "collection count \($0)" }
         ].compactMap(cleanedText)
 
         let structuredKeywords = [
@@ -151,7 +151,7 @@ struct SearchSpotlightDocumentMetadata: Equatable, Sendable {
             SearchSpotlightMetadataToken.token("receiptActor", receiptActor),
             SearchSpotlightMetadataToken.token("balanceDisplay", balanceDisplay),
             isPlayable.flatMap { SearchSpotlightMetadataToken.token("isPlayable", $0 ? "true" : "false") },
-            collectionItemCount.flatMap { SearchSpotlightMetadataToken.token("collectionItemCount", "\($0)") },
+            collectionItemCount.flatMap { SearchSpotlightMetadataToken.token("collectionItemCount", "\($0)") }
         ].compactMap { $0 }
 
         return humanKeywords + structuredKeywords
@@ -175,7 +175,7 @@ struct SearchSpotlightDocumentMetadata: Equatable, Sendable {
             balanceDisplay.map { "Balance: \($0)" },
             isPlayable.map { "Playable: \($0 ? "yes" : "no")" },
             collectionItemCount.map { "Collection item count: \($0)" },
-            hydrationContext,
+            hydrationContext
         ].compactMap(cleanedText)
     }
 
@@ -333,7 +333,7 @@ struct SearchSpotlightDocumentBuilder {
                 contentDescription: [
                     "Wallet account",
                     "Address: \(address)",
-                    cleanedText(account.name).map { "Name: \($0)" },
+                    cleanedText(account.name).map { "Name: \($0)" }
                 ].compactMap { $0 }.joined(separator: ". "),
                 keywords: [title, address, "wallet", "account"],
                 createdAt: account.addedAt,
@@ -378,7 +378,6 @@ struct SearchSpotlightDocumentBuilder {
         )
         .filter { $0.balanceKind == .erc20 }
 
-
         return holdings.compactMap { holding in
             guard let contractAddress = cleanedText(holding.contractAddress) else {
                 return nil
@@ -396,7 +395,7 @@ struct SearchSpotlightDocumentBuilder {
                     "Symbol: \(symbol)",
                     "Chain: \(chain.routingDisplayName)",
                     "Contract: \(contractAddress)",
-                    "Balance: \(holding.amountDisplay)",
+                    "Balance: \(holding.amountDisplay)"
                 ].joined(separator: ". "),
                 keywords: [symbol, holding.displayName, chain.routingDisplayName, contractAddress, "token", "erc20"],
                 createdAt: nil,
@@ -418,7 +417,7 @@ struct SearchSpotlightDocumentBuilder {
         let descriptor = FetchDescriptor<StoredReceipt>(
             sortBy: [
                 SortDescriptor(\StoredReceipt.createdAt, order: .reverse),
-                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse),
+                SortDescriptor(\StoredReceipt.sequenceID, order: .reverse)
             ]
         )
 
@@ -532,7 +531,7 @@ struct SearchSpotlightDocumentBuilder {
                 "Media: \(mediaKind)",
                 cleanedText(nft.nftDescription),
                 cleanedText(nft.artistName).map { "Artist: \($0)" },
-                "Owned by active wallet",
+                "Owned by active wallet"
             ].compactMap { $0 }.joined(separator: ". "),
             keywords: [
                 title,
@@ -544,7 +543,7 @@ struct SearchSpotlightDocumentBuilder {
                 nft.tokenType,
                 nft.symbols,
                 nft.artistName,
-                "nft",
+                "nft"
             ].compactMap(cleanedText),
             createdAt: nil,
             modifiedAt: nil,
@@ -582,7 +581,7 @@ struct SearchSpotlightDocumentBuilder {
                     "NFT collection: \(name)",
                     "Chain: \(chain.routingDisplayName)",
                     contractAddress.map { "Contract: \($0)" },
-                    "Owned by active wallet",
+                    "Owned by active wallet"
                 ].compactMap { $0 }.joined(separator: ". "),
                 keywords: [name, chain.routingDisplayName, contractAddress, "collection", "nft"].compactMap(cleanedText),
                 createdAt: nil,
@@ -620,7 +619,7 @@ struct SearchSpotlightDocumentBuilder {
                 "Status: \(record.statusTitle)",
                 chainTitle.map { "Chain: \($0)" },
                 accountTitle.map { "Account: \($0)" },
-                "Payload: \(payloadText)",
+                "Payload: \(payloadText)"
             ].compactMap { $0 }.joined(separator: ". "),
             keywords: [
                 record.summary,
@@ -634,7 +633,7 @@ struct SearchSpotlightDocumentBuilder {
                 record.correlationID,
                 payloadText,
                 "receipt",
-                "activity",
+                "activity"
             ].compactMap(cleanedText),
             createdAt: storedReceipt.createdAt,
             modifiedAt: storedReceipt.createdAt,
@@ -851,7 +850,7 @@ extension SearchIndexedDocument {
         attributeSet.contentDescription = searchableDescription(includeHydrationContext: includeHydrationContext)
         attributeSet.textContent = searchableText(includeHydrationContext: includeHydrationContext)
         let documentKeywords = [
-            SearchSpotlightMetadataToken.token("documentDomain", domain.rawValue),
+            SearchSpotlightMetadataToken.token("documentDomain", domain.rawValue)
         ].compactMap { $0 }
         attributeSet.keywords = Array(Set((keywords + metadata.keywordValues + documentKeywords).filter { !$0.isEmpty })).sorted()
         attributeSet.contentCreationDate = createdAt
@@ -871,7 +870,7 @@ extension SearchIndexedDocument {
             metadata.mediaKind,
             metadata.receiptTrigger,
             metadata.receiptStatus,
-            metadata.receiptScope,
+            metadata.receiptScope
         ].compactMap { value in
             let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             return trimmed.isEmpty ? nil : trimmed
@@ -903,7 +902,7 @@ extension SearchIndexedDocument {
             contentDescription,
             keywords.joined(separator: " "),
             metadata.keywordValues.joined(separator: " "),
-            SearchSpotlightMetadataToken.token("documentDomain", domain.rawValue),
+            SearchSpotlightMetadataToken.token("documentDomain", domain.rawValue)
         ].compactMap { $0 }
         var text = textParts.joined(separator: ". ")
         if includeHydrationContext {

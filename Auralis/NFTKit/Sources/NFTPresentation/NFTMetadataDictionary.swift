@@ -1,3 +1,4 @@
+import AuralisFoundation
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
@@ -7,19 +8,19 @@ private let nftMetadataDictionaryLogger = Logger(subsystem: "Auralis", category:
 
 public extension Dictionary where Key == String, Value == JSONValue {
 
-    public var image: String? {
+    var image: String? {
         self["image"]?.stringValue
     }
 
-    public var name: String? {
+    var name: String? {
         self["name"]?.stringValue
     }
 
-    public var metadataDescription: String? {
+    var metadataDescription: String? {
         self["description"]?.stringValue
     }
 
-    public var attributes: [NFT.Attribute]? {
+    var attributes: [NFT.Attribute]? {
         guard case let .array(jsonArray)? = self["attributes"] else { return nil }
 
         return jsonArray.compactMap { value in
@@ -38,7 +39,7 @@ public extension Dictionary where Key == String, Value == JSONValue {
         }
     }
 
-    public var asNFTMetadata: NFT.NFTMetadata {
+    var asNFTMetadata: NFT.NFTMetadata {
         NFT.NFTMetadata(
             image: self.image,
             name: self.name,

@@ -242,10 +242,10 @@ public actor AuraPlayEmbeddingService: EmbeddingQueueProcessing, AuraPlaySemanti
             matches.append(
                 AuraPlaySemanticSearchResult(
                     id: item.sourceNFTID,
-                    title: item.title,
-                    artistName: item.artistName,
-                    collectionName: item.collectionName,
-                    artworkURLString: item.artworkURLString,
+                    title: item.displayTitle,
+                    artistName: item.displayArtistName,
+                    collectionName: item.displayCollectionName,
+                    artworkURLString: item.displayArtworkURLString,
                     playbackURLString: item.playbackURLString,
                     isPlayable: item.isPlayable && item.playbackURLString?.isEmpty == false,
                     score: score
@@ -286,13 +286,13 @@ public enum AuraPlayEmbeddingVectorCodec {
 private enum AuraPlayEmbeddingText {
     static func text(for item: AuraPlayMediaItem) -> String {
         [
-            cleanedText(item.title),
-            cleanedText(item.artistName),
-            cleanedText(item.collectionName),
+            cleanedText(item.displayTitle),
+            cleanedText(item.displayArtistName),
+            cleanedText(item.displayCollectionName),
             item.hasVideo ? "video" : nil,
             item.hasAudio ? "audio" : nil,
             cleanedText(item.contentType),
-            cleanedText(item.chainRawValue),
+            cleanedText(item.chainRawValue)
         ]
         .compactMap { $0 }
         .joined(separator: " ")
@@ -300,13 +300,13 @@ private enum AuraPlayEmbeddingText {
 
     static func fingerprint(for item: AuraPlayMediaItem) -> String {
         [
-            cleanedText(item.title),
-            cleanedText(item.artistName),
-            cleanedText(item.collectionName),
+            cleanedText(item.displayTitle),
+            cleanedText(item.displayArtistName),
+            cleanedText(item.displayCollectionName),
             cleanedText(item.contentType),
             item.hasAudio ? "audio" : "no-audio",
             item.hasVideo ? "video" : "no-video",
-            cleanedText(item.updatedAt.timeIntervalSince1970.description),
+            cleanedText(item.updatedAt.timeIntervalSince1970.description)
         ]
         .compactMap { $0 }
         .joined(separator: "|")

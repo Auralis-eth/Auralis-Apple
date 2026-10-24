@@ -1,5 +1,5 @@
-import SwiftUI
 import AuraUI
+import SwiftUI
 
 struct ReceiptPayloadNestedHeader: View {
     let label: String

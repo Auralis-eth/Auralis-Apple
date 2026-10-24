@@ -1,3 +1,5 @@
+import ReceiptStorage
+import RuntimeCore
 import SwiftData
 
 @MainActor
@@ -12,15 +14,18 @@ struct SearchAssembly {
         SearchSpotlightIndexer(modelContext: modelContext, scopeRegistry: spotlightScopeRegistry)
     }
 
-    func makeAssistant(modelContainer: ModelContainer) -> any SearchAssistantProviding {
+    func makeAssistant(modelContext: ModelContext) -> any SearchAssistantProviding {
         #if canImport(CoreSpotlight)
         // Keep this gate conservative until the shipping SDK baseline for SpotlightSearchTool is confirmed.
         if #available(iOS 27.0, *) {
             return SearchAssistantService(
                 hydrationDelegate: SearchSpotlightHydrationDelegate(
-                    modelContainer: modelContainer,
+                    modelContainer: modelContext.container,
                     scopeRegistry: spotlightScopeRegistry
-                )
+                ),
+                modelRouter: ModelProviderComposition.router,
+                modelInferenceClient: ModelProviderComposition.inferenceClient,
+                receiptStore: ReceiptStores.live(modelContext: modelContext)
             )
         }
         return UnavailableSearchAssistantService(

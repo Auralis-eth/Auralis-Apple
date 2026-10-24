@@ -1,9 +1,9 @@
-import OperatorCore
-import ReceiptsCore
-import ReceiptStorage
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
+import OperatorCore
+import ReceiptsCore
+import ReceiptStorage
 import SwiftData
 import Testing
 
@@ -14,8 +14,7 @@ struct ReceiptEventLoggerTests {
         let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let logger = ReceiptEventLogger(receiptStore: store)
         let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
@@ -74,7 +73,12 @@ struct ReceiptEventLoggerTests {
             Issue.record("Expected sanitized accountAddress")
             return
         }
-        #expect(maskedLinkAddress == "<redacted-opaque-token>")
+        // A real per-address digest, not a constant placeholder. This used to pin
+        // `<redacted-opaque-token>`: the sanitizer classified any 24+ character `[A-Za-z0-9_-]` run
+        // as an opaque token *before* honouring the declared `.hashed(kind: .walletAddress)`, and a
+        // 42-character `0x…` address matches — so every account collapsed to the same string and
+        // per-account correlation inside the payload was impossible.
+        #expect(maskedLinkAddress.hasPrefix("sha256:"))
         #expect(linkReceipt.details.values["url"] == ReceiptJSONValue.string("<redacted-url>"))
         let copyReceipt = try #require(receipts.first(where: { $0.kind == "copy.performed" }))
         #expect(copyReceipt.details.values["chain"] == ReceiptJSONValue.string(Chain.baseMainnet.rawValue))
@@ -82,7 +86,10 @@ struct ReceiptEventLoggerTests {
             Issue.record("Expected sanitized accountAddress")
             return
         }
-        #expect(maskedCopyAddress == "<redacted-opaque-token>")
+        #expect(maskedCopyAddress.hasPrefix("sha256:"))
+        // Same account in both receipts, so the two digests must agree — that is the property the
+        // hash exists for and the one the constant placeholder could not express.
+        #expect(maskedCopyAddress == maskedLinkAddress)
         #expect(copyReceipt.details.values["value"] == ReceiptJSONValue.string("<redacted-copied-value>"))
     }
 
@@ -107,8 +114,7 @@ struct ReceiptEventLoggerTests {
         let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let logger = ReceiptEventLogger(receiptStore: store)
 
@@ -138,7 +144,9 @@ struct ReceiptEventLoggerTests {
         #expect(linkReceipt.details.values["url"] == ReceiptJSONValue.string("<redacted-url>"))
         #expect(copyReceipt.details.values["subject"] == ReceiptJSONValue.string("wallet.address"))
         #expect(copyReceipt.details.values["surface"] == ReceiptJSONValue.string("profile.detail"))
-        #expect(copyReceipt.details.values["value"] == ReceiptJSONValue.string("<redacted-opaque-token>"))
+        // Still fully redacted — the key is `value`, a suspicious fragment — but now named for what
+        // it actually held rather than for the opaque-token heuristic that used to win first.
+        #expect(copyReceipt.details.values["value"] == ReceiptJSONValue.string("<redacted-wallet-address>"))
     }
 
     @Test("receipt event logger preserves explicit provenance for confirmed operator and plugin opens")
@@ -147,8 +155,7 @@ struct ReceiptEventLoggerTests {
         let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let logger = ReceiptEventLogger(receiptStore: store)
 

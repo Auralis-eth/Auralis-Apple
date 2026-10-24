@@ -36,7 +36,7 @@ public actor ReownWalletConnector: WalletConnector {
         self.client = client
         self.cryptoProvider = cryptoProvider
         self.hasProductionMetadata = metadata != nil
-        self.metadata = metadata ?? Self.defaultOwnershipMetadata()
+        self.metadata = metadata ?? Self.defaultConnectionMetadata()
     }
 
     public nonisolated var events: AsyncStream<WalletConnectorEvent> {
@@ -157,7 +157,13 @@ public actor ReownWalletConnector: WalletConnector {
         }
     }
 
-    private static func defaultOwnershipMetadata() -> WalletConnectionMetadata {
+    /// The dapp identity this connector presents to a wallet during the handshake.
+    ///
+    /// Named for the *connection*, not for ownership. It defaults no role to any principal and is
+    /// unrelated to `OwnershipDescriptor`; the earlier `defaultOwnershipMetadata` spelling collided
+    /// with the Phase 1 ownership vocabulary and misdirected anyone grepping for ownership
+    /// assumptions.
+    private static func defaultConnectionMetadata() -> WalletConnectionMetadata {
         let url = URL(string: "https://walletconnectorkit.local") ?? URL(fileURLWithPath: "/")
         return WalletConnectionMetadata(
             appName: "WalletConnectorKit",

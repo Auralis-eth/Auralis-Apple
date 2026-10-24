@@ -453,23 +453,23 @@ struct AuraPlayPhase8PlaybackOrchestrationTests {
         let audio = MockPlaybackEngine(kind: .audio, recorder: recorder)
         let video = MockPlaybackEngine(kind: .video, recorder: recorder)
         let item = mediaItem(id: "cadence", kind: .music)
+        let cadence = ManualCadence()
         let orchestrator = PlaybackOrchestrator(
             arbiter: EngineArbiter(audioController: audio, videoController: video),
             positionPersistence: coordinator,
-            positionCadenceNanoseconds: 10_000_000
+            waitForPositionCadence: { await cadence.wait() }
         )
 
         _ = await orchestrator.play(item: item)
         audio.setTick(PlaybackTick(currentSeconds: 6, durationSeconds: 120))
-        let cadenceWriteArrived = await waitForWrite(
-            in: store,
-            mediaID: "cadence",
-            positionMilliseconds: 6_000
-        )
-        #expect(cadenceWriteArrived)
+        await cadence.advance()
+        await store.waitForWrite(mediaID: "cadence", positionMilliseconds: 6_000)
+        #expect(await store.containsWrite(mediaID: "cadence", positionMilliseconds: 6_000))
 
         audio.setTick(PlaybackTick(currentSeconds: 12, durationSeconds: 120))
         await orchestrator.pause()
+        // Release the manual clock if the cancelled cadence task is already waiting on its next tick.
+        await cadence.advance()
 
         let pauseWriteArrived = await store.containsWrite(
             mediaID: "cadence",
@@ -606,6 +606,7 @@ private final class CallRecorder {
 private actor InMemoryPlaybackStateStore: AuraPlayPlaybackStateWriting {
     private(set) var snapshots: [String: AuraPlayPlaybackPositionStateSnapshot] = [:]
     private(set) var writeEvents: [AuraPlayPlaybackPositionStateSnapshot] = []
+    private var writeWaiters: [WriteWaiter] = []
 
     func writePosition(
         mediaID: String,
@@ -622,6 +623,15 @@ private actor InMemoryPlaybackStateStore: AuraPlayPlaybackStateWriting {
         )
         snapshots[mediaID] = snapshot
         writeEvents.append(snapshot)
+        let matchingWaiters = writeWaiters.filter {
+            $0.mediaID == mediaID && $0.positionMilliseconds == positionMilliseconds
+        }
+        writeWaiters.removeAll {
+            $0.mediaID == mediaID && $0.positionMilliseconds == positionMilliseconds
+        }
+        for waiter in matchingWaiters {
+            waiter.continuation.resume()
+        }
     }
 
     func markCompleted(mediaID: String, at date: Date) async throws {
@@ -643,6 +653,46 @@ private actor InMemoryPlaybackStateStore: AuraPlayPlaybackStateWriting {
     func containsWrite(mediaID: String, positionMilliseconds: Int) -> Bool {
         writeEvents.contains {
             $0.mediaID == mediaID && $0.positionMilliseconds == positionMilliseconds
+        }
+    }
+
+    func waitForWrite(mediaID: String, positionMilliseconds: Int) async {
+        guard !containsWrite(mediaID: mediaID, positionMilliseconds: positionMilliseconds) else { return }
+        await withCheckedContinuation { continuation in
+            writeWaiters.append(WriteWaiter(
+                mediaID: mediaID,
+                positionMilliseconds: positionMilliseconds,
+                continuation: continuation
+            ))
+        }
+    }
+}
+
+private struct WriteWaiter {
+    let mediaID: String
+    let positionMilliseconds: Int
+    let continuation: CheckedContinuation<Void, Never>
+}
+
+private actor ManualCadence {
+    private var pendingAdvanceCount = 0
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if pendingAdvanceCount > 0 {
+            pendingAdvanceCount -= 1
+            return
+        }
+        await withCheckedContinuation { continuation in
+            continuations.append(continuation)
+        }
+    }
+
+    func advance() {
+        if continuations.isEmpty {
+            pendingAdvanceCount += 1
+        } else {
+            continuations.removeFirst().resume()
         }
     }
 }
@@ -672,18 +722,4 @@ private func sourceFileURL(relativePath: String) throws -> URL {
         }
     }
     throw CocoaError(.fileNoSuchFile)
-}
-
-private func waitForWrite(
-    in store: InMemoryPlaybackStateStore,
-    mediaID: String,
-    positionMilliseconds: Int
-) async -> Bool {
-    for _ in 0..<50 {
-        if await store.containsWrite(mediaID: mediaID, positionMilliseconds: positionMilliseconds) {
-            return true
-        }
-        try? await Task.sleep(nanoseconds: 10_000_000)
-    }
-    return false
 }

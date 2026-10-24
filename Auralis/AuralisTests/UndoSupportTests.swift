@@ -1,16 +1,21 @@
-@testable import Auralis
-import AccountStorage
 import AccountsCore
+@testable import AccountStorage
+@testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisTestSupport
 import Foundation
+import MusicFeature
 import SwiftData
 import Testing
 import TokenStorage
 
 @MainActor
 struct UndoSupportTests {
+    private enum InjectedParticipantFailure: Error {
+        case afterMusicDeletion
+    }
+
     @Test("playlist deletion registers an undoable transaction on the primary store schema")
     func playlistDeletionCanUndo() throws {
         let container = try TestModelContainers.primaryStore(undoEnabled: true)
@@ -33,7 +38,10 @@ struct UndoSupportTests {
     func accountRemovalCanUndo() async throws {
         let container = try TestModelContainers.primaryStore(undoEnabled: true)
         let context = container.mainContext
-        let store = SwiftDataAccountStore(modelContext: context)
+        let store = SwiftDataAccountStore(
+            modelContext: context,
+            scopedPersistenceParticipants: makeAppAccountScopedPersistenceParticipants()
+        )
 
         let removed = try await store.createWatchAccount(
             from: "0x1010101010101010101010101010101010101010",
@@ -44,10 +52,25 @@ struct UndoSupportTests {
             now: Date(timeIntervalSince1970: 200)
         )
 
-        context.insert(NFTFixture.music.with {
+        let nft = NFTFixture.music.with {
             $0.tokenId = "undo-1"
             $0.accountAddress = removed.address
-        }.build())
+        }.build()
+        nft.attributes = [NFT.Attribute(value: "Blue", traitType: "Color")]
+        nft.externalUrl = "https://example.com/nft"
+        nft.backgroundColor = "112233"
+        nft.tokenHash = "0xundo"
+        nft.aspectRatio = 1.5
+        nft.image = NFT.Image(originalUrl: "ipfs://art", thumbnailUrl: "https://example.com/thumb.png")
+        nft.image?.secureUrl = "https://example.com/secure.png"
+        nft.raw = NFT.Raw(tokenUri: "ipfs://metadata", metadata: ["genre": .string("ambient")])
+        nft.raw?.error = "historical warning"
+        let tag = try Tag(name: "Undo Tag")
+        nft.tags = [tag]
+        let playlist = Playlist(name: "Undo Playlist", tracks: [nft])
+        context.insert(tag)
+        context.insert(playlist)
+        context.insert(nft)
         context.insert(
             TokenHolding(
                 accountAddress: removed.address,
@@ -65,6 +88,27 @@ struct UndoSupportTests {
                 query: "Undo"
             )
         )
+        context.insert(
+            MusicLibraryItem(
+                id: "undo-music",
+                sourceNFTID: nft.id,
+                accountAddressRawValue: removed.address,
+                networkRawValue: Chain.ethMainnet.rawValue,
+                title: "Undo Track",
+                artistName: "Auralis",
+                collectionName: "Recovery",
+                normalizedTitleKey: "undo track",
+                normalizedArtistKey: "auralis",
+                normalizedCollectionKey: "recovery",
+                artworkURLString: "https://example.com/art.png",
+                contentType: "audio/mpeg",
+                playbackURLString: "https://example.com/track.mp3",
+                availability: .ready,
+                availabilityReason: nil,
+                sourceUpdatedAtRawValue: "2026-10-23T00:00:00Z",
+                indexedAt: Date(timeIntervalSince1970: 300)
+            )
+        )
         try context.save()
 
         _ = try await store.removeAccount(
@@ -76,14 +120,105 @@ struct UndoSupportTests {
         #expect(try context.fetch(FetchDescriptor<NFT>()).contains(where: { $0.accountAddressRawValue == removed.address }) == false)
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).contains(where: { $0.accountAddressRawValue == removed.address }) == false)
         #expect(SearchHistoryStore(modelContext: context).entries(for: removed.address).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<MusicLibraryItem>()).isEmpty)
 
         context.undoManager?.undo()
         context.processPendingChanges()
 
         #expect(try context.fetch(FetchDescriptor<EOAccount>()).contains(where: { $0.address == removed.address }))
-        #expect(try context.fetch(FetchDescriptor<NFT>()).contains(where: { $0.accountAddressRawValue == removed.address }))
+        let restoredNFT = try #require(
+            context.fetch(FetchDescriptor<NFT>()).first(where: { $0.accountAddressRawValue == removed.address })
+        )
+        #expect(restoredNFT.attributes?.map(\.value) == ["Blue"])
+        #expect(restoredNFT.externalUrl == "https://example.com/nft")
+        #expect(restoredNFT.backgroundColor == "112233")
+        #expect(restoredNFT.tokenHash == "0xundo")
+        #expect(restoredNFT.aspectRatio == 1.5)
+        #expect(restoredNFT.image?.originalUrl == "ipfs://art")
+        #expect(restoredNFT.image?.secureUrl == "https://example.com/secure.png")
+        #expect(restoredNFT.raw?.metadata?["genre"] == .string("ambient"))
+        #expect(restoredNFT.raw?.error == "historical warning")
+        #expect(restoredNFT.tags?.map(\.name) == ["Undo Tag"])
+        #expect(restoredNFT.playlists.map(\.title) == ["Undo Playlist"])
         #expect(try context.fetch(FetchDescriptor<TokenHolding>()).contains(where: { $0.accountAddressRawValue == removed.address }))
         #expect(SearchHistoryStore(modelContext: context).entries(for: removed.address).map(\.query) == ["Undo"])
+        let restoredMusicItem = try #require(context.fetch(FetchDescriptor<MusicLibraryItem>()).first)
+        #expect(restoredMusicItem.id == "undo-music")
+        #expect(restoredMusicItem.title == "Undo Track")
+        #expect(restoredMusicItem.availability == .ready)
+        #expect(restoredMusicItem.indexedAt == Date(timeIntervalSince1970: 300))
+    }
+
+    @Test("account participant failure rolls back all earlier domain deletions")
+    func accountParticipantFailureRollsBackAllDomains() async throws {
+        let container = try TestModelContainers.primaryStore()
+        let context = container.mainContext
+        let store = SwiftDataAccountStore(
+            modelContext: context,
+            eventRecorder: NoOpAccountEventRecorder(),
+            scopedPersistenceParticipants: makeAppAccountScopedPersistenceParticipants(),
+            participantDidDelete: { participant in
+                if participant == "music" {
+                    throw InjectedParticipantFailure.afterMusicDeletion
+                }
+            }
+        )
+        let account = try await store.createWatchAccount(
+            from: "0x3030303030303030303030303030303030303030"
+        )
+        let nft = NFTFixture.music.with {
+            $0.tokenId = "rollback-participant"
+            $0.accountAddress = account.address
+        }.build()
+        context.insert(nft)
+        context.insert(
+            TokenHolding(
+                accountAddress: account.address,
+                chain: .ethMainnet,
+                symbol: "ETH",
+                displayName: "Ether",
+                amountDisplay: "1.0",
+                balanceKind: .native
+            )
+        )
+        context.insert(
+            SearchHistoryRecord(
+                accountAddressRawValue: account.address,
+                normalizedQuery: "rollback",
+                query: "Rollback"
+            )
+        )
+        context.insert(
+            MusicLibraryItem(
+                id: "rollback-participant-music",
+                sourceNFTID: nft.id,
+                accountAddressRawValue: account.address,
+                networkRawValue: Chain.ethMainnet.rawValue,
+                title: "Rollback Track",
+                artistName: nil,
+                collectionName: nil,
+                normalizedTitleKey: "rollback track",
+                normalizedArtistKey: "",
+                normalizedCollectionKey: "",
+                artworkURLString: nil,
+                contentType: "audio/mpeg",
+                playbackURLString: nil,
+                availability: .unavailable,
+                availabilityReason: "fixture",
+                sourceUpdatedAtRawValue: nil
+            )
+        )
+        try context.save()
+
+        await #expect(throws: InjectedParticipantFailure.afterMusicDeletion) {
+            _ = try await store.removeAccount(address: account.address, activeAddress: account.address)
+        }
+
+        #expect(try context.fetch(FetchDescriptor<EOAccount>()).map(\.address) == [account.address])
+        #expect(try context.fetch(FetchDescriptor<TokenHolding>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<MusicLibraryItem>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<SearchHistoryRecord>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<NFT>()).count == 1)
     }
 
     @Test("rollback-safe delete helpers restore state after a failure")

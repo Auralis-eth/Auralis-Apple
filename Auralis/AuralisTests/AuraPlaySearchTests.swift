@@ -19,7 +19,7 @@ struct AuraPlaySearchTests {
         static func makeContainer() throws -> ModelContainer {
             try ModelContainer(
                 for: Schema(AuraPlaySchema.models),
-                configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+                configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
             )
         }
 

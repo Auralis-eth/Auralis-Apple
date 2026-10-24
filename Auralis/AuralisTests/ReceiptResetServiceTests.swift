@@ -1,8 +1,8 @@
-import ReceiptsCore
-import ReceiptStorage
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
+import ReceiptsCore
+import ReceiptStorage
 import SwiftData
 import Testing
 
@@ -12,8 +12,7 @@ struct ReceiptResetServiceTests {
         let container = try TestModelContainers.inMemory(TestSchemas.receipts)
         let context = ModelContext(container)
         let store = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let resetService = SwiftDataReceiptResetService(receiptStore: store)
         return (store, resetService)
@@ -29,7 +28,10 @@ struct ReceiptResetServiceTests {
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
-                payload: ReceiptPayload(values: [:])
+                correlationID: nil,
+                payload: ReceiptPayload(values: [:]),
+                actorDetail: .system,
+                authorityDetail: nil
             )
         )
         _ = try await store.append(
@@ -38,7 +40,9 @@ struct ReceiptResetServiceTests {
                 category: "networking",
                 kind: "nft.refresh.started",
                 correlationID: "refresh-1",
-                payload: ReceiptPayload(values: [:])
+                payload: ReceiptPayload(values: [:]),
+                actorDetail: .system,
+                authorityDetail: nil
             )
         )
 
@@ -46,7 +50,7 @@ struct ReceiptResetServiceTests {
 
         #expect(try await store.latest(limit: 20).isEmpty)
         let exportedData = try await store.exportAll()
-        let exportedReceipts = try JSONDecoder().decode([ReceiptRecord].self, from: exportedData)
+        let exportedReceipts = try ReceiptCanonicalJSON.decoder().decode(ReceiptProvenanceExport.self, from: exportedData).records
         #expect(exportedReceipts.isEmpty)
     }
 
@@ -60,7 +64,10 @@ struct ReceiptResetServiceTests {
                 createdAt: Date(timeIntervalSince1970: 100),
                 category: "accounts",
                 kind: "account.added",
-                payload: ReceiptPayload(values: [:])
+                correlationID: nil,
+                payload: ReceiptPayload(values: [:]),
+                actorDetail: .system,
+                authorityDetail: nil
             )
         )
 
@@ -71,7 +78,10 @@ struct ReceiptResetServiceTests {
                 createdAt: Date(timeIntervalSince1970: 200),
                 category: "accounts",
                 kind: "account.selected",
-                payload: ReceiptPayload(values: [:])
+                correlationID: nil,
+                payload: ReceiptPayload(values: [:]),
+                actorDetail: .system,
+                authorityDetail: nil
             )
         )
 

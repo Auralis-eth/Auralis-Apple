@@ -11,6 +11,7 @@ public struct AuraPlayDependencies {
     public let playlistGenerator: (any AuraPlayPlaylistGenerating)?
     public let recommendationProvider: any AuraPlayRecommendationProviding
     public let playlistManager: any AuraPlayPlaylistManaging
+    public let autoOrganizationRunner: (any MusicAutoOrganizationRunning)?
     public let playbackController: any AuraPlayPlaybackControlling
     public let playbackPresenter: (any AuraPlayPlaybackPresenting)?
     public let playbackOrchestrator: (any AuraPlayPlaybackOrchestrating)?
@@ -31,6 +32,7 @@ public struct AuraPlayDependencies {
         playlistGenerator: (any AuraPlayPlaylistGenerating)? = nil,
         recommendationProvider: any AuraPlayRecommendationProviding = NoOpAuraPlayRecommendationProvider(),
         playlistManager: any AuraPlayPlaylistManaging,
+        autoOrganizationRunner: (any MusicAutoOrganizationRunning)? = nil,
         playbackController: any AuraPlayPlaybackControlling,
         playbackPresenter: (any AuraPlayPlaybackPresenting)? = nil,
         playbackOrchestrator: (any AuraPlayPlaybackOrchestrating)? = nil,
@@ -50,6 +52,7 @@ public struct AuraPlayDependencies {
         self.playlistGenerator = playlistGenerator
         self.recommendationProvider = recommendationProvider
         self.playlistManager = playlistManager
+        self.autoOrganizationRunner = autoOrganizationRunner
         self.playbackController = playbackController
         self.playbackPresenter = playbackPresenter
         self.playbackOrchestrator = playbackOrchestrator

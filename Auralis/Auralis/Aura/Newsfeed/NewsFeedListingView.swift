@@ -7,13 +7,13 @@
 
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import NFTLibraryFeature
-import SwiftData
-import SwiftUI
 import NFTDomain
+import NFTLibraryFeature
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import SwiftData
+import SwiftUI
 
 struct NewsFeedListingView: View {
     @Query private var scopedNFTs: [NFT]

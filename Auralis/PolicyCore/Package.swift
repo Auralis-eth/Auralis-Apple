@@ -6,31 +6,33 @@ let package = Package(
     name: "PolicyCore",
     platforms: [
         .iOS(.v18),
-        .macOS(.v15),
+        .macOS(.v15)
     ],
     products: [
         .library(
             name: "PolicyCore",
             targets: ["PolicyCore"]
-        ),
+        )
     ],
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
-        .package(path: "../CapabilitiesCore"),
+        .package(path: "../AuralisFoundation"),
         .package(path: "../ReceiptsCore"),
+        .package(path: "../RuntimeCore")
     ],
     targets: [
         .target(
             name: "PolicyCore",
             dependencies: [
                 "AuralisPrimaryModels",
-                "CapabilitiesCore",
+                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
                 "ReceiptsCore",
+                "RuntimeCore"
             ]
         ),
         .testTarget(
             name: "PolicyCoreTests",
             dependencies: ["PolicyCore"]
-        ),
+        )
     ]
 )

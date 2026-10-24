@@ -11,4 +11,7 @@ public enum AppTab: Hashable, CaseIterable, Sendable {
     case search
     case erc20Tokens
     case nftTokens
+    case missionControl
+    /// Social v1 shared-session hub. Only shown when relay social is enabled.
+    case social
 }

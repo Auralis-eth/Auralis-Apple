@@ -12,7 +12,7 @@ struct WalletPickerHostSheet: View {
         sort: [
             SortDescriptor(\EOAccount.lastSelectedAt, order: .reverse),
             SortDescriptor(\EOAccount.addedAt, order: .reverse),
-            SortDescriptor(\EOAccount.address),
+            SortDescriptor(\EOAccount.address)
         ]
     ) private var accounts: [EOAccount]
 

@@ -1,6 +1,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisShellCore
+import Foundation
 import Observation
 
 struct AppTabBarVisibility: Equatable {
@@ -11,7 +12,7 @@ struct AppTabBarVisibility: Equatable {
     }
 
     static let all = AppTabBarVisibility(tabBarTabs: Set(AppTab.allCases))
-    static let release = AppTabBarVisibility(tabBarTabs: [.home, .news, .gas, .music, .profile])
+    static let release = AppTabBarVisibility(tabBarTabs: [.home, .news, .gas, .music, .profile, .missionControl])
 
     static var live: AppTabBarVisibility {
         #if DEBUG
@@ -84,17 +85,23 @@ struct ReceiptRoute: Hashable {
     let id: String
 }
 
+/// Describes a routed Mission Control artifact detail destination.
+struct MissionControlArtifactRoute: Hashable {
+    let id: UUID
+}
+
 @MainActor
 @Observable
 /// Owns top-level tab selection and per-tab navigation state for the app shell.
 final class AppRouter {
-    var selectedTab: AppTab = .home
+    var selectedTab: AppTab = .missionControl
     var newsPath: [NFTDetailRoute] = []
     var musicPath: [MusicRoute] = []
     var profilePath: [ProfileRoute] = []
     var receiptsPath: [ReceiptRoute] = []
     var nftTokensPath: [NFTTokensRoute] = []
     var erc20TokensPath: [ERC20TokenRoute] = []
+    var missionControlArtifactRoute: MissionControlArtifactRoute?
     var presentedRouteError: AppRouteError?
     var auxiliarySurface: AuxiliarySurface?
 
@@ -102,6 +109,14 @@ final class AppRouter {
 
     init(tabBarVisibility: AppTabBarVisibility = .live) {
         self.tabBarVisibility = tabBarVisibility
+        // The initial selection is clamped to a tab that is actually built. `TabView(selection:)`
+        // bound to a tab the visibility set excludes renders an empty content area until the user
+        // taps something — which is exactly what the `-ui-testing-search-tabs`,
+        // `-ui-testing-receipts-tabs`, and `-ui-testing-nft-tabs` fixtures produce, since all three
+        // omit `.missionControl` while it is the stored default.
+        if !tabBarVisibility.showsInTabBar(selectedTab) {
+            selectedTab = Self.firstAvailableTab(in: tabBarVisibility)
+        }
     }
 
     func resetAllPaths() {
@@ -111,6 +126,7 @@ final class AppRouter {
         receiptsPath.removeAll()
         nftTokensPath.removeAll()
         erc20TokensPath.removeAll()
+        missionControlArtifactRoute = nil
     }
 
     func showNewsNFTDetail(id: String) {
@@ -225,6 +241,20 @@ final class AppRouter {
         showTabOrPresentAuxiliary(tab: .receipts, auxiliarySurface: .receipts)
     }
 
+    func showArtifact(id: String) {
+        guard let artifactID = UUID(uuidString: id) else {
+            showRouteError(
+                title: "Invalid Artifact Link",
+                message: "The artifact link did not include a valid artifact identifier."
+            )
+            return
+        }
+
+        auxiliarySurface = nil
+        selectedTab = .missionControl
+        missionControlArtifactRoute = .init(id: artifactID)
+    }
+
     func showRouteError(title: String, message: String, urlString: String? = nil) {
         presentedRouteError = AppRouteError(
             title: title,
@@ -269,6 +299,10 @@ final class AppRouter {
             return "erc20Tokens"
         case .nftTokens:
             return "nftTokens"
+        case .missionControl:
+            return "missionControl"
+        case .social:
+            return "social"
         }
     }
 
@@ -286,7 +320,9 @@ final class AppRouter {
             return erc20TokensPath.count
         case .nftTokens:
             return nftTokensPath.count
-        case .home, .gas, .search:
+        case .missionControl:
+            return missionControlArtifactRoute == nil ? 0 : 1
+        case .home, .gas, .search, .social:
             return 0
         }
     }
@@ -346,9 +382,18 @@ final class AppRouter {
             if !nftTokensPath.isEmpty {
                 nftTokensPath.removeLast()
             }
-        case .home, .gas, .search:
+        case .missionControl:
+            missionControlArtifactRoute = nil
+        case .home, .gas, .search, .social:
             break
         }
+    }
+
+    /// The tab to land on when the stored default is not in the tab bar. Prefers `.home`, then falls
+    /// back to `AppTab.allCases` order so the result is deterministic rather than set-iteration order.
+    private static func firstAvailableTab(in visibility: AppTabBarVisibility) -> AppTab {
+        if visibility.showsInTabBar(.home) { return .home }
+        return AppTab.allCases.first { visibility.showsInTabBar($0) } ?? .home
     }
 
     private var activeTab: AppTab {

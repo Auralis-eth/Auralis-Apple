@@ -1,5 +1,884 @@
 # Journal
 
+## 2026-10-24 - Performance Packed Light
+
+After the Playbook cycle untangling, `PerformanceCore` was refreshingly uneventful: one source file,
+one test file, and no production dependencies. It moved under the RuntimeCore package while keeping
+its module and test-target identity, and five consumers simply changed the product address in their
+manifests. This is the ideal consolidation passenger—one suitcase, no prohibited imports, no
+surprise pet in the carrier.
+
+The lesson is that package-root removal should scale its ceremony to its dependency risk. We still
+ran the full owner and direct-consumer proof—880 package tests, the focused graph guard, and Xcode
+build-for-testing—but we did not invent a redesign where a relocation was sufficient.
+
+## 2026-10-24 - The Playbook Stopped Borrowing the Receipt Warehouse's Clipboard
+
+`PlaybookCore` looked ready to follow Planner into the RuntimeCore package until SwiftPM pointed at
+a circular hallway: playbooks depended on `ArtifactCore` for a six-case output-kind enum, while
+artifacts already depended inward on Runtime for actor attribution. Moving the whole artifact module
+into Runtime would have made the package counter happy and the ownership model wrong. Artifacts and
+their storage belong to receipts; they are evidence and outputs, not execution authority.
+
+The fix was dependency inversion at the actual seam. Runtime now owns `ArtifactOutputType`, the
+small vocabulary a playbook needs to say “this workflow may produce a brief or report.”
+`ArtifactCore.ArtifactType` is a public typealias, so existing artifact callers keep their familiar
+name and wire values. Then PlaybookCore moved intact beside Planner as another internal RuntimeCore
+target. Think of it as returning the warehouse clipboard and keeping a copy of the six allowed
+shipping-label names at the front desk.
+
+The war story is useful: a package cycle is often a smoke alarm for one misplaced contract, not an
+invitation to merge both buildings. The final graph passed 1,146 focused tests across the owner,
+artifact, seven consumer packages, and the architecture guard, followed by Xcode build-for-testing.
+
+## 2026-10-24 - The Planner Changed Apartments, Not Its Name
+
+The first Runtime consolidation was intentionally boring in the best way. `PlannerCore` moved into
+the RuntimeCore package, but it kept its module name, public API, source layout, and independent test
+target. Consumers changed the address in their package manifests; their Swift imports did not change.
+It is the architectural equivalent of moving an apartment building without renaming the tenants.
+
+This is the safest pattern for turning dozens of package roots into a smaller set of owned packages:
+first preserve module boundaries as internal targets, prove every direct consumer, and only then
+consider source-level redesign. Package count is deployment topology; target boundaries still carry
+the compile-time dependency rules. The new architecture guard makes that distinction executable by
+requiring the Planner target inside RuntimeCore and refusing a resurrected standalone package root.
+
+## 2026-10-24 - Search Took the Same Transaction Train
+
+Once Music proved that a domain can own its luggage while AccountStorage owns the train timetable,
+Search was the natural second passenger. `SearchHistoryRecord`, its complete snapshot, and its
+capture/delete/restore participant now sit beside `SearchHistoryStore` instead of camping in the
+mixed PrimaryModels warehouse and the account coordinator.
+
+The important part is what did *not* change. Account removal, overwrite, undo, and rollback still use
+one `ModelContext` and one save boundary. App composition hands AccountStorage a type-erased ticket;
+the coordinator never learns a Search field, and Search never gets permission to commit independently.
+Tests pin the old SwiftData entity name, every restored field, cross-account isolation, and a forced
+late failure. In other words, moving the passenger did not split the train.
+
+## 2026-10-24 - The Music Crate Moved Without Reversing the Conveyor Belt
+
+The next mixed persistence model looked easy to relocate: pick up `MusicLibraryItem`, put it beside
+the music indexer, and teach AccountStorage where it went. The compiler caught the architectural trap
+immediately. MusicFeature requires the newest platform generation, and—more importantly—Operators is
+supposed to depend on Crypto, not the other way around. Making AccountStorage import MusicFeature
+would have been like moving a crate to the correct warehouse by reversing the whole conveyor belt.
+
+The fix was dependency inversion at the transaction seam. MusicFeature now owns the model, its domain
+values, its complete snapshot, and its account-scoped capture/delete/restore participant. AccountStorage
+owns a small type-erased participant contract and still controls the only `ModelContext`, transaction,
+save, rollback, and undo registration. App composition introduces the two. That preserves atomicity
+without teaching the account package anything about music.
+
+The first package compile exposed a second stowaway: `AuralisTestSupport` still carried a
+music-specific SwiftData fixture. Pulling MusicFeature into shared test support would have rebuilt the
+same reverse dependency in miniature, so the fixture moved beside its actual test consumers instead.
+
+The useful lesson is that final ownership and transaction membership are separate questions. A model
+can live with its domain while a lower coordinator operates on it through an injected participant. The
+coordinator owns *when everything commits*; the domain owns *what its data means and how it is restored*.
+
+## 2026-10-22 - The Finish Line Got One Name
+
+The ownership architecture was complete, but its paperwork described that fact like several witnesses
+who agreed on the event and disagreed on the headline. The canonical architecture, founder covenant,
+authority audit, project memory, known limitations, ship-readiness list, and future-work backlog now use
+one boundary: the **ownership and sovereignty restructuring is complete** for its Phase 1 scope.
+
+The important distinction is between finishing the road and deciding where to drive next. The portable
+ownership vocabulary, package boundaries, authority separation, receipt integrity support, and root-owner
+audit are the finished road. Populating optional provenance on individual production receipts, defining an
+identity bridge when a real consumer can specify it, or someday adding governance or economics are new
+destinations. Their open checkboxes no longer make the completed construction project look unfinished.
+
+## 2026-10-22 - One Dashboard, Not Three Archaeological Sites
+
+AuraPlay's code had reached the finish line, but its documents were still arguing from different points on the journey. One file said provider discovery was authoritative while another promised a fallback to the old index. One said the schema was flat while another sent readers looking for a migration plan that had been deliberately deleted. The code was not confused; the map was.
+
+The cleanup treats documentation like a cockpit: each instrument gets one job. `AuraPlay-Status.md` is the detailed as-built record, `AuraPlay-LLM-Context.md` is the compact mental model, the README is the ownership and navigation map, known limitations name accepted constraints, and the physical-device suite is the only manual hardware gate. Durable evidence and device cases moved into those homes; three overlapping requirements/audit/master-checklist files were retired to git history. Whole-app visual concerns stay in the P0 design checklist instead of sneaking back into a music-specific backlog.
+
+The memorable rule is simple: completed plans are scaffolding, not architecture. Once the building stands, preserve the load-bearing facts and take the scaffolding down—or the next engineer will climb it and wonder why it leads through a wall.
+
+## 2026-10-22 - Five Roles, Six Columns, and One Hash That Must Not Move
+
+Phase 1 asked for ownership vocabulary. The interesting work turned out to be in the receipt ledger,
+where adding four optional fields meant proving that the several hundred receipts an upgraded install
+already holds would hash to exactly the same bytes afterwards.
+
+The mechanism was already there — `ReceiptIntegrityEnvelopeVersion`, optional fields omitted when
+`nil` — but the version gate had a trap in it. `receiptID` is gated behind `>= bindsReceiptID` because
+it is non-optional and would otherwise change v0 bytes. Applying the same gate to the new provenance
+columns looked symmetrical and was the wrong move: gating them means they are outside the hash on any
+row whose *version column says v1*, so an attacker could write provenance onto an old row, or
+downgrade a v2 row and then rewrite its provenance, with the chain hash still verifying. The columns
+are optional, so they need no gate to preserve old bytes. They are hashed unconditionally and the
+version bump is a *statement* rather than a switch — it is what lets a reader tell "this receipt says
+no resource was affected" from "this receipt predates the question".
+
+The proof that nothing was rehashed is now a byte, not a paragraph: the golden vector this file
+published before Phase 1 is asserted against an explicit `envelopeVersion: bindsReceiptID` and must
+never change again.
+
+The parent-receipt contract produced the other lesson. Duplicates and self-reference are refused, and
+beneficiaries on an `OwnershipDescriptor` are normalized, and the asymmetry is not inconsistency:
+naming a beneficiary twice states one fact twice, while naming a parent twice states something untrue
+about causality — and a receipt is immutable the moment it is signed, so there is nowhere to repair it
+afterwards. The *third* rule, that parents must already exist, is enforced before the write and
+reported as **unattested** at verify time, because a parent can stop existing without anyone touching
+the row that names it. Writing the test for that was the useful part: a deleted parent is not
+independently reachable. Remove a row from the middle of an account's chain and `accountSequenceID`
+breaks; leave the anchor behind and "protected heads without persisted receipts" fires. The one shape
+that leaves every survivor internally consistent is deleting a whole account *and* its anchor — which
+is precisely the scenario this package already documents as the hard case for completeness. The branch
+is reachable, but only there, and now the test says so instead of assuming it.
+
+Last, the thing worth repeating from the identity half: `PrincipalID` refuses only the empty string. It
+does not trim, because validating the trimmed form while storing the raw form would make the
+initializer and `rawValue` disagree about what the value is. A label that helps the system track a bag
+must not also claim to describe its owner.
+
+## 2026-10-21 - The Mechanism Was Right and the Sentence Was a Lie
+
+Two agents had left fixes in the working tree that nobody had read — about three hundred lines across
+the policy gate and the receipt ledger, the two places this branch's worst bugs have historically
+lived. Reading them was the whole job. The fixes themselves held: every claim their comments made
+turned out to be true when checked at the call site, including the one that had kept a finding open
+for two rounds on the premise that normalizing an address would change what receipts hash. It does
+not, and the type that proves it is forty lines long.
+
+The two defects were somewhere else entirely, in a fix that was itself correct. Clearing receipts had
+been moved to run *after* the database transaction commits, which is the right order — the
+transaction rolls back whole, so the irreversible step should go last. But both steps shared one
+error handler, and that handler's message says "Changes in that phase were rolled back, so you can
+retry the privacy reset safely." By the time the receipt step can fail, the transaction has committed:
+the search history, the token holdings, the music library, the playlists are all already gone. Every
+word of the mechanism was right. The sentence next to it told the person their data had survived.
+
+That is a kind of bug worth naming, because it is invisible to the usual questions. Nothing was
+unsafe, nothing was unordered, retrying really did work. What failed was the account the system gave
+of itself — and in a privacy feature, the direction of that error matters more than its size. The
+second defect was smaller and more embarrassing: a new test double had been inserted directly between
+an `@MainActor` line and the class it annotated, quietly stealing the attribute from a neighbour
+nobody had touched.
+
+The reason the first one reached us is the same reason as the last three of its kind. The test double
+for the failing step *had* a way to inject a failure. No test ever used it. Coverage that exists and
+is never exercised reads, from the outside, exactly like coverage.
+
+## 2026-10-21 - The Dashboard Was Showing Yesterday's Weather
+
+The ship-readiness audit had a curious split personality: its newest round correctly described an
+active, heavily audited branch, while its front-page summary still insisted nobody had read a file or
+run a test. The repository had moved again too—twenty working-tree entries were present while the
+metadata still called the tree clean. That is the documentation equivalent of a cockpit gauge stuck
+on yesterday's reading: all the detailed machinery can be right and the first thing a pilot sees can
+still send them the wrong way.
+
+The fix was deliberately surgical. The audit now has a dated live-state override, a current summary,
+fresh scope counts, and an explicit label on the original integration table as historical inventory.
+The lesson is simple: long-running audit documents need a small authoritative “now” section, while
+older measurements should be preserved as history rather than allowed to masquerade as current state.
+
+## 2026-09-28 - Identity Became a Shipping Label, Not a Personality Test
+
+Phase 1's identity boundary is deliberately boring: `PrincipalID` is a stable, non-empty, opaque
+label. Auralis may compare it, store it, serialize it, and pass it between boundaries, but it may not
+hold the label up to the light and guess whether it belongs to a person, agent, company, wallet,
+blockchain address, DID, protocol, or network. Identity producers choose stable collision-resistant
+values; consumers do not reverse-engineer meaning from their spelling.
+
+That decision keeps the portable value in `AuralisPrimaryModels` without resurrecting
+`AgentIdentityCore` or stretching `RuntimeCore.ActorRef` into a universal identity system. Runtime
+attribution can remain rich and contextual while ownership relationships use the smallest shared
+vocabulary. Beneficiaries are ordered and unique so equality and encoding stay deterministic, and
+receipt causality starts with validated parent receipt IDs rather than an early taxonomy of causal
+verbs.
+
+The memorable rule is the luggage-tag rule: a tag helps the system keep track of the bag; it does not
+authorize opening the bag, describe its owner, or reveal where they live. Authority, presentation,
+and domain meaning must come from explicit surrounding context.
+
+## 2026-09-12 - The Packages Got Shipping Crates, Not One Bigger Warehouse
+
+The consolidation map had the right instinct—fewer manifests without flattening target boundaries—but
+an open-source library needs a different kind of border from an app workspace. We recorded ARCH-004
+to separate publication units from Auralis integration packages. The memorable analogy is a shipping
+yard: Auralis can stack several crates onto one internal pallet for convenient handling, but the crates
+still need their own labels, dependency lists, tests, and release schedules if another developer should
+be able to order only one.
+
+The goal hardened after review: every extracted core, adapter, storage implementation, engine, and
+operator pack gets its own open-source shipping crate—not merely an internal target in a larger public
+box. That reverses the temporary AuralisCrypto consolidation and extends the rule to provider adapters,
+NFT layers, wallet-vendor adapters, and runtime companions such as planning, artifacts, scheduling,
+performance, and evaluation. Private aggregates may still make the Auralis workspace pleasant, but
+they are forklifts, not packaging: each component must resolve from its own tagged repository URL and
+advance without publishing its neighbors.
+
+Foundation stays narrow instead of becoming the drawer where every useful type disappears. Ethereum
+chain aliases move out of the governed runtime. Receipt mechanics become a generic ledger with Auralis
+schemas layered above it. Policy reports decisions through a recorder seam without owning receipt
+storage. Operator packs remain separate from their registry, and the already-clean AuraPlay media,
+audio, and video packages become separate first-class releases.
+
+The larger lesson is that source ownership, workspace convenience, and public versioning are three
+different maps. Forcing them to share every border makes the local graph look tidy while exporting the
+entire app's baggage to small consumers.
+
+## 2026-09-07 - Mission Control Learned to Refuse an Unreceipted Launch
+
+The approval button used to behave like a rocket switch whose flight recorder was installed after
+liftoff: execution resumed first, then Mission Control tried to save the human decision. A storage
+failure in that narrow gap could produce a real effect without its promised audit evidence. Approval
+now fails closed. The decision receipt must land durably before the governed proposal can resume; if
+storage is unavailable, the request stays pending and the operator gets a clear retryable error.
+
+Two quieter trust bugs went with it. Approval reconciliation now reads complete exported receipt
+history instead of peeking through a 500-row keyhole, and receipt/artifact read failures show explicit
+degraded-data banners while preserving the last known snapshot. Empty state and broken evidence are
+not the same story, so the UI no longer tells them with the same blank page.
+
+Artifact version history had one last trapdoor: its loader still translated a storage outage into an
+empty list, erasing the last trustworthy versions from the detail screen. It now keeps those versions
+on the shelf, raises the degraded-evidence warning, and clears only that warning after a successful
+retry. Browser-history and version-history warnings are tracked separately, like two alarm circuits,
+so repairing one cannot switch off the other by accident.
+
+The test suite also turned out to be a fire alarm with its batteries beside it. The package tests were
+present but the macOS lane could not compile an iOS-only text-input modifier, and the test target lacked
+its direct OperatorsFeature dependency/import. The macOS guard and package wiring now let the full suite
+execute, while CI invokes SwiftPM directly instead of relying on a package scheme that discovered zero
+tests. The memorable rule: a test file is evidence only after the release lane actually runs it.
+
+## 2026-09-06 - The Watchlist Got a Memory and the Report Kept Its Receipts
+
+The first On-Chain Watch looked like a guard at a desk with a sticky note: it could inspect one address,
+but the note disappeared when Mission Control was rebuilt. Watch targets now persist per active identity,
+support multiple accounts or contracts, and stay isolated when the user switches identities. The operator
+still enters through the same governed, read-only pipeline; persistence changes what it remembers, not what
+it is allowed to do.
+
+The second gap was provenance. Reports summarized receipt-backed observations but did not keep the IDs of
+the receipts they summarized, like a research paper whose bibliography said only “trust me.” Observed
+activity now carries its source receipt ID into `Artifact.relatedReceiptIDs`, and operator requests carry
+their originating playbook ID into `Artifact.creatorPlaybookID`. That makes the artifact browser's existing
+receipt and playbook links factual rather than inferred. The lesson: a safe operator needs both a fence
+around its authority and breadcrumbs back to every fact it used.
+
+## 2026-09-06 - The Treatment Plan Joined the Receipt
+
+Routine evaluation already chose a deterministic next action, but that decision lived only in the detailed evaluation store. The routine receipt now carries the same decision—complete, request human review, or repair evidence and retry—so an auditor does not have to reconstruct the scheduler’s final choice by joining private implementation details. An end-to-end runtime test follows a real routine through execution, evaluation, persistence, and receipt creation. The lesson is simple: if the pipeline claims it decided what happens next, that decision belongs on the paper trail.
+
+## 2026-09-06 - The Oldest Approval Stopped Hiding the New Ones
+
+The approval-age trigger had a queueing bug disguised as sensible bookkeeping. It always watched the
+oldest pending approval. Once a routine handled that timestamp, any newer approval could grow old behind
+it without producing a newer signal—as if a receptionist kept announcing the first person in line and
+never noticed everyone waiting behind them.
+
+The approval registry can now return the newest request that has actually crossed a supplied cutoff. The
+runtime asks for that monotonic timestamp at the thirty-minute boundary, so a fresh request is ignored,
+an overdue request is visible, and each later request can advance the event signal even while older
+requests remain unresolved. A regression test keeps the cutoff and multi-request behavior honest. The
+broader lesson is that event triggers need progress markers, not merely true/false conditions: “something
+is pending” cannot tell a scheduler whether it is seeing yesterday's event or a new one.
+
+## 2026-09-06 - A Green Run Cannot Lose Its Package or Paper Trail
+
+The scheduler had two trapdoors hidden under its happy path. If artifact storage threw, `try?` quietly
+discarded the error and the run could still wear a green “success” badge with no artifact to show for it.
+Artifact creation now behaves like handing a parcel to a courier: until the handoff succeeds, delivery
+has not happened. A failed save becomes an infrastructure failure in both execution history and the
+performance stream, with a stable reason that can join the failure-pattern dashboard.
+
+Receipt storage had a similar vanishing act. Runtime-owned receipt failures now illuminate an observable
+warning light and emit a correlated activity update saying the audit evidence is incomplete. That event
+cannot replace the missing durable receipt—the whole point is to avoid pretending it can—but it keeps
+the live console and session honest about the degraded trail. The lesson: success is an end-to-end
+contract. Producing useful work and proving what happened are separate handoffs, and neither deserves a
+silent question mark.
+
+## 2026-09-05 - Trust Metrics Learned to Tell the Whole Story
+
+The scheduling pipeline used to stop its paper trail at evaluation, like a doctor writing down a
+diagnosis but forgetting the treatment plan. Evaluation results now carry a persisted next action:
+complete successful work, request human review for failures, or repair missing evidence before retrying.
+That makes the scheduler's final decision inspectable instead of something callers must reconstruct.
+
+The performance scorecard also stopped treating every locked door as a policy veto. Blocks now retain
+their source—policy, authority, context, unsupported capability, infrastructure, or other—so the
+dashboard can show a real policy-block rate alongside the broader blocked rate. Approval rate now has a
+similarly precise contract: approved decisions divided by resolved human decisions; pending requests and
+deferred choices do not quietly distort the denominator.
+
+One final trap was the database equivalent of sweeping broken glass under a rug: execution and
+performance stores used `try?`, turning failed writes into apparent success. Those paths now catch and
+log fetch, encoding, and save failures with enough context to diagnose the affected record. The lesson:
+trust telemetry is only trustworthy when categories, denominators, decisions, and storage failures are
+all explicit.
+
+## 2026-09-05 - The Playbook Vault Stopped Eating Error Notes
+
+The playbook store used to answer a failed fetch with an empty shelf and a failed save with a polite
+nod. A handful of `try?` expressions had turned database trouble into plausible-looking success—the
+persistence equivalent of a librarian losing a book and quietly telling you the catalog was always
+empty.
+
+Playbook storage now throws fetch, decoding, encoding, and save failures across its protocol boundary.
+Mission Control keeps the last trustworthy snapshot and presents an accessible error instead of
+claiming the change worked. Background routines fail closed with a recorded reason, while startup
+seeding emits an explicit system log. The lesson is simple: persistence is part of the product
+contract, so failure must travel far enough for both the user and the audit trail to see it.
+
+## 2026-09-05 - Two Scorecards, Two Jobs
+
+The early evaluation types had acquired an identity crisis. `PerformanceRecord` was introduced as a
+small runtime-boundary scorecard, then richer evaluation and operational-history types arrived and its
+comment effectively called it obsolete. That made the architecture read like a kitchen with two order
+tickets where one claimed nobody should use it.
+
+The boundary is explicit now: `PerformanceRecord` is the portable P0.5 summary, `EvalResult` is the
+detailed criterion verdict, and `PerformanceEvent` feeds operational history and aggregates. Direct
+round-trip tests pin both the outcome specification's legacy migration behavior and every field of the
+performance summary. The lesson is that a stub can be deliberately small, but it cannot be vague about
+its job—or untested simply because it fits on half a screen.
+
+## 2026-09-05 - Every Passenger Gets Their Passport Checked
+
+The deterministic-check registry had a classic velvet-rope bug: a watchlist could bring several
+targets to the door, but only the first target showed identification. The whole list is now decoded at
+the governance boundary, and every address, chain, and ENS name must pass before the run proceeds.
+Malformed serialized lists fail closed instead of falling back to the convenient scalar fields.
+
+Freshness also stopped consulting the wall clock behind the auditor's back. Runtime proposals now
+record both when their context was refreshed and the instant at which freshness was evaluated; the
+check uses only those two recorded values. Replaying the same proposal therefore produces the same
+verdict, while missing timestamps fail closed. Every production policy tool and operator requires the
+freshness check. Finally, the registry verifies that a check returns the same ID under which it was
+requested—because a boarding pass that says a different passenger's name is not evidence, even when
+it has a cheerful green checkmark.
+
+## 2026-09-04 - The Flight Recorder Stops Accepting “Somebody, Somewhere”
+
+Actor attribution used to resemble a security-camera clip labelled “a person did a thing.” The
+important nouns existed, but several constructors still allowed a nameless workflow, a model with no
+inference provenance, or a receipt with no workflow filing key. Those are tolerable migration facts;
+they are terrible defaults for new evidence.
+
+The kernel now rejects unnamed non-human actors and models without provenance. Proposals, worklog
+steps, and scheduled execution records carry an explicit workflow-run reference plus an authority
+lifecycle (`pending`, `resolved`, `denied`, `notApplicable`, or `legacyUnknown`). Standalone actions
+receive their own stable run identity, and new receipt drafts similarly receive a correlation identity
+instead of disappearing into the `nil` drawer. Old JSON still decodes into visibly legacy states, so
+hardening the front door does not burn the archives. The lesson: “unknown because this happened before
+the schema existed” and “unknown because today's caller forgot” must never share the same code path.
+
+## 2026-09-04 - The Context Suitcase Gets A Weight Limit
+
+The customs desk was checking passports, but it would still accept a suitcase the size of a studio
+apartment. Context contracts could also shrug about where a field came from or how old it was, and an
+operator could immediately pour every approved field back into an ordinary dictionary—like removing
+the evidence tags the moment a bag cleared inspection.
+
+The contract is strict now: every field requirement must name its authoritative source and a concrete
+maximum age. Legacy declarations missing either fact fail decoding instead of quietly inheriting a
+weak default. Bundles are capped at 64 fields, 128 bytes per key, 16 KiB per value, and 64 KiB in total;
+the shared governance boundary rejects excess before an operator or model sees it. Finally,
+`GovernedContext` only supports field-by-field typed lookup, so provenance, classification, and
+freshness stay attached all the way to the consumer. The lesson is wonderfully mundane: governance
+is not merely deciding who enters—it is controlling what they carry and keeping the luggage tags on.
+
+## 2026-09-04 - Context Got A Customs Desk And A Tamper-Evident Passport
+
+The first context contracts checked the guest list, but every guest arrived carrying an ordinary
+string. A field marked `sensitive` could therefore smuggle the actual secret in its suitcase, and an
+operator received a plain dictionary that threw away every provenance stamp immediately after the
+inspection. The guard worked; the chain of custody did not.
+
+Context values now make raw sensitive bytes unrepresentable. Sensitive fields carry either an opaque
+vault reference or a redaction marker, while old raw strings are quarantined as redacted during
+construction and decoding. Sources use a closed kernel vocabulary instead of costumes made from
+arbitrary strings. Successful validation produces a `GovernedContext`—a passport retaining the
+approved bundle, contract identity and version, validation time, provenance, and a value-free SHA-256
+evidence digest. Operators accept that passport directly, and the routine worklog records its safe
+manifest rather than merely saying “five fields.”
+
+The reusable `ContextGovernanceBoundary` is the customs desk: schedulers use it today, and future
+agent or plugin execution paths have one canonical gate instead of copying validation logic. Built-in
+context also grew beyond name tags to include the playbook's source, trigger class, and permitted
+flows—all facts the definition can honestly attest without pretending wallet or holdings data was
+loaded. The lesson: privacy labels are not seatbelts unless the type system makes the unsafe state
+hard to construct, and audit metadata is useful only if it survives past the checkpoint.
+
+## 2026-09-03 - The Flight Recorder Learned To Use A Fuse And A Warning Light
+
+The critical event streams were called lossless, but their live queues were unbounded. That is like
+protecting every page of a flight log by piling paper into the cockpit until nobody can reach the
+controls. They also treated an expired checkpoint as an ordinary first launch, silently replaying
+whatever pages happened to remain after retention pruning.
+
+Reliable subscriptions now use bounded buffers. If a receipt or performance observer falls behind,
+the bus closes that stream and the observer reconnects from its last successfully processed durable
+checkpoint. A checkpoint that has fallen outside retained history increments an explicit replay-gap
+health counter, so Mission Control shows degraded audit continuity instead of a reassuring fiction.
+That unhealthy state survives reconnects. Persistent history also assigns a monotonic append sequence,
+so equal timestamps cannot scramble reads, pruning, or checkpoint replay.
+
+The memorable rule: reliability does not mean “infinite RAM.” It means bounded failure, durable
+recovery, and a warning light whenever recovery can no longer reconstruct the whole story.
+
+## 2026-09-03 - The Event Bus Put Names On The Reserved Seats
+
+Reliable subscribers already had names, but the bus treated those names more like sticky notes than
+seat assignments. Mission Control only reported names beginning with `runtime.`, even though the API
+promised health for any named critical consumer. Worse, two consumers could claim the same name and
+race to advance one durable checkpoint—the event-processing equivalent of two people sharing one
+bookmark and insisting neither skipped a chapter.
+
+Named reliable subscriptions now have an explicit health-reporting flag, independent of spelling,
+and a second subscription with the same identity deterministically replaces and finishes the first.
+Regression tests cover arbitrary subscriber names, duplicate claims, and a checkpoint whose event has
+already aged out of retained history. The lesson is small but sticky: an identifier becomes a contract
+the moment correctness depends on it.
+
+## 2026-09-03 - The Event Bus Stopped Swallowing A Broken Pencil
+
+The runtime could previously announce an event live even when its SwiftData flight recorder failed
+to write it, because storage errors disappeared behind `try?`. That made the control room look calm
+while the durable log quietly developed a hole. The history store now throws write failures back to
+the bus. Live delivery deliberately continues, but Mission Control sees `runtime.history` as unhealthy
+with an explicit failure count, so degraded durability is visible instead of fictional.
+
+The design lesson is that availability and durability are different promises. A station loudspeaker
+should keep working when the archive cabinet jams, but the warning light must come on immediately.
+
+## 2026-09-03 - The Event Bus Gave Its Flight Recorders Reserved Seats
+
+The runtime event bus already behaved like a busy station loudspeaker: every listener heard the same announcement, but a slow listener could fill its small buffer and miss an older message. That is fine for an activity feed; it is not fine when the listener writes audit receipts or performance evidence. A dropped capability revocation is not “eventual consistency”—it is a hole in the story.
+
+Critical observers now board through named, lossless subscriptions. Each keeps a durable checkpoint, replays retained history oldest-first after a restart, and buffers live arrivals while replay is being assembled so the history-to-live seam has no crack. Receipt replay is idempotent by runtime event ID, which also closes the awkward crash window between saving a receipt and advancing its checkpoint. Ordinary UI feeds keep their bounded buffers so an abandoned screen cannot grow memory forever.
+
+Mission Control can now see the health of each critical subscriber, including connection state, delivered count, and drops, instead of relying on one anonymous global counter. Privacy reset clears checkpoints alongside event history. The engineering lesson is that “publish/subscribe” describes plumbing, not reliability: consumers with different consequences need different delivery contracts.
+
+## 2026-09-03 - The Tool Labels Finally Became Contracts
+
+The governed runtime already had a locked tool room, but several of the most dangerous tools were still stored in boxes labeled merely “wallet stuff.” Their `ToolDefinition`s technically had schema slots, yet signing, transaction, approval, and plugin actions left those slots blank. That meant the executor was the first component to fully understand malformed cargo—far too late in the checkpoint line.
+
+The shipping catalog now gives every policy tool an explicit input and output contract, including Ethereum-aware quantities, calldata, chain IDs, signatures, transaction hashes, and dynamic plugin parameters confined to their own namespace. Deterministic checks independently verify payload identity, supported EVM chains, and bounded token approvals before policy or judgment can clear execution. Tool registration also refuses malformed definitions, missing check bindings are caught during runtime bootstrap, and every state-changing registration must promise a receipt.
+
+One tiny bug carried an outsized lesson: the address validator's message demanded a `0x` prefix while its implementation quietly accepted addresses without one. Security validation is a bouncer, not a motivational poster—the behavior matters more than the sign. The implementation and its package regression tests now agree, and the catalog suite prevents high-impact tools from drifting back to empty contracts.
+
+## 2026-09-02 - The Flight Recorder Stopped Giving Up After One Broken Gauge
+
+The after-tool hook had a subtle resilience bug: when receipt persistence failed, it immediately returned its report. That honestly surfaced the missing receipt, but it also skipped the performance signal and every additive observer—the audit equivalent of one broken gauge switching off the rest of the cockpit. Evidence sinks should not share a single fuse.
+
+The hook now attempts every remaining emission and accumulates every failure into one report. A failed receipt still makes the governed run report incomplete evidence, while performance telemetry and all observers get their chance to record what happened. Regression coverage deliberately breaks the receipt sink and multiple observers at once, proving both continued delivery and complete failure reporting.
+
+## 2026-09-02 - Policy Got Its Own Checkpoint, And The Flight Recorder Learned To Scream
+
+The tool pipeline used to ask one guard to wear two hats: DomainJudge carried policy-flavored rules while the before hook described that as both judgment and policy. The distinction matters. Standing organizational policy and contextual judgment can change for different reasons, and an approval should not turn either one into a fossil. The pipeline now runs deterministic checks, a dedicated PolicyCore adapter, and the judge as explicit stages. Approved resumes repeat all three; only the exact escalation already approved is treated as satisfied. A newly blocking policy or judge still stops execution.
+
+The audit trail also stopped practicing silent optimism. Durable receipt append failures and artifact-to-receipt linking failures now propagate through a throwing receipt boundary. If the external tool already ran, the caller receives an explicit “executed, evidence incomplete” failure and the session is marked accordingly. That wording is deliberately awkward because the truth is awkward: execution cannot be magically rolled back just because the flight recorder failed, and reporting an ordinary success would be worse.
+
+Tests now exercise policy refusal before execution, policy changes between approval and resume, post-execution receipt failure, and direct storage failure propagation. Test-only pipeline conveniences live behind DEBUG; production composition still has to name every evidence sink.
+
+## 2026-09-02 - The Tool Room Split Its Keys
+
+The governed runtime previously handed one backstage key to both the runtime host and the operator package. It worked, but that key opened two different doors: registering a tool and assembling the entire execution pipeline. Those privileges are now separate. Operators receive only the registration key, while `RuntimeKit` alone can assemble the judge, executor, hooks, and production evidence sinks.
+
+The pipeline constructor also stopped providing convenient in-memory defaults for receipts, worklogs, events, and performance. Production composition must now name every evidence destination explicitly—the architectural equivalent of requiring the flight recorder to be installed before the aircraft can leave the hangar. A repository-wide architecture test patrols every first-party package source tree so a future module cannot quietly import the composition SPI or construct execution authority outside `RuntimeKit`.
+
+## 2026-09-02 - Approval Slips Became One-Time Boarding Passes
+
+The action boundary already knew how to ask for approval, but two loopholes remained. A proposal could write “owner approval required” on its paperwork and still walk through if the judge otherwise said yes, and any caller holding an `ApprovalRequest`-shaped value could try to present it as authority. That is like a security desk reading the note on a parcel but never checking the signature—or accepting a photocopied boarding pass forever.
+
+The runtime now keeps process-local custody of every approval it actually emits. Named approval requirements force an escalation, the exact request is bound to the exact registered tool, and approval is atomically consumed on first use. Altered, fabricated, stale, and replayed requests fail closed. A successful approval still returns through the whole checkpoint line: tool identity and impact matching, input validation, fresh deterministic checks, capability authority, execution, worklog, events, and receipts. Approval skips only the question that was already answered.
+
+The intentionally conservative wrinkle is that execution authority does not resurrect after process death. Mission Control may reconstruct history from durable receipts, but a stale UI row cannot silently become a live execution token after relaunch; the action must be judged again. Security-sensitive continuations should prefer a fresh inconvenience over undead permission.
+
+## 2026-08-28 - The Social Ledger Learned To Clean Up Without Forgetting The Plot
+
+Social joins used to leave their coat on the chair when the relay vanished: the invite was already persisted before subscription, so an offline failure could look half-joined after relaunch. The join transaction now behaves like a careful hotel check-in. If the relay cannot start, it tears down the inbound pump, releases runtime ownership, removes the saved invite, and never reaches wallet verification. Retrying begins from a clean lobby instead of a haunted room.
+
+The event projection also learned to explain a firm “no.” Mutations after session end, unverified authors, owner-only violations, removed participants, and mismatched vote authors now produce stable rejection classifications before persistence. The live adapter turns those classifications into privacy-safe receipts and operational logs containing public IDs and categories—not relay topics, ciphertext, signatures, or shared content. That makes incidents observable without turning observability into a second data leak.
+
+Retention required the most important negative design decision: never chop the front off an active append-only story. Pruning removes entire old terminal session graphs only when no outbound event is pending, while stale invites and cursors leave with them. Ritual occurrence history keeps only its newest bounded claims. Mission Control now preflights every ritual recipe too, showing missing playbooks and disabling Run when no executable step exists. The stage manager can still run a partial rehearsal, but can no longer pretend an empty orchestra is ready.
+
+## 2026-08-28 - The Notification Center Got A Concurrency Chaperone
+
+Ritual notification settings met Swift 6's strict concurrency checker at the door. The adapter claimed to be `Sendable` while carrying `UNUserNotificationCenter`, a framework reference that does not make that promise. In other words, it wore a safety badge while escorting an unchecked guest between concurrency domains. Making the adapter an actor gives the notification center one guarded home and preserves the small async protocol seam used by the settings model.
+
+The status mapping had a second, quieter trap: a multi-statement function needs an explicit `return` before its switch expression so the compiler can infer the result cases. With both boundaries stated plainly, live diagnostics are clean and the full Auralis scheme builds successfully.
+
+The final package run caught a related migration pothole that the app's fast plan could not see: Mission Control's standalone fixtures still used pre-attribution initializers. Giving scheduled/manual executions an explicit actor, and receipt fixtures an explicit authority value (including honest `nil` when none exists), restored the package as an independently buildable boundary instead of letting the app target lend it a false sense of safety.
+
+## 2026-08-27 - The Ritual Finally Filed Its Group Paperwork
+
+Collaborative rituals used to create a shared session and toss artifacts into it, but the social ledger never heard the beginning or end of the story. Mission Control was waiting for `ritualRunChanged` events like a departures board waiting for trains that never radioed the station. The runtime now records the session and participant, emits started and terminal ritual states, runs every playbook under the shared correlation ID, and files both artifacts and receipts into the local session and deterministic social projection. The regression test starts at the real ritual executor and finishes at the replayed projection; it no longer hires a synthetic event to play the hero.
+
+Scheduling also gained a longer memory. An in-process actor claim still stops a foreground tap and background refresh from colliding, while completed calendar occurrences now survive store recreation. This is deliberately “don’t repeat completed work,” not magical exactly-once execution after a crash halfway through an external side effect—that stronger guarantee still belongs at each governed tool’s idempotency boundary.
+
+The trust boundary got a name too. Installation-local participants are explicitly `local` and their coordination events never enter the relay outbox. Wallet-verified identities remain the only authors whose events are eligible for relay delivery. It is the difference between a handwritten note on the rehearsal-room whiteboard and a signed message mailed to the whole group: both are useful, but pretending they carry the same proof would be how a friendly feature becomes a security bug.
+
+One nearby migration taught the compiler a useful lesson about receipts. Every writer now states what authorized the action—direct human approval or standing policy—instead of leaning on optional shorthand or silently omitting the answer. The build is green again, and privacy-reset tests now recognize social coordination as a first-class cleanup phase rather than an unexpected guest in the completion list.
+
+## 2026-08-27 - Rituals Stopped Calling An Empty Stage A Show
+
+The ritual engine had a wonderfully dangerous piece of optimism: if it found zero installed playbooks, it still stamped the ritual as “run” and moved the next scheduled attempt a day or a week into the future. The orchestra never arrived, but the stage manager filed a glowing performance report. Ritual runs now return an explicit aggregate result—completed, partial, failed, skipped, or already running—and a skipped empty run does not advance the calendar. An actor-isolated claim also prevents a background refresh and a “Run now” tap from playing the same occurrence twice.
+
+Human routines also learned the difference between “24 hours later” and “tomorrow morning.” Morning Review and Weekly Reflection now carry wall-clock schedules with a persisted time zone and weekday, letting Foundation handle DST rather than asking a stopwatch to impersonate a calendar. Mission Control exposes those schedules, expected steps, missing steps, and the last attempt’s result, while notifications report outcomes only when permission already exists. No surprise permission ambushes from a background task.
+
+Shared agent context finally became a real contract instead of a poetic synonym for “some artifacts.” The social event log now carries a bounded, provenance-labeled summary with artifact references and expiration, rejects unverified authors during deterministic projection, persists it through the encrypted outbox, and presents it in the session UI. Raw prompts, credentials, provider internals, and arbitrary memory have no doorway into that payload. Think of it as sharing the meeting brief and its filing-cabinet references—not photocopying the team’s entire desk.
+
+## 2026-08-27 - The Social Relay Stayed Behind The Gate
+
+Social v1 grew real machinery: encrypted per-session relay envelopes, a durable event/outbox log, wallet-signed join verification, Mission Control sync summaries, and a bridge from accepted queue decisions into AuraPlay playlists. That is enough to call the code foundation complete for the non-device scope, but it is not enough to call the public product proven.
+
+This pass corrected the release paperwork and build settings back to that reality. `AURALIS_SOCIAL_RELAY_ENABLED` is `NO` in Debug and Release, and the docs no longer claim the physical QA suite was waived for public shipping. The bridge is built, but the inspection stickers are still missing: WalletConnect/IRN terms, quota, retention, reliability evidence, and two-device wallet QA remain the line between "implemented" and "ready to expose."
+
+The lesson is old but useful: a feature flag is not just a switch, it is a promise about what proof exists. When the proof is skipped by request, the honest thing is to leave the production door closed and make the code easy to validate next.
+
+## 2026-08-21 - The Invite Learned To Ask For ID
+
+Phase 3 gave Social v1 a real door check. The core challenge was already written down, but now the app has `SocialWalletJoinVerifier`, which parses the CAIP-10 account, asks a wallet connector to verify ownership with the exact session-scoped challenge text, and only then lets `SocialJoinChallengeValidator` mint a participant proof. The wallet layer still owns real cryptographic verification; the social layer owns the rules around expiry, nonce replay, and session/topic matching. That split keeps the handshake honest instead of letting a pretty invite become a fake passport.
+
+Phase 4 moved the collaborative product layer out of the imagination and into Mission Control. The runtime host now carries the durable social event log, and Mission Control derives per-session sync summaries from replayed events: pending outbound work, queue proposals, accepted queue items, and ritual run outputs. The shared-session detail now shows those signals directly, with the important caveat in plain sight: queue sync is decision sync, not synchronized playback clocks.
+
+The bridge inspection is still not done. We did not run real wallet apps, real relay traffic, or two-device physical QA. So the engineering state is better but the shipping state is unchanged: the bouncer knows what ID to ask for, the kitchen can see the group order, and the front door stays locked until live-device proof catches up.
+
+## 2026-08-21 - Phase 2 Built The Outbox Before Opening The Door
+
+Social v1 moved from "we know what the room should look like" to "the room has a ledger, a lock, and an outbox." The important new piece is `SocialEventLogStore`: it keeps the append-only event history, pending outbound event IDs, saved invites, relay replay cursors, and sync state together. That means a local edit can survive relaunch, wait for relay recovery, and replay without the UI pretending it already reached another device.
+
+The join flow also got its canonical handshake. `SocialJoinChallenge` writes the exact message a wallet must sign: session, topic, account, nonce, and expiry. `SocialJoinChallengeValidator` does not pretend to verify cryptography itself; that belongs to the wallet layer. It does enforce the domain rules after the app says the signature is real: expiry, session/topic match, non-empty account, and nonce replay prevention. Think of it like a bouncer checking the stamped wristband after the cashier verifies the payment.
+
+The app-side relay work is still behind the locked door. `SocialRelayCoordinator` can subscribe saved invite topics, seal outbound envelopes through an injected cipher, enforce payload size limits, publish through the WalletConnect/IRN relay adapter, clear the outbox after publish, and reject malformed inbound payloads without mutating state. But `AURALIS_SOCIAL_RELAY_ENABLED` stays `NO`. We deliberately skipped physical-device validation, so the honest ship label is: non-device foundation implemented, production-public collaboration still blocked. Good engineering sometimes means building the road and leaving the gate closed until the bridge inspection is real.
+
+## 2026-08-21 - Social Sync Got A Ledger Before It Got A Party
+
+The Social v1 plan needed code that behaved like infrastructure, not like a group-chat demo in a lab coat. This pass added the first relay-ready spine in `SocialCore`: versioned social event envelopes, portable invite payloads, wallet-proven participant identities, shared approval state, collaborative queue proposals, and a deterministic `SocialSessionProjection` reducer.
+
+The important shape is append-only. Devices can receive events in different orders, drop duplicate relay deliveries, replay after relaunch, and still land on the same room state. The reducer treats relay payloads as untrusted: participants must be verified before they can author binding shared-state events, and vote/proposal payloads must match the envelope author instead of letting Alice cast Bob's vote by stuffing Bob into the JSON. That is the difference between "we synced some structs" and "we started building a coordination primitive people could eventually trust."
+
+The app also gained a default-off `AURALIS_SOCIAL_RELAY_ENABLED` gate in Debug and Release configuration. That lock matters. The pure domain ledger can ship in the codebase, but the public relay-backed experience stays closed until WalletConnect/IRN terms, quotas, reliability, abuse handling, and two-device physical QA are proven. A good shared session is a kitchen ticket system: everyone sees the order, every change has an author, and nobody gets to yell "ship it" from outside the building.
+
+## 2026-08-21 - The Social Door Got A Release Lock
+
+The Human Coordination work reached the moment where a product idea can accidentally outrun its proof. Local shared sessions were real, but production-public social is a different animal: relays, invite keys, wallet proof, abuse handling, quotas, privacy, and two-device reality all have to stand up before the app can honestly say "collaborative" in public.
+
+So this pass turned the fuzzy warning label into a release gate. Social v1 now has its own completion plan, relay readiness checklist, abuse and reliability contract, and two-device physical QA suite. The most important decision is written in big letters between the lines: app-only relay social is possible, but it is not magic infrastructure. If Auralis uses WalletConnect/IRN as an encrypted transport, we need terms, quotas, retention behavior, reliability assumptions, and acceptable-use evidence before shipping. The relay is a road, not a city hall.
+
+The engineering lesson is simple: ambitious social features need paperwork before polish. A shared room without identity proof becomes theater. A relay without quota evidence becomes a pager at 2 AM. A collaborative approval without two real devices is still just a demo wearing shoes. The docs now make those gates explicit so implementation has something solid to aim at.
+
+## 2026-08-21 - Shared Sessions Became A Room, Not A Sticky Note
+
+The Human Coordination work had a classic almost-there problem: it had nouns with good names, but the verbs still needed to prove they could carry weight. A shared session could exist, a ritual could be listed, and a collaborative approval could count votes, but a real group workflow needs more than a clipboard. It needs the room, the people in it, the work they touched, and the receipts that prove what happened.
+
+This pass tightened that loop. Social coordination state now has local persistence keys that privacy reset clears, so shared sessions do not become forgotten crumbs after a user asks the app to wipe local support data. Collaborative approvals now store the full `ApprovalRequest`, which means a vote can resolve the actual governed approval even if Mission Control's pending list has refreshed. Shared workflows run through the existing routine pipeline, then file their playbook, produced artifact, and routine receipt back into the shared session. Collaborative rituals also use the real runtime playbook IDs, so they create a session and produce visible work instead of politely running an empty recipe.
+
+The product boundary is still deliberately modest. This is not a social network and not real-time multi-device collaboration. Think of it as a local coordination table: people, context, receipts, approvals, and rituals can sit together under one session. Phase 2 can build a larger town square later; Phase 1 needed the table to stop being imaginary.
+
+## 2026-08-20 - Routes Became Doors, Not Name Tags
+
+The local-first AI work had a trust problem hiding in the plumbing. The app could describe a remote-capable route, but some callers still treated that route like a decorative label: search only wanted Apple Foundation Models, autopilot fell back without actually asking a remote provider, and operators could stamp remote-ish telemetry from local string composition. That is like putting "cloud kitchen" on the receipt while the sandwich was still made in the break room.
+
+This pass split the contract cleanly. `ModelRouting` decides where an inference should go; `ModelInferring` is the door that must actually open for routed provider inference. Search, autopilot execution, operator artifacts, and model-backed goal planning now flow through that split. Local Apple Foundation Models calls still work as local inference, but remote routes must run through the provider seam or fail instead of quietly producing local output with remote-looking paperwork.
+
+Receipts learned the same lesson. Search assistant calls now emit inference receipts, governed tool artifacts persist their telemetry fields into receipt payloads, and autopilot planning records its model route, locality, privacy impact, timing, token estimates, and cost when planning used a model. Mission Control already had the shelf space for this evidence; the backend now brings the boxes.
+
+The practical rule for future engineers is simple: never invent provenance after the fact. If a model route says remote, a provider client has to run. If a receipt says local, it should be because the on-device path really produced the answer. Trust UX is accounting with a user interface.
+
+## 2026-08-20 - The AI Receipt Stopped Speaking In Hints
+
+Local-first AI visibility had the right bones, but a few pieces were still more like labels taped to drawers than a real inventory system. Operators knew their routes because the catalog had route literals. Autopilot knew Apple Foundation Models because its performer carried its own static route. Search could call Foundation Models directly without asking the routing layer at all. And privacy impact was something a careful reader could infer from locality, which is not the same thing as a receipt saying it plainly.
+
+This pass moved provider choice into `RuntimeCore.TaskKindModelRouter`, with stable `ModelTaskKind` keys and default local-first routes. Operators now name task kinds and resolve routes at execution time; autopilot resolves its route before running and fails closed if the Foundation Models performer is pointed at a non-local route; search resolves `ModelTaskKind.searchAssistant` before opening its Spotlight-backed model session. The trust fields got less coy too: operator and autopilot receipts now stamp `privacyImpact` and `durationSeconds`, Mission Control shows privacy impact and execution time in the session inspector, and the Context Bundle contract requires both fields from `OperatorExecutor`.
+
+The useful lesson is that trust metadata should not be a crossword puzzle. Local vs remote, provider, model class, tokens, cost, time, and privacy impact belong in the same obvious drawer. If a future remote provider or DViances agent joins the system, it gets a route entry or router layer; the product surfaces should not need a new set of secret handshakes.
+
+## 2026-08-20 - The Runtime Logbook Got A Bigger Shelf
+
+The suspicious 500-event cap got a proper follow-up. Removing the cap proved the important distinction: a screen asking for the newest 500 events is a display choice, not a deletion policy. But an endlessly growing local event archive is not a shipping policy either; it is just a storage problem wearing a trench coat.
+
+This pass made the retention guard explicit and much larger: `SwiftDataRuntimeEventHistoryStore.maximumStoredEvents` now keeps the newest 10,000 runtime events before pruning. That number is intentionally named, tested, and documented so future reviewers can argue with it in one place instead of discovering another mystery constant under the floorboards. Mission Control screens can still request small read windows, but storage keeps enough runway for long operator sessions, approval chains, context refreshes, and receipt-linked event trails.
+
+The lesson: small magic numbers make terrible audit policy. If local storage needs a guardrail, name it, test it past the boundary, and say plainly what it is not. This is not an export-grade compliance archive. It is a pragmatic on-device retention guard for the runtime event history.
+
+## 2026-08-20 - Mission Control Stopped Guessing How Big The Logbook Should Be (Superseded)
+
+The runtime event store had a suspicious little number hiding in plain sight: 500. It sounded tidy, but nobody could point to a product requirement, retention policy, privacy decision, or ADR that made 500 the right answer. It was a filing-cabinet guess wearing a hard hat.
+
+This pass removed the write-side pruning from `SwiftDataRuntimeEventHistoryStore`. Mission Control can still ask for the newest 100 or 500 events when rendering a screen, but storage no longer deletes older runtime events just because the display does not need them right now. That keeps the event bus honest: read limits are presentation choices; deletion is retention policy, and retention policy needs an actual decision. This was later superseded by a named 10,000-event local retention guard.
+
+The same pass tightened the runtime control room. Approval decisions now append their receipts through `RuntimeHost`, so the receipt, `receiptCreated` event, session `receiptIDs`, approval ID, and execution update all land together. The Powers tab also grew real authoring controls: grant a capability to an actor for a chosen duration, or create an explicit denial like "No wallet access" / "No external network" without pretending inspect-and-revoke was the whole story.
+
+The lesson: if a number controls deletion, make it defend itself. If it cannot, move the boundary back to query limits and keep the audit trail intact.
+
+## 2026-08-20 - The Runtime History Learned To Take Out The Trash (Superseded)
+
+The event bus had become Mission Control's nervous system, but its durable history had one classic control-room problem: the screens only showed the latest events, while the storage closet kept every old printout forever. Reading with a limit is not the same as retaining with a limit. It is like saying the desk is tidy because you only look at the top sheet while the filing cabinet slowly fills the hallway.
+
+This pass briefly put a write-side cap on `SwiftDataRuntimeEventHistoryStore` so long-running operator sessions would not turn "recent history" into an unbounded local archive. That cap was later removed because it was not backed by a product retention policy, privacy decision, or ADR. The useful lesson survived, but the deletion policy did not: bounded reads are fine for UI; deleting audit history needs a real decision.
+
+The lesson is a small but important shipping rule: observability needs retention policy, not just pretty filters. A timeline without pruning is a diary that never ends; a runtime foundation needs a logbook it can carry.
+
+## 2026-08-20 - The Session Ledger Learned To Count The Model Bill
+
+The runtime session model already knew where to put model names, token counts, and cost, but direct operator runs were still leaving those boxes mostly blank. The operator executor returned that telemetry on its artifact result, and Mission Control could infer some of it elsewhere, but the session itself was not swallowing the evidence. That is like printing the receipt at the register and forgetting to enter the sale in the ledger.
+
+This pass moved the accounting to the governed pipeline boundary. When a tool executes successfully, the pipeline now records the artifact as before, then looks for the standard telemetry fields on the returned artifact and folds them into `AgentSession`: provider, model class, locality, prompt/completion tokens, estimated cost, and whether the counts were estimated. Tools that do not report model telemetry stay quiet instead of getting fake zeros dressed up as facts.
+
+The lesson is that runtime foundations are only as trustworthy as their lowest-level bookkeeping. If a session claims to track models used and cost, that should be true at the same place execution becomes official, not reconstructed later by a lucky UI.
+
+## 2026-08-20 - Mission Control Remembered Who Had The Keys
+
+The runtime had learned to talk about context refreshes, memory touches, and capability leases, but two pieces still had the attention span of an open browser tab. Context instrumentation existed as host APIs, yet the shell refresh path could still update its snapshot without leaving a clear runtime breadcrumb. Capability leases were even more literal: relaunch the app, and the registry woke up empty. That is safer than accidentally keeping power forever, but it makes “temporary, inspectable, revocable” feel more like a sticky note than a control surface.
+
+This pass gave both contracts a place to live. `ContextService` now accepts an instrumentation bridge and records every resolved shell context refresh with memory touches for account, chain, mode, balances, in-flight reuse, and local preference reads. The main tab wires that bridge to the shared persistent `RuntimeHost`, so production context refreshes now flow into the same session and event trail as planner and policy work.
+
+Capability leases and restrictions also gained SwiftData-backed persistence. The registry hydrates from a store before answering grant or denial questions, persists grants, revocations, and restrictions as they change, and still treats expired or revoked authority as closed doors. The product promise is stronger now: after relaunch, Mission Control can inspect and revoke the authority it already granted instead of pretending the control room started from scratch.
+
+The lesson is that orchestration is mostly accounting before it is intelligence. If an agent read context, write down what it touched. If an operator got temporary authority, store the key record and its expiration. Fancy autonomy can wait; the audit trail has to survive lunch.
+
+## 2026-08-20 - The Runtime Got A Memory Instead Of A Megaphone
+
+The Mission Control runtime already had a nervous system, but part of it behaved like a radio broadcast: if nobody was listening when an event happened, the signal disappeared. That is fine for a progress spinner and terrible for a control room. This pass gave the event bus a bounded durable history, backed by SwiftData in the persistent runtime host, so recent planner, policy, receipt, lease, approval, context, and memory events can come back after relaunch instead of living only in the moment.
+
+Sessions also learned to close the book on successful governed tool runs. A direct tool execution now records its artifact and marks the session completed, while longer autopilot workflows still use their own terminal logic. Capability leases gained their shadow half too: explicit restrictions like “No wallet access” and “No external network” are now first-class, inspectable, and revocable, and they override matching grants before an approval prompt can hide the denial.
+
+The last cleanup was context memory. The old pipeline guessed memory touches by looking for parameter names that smelled like `memory`. That is like calling every sticky note a database write because it has the word “file” on it. Runtime collaborators now have explicit APIs to record context refreshes and memory reads/writes by correlation ID, and the pipeline attaches those facts to the session and event feed.
+
+The lesson is that orchestration foundations need boring facts, not vibes: a durable event, a terminal session state, a visible denial, and a named memory touch. Future agents can be fancy later; the audit trail has to be literal now.
+
+## 2026-08-20 - The Approval Door Got Its Follow-Through
+
+The runtime had finally made capability leases into real keys, but Mission Control was still walking users up to the door without handing them one. Operator buttons called the governed pipeline directly, which meant a perfectly allowed read-only operator could still bounce off the lease check. Approvals had a matching half-finished story: the console could record that a human approved a request, but the original proposal did not resume through the governed path. That is like getting a signed work order and then leaving it on the clipboard.
+
+This pass connected the loop. Read-only operator runs now mint a short-lived, actor-and-session-scoped lease before they enter the pipeline. Approval resolution converts an approved request into the same scoped lease and reruns the exact proposal through registry resolution, deterministic checks, worklog, receipts, and the event bus with an approval-aware judge so it does not escalate forever. The app also stopped importing `RuntimeCore` directly just to satisfy a Mission Control public protocol; `MissionControlFeature` now re-exports the runtime types it exposes.
+
+The lesson is that a safety gate is not complete when it can say no. It has to define the approved path too: who gets the key, what door it opens, how long it lasts, and what receipt proves the handoff happened.
+
+## 2026-08-20 - Capability Leases Became Real Keys
+
+The runtime used to hand itself a key at the same moment it wanted to open a door. Policy would say a tool call was allowed, the pipeline would mint a capability lease, and then execution would happen immediately. Mission Control could inspect and revoke leases, but revocation was more like taking away a souvenir keychain than changing the lock: the next allowed run could simply make a new lease.
+
+This pass made leases authoritative. A governed tool now needs an already-active lease for the same capability, actor, and session before it can execute. The registry learned to answer scoped questions instead of global ones, expired leases now produce observable runtime events, and successful tool calls record artifacts and progress without automatically ending the whole agent session. That keeps sessions shaped like long-running work instead of one receipt-sized errand.
+
+The lesson is that authority surfaces have to be boringly literal. A lease is not a badge the UI admires after the fact; it is the key checked at the door. If the wrong actor shows up, the wrong session asks, or the key has expired, the door stays closed.
+
+## 2026-08-20 - Runtime Sessions Became The Logbook
+
+The multi-agent runtime had good instruments, but a few of them were still clipboards sitting next to the machine. Workflows could emit events, receipts could prove outcomes, and Mission Control could derive a session-shaped story by reading the scattered evidence. That is useful, but it is not the same as having an actual logbook with a session's start, goal, powers, receipts, approvals, model use, cost, memory touches, artifacts, and end state written on the same page.
+
+This pass made `AgentSession` the durable runtime object instead of a decorative struct. `RuntimeCore` now defines the session store contract and an in-memory implementation, `OperatorRuntimeStorage` persists sessions in the same SwiftData vault as worklogs and artifacts, and `RuntimeHost` wires the store through governed tool calls and autopilot runs. The event bus also learned the missing runtime vocabulary: planner, policy, session lifecycle, leases, receipts, context refreshes, and memory touches. Capability leases are now granted by real governed execution and revoked through the host, so the Mission Control UI is no longer staring at a registry that only tests knew how to fill.
+
+The lesson is that observability needs an owner. Receipts are the signed artifacts, worklogs are the fine-grained trace, and events are the nervous system, but the session is the spine that lets future long-running agents stand up without pretending one-shot prompts are enough.
+
+## 2026-08-20 - Mission Control Stopped Having A Side Office
+
+The Settings shortcut had a trust-surface bug hiding in plain sight. The Ops tab opened the full Mission Control console with the shared persistent runtime host, but Settings opened a cozy little standalone home view backed by a brand-new `RuntimeHost`. That is like having the real control room downstairs and a duplicate dashboard upstairs with half the wires unplugged.
+
+This pass made Settings use the same full Mission Control container as the Ops tab and pass through the active `ModeState`, so every doorway now lands on the same shared console: timeline, context, approvals, proposal diff, simulation, receipts, capabilities, mode, and all. The old fresh-host factory is gone, which removes the tempting footgun for future shortcuts.
+
+The lesson is that trust UX cannot have alternate realities. A status surface is only trustworthy if every entry point reads the same runtime, the same mode, and the same audit trail.
+
+## 2026-08-20 - Playbooks Got Shelf Space In The Artifact Room
+
+The P1-500 readiness check found two almost-finished doorways. Manual playbooks could be installed, but the Routine Manager only invited scheduled, event, and maintenance triggers to the table. Meanwhile, artifacts could point back to playbooks, but the Artifact Browser did not show playbook definitions as browser objects. That is like building a control room where the recipe cards are in one cabinet and the finished reports are in another, then asking an operator to prove they belong to the same kitchen.
+
+This pass made the visibility contract literal. Any installed or paused playbook now appears in the Routine Manager, including manual playbooks that run on demand after setup. The Artifact Browser also gained a Playbook objects section, with each definition linking back to the same authority-envelope detail view used by the Playbook Library. The browser now sees both the work products and the reusable contracts that produce them.
+
+While retesting, an old playbook fixture tripped over the capability rename from camelCase to snake_case. The fix was not to rewrite history; `CapabilityID` now decodes through the legacy normalizer, so persisted playbooks that say `runPlugin` still land on today's `run_plugin` capability. Compatibility code is the little translator at the archive desk: it lets yesterday's records speak today's dialect without forging a new document.
+
+The lesson is that "visible somewhere" is not the same as "visible where the acceptance criterion says to look." If a product promise names a room, put the object in that room, even if another hallway can eventually get there.
+
+## 2026-08-20 - The Playbook Door Learned To Check IDs
+
+The playbook install flow had a classic velvet-rope problem: the UI bouncer knew not to let execute-capable routines into v0, and the scheduler would refuse to run them later, but the model door in the middle would still stamp them as installed if someone called it directly. That is like locking the kitchen knives in the dining room while leaving the pantry key under the mat.
+
+This pass moved the read/prepare rule into the Mission Control model boundary. Installing or resuming a playbook now checks the stored playbook contract first, returns a clear success flag, and leaves invalid execute-flow playbooks in their previous state. The routine QA checklist also gained automated witnesses: tests now cover install rejection, pause/resume behavior, run-now execution records and receipts, routine listing, and relaunch-style state/history hydration through shared stores, while the SwiftData storage test proves paused playbook state survives a fresh store actor.
+
+The lesson is that UI guardrails are signs, not walls. A shipping automation system needs the wall at the state transition, because future buttons, deep links, migrations, and background workers will all find that doorway eventually.
+
+## 2026-08-14 - Playbooks Got A Clipboard Before They Got A Megaphone
+
+The playbook system had the bones of a routine library, but a few bones were still hiding in the UI's imagination. A playbook could imply read/prepare behavior because the default operator only made artifacts, and the library could show states, but it could not yet let a user author their own reusable routine. That is like calling something a cookbook while the chef is the only person allowed to write recipes.
+
+This pass made the contract explicit. Playbooks now carry their source, v0 flow policy, required approvals, maintenance triggers, and backward-compatible decode defaults so older persisted records keep loading. Mission Control gained a user playbook editor, draft saving, edit support, and a review-before-enable sheet that shows scope, outputs, approvals, and authority before anything is installed. Background routine wiring now supplies event signals from runtime state, so event-triggered routines are not just labels on a shelf.
+
+The lesson is that automation needs a clipboard phase. Before a system gets to run anything on a schedule, it should be able to say who wrote the routine, what it may touch, what it may produce, what approvals might appear, and where it stops. That turns "trust me" into a reviewable contract.
+
+## 2026-08-14 - The Artifact Shelf Refused To Become A Card Table
+
+The last readiness audit found a nasty kind of almost-safe behavior: if the dedicated operator runtime SwiftData container failed to open, `RuntimeHost.persistent` quietly built an in-memory runtime instead. That kept buttons from crashing, but it also meant artifacts could be created on a folding card table and disappear at relaunch while the UI looked perfectly confident.
+
+This pass made the fallback fail-safe. A persistent runtime that cannot open durable storage now starts paused with a visible reason, and its artifact store refuses writes with a `RuntimePersistenceError` instead of pretending memory is a shelf. The app can still show Mission Control and explain what happened, but it will not mint work products it cannot keep.
+
+The lesson is that durability features should fail loudly at the boundary where durability is lost. For artifacts, an unavailable vault is not an invitation to use a shoebox; it is a stop sign with a repair note taped to it.
+
+## 2026-08-14 - Artifact Receipts Became Stored Relationships
+
+The artifact system had a subtle audit wrinkle: operator-created artifacts could be linked from receipts, and the UI could reconstruct those links by reading receipt payloads, but the artifact record itself did not store the runtime receipt ID that proved its creation. That is like a museum catalog saying "see shipping manifest" instead of writing the manifest number on the object's own card.
+
+This pass made the relationship explicit. `ArtifactStore` now has a receipt-linking operation, both the in-memory and SwiftData stores de-duplicate linked receipt IDs, and the runtime `ReceiptStoreSink` links the appended receipt back to the produced artifact after the receipt store returns its durable `ReceiptRecord.id`. The browser can still reconstruct relationships from payloads, but production artifacts now carry their own related receipt references too.
+
+The lesson is that reconstruction is a convenience, not a contract. If an acceptance criterion says an artifact stores related receipts, the artifact should hold that edge directly, even if the UI has a clever fallback map.
+
+## 2026-08-14 - Artifact Export Learned To Wait For The Handshake
+
+Two artifact bugs were hiding in the gap between "looks shippable" and "survives real use." First, exported origin links could point at an older version after a newer artifact superseded it. The browser was correctly showing only the latest version, but the route resolver was using that same shelf as its whole library. That is like keeping archived contracts in the building and then telling reception only today's folder exists.
+
+Mission Control now keeps a full artifact lookup by UUID while still browsing latest-by-group cards. Old exported links can walk back to their exact superseded version, and version loading refreshes that lookup too. The second fix moved the export receipt to the actual share completion callback. Preparing a file is not the same as shipping it; canceling a share sheet should not stamp `exported` on the artifact. The UI now prepares the provenance-rich file first, then records the exported lifecycle only after UIKit reports a completed activity.
+
+The lesson is that audit systems live or die in the boring edges. A return address must resolve to the exact historical object, and a receipt should be printed when the courier takes the package, not when someone opens the packing table.
+
+## 2026-08-14 - Artifact Exports Became Actual Files
+
+The export button used to be a very well-dressed copy operation: it assembled provenance-rich text and handed that string to the share sheet. Useful, but not quite the same as giving another app a document, JSON file, or source file it can recognize.
+
+This pass gave artifacts a real suitcase. Mission Control now writes a temporary export file with a type-aware filename and extension before opening the handoff UI: Markdown for docs, briefs, reports, and checklists; JSON for JSON exports; and source-flavored extensions for code files when the export format knows the language. The file still carries the Auralis origin URI and provenance block, so the handoff is durable without cutting the audit trail.
+
+The lesson is that "share" and "export" are not synonyms. A share can be a sentence in someone else's clipboard; an export should be an object with a name, a format, and enough return address to find its way back into the system.
+
+## 2026-08-14 — Artifact Origins Became Real Doorways
+
+The artifact export system had learned to print a return address, but the address was only ink. `auralis://mission-control/artifacts/...` looked like a doorway back into Auralis, yet the deep-link parser and router did not know where that hallway was. That is the audit-trail version of labeling a button "Open" and wiring it to a sticky note.
+
+This pass made the origin link a real route. Artifact deep links now parse through `AuralisShellCore`, route through the shell effect handler, select Mission Control, switch to the Artifacts section, and push the requested artifact detail after the store is loaded. Export and lifecycle controls also stopped swallowing persistence failures: approve, export, and supersede now require the artifact-store update and receipt append to succeed before the UI reports success or opens the share sheet.
+
+The lesson is that provenance has to be executable where it claims to be executable. A receipt can describe the trail, but a product-grade origin link should walk the user back to the exact artifact, and a failed receipt write should be a visible stop sign instead of a quiet shrug.
+
+## 2026-08-14 — The Export Button Got A Receipt Stamp
+
+The artifact export flow had one last trapdoor: the share sheet could open without the artifact lifecycle moving to `exported`. That is like handing a package to a courier while the warehouse system still says it is sitting on the shelf. The user did the thing, but the audit trail did not necessarily know it.
+
+This fix makes export one honest motion. Mission Control now uses a real export button that records the artifact export state and receipt first, then presents the share sheet from the recorded payload. The cached preview now updates from the post-export artifact too, so the exported text says `State: exported` and includes the Share sheet destination instead of narrating yesterday's draft.
+
+The lesson is small but durable: when a UI action has audit meaning, the button cannot be decorative plumbing around a system control. The product action, the stored state, and the shared artifact have to leave the room together.
+
+## 2026-08-14 — Artifacts Learned To Leave Footprints
+
+The first artifact browser pass made the shelves usable, but export was still doing a magician's trick: the share sheet could hand off text, and then the system forgot the handoff ever happened. That is not an artifact lifecycle; that is a souvenir. A real work product needs a passport stamp when it is approved, exported, or superseded, because the whole promise of Mission Control is that important work does not vanish into a chat-shaped fog.
+
+This pass wired the lifecycle all the way down. `ArtifactStore` can now persist state together with destination and export format, both the in-memory and SwiftData stores honor that contract, and Mission Control writes artifact receipts when the operator approves, records an export, or marks a version superseded. The browser also stopped peeking through the latest-100 mail slot: it hydrates the full artifact archive from the exported store data and reduces it to the latest version per group for browsing. Version comparison finally looks at actual content lines, not just character counts, so a changed checklist can point to the first changed line instead of shrugging with “different length.”
+
+The practical lesson is that export is not a button; it is a state transition with evidence. The share payload is the package, the destination/format fields are the shipping label, and the receipt is the tracking number. Leave out any one of those and future-you gets to investigate a mystery.
+
+## 2026-08-14 — Artifacts Got Real Shelves And Passport Stamps
+
+The artifact system had the box and the label, but the browser still behaved like a storage closet: newest things in a pile, no way to ask for reports, this workflow, this account, or only recent work. That misses the whole point of an artifact. A work product is supposed to be found again by the reason it exists, not by luck and scrolling stamina.
+
+This pass gave Mission Control's artifact shelf real facets: type, recency, workflow, and account. Cards now show provenance and state without making the user open every row like a mystery envelope. Detail views now carry the missing passport stamps too: destination, export format, source workflow links, related approvals, playbook links, and type-aware export payloads with an Auralis origin URI baked in. The model stayed stable; the browser learned to read the receipts, worklog, and playbook catalog around each artifact.
+
+The lesson is that durable work products need handles, not just storage. If a report, checklist, JSON export, or code file leaves the app, it should carry enough provenance to walk back home. Otherwise "export" is just copy-paste wearing a tie.
+
+## 2026-08-14 — Receipt Links Learned To Count Past One
+
+The receipts epic had one of those almost-done traps: the UI could say "related artifacts," but one part of Mission Control was still reading the payload like there would only ever be one artifact ID, sitting politely at the top level. Real receipts are messier. They can carry arrays, nested objects, and reverse links from artifacts back to receipts. A browser that misses those relationships is not a browser; it is a peephole.
+
+This pass gave Mission Control and the app receipt detail the same recursive artifact-ID reader. It walks receipt payload objects and arrays, follows keys that actually describe artifacts, preserves first-seen order, and removes duplicates so the detail screen can show all related artifacts without turning the raw payload into confetti. The acceptance routes also got explicit UI coverage for Approval Inbox -> Receipt Detail and Artifact Browser -> Receipt Detail, using seeded Mission Control fixtures instead of hoping a live operator session happens to be in the right state.
+
+The useful lesson is that audit links are graph edges, not sticky notes. Once receipts become system objects, every doorway into them needs proof: browser, approval, artifact, summary, and whatever comes next. "Works from the main list" is table stakes, not ship readiness.
+
+## 2026-08-13 — The App Receipt Drawer Got The Same Interpreter As The Control Room
+
+The receipts epic had a split-brain problem. Mission Control had learned to read receipts like an operator needs them read: intent, plan, approvals, outputs, policy reasons, artifacts, capabilities, and postflight outcome. But the general app receipt detail still behaved like a filing cabinet with a flashlight: useful if you already knew which payload key mattered, not good enough if you were trying to answer “what happened?”
+
+This pass gave the app-level receipt route its own human-readable receipt presentation layer. Home, Search, and the context inspector now land on a detail screen that starts with postflight, a readable audit story, a correlated timeline, related artifact IDs, and then the raw payload as the appendix. The lesson is that audit UX cannot depend on which doorway the user used. A receipt should tell the same story whether you arrived from the control room or from the hallway.
+
+## 2026-08-13 — Receipt History Stopped Mixing Shelves
+
+The receipt browser had two very different library problems. In the app timeline, receipts were filed by wallet but not by chain, so Ethereum and Base activity for the same address could end up on the same shelf. In Mission Control, search could only see the newest 500 receipts, which is like hiring a perfect librarian and then bricking up the back half of the archive.
+
+This pass made receipt scope honest. App receipt lists and detail routes now treat chain as part of the scope whenever a receipt records one, while still allowing older chainless local receipts to show up. Mission Control's browser now hydrates from the full exported ledger and sorts it back into newest-first browsing order, with a fallback to the bounded latest window only if export fails.
+
+The engineering lesson is that history features need two promises at once: the right room and the whole room. A searchable audit trail is not shippable if it answers from the wrong network, and it is not searchable if older facts silently disappear past an arbitrary window.
+
+## 2026-08-13 — Receipts Learned To Speak Human
+
+The receipt browser had the skeleton of an audit trail: a list, a search box, a detail screen, and links from the places operators naturally start. But the story inside each receipt was still too much like opening a shipping label and hoping it explains the package. Search only looked at the front of the envelope, postflight could call any successful receipt an artifact, and nested payloads were getting flattened into polite shrugs.
+
+This pass taught Mission Control to interpret receipt payloads before presenting them. Browser search now includes the human-facing payload text, outcome filtering can separate success, denied, blocked, draft-only, no-change, and artifact-producing records, and receipt detail groups the audit material into requested intent, interpreted plan, approvals, actions, outputs, policy reasons, related capabilities, blocked/failure reasons, and what changed. The postflight classifier now treats plain successful control-plane receipts as no-ops unless the receipt actually records a draft or artifact.
+
+The engineering lesson is that an audit surface is not done when the data is technically visible. Receipts need a reader, not just a drawer. The drawer keeps the immutable facts; the reader turns those facts into the sentence an operator needs before approving, investigating, or explaining what happened.
+
+## 2026-08-13 — Approval Inbox Learned What “Done” Means
+
+The approval inbox had a classic control-room problem: it could watch a request arrive, and it could write down an approve or reject decision, but a reload could resurrect the same request like the night shift never read the logbook. That is not an inbox; that is a sticky note with amnesia.
+
+This pass made approval decisions durable in the receipt payload by recording the exact `approvalID`, then filtering approved and rejected requests during worklog hydration. Deferred approvals still come back, because “later” is not “done.” Capability leases also grew explicit authority metadata: a reason and one of the account, data, execution, or artifact scopes. The inspector can now show what was granted, why it was granted, how long it lasts, and where that power applies instead of reverse-engineering authority from a raw capability string.
+
+The engineering lesson is simple: user-facing authority surfaces need state that survives the happy path. A receipt is not just proof for an audit export; it is also the console’s memory of what the operator already decided.
+
+## 2026-08-13 — Assist And Operate Stopped Wearing Observe Receipts
+
+The mode switch worked, but parts of the audit trail were still signing the guestbook as Observe no matter which badge the operator had on. That is the kind of bug that does not break a button, but it breaks trust: a receipt is supposed to explain what authority was active when work happened.
+
+This pass made governed runtime receipts mode-aware, including tool outcomes and routine runs. Background runtime now restores the persisted mode instead of silently building an Observe-only host. Account and ENS receipt recorders also accept an active-mode provider, so shell, gateway, profile, and resolver paths can stamp receipts with the mode the user actually selected. The package-level policy gate service learned to accept execution evidence and signing allowlists, which keeps package tests and fallback adapters from becoming deny-all traps while the app itself routes policy decisions through the unified runtime pipeline.
+
+The bigger lesson is that a mode rollout is not just an enum and a picker. The receipts, background jobs, docs, comments, tests, and stray profile copy all have to tell the same story. Otherwise the app becomes that office where the door sign says "Operations" but every form still says "Observation Desk."
+
+## 2026-08-13 — Mission Control Learned To Show The Whole Flight Board
+
+The console was no longer empty, but the snapshot camera was still taking pictures of the quietest room. Timeline and Activity had smart logic behind them, yet the visual baselines only proved the empty state. That is like testing an airport board at 3 a.m. and declaring rush hour solved.
+
+This pass gave Mission Control populated snapshot fixtures for queued, running, waiting, blocked, completed, and failed workflows. The timeline now has a visual proof set for stop buttons, account filters, playbook labels, and next-step copy. The activity feed gets grouped high-signal events with observation, preparation, approval-needed, and completed categories on screen. Mode snapshots also cover Assist and Operate, and the surface now calls those modes approval-gated and evidence-gated instead of lazily calling everything "Available."
+
+The useful product rule is honesty under bright lights. If Assist and Operate are visible, the UI and docs must say what actually makes them safe: approvals, deterministic evidence, confirmation, and receipts. A management console should never make authority sound like a magic door.
+
+## 2026-08-13 — Mission Control Got A Brake And A Real Mode Switch
+
+The P1-101 checklist had one word that mattered more than it looked: "stop." A global pause switch is useful, and revoke controls matter, but neither one lets an operator point at one workflow and say, "that one, stop that one." Today Mission Control got that brake pedal. Timeline rows for queued, running, and waiting workflows now show a Stop control; pressing it writes a durable stopped receipt, records a terminal blocked worklog entry, emits a runtime event, clears matching pending approvals, and reloads the console state. It is not pretending to cancel an invisible task registry that does not exist yet; it stops the workflow at the control-plane level this runtime actually owns.
+
+The mode switch also graduated from wall art to machinery. `CryptoMode` now has Observe, Assist, and Operate cases, `ModeState` persists real selections, and the shared `RuntimeHost` reads and writes the same mode state the rest of the app uses. Mission Control's Mode surface is now a native picker instead of a hard-coded Observe label. The governance rules stay deliberately sober: Observe blocks crypto, Assist escalates crypto proposals, and Operate still runs through policy evidence and confirmation rules instead of becoming a secret signing shortcut.
+
+The design lesson is the same one airport control towers understand: labels are not controls. A console becomes trustworthy when the button changes the same state the engine reads, and when the logbook can explain what happened after someone pressed it.
+
+## 2026-08-13 — Mission Control Stopped Being Almost A Console
+
+The P1-100 review found the uncomfortable kind of gap: the console existed, but the acceptance checklist could still poke fingers through it. Workflow state only had four buckets, so "queued" and "failed" were getting flattened into nearby shapes. Timeline filters could narrow by status, but not by the account or playbook an operator actually cares about. The Activity Feed had signal, but not enough structure: related work needed grouping, events needed category labels, and receipt-backed events needed a path to the receipt instead of a dead-end row.
+
+Today's hardening pass turned those promises into code. Mission Control now derives queued, running, waiting, blocked, completed, and failed from the durable worklog; the home console shows all of those counts plus context freshness and revoke controls. Timeline rows carry account and playbook facets with filters for both. Activity groups related session events, labels them as observation, preparation, approval-needed, or completed, and links to receipt detail when a matching receipt exists. Mode is no longer just a sentence about Observe: Observe, Assist, and Operate each have a visible surface, with Assist and Operate clearly gated until policy authority exists.
+
+The lesson is a management-console lesson, not just a UI lesson. Operators do not need a prettier chat transcript; they need a board that answers "what is waiting, who owns it, what can I stop, and what proof exists?" The focused MissionControlFeature unit suite now pins those derivations. The app builds green; the full package snapshot lane still crashes in this managed CLI environment inside SnapshotTesting's AppKit image path, so visual baselines should be rerun from a healthy Xcode snapshot environment.
+
+## 2026-08-12 — Mission Control Got Durable Memory
+
+The first Mission Control pass could watch work while the app was awake, but too much of the operator console still behaved like a whiteboard after closing time: artifacts lived in memory, worklog events rode the live bus, and approvals produced receipts without making the continuation story explicit. Today's patch moved the console closer to a real control room. Artifacts and worklog steps now have SwiftData-backed stores, the runtime host wires those stores into the governed pipeline, and Mission Control can hydrate timelines from durable worklog history after relaunch instead of pretending the live event stream is history.
+
+The other lesson was naming honesty. “Approve” sounds like an engine will resume the original work; this version records the approval decision as an auditable decision packet until continuation is explicitly implemented through the governed pipeline. Scheduled routines also stopped using pretend freshness signals: last-run time now comes from persisted execution records, and event triggers only fire when real signals are present. The product can still be scaffolded, but the UI now has to say what is actually true.
+
+## 2026-08-11 — Playlist Helpers Left The Old Engine Hallway
+
+The last code living under `MusicApp/AI/Audio Engine/` turned out not to be an audio engine at all. It was the app-owned playlist helper stack: creation/update/delete helpers, the list/create SwiftUI views, and the playlist privacy note. Those files moved to `MusicApp/AuraPlay/Playlist/`, and the now-empty `MusicApp/AI/` group was removed.
+
+The cleanup rule stayed deliberately precise: keep playlist capability, remove legacy ownership confusion. `MusicFeature` already owns the AuraPlay playlist model and service; these app-owned helpers remain only where primary-store receipt behavior still needs an app adapter. The remaining work is proof and convergence, not folder archaeology.
+
+## 2026-08-11 — The Old Engine Signposts Came Down
+
+The code had already moved farther than the docs admitted. The app-local `AudioEngine.swift` is gone, the Music tab enters through `MusicFeatureRootView`, audio runs through `AuraPlayAudioEngine`, and video runs through `AuraPlayVideoEngine`. Some docs were still pointing at `AI/V1`, `AuraPlayTabRootView`, and the deleted app engine like old road signs after the bridge was replaced.
+
+The cleanup rule we wrote down was deliberately precise: keep playlist capability, remove legacy ownership confusion. `MusicFeature` already owned the real AuraPlay playlist model and service, while a few playlist helpers still sat under `MusicApp/AI/Audio Engine/Playlist/`. That note became the handoff for the follow-up move rather than permission to delete playlists.
+
+## 2026-08-11 — Wallet Support Got A Proof List
+
+Wallet compatibility is the kind of feature that sounds real the moment a logo appears in a picker, but a logo is not a handshake. Today the docs got a hard support-proof list: Rabby, Rainbow, Coinbase Wallet, MetaMask, Phantom, Backpack, Solflare, Privy, and Dynamic. Each route has to prove the boring-but-essential loop on a physical device: connect, reject or cancel, prove ownership, disconnect, restore or fail closed, and come back through the callback path exactly once.
+
+The useful product lesson is restraint. Auralis can compile wallet adapters and still not truthfully claim production support until a real wallet app, a real device, and a real account have all taken the same path a user will take. The QA docs now make that visible in the P0 device suite, the AuraPlay physical-device suite, Phase 14 master QA, App Review, known limitations, status, gaps, and future-work maps.
+
+## 2026-08-11 — Phase 5 Moved From Handoff To House Map
+
+The Phase 5 handoff had become a time capsule. It still talked about Alchemy as partial, the coordinator as adjacent, artwork prefetch as not started, and integration tests as missing. The code told a different story: `AlchemyNFTClient`, `HeliusNFTClient`, `MetadataFetcher`, `MetadataParser`, `MediaClassifier`, `NFTSyncCoordinator`, `MediaItemArtworkPrefetcher`, and the Phase 5 integration suite all live in `MusicFeature`. The handoff had done its job; keeping it around was like leaving construction tape across a door people already use every day.
+
+So the durable facts moved into the house map: `AuraPlay-Status.md` now records the implemented discovery pipeline and its tests, `AuraPlay-Implementation-Plan-Completed-Phases.md` carries the compact completed summary, `AuraPlay-Gaps.md` keeps the real remaining validation and organization gaps, and `AuraPlay-Future-Work.md` is back to future work instead of yesterday's implementation checklist. The only thing we could not prove fresh today was the package lane itself, because the managed environment could not write SwiftPM/DerivedData state and CoreSimulator was unavailable. That is an infrastructure note, not a reason to pretend Phase 5 is still waiting for a client that already exists.
+
+## 2026-08-11 — Phase 3 Closed Its Filing Cabinet
+
+The Phase 3 storage-resolution tickets had already done their job: `URLResolver`, `URIScheme`, `GatewayFallbackChain`, the configuration value, the error case, and live `MusicAssembly` wiring are all still in the codebase. The extra follow-up file was really tracking unrelated package-test debt, so today we moved that debt into the general maps where it belongs: `AuraPlay-Gaps.md`, `AuraPlay-Future-Work.md`, and TEST-015.
+
+The little archaeology dig mattered. Some old warnings had fossilized after the code moved on — ProviderKit now expects redacted payloads, ChainProviders imports the shared lock helper, AccountStorage sees the moved primary models, AuraUI's color tests no longer carry the bad macro shape, and the SwiftData storage test types are already main-actor isolated. The remaining suspects are narrower: ENS still has duplicate binding / throwing-signature cleanup, NFTLibraryFeature has response shadowing and a couple of nested Swift Testing macro patterns, and the package-test lane itself still needs a clean environment. Today's attempt could not prove the lane because CoreSimulator was unhealthy and the managed sandbox blocked SwiftPM manifest/cache writes. That is the lesson: close the phase, keep the debt, but put each card in the drawer that future engineers will actually open.
+
 ## 2026-07-26 — WalletConnect Got A Real Front Door, But Not The Whole House Yet
 
 Phase 4 moved from paper architecture into the app shell today. `WalletConnectorKit` is now linked into the Auralis app target, AuraPlay's wallet button opens a dedicated WalletConnect picker instead of the generic account switcher, and the app has a SwiftData adapter that turns approved WalletConnect addresses into wallet-backed `EOAccount` rows. The picker has provider buttons, a generic QR pairing path, Keychain topic storage through the clean-room package, active-wallet selection, removal affordances, and accessibility identifiers for the controls UI tests will need.
@@ -408,7 +1287,7 @@ The lesson is simple: a media app earns trust by making unavailable capability q
 
 The AuraPlay UI report started as a shopping list for the media workshop, then grew into a map of the whole storefront. That matters because a music/video feature does not live in a display case by itself: users enter through onboarding, switch wallets through chrome, search across local objects, bounce through token detail screens, recover from provider failures, and eventually ask Settings to clean up the local trail.
 
-`AuraPlay-UI-Requirements-And-Gaps.md` now names that wider contract. The app is not just a pile of placeholders; Home, Search, Gas, NFT tokens, ERC-20 holdings, Settings, Profile, onboarding, shell restore, and global chrome all have real UI. The honest gap is proof: device QA, accessibility inspection, release-vs-debug surface visibility, and ugly-state testing across providers, caches, deep links, and destructive confirmations.
+The now-retired `AuraPlay-UI-Requirements-And-Gaps.md` named that wider contract at the time. The app is not just a pile of placeholders; Home, Search, Gas, NFT tokens, ERC-20 holdings, Settings, Profile, onboarding, shell restore, and global chrome all have real UI. The honest gap is proof: device QA, accessibility inspection, release-vs-debug surface visibility, and ugly-state testing across providers, caches, deep links, and destructive confirmations.
 
 The lesson is a good product-audit rule: do not call a feature report complete until you trace the doors into and out of it. AuraPlay can have the best media controls in the world, but if Search, chrome, account switching, or offline/provider states lie to the user, the experience still leaks.
 
@@ -416,7 +1295,7 @@ The lesson is a good product-audit rule: do not call a feature report complete u
 
 The three AuraPlay media packages were starting to look like three well-stocked workshops with no shared shopping list for the storefront. Audio had playback machinery, video had a serious AVFoundation toolbox, and MediaCore had the language for shared sessions, but the app needed one honest ledger of what the user can actually touch.
 
-`AuraPlay-UI-Requirements-And-Gaps.md` is that ledger. It separates present controls from placeholders, package-only capabilities from app-wired behavior, and real product requirements from tempting demo scaffolding. The big lesson is that package readiness is not the same as product readiness. A PiP controller is not a PiP experience until the app owns restore behavior. A shared session contract is not SharePlay until real participants, queue identity, and attribution are visible. An offline manager is not offline UX until users can start, cancel, retry, and trust what is cached.
+The now-retired `AuraPlay-UI-Requirements-And-Gaps.md` was that ledger. It separated present controls from placeholders, package-only capabilities from app-wired behavior, and real product requirements from tempting demo scaffolding. The big lesson is that package readiness is not the same as product readiness. A PiP controller is not a PiP experience until the app owns restore behavior. A shared session contract is not SharePlay until real participants, queue identity, and attribution are visible. An offline manager is not offline UX until users can start, cancel, retry, and trust what is cached.
 
 The next useful move is not to wire everything at once. Start by making current audio and video controls truthful, then add host adapters one at a time so the UI never promises more than the app can back up.
 
@@ -1074,6 +1953,28 @@ If you are navigating this repo for the first time, start at `MainAuraView`, the
   Because once a shell grows past a couple tabs, ad hoc navigation state turns into a junk drawer fast.
 
 ## The Journey
+
+### 2026-10-21 — Let the Music Sleep Until Someone Presses Play
+
+AuraPlay used to assemble its entire playback runtime while `MainAuraView` was being initialized. That
+looked tidy at the composition root, but `AVAudioEngine` can synchronously contact the system audio
+server while its output node is created. In other words, opening the restaurant also phoned the concert
+venue—and if that call timed out, the whole app could abort before drawing its first frame.
+
+The shell now opens AuraPlay storage at launch but leaves the playback graph unbuilt. `MainTabView`
+requests playback setup only when Music becomes the selected tab, and `MainAuraView` guards the setup so
+tab reselection cannot create competing runtimes. The existing retry/error path remains intact. The useful
+rule is broader than audio: infrastructure with blocking system-service initialization belongs behind the
+feature boundary that needs it, not in unconditional app bootstrap.
+
+### The event bus learned to write receipts without talking to itself
+
+The runtime event bus already fanned activity out to Mission Control and performance tracking, but
+capability revocations and expirations had no durable receipt consumer. `RuntimeReceiptObserver` now
+listens for those governance-only events and appends an audit receipt. The important trap was the
+feedback loop: appending a receipt publishes `receiptCreated`, which the observer must ignore or it
+would become a microphone pointed at its own speaker. Event IDs are also remembered in a bounded set,
+so replayed envelopes cannot create duplicate receipts and the deduplication memory cannot grow forever.
 
 - AuraPlay Phase 3 prep, the case of the phantom wallet:
   Before starting the next AuraPlay slice, we caught the handoff docs describing a persistence graph that the code no longer has. `AuraPlayWallet`, `AuraPlayNFTToken`, `AuraPlaySchemaV1`, and `AuraPlayMigrationPlan` were still wandering through Phase 3 notes like old band members listed on a tour poster. The actual lineup is simpler: `EOAccount` is the shared account/wallet record, it stores AuraPlay sync metadata, and `AuraPlayMediaItem` is the AuraPlay-owned persisted media projection. The lesson is practical: phase docs are part of the architecture. If they point at ghosts, the next engineer burns time debugging the map instead of building the road.
@@ -3137,3 +4038,868 @@ The Xcode 26 beta runner used to make app-hosted SwiftData tests act like a trap
 The recheck started ugly: the first direct account-store probe timed out, which looked like the old trapdoor was still there. After isolating the runner and sampling nearby tests, the pattern changed. Pure model presentation checks passed, then SearchHistory, receipts, view services, AuraPlay persistence, music receipt integration, undo, privacy reset, P0201 flows, and finally the direct AccountStore suite all ran cleanly. The lesson is a good beta-era one: do not blindly trust stale skip labels, but also do not delete them on faith. Make each locked door prove it is still locked.
 
 The result is better than "not failing": `Auralis-Fast` now runs 650 app tests with zero skips. That turns the former beta workaround back into a real release gate.
+
+## Mission Control Phase 1: The Control Room Gets Windows
+
+The Phase 1 checklist had a funny problem: the machinery was no longer imaginary, but too much of it was still hiding behind the wall. Runtime primitives existed, receipts were chained, playbooks could run, and operators could produce artifacts, but Mission Control still felt more like a hallway of gauges than the room where an operator could inspect the actual system.
+
+This pass gave the control room windows. Mission Control now opens first, not as a side tab the user may or may not notice. Workflow rows open into session detail, where the worklog shows proposals, checks, judge decisions, execution, and failures. Approval items now have a proposal preview with a before/after risk view, which is the governance version of looking at a transaction simulation before signing it.
+
+The context bundle also stopped being just a type in `RuntimeCore`. Mission Control now shows the live bundle fields, their sources, freshness, data classes, and contract validation. Artifacts gained the other half of their job too: export with provenance metadata and compare version history. The best lesson here is simple: a kernel earns trust when its boundaries are inspectable. A locked door is not enough; the user needs to see the lock, the key, and the receipt for who used it.
+- Capability-firewall and package-boundary cleanup:
+  The architecture had one cardboard storefront left on the block: `AgentIdentityCore` exported an empty enum while still ordering the heavyweight ENS/secp256k1 delivery truck. Since `ActorRef` already has a real home in `RuntimeCore`, the placeholder package and its unused dependency graph were removed. The adversarial suite now also starts one layer earlier with a deliberately malicious `GoalPlanning` double. It receives an innocent wallet-summary request, tries to smuggle in a `signMessage` execution step, and proves the real authorization ladder stops it before the executor moves. The lesson is pleasantly blunt: a planner writes suggestions, not permission slips.
+
+## Receipt Signing Learns to Fail Closed
+
+The receipt chain already had the right cryptographic furniture: chained hashes, monotonic account sequences, P-256 signatures, protected heads, and exportable verification material. One small trapdoor remained under the signing desk, though. A signing error was swallowed with `try?`, which meant a new receipt could still be persisted without the signature that gives its provenance teeth.
+
+That path now fails closed. If the signer cannot establish provenance, the append aborts before SwiftData sees a row. Historical unsigned receipts remain readable so migrations do not rewrite history, but the rule for new ledger entries is crisp: no signature, no receipt. A deliberately failing signer now guards the boundary in tests. The memorable version is the nightclub rule—legacy guests already inside can be escorted out safely, but nobody new gets through without a stamped wristband.
+## 2026-09-01 — Waiting for the bell instead of staring at the clock
+
+The social relay composition test had a classic concurrency gremlin: after feeding a sealed inbound message to the pump, it repeatedly peeked at the event store for roughly one second and hoped the pump had finished. Usually it had; under a busy full-suite run, sometimes it had not. That made a healthy relay look broken.
+
+The test now waits on the composition layer's real `onInboundProcessed` seam using a one-shot actor signal. Think of it like waiting for the kitchen bell instead of checking the pass every five milliseconds. Both the accepted-message and foreign-key rejection paths now observe the exact processing boundary, without sleeps or inflated timeouts. The receipt-hardening plan was also corrected: production already selects the Secure Enclave signer on supported hardware and falls back to persistent software P-256 where the Enclave is unavailable; the remaining task is physical-device verification, not implementation.
+
+The full plan found the same species of gremlin in AuraPlay's cadence persistence test. Its ten-millisecond production timer was being used as a test clock, which is like testing an alarm clock by waiting beside it with a stopwatch while the entire test suite moves furniture around the room. `PlaybackOrchestrator` now accepts an injected asynchronous cadence wait while preserving its five-second production default. The test advances a manual cadence actor and awaits the exact store write, so it proves periodic persistence without depending on scheduler speed.
+## 2026-09-01 — The Wallet Observer That Refused To Leave The Party
+
+The full test host once trapped inside a SwiftData fetch while wallet-session tests were running. The predicate was innocent; the awkward guest was an unstructured connector-event task that the service started but never owned. Tests could finish and release their in-memory model containers while those observers were still alive, and parallel wallet scenarios widened that teardown window.
+
+The service now keeps the task handle, cancels any prior observer before starting another, checks cancellation while consuming the stream, and cancels the observer during deinitialization. The wallet interaction suite is also serialized: those tests deliberately model one app-lifetime wallet connector and one main SwiftData context, so pretending ten such app lifetimes should overlap was unrealistic stress, not useful parallelism. The memorable rule is simple: if you start the band, keep the drummer's phone number so you can tell them when the gig is over.
+
+## 2026-09-01 — The Receipt Export Gets a Passport
+
+The local receipt ledger already had locks on the filing cabinet, but its export was still a stack of photocopies. Every receipt carried a signature, yet the exported JSON had no signed cover sheet saying how many pages belonged in the stack, which chain heads were authoritative, or which device identity vouched for the bundle. Worse, integrity verification treated a missing signature like an old guest without a name badge: it simply walked past the check.
+
+Verification now fails closed whenever either half of the signing metadata is absent. Export also produces a versioned provenance envelope with a canonical record hash, per-account protected heads, a P-256-signed manifest, and the signing key's SHA-256 fingerprint. The independent verifier rebuilds every payload hash and chain link, verifies every receipt signature, checks the manifest and heads, and requires the caller to supply the expected fingerprint from a separate trusted channel. That last detail matters: printing “trust me” on your own passport does not make it government-issued.
+
+The engineering lesson is that integrity and provenance are cousins, not twins. A self-consistent file proves nobody changed it after its signer assembled it. A pinned fingerprint proves which signer assembled it. Ship-grade exports need both.
+# The Signing Desk Stops Making Spare Keys
+
+The receipt ledger already behaved like a meticulous hotel register: every page pointed back to the page before it, and the latest page number lived in a separate Keychain safe. But the signing desk had one alarming habit. If the safe was locked, unavailable, or returned damaged key material, it could quietly cut a fresh key and carry on. The new signatures were mathematically valid, but the hotel's identity had changed without an alarm. That is exactly the sort of “helpful recovery” security code must never attempt.
+
+Receipt signing now crosses an async actor boundary. Keychain reads and add-or-update writes happen serially, every `OSStatus` becomes an explicit error, corrupt stored keys are rejected, and a receipt append fails before persistence if the existing signing identity cannot be restored. Four injected-store tests exercise stable restoration, locked-Keychain failure, save failure, and corrupt material without making the test suite rummage through a real user's Keychain.
+
+We also gave provenance a proper introduction ritual. `provenanceTrustAnchor()` exposes the signing fingerprint separately so an auditor can pin it *before* receiving an export. Reading the fingerprint from the document you are trying to authenticate is like asking a stranger to print their own passport at the door: internally consistent, perhaps, but not independently trusted.
+
+Finally, the architectural fences acquired wider tripwires. The test suite now checks the entire first-party Swift package graph for cycles and empty identity stubs, app code is forbidden from invoking tool executors around the governed runtime, and CI directly runs ReceiptStorage, RuntimeCore, and PolicyCore package suites. Execution isolation here deliberately means an in-process capability firewall—not a sandbox for hostile native binaries. If native plugins ever become untrusted code, that is the moment to build an XPC blast door, not rename an actor and hope for the best.
+
+## The Passport Photo Must Match the Passport
+
+The provenance export had one final identity loophole hiding behind perfectly valid cryptography. Each receipt verified its signature against the public key stored beside that signature, while the manifest verified against the separately pinned device key. An attacker who could edit the database could replace both a receipt signature and its neighboring public key with a fresh, valid pair. The chain contents and signed manifest still prevented rewriting history, but local verification would incorrectly accept the receipt's replacement autograph before export.
+
+Receipt signing now exposes its stable public identity directly. Local integrity checks require every receipt signer key to equal that identity, and external export verification requires every receipt key to equal the pinned manifest key. The adversarial tests deliberately generate a second P-256 signer, sign the authentic chain hash, swap both fields, and prove that mathematically valid forgery is still the wrong identity. Think of it as airport security finally checking that the passport photo belongs to the person holding the passport, not merely that both are high-quality prints.
+
+The architecture fence also learned direction, not just geometry. An acyclic package graph can still point a basement utility toward a rooftop feature, so ADR-008's layers are now executable test data: dependencies may point sideways or downward, never upward. The retired `AgentIdentityCore` manifest is explicitly forbidden from returning, and the malicious-planner suite now runs in CI alongside the runtime firewall. The lesson is that a boundary written only in prose is a polite request; a boundary represented in tests is a locked gate.
+
+## 2026-09-02 — The Release Train Names Its Track
+
+The hardening code was in better shape than its release proof. CI ran the app's tests through the
+`Auralis` scheme, but it did not name a test plan, leaving the selected plan as invisible state. That
+is like announcing that a train reached the station without recording which track it used. CI now
+selects `Auralis-Full` explicitly; `Auralis-Fast` remains useful for short feedback loops, but it can no
+longer masquerade as the complete release matrix.
+
+ADR-008 also puts a bright label on the runtime's lock. `RuntimeHost` and `GovernedToolPipeline` form
+a real capability firewall for trusted code sharing the app process. They are not a concrete bunker
+for hostile native binaries. If Auralis later admits untrusted native plugins, those executors need an
+XPC or Enhanced Security extension blast door, narrow value messages, and hostile-input validation on
+the way back. The lesson: a strong lock is safest when the blueprint says exactly which door it guards.
+# The Governed Tool Pipeline Grew Real Hooks
+
+The runtime used to have “before” and “after” stages written on the kitchen wall, but they were still
+part of one large recipe. We turned those stages into actual contracts: `BeforeToolCallHook` owns schema
+validation, deterministic checks, and judging; `AfterToolCallHook` receives an immutable terminal result
+only after the mandatory audit trail is emitted. Additive hooks cannot erase receipts, worklog entries,
+artifact links, or performance signals.
+
+One useful war story: the registry previously behaved like a hotel that quietly handed the same room key
+to a second guest. Duplicate IDs could replace a tool definition during bootstrap. Registration is now
+idempotent for the exact same definition and rejects conflicting definitions without replacing the first.
+The pipeline also verifies that an executor's artifact names the tool actually executed, preventing a
+miswired executor from attaching evidence to the wrong governed action.
+
+The second hardening pass closed a subtler loophole: an executor protocol is still a public doorway
+when any caller can manufacture every argument. Tool execution now requires a
+`ToolExecutionAuthorization`, whose initializer lives inside RuntimeCore. Think of it as the kitchen's
+order ticket: outside code may implement a station, but only the governed expediter can stamp a ticket
+after registry resolution, checks, policy, and approval have succeeded.
+
+The standard after-call hook also became the single owner of receipts, worklog execution events,
+artifact-link events, and performance signals. Those sinks are non-optional, and custom observers run
+only after the mandatory trail is written. Bootstrap now treats conflicting tool IDs as a programming
+error instead of shrugging and continuing with whichever definition happened to register first.
+
+The final boundary pass locked the control room itself. Pipeline construction and registry mutation are
+now `RuntimeComposition` SPI, imported only by the trusted RuntimeKit/OperatorsFeature composition seam.
+Mission Control receives a read-only tool catalog from `RuntimeHost`; it no longer reaches into the live
+registry. RuntimeKit also has exactly one pipeline factory and always installs `DomainJudge`, so there is
+no production side door for swapping in an “everything is fine” judge. An architecture test patrols the
+app target for pipeline construction, registry construction, SPI imports, or authorization forgery.
+
+## Evidence Is Part of the Outcome
+
+The last pipeline audit found a dangerous little lie: a tool could finish, the session could announce
+“completed,” and only afterward could its required receipt fail. That is like a restaurant declaring
+the till balanced before printing the transaction record. Terminal events now come last, after the
+mandatory after-hook has attempted every evidence sink.
+
+Evidence failures also retain the underlying truth. `evidenceIncomplete` says both what happened
+(executed, blocked, revised, failed, or awaiting approval) and which evidence writes failed. Before-call
+receipt failures are no longer swallowed, and after-call hooks collect every failure instead of stopping
+at the first broken observer. Approval resumes similarly carry the original escalation context: a fresh
+or changed approval prompt cannot hitch a ride on an older consent.
+
+Finally, standing Observe/Assist/Operate policy moved into PolicyCore as one side-effect-free rulebook.
+The judge now judges contextual/check evidence; it no longer keeps a second, subtly divergent copy of
+the mode policy. One rulebook, one answer, fewer haunted hallways.
+
+## 2026-09-03 — Closing the Gap Between the Replay and the Radio
+
+Mission Control used to start two independent jobs when its screen appeared: one replayed stored
+events while the other tuned into the live event stream. Usually that worked, but there was a tiny
+hallway between them where an event could run past after replay finished and before the radio was on.
+The screen now subscribes first, then hydrates history while the bounded stream buffers new arrivals,
+and finally drains the buffer with event-ID de-duplication. The handoff is now one continuous timeline.
+
+The receipt observer also stopped swallowing a broken persistence write. It records a failure count and
+the responsible event ID and emits a privacy-safe system log, giving diagnostics something concrete to
+inspect without leaking provider details. Finally, both in-memory and SwiftData event history treat
+zero or negative limits as an empty request instead of handing an invalid value to collection or fetch
+APIs. Boundary inputs are like coat-check tickets: validate them at the counter, not after somebody has
+already disappeared into the back room.
+
+## 2026-09-04 — The Context Guest List Gets a Bouncer
+
+The first context contract could check whether expected guests arrived with the right badge, but it
+never checked the rest of the room. An undeclared sensitive field could stroll in beside a valid wallet
+field, pass validation, and reach the operator. Duplicate names were sneakier: validation inspected the
+first field while dictionary conversion kept the last. The clipboard and the person entering the room
+could disagree.
+
+Context validation now creates an approved projection instead of merely issuing a thumbs-up. Unknown
+fields are rejected by default or explicitly omitted, duplicate keys fail, invalid contract shapes fail,
+and timestamps too far in the future are not mistaken for exceptionally fresh data. Missing/stale policy
+can be declared per field, and bundles plus contracts are versioned Codable values with tolerant legacy
+decoding. Most importantly, a missing workflow contract blocks execution, and the operator receives only
+the approved projection—not the provider's original bag of data.
+
+Every built-in playbook now has its own named contract, even while their small default operators consume
+the same definition fields. That distinction matters: adding holdings, memory, plugin output, or preferences
+now requires changing the corresponding guest list first. Adversarial tests cover undeclared secrets,
+duplicate-key smuggling, projection filtering, clock skew, serialization, and absent contracts. The lesson
+is simple: governance is not a sign saying “authorized people only”; it is the person at the door checking
+the list and handing each guest exactly the badge they are allowed to wear.
+
+## 2026-09-04 — The Bouncer Stops Lending Out the Stamp
+
+The guest list still had two trust gaps. First, any neighboring package could manufacture the
+`GovernedContext` stamp that was meant to prove the bouncer had checked the list. Second, the audit
+fingerprint described each guest's badge, source, and arrival time without committing to who the guest
+actually was. Two different wallet values could leave the same evidence. That is a beautifully printed
+coat-check ticket with no coat number on it.
+
+`GovernedContext` is now a capability rather than a decorative wrapper: only RuntimeCore's governance
+boundary can construct it, and it is no longer decodable from an untrusted blob. Provider-routed model
+requests must cross the same authorization factory used by scheduled work, with explicit contracts for
+planning, autopilot steps, operator inference, and search. An architecture patrol rejects future direct
+construction or raw model-context dictionaries outside the kernel.
+
+Evidence now includes a SHA-256 commitment to each canonical value. Audit output still reveals no wallet,
+query, preference, or vault handle, but changing any approved value changes the digest. Contract registries
+also validate declarations on entry: empty IDs, invalid schema versions, duplicate workflow IDs, duplicate
+requirements, negative freshness bounds, and negative clock skew fail closed as typed configuration errors
+instead of waiting for a live run—or crashing inside `Dictionary(uniqueKeysWithValues:)`.
+
+The memorable rule is: a proof token must be harder to forge than the fact it claims to prove. If anyone
+can stamp the ticket, or if the ticket is not bound to the checked data, governance is only typography.
+
+## 2026-09-04 — The Prompt Finally Uses the Front Door
+
+The bouncer was real, but three regulars still knew about the kitchen entrance. On-device planning,
+autopilot steps, and assistant search created `LanguageModelSession` directly. Their remote twins showed
+their context badges at the door, while local inference walked goals, rationales, wallet scope, and search
+queries straight into the prompt. “It stays on this device” is a privacy advantage, not a permission slip
+to skip data governance.
+
+Local and remote inference now share the same authorized-request builders. Dynamic prompt material is
+classified—including a distinct `userProvided` class—tagged with a closed authoritative source, checked
+for freshness, and then rendered only from `GovernedContext`'s approved projection. The request factory
+accepts a prompt-building closure after validation, which turns the safe projection into the only pantry
+the prompt chef can reach. Runtime capability catalogs also moved out of the higher-priority instruction
+channel and into that governed projection.
+
+Workflows now carry their contracts as part of the persisted `Playbook` value. New playbooks cannot be
+constructed without one; older stored playbooks decode with a narrow, reject-extra compatibility contract.
+Likewise, every field requirement must explicitly state freshness, source, and missing-field behavior—even
+when the deliberate answer is “unbounded” or “no authoritative source.” The compiler is now the clipboard:
+forgetting a policy choice is a build error, not a future privacy surprise.
+
+One useful war story surfaced immediately. Mission Control had been labeling an artifact's creation date
+as the context field's refresh date. Once freshness became mandatory, an old artifact made a freshly read
+snapshot look stale. The fix was conceptual, not cosmetic: object age and observation freshness are
+different clocks. Context fields now record when the inspector refreshed the source, while domain models
+retain when the underlying event or artifact was created.
+
+## 2026-09-04 — The Approval Button Learns “Once”
+
+The trusted UI registry originally looked like a guarded service counter, but several production screens
+were still serving the same goods from side doors. Receipts, capability leases, and context fields now
+enter through `TrustedUISurface`, and the user-playbook editor exercises the governed draft request
+instead of maintaining an unrelated editing path. An architecture test patrols the boundary: operator,
+autopilot, and playbook packages may describe UI requests, but importing SwiftUI, UIKit, or AppKit there
+is now a build-breaking offense.
+
+The nastiest bug was a classic double-tap race. The approval screen launched asynchronous work but left
+its buttons live, so a quick thumb could ring the execution bell twice. The view now claims a one-shot
+latch synchronously, disables every decision button, and shows a submitted state. Mission Control also
+claims the approval ID before its first suspension point, providing a second lock if a stale view or a
+second presenter reaches the model. Trust boundaries should wear both a belt and suspenders.
+
+Large text also stopped being an afterthought. Approval details and controls use `ViewThatFits` to move
+from rows to readable stacks, buttons retain full touch height, and the primary trusted controls have
+stable identifiers mirrored in the central accessibility registry. Resolver and action tests now prove
+that missing drafts/receipts fail closed and that callbacks fire only when the schema permits them.
+# Worklogs That Admit When They Drop the Clipboard
+
+The worklog used to behave like a court stenographer who quietly went home whenever the database
+misbehaved: execution continued, but nobody was told that part of the transcript was missing. The
+storage boundary now returns a typed `WorklogRecordResult`, tracks `WorklogStoreHealth`, rolls back a
+failed SwiftData save, and lets Mission Control say plainly that a trace is incomplete. High-risk
+actions fail closed when even their opening proposal cannot be durably recorded; lower-impact work
+may continue, but the degraded audit state remains visible. Execution durations are also validated,
+because `NaN` is a perfectly legal `Double` and a perfectly terrible JSON audit record.
+
+## The Worklog Learns to Raise Its Hand (September 2026)
+
+Receipts remain the restaurant bill: concise, durable, and understandable. The worklog is now the
+kitchen ticket rail, and importantly, a dropped ticket no longer fails silently. Every runtime-owned
+writer goes through an evidence-reporting recorder; failures appear on the runtime event stream, and
+scheduled execution records carry an explicit `EvidenceCompleteness` result. High-risk governed work
+already fails closed when its first mandatory worklog entry cannot persist, while post-execution
+evidence failures become an `evidenceIncomplete` outcome instead of a suspiciously clean success.
+
+The eval layer now photographs the evidence it graded. An `EvalResult` stores its owning playbook and
+a compact trace-health snapshot, so pruning an execution record cannot orphan a grade and an
+inconclusive report card can explain whether the trace was empty, degraded, non-terminal, or contained
+unknown future events.
+
+Adaptive improvement is deliberately a suggestion box, not a self-modifying robot. A pure engine
+turns repeated failures, criterion misses, latency shortfalls, and unhealthy traces into deterministic,
+evidence-linked recommendations. Mission Control lets a person accept, reject, or mark an accepted
+recommendation applied. Those transitions are persisted and themselves produce a worklog entry and
+receipt, but they cannot edit a playbook, grant a capability, or widen policy. The memorable rule is:
+the report card may recommend a sharper knife; it never gets to hand itself one.
+
+One migration lesson: adding a SwiftData model to the operator-runtime container is safer when the
+payload remains independently Codable. The indexed columns support sorting and lookup, while the blob
+preserves the domain contract and keeps future lifecycle additions tolerant.
+
+## The Roadmap Learns the Difference Between a Seedling and a Tree (September 2026)
+
+The Phase 1 documents had drifted into an awkward contradiction: one page said autopilot did not exist,
+while another accurately described a user-triggered governed runner doing real work. Both were trying to
+protect the same boundary, but they confused “some machinery exists” with “the production capability has
+shipped.” We reconciled the roadmap around three honest labels: absent, foundation/POC, and production
+deferred.
+
+That vocabulary matters most around authority. The current autopilot is an explicit, user-triggered POC
+that still passes through policy and receipt gates; it is not unattended autonomy. EvalCore's current
+recommendation lifecycle is a suggestion box, not full outcome evaluation or a self-improvement loop.
+Social sessions are coordination scaffolding, not autonomous multi-agent orchestration. The map now also
+names advanced memory graphs explicitly as deferred instead of leaving them in a foggy “maybe later”
+corner. A sapling can be real without pretending it is already a forest.
+
+## The Alarm Clock Stops Hitting Snooze Forever (September 2026)
+
+The first event scheduler carried only a Boolean: somewhere, something was stale. That is like an alarm
+clock remembering that it rang but forgetting which morning it was. Every background scan could treat the
+same old condition as brand-new work. Event signals now carry the moment a condition became actionable,
+and the scheduler compares that moment with the routine's last run. One event produces one run; a genuinely
+new event can ring the bell again.
+
+Approval aging also moved back to the source of truth. An old worklog escalation is history, not proof that
+approval authority is still pending. The process-local approval registry now timestamps requests and removes
+them from age queries when consumed. That preserves the fail-closed rule—approval authority still evaporates
+on relaunch—while stopping completed approvals from haunting the scheduler like paperwork-shaped ghosts.
+
+Mission Control now turns raw counters into a deliberately conservative trust label. Fewer than five runs is
+“Not enough data,” because one lucky success does not make a routine stable. After that, recurring failures and
+failure/block rates distinguish Stable, Needs Attention, and Flaky. These labels are dashboard instruments,
+not accelerator pedals: no metric can grant a lease or widen authority. Installed routines with no history are
+shown instead of disappearing, approval rate is visible, and every status has text and an icon so color is never
+the only messenger.
+### The dashboard that hid the bouncer
+
+The performance dashboard used to call one section “Failure history” while quietly showing only
+operator execution errors. Policy and authority blocks still affected a playbook’s health score, but
+the supporting rows vanished from the history—as if a restaurant’s scorecard counted every guest
+turned away while the incident log recorded only dropped plates. The history now includes both
+`.failed` and `.blocked` executions, so a flaky classification and its inspectable evidence tell the
+same story. A focused regression test keeps successful runs out while retaining both unsuccessful
+outcomes.
+
+### Two dialects for “artifact produced”
+
+The evaluator originally understood artifacts only when a governed tool wrote an `.executed` event.
+Scheduled routines speak a slightly different trace dialect: they write an `.artifactProduced`
+routine phase. The artifact was safely stored, yet evaluation looked at the paper trail and concluded
+that nothing had been produced—like rejecting a delivery because one courier stamped “delivered” and
+another stamped “parcel received.” The `producedArtifact` criterion now recognizes both canonical
+forms, with a direct evaluator test and an end-to-end RuntimeHost test proving the resulting next
+action is complete. Compiling the package suites also caught stale test fixtures after receipt and
+playbook storage APIs became stricter; those fixtures now provide explicit attribution and propagate
+persistence errors instead of relying on obsolete signatures.
+## 2026-09-06 — The Bouncer Learned to Check the Whole Passport
+
+The first narrow operators were already wearing governance badges, but two scope checks were still
+more like glancing at a name tag than checking a passport. On-Chain Watch matched an address without
+its chain, and Identity Review searched free-form receipt text for whatever identity somebody typed.
+That could mix the same hexadecimal address across networks or mistake a mention of another account
+for ownership.
+
+The boundary now uses structured coordinates. Watch observations must match both chain and address;
+identity observations must carry an exact structured identity/account value; and RuntimeHost refuses
+an identity review unless its scope equals the shell's active identity. Because RuntimeHost is reused
+across tabs, account switches explicitly refresh that identity boundary—the security equivalent of
+updating the guest list when the evening shift arrives.
+
+Research Brief now requires a real, non-blank query. Mission Control shows the fixed active identity
+instead of offering an arbitrary identity field, and a watch finding flows into the distinct
+confirm-first prepared-action route. The important model remains deliberately boring: observing is
+read-only, preparing is separately governed, and signing or broadcasting never sneaks into either.
+
+The tests now cover blank research rejection, cross-identity refusal, structured identity filtering,
+and chain-qualified watch matching. The operator UI test no longer treats a missing runnable operator
+or artifact as a reason to skip the proof.
+
+## 2026-09-06 — The Watch Operator Stopped Borrowing Someone Else’s Wallet
+
+The original On-Chain Watch demo arrived with a famous Ethereum address already in its pocket. Handy
+for a screenshot, awkward for a production operator: pressing Run could inspect a target the active
+identity never chose. The sample is gone. A watch now needs an explicit chain-qualified address and
+fails closed without one, like a courier refusing to leave until the parcel has both a street and a
+city.
+
+The production assembly now gives the operator a narrow adapter that combines two evidence streams:
+local receipt history and a read-only native-balance snapshot from the configured provider. It can
+observe and prepare a confirm-first review packet, but it has no signing or broadcast capability.
+Provider failures become sanitized observations, so operational detail does not leak into artifacts.
+
+Identity Review also learned to sort its desk properly. Successful records are changes; recent
+failures are anomalies; old unresolved failures are stale tasks. Those buckets are disjoint, avoiding
+the old double-count where one dusty failure could wear two labels.
+
+The best war story came from finally making the simulator proof strict. Once the UI test stopped
+skipping unreachable controls, it found a genuine runtime defect: the Research Brief executor emitted
+`sourceReceiptCount`, while its declared output schema rejected that very field. The operator could
+compose an artifact and then be bounced by its own contract—the software equivalent of printing a
+boarding pass that your own gate scanner cannot read. The schema now describes the complete output,
+and stable identifiers cover the compact section picker, operator outcomes, and artifact rows.
+
+## 2026-09-07 — Mission Control Got a Preflight Checklist
+
+A production review found three quiet-failure traps hiding behind an otherwise healthy console. The
+package tests existed but had no durable package scheme, automation identifiers had grown a second
+registry, and a damaged watchlist looked exactly like a user who had never configured one. Those are
+all versions of the same engineering smell: evidence existed, but the path to that evidence was
+ambiguous.
+
+Mission Control now points at AuraUI's single accessibility-ID registry, its snapshot baselines and
+lockfile are source-controlled, and watchlist persistence throws typed failures. The model treats a
+failed save like a bank transfer that did not clear: it restores the prior visible balance and raises
+a data-quality warning instead of pretending success. Console-only derivations also moved into a
+focused extension, beginning the job of turning the oversized home model from a crowded junk drawer
+into labeled cabinets.
+
+## 2026-09-12 — The Black Box Stopped Eating Damaged Evidence
+
+Two storage edges had optimistic stories that did not survive a bad day. A malformed social snapshot
+was translated into “nothing here,” and live runtime events arriving while audit history replayed sat
+in an unlimited waiting room. The first could erase an outbound queue on the next save; the second
+could trade a slow disk for runaway memory.
+
+Social persistence now treats unreadable bytes like evidence at an accident scene: it preserves the
+original, makes a quarantine copy, exposes the degraded state, and refuses to paint over it until a
+caller explicitly chooses to discard it. The runtime event bus now gives its replay-side waiting room
+the same capacity as its live stream. Overflow closes the subscription and lets the reliable consumer
+reconnect from its durable checkpoint—the audit equivalent of reopening the ledger instead of piling
+paper to the ceiling. Corruption tests cover all three social stores, and an actor-reentrancy test
+holds history loading open while publishers deliberately overflow the replay buffer.
+
+## 2026-09-12 — The Observers Learned to Reserve Their Seats
+
+The runtime's receipt and performance observers had an actor-reentrancy trap in `start()`. Each
+observer checked whether a consumer existed, then suspended while registering its event stream. Two
+callers could both pass that check before either returned—like two ushers seeing the same empty seat
+and issuing separate tickets. The duplicate consumers could race checkpoint updates and process the
+same reliable event more than once. A stop during that suspension was worse: the old start could wake
+later and install an orphan consumer after shutdown.
+
+Startup now reserves one shared registration task before its first suspension and tags it with a
+lifecycle generation. Concurrent starts await the same reservation; `stop()` cancels it and advances
+the generation, so stale work cannot reattach. Consumer loops also check cancellation before writing
+checkpoints or reconnecting. Focused tests hold registration open on purpose and prove both concurrent
+startup and stop-then-restart behavior. The release gate also exposed test fixtures still using the
+pre-grouped `RuntimeHost` initializer; they now compose stores, governance, models, operators, and
+identity hooks through the production API. RuntimeKit's complete 198-test suite passes.
+
+## 2026-09-12 — Time Travel and Déjà Vu
+
+Two small clocks were telling different stories. The capability registry accepted an `at` timestamp
+for deterministic expiry sweeps, but its first durable read quietly compared leases with the real
+wall clock. Asking “what was expired at noon?” could therefore get an answer influenced by dinner.
+Hydration now uses the caller's sweep instant, preserving both restart deduplication and honest
+historical evaluation.
+
+The performance observer had a different time-loop problem. Checkpoint writes are intentionally
+coalesced, so a crash may replay a short tail of runtime events. Receipt processing already recognizes
+that déjà vu, but planner metrics did not: the same completed run could be counted twice after
+relaunch. Planner performance records now inherit the terminal runtime event's UUID, and a new
+observer rebuilds its deduplication set from durable performance history before subscribing. The
+lesson is pleasantly blunt: if replay is part of the reliability design, idempotency must survive the
+process—not merely the task that happened to be running.
+# Receipt Recovery and Honest Waiting States
+
+Three tiny-looking `try?`/state-mapping choices turned out to be the software equivalent of a smoke
+alarm with the batteries removed. Artifact lookup now distinguishes “missing” from “stored but
+corrupt,” and receipt compensation reports the especially dangerous case where both the primary
+Keychain update and the database rollback fail. Recovery code is part of the integrity boundary; it
+cannot quietly shrug.
+
+Scheduled routines also gained an explicit `awaitingApproval` worklog phase. Previously, a prepared
+run needing a human decision wore a “Completed” badge, like a restaurant marking dinner served while
+the order was still waiting at the pass. The trace, Mission Control projection, evaluation, and
+retention logic can now agree that waiting is neither failure nor completion.
+
+## 2026-09-12 — Persistence Must Leave a Footprint
+
+Several operator-runtime stores used `try?` around SwiftData encoding, lookup, and save operations.
+That kept the runtime moving, but it also made a failed authority or evaluation write vanish without
+even a diagnostic—the database equivalent of a courier losing a package and marking the delivery
+complete. These paths now report the failed operation through structured logging and roll their model
+context back, so an unsuccessful save cannot leak dirty mutations into a later, unrelated save.
+
+Artifact versioning received the same transactional seatbelt. Superseding the old versions and saving
+the new one form a single logical move; if any part throws, the context rolls back rather than leaving
+the previous artifact wearing a premature “superseded” badge. The retired `AgentIdentityCore` package
+also lost its final tracked journal and resolution file. Its useful identity responsibilities already
+live in `RuntimeCore` and `ENS`, while an architecture test keeps the empty package from quietly
+returning.
+
+## 2026-10-20 — The Lock That Cried Wolf
+
+An NFT refresh crashed on an assertion inside the receipt ledger. The thread was a Core Data queue
+and a runtime-session write was in flight on another, so the report looked like a SwiftData
+threading violation — but the receipt store has owned a dedicated `ModelActor` context all along,
+and neither of those facts could set the thing that actually tripped. What tripped was the ledger's
+own non-reentrant lock: `assert(!LedgerLock.isHeld)`, firing because the task tree appending
+`nft.refresh.started` was already carrying the lock's task-local marker.
+
+The assertion had been written as a kindness. Re-entering the ledger lock means waiting on yourself,
+and a hang is the worst thing to receive a field report about, so the marker existed to turn a
+silent deadlock into a loud programming error that debug builds would catch before shipping. The
+crash was that kindness arriving at the wrong moment: a trap in front of a person, over a telemetry
+write whose own recorder already treats failure as best-effort and carries on. Worse, `assert`
+meant the two build configurations disagreed about what the rule even was — a crash in debug, the
+original self-wait in release. A rule with two consequences is two rules.
+
+So the refusal is now a thrown error, identical in both configurations. The more interesting half of
+the fix is that the condition had to get *narrower* at the same time. A single process-wide boolean
+cannot mean "this lock is held by me" when the store is memoized per `ModelContainer` and task-locals
+are inherited by every unstructured task spawned beneath a locked body. One store's body spoke for
+every other store's queue, and the marker outlived the body that set it, travelling into whatever a
+`modelContext.save()` notification happened to wake. Those are not re-entrancy; those tasks queue
+behind the tail like any other caller and complete. Throwing on the bare boolean would have traded a
+rare hang for a steady drip of discarded receipts.
+
+The marker now names its store, its acquisition, and the operation holding it, and the ledger tracks
+which acquisitions are still live. A refusal requires all three to line up: same store, still
+running, genuinely nested. Everything else proceeds, and logs a line saying where it inherited the
+marker from — because the escape route is still unidentified, and the next occurrence should name
+itself rather than be guessed at. The lesson is an old one wearing new clothes: a safety check is
+only as honest as the thing it actually measures, and "a flag is set somewhere in my task tree" was
+never the same proposition as "I am about to wait on myself".
+
+## 2026-10-21 — The Accessibility Whack-a-Mole
+
+Seven accessibility audits had been failing for so long that the report described them as one
+problem. They were closer to a row of dominoes: repairing a zero-width badge exposed the next
+Dynamic Type warning, and fixing that revealed a fourteen-point-tall button underneath it. The
+useful lesson was to keep rerunning the exact screens instead of treating the first reported element
+as the whole defect.
+
+The real fixes now live in the shared primitives: section headers protect trailing badges from being
+compressed to nothing, feedback text and buttons grow vertically, action rows fall back to a stack,
+and receipt outcome cards adapt when a pill no longer fits beside their explanation. The Home
+receipt link gained a genuine 44-point target, while shortened wallet addresses expose a readable
+label and the complete address as their accessibility value. A few XCTest reports remained for
+native controls and text already using semantic styles; those exceptions are matched by exact labels
+rather than brittle hierarchy dumps.
+
+This is not finished. Re-running `AccessibilityAuditUITests` on the iPhone 16 (26.0) simulator after
+the fixes left the receipt-detail and receipts-list audits still failing — the first on a clipped
+`AuraPill` title, which is why the pill dropped its two-line cap, and the second on a Dynamic Type
+report for a pill the suppression list already names by label, which is its own puzzle. Progress
+against the former baseline is real, but "the failing audits now pass" would be a claim the run does
+not support. The broader lesson still sticks: an accessibility test exception should be a scalpel
+with evidence, never a blanket — and the evidence has to be a run, not an expectation.
+
+## 2026-10-21 — Receipts Followed the Real Playlist Home
+
+AuraPlay had two playlist roads: the current SwiftData service and an older app-owned path. Receipts
+were standing beside the older road counting traffic, so the audit trail looked complete while the
+shipping UI could drive past unseen. The fix was a decorator around the current playlist manager.
+It compares before and after snapshots, emits create/modify/delete receipts for real changes, and
+stays quiet for no-ops. That last detail matters: an audit log that records imaginary changes is a
+smoke alarm that chirps whenever someone walks through the kitchen.
+
+The same cleanup principle now applies to semantic search. Removing media also removes its embedding
+in the same persistence transaction, preventing invisible derived data from outliving its source.
+Gateway overrides and recovery copy also gained typed, tested boundaries. The package's 132 tests
+passed together, which is the useful kind of confidence here: not merely that each new cog turns,
+but that the whole music machine still plays after installing them.
+
+## 2026-10-21 — The Plans Finally Became History
+
+The last AuraPlay gap list had become a peculiar museum: some exhibits were already shipping, some
+were deliberate constraints, and a few were genuine future ideas. We closed the code contracts first
+— receipt-backed active playlists, duplicate-safe playback receipts, derived-data cleanup, privacy
+purge, metadata overlays, deterministic semantic fixtures, and a preview-only auto-organizer — then
+ran the MusicFeature package's 132 tests and the focused app-hosted contracts.
+
+Only after the evidence was green did the planning files leave. Their durable facts moved into the
+architecture decision, current AuraPlay reference, known limitations, QA checklist, and the shared
+future-work backlog. That is the healthy lifecycle for a plan: it is scaffolding, not a second source
+of truth. Once the building stands, keep the load-bearing decisions and inspection checklist; take
+the scaffolding down.
+
+## 2026-10-22 — Twelve Buildings, Not Forty-One Sheds
+
+The package graph grew the way a useful workshop often does: every new tool got its own shed. That
+made ownership easy while the runtime was being discovered, but eventually walking between forty-one
+sheds became the work. The consolidation decision keeps twelve Auralis-owned buildings, plus the
+vendored CodeScanner, and puts strong internal walls—Swift targets—between their rooms.
+
+The inventory caught the most dangerous shortcut before construction started. `AuralisPrimaryModels`
+looked like a convenient foundation brick, but it was actually a moving box containing principal IDs,
+Ethereum chains, NFTs, playlists, search history, receipt wire formats and SwiftData models. Labeling
+the whole box “Foundation” would not create architecture; it would merely hide misplaced ownership.
+Those models now have recorded destination domains, and Foundation is reserved for genuinely portable
+primitives, ownership vocabulary and capability vocabulary.
+
+The strategy documents also sharpened a set of words that software loves to blur. An intent is not a
+commitment. A plan is not permission. A successful HTTP request is not a fulfilled outcome. Context
+is not memory, and a receipt is not proof that the human got what they wanted. Think of a restaurant:
+the diner’s request, the chef’s plan, the accepted order, the ticket’s live status, the pantry’s
+history, tonight’s station setup, the plated dish and the printed receipt are related, but swapping
+their labels would make the kitchen dangerous. Auralis now treats those distinctions as architectural
+invariants rather than prose aspirations.
+
+One more useful surprise: much of the “missing” agent OS was already present under practical names.
+Model routing, reliable event replay, actor attribution, outcome specifications, capability leases,
+trusted-UI schemas, receipts and artifacts all exist. Memory and durable commitments really are new
+domains; the rest should be moved and adapted, not cloned to satisfy a diagram. Good architecture is
+often less about inventing abstractions than recognizing the ones the running system has already paid
+to learn.
+
+## 2026-10-22 — The Test Helper That Owned a Database
+
+The first consolidation cut was deliberately small: remove one reverse dependency before moving any
+production package. `AuralisTestSupport` was supposed to be the clean toolbox every package could
+borrow, but one receipt fixture made that toolbox depend on `ReceiptStorage`. It was like requiring a
+warehouse lease before borrowing a screwdriver. Any future package that used the generic fixtures
+also inherited receipt persistence at the manifest level.
+
+The source search made the right ownership pleasantly concrete. `StoredReceiptFixture` had only two
+consumers, both app integration suites that already import ReceiptStorage. Moving the fixture beside
+those consumers removed the shared edge without inventing a public test-support product or widening
+production APIs. An architecture test now reads the manifest and source imports, so the warehouse
+cannot sneak back into the toolbox.
+
+The baseline also kept us honest: build-for-testing passed, while the full plan reported 955 passes,
+four skips and two Dynamic Type audit failures in Music and Receipts. After the move, the shared
+package built independently, the app built for testing, and all 22 directly affected tests passed.
+The final full run was cleaner still: 962 tests, 958 passes, four skips, and zero failures. The extra
+test is the new architectural tripwire, and the two baseline accessibility failures did not
+reproduce. A refactor is much easier to trust when “before” and “after” are measurements rather than
+vibes.
+
+## 2026-10-23 — The Foundation Suitcase Gets Its First Two Passengers
+
+The first real model-ownership move started with the two types that could prove their passport at
+the border: `PrincipalID` and `OwnershipDescriptor`. They import only Foundation, carry no app or
+blockchain behavior, and already had tests dedicated to the things they intentionally refuse to do.
+That made them ideal first residents of `AuralisFoundation`.
+
+The important part was what did *not* move. The old primary-model package also contains chains,
+accounts, NFTs, playlists, music-library rows, search history, receipt payloads, and a connected
+SwiftData schema. Calling that entire moving van “Foundation” would be like putting every department
+in the building's lobby because everyone uses the front door. The inventory instead assigned each
+family a future domain owner and left the cross-linked persistence cluster alone until its
+relationships can be separated deliberately.
+
+There are no forwarding aliases in the old module. Receipt contracts and receipt storage now import
+and declare `AuralisFoundation` directly, so the compiler enforces one owner rather than letting two
+names drift. The architecture test was moved with the source paths and still proves that the package
+has no local or remote dependencies. A single internal target is enough for these two tightly coupled
+values; more targets would currently add import ceremony without isolating a real consumer boundary.
+
+Validation followed the dependency chain outward: 20 Foundation ownership tests, 10 remaining
+primary-model tests, 68 receipt-core tests, and 207 receipt-storage tests all passed. The complete
+Xcode graph also built for testing, and the relocated ownership boundary test passed in the app test
+plan. The temporary package-root count rose from 42 to 43 because the destination must exist before
+the mixed source package can disappear; the finish line remains 12 Auralis-owned roots plus
+CodeScanner.
+
+The full app plan ran 962 tests: 956 passed, four skipped, and the Music and Receipts Dynamic Type
+audits produced the same two intermittent failures seen in the earlier baseline (they had passed on
+the immediately preceding run). The package move introduced no compiler, ownership, receipt, or
+persistence failures; the accessibility audits remain a separate existing issue rather than a reason
+to blur the new dependency boundary.
+
+## 2026-10-23 — The Receipt Envelope Leaves the Junk Drawer
+
+The next three models had an equally clear address: `ReceiptJSONValue`, `ReceiptPayload`, and
+`ReceiptMode` describe the receipt wire format, so they moved from the shared primary-model drawer
+into `ReceiptsCore`. Callers now import the domain they actually speak. New compatibility tests pin
+every JSON value shape, the payload's keyed wrapper, and the exact `Observe`/`Assist`/`Operate` raw
+values—the serialized envelope did not change just because its filing cabinet did.
+
+The source review also stopped this slice from becoming overconfident. `ReceiptActorDetail` and
+`ReceiptAuthorityDetail` look like obvious neighbors, but Runtime currently owns conversions to and
+from them, and Autopilot passes a receipt-shaped actor into Policy. Moving those types mechanically
+would make Runtime depend on Receipts, pointing the final package graph backwards. That is the
+architectural equivalent of moving the mailbox indoors and then routing the street through the
+living room. Those types stay temporarily shared until Policy accepts policy/runtime attribution and
+the receipt mapping can live on the outer receipt/host boundary.
+
+The moved vocabulary is guarded twice: `ReceiptsCore` owns the only public definitions, and an app
+architecture test rejects copies returning to PrimaryModels. Validation stayed pleasantly boring:
+the remaining PrimaryModels tests passed, ReceiptsCore grew from 68 to 71 passing tests, PolicyCore
+passed all 10 tests, ReceiptStorage passed all 207 tests, and Xcode built the complete test graph.
+The full app plan then ran 963 tests: 958 passed, four skipped, and the existing intermittent Music
+Dynamic Type audit was the sole failure. The new 963rd app-plan test is the receipt-ownership
+tripwire, and it passed.
+
+## 2026-10-23 — Policy Stops Asking for a Receipt Before the Decision
+
+The next dependency knot was subtle: Policy's public action gate asked callers for a
+`ReceiptActorDetail`. That is like asking someone to fill out the audit log before the guard has even
+decided whether the door may open. It made Autopilot translate Runtime's canonical `ActorRef` into a
+receipt wire value merely to request authorization, and it prevented the receipt actor models from
+moving to their rightful package without pulling Receipts backward into Runtime.
+
+`PolicyActionGating` now accepts `RuntimeCore.ActorRef` directly. Autopilot and RuntimeKit preserve
+the same attribution value through the decision path; only `ActionPolicyGate`, where the decision is
+actually recorded, converts it into receipt form. An architecture test rejects receipt actor models
+from returning to the public policy interface.
+
+This is intentionally half of a bridge move, not a claim that the whole knot is untied. RuntimeCore
+still owns bidirectional receipt conversion extensions used by receipt-producing outer layers. The
+next slice moves those conversions outward and then moves `ReceiptActor`, `ReceiptActorDetail`, and
+`ReceiptAuthorityDetail` into ReceiptsCore. The dependency compass remains simple: Receipts may know
+Runtime; Runtime must not know Receipts.
+
+## 2026-10-23 — The Mailbox Moves Back Outside
+
+The second half of the attribution move put the receipt-shaped models and their translation code in
+ReceiptsCore. Runtime now describes actors and authority in its own language; Receipts knows how to
+file those facts into durable columns. The street no longer runs through Runtime merely because the
+mail carrier needs to translate an address.
+
+One useful protocol-boundary lesson surfaced in the move. The old bridge called Runtime's internal
+reconstruction helper because it lived inside the same module. Moving the adapter outward revealed
+the real contract Runtime needed to publish: a tolerant initializer for raw actor kinds read from
+durable storage. That initializer does not mention receipts. Any future persistence adapter can use
+it while Runtime remains ignorant of the adapter and its wire schema.
+
+The bridge-heavy tests moved with ReceiptsCore; purely runtime serialization and identity behavior
+remains tested in RuntimeCore. An architecture guard now checks both halves of ownership: the three
+receipt attribution declarations exist only in ReceiptsCore, and RuntimeCore cannot quietly reclaim
+the conversion file.
+
+The independent package lanes are green—240 RuntimeCore tests and 115 ReceiptsCore tests. The app
+sources also compile. Xcode then exposed an honest project-configuration dependency: six app tests
+now import and call RuntimeCore directly, but the `AuralisTests` target links ReceiptsCore and not the
+RuntimeCore package product. Depending on a transitive static product happened to work before this
+graph move, but it was accidental. The durable fix is to add RuntimeCore explicitly to the test
+target in Xcode; editing the live project file behind Xcode's back is intentionally off limits.
+
+After RuntimeCore was added through Xcode, build-for-testing and all four focused app integration
+tests passed. The complete app plan did not return a result after an extended run and was cancelled;
+that is recorded as an incomplete runner result rather than being rounded up into a green claim.
+
+## 2026-10-23 — Three Engines, One Garage
+
+The first reduction in physical package count combines the media contracts, audio engine, and video
+engine under `AuraPlayEngines`. Nothing was melted into one module: the same three library products,
+two demos, and three test targets remain, and Audio/Video still point inward to MediaCore. We removed
+driveways, not walls.
+
+That distinction matters. Swift targets preserve compile-time boundaries and test ownership, while
+one package root removes three manifests, two inter-package path edges, and repeated package
+resolution work. The unified package passed all of its existing lanes: 77 video tests, 37 media-core
+tests, and 72 audio tests. The Xcode side then exposed an easy-to-miss detail: adding a local package
+offers every product, including demo executables, but the app only wants the three library products.
+After the three retired references and accidental demo links were removed, build-for-testing passed
+with no errors. The dependency guards and complete app-hosted AuraPlay orchestration suite followed
+at 24/24. The garage now has one address, three correctly labelled work bays, and no demo cars welded
+to the shipping app.
+
+## 2026-10-23 — Capabilities Moved Into The Foundation, Not Into Policy
+
+`CapabilitiesCore` was already the architectural equivalent of a pocket dictionary: stable IDs,
+categories, descriptors, use context, and a conservative registry, with no dependency on the people
+using those words. Giving that dictionary its own building added routing work without buying another
+wall. It now lives as an independent target and product inside `AuralisFoundation`; Runtime, Policy,
+Music, and the app still say `import CapabilitiesCore`, so this move changes package ownership rather
+than meaning.
+
+The distinction from policy remains important. A capability says what may be requested; policy says
+whether a particular request may proceed. Combining those modules would let vocabulary depend on
+enforcement and point the dependency graph outward. Instead, the dependency-free target retained its
+four wire-format and registry tests, and an architecture guard now prevents the retired root from
+quietly returning. Foundation passed 24 tests, Runtime 240, Policy 10, MusicFeature 133, the Xcode
+build-for-testing passed, and both package/import guards stayed green.
+
+## 2026-10-23 — The Generic Tool Drawer Joined Foundation
+
+The SwiftData and UserDefaults helpers were small package roots with good internal boundaries but no
+domain of their own. One wraps rollback-safe and undoable `ModelContext` mutations; the other is
+already generic over `Record: Codable & Sendable`. They belong in Foundation's tool drawer, not in
+separate buildings and definitely not inside account, receipt, token, or artifact storage.
+
+Their module names, products, and independent test targets survived the move. The interesting snag
+was test architecture: the UserDefaults suite imported `AuralisTestSupport` for one temporary-suite
+helper, which would eventually point Foundation outward toward its own consumer. A tiny local fixture
+removed that reverse edge. Another useful tripwire appeared when ReceiptStorage declared the same
+Foundation package twice for two products; the dependent-package run caught the duplicate identity
+before Xcode did. Foundation finished at 34 green tests, its four SwiftData consumers at 248/248,
+and build-for-testing plus both architecture guards passed after the Xcode references were cleaned.
+
+## 2026-10-23 — Freshness Followed The Tokens
+
+The mixed primary-model package still had one clock on its wall: the twelve-hour ERC-20 metadata
+freshness policy. The source inventory showed that only TokenStorage production behavior and two
+token presentation suites used it. That made ownership pleasantly unambiguous—the clock belongs
+beside the records whose freshness it measures.
+
+The policy moved without changing its API, and TokenStorage gained direct tests for the second before
+the boundary, the boundary itself, and a future timestamp. An architecture guard prevents the type
+from drifting back into PrimaryModels. PrimaryModels remained 10/10, TokenStorage moved to 10/10,
+build-for-testing passed, and both presentation suites plus the guard passed at 22/22.
+
+The same inventory found something even less model-like: `PrimaryStoreCopy` was two strings shown
+when app-launch persistence fails, and only `AuralisApp` used it. It moved beside that composition
+root instead of being promoted into another shared module. The rule is useful beyond this one file:
+not every reusable-looking struct is a domain model, and a type with one presentation owner should
+not make the entire package graph carry its vocabulary. Build-for-testing and the ownership guard
+both stayed green after the move.
+
+## 2026-10-23 — One JSON Vocabulary, Two Different Ledgers
+
+The generic `JSONValue` had outgrown its accidental home in PrimaryModels. Provider responses, NFT
+metadata, music discovery, app helpers, and test fixtures all used it without caring about any
+primary persisted model. The inventory also found a second private JSON enum inside MusicFeature,
+doing the same recursive coding job with a slightly different number case. That was a warning flare:
+the shared primitive was real, but its owner was wrong.
+
+The canonical enum now lives in dependency-free Foundation, conforms to `Equatable`, and keeps
+integer and fractional numbers distinct under tests. MusicFeature uses it instead of maintaining a
+look-alike. Receipt JSON deliberately remains separate because it is persisted receipt wire
+vocabulary, not a general provider payload. The affected package suites passed—23 Foundation, 10
+PrimaryModels, 52 NFTKit, 22 ProviderKit, and 133 MusicFeature tests—followed by build-for-testing and
+both dependency guards after the app linked Foundation explicitly.
+
+## 2026-10-23 — Empty Suitcases Do Not Need A New Address
+
+The PrimaryModels inventory found five polished-looking portable values for NFTs, token holdings,
+playlists, and search history. They had initializers, Codable conformance, and absolutely no callers.
+They were architectural luggage packed for a trip nobody had booked. Moving them into the planned
+domain packages would have made the diagram tidier while preserving speculative APIs as if they were
+requirements.
+
+Those unused values were deleted instead. `AccountSummary` remains because AccountsFeature and the
+home surface genuinely exchange it. An architecture tripwire now prevents the five speculative
+types from quietly returning without consumers. The same investigation also caught a more serious
+constraint: AccountStorage currently deletes and snapshots account, token, music, search, and NFT
+records inside one rollback-safe SwiftData mutation. Replacing that with ordinary cleanup callbacks
+would create prettier imports at the cost of partial deletion and broken undo. The future seam must
+move the transaction boundary with the orchestration—or provide transaction-aware adapters—not just
+paint a protocol over the existing coupling.
+
+## 2026-10-23 — The Undo Button Had Two Missing Boxes
+
+Before turning account cleanup into a protocol, we checked what its transaction actually promised.
+The answer was slightly alarming: removing an account deleted its indexed music rows, but the manual
+undo snapshot did not pack them for the return trip. NFT attributes were packed, then left sitting in
+the snapshot while the restored NFT was built without them. Undo brought the house back but forgot
+the record collection and some labels on the art.
+
+`MusicLibraryItemSnapshot` now preserves every stored music-index field, and NFT restoration rebuilds
+the captured attributes. The focused integration test inserts both, removes the account, verifies the
+rows disappear, invokes undo, and verifies their meaningful values return. This is also the shape of
+the future package boundary: domain adapters should own complete snapshot/delete/restore behavior,
+while one coordinator owns the shared SwiftData transaction. Independent cleanup callbacks would be
+easier to draw and much harder to trust.
+
+The invariant now also lives beside its implementation in `AccountStorageTests`, so the package will
+carry the contract when it leaves the app graph. Xcode's generated AccountStorage scheme compiled
+successfully but advertised zero tests in its test plan—a useful reminder that a green package build
+is not a package test run. The executable app-hosted undo and architecture checks both passed after
+the scheme was restored; the owner-package test remains explicitly pending the repository's package
+test lane.
+
+## 2026-10-23 — One Transaction, Four Moving Crews
+
+AccountStorage's cleanup knot now has an actual seam. Token holdings, indexed music, search history,
+and NFTs each implement the same capture/delete/restore participant protocol. Think of them as four
+moving crews working inside one building: each knows how to pack its own room, but only the building
+manager holds the master key and closes the transaction. Participants cannot save, commit, or open a
+second context.
+
+This keeps rollback and undo honest while making the eventual package move mechanical: each
+participant can travel with its domain model once the destination target exists. Build-for-testing
+passed, followed by focused overwrite, removal/fallback, undo, and architecture checks at 4/4. An
+architecture tripwire now requires all four participants and their common protocol to remain present
+until they are replaced by the final injected domain adapters.
+
+Then the fire drill earned its keep. A test-only hook stopped removal immediately after the music
+participant, late enough that token and music cleanup had already run. `performRollbackSafeMutation`
+called rollback exactly as designed—but SwiftData's typed batch-delete API had already made those rows
+disappear. The account and NFTs returned; the token and music records did not. Our “one transaction”
+sign was hanging over two trapdoors.
+
+Account-scoped participants now fetch matching records and delete the model instances through the
+shared context. Those deletes participate in rollback correctly. The injected failure test now keeps
+the account plus all four domain record families intact, and the existing overwrite, fallback, undo,
+and architecture regressions remain green. This is why migration tests need forced failures: happy
+paths can make a non-atomic system look perfectly atomic.
+
+## 2026-10-23 — The Moving Crews Went Home To Their Domains
+
+The transaction protocol shed its account-specific name and moved into the Foundation SwiftData
+toolbox as `ScopedPersistenceParticipant`. It knows only that a caller supplies a scope, a context,
+and ownership of the transaction. That is enough structure for strong generic composition without
+teaching Foundation what a wallet, token, song, or NFT is.
+
+The token crew moved first: TokenStorage now owns the full value snapshot and the code that captures,
+deletes, and restores `TokenHolding`. NFT persistence followed, taking its snapshot and cleanup rules
+with it. That move also retired a duplicate cleanup implementation in AccountStorage; orphan
+contracts, collections, and tags now have one owner. AccountStorage is becoming the conductor rather
+than a musician who somehow plays every instrument. Build-for-testing stayed green, and the five
+focused rollback, undo, overwrite, package-graph, and NFT-layer checks passed.
+
+The first NFT-owner test then opened boxes the old snapshot never packed: external and background
+metadata, image and raw-metadata children, tags, and playlist membership. All eight checks failed on
+the first run. NFTPersistence now reconstructs the child records, reuses or recreates tags by name,
+and reconnects surviving playlists by stable ID. Undo fidelity and forced transaction rollback both
+pass, so moving cleanup ownership did more than tidy imports—it exposed and repaired real data loss.
+
+Three smaller pieces then followed their actual callers. `AccountSummary` moved into AccountsCore,
+leaving the speculative portable-values file empty enough to delete. Native-token symbols and labels
+moved beside TokenStorage, their only consumer. Finally, `NFT.musicURL` and its HTTPS/IPFS sanitation
+policy moved into MusicFeature: choosing a playable audio URL is music behavior, not an obligation of
+every persisted NFT. These are small moves, but they shave accidental responsibilities off the mixed
+model package without inventing replacement abstractions.

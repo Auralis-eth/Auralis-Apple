@@ -30,6 +30,7 @@ public struct LibraryRootView: View {
     @State private var pendingPlaylistDeletion: AuraPlayPlaylistSnapshot?
     @State private var playlistMutationError: String?
     @State private var showsSearchDiagnostics = false
+    @State private var showsAutoOrganization = false
     @Namespace private var playerTransitionNamespace
 
     private let columns = [
@@ -122,6 +123,16 @@ public struct LibraryRootView: View {
                     }
                     .accessibilityLabel("Create playlist")
                 }
+                ToolbarItem(placement: .auraPlayBarLeading) {
+                    Button {
+                        showsAutoOrganization = true
+                    } label: {
+                        Image(systemName: "wand.and.sparkles")
+                    }
+                    .accessibilityLabel("Auto-organize library")
+                    .accessibilityHint("Opens a safe preview without changing playlists")
+                    .accessibilityIdentifier(A11yID.AuraPlay.autoOrganizationOpen)
+                }
                 ToolbarItem(placement: .auraPlayBarTrailing) {
                     Button {
                         openWalletPicker()
@@ -136,6 +147,9 @@ public struct LibraryRootView: View {
             }
             .sheet(item: $recommendationSheet) { sheet in
                 recommendationSheetView(sheet)
+            }
+            .sheet(isPresented: $showsAutoOrganization) {
+                AuraPlayAutoOrganizationView(model: model)
             }
             .alert("Delete Playlist?", isPresented: deletePlaylistBinding) {
                 Button("Delete", role: .destructive) {
@@ -306,11 +320,15 @@ public struct LibraryRootView: View {
                         Spacer()
                         sortMenu
                         Toggle("Unplayed", isOn: $unplayedOnly)
+                            .font(.body)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     VStack(alignment: .leading, spacing: 10) {
                         layoutToggle
                         sortMenu
                         Toggle("Unplayed", isOn: $unplayedOnly)
+                            .font(.body)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -507,6 +525,8 @@ public struct LibraryRootView: View {
 
                 Toggle(currentChain.routingDisplayName, isOn: searchCurrentChainBinding)
                 Toggle("Unplayed", isOn: searchUnplayedBinding)
+                    .font(.body)
+                    .fixedSize(horizontal: false, vertical: true)
                 Button("Clear Filters", systemImage: "xmark.circle") {
                     model.clearSearchFilters()
                 }
@@ -524,6 +544,8 @@ public struct LibraryRootView: View {
 
                 Toggle(currentChain.routingDisplayName, isOn: searchCurrentChainBinding)
                 Toggle("Unplayed", isOn: searchUnplayedBinding)
+                    .font(.body)
+                    .fixedSize(horizontal: false, vertical: true)
                 Button("Clear Filters", systemImage: "xmark.circle") {
                     model.clearSearchFilters()
                 }

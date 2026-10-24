@@ -81,7 +81,9 @@ public struct NFTLibraryDetailView: View {
             }
         }
         .navigationTitle(titleText)
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
         .background(Color.background)
         .accessibilityIdentifier("nft.detail.screen")
     }

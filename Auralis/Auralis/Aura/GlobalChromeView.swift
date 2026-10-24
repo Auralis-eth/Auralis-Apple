@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
+import AuraUI
 import SwiftData
 import SwiftUI
-import AuraUI
 
 struct GlobalChromeView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize

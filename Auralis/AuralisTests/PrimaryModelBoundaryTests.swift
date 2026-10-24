@@ -1,6 +1,7 @@
-import Foundation
+@testable import Auralis
 import AuralisPrimaryPersistence
 import AuralisTestSupport
+import Foundation
 import MusicFeature
 import ReceiptStorage
 import SwiftData
@@ -29,9 +30,7 @@ struct PrimaryModelBoundaryTests {
             "EOAccount",
             "NFT",
             "Tag",
-            "Playlist",
-            "MusicLibraryItem",
-            "SearchHistoryRecord",
+            "Playlist"
         ]
 
         for file in pureSourceFiles {
@@ -45,9 +44,7 @@ struct PrimaryModelBoundaryTests {
             EOAccount.self,
             NFT.self,
             Tag.self,
-            Playlist.self,
-            MusicLibraryItem.self,
-            SearchHistoryRecord.self,
+            Playlist.self
         ]
 
         #expect(primaryPersistenceModels.count == persistedModelNames.count)
@@ -62,14 +59,17 @@ struct PrimaryModelBoundaryTests {
             #expect(source.contains("final class StoredReceipt") == false, "\(file.path) declares StoredReceipt")
             #expect(source.contains("final class TokenHolding") == false, "\(file.path) declares TokenHolding")
             #expect(source.contains("final class AuraPlayMediaItem") == false, "\(file.path) declares AuraPlayMediaItem")
+            #expect(source.contains("final class SearchHistoryRecord") == false, "\(file.path) declares SearchHistoryRecord")
         }
 
         let storageModels: [any PersistentModel.Type] = [
             StoredReceipt.self,
             TokenHolding.self,
+            MusicLibraryItem.self,
+            SearchHistoryRecord.self
         ]
 
-        #expect(storageModels.count == 2)
+        #expect(storageModels.count == 4)
         #expect(AuraPlaySchema.models.contains { $0 == AuraPlayMediaItem.self })
     }
 }

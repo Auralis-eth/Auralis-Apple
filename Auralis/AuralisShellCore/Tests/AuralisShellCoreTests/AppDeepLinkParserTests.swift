@@ -28,6 +28,10 @@ struct AppDeepLinkParserTests {
                 "auralis://receipt/0xreceipt123",
                 AppDeepLink.destination(.receipt(id: "0xreceipt123"))
             ),
+            (
+                "auralis://mission-control/artifacts/1D491514-706B-4598-8631-CCEB71DCEF21",
+                AppDeepLink.destination(.artifact(id: "1D491514-706B-4598-8631-CCEB71DCEF21"))
+            )
         ]
     )
     func parsesTopLevelRoutes(urlString: String, expectedRoute: AppDeepLink) throws {
@@ -131,6 +135,10 @@ struct AppDeepLinkParserTests {
                 "auralis://receipt/",
                 "Invalid Receipt Link"
             ),
+            (
+                "auralis://mission-control/artifacts/not-a-uuid",
+                "Invalid Artifact Link"
+            )
         ]
     )
     func rejectsInvalidRoutePayloads(urlString: String, expectedTitle: String) throws {

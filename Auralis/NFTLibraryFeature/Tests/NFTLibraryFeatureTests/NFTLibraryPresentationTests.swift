@@ -5,7 +5,7 @@ import Testing
 
 struct NFTLibraryPresentationTests {
     @Test("contract-backed collection detail filters by contract")
-    func contractBackedCollectionFiltersByContract() {
+    func contractBackedCollectionFiltersByContract() throws {
         let matching = NFTLibraryTestFactory.nft(
             id: "matching",
             contractAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -33,12 +33,14 @@ struct NFTLibraryPresentationTests {
 
         #expect(presentation.title == "Moonpunks")
         #expect(presentation.items.map(\.id) == [matching.id])
-        #expect(try #require(presentation.items.first).title == "Moonpunk #1")
+        // `#require` cannot nest inside `#expect`, so the item is bound first.
+        let firstItem = try #require(presentation.items.first)
+        #expect(firstItem.title == "Moonpunk #1")
         #expect(presentation.contractAddressLine == "0xaaaa...aaaa")
     }
 
     @Test("name-backed collection detail filters by collection name")
-    func nameBackedCollectionFiltersByCollectionName() {
+    func nameBackedCollectionFiltersByCollectionName() throws {
         let matching = NFTLibraryTestFactory.nft(
             id: "matching",
             contractAddress: nil,
@@ -54,7 +56,8 @@ struct NFTLibraryPresentationTests {
         )
 
         #expect(presentation.items.count == 1)
-        #expect(try #require(presentation.items.first).title == "Untitled NFT")
+        let firstItem = try #require(presentation.items.first)
+        #expect(firstItem.title == "Untitled NFT")
         #expect(presentation.subtitle == "1 item in Base")
     }
 

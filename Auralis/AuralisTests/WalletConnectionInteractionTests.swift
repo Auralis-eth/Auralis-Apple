@@ -17,6 +17,7 @@ import WalletConnectorKit
 /// Keychain, or `UserDefaults` is touched. Image snapshot coverage lives with
 /// the app target's rendering host, not here.
 @MainActor
+@Suite(.serialized)
 struct WalletConnectionInteractionTests {
     private static let addressA = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     private static let addressB = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -145,6 +146,43 @@ struct WalletConnectionInteractionTests {
         #expect(harness.active.get() == nil)
     }
 
+    // MARK: Remote session deletion
+
+    @Test("A deleted session tears down its own wallet, not whichever one is active")
+    func sessionDeletedTearsDownTheDeletedWalletNotTheActiveOne() async throws {
+        let harness = try makeHarness()
+
+        harness.connector.settle(session(topic: "topic-A", accounts: [caip10(Self.addressA)]))
+        await waitUntil { harness.active.get() == Self.addressA }
+        harness.connector.settle(session(id: "session-B", topic: "topic-B", accounts: [caip10(Self.addressB)]))
+        await waitUntil { harness.active.get() == Self.addressB }
+
+        // B is now the active wallet, so the service's `connectedAddress` names B — while the
+        // session that ends below is A's. That divergence is the whole point: resolving the
+        // teardown from `connectedAddress` tore down B and left A's dead record in place.
+        harness.connector.liveSessions = [
+            session(
+                id: "session-B",
+                topic: "topic-B",
+                accounts: [caip10(Self.addressB)],
+                addressVerified: true
+            )
+        ]
+
+        harness.connector.delete(topic: "topic-A")
+        await waitUntil { try await harness.topics.load(walletAddress: Self.addressA) == nil }
+
+        // A — the wallet whose session actually ended — is the one torn down.
+        #expect(try await harness.topics.load(walletAddress: Self.addressA) == nil)
+        #expect(try account(for: Self.addressA, in: harness.context).access == .readonly)
+
+        // B keeps its topic record, stays signing-capable, and stays active.
+        #expect(try await harness.topics.load(walletAddress: Self.addressB)?.rawValue == "topic-B")
+        #expect(try account(for: Self.addressB, in: harness.context).access == .wallet)
+        #expect(harness.active.get() == Self.addressB)
+        #expect(harness.service.connectedAddress == Self.addressB)
+    }
+
     // MARK: Signing & SIWE
 
     @Test("Signing a personal message routes to the connector and returns the signature")
@@ -236,7 +274,8 @@ struct WalletConnectionInteractionTests {
         topic: String,
         accounts: [String],
         providerID: String = "metamask",
-        providerName: String = "MetaMask"
+        providerName: String = "MetaMask",
+        addressVerified: Bool = false
     ) -> WalletConnectorSession {
         WalletConnectorSession(
             id: WalletSessionID(rawValue: id),
@@ -245,7 +284,8 @@ struct WalletConnectionInteractionTests {
             providerName: providerName,
             accounts: accounts.map { WalletAccount(caip10: $0) },
             namespaces: [],
-            expiryDate: Date().addingTimeInterval(3600)
+            expiryDate: Date().addingTimeInterval(3600),
+            addressVerified: addressVerified
         )
     }
 
@@ -307,6 +347,7 @@ private final class RecordingWalletConnector: WalletConnector, @unchecked Sendab
     private var _verifiesOwnership = true
     private var _cannedSignature: String?
     private var _lastRequest: WalletRequest?
+    private var _liveSessions: [WalletConnectorSession] = []
 
     private let stream: AsyncStream<WalletConnectorEvent>
     private let continuation: AsyncStream<WalletConnectorEvent>.Continuation
@@ -334,7 +375,7 @@ private final class RecordingWalletConnector: WalletConnector, @unchecked Sendab
 
     func handleCallback(url: URL) async throws {}
 
-    func sessions() async throws -> [WalletConnectorSession] { [] }
+    func sessions() async throws -> [WalletConnectorSession] { lock.withLock { _liveSessions } }
 
     func disconnect(sessionId: WalletSessionID) async throws {
         lock.withLock { _disconnectedTopics.append(sessionId.rawValue) }
@@ -362,6 +403,19 @@ private final class RecordingWalletConnector: WalletConnector, @unchecked Sendab
 
     func settle(_ session: WalletConnectorSession) {
         continuation.yield(.sessionSettled(session))
+    }
+
+    /// Emits `sessionDeleted` for `topic`. Every shipped transport keys that event's session id by
+    /// the topic string (`WalletSessionID(rawValue: topic)`), so the raw value here is the topic.
+    func delete(topic: String) {
+        continuation.yield(.sessionDeleted(WalletSessionID(rawValue: topic)))
+    }
+
+    /// The sessions `sessions()` reports as live, which is what reconciliation reads. Defaults to
+    /// empty so tests that never reconcile are unaffected.
+    var liveSessions: [WalletConnectorSession] {
+        get { lock.withLock { _liveSessions } }
+        set { lock.withLock { _liveSessions = newValue } }
     }
 
     /// Toggles whether the connector proves ownership. Defaults to `true` so the

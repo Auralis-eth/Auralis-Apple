@@ -1,20 +1,24 @@
-import ReceiptsCore
+import AuralisPrimaryModels
 import ENS
 import Foundation
 import OSLog
+import ReceiptsCore
 
 @MainActor
 final class ReceiptBackedENSEventRecorder: ENSEventRecording {
     private let receiptStore: any ReceiptStore
     private let payloadSanitizer: any ReceiptPayloadSanitizing
+    private let modeProvider: @MainActor () -> ReceiptMode
     private let logger = Logger(subsystem: "Auralis", category: "ENSReceipts")
 
     init(
         receiptStore: any ReceiptStore,
-        payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer()
+        payloadSanitizer: any ReceiptPayloadSanitizing = DefaultReceiptPayloadSanitizer(),
+        modeProvider: @escaping @MainActor () -> ReceiptMode = { .observe }
     ) {
         self.receiptStore = receiptStore
         self.payloadSanitizer = payloadSanitizer
+        self.modeProvider = modeProvider
     }
 
     func recordCacheHit(
@@ -129,8 +133,9 @@ private extension ReceiptBackedENSEventRecorder {
         do {
             _ = try await receiptStore.append(
                 ReceiptDraft(
-                    actor: .system,
-                    mode: .observe,
+                    actorDetail: .workflow("identity.ens"),
+                    authorityDetail: ReceiptAuthorityDetail(source: "policyDefault", reason: "Read-only ENS resolution is allowed by standing policy."),
+                    mode: modeProvider(),
                     trigger: trigger,
                     scope: "identity.ens",
                     summary: summary,

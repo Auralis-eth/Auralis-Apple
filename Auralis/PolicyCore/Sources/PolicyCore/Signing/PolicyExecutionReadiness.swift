@@ -56,7 +56,7 @@ public extension PolicyControlledAction {
                 .capabilityGrant,
                 .requesterProvenance,
                 .userConfirmation,
-                .approvedReceipt,
+                .approvedReceipt
             ]
         case .approveSpending:
             return [
@@ -64,7 +64,7 @@ public extension PolicyControlledAction {
                 .capabilityGrant,
                 .requesterProvenance,
                 .userConfirmation,
-                .approvedReceipt,
+                .approvedReceipt
             ]
         case .draftTransaction:
             return [
@@ -74,14 +74,14 @@ public extension PolicyControlledAction {
                 .userConfirmation,
                 .approvedReceipt,
                 .chainAllowlist,
-                .transactionPreview,
+                .transactionPreview
             ]
         case .runPlugin:
             return [
                 .capabilityGrant,
                 .requesterProvenance,
                 .userConfirmation,
-                .approvedReceipt,
+                .approvedReceipt
             ]
         }
     }

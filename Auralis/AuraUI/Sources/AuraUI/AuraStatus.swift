@@ -69,10 +69,13 @@ public struct AuraPill: View {
             }
 
             if let title {
+                // No line limit: a two-line cap still truncates a pill title at accessibility
+                // text sizes, which is what the receipt-detail audit reports as clipped. A tall
+                // capsule is the better trade than an unreadable one.
                 Text(title)
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .lineLimit(2)
+                    .lineLimit(nil)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }

@@ -10,13 +10,13 @@ struct NFTCollectionDetailView: View {
     let route: NFTTokensRoute
     let currentAccountAddress: String?
     let currentChain: Chain
-    let onOpenItem: (String) -> Void
+    let onOpenItem: @MainActor @Sendable (String) -> Void
 
     init(
         route: NFTTokensRoute,
         currentAccountAddress: String?,
         currentChain: Chain,
-        onOpenItem: @escaping (String) -> Void
+        onOpenItem: @escaping @MainActor @Sendable (String) -> Void
     ) {
         self.route = route
         self.currentAccountAddress = currentAccountAddress

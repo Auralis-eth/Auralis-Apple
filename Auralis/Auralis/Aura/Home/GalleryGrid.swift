@@ -5,8 +5,8 @@
 //  Created by Daniel Bell on 10/20/25.
 //
 
-import SwiftUI
 import AuraUI
+import SwiftUI
 
 /// New GalleryGrid View added as requested
 struct GalleryGrid: View {

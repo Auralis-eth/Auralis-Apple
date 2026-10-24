@@ -19,7 +19,8 @@ public extension ReceiptEventLogger {
                 chain: chain
             ).rawPayload,
             correlationID: correlationID,
-            actor: .system,
+            actorDetail: .workflow("music.library_index"),
+            authorityDetail: .policyDefault(reason: "Local music library indexing allowed by standing policy."),
             isSuccess: true
         )
     }
@@ -47,7 +48,8 @@ public extension ReceiptEventLogger {
                 removedCount: removedCount
             ).rawPayload,
             correlationID: correlationID,
-            actor: .system,
+            actorDetail: .workflow("music.library_index"),
+            authorityDetail: .policyDefault(reason: "Local music library indexing allowed by standing policy."),
             isSuccess: true
         )
     }
@@ -71,7 +73,8 @@ public extension ReceiptEventLogger {
                 errorCode: "musicLibraryIndexFailed"
             ).rawPayload,
             correlationID: correlationID,
-            actor: .system,
+            actorDetail: .workflow("music.library_index"),
+            authorityDetail: .policyDefault(reason: "Local music library indexing allowed by standing policy."),
             isSuccess: false
         )
     }

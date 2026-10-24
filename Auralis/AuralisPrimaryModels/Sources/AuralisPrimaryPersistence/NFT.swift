@@ -1,5 +1,6 @@
-import Foundation
+import AuralisFoundation
 import AuralisPrimaryModels
+import Foundation
 import OSLog
 import SwiftData
 
@@ -115,14 +116,6 @@ public final class NFT: Codable {
 
     public func isMusic() -> Bool {
         audioUrl?.isEmpty == false
-    }
-
-    public var musicURL: URL? {
-        guard let audioUrl else {
-            return nil
-        }
-
-        return URL.sanitizedAuralisRemoteMediaURL(from: audioUrl)
     }
 
     enum CodingKeys: String, CodingKey {

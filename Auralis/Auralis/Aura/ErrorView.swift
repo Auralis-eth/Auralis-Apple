@@ -5,9 +5,9 @@
 //  Created by Daniel Bell on 6/24/25.
 //
 
-import SwiftUI
-import AuraUI
 import AuralisShellCore
+import AuraUI
+import SwiftUI
 
 struct ErrorView: View {
     let action: @MainActor () -> Void

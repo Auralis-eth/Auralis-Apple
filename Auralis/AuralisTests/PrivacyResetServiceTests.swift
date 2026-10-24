@@ -1,19 +1,20 @@
-import ReceiptsCore
-import ReceiptStorage
+import AccountsCore
+import AccountStorage
+@testable import Auralis
+import AuralisPrimaryModels
+import AuralisPrimaryPersistence
+import AuralisShellCore
+import AuralisTestSupport
+import ENS
+import Foundation
+import MusicFeature
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
-@testable import Auralis
-import AccountStorage
-import AccountsCore
-import AuralisTestSupport
-import ENS
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
-import AuralisShellCore
-import Foundation
-import MusicFeature
+import ReceiptsCore
+import ReceiptStorage
+import RuntimeKit
 import SwiftData
 import Testing
 import TokenStorage
@@ -56,9 +57,11 @@ struct PrivacyResetServiceTests {
             storageKey: storageKey
         )
         let service = PrivacyResetService(
-            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalResetService(
                 modelContainer: context.container
             ),
+            receiptLedgerResetService: RecordingReceiptLedgerResetService(),
+            runtimeHistoryResetService: RecordingRuntimeHistoryResetService(),
             ensCacheResetService: ENSCacheResetService(cacheStore: cacheStore),
             auraPlayPersistenceResetService: RecordingAuraPlayPersistenceResetService(),
             credentialResetService: RecordingCredentialPrivacyResetter(),
@@ -96,6 +99,43 @@ struct PrivacyResetServiceTests {
         #expect(defaults.data(forKey: storageKey) == nil)
     }
 
+    @Test("privacy reset clears persisted social coordination state")
+    func resetLocalPrivacyDataClearsSocialCoordinationState() async throws {
+        let container = try TestModelContainers.primary()
+        let context = ModelContext(container)
+        let (defaults, cleanup) = try TestSupport.temporaryUserDefaults(prefix: "PrivacyResetServiceTests.social")
+        defer { cleanup() }
+        defaults.set(Data([1, 2, 3]), forKey: UserDefaultsSharedSessionPersistence.defaultKey)
+        defaults.set(Data([4, 5, 6]), forKey: UserDefaultsRitualStatePersistence.defaultKey)
+        defaults.set(Data([7, 8, 9]), forKey: UserDefaultsSocialEventLogPersistence.defaultKey)
+        defaults.set("participant", forKey: UserDefaultsSocialCoordinationResetter.localParticipantIDKey)
+        let playlistBindingKey = UserDefaultsSocialCoordinationResetter.sessionPlaylistKeyPrefix + UUID().uuidString
+        defaults.set("playlist", forKey: playlistBindingKey)
+        defaults.set("preserved", forKey: "unrelated.preference")
+        let service = PrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalResetService(
+                modelContainer: context.container
+            ),
+            receiptLedgerResetService: RecordingReceiptLedgerResetService(),
+            runtimeHistoryResetService: RecordingRuntimeHistoryResetService(),
+            ensCacheResetService: RecordingENSCacheResetService(),
+            socialCoordinationResetService: UserDefaultsSocialCoordinationResetter(defaults: defaults),
+            auraPlayPersistenceResetService: RecordingAuraPlayPersistenceResetService(),
+            credentialResetService: RecordingCredentialPrivacyResetter(),
+            selectionPersistence: RecordingShellSelectionPersistence(),
+            homePinnedItemsStore: makeIsolatedPinnedItemsStore()
+        )
+
+        try await service.resetLocalPrivacyData()
+
+        #expect(defaults.data(forKey: UserDefaultsSharedSessionPersistence.defaultKey) == nil)
+        #expect(defaults.data(forKey: UserDefaultsRitualStatePersistence.defaultKey) == nil)
+        #expect(defaults.data(forKey: UserDefaultsSocialEventLogPersistence.defaultKey) == nil)
+        #expect(defaults.string(forKey: UserDefaultsSocialCoordinationResetter.localParticipantIDKey) == nil)
+        #expect(defaults.string(forKey: playlistBindingKey) == nil)
+        #expect(defaults.string(forKey: "unrelated.preference") == "preserved")
+    }
+
     private func arrangePopulatedFixture() async throws -> PrivacyResetFixture {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
@@ -105,9 +145,17 @@ struct PrivacyResetServiceTests {
         let selectionPersistence = RecordingShellSelectionPersistence()
         let pinnedItemsStore = makeIsolatedPinnedItemsStore()
         let service = PrivacyResetService(
-            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalResetService(
                 modelContainer: context.container
             ),
+            // The real ledger reset, not a double: this fixture is the one that asserts the
+            // `StoredReceipt` rows are actually gone afterwards (`fullResetClearsAllScopedState`), and
+            // a recording stand-in would make that assertion pass or fail on the stand-in rather than
+            // on the reset. Over this case's own container, so it gets its own memoized store.
+            receiptLedgerResetService: ReceiptStoreLedgerResetService(
+                store: { ReceiptStores.live(modelContext: context) }
+            ),
+            runtimeHistoryResetService: RecordingRuntimeHistoryResetService(),
             ensCacheResetService: ensCacheResetService,
             auraPlayPersistenceResetService: auraPlayPersistenceResetService,
             credentialResetService: credentialResetService,
@@ -117,8 +165,7 @@ struct PrivacyResetServiceTests {
         let searchHistoryStore = SearchHistoryStore(modelContext: context)
         let tokenHoldingsStore = SwiftDataTokenHoldingsStore(modelContext: context)
         let receiptStore = SwiftDataReceiptStore(
-            modelContext: context,
-            sequenceAllocator: ReceiptSequenceAllocator()
+            modelContext: context
         )
         let referenceDate = Fixture.referenceDate
         let accountAddress = Fixture.Accounts.primary
@@ -141,11 +188,14 @@ struct PrivacyResetServiceTests {
         try context.save()
         _ = try await receiptStore.append(
             ReceiptDraft(
+                actorDetail: .system,
+                authorityDetail: nil,
                 trigger: "fixture-reset",
                 scope: "tests",
                 summary: "fixture",
                 provenance: "local",
                 isSuccess: true,
+                correlationID: nil,
                 details: ReceiptPayload(values: [:])
             )
         )
@@ -167,7 +217,10 @@ struct PrivacyResetServiceTests {
     func accountRemovalPurgesScopedNFTs() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let store = SwiftDataAccountStore(modelContext: context)
+        let store = SwiftDataAccountStore(
+            modelContext: context,
+            scopedPersistenceParticipants: makeAppAccountScopedPersistenceParticipants()
+        )
 
         let removed = try await store.createWatchAccount(
             from: "0x1010101010101010101010101010101010101010",
@@ -240,7 +293,10 @@ struct PrivacyResetServiceTests {
     func accountOverwritePurgesScopedNFTs() async throws {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
-        let store = SwiftDataAccountStore(modelContext: context)
+        let store = SwiftDataAccountStore(
+            modelContext: context,
+            scopedPersistenceParticipants: makeAppAccountScopedPersistenceParticipants()
+        )
 
         let overwritten = try await store.createWatchAccount(
             from: "0x3030303030303030303030303030303030303030",
@@ -428,9 +484,11 @@ struct PrivacyResetServiceTests {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let service = PrivacyResetService(
-            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalResetService(
                 modelContainer: context.container
             ),
+            receiptLedgerResetService: RecordingReceiptLedgerResetService(),
+            runtimeHistoryResetService: RecordingRuntimeHistoryResetService(),
             ensCacheResetService: RecordingENSCacheResetService(),
             auraPlayPersistenceResetService: FailingAuraPlayPersistenceResetService(),
             credentialResetService: RecordingCredentialPrivacyResetter(),
@@ -448,10 +506,55 @@ struct PrivacyResetServiceTests {
                 return false
             }
             return phase == .auraPlayPersistence
-                && completedPhases == [.transactionalStore, .supportCaches]
+                && completedPhases == [.transactionalStore, .receiptHistory, .operatorRuntimeHistory, .supportCaches, .socialCoordination]
         }
 
         #expect(searchHistoryStore.entries(for: nil).isEmpty)
+    }
+
+    /// The receipt reset runs *after* the SwiftData transaction commits (F-46), so its failure is not
+    /// a rollback and must not be reported as one. While both shared a catch, a failing ledger reset
+    /// threw `.rollbackCompleted(phase: .transactionalStore)` — "Changes in that phase were rolled
+    /// back, so you can retry the privacy reset safely" — at a point where search history, token
+    /// holdings, the music library, playlists, NFT data and tags had all already been erased. Retrying
+    /// genuinely is safe, so the only thing wrong was the sentence; in a privacy reset, telling
+    /// someone their data survived when it did not is the wrong direction to be wrong in.
+    @Test("a failing receipt-ledger reset reports partial completion, not a rollback")
+    func receiptLedgerResetFailureIsReportedAsItsOwnPhase() async throws {
+        let container = try TestModelContainers.primary()
+        let context = ModelContext(container)
+        struct ReceiptLedgerFailure: Error { }
+        let receiptLedgerResetService = RecordingReceiptLedgerResetService()
+        receiptLedgerResetService.failure = ReceiptLedgerFailure()
+        let service = PrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalResetService(
+                modelContainer: context.container
+            ),
+            receiptLedgerResetService: receiptLedgerResetService,
+            runtimeHistoryResetService: RecordingRuntimeHistoryResetService(),
+            ensCacheResetService: RecordingENSCacheResetService(),
+            auraPlayPersistenceResetService: RecordingAuraPlayPersistenceResetService(),
+            credentialResetService: RecordingCredentialPrivacyResetter(),
+            selectionPersistence: RecordingShellSelectionPersistence(),
+            homePinnedItemsStore: makeIsolatedPinnedItemsStore()
+        )
+        let searchHistoryStore = SearchHistoryStore(modelContext: context)
+
+        try await searchHistoryStore.recordCommittedQuery("Receipts", accountAddress: nil)
+
+        await #expect {
+            try await service.resetLocalPrivacyData()
+        } throws: { error in
+            guard case LocalDataResetError.phaseFailed(let phase, let completedPhases, _) = error else {
+                return false
+            }
+            return phase == .receiptHistory && completedPhases == [.transactionalStore]
+        }
+
+        // The claim the error is now allowed to make, asserted rather than trusted: the transactional
+        // phase really did commit before the receipt step ran.
+        #expect(searchHistoryStore.entries(for: nil).isEmpty)
+        #expect(receiptLedgerResetService.resetCallCount == 1)
     }
 
     @Test("privacy reset can be retried safely after a later phase fails")
@@ -459,13 +562,15 @@ struct PrivacyResetServiceTests {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let ensCacheResetService = RecordingENSCacheResetService()
-        let auraPlayPersistenceResetService = FailingOnceAuraPlayPersistenceResetService()
+        let auraPlayPersistenceResetService = FailingOnceAuraPlayResetService()
         let selectionPersistence = RecordingShellSelectionPersistence()
         let pinnedItemsStore = makeIsolatedPinnedItemsStore()
         let service = PrivacyResetService(
-            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalResetService(
                 modelContainer: context.container
             ),
+            receiptLedgerResetService: RecordingReceiptLedgerResetService(),
+            runtimeHistoryResetService: RecordingRuntimeHistoryResetService(),
             ensCacheResetService: ensCacheResetService,
             auraPlayPersistenceResetService: auraPlayPersistenceResetService,
             credentialResetService: RecordingCredentialPrivacyResetter(),
@@ -494,7 +599,7 @@ struct PrivacyResetServiceTests {
                 return false
             }
             return phase == .auraPlayPersistence
-                && completedPhases == [.transactionalStore, .supportCaches]
+                && completedPhases == [.transactionalStore, .receiptHistory, .operatorRuntimeHistory, .supportCaches, .socialCoordination]
         }
 
         try await service.resetLocalPrivacyData()
@@ -512,9 +617,11 @@ struct PrivacyResetServiceTests {
         let container = try TestModelContainers.primary()
         let context = ModelContext(container)
         let service = PrivacyResetService(
-            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalResetService(
                 modelContainer: context.container
             ),
+            receiptLedgerResetService: RecordingReceiptLedgerResetService(),
+            runtimeHistoryResetService: RecordingRuntimeHistoryResetService(),
             ensCacheResetService: RecordingENSCacheResetService(),
             auraPlayPersistenceResetService: RecordingAuraPlayPersistenceResetService(),
             credentialResetService: FailingCredentialPrivacyResetter(),
@@ -529,7 +636,14 @@ struct PrivacyResetServiceTests {
                 return false
             }
             return phase == .credentialStore
-                && completedPhases == [.transactionalStore, .supportCaches, .auraPlayPersistence]
+                && completedPhases == [
+                    .transactionalStore,
+                    .receiptHistory,
+                    .operatorRuntimeHistory,
+                    .supportCaches,
+                    .socialCoordination,
+                    .auraPlayPersistence
+                ]
         }
     }
 
@@ -543,9 +657,11 @@ struct PrivacyResetServiceTests {
             accountAddress: "0x1111111111111111111111111111111111111111"
         )
         let service = PrivacyResetService(
-            transactionalResetService: SwiftDataTransactionalPrivacyResetService(
+            transactionalResetService: SwiftDataTransactionalResetService(
                 modelContainer: context.container
             ),
+            receiptLedgerResetService: RecordingReceiptLedgerResetService(),
+            runtimeHistoryResetService: RecordingRuntimeHistoryResetService(),
             ensCacheResetService: RecordingENSCacheResetService(),
             auraPlayPersistenceResetService: RecordingAuraPlayPersistenceResetService(),
             credentialResetService: RecordingCredentialPrivacyResetter(),
@@ -560,7 +676,15 @@ struct PrivacyResetServiceTests {
                 return false
             }
             return phase == .localPreferences
-                && completedPhases == [.transactionalStore, .supportCaches, .auraPlayPersistence, .credentialStore]
+                && completedPhases == [
+                    .transactionalStore,
+                    .receiptHistory,
+                    .operatorRuntimeHistory,
+                    .supportCaches,
+                    .socialCoordination,
+                    .auraPlayPersistence,
+                    .credentialStore
+                ]
         }
 
         #expect(pinnedItemsStore.pinnedCount(for: "0x1111111111111111111111111111111111111111") == 1)
@@ -568,7 +692,8 @@ struct PrivacyResetServiceTests {
 
     @Test("privacy reset invokes every reset boundary without hosted SwiftData fixture coupling")
     func resetLocalPrivacyDataInvokesEveryBoundary() async throws {
-        let transactionalResetService = RecordingTransactionalPrivacyResetService()
+        let transactionalResetService = RecordingTransactionalResetService()
+        let runtimeHistoryResetService = RecordingRuntimeHistoryResetService()
         let ensCacheResetService = RecordingENSCacheResetService()
         let auraPlayPersistenceResetService = RecordingAuraPlayPersistenceResetService()
         let credentialResetService = RecordingCredentialPrivacyResetter()
@@ -578,6 +703,8 @@ struct PrivacyResetServiceTests {
         try pinnedItemsStore.togglePin(.openNews, accountAddress: accountAddress)
         let service = PrivacyResetService(
             transactionalResetService: transactionalResetService,
+            receiptLedgerResetService: RecordingReceiptLedgerResetService(),
+            runtimeHistoryResetService: runtimeHistoryResetService,
             ensCacheResetService: ensCacheResetService,
             auraPlayPersistenceResetService: auraPlayPersistenceResetService,
             credentialResetService: credentialResetService,
@@ -588,6 +715,7 @@ struct PrivacyResetServiceTests {
         try await service.resetLocalPrivacyData()
 
         #expect(await transactionalResetService.resetCount() == 1)
+        #expect(runtimeHistoryResetService.resetCallCount == 1)
         #expect(await ensCacheResetService.resetCount() == 1)
         #expect(await auraPlayPersistenceResetService.resetCount() == 1)
         #expect(await credentialResetService.clearCount() == 1)
@@ -595,11 +723,36 @@ struct PrivacyResetServiceTests {
         #expect(pinnedItemsStore.pinnedActions(for: accountAddress).isEmpty)
     }
 
+    @Test("a failing runtime history reset surfaces the phase and keeps the reset retryable")
+    func runtimeHistoryResetFailureIsReportedAsItsOwnPhase() async throws {
+        struct RuntimeHistoryFailure: Error { }
+        let runtimeHistoryResetService = RecordingRuntimeHistoryResetService()
+        runtimeHistoryResetService.failure = RuntimeHistoryFailure()
+        let ensCacheResetService = RecordingENSCacheResetService()
+        let service = PrivacyResetService(
+            transactionalResetService: RecordingTransactionalResetService(),
+            receiptLedgerResetService: RecordingReceiptLedgerResetService(),
+            runtimeHistoryResetService: runtimeHistoryResetService,
+            ensCacheResetService: ensCacheResetService,
+            auraPlayPersistenceResetService: RecordingAuraPlayPersistenceResetService(),
+            credentialResetService: RecordingCredentialPrivacyResetter(),
+            selectionPersistence: RecordingShellSelectionPersistence(),
+            homePinnedItemsStore: makeIsolatedPinnedItemsStore()
+        )
+
+        await #expect(throws: LocalDataResetError.self) {
+            try await service.resetLocalPrivacyData()
+        }
+
+        // Later phases must not have run, so retrying resumes rather than double-clearing.
+        #expect(await ensCacheResetService.resetCount() == 0)
+    }
+
     @Test("disconnect all wallets removes every account before clearing local privacy data")
     func disconnectAllWalletsRemovesAccountsAndClearsPrivacyData() async throws {
         let accountStore = RecordingAccountStore(accounts: [
             EOAccount(address: "0x1111111111111111111111111111111111111111"),
-            EOAccount(address: "0x2222222222222222222222222222222222222222"),
+            EOAccount(address: "0x2222222222222222222222222222222222222222")
         ])
         let privacyResetService = RecordingPrivacyResetService()
         let service = AllWalletDisconnectService(
@@ -613,12 +766,54 @@ struct PrivacyResetServiceTests {
         #expect(try accountStore.listAccounts().isEmpty)
         #expect(accountStore.removedAddresses == [
             "0x1111111111111111111111111111111111111111",
-            "0x2222222222222222222222222222222222222222",
+            "0x2222222222222222222222222222222222222222"
         ])
         #expect(accountStore.activeAddresses == [
             "0x1111111111111111111111111111111111111111",
-            "0x1111111111111111111111111111111111111111",
+            "0x1111111111111111111111111111111111111111"
         ])
+        #expect(privacyResetService.resetCallCount == 1)
+    }
+
+    /// The in-app self-custodial wallet survives "disconnect all wallets and erase local data" (F-102).
+    ///
+    /// Removing its `EOAccount` stranded it, because neither this service nor the privacy reset clears
+    /// `InAppWalletKeystore` or `InAppWalletRegistry` — correctly, since the sealed seed holds funds and
+    /// there is no mnemonic. But with the seed *and* the registry left intact and only the account row
+    /// deleted, `needsAddressRecovery` (`hasConfirmedWallet && registry.isEmpty`) stays `false`, so the
+    /// Restore path is never offered, while `primaryAddress()` stays non-nil so `InAppWalletView` renders
+    /// the existing-wallet screen. The wallet was then invisible to every account list, un-recreatable
+    /// (`createWallet()` throws `walletAlreadyExists`), and the only control left was the irreversible
+    /// Remove — which destroys the seed and makes any funds at the derived address unreachable.
+    ///
+    /// "Disconnect" drops a session this device borrowed; it has no meaning for a key this device owns.
+    /// Removing the in-app wallet stays available only through the confirmation-gated Remove button.
+    @Test("disconnect all wallets leaves the in-app self-custodial wallet connected")
+    func disconnectAllWalletsPreservesInAppWallet() async throws {
+        let external = EOAccount(address: "0x1111111111111111111111111111111111111111")
+        let inApp = EOAccount(
+            address: "0x3333333333333333333333333333333333333333",
+            access: .wallet,
+            source: .inAppWallet
+        )
+        let accountStore = RecordingAccountStore(accounts: [external, inApp])
+        let privacyResetService = RecordingPrivacyResetService()
+        let service = AllWalletDisconnectService(
+            accountStore: accountStore,
+            privacyResetService: privacyResetService,
+            activeAddressProvider: { external.address }
+        )
+
+        try await service.disconnectAllWalletsAndEraseLocalData()
+
+        // Only the external wallet is disconnected.
+        #expect(accountStore.removedAddresses == [external.address])
+        // The in-app wallet's account row survives, so it stays visible to every account list and the
+        // `EOAccount` keeps pointing at the key material the keystore still holds.
+        let remaining = try accountStore.listAccounts()
+        #expect(remaining.map(\.address) == [inApp.address])
+        #expect(remaining.first?.source == .inAppWallet)
+        // The erase half still runs — this narrows what is disconnected, not what is cleared.
         #expect(privacyResetService.resetCallCount == 1)
     }
 }
@@ -731,7 +926,7 @@ private final class RecordingPrivacyResetService: PrivacyResetting {
     }
 }
 
-private actor RecordingTransactionalPrivacyResetService: TransactionalPrivacyResetting {
+private actor RecordingTransactionalResetService: TransactionalPrivacyResetting {
     private var resetCallCount = 0
 
     func resetTransactionalPrivacyData() async throws {
@@ -740,6 +935,36 @@ private actor RecordingTransactionalPrivacyResetService: TransactionalPrivacyRes
 
     func resetCount() -> Int {
         resetCallCount
+    }
+}
+
+/// The receipt ledger's reset, which `PrivacyResetService` now drives as its own step so it can go
+/// through `ReceiptPersistenceStore`'s ledger lock (F-46). Recorded rather than real because these
+/// cases are about the orchestration — which phases run, in what order, and what a failure reports —
+/// and the ledger reset's own behaviour is covered in `ReceiptStorage`.
+@MainActor
+private final class RecordingReceiptLedgerResetService: ReceiptLedgerPrivacyResetting {
+    private(set) var resetCallCount = 0
+    var failure: Error?
+
+    func resetReceiptLedger() async throws {
+        resetCallCount += 1
+        if let failure {
+            throw failure
+        }
+    }
+}
+
+@MainActor
+private final class RecordingRuntimeHistoryResetService: RuntimeHistoryPrivacyResetting {
+    private(set) var resetCallCount = 0
+    var failure: Error?
+
+    func resetRuntimeHistory() async throws {
+        resetCallCount += 1
+        if let failure {
+            throw failure
+        }
     }
 }
 
@@ -775,7 +1000,7 @@ private actor FailingAuraPlayPersistenceResetService: AuraPlayPersistenceResetti
     }
 }
 
-private actor FailingOnceAuraPlayPersistenceResetService: AuraPlayPersistenceResetting {
+private actor FailingOnceAuraPlayResetService: AuraPlayPersistenceResetting {
     struct Failure: Error { }
 
     private var didFail = false

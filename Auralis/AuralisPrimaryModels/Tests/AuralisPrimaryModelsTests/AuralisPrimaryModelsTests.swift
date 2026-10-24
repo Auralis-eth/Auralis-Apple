@@ -54,7 +54,7 @@ struct AuralisPrimaryModelsTests {
     }
 
     @Test("refresh scope recomputes NFT and collection IDs from normalized account and chain")
-    func refreshScopeRecomputesScopedIdentifiers() {
+    func refreshScopeRecomputesScopedIdentifiers() throws {
         let nft = NFT(
             id: "old",
             contract: NFT.Contract(address: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", chain: .ethMainnet),

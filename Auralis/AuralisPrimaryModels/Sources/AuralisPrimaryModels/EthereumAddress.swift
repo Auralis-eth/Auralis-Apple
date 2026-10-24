@@ -17,8 +17,14 @@ public struct AuralisEthereumAddress: RawRepresentable, Hashable, Codable, Senda
             unprefixedCandidate = candidate
         }
 
+        // ASCII-restricted deliberately. `Character.isHexDigit` is true for the fullwidth digit forms
+        // (`０`–`９`, U+FF10…) and other Unicode digit variants, so a 40-character string of
+        // fullwidth digits used to construct successfully here. Because it carries no cased letters,
+        // `checksumState(of:)` then classified it `.unchecksummed` — a warning, not a failure — and a
+        // confusable address cleared the governance checks that gate the high-risk signing path.
+        // Every real Ethereum address is ASCII hex; nothing legitimate is lost by requiring it.
         guard unprefixedCandidate.count == 40,
-              unprefixedCandidate.allSatisfy(\.isHexDigit) else {
+              unprefixedCandidate.allSatisfy({ $0.isASCII && $0.isHexDigit }) else {
             return nil
         }
 

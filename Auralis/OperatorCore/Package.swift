@@ -6,29 +6,35 @@ let package = Package(
     name: "OperatorCore",
     platforms: [
         .iOS(.v18),
-        .macOS(.v15),
+        .macOS(.v15)
     ],
     products: [
         .library(
             name: "OperatorCore",
             targets: ["OperatorCore"]
-        ),
+        )
     ],
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
-        .package(path: "../ReceiptsCore"),
+        .package(path: "../ReceiptsCore")
     ],
     targets: [
         .target(
             name: "OperatorCore",
             dependencies: [
                 "AuralisPrimaryModels",
-                "ReceiptsCore",
+                "ReceiptsCore"
             ]
         ),
         .testTarget(
             name: "OperatorCoreTests",
-            dependencies: ["OperatorCore"]
-        ),
+            dependencies: [
+                "OperatorCore",
+                // The attribution assertions read `ReceiptActorDetail.kind` and `coarseActor`
+                // directly, so the contract is pinned against the wire values rather than against
+                // OperatorCore's own re-spelling of them.
+                "ReceiptsCore"
+            ]
+        )
     ]
 )

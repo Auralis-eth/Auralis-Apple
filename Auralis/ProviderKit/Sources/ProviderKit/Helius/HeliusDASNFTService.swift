@@ -1,3 +1,4 @@
+import AuralisFoundation
 import AuralisPrimaryModels
 import Foundation
 import OSLog

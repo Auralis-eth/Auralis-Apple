@@ -6,12 +6,12 @@
 //
 
 import AccountsFeature
-import ENS
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import AuraUI
+import ENS
 import ImagePlayground
 import SwiftUI
-import AuraUI
 
 struct ProfileCardView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -125,6 +125,8 @@ struct ProfileCardView: View {
                     SecondaryText(resolvedENSName)
                 }
                 SecondaryText(summary.addressLine)
+                    .accessibilityLabel("Wallet address")
+                    .accessibilityValue(currentAddress)
                 SecondaryCaptionFontText(summary.chainTitle)
             }
 

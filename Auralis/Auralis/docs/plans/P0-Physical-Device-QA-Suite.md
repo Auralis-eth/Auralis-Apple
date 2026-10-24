@@ -1,8 +1,16 @@
 # P0 Physical Device QA Suite
 
+**Status:** Current as a Phase 0 manual regression suite; no execution result is recorded here.
+**Last reconciled with code:** 2026-10-22.
+
 This is the manual QA suite for Phase 0 on a real iPhone. The simulator is useful for speed. It is not where audio routing, camera permission prompts, app lifecycle timing, thermal behavior, and "feels broken in the hand" issues tell the truth.
 
 Automated UI/accessibility audit coverage is tracked separately in `P0-UI-Test-QA-Suite.md`. Passing simulator UI tests does not replace this physical-device gate.
+
+This suite intentionally covers the Phase 0 product baseline. Later governed-runtime and Social relay work has its own
+device gates in `Phase-1-Physical-Device-QA-Suite.md` and `Social-v1-Physical-Device-QA-Suite.md`. Receipt provenance,
+portable Social wallet proof, relay terms/quotas, and multi-device collaboration must not be treated as passed merely
+because this P0 suite passes.
 
 ## Test Environment Template
 
@@ -417,31 +425,50 @@ Goal:
 
 - verify the live wallet routes that automated tests cannot reach
 
-This is the standing ship gate for every live wallet route. All of WalletConnectorKit's automated tests run against in-process mocks (mock relay sockets, mock SDK clients, stub crypto providers), so the four live vendor clients — Reown AppKit, Coinbase, Privy, and Dynamic — are iOS-compile-verified only and have never been exercised against a real wallet/account on a device. Do not enable Reown, Coinbase, Privy, or Dynamic as a production route until this test passes on hardware. See the Manual Live-Wallet Suite in `WalletConnectorKit/WalletConnectorKit-QA-Checklist.md` for the per-wallet smoke matrix.
+This is the standing ship gate for every live wallet route. All of WalletConnectorKit's automated tests run against in-process mocks (mock relay sockets, mock SDK clients, stub crypto providers), so live vendor clients and wallet apps are not production-proven until they pass on real hardware. Do not enable or claim support for a named route until this test passes for that exact wallet/provider. See the Manual Live-Wallet Suite in `WalletConnectorKit/WalletConnectorKit-QA-Checklist.md` for the per-wallet smoke matrix.
 
 Setup:
 
 - one real device, one iOS version, one build; record wallet app versions used
-- at least one external WalletConnect wallet installed (e.g. MetaMask, Rainbow, Rabby), Coinbase Wallet, and — if testing embedded routes — a real Privy app ID / Dynamic environment ID
+- external EVM WalletConnect/Reown wallets installed: Rabby, Rainbow, and MetaMask
+- Coinbase Wallet installed for the direct/native route
+- Solana wallet routes available for Phantom, Backpack, and Solflare
+- real Privy app ID and Dynamic environment ID when embedded/auth routes are in scope
+
+Required support matrix:
+
+| Route family | Wallet/provider | Required proof |
+| --- | --- | --- |
+| EVM WalletConnect/Reown | Rabby | Connect, reject/cancel, `personal_sign` ownership verification, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| EVM WalletConnect/Reown | Rainbow | Connect, reject/cancel, `personal_sign` ownership verification, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Direct/native EVM | Coinbase Wallet | Direct route connect, reject/cancel, ownership verification, disconnect, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| EVM WalletConnect/Reown | MetaMask | Connect, reject/cancel, `personal_sign` ownership verification, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Solana wallet route | Phantom | Connect, reject/cancel, Solana message-sign ownership proof, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Solana wallet route | Backpack | Connect, reject/cancel, Solana message-sign ownership proof, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Solana wallet route | Solflare | Connect, reject/cancel, Solana message-sign ownership proof, disconnect from both sides, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Embedded/auth route | Privy | Login/connect, reject/cancel where supported, ownership verification, logout/disconnect, restore/fail-closed on relaunch, and callback round-trip exactly once. |
+| Embedded/auth route | Dynamic | Login/connect, reject/cancel where supported, ownership verification, logout/disconnect, restore/fail-closed on relaunch, and callback round-trip exactly once. |
 
 Steps:
 
 1. Start a connection and confirm the QR / deep-link presentation appears with provider, URI, and expiry.
-2. Connect an external wallet through WalletConnect/Reown; approve on the wallet and confirm the deep-link return round-trips back into the app through the callback coordinator (no duplicate deliveries, no stuck "connecting" state).
-3. Repeat the connect via the direct Coinbase adapter, and (if in scope) via Privy/Dynamic embedded login → `connect`.
-4. For each connected wallet, run `personal_sign` and confirm ownership is proven — `addressVerified == true` recovers the connected address with the real injected secp256k1 provider, not a stub.
-5. Reject a connection request from the wallet and confirm the app fails safely.
-6. Disconnect from the app and confirm the wallet no longer shows a live session; disconnect from the wallet and confirm the app reflects it.
-7. Relaunch the app and confirm the session restores (or fails closed) without exposing a half-live session.
-8. Run the wallet-specific rows from the Manual Live-Wallet Suite (switch/add chain, typed-data sign, Solana sign message where applicable).
+2. For each EVM WalletConnect/Reown wallet, approve on the wallet and confirm the deep-link return round-trips back into the app through the callback coordinator with no duplicate deliveries and no stuck "connecting" state.
+3. Repeat the flow through the direct Coinbase Wallet adapter.
+4. Repeat the Solana wallet route with Phantom, Backpack, and Solflare, including Solana message-sign ownership proof where available.
+5. Repeat the embedded/auth route through Privy and Dynamic, including login/connect, logout/disconnect, and restore/fail-closed behavior.
+6. For each connected EVM wallet, run `personal_sign` and confirm ownership is proven — `addressVerified == true` recovers the connected address with the real injected secp256k1 provider, not a stub.
+7. Reject a connection request from the wallet/provider and confirm the app fails safely.
+8. Disconnect from the app and confirm the wallet no longer shows a live session; disconnect from the wallet and confirm the app reflects it.
+9. Relaunch the app and confirm the session restores or fails closed without exposing a half-live session.
+10. Run the wallet-specific rows from the Manual Live-Wallet Suite, including switch/add chain, typed-data sign, and Solana sign message where applicable.
 
 Pass criteria:
 
-- connect, reject, sign, disconnect, and restore all behave correctly for every live route in scope
+- connect, reject/cancel, sign/ownership proof, disconnect, and restore all behave correctly for every wallet/provider in the support matrix
 - deep-link returns round-trip exactly once and never strand the shell in a connecting state
 - ownership verification recovers the real connected address; unverified sessions are gated per the ownership policy
-- no route reports `.productionReady` in the app without a live client, a recovery-capable crypto provider, and real metadata
-- any failure blocks enabling that live wallet route for production
+- no route reports `.productionReady` in the app without a live client, a recovery-capable crypto provider, real metadata, and a completed matrix row
+- any failure blocks enabling or marketing that live wallet route for production
 
 ## Severity rubric
 
@@ -451,9 +478,11 @@ Pass criteria:
 
 ## Final test report template
 
+- result: Not run / Go / No-go
 - build tested:
 - devices tested:
 - accounts/chains tested:
+- wallet/provider matrix results: Rabby, Rainbow, Coinbase Wallet, MetaMask, Phantom, Backpack, Solflare, Privy, Dynamic
 - blocker bugs:
 - major bugs:
 - minor bugs:

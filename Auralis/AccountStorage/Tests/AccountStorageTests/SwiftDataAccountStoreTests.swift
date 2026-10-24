@@ -1,12 +1,18 @@
-import AccountStorage
+@testable import AccountStorage
 import AccountsCore
 import AuralisPrimaryModels
+import AuralisPrimaryPersistence
 import Foundation
 import SwiftData
 import Testing
+import TokenStorage
 
 @MainActor
 struct SwiftDataAccountStoreTests {
+    private enum InjectedFailure: Error {
+        case afterTokenDeletion
+    }
+
     @Test("creating a watch account normalizes and persists the canonical address")
     func creatingWatchAccountNormalizesAndPersistsCanonicalAddress() async throws {
         let store = try makeStore()
@@ -98,7 +104,7 @@ struct SwiftDataAccountStoreTests {
 
         #expect(try store.listAccounts().map(\.name) == ["Replacement"])
         #expect(try context.fetch(FetchDescriptor<NFT>()).isEmpty)
-        #expect(try context.fetch(FetchDescriptor<Tag>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<AuralisPrimaryPersistence.Tag>()).isEmpty)
     }
 
     @Test("duplicate account inserts fail deterministically without changing the original row")
@@ -152,6 +158,95 @@ struct SwiftDataAccountStoreTests {
         #expect(try #require(result.fallbackAccount).address == fallback.address)
         #expect(try store.listAccounts().map(\.address) == [fallback.address])
         #expect(try store.account(for: active.address) == nil)
+    }
+
+    @Test("account removal undo restores domain support records without losing NFT attributes")
+    func accountRemovalUndoRestoresDomainSupportRecords() async throws {
+        let context = try makeContext(undoEnabled: true)
+        let store = makeStore(context: context)
+        let account = try await store.createWatchAccount(
+            from: "0x4545454545454545454545454545454545454545",
+            now: Date(timeIntervalSince1970: 100)
+        )
+        let nft = NFT(
+            id: "undo-nft",
+            contract: NFT.Contract(address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            tokenId: "45",
+            name: "Undo NFT",
+            collection: nil,
+            accountAddress: account.address,
+            audioUrl: "https://example.com/track.mp3"
+        )
+        nft.attributes = [NFT.Attribute(value: "Blue", traitType: "Color")]
+        context.insert(nft)
+        context.insert(
+            TokenHolding(
+                accountAddress: account.address,
+                chain: .ethMainnet,
+                symbol: "ETH",
+                displayName: "Ether",
+                amountDisplay: "1.0",
+                balanceKind: .native
+            )
+        )
+        try context.save()
+
+        _ = try await store.removeAccount(address: account.address, activeAddress: account.address)
+
+        #expect(try context.fetch(FetchDescriptor<NFT>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
+
+        context.undoManager?.undo()
+        context.processPendingChanges()
+
+        #expect(try context.fetch(FetchDescriptor<EOAccount>()).map(\.address) == [account.address])
+        let restoredNFT = try #require(context.fetch(FetchDescriptor<NFT>()).first)
+        #expect(restoredNFT.attributes?.map(\.value) == ["Blue"])
+        #expect(try context.fetch(FetchDescriptor<TokenHolding>()).count == 1)
+    }
+
+    @Test("a participant failure rolls back every earlier account-scoped deletion")
+    func participantFailureRollsBackCompleteRemoval() async throws {
+        let context = try makeContext()
+        let store = SwiftDataAccountStore(
+            modelContext: context,
+            eventRecorder: NoOpAccountEventRecorder(),
+            participantDidDelete: { participant in
+                if participant == "token" {
+                    throw InjectedFailure.afterTokenDeletion
+                }
+            }
+        )
+        let account = try await store.createWatchAccount(
+            from: "0x5656565656565656565656565656565656565656"
+        )
+        let nft = NFT(
+            id: "rollback-nft",
+            contract: NFT.Contract(address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+            tokenId: "56",
+            collection: nil,
+            accountAddress: account.address
+        )
+        context.insert(nft)
+        context.insert(
+            TokenHolding(
+                accountAddress: account.address,
+                chain: .ethMainnet,
+                symbol: "ETH",
+                displayName: "Ether",
+                amountDisplay: "1.0",
+                balanceKind: .native
+            )
+        )
+        try context.save()
+
+        await #expect(throws: InjectedFailure.afterTokenDeletion) {
+            _ = try await store.removeAccount(address: account.address, activeAddress: account.address)
+        }
+
+        #expect(try context.fetch(FetchDescriptor<EOAccount>()).map(\.address) == [account.address])
+        #expect(try context.fetch(FetchDescriptor<TokenHolding>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<NFT>()).count == 1)
     }
 
     @Test("listing accounts orders by selection, then newest added date, then address")
@@ -210,5 +305,10 @@ private func makeStore(context: ModelContext) -> SwiftDataAccountStore {
 
 @MainActor
 private func makeContext() throws -> ModelContext {
-    try AccountStorageTestModelContainers.context()
+    try makeContext(undoEnabled: false)
+}
+
+@MainActor
+private func makeContext(undoEnabled: Bool) throws -> ModelContext {
+    try AccountStorageTestModelContainers.context(undoEnabled: undoEnabled)
 }

@@ -1,12 +1,12 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
-import Testing
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
+import Testing
 
 struct NFTProviderFailurePresentationTests {
     @Test("degraded offline failures preserve cached-browsing language")

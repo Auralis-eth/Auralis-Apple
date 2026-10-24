@@ -1,20 +1,21 @@
-import ReceiptsCore
-import ReceiptStorage
-import ENS
 import AuralisPrimaryModels
+import ENS
 import Foundation
-import ProviderKit
-import SwiftData
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
+import ProviderKit
+import ReceiptsCore
+import ReceiptStorage
+import SwiftData
 
 @MainActor
 extension ENSResolvers {
     static func live(
         modelContext: ModelContext,
-        cacheStore: ENSResolutionCacheStore = sharedCacheStore
+        cacheStore: ENSResolutionCacheStore = sharedCacheStore,
+        modeProvider: @escaping @MainActor () -> ReceiptMode = { .observe }
     ) -> any ENSResolving {
         live(
             configurationResolver: ProviderBackedENSConfigurationResolver(
@@ -22,7 +23,8 @@ extension ENSResolvers {
             ),
             cacheStore: cacheStore,
             eventRecorder: ReceiptBackedENSEventRecorder(
-                receiptStore: ReceiptStores.live(modelContext: modelContext)
+                receiptStore: ReceiptStores.live(modelContext: modelContext),
+                modeProvider: modeProvider
             )
         )
     }

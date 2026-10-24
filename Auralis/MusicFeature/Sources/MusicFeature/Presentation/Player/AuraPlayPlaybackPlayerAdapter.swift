@@ -21,7 +21,7 @@ public struct AuraPlayShareRequest: Equatable, Sendable {
 /// app-owned (UIKit share sheet, `SFSafariViewController`, pasteboard) and is
 /// injected through the SwiftUI environment; the package default is a no-op.
 @MainActor
-public struct AuraPlayPlayerContextActionHandler: Sendable {
+public struct AuraPlayPlayerContextActionHandler {
     public let share: @MainActor @Sendable (AuraPlayShareRequest) async -> Void
     public let open: @MainActor @Sendable (URL) async -> Void
     public let copy: @MainActor @Sendable (String) async -> Void
