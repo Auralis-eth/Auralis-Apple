@@ -37,7 +37,6 @@ let package = Package(
         .package(path: "../ChainProviders"),
         .package(path: "../ExplorerAdapter"),
         .package(path: "../ProviderKit"),
-        .package(path: "../ReceiptStorage"),
         .package(path: "../ReceiptsCore")
     ],
     targets: [
@@ -97,7 +96,7 @@ let package = Package(
                 "NFTPersistence",
                 "NFTPresentation",
                 "NFTProviderAdapters",
-                "ReceiptStorage"
+                .product(name: "ReceiptStorage", package: "ReceiptsCore")
             ]
         )
     ]

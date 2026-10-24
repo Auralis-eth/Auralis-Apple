@@ -153,7 +153,7 @@ Proof and outputs.
 | Target | Absorbs |
 |---|---|
 | `ReceiptsCore` | `ReceiptsCore` |
-| `ReceiptStorage` | `ReceiptStorage` |
+| `ReceiptStorage` | **Merged 2026-10-24.** The unchanged `ReceiptStorage` module and its integrity, compatibility, concurrency, reset, and tamper-evidence tests now live inside the `ReceiptsCore` package root. |
 | `ArtifactCore` | **Merged 2026-10-24.** The unchanged `ArtifactCore` module and its independent tests now live inside the `ReceiptsCore` package root. |
 | `ArtifactStorage` | **Merged 2026-10-24.** The unchanged SwiftData storage module and rollback/compatibility tests now live inside the `ReceiptsCore` package root. |
 | `ReceiptsUI` | app `Receipts/*` timeline + detail + payload views (21 files) |
@@ -487,7 +487,7 @@ framework.
 | 0 | Fix the nine required refactors above, freeze the ownership matrix, and add import-boundary tests. No package merges. | 42 → 42 |
 | 1 | Split `AuralisPrimaryModels` by owner; create narrow `AuralisFoundation`; merge capability/mechanics adapters only after reverse dependencies are removed; **`AuraPlayEngines`, `CapabilitiesCore`, `SwiftDataAdapters`, and `UserDefaultsAdapters` roots merged 2026-10-23** | Completed with 38 local roots (37 owned + CodeScanner), preserving the former package modules and independent test targets |
 | 2 | `AuralisRuntime` (merge runtime contracts/companions; route concrete Social and host sources to their final owners). **PlannerCore, PlaybookCore, PerformanceCore, and EvalCore roots merged into RuntimeCore 2026-10-24.** | Current: 34 local roots (33 owned + CodeScanner); four Runtime companion roots eliminated while preserving their modules and test targets |
-| 3 | `AuralisReceipts` (merge 4 packages + move 21 app files). **ArtifactCore and ArtifactStorage roots merged into ReceiptsCore 2026-10-24.** | Current: 32 local roots (31 owned + CodeScanner); two receipt/artifact roots eliminated while preserving modules and test targets |
+| 3 | `AuralisReceipts` (merge 4 packages + move 21 app files). **ArtifactCore, ArtifactStorage, and ReceiptStorage roots merged into ReceiptsCore 2026-10-24.** | Current: 31 local roots (30 owned + CodeScanner); three receipt/artifact roots eliminated while preserving modules and test targets |
 | 4 | `AuralisContext` (extract 16 app context files and add Memory contracts/storage/retrieval without duplicating Runtime context contracts) | Net-new owned package; record actual delta |
 | 5 | `AuralisPolicy` (merge 2 packages after receipt decoupling) | Record actual delta |
 | 6 | `AuralisCrypto` (merge crypto packages + move app crypto files) | Record actual delta |

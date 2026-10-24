@@ -1,5 +1,17 @@
 # Journal
 
+## 2026-10-24 - The Receipt Ledger Joined Its Own Vault
+
+`ReceiptStorage` is no longer a separate building from the receipt and artifact contracts it
+implements. It moved into the ReceiptsCore package while keeping its module, Keychain/SwiftData
+integrity machinery, and 207-test target intact. Xcode now links the same `ReceiptStorage` product
+from the existing ReceiptsCore package reference, so app code sees no API rename.
+
+One test did exactly what an architecture test should do after a move: it failed because its
+structural scan still pointed at the old filesystem address. Updating that expected path made the
+new ownership executable instead of merely documented. The combined receipts package now passes 369
+tests, its three direct consumers pass 198, and the graph guard plus Xcode build-for-testing are green.
+
 ## 2026-10-24 - The Artifacts Moved Into the Evidence Vault
 
 Scheduling exposed an honest boundary: it does not merely name an output; it persists real artifact

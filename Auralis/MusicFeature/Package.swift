@@ -20,7 +20,6 @@ let package = Package(
         .package(path: "../AuraPlayEngines"),
         .package(path: "../AuraUI"),
         .package(path: "../AuralisFoundation"),
-        .package(path: "../ReceiptStorage"),
         .package(path: "../ReceiptsCore")
     ],
     targets: [
@@ -43,7 +42,7 @@ let package = Package(
                 "MusicFeature",
                 "AuralisTestSupport",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
-                "ReceiptStorage"
+                .product(name: "ReceiptStorage", package: "ReceiptsCore")
             ],
             exclude: ["__Snapshots__"]
         )

@@ -95,7 +95,7 @@ struct ArchitectureBoundaryTests {
             contentsOf: projectRoot.appending(path: "ReceiptsCore/Package.swift"),
             encoding: .utf8
         )
-        for target in ["ArtifactCore", "ArtifactStorage"] {
+        for target in ["ArtifactCore", "ArtifactStorage", "ReceiptStorage"] {
             #expect(receiptsManifest.contains("name: \"\(target)\""))
             #expect(
                 FileManager.default.fileExists(

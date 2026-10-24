@@ -240,6 +240,11 @@ This keeps artifact contracts and persistence in their final receipts owner whil
 to remain inward-only. The owner package passed 162 tests, five direct consumers passed 627 tests,
 the package-graph guard passed, and Xcode build-for-testing succeeded.
 
+`ReceiptStorage` then joined the same package as an independent product and test target. The Xcode
+project now links that product from the existing ReceiptsCore package reference rather than carrying
+a second local package root. All 369 owner-package tests are green, its three direct consumers passed
+198 tests, the package-graph guard passed, and Xcode build-for-testing succeeded.
+
 ### AuralisContext
 
 Own current-context assembly and durable memory as different targets:

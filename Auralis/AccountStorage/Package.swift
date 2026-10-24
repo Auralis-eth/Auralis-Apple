@@ -22,7 +22,7 @@ let package = Package(
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../AccountsCore"),
-        .package(path: "../ReceiptStorage"),
+        .package(path: "../ReceiptsCore"),
         .package(path: "../AuralisFoundation"),
         .package(path: "../TokenStorage"),
         .package(path: "../NFTKit"),
@@ -34,7 +34,7 @@ let package = Package(
                 "AuralisPrimaryModels",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "AccountsCore",
-                "ReceiptStorage",
+                .product(name: "ReceiptStorage", package: "ReceiptsCore"),
                 .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
                 "TokenStorage",
                 .product(name: "NFTPersistence", package: "NFTKit"),

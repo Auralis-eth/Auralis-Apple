@@ -585,7 +585,7 @@ struct ReceiptContributionProvenanceTests {
             "ReceiptsCore/Sources/ReceiptsCore/Models/ReceiptContracts.swift",
             "ReceiptsCore/Sources/ReceiptsCore/Models/ReceiptContributionProvenance.swift",
             "ReceiptsCore/Sources/ReceiptsCore/Models/ReceiptIntegrity.swift",
-            "ReceiptStorage/Sources/ReceiptStorage/StoredReceipt.swift"
+            "ReceiptsCore/Sources/ReceiptStorage/StoredReceipt.swift"
         ]
         var offenders: [String] = []
 

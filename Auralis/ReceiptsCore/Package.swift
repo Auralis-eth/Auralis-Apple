@@ -20,6 +20,10 @@ let package = Package(
         .library(
             name: "ArtifactStorage",
             targets: ["ArtifactStorage"]
+        ),
+        .library(
+            name: "ReceiptStorage",
+            targets: ["ReceiptStorage"]
         )
     ],
     dependencies: [
@@ -48,6 +52,16 @@ let package = Package(
                 .product(name: "SwiftDataAdapters", package: "AuralisFoundation")
             ]
         ),
+        .target(
+            name: "ReceiptStorage",
+            dependencies: [
+                "AuralisFoundation",
+                "AuralisPrimaryModels",
+                "ReceiptsCore",
+                .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
+                "RuntimeCore"
+            ]
+        ),
         .testTarget(
             name: "ReceiptsCoreTests",
             dependencies: [
@@ -67,6 +81,13 @@ let package = Package(
             dependencies: [
                 "ArtifactStorage",
                 .product(name: "RuntimeCore", package: "RuntimeCore")
+            ]
+        ),
+        .testTarget(
+            name: "ReceiptStorageTests",
+            dependencies: [
+                "ReceiptStorage",
+                .product(name: "AuralisFoundation", package: "AuralisFoundation")
             ]
         )
     ]
