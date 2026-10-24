@@ -1,5 +1,16 @@
 # Journal
 
+## 2026-10-24 - Eval Joined the Runtime Lab
+
+`EvalCore` followed Performance into the RuntimeCore package without changing its module name,
+public API, or 49-test suite. The move is conceptually tidy: evaluation consumes runtime traces and
+performance records, so all of its inward dependencies now live under one package roof while the
+target boundary still keeps its responsibilities visible.
+
+This is another reminder that package topology and module topology are different maps. We removed a
+shipping root, not the wall around evaluation. RuntimeCore and the three direct consumers passed 829
+package tests, followed by the package-graph guard and Xcode build-for-testing.
+
 ## 2026-10-24 - Performance Packed Light
 
 After the Playbook cycle untangling, `PerformanceCore` was refreshingly uneventful: one source file,

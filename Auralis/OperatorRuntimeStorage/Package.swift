@@ -18,8 +18,7 @@ let package = Package(
         .package(path: "../ArtifactCore"),
         .package(path: "../ArtifactStorage"),
         .package(path: "../RuntimeCore"),
-        .package(path: "../SchedulingCore"),
-        .package(path: "../EvalCore")
+        .package(path: "../SchedulingCore")
     ],
     targets: [
         .target(
@@ -34,7 +33,7 @@ let package = Package(
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
                 "RuntimeCore",
                 "SchedulingCore",
-                "EvalCore"
+                .product(name: "EvalCore", package: "RuntimeCore")
             ]
         ),
         .testTarget(

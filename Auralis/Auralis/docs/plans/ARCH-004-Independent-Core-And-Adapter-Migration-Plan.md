@@ -216,6 +216,11 @@ correct domain.
 has no production dependencies, so the move required only product-address rewiring in its five
 consumers. RuntimeCore passed 314 tests, those consumers passed 566 tests, the package-graph guard
 passed, and Xcode build-for-testing succeeded.
+
+`EvalCore` followed as another independent internal target once Performance was available inside
+RuntimeCore. Its source and public module remained unchanged; three consumers now resolve the product
+from RuntimeCore. The owner and consumer suites passed 829 tests, the package-graph guard passed, and
+Xcode build-for-testing succeeded.
 - runtime state and sessions;
 - runtime events and reliable delivery contracts;
 - planner, playbooks and scheduling;

@@ -136,7 +136,7 @@ The kernel. Owns doing work.
 | `Playbooks` | **Merged 2026-10-24.** The unchanged `PlaybookCore` module and its independent test target now live inside the `RuntimeCore` package root. Its portable output declaration is runtime-owned as `ArtifactOutputType`; `ArtifactCore.ArtifactType` remains a source-compatible alias in the receipts domain. |
 | `Scheduling` | `SchedulingCore` |
 | `Performance` | **Merged 2026-10-24.** The unchanged `PerformanceCore` module and its 28-test target now live inside the `RuntimeCore` package root. |
-| `Eval` | `EvalCore` |
+| `Eval` | **Merged 2026-10-24.** The unchanged `EvalCore` module and its 49-test target now live inside the `RuntimeCore` package root. |
 | `OperatorRegistry` | Canonical `OperatorManifest`, registry, lifecycle/status and compatibility vocabulary; evolves existing `OperatorSpec`, `ToolDefinition` and registry contracts |
 | `InteropContracts` | Transport-neutral peer discovery/messaging/delegation-exchange contracts extracted from Social only when proven reusable |
 | `RuntimeStorage` | `OperatorRuntimeStorage` |
@@ -486,7 +486,7 @@ framework.
 |---|---|---|
 | 0 | Fix the nine required refactors above, freeze the ownership matrix, and add import-boundary tests. No package merges. | 42 → 42 |
 | 1 | Split `AuralisPrimaryModels` by owner; create narrow `AuralisFoundation`; merge capability/mechanics adapters only after reverse dependencies are removed; **`AuraPlayEngines`, `CapabilitiesCore`, `SwiftDataAdapters`, and `UserDefaultsAdapters` roots merged 2026-10-23** | Completed with 38 local roots (37 owned + CodeScanner), preserving the former package modules and independent test targets |
-| 2 | `AuralisRuntime` (merge runtime contracts/companions; route concrete Social and host sources to their final owners). **PlannerCore, PlaybookCore, and PerformanceCore roots merged into RuntimeCore 2026-10-24.** | Current: 35 local roots (34 owned + CodeScanner); three Runtime companion roots eliminated while preserving their modules and test targets |
+| 2 | `AuralisRuntime` (merge runtime contracts/companions; route concrete Social and host sources to their final owners). **PlannerCore, PlaybookCore, PerformanceCore, and EvalCore roots merged into RuntimeCore 2026-10-24.** | Current: 34 local roots (33 owned + CodeScanner); four Runtime companion roots eliminated while preserving their modules and test targets |
 | 3 | `AuralisReceipts` (merge 4 packages + move 21 app files) | Record actual delta |
 | 4 | `AuralisContext` (extract 16 app context files and add Memory contracts/storage/retrieval without duplicating Runtime context contracts) | Net-new owned package; record actual delta |
 | 5 | `AuralisPolicy` (merge 2 packages after receipt decoupling) | Record actual delta |

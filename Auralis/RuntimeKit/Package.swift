@@ -26,8 +26,7 @@ let package = Package(
         .package(path: "../PolicyCore"),
         .package(path: "../AuralisFoundation"),
         .package(path: "../OperatorRuntimeStorage"),
-        .package(path: "../SocialCore"),
-        .package(path: "../EvalCore")
+        .package(path: "../SocialCore")
     ],
     targets: [
         .target(
@@ -51,7 +50,7 @@ let package = Package(
                 .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
                 "OperatorRuntimeStorage",
                 "SocialCore",
-                "EvalCore"
+                .product(name: "EvalCore", package: "RuntimeCore")
             ]
         ),
         .testTarget(
@@ -62,7 +61,7 @@ let package = Package(
                 // The persistent-host suite builds the container itself, so it names the artifact
                 // row type directly.
                 "ArtifactStorage",
-                "EvalCore"
+                .product(name: "EvalCore", package: "RuntimeCore")
             ]
         )
     ]

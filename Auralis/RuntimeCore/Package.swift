@@ -24,6 +24,10 @@ let package = Package(
         .library(
             name: "PerformanceCore",
             targets: ["PerformanceCore"]
+        ),
+        .library(
+            name: "EvalCore",
+            targets: ["EvalCore"]
         )
     ],
     dependencies: [
@@ -53,6 +57,13 @@ let package = Package(
             ]
         ),
         .target(name: "PerformanceCore"),
+        .target(
+            name: "EvalCore",
+            dependencies: [
+                "RuntimeCore",
+                "PerformanceCore"
+            ]
+        ),
         .testTarget(
             name: "RuntimeCoreTests",
             dependencies: ["RuntimeCore"]
@@ -71,6 +82,14 @@ let package = Package(
         .testTarget(
             name: "PerformanceCoreTests",
             dependencies: ["PerformanceCore"]
+        ),
+        .testTarget(
+            name: "EvalCoreTests",
+            dependencies: [
+                "EvalCore",
+                "RuntimeCore",
+                "PerformanceCore"
+            ]
         )
     ]
 )

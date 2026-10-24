@@ -234,6 +234,9 @@ the manifest or source import. Before Phase 1, continue to:
   while moving them into the `RuntimeCore` package root (2026-10-24). RuntimeCore passed 314/314;
   OperatorRuntimeStorage, RuntimeKit, SchedulingCore, Mission Control, and EvalCore passed 566/566;
   the graph guard and Xcode build-for-testing passed.
+- [x] preserve `EvalCore` and `EvalCoreTests` as an independent module/test target while moving
+  them into the `RuntimeCore` package root (2026-10-24). RuntimeCore passed 363/363 and its three
+  direct consumers passed 466/466; the graph guard and Xcode build-for-testing passed.
 
 ### Slice 2 — Runtime consolidation
 

@@ -25,7 +25,6 @@ let package = Package(
         .package(path: "../ArtifactCore"),
         .package(path: "../OperatorsFeature"),
         .package(path: "../SchedulingCore"),
-        .package(path: "../EvalCore"),
         .package(path: "../SocialCore"),
         .package(path: "../TrustedUIKit"),
         .package(path: "../AuraUI"),
@@ -47,7 +46,7 @@ let package = Package(
                 "OperatorsFeature",
                 "SchedulingCore",
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
-                "EvalCore",
+                .product(name: "EvalCore", package: "RuntimeCore"),
                 "SocialCore",
                 "TrustedUIKit",
                 "AuraUI"
@@ -76,7 +75,7 @@ let package = Package(
                 .product(name: "PlaybookCore", package: "RuntimeCore"),
                 .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
-                "EvalCore",
+                .product(name: "EvalCore", package: "RuntimeCore"),
                 "SchedulingCore",
                 "OperatorsFeature",
                 // Imported/used directly by the test sources. Declared explicitly rather than
