@@ -1,5 +1,19 @@
 # Journal
 
+## 2026-10-24 - Social Moved to the Workshop, Not the Kernel
+
+The SocialCore package root is gone, and its module now lives beside concrete operators in
+OperatorsFeature. There was a tempting shortcut: SocialCore already depended mostly on runtime
+contracts, so it could compile as an internal RuntimeCore target. But dependency convenience is not
+domain ownership. The social relay, persistence, invite, session, and ritual machinery are concrete
+operator behavior; only genuinely transport-neutral interoperability contracts belong in the
+kernel later.
+
+The move preserved the module and all 185 social tests, while the combined operators package also
+kept its 110 existing tests green. An architecture guard now treats `SocialCore` as an internal
+operators target and rejects the return of a standalone root. Think of the runtime as the city's
+roads and traffic laws; social is a delivery company using them, not asphalt poured into the road.
+
 ## 2026-10-24 - The Scheduler Stopped Owning the Filing Cabinet
 
 `SchedulingCore` has joined the RuntimeCore package, but the interesting part was the doorway we

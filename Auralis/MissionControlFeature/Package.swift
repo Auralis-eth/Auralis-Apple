@@ -23,7 +23,6 @@ let package = Package(
         .package(path: "../AuralisFoundation"),
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../OperatorsFeature"),
-        .package(path: "../SocialCore"),
         .package(path: "../TrustedUIKit"),
         .package(path: "../AuraUI"),
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.17.0")
@@ -45,7 +44,7 @@ let package = Package(
                 .product(name: "SchedulingCore", package: "RuntimeCore"),
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
                 .product(name: "EvalCore", package: "RuntimeCore"),
-                "SocialCore",
+                .product(name: "SocialCore", package: "OperatorsFeature"),
                 "TrustedUIKit",
                 "AuraUI"
             ],
@@ -79,7 +78,7 @@ let package = Package(
                 // Imported/used directly by the test sources. Declared explicitly rather than
                 // relying on SPM's transitive module search path, which is not a contract.
                 .product(name: "ArtifactCore", package: "ReceiptsCore"),
-                "SocialCore",
+                .product(name: "SocialCore", package: "OperatorsFeature"),
                 "TrustedUIKit",
                 "AuralisPrimaryModels",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing")

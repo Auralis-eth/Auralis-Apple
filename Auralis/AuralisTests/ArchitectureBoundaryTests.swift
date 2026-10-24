@@ -91,6 +91,18 @@ struct ArchitectureBoundaryTests {
             )
         }
 
+        let operatorsManifest = try String(
+            contentsOf: projectRoot.appending(path: "OperatorsFeature/Package.swift"),
+            encoding: .utf8
+        )
+        #expect(operatorsManifest.contains("name: \"SocialCore\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "SocialCore/Package.swift").path()
+            ) == false,
+            "SocialCore must remain an internal AuralisOperators target, not return as a package root."
+        )
+
         let receiptsManifest = try String(
             contentsOf: projectRoot.appending(path: "ReceiptsCore/Package.swift"),
             encoding: .utf8

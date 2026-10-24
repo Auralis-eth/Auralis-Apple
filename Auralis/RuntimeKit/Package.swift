@@ -22,8 +22,7 @@ let package = Package(
         .package(path: "../OperatorsFeature"),
         .package(path: "../PolicyCore"),
         .package(path: "../AuralisFoundation"),
-        .package(path: "../OperatorRuntimeStorage"),
-        .package(path: "../SocialCore")
+        .package(path: "../OperatorRuntimeStorage")
     ],
     targets: [
         .target(
@@ -46,7 +45,7 @@ let package = Package(
                 "PolicyCore",
                 .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
                 "OperatorRuntimeStorage",
-                "SocialCore",
+                .product(name: "SocialCore", package: "OperatorsFeature"),
                 .product(name: "EvalCore", package: "RuntimeCore")
             ]
         ),

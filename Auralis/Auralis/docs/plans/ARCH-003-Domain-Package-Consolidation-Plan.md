@@ -620,7 +620,10 @@ coupling that Required Refactor 2 removes. Merge it as operators, artifacts, and
    consumer.
 
 2. **Social is an operator implementation, not Runtime core.**
-   `SocialCore` depends on `RuntimeCore` + `PlaybookCore` and is imported by both `RuntimeKit` and
+   **Merged 2026-10-24.** The `SocialCore` module and its 185-test target now live inside the
+   `OperatorsFeature` package root, preserving the module boundary while placing relay, persistence,
+   and social behavior with the eventual `AuralisOperators` owner. `SocialCore` depends on
+   `RuntimeCore` + `PlaybookCore` and is imported by both `RuntimeKit` and
    `MissionControlFeature`. Its shared peer/event contracts move to a narrow Runtime interoperability
    target only when transport-neutral; social models, persistence and relay behavior move to
    `AuralisOperators.SocialOperator`. Mission Control reads status through registry contracts.
