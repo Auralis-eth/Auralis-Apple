@@ -201,7 +201,7 @@ Ethereum-specific capability, including accounts (an Auralis account *is* a wall
 | `AccountsUI` | **Merged 2026-10-24.** The unchanged `AccountsFeature` product and its 18-test target now live inside the `AccountsCore` package root. |
 | `Providers` | **Partially merged 2026-10-24.** `ChainProviders` now lives as a distinct product/target inside the `ProviderKit` package root; ProviderKit itself remains to be folded into the final crypto package. |
 | `ENS` | `ENS` |
-| `Explorer` | `ExplorerAdapter` |
+| `Explorer` | **Merged 2026-10-25.** The unchanged `ExplorerAdapter` product and its 17-test target now live inside the `ProviderKit` package root. |
 | `TokenStorage` | **Merged 2026-10-24.** The unchanged `TokenStorage` module and its 10-test target now live inside the `AccountsCore` package root; app `DataModels/{Chain,TokenHolding}.swift` and `Gas/` remain later consolidation work. |
 | `NFT*` (5) | `NFTKit`'s existing `NFTDomain` / `NFTProviderAdapters` / `NFTPersistence` / `NFTPresentation` targets |
 | `WalletConnect*` (7) | `WalletConnectorKit` + its 6 adapter targets |

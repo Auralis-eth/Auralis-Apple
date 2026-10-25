@@ -1,5 +1,15 @@
 # Journal
 
+## 2026-10-25 - The Explorer Map Moved Into the Provider Exchange
+
+`ExplorerAdapter` now ships as an internal product of ProviderKit. Its URL catalog and builders keep
+their own module and their fail-closed behavior for unsupported chains; NFTKit and NFTLibraryFeature
+simply obtain that module from the provider package now. The 17-test baseline exercises every known
+EVM explorer, transaction, address, token, NFT, and OpenSea destination.
+
+The map still belongs to the cartographer. We merely stopped renting a separate building for the
+map cabinet.
+
 ## 2026-10-24 - Chain Providers Joined the Provider Exchange
 
 `ChainProviders` now lives as an internal product and target of ProviderKit. Its explicit EVM and

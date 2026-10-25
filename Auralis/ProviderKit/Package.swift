@@ -16,6 +16,10 @@ let package = Package(
         .library(
             name: "ChainProviders",
             targets: ["ChainProviders"]
+        ),
+        .library(
+            name: "ExplorerAdapter",
+            targets: ["ExplorerAdapter"]
         )
     ],
     dependencies: [
@@ -39,6 +43,10 @@ let package = Package(
                 "ProviderKit"
             ]
         ),
+        .target(
+            name: "ExplorerAdapter",
+            dependencies: ["AuralisPrimaryModels"]
+        ),
         .testTarget(
             name: "ProviderKitTests",
             dependencies: [
@@ -54,6 +62,10 @@ let package = Package(
                 "ProviderKit",
                 "AuralisTestSupport"
             ]
+        ),
+        .testTarget(
+            name: "ExplorerAdapterTests",
+            dependencies: ["ExplorerAdapter"]
         )
     ]
 )

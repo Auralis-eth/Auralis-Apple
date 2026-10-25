@@ -19,7 +19,7 @@ let package = Package(
         .package(path: "../AuraUI"),
         .package(path: "../NFTKit"),
         .package(path: "../OperatorCore"),
-        .package(path: "../ExplorerAdapter"),
+        .package(path: "../ProviderKit"),
         .package(path: "../AuralisTestSupport"),
     ],
     targets: [
@@ -31,7 +31,7 @@ let package = Package(
                 "AuraUI",
                 "NFTKit",
                 "OperatorCore",
-                "ExplorerAdapter",
+                .product(name: "ExplorerAdapter", package: "ProviderKit"),
             ]
         ),
         .testTarget(
@@ -42,7 +42,7 @@ let package = Package(
                 // The external-link policy tests validate URLs the builders produce against the
                 // narrowed policies, so they need both the policy types and the builders directly.
                 "OperatorCore",
-                "ExplorerAdapter",
+                .product(name: "ExplorerAdapter", package: "ProviderKit"),
             ]
         ),
     ]
