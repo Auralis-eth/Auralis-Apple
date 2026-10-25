@@ -133,6 +133,13 @@ struct ArchitectureBoundaryTests {
             ) == false,
             "ExplorerAdapter must remain an internal AuralisCrypto target, not return as a package root."
         )
+        #expect(providerManifest.contains("name: \"ENS\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "ENS/Package.swift").path()
+            ) == false,
+            "ENS must remain an internal AuralisCrypto target, not return as a package root."
+        )
 
         let accountsManifest = try String(
             contentsOf: projectRoot.appending(path: "AccountsCore/Package.swift"),

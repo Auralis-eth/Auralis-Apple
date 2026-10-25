@@ -1,5 +1,25 @@
 # Journal
 
+## 2026-10-25 - ENS Joined the Provider Exchange
+
+The ENS resolver, cache, web3 client, and eight-test suite now live as their own target inside
+ProviderKit. The heavy web3 dependency remains attached only to ENS; the lightweight ProviderKit,
+ChainProviders, and ExplorerAdapter targets do not import it. One package root now contains the
+provider family without flattening its rooms into a single module.
+
+The old ENS manifest also declared secp256k1 directly even though no ENS source target imported it.
+That declaration turned out to be a resolver constraint rather than a source dependency: web3.swift
+1.6.1 expects the product name supplied by secp256k1 0.6.0, while the latest release renamed it.
+ProviderKit therefore retains the exact pin until web3 is upgraded.
+
+## 2026-10-25 - The ENS Baseline Had Two Loose Wires
+
+Before moving ENS, its tests exposed two Swift 6 compile failures: an optional result and its
+unwrapped value used the same local name, and a temporary-defaults fixture could throw inside a test
+that was not declared `throws`. Renaming the optional and making the test's error contract explicit
+restored the baseline without changing production behavior. Migration baselines earn their keep by
+catching exactly this kind of pre-existing loose wire before the furniture starts moving.
+
 ## 2026-10-25 - The Explorer Map Moved Into the Provider Exchange
 
 `ExplorerAdapter` now ships as an internal product of ProviderKit. Its URL catalog and builders keep

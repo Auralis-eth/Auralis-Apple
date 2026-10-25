@@ -144,12 +144,12 @@ struct ENSResolutionServiceTests {
                 storageKey: "verified"
             )
         )
-        let verified = await verifiedResolver.reverseLookup(
+        let verifiedResult = await verifiedResolver.reverseLookup(
             address: "0x1234567890abcdef1234567890abcdef12345678",
             correlationID: "verified"
         )
 
-        let verified = try #require(verified)
+        let verified = try #require(verifiedResult)
         #expect(verified.ensName == "vitalik.eth")
         #expect(verified.isForwardVerified)
 
@@ -183,7 +183,7 @@ struct ENSResolutionServiceTests {
     }
 
     @Test("forward resolution refuses to silently overwrite a changed cached mapping")
-    func forwardResolutionSurfacesMappingChanges() async {
+    func forwardResolutionSurfacesMappingChanges() async throws {
         let client = StubEthereumNameServiceClient()
         await client.setForwardResult(
             .success("0x1234567890abcdef1234567890abcdef12345678"),
