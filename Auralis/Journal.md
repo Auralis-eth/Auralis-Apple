@@ -1,5 +1,16 @@
 # Journal
 
+## 2026-10-24 - The Account Counter Joined the Account Vault
+
+`AccountsFeature` now lives as an internal target of AccountsCore. Its views, presenters, ENS trust
+copy, guest-pass presentation, and 18-test suite keep their own module boundary; only the standalone
+package root disappeared. The result is one crypto-account shipping unit with separate rooms for
+contracts, persistence, token storage, and UI.
+
+This is like moving the bank's customer counter into the same building as its vault and ledger. The
+counter still cannot crack the safe, but the dependency graph no longer pretends it is a separate
+bank. Its pre-move baseline passed 18/18 tests before any files changed.
+
 ## 2026-10-24 - TokenStorage Moved Into the Account Vault
 
 `TokenStorage` is now an internal target of AccountsCore. Its module boundary remains intact, so

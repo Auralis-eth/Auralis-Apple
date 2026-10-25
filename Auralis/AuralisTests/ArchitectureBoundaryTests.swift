@@ -133,6 +133,13 @@ struct ArchitectureBoundaryTests {
             ) == false,
             "TokenStorage must remain an internal AuralisCrypto target, not return as a package root."
         )
+        #expect(accountsManifest.contains("name: \"AccountsFeature\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "AccountsFeature/Package.swift").path()
+            ) == false,
+            "AccountsFeature must remain an internal AuralisCrypto target, not return as a package root."
+        )
 
         let receiptsManifest = try String(
             contentsOf: projectRoot.appending(path: "ReceiptsCore/Package.swift"),

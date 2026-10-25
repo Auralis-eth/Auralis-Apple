@@ -5,12 +5,10 @@ import PackageDescription
 let package = Package(
     name: "AccountsCore",
     platforms: [
-        .iOS(.v18),
-        // Required because this package depends on `AuralisPrimaryModels`, which declares
-        // `.macOS(.v15)`. Without a matching floor SPM assumes macOS 12.0 here and refuses to
-        // resolve that dependency on a macOS host, which also blocked every downstream package
-        // (notably `AuralisShellCore`) from running `swift test` locally or in CI.
-        .macOS(.v15)
+        // AccountsFeature imports AuraUI, whose supported platform floor is OS 26.
+        // SwiftPM platform declarations apply to the complete package, not individual targets.
+        .iOS("26.0"),
+        .macOS("26.0")
     ],
     products: [
         .library(
@@ -24,6 +22,10 @@ let package = Package(
         .library(
             name: "TokenStorage",
             targets: ["TokenStorage"]
+        ),
+        .library(
+            name: "AccountsFeature",
+            targets: ["AccountsFeature"]
         )
     ],
     dependencies: [
@@ -31,7 +33,9 @@ let package = Package(
         .package(path: "../ReceiptsCore"),
         .package(path: "../AuralisFoundation"),
         .package(path: "../ProviderKit"),
-        .package(path: "../NFTKit")
+        .package(path: "../NFTKit"),
+        .package(path: "../AuraUI"),
+        .package(path: "../CodeScanner")
     ],
     targets: [
         .target(
@@ -62,6 +66,21 @@ let package = Package(
                 .product(name: "SwiftDataAdapters", package: "AuralisFoundation")
             ]
         ),
+        .target(
+            name: "AccountsFeature",
+            dependencies: [
+                "AccountsCore",
+                "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "AuraUI",
+                .product(name: "CodeScanner", package: "CodeScanner")
+            ],
+            sources: [
+                "Domain",
+                "Presentation",
+                "Support"
+            ]
+        ),
         .testTarget(
             name: "AccountsCoreTests",
             dependencies: ["AccountsCore"]
@@ -80,6 +99,14 @@ let package = Package(
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "ProviderKit",
                 "TokenStorage"
+            ]
+        ),
+        .testTarget(
+            name: "AccountsFeatureTests",
+            dependencies: [
+                "AccountsFeature",
+                "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
             ]
         )
     ]

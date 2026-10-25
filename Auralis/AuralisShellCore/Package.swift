@@ -5,13 +5,10 @@ import PackageDescription
 let package = Package(
     name: "AuralisShellCore",
     platforms: [
-        .iOS(.v18),
-        // Matches `AuralisPrimaryModels`, which declares `.macOS(.v15)`. Without a macOS floor this
-        // package inherits SPM's default (12.0), which is *below* that dependency's floor, so
-        // `swift test` could not build here at all — and because `AuralisShellCoreTests` is in no
-        // `.xctestplan` and no CI scheme, that left the routing suite executing nowhere. The library
-        // itself ships to iOS; this only makes the package testable on a macOS host.
-        .macOS(.v15)
+        // AccountsCore now contains AccountsFeature and therefore shares AuraUI's OS 26 floor.
+        // SwiftPM requires every direct consumer to declare a compatible platform version.
+        .iOS("26.0"),
+        .macOS("26.0")
     ],
     products: [
         .library(

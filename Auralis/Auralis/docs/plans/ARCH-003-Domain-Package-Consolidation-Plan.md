@@ -198,7 +198,7 @@ Ethereum-specific capability, including accounts (an Auralis account *is* a wall
 |---|---|
 | `Accounts` | `AccountsCore` |
 | `AccountStorage` | **Merged 2026-10-24.** The unchanged `AccountStorage` module and its 10-test target now live inside the `AccountsCore` package root, preserving the coordinator and its consumer-owned transaction participants. |
-| `AccountsUI` | `AccountsFeature` |
+| `AccountsUI` | **Merged 2026-10-24.** The unchanged `AccountsFeature` product and its 18-test target now live inside the `AccountsCore` package root. |
 | `Providers` | `ProviderKit`, `ChainProviders` |
 | `ENS` | `ENS` |
 | `Explorer` | `ExplorerAdapter` |
