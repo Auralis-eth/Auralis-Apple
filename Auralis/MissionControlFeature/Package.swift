@@ -13,6 +13,10 @@ let package = Package(
         .library(
             name: "MissionControlFeature",
             targets: ["MissionControlFeature"]
+        ),
+        .library(
+            name: "TrustedUIKit",
+            targets: ["TrustedUIKit"]
         )
     ],
     dependencies: [
@@ -23,7 +27,6 @@ let package = Package(
         .package(path: "../AuralisFoundation"),
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../OperatorsFeature"),
-        .package(path: "../TrustedUIKit"),
         .package(path: "../AuraUI"),
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.17.0")
     ],
@@ -61,6 +64,13 @@ let package = Package(
                 .process("Resources/Localizable.xcstrings")
             ]
         ),
+        .target(
+            name: "TrustedUIKit",
+            dependencies: [
+                "RuntimeCore",
+                .product(name: "CapabilitiesCore", package: "AuralisFoundation")
+            ]
+        ),
         .testTarget(
             name: "MissionControlFeatureTests",
             dependencies: [
@@ -84,6 +94,14 @@ let package = Package(
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
             ],
             exclude: ["__Snapshots__"]
+        ),
+        .testTarget(
+            name: "TrustedUIKitTests",
+            dependencies: [
+                "TrustedUIKit",
+                "RuntimeCore",
+                .product(name: "CapabilitiesCore", package: "AuralisFoundation")
+            ]
         )
     ]
 )

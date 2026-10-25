@@ -110,6 +110,18 @@ struct ArchitectureBoundaryTests {
             "OperatorCore must remain an internal AuralisOperators target, not return as a package root."
         )
 
+        let missionControlManifest = try String(
+            contentsOf: projectRoot.appending(path: "MissionControlFeature/Package.swift"),
+            encoding: .utf8
+        )
+        #expect(missionControlManifest.contains("name: \"TrustedUIKit\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "TrustedUIKit/Package.swift").path()
+            ) == false,
+            "TrustedUIKit must remain an internal MissionControl target, not return as a package root."
+        )
+
         let policyManifest = try String(
             contentsOf: projectRoot.appending(path: "PolicyCore/Package.swift"),
             encoding: .utf8
@@ -565,7 +577,7 @@ struct ArchitectureBoundaryTests {
             "PolicyCore",
             "RuntimeCore",
             "RuntimeKit",
-            "TrustedUIKit"
+            "MissionControlFeature"
         ]
         var offenders: [String] = []
 

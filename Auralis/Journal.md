@@ -1,5 +1,14 @@
 # Journal
 
+## 2026-10-25 - Trusted UI Moved Into the Control Room
+
+`TrustedUIKit` now lives as a distinct product inside MissionControlFeature. Its approval sheets,
+risk banners, permission cards, registry, accessibility identifiers, and 65 focused tests keep their
+own module boundary; sharing a package root does not let presentation metadata grant authority.
+
+This is the control room bringing its instrument panel into the same building. The gauges still do
+not steer the ship—the runtime and policy boundaries remain the machinery behind the glass.
+
 ## 2026-10-25 - Operator Contracts Joined the Operator Workshop
 
 `OperatorCore` now lives as a distinct product inside OperatorsFeature. Its external-link policy and

@@ -237,7 +237,7 @@ The main app experience.
 | Target | Absorbs |
 |---|---|
 | `MissionControl` | `MissionControlFeature` |
-| `TrustedUI` | `TrustedUIKit` renderer and approval/intervention surfaces; presentation-independent schemas stay in `RuntimeCore`, and renderer components remain reusable outside the Mission Control home surface |
+| `TrustedUI` | **Merged 2026-10-25.** The unchanged `TrustedUIKit` renderer, approval/intervention surfaces, and 65-test target now live inside the `MissionControlFeature` package root; presentation-independent schemas stay in `RuntimeCore`, and the renderer remains a distinct reusable product. |
 
 Depends on: Foundation, `AuralisRuntime`, `AuralisReceipts`, `AuralisContext`, `AuralisPolicy`,
 `AuralisCrypto`, and `AuraUI`. It does not depend on concrete `AuralisOperators` targets.
