@@ -1,5 +1,15 @@
 # Journal
 
+## 2026-10-24 - Chain Providers Joined the Provider Exchange
+
+`ChainProviders` now lives as an internal product and target of ProviderKit. Its explicit EVM and
+ERC-20 capability decisions remain isolated from the provider contracts they consume, while NFTKit
+now obtains both modules from one package root. Six focused tests—including parameterized coverage
+of every known chain—passed before the move.
+
+Picture a currency-exchange board moving into the exchange itself: the board still states which
+lanes support which transactions, but it no longer needs its own building and delivery entrance.
+
 ## 2026-10-24 - The Account Counter Joined the Account Vault
 
 `AccountsFeature` now lives as an internal target of AccountsCore. Its views, presenters, ENS trust

@@ -12,6 +12,10 @@ let package = Package(
         .library(
             name: "ProviderKit",
             targets: ["ProviderKit"]
+        ),
+        .library(
+            name: "ChainProviders",
+            targets: ["ChainProviders"]
         )
     ],
     dependencies: [
@@ -28,9 +32,25 @@ let package = Package(
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
             ]
         ),
+        .target(
+            name: "ChainProviders",
+            dependencies: [
+                "AuralisPrimaryModels",
+                "ProviderKit"
+            ]
+        ),
         .testTarget(
             name: "ProviderKitTests",
             dependencies: [
+                "ProviderKit",
+                "AuralisTestSupport"
+            ]
+        ),
+        .testTarget(
+            name: "ChainProvidersTests",
+            dependencies: [
+                "AuralisPrimaryModels",
+                "ChainProviders",
                 "ProviderKit",
                 "AuralisTestSupport"
             ]

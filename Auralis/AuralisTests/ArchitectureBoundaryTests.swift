@@ -115,6 +115,18 @@ struct ArchitectureBoundaryTests {
             "AutopilotCore must remain an internal AuralisPolicy target, not return as a package root."
         )
 
+        let providerManifest = try String(
+            contentsOf: projectRoot.appending(path: "ProviderKit/Package.swift"),
+            encoding: .utf8
+        )
+        #expect(providerManifest.contains("name: \"ChainProviders\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "ChainProviders/Package.swift").path()
+            ) == false,
+            "ChainProviders must remain an internal AuralisCrypto target, not return as a package root."
+        )
+
         let accountsManifest = try String(
             contentsOf: projectRoot.appending(path: "AccountsCore/Package.swift"),
             encoding: .utf8

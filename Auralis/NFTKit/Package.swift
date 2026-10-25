@@ -34,7 +34,6 @@ let package = Package(
         .package(path: "../AuralisFoundation"),
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../AuralisTestSupport"),
-        .package(path: "../ChainProviders"),
         .package(path: "../ExplorerAdapter"),
         .package(path: "../ProviderKit"),
         .package(path: "../ReceiptsCore")
@@ -51,7 +50,7 @@ let package = Package(
             name: "NFTProviderAdapters",
             dependencies: [
                 "NFTDomain",
-                "ChainProviders",
+                .product(name: "ChainProviders", package: "ProviderKit"),
                 "ExplorerAdapter",
                 "ProviderKit"
             ]
