@@ -16,6 +16,10 @@ let package = Package(
         .library(
             name: "SocialCore",
             targets: ["SocialCore"]
+        ),
+        .library(
+            name: "OperatorCore",
+            targets: ["OperatorCore"]
         )
     ],
     dependencies: [
@@ -39,6 +43,13 @@ let package = Package(
                 .product(name: "PlaybookCore", package: "RuntimeCore")
             ]
         ),
+        .target(
+            name: "OperatorCore",
+            dependencies: [
+                "AuralisPrimaryModels",
+                "ReceiptsCore"
+            ]
+        ),
         .testTarget(
             name: "OperatorsFeatureTests",
             dependencies: ["OperatorsFeature"]
@@ -46,6 +57,13 @@ let package = Package(
         .testTarget(
             name: "SocialCoreTests",
             dependencies: ["SocialCore"]
+        ),
+        .testTarget(
+            name: "OperatorCoreTests",
+            dependencies: [
+                "OperatorCore",
+                "ReceiptsCore"
+            ]
         )
     ]
 )

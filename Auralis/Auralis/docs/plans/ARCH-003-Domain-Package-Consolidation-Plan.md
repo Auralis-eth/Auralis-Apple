@@ -219,6 +219,7 @@ Extension. Capability consumers, never authority holders.
 
 | Target | Absorbs |
 |---|---|
+| `OperatorCore` | **Merged 2026-10-25.** The unchanged policy/provenance support product and its 38-test target now live inside the `OperatorsFeature` package root. |
 | `OperatorTools` | `OperatorsFeature` concrete tools, executors and the current catalog after its manifest vocabulary moves to Runtime |
 | `ModelProviderAdapters` | Concrete provider clients implementing Runtime's provider-neutral `ModelInferring` contract; independent of individual operators |
 | `InteropAdapters` | Future transport-specific peer discovery/messaging/delegation-exchange adapters implementing Runtime contracts |

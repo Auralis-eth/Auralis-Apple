@@ -102,6 +102,13 @@ struct ArchitectureBoundaryTests {
             ) == false,
             "SocialCore must remain an internal AuralisOperators target, not return as a package root."
         )
+        #expect(operatorsManifest.contains("name: \"OperatorCore\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "OperatorCore/Package.swift").path()
+            ) == false,
+            "OperatorCore must remain an internal AuralisOperators target, not return as a package root."
+        )
 
         let policyManifest = try String(
             contentsOf: projectRoot.appending(path: "PolicyCore/Package.swift"),

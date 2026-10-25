@@ -1,5 +1,15 @@
 # Journal
 
+## 2026-10-25 - Operator Contracts Joined the Operator Workshop
+
+`OperatorCore` now lives as a distinct product inside OperatorsFeature. Its external-link policy and
+provenance vocabulary remain a narrow module with 38 focused tests; concrete tools and Social still
+cannot bypass those contracts merely because they share a package root. NFTLibraryFeature now gets
+the same product from the consolidated operator package.
+
+This is the workshop putting its safety manual on an internal shelf. The manual did not become a
+power tool, and the tools did not gain authority by standing beside it.
+
 ## 2026-10-25 - ENS Joined the Provider Exchange
 
 The ENS resolver, cache, web3 client, and eight-test suite now live as their own target inside
