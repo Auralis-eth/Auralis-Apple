@@ -446,6 +446,37 @@ struct ArchitectureBoundaryTests {
         #expect(imports.contains("AuralisPrimaryPersistence") == false)
     }
 
+    @Test("owned package manifests declare compatible platform floors")
+    func ownedPackagePlatformsStayCompatible() throws {
+        let projectRoot = try projectRootURL()
+        let corePackages = [
+            "AuralisFoundation", "AuralisPrimaryModels", "AuralisTestSupport",
+            "PolicyCore", "ReceiptsCore", "RuntimeCore"
+        ]
+        let uiAndCompositionPackages = [
+            "AccountsCore", "AuraPlayEngines", "AuraUI", "MissionControlFeature",
+            "OperatorsFeature", "RuntimeKit"
+        ]
+
+        for package in corePackages {
+            let manifest = try String(
+                contentsOf: projectRoot.appending(path: "\(package)/Package.swift"),
+                encoding: .utf8
+            )
+            #expect(manifest.contains(".iOS(.v18)"), "\(package) must support the core iOS floor.")
+            #expect(manifest.contains(".macOS(.v15)"), "\(package) must support the core macOS floor.")
+        }
+
+        for package in uiAndCompositionPackages {
+            let manifest = try String(
+                contentsOf: projectRoot.appending(path: "\(package)/Package.swift"),
+                encoding: .utf8
+            )
+            #expect(manifest.contains(".iOS(\"26.0\")"), "\(package) must match the UI iOS floor.")
+            #expect(manifest.contains(".macOS(\"26.0\")"), "\(package) must match the UI macOS floor.")
+        }
+    }
+
     /// The two repository-level ownership documents, and the constraints they are required to carry.
     ///
     /// Asserted on their *content*, not merely their existence. A principle with no repository
