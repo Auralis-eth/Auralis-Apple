@@ -1,5 +1,14 @@
 # Journal
 
+## 2026-10-25 - Wallet Connectors Entered the Crypto Vault
+
+`WalletConnectorKit` and its six vendor adapter targets now live inside AccountsCore, the emerging
+AuralisCrypto package. Reown, Coinbase, Privy, and Dynamic remain attached only to their concrete
+adapter rooms; the provider-neutral wallet contracts do not inherit those SDKs merely by sharing a
+building. The complete 180-test baseline moved with them.
+
+This is a vault with separate safety-deposit boxes, not one giant drawer of keys.
+
 ## 2026-10-25 - AuraPlay Joined the Operator Wing
 
 `MusicFeature` now lives as a distinct product inside OperatorsFeature. Its domain, discovery,

@@ -186,6 +186,28 @@ struct ArchitectureBoundaryTests {
             "ENS must remain an internal AuralisCrypto target, not return as a package root."
         )
 
+        let walletAccountsManifest = try String(
+            contentsOf: projectRoot.appending(path: "AccountsCore/Package.swift"),
+            encoding: .utf8
+        )
+        for target in [
+            "WalletConnectorKit",
+            "WalletConnectorKitReownAdapter",
+            "WalletConnectorKitCoinbaseAdapter",
+            "WalletConnectorKitMetaMaskAdapter",
+            "WalletConnectorKitPrivyAdapter",
+            "WalletConnectorKitDynamicAdapter",
+            "WalletConnectorKitSolanaAdapter"
+        ] {
+            #expect(walletAccountsManifest.contains("name: \"\(target)\""))
+        }
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "WalletConnectorKit/Package.swift").path()
+            ) == false,
+            "WalletConnectorKit adapters must remain internal AuralisCrypto targets."
+        )
+
         let accountsManifest = try String(
             contentsOf: projectRoot.appending(path: "AccountsCore/Package.swift"),
             encoding: .utf8
