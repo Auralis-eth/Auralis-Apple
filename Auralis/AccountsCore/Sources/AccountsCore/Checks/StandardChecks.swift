@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
+import RuntimeCore
 
 /// The concrete deterministic checks the runtime ships with (P0.5-802). All are pure and operate on
 /// `ActionProposal.parameters`, so they're reproducible from a receipt and require no network or heavy
@@ -8,18 +9,6 @@ import Foundation
 ///
 /// The record-shape checks (`receipt.schema`, `artifact.schema`) live in `RuntimeKit` instead, because
 /// the schemas they validate sit above this package in the dependency graph.
-public enum StandardCheckID {
-    public static let addressFormat = "address.format"
-    public static let ensNameFormat = "ens.format"
-    public static let chainInScope = "chain.inScope"
-    public static let contextFresh = "context.fresh"
-}
-
-public enum StandardCheckParameterKey {
-    public static let contextRefreshedAt = "contextRefreshedAt"
-    public static let freshnessEvaluatedAt = "freshnessEvaluatedAt"
-}
-
 /// One chain/address/ENS triple that the target-shaped checks validate.
 ///
 /// Every field is optional because the three checks are independent: a proposal may name a chain

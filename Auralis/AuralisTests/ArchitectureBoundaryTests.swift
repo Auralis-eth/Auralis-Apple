@@ -1064,7 +1064,7 @@ struct ArchitectureBoundaryTests {
         let aliasPatterns = ["case \"ethereum\"", "case \"eth\"", "case \"mainnet\"", "case \"arbitrum\""]
         let allowedPathSuffixes: Set<String> = [
             // The one canonical resolver.
-            "/RuntimeCore/Sources/RuntimeCore/Checks/ChainScopeReference.swift"
+            "/AccountsCore/Sources/AccountsCore/Checks/ChainScopeReference.swift"
         ]
         var offenders: [String] = []
 

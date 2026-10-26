@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
+@testable import AccountsCore
 @testable import RuntimeCore
 import Testing
 

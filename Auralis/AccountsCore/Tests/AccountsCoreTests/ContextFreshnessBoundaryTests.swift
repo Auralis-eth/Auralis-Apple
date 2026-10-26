@@ -1,5 +1,6 @@
 import CapabilitiesCore
 import Foundation
+@testable import AccountsCore
 @_spi(RuntimeComposition) @_spi(RuntimeTesting) @_spi(ToolRegistration) @testable import RuntimeCore
 import Testing
 

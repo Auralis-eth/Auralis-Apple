@@ -47,6 +47,7 @@ let package = Package(
     dependencies: [
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../ReceiptsCore"),
+        .package(path: "../RuntimeCore"),
         .package(path: "../AuralisFoundation"),
         .package(path: "../AuralisTestSupport"),
         .package(path: "../AuraUI"),
@@ -64,7 +65,8 @@ let package = Package(
             name: "AccountsCore",
             dependencies: [
                 "AuralisPrimaryModels",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                .product(name: "RuntimeCore", package: "RuntimeCore")
             ]
         ),
         .target(
@@ -189,7 +191,11 @@ let package = Package(
         .target(name: "WalletConnectorKitSolanaAdapter", dependencies: ["WalletConnectorKit"]),
         .testTarget(
             name: "AccountsCoreTests",
-            dependencies: ["AccountsCore"]
+            dependencies: [
+                "AccountsCore",
+                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                .product(name: "RuntimeCore", package: "RuntimeCore")
+            ]
         ),
         .testTarget(
             name: "AccountStorageTests",

@@ -46,6 +46,7 @@ let package = Package(
         .target(
             name: "OperatorsFeature",
             dependencies: [
+                .product(name: "AccountsCore", package: "AccountsCore"),
                 "RuntimeCore",
                 .product(name: "ArtifactCore", package: "ReceiptsCore")
             ]
@@ -91,7 +92,10 @@ let package = Package(
         ),
         .testTarget(
             name: "OperatorsFeatureTests",
-            dependencies: ["OperatorsFeature"]
+            dependencies: [
+                .product(name: "AccountsCore", package: "AccountsCore"),
+                "OperatorsFeature"
+            ]
         ),
         .testTarget(
             name: "SocialCoreTests",

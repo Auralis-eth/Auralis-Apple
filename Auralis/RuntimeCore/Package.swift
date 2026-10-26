@@ -35,14 +35,12 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(path: "../AuralisPrimaryModels"),
         .package(path: "../AuralisFoundation")
     ],
     targets: [
         .target(
             name: "RuntimeCore",
             dependencies: [
-                "AuralisPrimaryModels",
                 .product(name: "CapabilitiesCore", package: "AuralisFoundation")
             ]
         ),

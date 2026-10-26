@@ -5177,3 +5177,9 @@ crypto dependencies, decouple or deliberately relocate the shared schema cluster
 retire the transitional package. One genuinely unused piece, `TagValue`, had no consumers at all and
 was deleted instead of being ceremonially moved. Dead abstractions do not become architecture merely
 because they have a destination folder.
+
+The first dependency cord cut was RuntimeCore's direct import of the primary crypto vocabulary.
+Ethereum address checks, chain-scope resolution, and their concrete registration now live in
+AccountsCore; RuntimeCore retains only stable check IDs, parameter keys, and the generic execution
+pipeline. The original check suites moved with the implementation and still prove checksums,
+confusable rejection, chain aliases, freshness replay, severity, and approval-resume behavior.
