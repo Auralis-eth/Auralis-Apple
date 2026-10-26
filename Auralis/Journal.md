@@ -1,5 +1,14 @@
 # Journal
 
+## 2026-10-25 - AuraPlay Joined the Operator Wing
+
+`MusicFeature` now lives as a distinct product inside OperatorsFeature. Its domain, discovery,
+SwiftData schema, library services, player presentation, receipt integration, and 136 focused tests
+remain one cohesive module, while playback engines stay independently owned by AuraPlayEngines.
+
+This is a concert hall moving into the arts district without pouring concrete over the orchestra
+pit. The feature, playback engines, receipts, and app-owned live adapters still have separate doors.
+
 ## 2026-10-25 - The NFT Gallery Joined the Operator Wing
 
 `NFTLibraryFeature` now lives as a distinct product inside OperatorsFeature. Its routes, sorting,

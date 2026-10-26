@@ -128,6 +128,13 @@ struct ArchitectureBoundaryTests {
             ) == false,
             "NFTLibraryFeature must remain an internal AuralisOperators target, not return as a package root."
         )
+        #expect(operatorsManifest.contains("name: \"MusicFeature\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "MusicFeature/Package.swift").path()
+            ) == false,
+            "MusicFeature must remain an internal AuralisOperators target, not return as a package root."
+        )
 
         let missionControlManifest = try String(
             contentsOf: projectRoot.appending(path: "MissionControlFeature/Package.swift"),
@@ -257,7 +264,7 @@ struct ArchitectureBoundaryTests {
         )
         let musicAlchemyClient = try String(
             contentsOf: projectRoot.appending(
-                path: "MusicFeature/Sources/MusicFeature/Discovery/AlchemyNFTClient.swift"
+                path: "OperatorsFeature/Sources/MusicFeature/Discovery/AlchemyNFTClient.swift"
             ),
             encoding: .utf8
         )
@@ -299,7 +306,7 @@ struct ArchitectureBoundaryTests {
         #expect(accountSummary.contains("public struct AccountSummary"))
         let musicURLSupport = try String(
             contentsOf: projectRoot.appending(
-                path: "MusicFeature/Sources/MusicFeature/Persistence/NFT+MusicURL.swift"
+                path: "OperatorsFeature/Sources/MusicFeature/Persistence/NFT+MusicURL.swift"
             ),
             encoding: .utf8
         )
@@ -338,7 +345,7 @@ struct ArchitectureBoundaryTests {
         )
         let musicParticipant = try String(
             contentsOf: projectRoot.appending(
-                path: "MusicFeature/Sources/MusicFeature/Persistence/MusicLibraryAccountPersistenceParticipant.swift"
+                path: "OperatorsFeature/Sources/MusicFeature/Persistence/MusicLibraryAccountPersistenceParticipant.swift"
             ),
             encoding: .utf8
         )
@@ -1358,7 +1365,7 @@ struct ArchitectureBoundaryTests {
         let projectRoot = try projectRootURL()
         let rules: [PackageSourceBoundaryRule] = [
             PackageSourceBoundaryRule(
-                rootPath: "MusicFeature/Sources/MusicFeature/Domain",
+                rootPath: "OperatorsFeature/Sources/MusicFeature/Domain",
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
@@ -1371,7 +1378,7 @@ struct ArchitectureBoundaryTests {
                 reason: "MusicFeature domain values must stay portable and UI/storage-free"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "MusicFeature/Sources/MusicFeature/Core",
+                rootPath: "OperatorsFeature/Sources/MusicFeature/Core",
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
@@ -1384,7 +1391,7 @@ struct ArchitectureBoundaryTests {
                 reason: "MusicFeature core configuration must stay independent of UI, persistence, and receipt services"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "MusicFeature/Sources/MusicFeature/Services",
+                rootPath: "OperatorsFeature/Sources/MusicFeature/Services",
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
@@ -1400,7 +1407,7 @@ struct ArchitectureBoundaryTests {
                 reason: "MusicFeature service contracts must not depend on UI, SwiftData, or NFT implementation layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "MusicFeature/Sources/MusicFeature/Persistence",
+                rootPath: "OperatorsFeature/Sources/MusicFeature/Persistence",
                 forbiddenImports: [
                     "AuraUI",
                     "NFTKit",
@@ -1414,7 +1421,7 @@ struct ArchitectureBoundaryTests {
                 reason: "MusicFeature persistence may use SwiftData but must not reach into UI or NFT layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "MusicFeature/Sources/MusicFeature/Receipts",
+                rootPath: "OperatorsFeature/Sources/MusicFeature/Receipts",
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
@@ -1431,7 +1438,7 @@ struct ArchitectureBoundaryTests {
                 reason: "MusicFeature receipt logic depends on receipt contracts, not app storage, UI, or NFT layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "MusicFeature/Sources/MusicFeature/Presentation",
+                rootPath: "OperatorsFeature/Sources/MusicFeature/Presentation",
                 forbiddenImports: [
                     "NFTKit",
                     "NFTProviderAdapters",
@@ -1441,7 +1448,7 @@ struct ArchitectureBoundaryTests {
                 reason: "MusicFeature presentation may use SwiftUI and SwiftData-facing models but not provider or storage implementation packages"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "MusicFeature/Sources/MusicFeature/App",
+                rootPath: "OperatorsFeature/Sources/MusicFeature/App",
                 forbiddenImports: [
                     "NFTKit",
                     "NFTProviderAdapters",
@@ -1679,7 +1686,7 @@ struct ArchitectureBoundaryTests {
         let projectRoot = try projectRootURL()
         let scannedRoots = [
             projectRoot.appending(path: "Auralis"),
-            projectRoot.appending(path: "MusicFeature/Sources")
+            projectRoot.appending(path: "OperatorsFeature/Sources/MusicFeature")
         ]
         let allowedFiles: Set<String> = [
             "Auralis/Aura/MainAuraView.swift", // read-only activeAccountID resolver

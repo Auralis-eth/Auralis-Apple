@@ -24,6 +24,10 @@ let package = Package(
         .library(
             name: "NFTLibraryFeature",
             targets: ["NFTLibraryFeature"]
+        ),
+        .library(
+            name: "MusicFeature",
+            targets: ["MusicFeature"]
         )
     ],
     dependencies: [
@@ -34,6 +38,8 @@ let package = Package(
         .package(path: "../NFTKit"),
         .package(path: "../ProviderKit"),
         .package(path: "../AuralisTestSupport"),
+        .package(path: "../AuraPlayEngines"),
+        .package(path: "../AuralisFoundation"),
         // web3.swift 1.6.1 still references the pre-rename `secp256k1` product.
         .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", exact: "0.6.0")
     ],
@@ -71,6 +77,19 @@ let package = Package(
                 .product(name: "ExplorerAdapter", package: "ProviderKit")
             ]
         ),
+        .target(
+            name: "MusicFeature",
+            dependencies: [
+                "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                .product(name: "AuraPlayMediaCore", package: "AuraPlayEngines"),
+                "AuraUI",
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
+                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
+                "ReceiptsCore"
+            ]
+        ),
         .testTarget(
             name: "OperatorsFeatureTests",
             dependencies: ["OperatorsFeature"]
@@ -94,6 +113,16 @@ let package = Package(
                 "OperatorCore",
                 .product(name: "ExplorerAdapter", package: "ProviderKit")
             ]
+        ),
+        .testTarget(
+            name: "MusicFeatureTests",
+            dependencies: [
+                "MusicFeature",
+                "AuralisTestSupport",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                .product(name: "ReceiptStorage", package: "ReceiptsCore")
+            ],
+            exclude: ["__Snapshots__"]
         )
     ]
 )

@@ -223,7 +223,7 @@ Extension. Capability consumers, never authority holders.
 | `OperatorTools` | `OperatorsFeature` concrete tools, executors and the current catalog after its manifest vocabulary moves to Runtime |
 | `ModelProviderAdapters` | Concrete provider clients implementing Runtime's provider-neutral `ModelInferring` contract; independent of individual operators |
 | `InteropAdapters` | Future transport-specific peer discovery/messaging/delegation-exchange adapters implementing Runtime contracts |
-| `MusicOperator` | `MusicFeature`, app `MusicApp/AuraPlay/*` |
+| `MusicOperator` | **Merged 2026-10-25.** The unchanged `MusicFeature` domain, discovery, persistence, presentation, receipt integration, and 136-test target now live inside the `OperatorsFeature` package root; app-owned live adapters remain in `MusicApp/AuraPlay/*`. |
 | `NFTLibraryOperator` | **Merged 2026-10-25.** The unchanged `NFTLibraryFeature` browsing UI, routing/presentation contracts, and 12-test target now live inside the `OperatorsFeature` package root. |
 | `SocialOperator` | app `Aura/Social/*` (18 files) |
 
