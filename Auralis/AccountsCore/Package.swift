@@ -227,6 +227,7 @@ let package = Package(
             dependencies: [
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                .product(name: "PrimaryModelsTestSupport", package: "AuralisPrimaryModels"),
                 "AuralisTestSupport",
                 "NFTDomain",
                 "NFTKit",

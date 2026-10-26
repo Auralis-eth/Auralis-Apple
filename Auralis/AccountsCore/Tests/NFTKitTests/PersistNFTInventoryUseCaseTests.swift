@@ -1,6 +1,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisTestSupport
+import PrimaryModelsTestSupport
 import Foundation
 import NFTDomain
 import NFTPersistence

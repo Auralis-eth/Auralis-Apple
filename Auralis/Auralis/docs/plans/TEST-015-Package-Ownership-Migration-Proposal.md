@@ -302,7 +302,7 @@ the manifest or source import. Before Phase 1, continue to:
 
 ## Completion Checklist
 
-- [ ] Shared test support depends only on AuralisFoundation.
+- [x] Shared test support depends only on AuralisFoundation. Domain-specific NFT fixtures live in `PrimaryModelsTestSupport` or the app integration-test target.
 - [ ] All package manifests declare compatible platforms.
 - [ ] Every final production target has an owning test target or a documented reason it does not.
 - [ ] Intent, commitment, runtime-state, memory, context, artifact and receipt boundaries are tested.

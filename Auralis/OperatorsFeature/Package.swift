@@ -119,6 +119,7 @@ let package = Package(
                 "MusicFeature",
                 "AuralisTestSupport",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                .product(name: "PrimaryModelsTestSupport", package: "AuralisPrimaryModels"),
                 .product(name: "ReceiptStorage", package: "ReceiptsCore")
             ],
             exclude: ["__Snapshots__"]

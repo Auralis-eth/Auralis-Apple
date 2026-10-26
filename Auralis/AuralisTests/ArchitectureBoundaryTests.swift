@@ -440,7 +440,10 @@ struct ArchitectureBoundaryTests {
         let imports = try swiftImports(under: packageRoot.appending(path: "Sources"))
 
         #expect(manifest.contains("../ReceiptStorage") == false)
+        #expect(manifest.contains("../AuralisPrimaryModels") == false)
         #expect(imports.contains("ReceiptStorage") == false)
+        #expect(imports.contains("AuralisPrimaryModels") == false)
+        #expect(imports.contains("AuralisPrimaryPersistence") == false)
     }
 
     /// The two repository-level ownership documents, and the constraints they are required to carry.

@@ -5141,3 +5141,15 @@ ReceiptsCore—and a linker command containing `RuntimeCore.o` twice. AppShell i
 owner: the pure runtime package still knows nothing about SwiftData or receipt persistence, while the
 storage target can see both domains. The original 56-test suite moved with it, so the final root
 elimination carries behavior proof rather than relying on an app build to bless it.
+
+## 2026-10-26 - The Fixture Drawer Stopped Owning the Kitchen
+
+Generic test support had quietly become a back door into the primary domain: asking for a lock box or
+temporary defaults also pulled in the NFT model and its SwiftData schema. That is like keeping the
+restaurant's master keys in the dessert drawer—convenient until every station needs the whole drawer.
+
+`NFTFixture` now lives in `PrimaryModelsTestSupport`, beside the models it constructs, while app-level
+integration tests keep a local composition fixture. `AuralisTestSupport` is dependency-clean again and
+imports only AuralisFoundation plus system/testing frameworks. An architecture test now guards the
+actual rule, including both manifest dependencies and source imports, rather than checking only the
+old ReceiptStorage failure mode.

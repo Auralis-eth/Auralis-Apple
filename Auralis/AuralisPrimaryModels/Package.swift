@@ -18,6 +18,10 @@ let package = Package(
         .library(
             name: "AuralisPrimaryPersistence",
             targets: ["AuralisPrimaryPersistence"]
+        ),
+        .library(
+            name: "PrimaryModelsTestSupport",
+            targets: ["PrimaryModelsTestSupport"]
         )
     ],
     dependencies: [
@@ -30,6 +34,14 @@ let package = Package(
             dependencies: [
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "AuralisPrimaryModels"
+            ]
+        ),
+        .target(
+            name: "PrimaryModelsTestSupport",
+            dependencies: [
+                "AuralisPrimaryModels",
+                "AuralisPrimaryPersistence",
+                .product(name: "AuralisFoundation", package: "AuralisFoundation")
             ]
         ),
         .testTarget(
