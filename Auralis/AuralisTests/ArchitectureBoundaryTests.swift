@@ -81,7 +81,9 @@ struct ArchitectureBoundaryTests {
             contentsOf: projectRoot.appending(path: "RuntimeCore/Package.swift"),
             encoding: .utf8
         )
-        for target in ["PlannerCore", "PlaybookCore", "PerformanceCore", "EvalCore", "SchedulingCore"] {
+        for target in [
+            "PlannerCore", "PlaybookCore", "PerformanceCore", "EvalCore", "SchedulingCore"
+        ] {
             #expect(runtimeManifest.contains("name: \"\(target)\""))
             #expect(
                 FileManager.default.fileExists(
@@ -90,6 +92,18 @@ struct ArchitectureBoundaryTests {
                 "\(target) must remain an internal AuralisRuntime target, not return as a package root."
             )
         }
+
+        let runtimeKitManifest = try String(
+            contentsOf: projectRoot.appending(path: "RuntimeKit/Package.swift"),
+            encoding: .utf8
+        )
+        #expect(runtimeKitManifest.contains("name: \"OperatorRuntimeStorage\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "OperatorRuntimeStorage/Package.swift").path()
+            ) == false,
+            "OperatorRuntimeStorage must remain an internal AuralisAppShell target."
+        )
 
         let appShellManifest = try String(
             contentsOf: projectRoot.appending(path: "RuntimeKit/Package.swift"),
@@ -717,8 +731,8 @@ struct ArchitectureBoundaryTests {
             "PlannerCore": 4,
             "AutopilotCore": 4,
             "OperatorsFeature": 5,
+            "AuraUI": 5,
             "RuntimeKit": 6,
-            "AuraUI": 7,
             "MissionControlFeature": 7
         ]
         var violations: [String] = []

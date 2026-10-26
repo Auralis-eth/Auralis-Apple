@@ -1,9 +1,14 @@
 # ARCH-003: Domain Package Consolidation Plan
 
-Status: Direction approved; source-backed migration plan
-Date: 2026-10-22 (revised from 2026-09-09)
+Status: Physical package-root consolidation complete; domain evolution continues
+Date: 2026-10-26 (revised from 2026-09-09)
 Supersedes nothing. Extends `ADR-008-operator-runtime-package-boundaries.md`.
 Related: `ARCH-004-Independent-Core-And-Adapter-Migration-Plan.md`, `TEST-015-Package-Ownership-Migration-Proposal.md`, `ADR-011-app-composition-boundaries.md`, `ADR-012-nft-refresh-pipeline.md`.
+
+Completion record: the repository now contains exactly **12 Auralis-owned Swift package roots plus
+vendored `CodeScanner`**. All 30 planned physical root eliminations are complete. The historical
+inventory below remains as the migration baseline; ongoing work concerns the responsibilities and
+internal targets within the final package shape, not additional root consolidation.
 
 ## Purpose
 
@@ -139,12 +144,13 @@ The kernel. Owns doing work.
 | `Eval` | **Merged 2026-10-24.** The unchanged `EvalCore` module and its 49-test target now live inside the `RuntimeCore` package root. |
 | `OperatorRegistry` | Canonical `OperatorManifest`, registry, lifecycle/status and compatibility vocabulary; evolves existing `OperatorSpec`, `ToolDefinition` and registry contracts |
 | `InteropContracts` | Transport-neutral peer discovery/messaging/delegation-exchange contracts extracted from Social only when proven reusable |
-| `RuntimeStorage` | `OperatorRuntimeStorage` |
+| `RuntimeStorage` | **Merged 2026-10-26.** Runtime contracts remain in `RuntimeCore`; the unchanged concrete `OperatorRuntimeStorage` SwiftData module and its 56-test target live inside the `RuntimeKit` AppShell package, where Runtime and Receipts can be composed without a package cycle. |
 
-Depends on: `AuralisFoundation` only. Must stay bare-`swift test`-able. Must never import ENS,
-secp256k1, web3.swift, SwiftUI, concrete model providers, concrete operators, UI renderers, or any
-storage beyond its own `RuntimeStorage` target. Provider-specific inference implementations belong
-outside `InferenceCore` and are injected through `ModelInferring`.
+RuntimeCore depends on `AuralisFoundation` only and must stay bare-`swift test`-able. Concrete runtime
+persistence is composed in AppShell because it also depends on receipts-owned artifact storage. The
+pure runtime targets must never import ENS, secp256k1, web3.swift, SwiftUI, concrete model providers,
+concrete operators, UI renderers, or persistence adapters. Provider-specific inference implementations
+belong outside `InferenceCore` and are injected through `ModelInferring`.
 
 #### 6. `AuralisReceipts`
 

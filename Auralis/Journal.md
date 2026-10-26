@@ -5128,3 +5128,16 @@ adapters, and all five NFT layers keep their module names, but now share the Acc
 boundary. It is the architectural equivalent of moving two interlocked gears without pretending one
 can keep turning in midair. The exact secp256k1 compatibility pin also stays at the owning crypto
 root, preventing dependency resolution from silently selecting the post-rename product layout.
+
+## 2026-10-26 - The Last Runtime Vault Came Inside
+
+OperatorRuntimeStorage was the final standalone root, but not a new conceptual domain. It is the
+runtime kernel's durable vault: sessions, worklogs, scheduling state, performance evidence, eval
+results, and improvement recommendations. Its module boundary remains intact inside RuntimeKit,
+including the explicit bridge to receipts-owned artifact storage.
+
+That distinction matters. Putting the adapter inside RuntimeCore produced a real package cycle through
+ReceiptsCore—and a linker command containing `RuntimeCore.o` twice. AppShell is the honest composition
+owner: the pure runtime package still knows nothing about SwiftData or receipt persistence, while the
+storage target can see both domains. The original 56-test suite moved with it, so the final root
+elimination carries behavior proof rather than relying on an app build to bless it.

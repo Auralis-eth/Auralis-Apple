@@ -16,6 +16,10 @@ let package = Package(
         .library(
             name: "AuralisShellCore",
             targets: ["AuralisShellCore"]
+        ),
+        .library(
+            name: "OperatorRuntimeStorage",
+            targets: ["OperatorRuntimeStorage"]
         )
     ],
     dependencies: [
@@ -25,7 +29,6 @@ let package = Package(
         .package(path: "../OperatorsFeature"),
         .package(path: "../PolicyCore"),
         .package(path: "../AuralisFoundation"),
-        .package(path: "../OperatorRuntimeStorage"),
         .package(path: "../AccountsCore"),
         // web3.swift 1.6.1 still references the pre-rename `secp256k1` product.
         // Keep the compatible constraint visible at this AppShell graph root.
@@ -64,6 +67,18 @@ let package = Package(
                 "AccountsCore"
             ]
         ),
+        .target(
+            name: "OperatorRuntimeStorage",
+            dependencies: [
+                .product(name: "ArtifactCore", package: "ReceiptsCore"),
+                .product(name: "ArtifactStorage", package: "ReceiptsCore"),
+                .product(name: "PlaybookCore", package: "RuntimeCore"),
+                .product(name: "PerformanceCore", package: "RuntimeCore"),
+                "RuntimeCore",
+                .product(name: "SchedulingCore", package: "RuntimeCore"),
+                .product(name: "EvalCore", package: "RuntimeCore")
+            ]
+        ),
         .testTarget(
             name: "RuntimeKitTests",
             dependencies: [
@@ -82,6 +97,10 @@ let package = Package(
                 "AccountsCore",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
             ]
+        ),
+        .testTarget(
+            name: "OperatorRuntimeStorageTests",
+            dependencies: ["OperatorRuntimeStorage"]
         )
     ]
 )
