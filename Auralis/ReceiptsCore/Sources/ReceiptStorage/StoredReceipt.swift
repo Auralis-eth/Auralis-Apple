@@ -1,9 +1,24 @@
 import AuralisFoundation
-import AuralisPrimaryModels
 import Foundation
 import OSLog
 import ReceiptsCore
 import SwiftData
+
+private enum ReceiptStorageScopeNormalizer {
+    static func normalizedAddress(_ rawValue: String) -> String? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = trimmed.lowercased().hasPrefix("0x") ? String(trimmed.dropFirst(2)) : trimmed
+        guard body.count == 40, body.allSatisfy({ $0.isASCII && $0.isHexDigit }) else {
+            return nil
+        }
+        return "0x" + body.lowercased()
+    }
+
+    static func normalizedOpaqueChain(_ rawValue: String) -> String? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
 
 @Model
 public final class StoredReceipt {
@@ -547,7 +562,7 @@ enum ReceiptAccountAddress {
     /// (F-92, F-99, F-108). The assertion stays on the real write path; the decision it guards is
     /// pinnable here.
     static func normalizedAccountKey(_ trimmed: String) -> String {
-        AuralisEthereumAddress.normalized(trimmed) ?? trimmed.lowercased()
+        ReceiptStorageScopeNormalizer.normalizedAddress(trimmed) ?? trimmed.lowercased()
     }
 
     /// Debug-only guard on the one input shape this function cannot normalize away (F-100).
@@ -616,7 +631,8 @@ enum ReceiptChainScope {
 
 extension ReceiptPayload {
     var timelineAccountAddress: String? {
-        AuralisEthereumAddress.normalized(value(forKeys: ["accountAddress", "address"]))
+        value(forKeys: ["accountAddress", "address"])
+            .flatMap(ReceiptStorageScopeNormalizer.normalizedAddress)
     }
 
     var timelineChainRawValue: String? {
@@ -624,7 +640,7 @@ extension ReceiptPayload {
             return nil
         }
 
-        return Chain(rawValue: rawValue)?.rawValue
+        return ReceiptStorageScopeNormalizer.normalizedOpaqueChain(rawValue)
     }
 
     func value(forKeys keys: [String]) -> String? {

@@ -1,5 +1,3 @@
-import AuralisPrimaryModels
-
 /// Evidence required before a future high-risk action can become executable.
 public struct PolicyExecutionEvidence: Equatable, Sendable {
     public let signingAccessAvailable: Bool
@@ -57,14 +55,14 @@ public struct PolicyUserConfirmation: Equatable, Sendable {
 }
 
 public struct DraftTransactionPreviewEvidence: Equatable, Sendable {
-    public let targetChain: Chain
+    public let targetChain: PolicyChainReference
     public let gasEstimate: String
     public let contractInfo: String
     public let verifiedDestination: String
     public let simulationSummary: String
 
     public init(
-        targetChain: Chain,
+        targetChain: PolicyChainReference,
         gasEstimate: String,
         contractInfo: String,
         verifiedDestination: String,

@@ -28,7 +28,6 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../AuralisFoundation"),
-        .package(path: "../AuralisPrimaryModels"),
         .package(path: "../RuntimeCore")
     ],
     targets: [
@@ -36,7 +35,6 @@ let package = Package(
             name: "ReceiptsCore",
             dependencies: [
                 "AuralisFoundation",
-                "AuralisPrimaryModels",
                 .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
                 "RuntimeCore"
             ]
@@ -56,7 +54,6 @@ let package = Package(
             name: "ReceiptStorage",
             dependencies: [
                 "AuralisFoundation",
-                "AuralisPrimaryModels",
                 "ReceiptsCore",
                 .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
                 "RuntimeCore"
@@ -67,7 +64,6 @@ let package = Package(
             dependencies: [
                 "ReceiptsCore",
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                .product(name: "AuralisPrimaryModels", package: "AuralisPrimaryModels"),
                 .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
                 .product(name: "RuntimeCore", package: "RuntimeCore")
             ]

@@ -1,5 +1,3 @@
-import AuralisPrimaryModels
-
 /// Protocol boundary for future transaction preview or simulation services.
 ///
 /// No concrete draft transaction model exists yet. Future signing work should
@@ -10,6 +8,6 @@ public protocol TransactionPreviewing: Sendable {
 
     func preview(
         for draftTransaction: DraftTransaction,
-        on chain: Chain
+        on chain: PolicyChainReference
     ) async throws -> DraftTransactionPreviewEvidence
 }

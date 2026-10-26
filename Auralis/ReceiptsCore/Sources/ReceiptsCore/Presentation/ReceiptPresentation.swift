@@ -1,4 +1,3 @@
-import AuralisPrimaryModels
 import Foundation
 
 /// The single, canonical receipt view-model shared by every Auralis receipt surface.

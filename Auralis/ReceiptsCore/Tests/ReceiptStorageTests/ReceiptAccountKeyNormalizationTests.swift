@@ -1,4 +1,3 @@
-import AuralisPrimaryModels
 import Foundation
 @testable import ReceiptStorage
 import Testing
@@ -25,7 +24,7 @@ struct ReceiptAccountKeyNormalizationTests {
     @Test("the stored key agrees with the fetch predicate's key for an unprefixed address")
     func storedKeyMatchesPredicateKeyForUnprefixedAddress() {
         let stored = ReceiptAccountAddress.normalizedAccountKey(Self.unprefixed)
-        let searched = AuralisEthereumAddress.normalized(Self.unprefixed)
+        let searched = "0x" + Self.unprefixed.lowercased()
         #expect(stored == searched)
     }
 

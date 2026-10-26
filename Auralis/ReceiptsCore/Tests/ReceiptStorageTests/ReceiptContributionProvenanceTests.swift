@@ -1,5 +1,4 @@
 import AuralisFoundation
-import AuralisPrimaryModels
 import Foundation
 import ReceiptsCore
 @testable import ReceiptStorage

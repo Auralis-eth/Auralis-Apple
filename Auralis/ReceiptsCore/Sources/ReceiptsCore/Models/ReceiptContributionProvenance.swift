@@ -1,5 +1,4 @@
 import AuralisFoundation
-import AuralisPrimaryModels
 import Foundation
 
 /// The contribution-provenance vocabulary a receipt uses to say *what it acted on*, *what it

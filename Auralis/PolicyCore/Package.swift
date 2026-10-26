@@ -19,7 +19,6 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(path: "../AuralisPrimaryModels"),
         .package(path: "../AuralisFoundation"),
         .package(path: "../ReceiptsCore"),
         .package(path: "../RuntimeCore")
@@ -28,7 +27,6 @@ let package = Package(
         .target(
             name: "PolicyCore",
             dependencies: [
-                "AuralisPrimaryModels",
                 .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
                 "ReceiptsCore",
                 "RuntimeCore"

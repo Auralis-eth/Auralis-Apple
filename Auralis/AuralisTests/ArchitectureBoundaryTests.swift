@@ -446,6 +446,24 @@ struct ArchitectureBoundaryTests {
         #expect(imports.contains("AuralisPrimaryPersistence") == false)
     }
 
+    @Test("runtime evidence packages do not depend on transitional primary models")
+    func runtimeEvidencePackagesStayIndependentFromPrimaryModels() throws {
+        let projectRoot = try projectRootURL()
+
+        for package in ["RuntimeCore", "PolicyCore", "ReceiptsCore"] {
+            let packageRoot = projectRoot.appending(path: package)
+            let manifest = try String(
+                contentsOf: packageRoot.appending(path: "Package.swift"),
+                encoding: .utf8
+            )
+            let imports = try swiftImports(under: packageRoot.appending(path: "Sources"))
+
+            #expect(manifest.contains("../AuralisPrimaryModels") == false)
+            #expect(imports.contains("AuralisPrimaryModels") == false)
+            #expect(imports.contains("AuralisPrimaryPersistence") == false)
+        }
+    }
+
     @Test("owned package manifests declare compatible platform floors")
     func ownedPackagePlatformsStayCompatible() throws {
         let projectRoot = try projectRootURL()

@@ -95,7 +95,7 @@ struct ActionPolicyGateReceiptTests {
         let result = PolicyExecutionReadiness.evaluate(
             action: .draftTransaction,
             evidence: completeDraftTransactionEvidence(draftTransactionPreview: nil),
-            signingChainAllowlist: SigningChainAllowlist(allowedChains: [Chain.ethMainnet])
+            signingChainAllowlist: SigningChainAllowlist(allowedChains: [.init(rawValue: Chain.ethMainnet.rawValue)])
         )
 
         #expect(result.isAllowed == false)
@@ -109,7 +109,7 @@ struct ActionPolicyGateReceiptTests {
             evidence: completeDraftTransactionEvidence(
                 draftTransactionPreview: draftTransactionPreview(targetChain: .baseMainnet)
             ),
-            signingChainAllowlist: SigningChainAllowlist(allowedChains: [Chain.ethMainnet])
+            signingChainAllowlist: SigningChainAllowlist(allowedChains: [.init(rawValue: Chain.ethMainnet.rawValue)])
         )
 
         #expect(result.isAllowed == false)
@@ -123,7 +123,7 @@ struct ActionPolicyGateReceiptTests {
             evidence: completeDraftTransactionEvidence(
                 draftTransactionPreview: draftTransactionPreview(targetChain: .baseMainnet)
             ),
-            signingChainAllowlist: SigningChainAllowlist(allowedChains: [Chain.baseMainnet])
+            signingChainAllowlist: SigningChainAllowlist(allowedChains: [.init(rawValue: Chain.baseMainnet.rawValue)])
         )
 
         #expect(result.isAllowed)
@@ -182,7 +182,7 @@ private func completeDraftTransactionEvidence(
 
 private func draftTransactionPreview(targetChain: Chain) -> DraftTransactionPreviewEvidence {
     DraftTransactionPreviewEvidence(
-        targetChain: targetChain,
+        targetChain: .init(rawValue: targetChain.rawValue),
         gasEstimate: "21000",
         contractInfo: "Native transfer",
         verifiedDestination: "0x0000000000000000000000000000000000000000",

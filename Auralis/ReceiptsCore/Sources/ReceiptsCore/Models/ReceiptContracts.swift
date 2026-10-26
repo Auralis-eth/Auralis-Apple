@@ -1,5 +1,4 @@
 import AuralisFoundation
-import AuralisPrimaryModels
 import Foundation
 
 public enum ReceiptPayloadFieldSensitivity: Equatable, Sendable {

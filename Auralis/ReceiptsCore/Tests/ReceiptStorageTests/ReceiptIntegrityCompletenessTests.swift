@@ -1,4 +1,3 @@
-import AuralisPrimaryModels
 import Foundation
 import ReceiptsCore
 @testable import ReceiptStorage
@@ -35,7 +34,7 @@ struct ReceiptIntegrityCompletenessTests {
                 kind: "token.transfer",
                 payload: [
                     "address": .string(Self.accountA),
-                    "chain": .string(Chain.ethMainnet.rawValue)
+                    "chain": .string("eth-mainnet")
                 ],
                 chainRawValue: nil
             )
@@ -43,7 +42,7 @@ struct ReceiptIntegrityCompletenessTests {
 
         // Stored, not dropped: the payload is where this value legitimately lives for a caller that
         // does not set the column.
-        #expect(record.chainRawValue == Chain.ethMainnet.rawValue)
+        #expect(record.chainRawValue == "eth-mainnet")
 
         let result = try await store.verifyIntegrity()
         #expect(result.status == .verified, "\(result.failureReason ?? "-")")
@@ -62,14 +61,14 @@ struct ReceiptIntegrityCompletenessTests {
         _ = try await store.append(
             draft(
                 kind: "token.transfer",
-                payload: ["chain": .string(Chain.baseMainnet.rawValue)],
+                payload: ["chain": .string("base-mainnet")],
                 accountAddress: "0x1111111111111111111111111111111111111111".uppercased(),
                 chainRawValue: nil
             )
         )
 
         let stored = try #require(try context.fetch(FetchDescriptor<StoredReceipt>()).first)
-        #expect(stored.chainRawValue == Chain.baseMainnet.rawValue)
+        #expect(stored.chainRawValue == "base-mainnet")
         #expect(stored.chainHash == (try ReceiptIntegrity.chainHash(for: stored)))
         #expect(try await store.verifyIntegrity().status == .verified)
     }

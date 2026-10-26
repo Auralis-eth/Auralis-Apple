@@ -1,4 +1,3 @@
-import AuralisPrimaryModels
 import CryptoKit
 import Foundation
 import ReceiptsCore

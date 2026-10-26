@@ -1,4 +1,3 @@
-import AuralisPrimaryModels
 import Foundation
 
 /// Compact postflight classification of a completed receipt. (P1-303)

@@ -1,5 +1,4 @@
 import AuralisFoundation
-import AuralisPrimaryModels
 import CryptoKit
 import Foundation
 

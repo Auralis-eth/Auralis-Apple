@@ -1,4 +1,3 @@
-import AuralisPrimaryModels
 import CryptoKit
 import Foundation
 
@@ -298,7 +297,9 @@ private extension DefaultReceiptPayloadSanitizer {
     }
 
     func looksLikeWalletAddress(_ value: String) -> Bool {
-        AuralisEthereumAddress.normalized(value) != nil
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = trimmed.lowercased().hasPrefix("0x") ? String(trimmed.dropFirst(2)) : trimmed
+        return body.count == 40 && body.allSatisfy({ $0.isASCII && $0.isHexDigit })
     }
 
     func looksLikeURL(_ value: String) -> Bool {

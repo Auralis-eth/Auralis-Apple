@@ -5183,3 +5183,12 @@ Ethereum address checks, chain-scope resolution, and their concrete registration
 AccountsCore; RuntimeCore retains only stable check IDs, parameter keys, and the generic execution
 pipeline. The original check suites moved with the implementation and still prove checksums,
 confusable rejection, chain aliases, freshness replay, severity, and approval-resume behavior.
+
+Policy and receipt evidence were the next two passengers to leave that crypto train. Policy now
+uses an opaque `PolicyChainReference`: it needs to compare an approved chain scope, not understand
+Ethereum's chain catalog. Receipts likewise preserve a trimmed, non-empty chain label as evidence
+instead of silently rejecting future networks through today's enum. Address normalization remains
+at the storage boundary because it is part of the receipt account-key contract, but the tiny local
+normalizer deliberately recognizes syntax only—it grants no wallet authority and exposes no crypto
+domain model. Package tests plus an architecture guard now keep RuntimeCore, PolicyCore, and
+ReceiptsCore independent of the transitional primary-model package.
