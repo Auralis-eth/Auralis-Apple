@@ -5153,3 +5153,14 @@ integration tests keep a local composition fixture. `AuralisTestSupport` is depe
 imports only AuralisFoundation plus system/testing frameworks. An architecture test now guards the
 actual rule, including both manifest dependencies and source imports, rather than checking only the
 old ReceiptStorage failure mode.
+
+## 2026-10-26 - Every Stove Has a Smoke Detector
+
+The final package graph contains 54 regular targets. Fifty-two ship behavior, and every one is a
+direct dependency of an owning package test suite. The other two are explicitly fixture-only:
+generic `AuralisTestSupport` and model-specific `PrimaryModelsTestSupport`.
+
+The important lesson is that an app test plan is the building's lobby alarm, not a smoke detector in
+each kitchen. A green app build cannot prove that an independently compiled package target still
+works. The ownership audit therefore counts only direct package-test dependencies as behavioral
+coverage and records app integration tests as additional—not replacement—evidence.

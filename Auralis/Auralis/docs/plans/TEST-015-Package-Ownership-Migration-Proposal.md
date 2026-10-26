@@ -304,7 +304,7 @@ the manifest or source import. Before Phase 1, continue to:
 
 - [x] Shared test support depends only on AuralisFoundation. Domain-specific NFT fixtures live in `PrimaryModelsTestSupport` or the app integration-test target.
 - [x] All package manifests declare compatible platforms: reusable core packages use the iOS 18/macOS 15 floor, while UI/composition packages match AuraUI at iOS/macOS 26.
-- [ ] Every final production target has an owning test target or a documented reason it does not.
+- [x] Every current production target has a directly owning package test target. The only exceptions are the fixture-only `AuralisTestSupport` and `PrimaryModelsTestSupport` targets, documented in `Final-Target-Test-Ownership-Audit.md`.
 - [ ] Intent, commitment, runtime-state, memory, context, artifact and receipt boundaries are tested.
 - [ ] Operator manifest authority/absence/runtime-state rules are tested.
 - [ ] Existing NFT and music package migrations survive movement to final packages.
