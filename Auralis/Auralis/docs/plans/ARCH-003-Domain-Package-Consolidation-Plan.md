@@ -248,7 +248,7 @@ The container.
 
 | Target | Absorbs |
 |---|---|
-| `ShellCore` | `AuralisShellCore` |
+| `ShellCore` | **Merged 2026-10-25.** The unchanged `AuralisShellCore` state machine, routing contracts, collaborator seams, and 26-test target now live inside the `RuntimeKit` AppShell package root. |
 | `ShellUI` | app `Aura/{MainAuraView,MainAuraShell,MainTab*,AppRouter,AppRouteError,GlobalChromeView,ShellStatusView,ProfileDetailView,Settings/}`, `Aura/Home/`, `Aura/Newsfeed/`, `Aura/Primitives/` |
 | `Search` | app `Aura/Search/*` (12 files) |
 | `RuntimeHost` | `RuntimeKit` — process-wide singletons, receipt sink, the one place the kernel is wired to storage + policy |

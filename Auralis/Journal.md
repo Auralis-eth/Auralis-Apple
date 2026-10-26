@@ -1,5 +1,15 @@
 # Journal
 
+## 2026-10-25 - The Shell State Machine Joined the App Container
+
+`AuralisShellCore` now lives as a distinct product inside RuntimeKit, the future AppShell package.
+Its selection state, deep-link parser, routing effects, collaborator protocols, and 26 focused tests
+remain isolated from the concrete runtime host even though both modules share a package root.
+
+Think of it as moving the building's front-desk playbook into the building office: the receptionist
+still follows a small, testable script, while the office remains responsible for wiring every live
+service behind it.
+
 ## 2026-10-25 - Trusted UI Moved Into the Control Room
 
 `TrustedUIKit` now lives as a distinct product inside MissionControlFeature. Its approval sheets,

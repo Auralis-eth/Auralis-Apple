@@ -5,13 +5,17 @@ import PackageDescription
 let package = Package(
     name: "RuntimeKit",
     platforms: [
-        .iOS(.v18),
-        .macOS(.v15)
+        .iOS("26.0"),
+        .macOS("26.0")
     ],
     products: [
         .library(
             name: "RuntimeKit",
             targets: ["RuntimeKit"]
+        ),
+        .library(
+            name: "AuralisShellCore",
+            targets: ["AuralisShellCore"]
         )
     ],
     dependencies: [
@@ -21,7 +25,11 @@ let package = Package(
         .package(path: "../OperatorsFeature"),
         .package(path: "../PolicyCore"),
         .package(path: "../AuralisFoundation"),
-        .package(path: "../OperatorRuntimeStorage")
+        .package(path: "../OperatorRuntimeStorage"),
+        .package(path: "../AccountsCore"),
+        // web3.swift 1.6.1 still references the pre-rename `secp256k1` product.
+        // Keep the compatible constraint visible at this AppShell graph root.
+        .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", exact: "0.6.0")
     ],
     targets: [
         .target(
@@ -48,6 +56,14 @@ let package = Package(
                 .product(name: "EvalCore", package: "RuntimeCore")
             ]
         ),
+        .target(
+            name: "AuralisShellCore",
+            dependencies: [
+                "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "AccountsCore"
+            ]
+        ),
         .testTarget(
             name: "RuntimeKitTests",
             dependencies: [
@@ -57,6 +73,14 @@ let package = Package(
                 // row type directly.
                 .product(name: "ArtifactStorage", package: "ReceiptsCore"),
                 .product(name: "EvalCore", package: "RuntimeCore")
+            ]
+        ),
+        .testTarget(
+            name: "AuralisShellCoreTests",
+            dependencies: [
+                "AuralisShellCore",
+                "AccountsCore",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
             ]
         )
     ]

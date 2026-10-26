@@ -91,6 +91,18 @@ struct ArchitectureBoundaryTests {
             )
         }
 
+        let appShellManifest = try String(
+            contentsOf: projectRoot.appending(path: "RuntimeKit/Package.swift"),
+            encoding: .utf8
+        )
+        #expect(appShellManifest.contains("name: \"AuralisShellCore\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "AuralisShellCore/Package.swift").path()
+            ) == false,
+            "AuralisShellCore must remain an internal AuralisAppShell target, not return as a package root."
+        )
+
         let operatorsManifest = try String(
             contentsOf: projectRoot.appending(path: "OperatorsFeature/Package.swift"),
             encoding: .utf8
