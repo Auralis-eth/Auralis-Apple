@@ -5117,3 +5117,14 @@ moved beside TokenStorage, their only consumer. Finally, `NFT.musicURL` and its 
 policy moved into MusicFeature: choosing a playable audio URL is music behavior, not an obligation of
 every persisted NFT. These are small moves, but they shave accidental responsibilities off the mixed
 model package without inventing replacement abstractions.
+## 2026-10-25 - The Provider/NFT Knot Moved as One
+
+ProviderKit looked like the obvious next box to carry into the crypto package, until the dependency
+map showed the ropes tied around NFTKit: AccountsCore used NFT persistence, while NFTKit used the
+provider layers. Moving only providers would have turned that healthy one-way graph into a cycle.
+
+The safe unit was therefore both roots together. Provider contracts, chain factories, ENS, explorer
+adapters, and all five NFT layers keep their module names, but now share the AccountsCore package
+boundary. It is the architectural equivalent of moving two interlocked gears without pretending one
+can keep turning in midair. The exact secp256k1 compatibility pin also stays at the owning crypto
+root, preventing dependency resolution from silently selecting the post-rename product layout.

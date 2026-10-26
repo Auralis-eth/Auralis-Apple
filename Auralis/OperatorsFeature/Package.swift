@@ -35,8 +35,7 @@ let package = Package(
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../ReceiptsCore"),
         .package(path: "../AuraUI"),
-        .package(path: "../NFTKit"),
-        .package(path: "../ProviderKit"),
+        .package(path: "../AccountsCore"),
         .package(path: "../AuralisTestSupport"),
         .package(path: "../AuraPlayEngines"),
         .package(path: "../AuralisFoundation"),
@@ -72,9 +71,9 @@ let package = Package(
                 "AuralisPrimaryModels",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
                 "AuraUI",
-                "NFTKit",
+                .product(name: "NFTKit", package: "AccountsCore"),
                 "OperatorCore",
-                .product(name: "ExplorerAdapter", package: "ProviderKit")
+                .product(name: "ExplorerAdapter", package: "AccountsCore")
             ]
         ),
         .target(
@@ -111,7 +110,7 @@ let package = Package(
                 "NFTLibraryFeature",
                 "AuralisTestSupport",
                 "OperatorCore",
-                .product(name: "ExplorerAdapter", package: "ProviderKit")
+                .product(name: "ExplorerAdapter", package: "AccountsCore")
             ]
         ),
         .testTarget(

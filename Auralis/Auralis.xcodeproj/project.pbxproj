@@ -9,29 +9,31 @@
 /* Begin PBXBuildFile section */
 		6F0646A5302BFFD600FCE6A8 /* RuntimeKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F0646A4302BFFD600FCE6A8 /* RuntimeKit */; };
 		6F0646A8302BFFFF00FCE6A8 /* MissionControlFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6F0646A7302BFFFF00FCE6A8 /* MissionControlFeature */; };
-		6F1947322FBD15A900A811F4 /* NFTDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 6F1947312FBD15A900A811F4 /* NFTDomain */; };
-		6F1947342FBD15A900A811F4 /* NFTPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 6F1947332FBD15A900A811F4 /* NFTPersistence */; };
-		6F1947362FBD15A900A811F4 /* NFTPresentation in Frameworks */ = {isa = PBXBuildFile; productRef = 6F1947352FBD15A900A811F4 /* NFTPresentation */; };
-		6F1947382FBD15A900A811F4 /* NFTProviderAdapters in Frameworks */ = {isa = PBXBuildFile; productRef = 6F1947372FBD15A900A811F4 /* NFTProviderAdapters */; };
 		6F29475130410BF9004E0CFA /* RuntimeCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F29475030410BF9004E0CFA /* RuntimeCore */; };
 		6F4179322DA96363002A78F5 /* web3.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 6F4179312DA96363002A78F5 /* web3.swift */; };
 		6F467D9B2FCD0E7E0062CE28 /* AuralisTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6F467D9A2FCD0E7E0062CE28 /* AuralisTestSupport */; };
 		6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */; };
 		6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */ = {isa = PBXBuildFile; productRef = 6F6A10052F90000100BEEF01 /* AuralisPrimaryModels */; };
 		6F755426308EA443005BDD97 /* OperatorsFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FAA000130000001000AA001 /* OperatorsFeature */; };
-		6F75572B308EBDC9005BDD97 /* ENS in Frameworks */ = {isa = PBXBuildFile; productRef = 6F75572A308EBDC9005BDD97 /* ENS */; };
 		6F75572D308EE9D1005BDD97 /* AuralisShellCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F75572C308EE9D1005BDD97 /* AuralisShellCore */; };
 		6F75572F308EF399005BDD97 /* MusicFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6F75572E308EF399005BDD97 /* MusicFeature */; };
 		6F755731308F0D6F005BDD97 /* WalletConnectorKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F755730308F0D6F005BDD97 /* WalletConnectorKit */; };
 		6F755733308F0F86005BDD97 /* OperatorCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F755732308F0F86005BDD97 /* OperatorCore */; };
 		6F755735308F0FAA005BDD97 /* SwiftDataAdapters in Frameworks */ = {isa = PBXBuildFile; productRef = 6F755734308F0FAA005BDD97 /* SwiftDataAdapters */; };
+		6F755737308FA3B7005BDD97 /* ENS in Frameworks */ = {isa = PBXBuildFile; productRef = 6F755736308FA3B7005BDD97 /* ENS */; };
+		6F755739308FA498005BDD97 /* ProviderKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F755738308FA498005BDD97 /* ProviderKit */; };
+		6F75573B308FA4A3005BDD97 /* ChainProviders in Frameworks */ = {isa = PBXBuildFile; productRef = 6F75573A308FA4A3005BDD97 /* ChainProviders */; };
+		6F75573D308FA4AD005BDD97 /* ExplorerAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 6F75573C308FA4AD005BDD97 /* ExplorerAdapter */; };
+		6F75573F308FA4D9005BDD97 /* NFTDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 6F75573E308FA4D9005BDD97 /* NFTDomain */; };
+		6F755741308FA4D9005BDD97 /* NFTPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 6F755740308FA4D9005BDD97 /* NFTPersistence */; };
+		6F755743308FA4D9005BDD97 /* NFTPresentation in Frameworks */ = {isa = PBXBuildFile; productRef = 6F755742308FA4D9005BDD97 /* NFTPresentation */; };
+		6F755745308FA4D9005BDD97 /* NFTProviderAdapters in Frameworks */ = {isa = PBXBuildFile; productRef = 6F755744308FA4D9005BDD97 /* NFTProviderAdapters */; };
 		6F793F7F2FD45B6300EC8C40 /* ReceiptsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F793F7E2FD45B6300EC8C40 /* ReceiptsCore */; };
 		6F793F8F2FD5A39E00EC8C40 /* AuraUI in Frameworks */ = {isa = PBXBuildFile; productRef = 6F793F8E2FD5A39E00EC8C40 /* AuraUI */; };
 		6F7B76042D962FE800DF0AD7 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = 6F7B76032D962FE800DF0AD7 /* CodeScanner */; };
 		6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E0152FAE32FF00CD4102 /* AccountsCore */; };
 		6F84E0202FAE627D00CD4102 /* ReceiptsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E01F2FAE627D00CD4102 /* ReceiptsCore */; };
 		6F84E0262FAE705B00CD4102 /* PolicyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E0252FAE705B00CD4102 /* PolicyCore */; };
-		6F84E02C2FAE901500CD4102 /* NFTKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E02B2FAE901500CD4102 /* NFTKit */; };
 		6F84E2FF2FAFF7FE00CD4102 /* AccountStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E2FE2FAFF7FE00CD4102 /* AccountStorage */; };
 		6F84E3132FB66B8200CD4102 /* AuraUI in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3122FB66B8200CD4102 /* AuraUI */; };
 		6F8748BA308BF7E100E51115 /* RuntimeCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748B9308BF7E100E51115 /* RuntimeCore */; };
@@ -48,10 +50,7 @@
 		6F8748EB308D449F00E51115 /* SocialCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748EA308D449F00E51115 /* SocialCore */; };
 		6F8748ED308D77C700E51115 /* TokenStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748EC308D77C700E51115 /* TokenStorage */; };
 		6F8748EF308DC6A700E51115 /* AccountsFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748EE308DC6A700E51115 /* AccountsFeature */; };
-		6F8748F1308E2B8E00E51115 /* ChainProviders in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748F0308E2B8E00E51115 /* ChainProviders */; };
-		6F8748F3308E660C00E51115 /* ExplorerAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748F2308E660C00E51115 /* ExplorerAdapter */; };
 		6FA256432FB6A28400292ECA /* NFTLibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA256422FB6A28400292ECA /* NFTLibraryFeature */; };
-		6FDB39812FBA7B5E00075FCE /* ProviderKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6FDB39802FBA7B5E00075FCE /* ProviderKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -122,31 +121,29 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6F75573B308FA4A3005BDD97 /* ChainProviders in Frameworks */,
+				6F75573D308FA4AD005BDD97 /* ExplorerAdapter in Frameworks */,
 				6F755426308EA443005BDD97 /* OperatorsFeature in Frameworks */,
 				6F755733308F0F86005BDD97 /* OperatorCore in Frameworks */,
-				6F75572B308EBDC9005BDD97 /* ENS in Frameworks */,
 				6F8748DA308C3D4600E51115 /* AuralisFoundation in Frameworks */,
 				6F0646A8302BFFFF00FCE6A8 /* MissionControlFeature in Frameworks */,
-				6F1947362FBD15A900A811F4 /* NFTPresentation in Frameworks */,
 				6F6A10032F90000100BEEF01 /* AuralisPrimaryModels in Frameworks */,
 				6FA256432FB6A28400292ECA /* NFTLibraryFeature in Frameworks */,
 				6F0646A5302BFFD600FCE6A8 /* RuntimeKit in Frameworks */,
 				6F755735308F0FAA005BDD97 /* SwiftDataAdapters in Frameworks */,
+				6F755745308FA4D9005BDD97 /* NFTProviderAdapters in Frameworks */,
 				6F8748D6308C1A2600E51115 /* UserDefaultsAdapters in Frameworks */,
-				6F1947322FBD15A900A811F4 /* NFTDomain in Frameworks */,
-				6F8748F3308E660C00E51115 /* ExplorerAdapter in Frameworks */,
-				6F1947382FBD15A900A811F4 /* NFTProviderAdapters in Frameworks */,
 				6F8748EB308D449F00E51115 /* SocialCore in Frameworks */,
-				6FDB39812FBA7B5E00075FCE /* ProviderKit in Frameworks */,
 				6F75572D308EE9D1005BDD97 /* AuralisShellCore in Frameworks */,
 				6F8748E4308D33CF00E51115 /* ReceiptStorage in Frameworks */,
-				6F1947342FBD15A900A811F4 /* NFTPersistence in Frameworks */,
+				6F75573F308FA4D9005BDD97 /* NFTDomain in Frameworks */,
 				6F29475130410BF9004E0CFA /* RuntimeCore in Frameworks */,
-				6F8748F1308E2B8E00E51115 /* ChainProviders in Frameworks */,
+				6F755743308FA4D9005BDD97 /* NFTPresentation in Frameworks */,
 				6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */,
+				6F755739308FA498005BDD97 /* ProviderKit in Frameworks */,
 				6F8748C7308C110600E51115 /* AuraPlayAudioEngine in Frameworks */,
+				6F755741308FA4D9005BDD97 /* NFTPersistence in Frameworks */,
 				6F8748CB308C110600E51115 /* AuraPlayVideoEngine in Frameworks */,
-				6F84E02C2FAE901500CD4102 /* NFTKit in Frameworks */,
 				6F4179322DA96363002A78F5 /* web3.swift in Frameworks */,
 				6F8748C9308C110600E51115 /* AuraPlayMediaCore in Frameworks */,
 				6F75572F308EF399005BDD97 /* MusicFeature in Frameworks */,
@@ -159,6 +156,7 @@
 				6F84E0262FAE705B00CD4102 /* PolicyCore in Frameworks */,
 				6F8748EF308DC6A700E51115 /* AccountsFeature in Frameworks */,
 				6F8748ED308D77C700E51115 /* TokenStorage in Frameworks */,
+				6F755737308FA3B7005BDD97 /* ENS in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -255,15 +253,9 @@
 				6F84E0152FAE32FF00CD4102 /* AccountsCore */,
 				6F84E01F2FAE627D00CD4102 /* ReceiptsCore */,
 				6F84E0252FAE705B00CD4102 /* PolicyCore */,
-				6F84E02B2FAE901500CD4102 /* NFTKit */,
 				6F84E2FE2FAFF7FE00CD4102 /* AccountStorage */,
 				6F84E3122FB66B8200CD4102 /* AuraUI */,
 				6FA256422FB6A28400292ECA /* NFTLibraryFeature */,
-				6FDB39802FBA7B5E00075FCE /* ProviderKit */,
-				6F1947312FBD15A900A811F4 /* NFTDomain */,
-				6F1947332FBD15A900A811F4 /* NFTPersistence */,
-				6F1947352FBD15A900A811F4 /* NFTPresentation */,
-				6F1947372FBD15A900A811F4 /* NFTProviderAdapters */,
 				6F0646A4302BFFD600FCE6A8 /* RuntimeKit */,
 				6FAA000130000001000AA001 /* OperatorsFeature */,
 				6F0646A7302BFFFF00FCE6A8 /* MissionControlFeature */,
@@ -278,14 +270,19 @@
 				6F8748EA308D449F00E51115 /* SocialCore */,
 				6F8748EC308D77C700E51115 /* TokenStorage */,
 				6F8748EE308DC6A700E51115 /* AccountsFeature */,
-				6F8748F0308E2B8E00E51115 /* ChainProviders */,
-				6F8748F2308E660C00E51115 /* ExplorerAdapter */,
-				6F75572A308EBDC9005BDD97 /* ENS */,
 				6F75572C308EE9D1005BDD97 /* AuralisShellCore */,
 				6F75572E308EF399005BDD97 /* MusicFeature */,
 				6F755730308F0D6F005BDD97 /* WalletConnectorKit */,
 				6F755732308F0F86005BDD97 /* OperatorCore */,
 				6F755734308F0FAA005BDD97 /* SwiftDataAdapters */,
+				6F755736308FA3B7005BDD97 /* ENS */,
+				6F755738308FA498005BDD97 /* ProviderKit */,
+				6F75573A308FA4A3005BDD97 /* ChainProviders */,
+				6F75573C308FA4AD005BDD97 /* ExplorerAdapter */,
+				6F75573E308FA4D9005BDD97 /* NFTDomain */,
+				6F755740308FA4D9005BDD97 /* NFTPersistence */,
+				6F755742308FA4D9005BDD97 /* NFTPresentation */,
+				6F755744308FA4D9005BDD97 /* NFTProviderAdapters */,
 			);
 			productName = Auralis;
 			productReference = 6FB455DB2CC5BEBB009A055C /* Auralis.app */;
@@ -384,9 +381,7 @@
 				6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */,
 				6F84E01E2FAE627D00CD4102 /* XCLocalSwiftPackageReference "ReceiptsCore" */,
 				6F84E0242FAE705B00CD4102 /* XCLocalSwiftPackageReference "PolicyCore" */,
-				6F84E02A2FAE901500CD4102 /* XCLocalSwiftPackageReference "NFTKit" */,
 				6F84E3112FB66B8200CD4102 /* XCLocalSwiftPackageReference "AuraUI" */,
-				6FDB397F2FBA7B5E00075FCE /* XCLocalSwiftPackageReference "ProviderKit" */,
 				6F467D992FCD0E7E0062CE28 /* XCLocalSwiftPackageReference "AuralisTestSupport" */,
 				6F0646A3302BFFD600FCE6A8 /* XCLocalSwiftPackageReference "RuntimeKit" */,
 				6F0646A6302BFFFF00FCE6A8 /* XCLocalSwiftPackageReference "MissionControlFeature" */,
@@ -852,10 +847,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = PolicyCore;
 		};
-		6F84E02A2FAE901500CD4102 /* XCLocalSwiftPackageReference "NFTKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = NFTKit;
-		};
 		6F84E3112FB66B8200CD4102 /* XCLocalSwiftPackageReference "AuraUI" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = AuraUI;
@@ -871,10 +862,6 @@
 		6F8748E7308D449F00E51115 /* XCLocalSwiftPackageReference "OperatorsFeature" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = OperatorsFeature;
-		};
-		6FDB397F2FBA7B5E00075FCE /* XCLocalSwiftPackageReference "ProviderKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ProviderKit;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -914,26 +901,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MissionControlFeature;
 		};
-		6F1947312FBD15A900A811F4 /* NFTDomain */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6F84E02A2FAE901500CD4102 /* XCLocalSwiftPackageReference "NFTKit" */;
-			productName = NFTDomain;
-		};
-		6F1947332FBD15A900A811F4 /* NFTPersistence */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6F84E02A2FAE901500CD4102 /* XCLocalSwiftPackageReference "NFTKit" */;
-			productName = NFTPersistence;
-		};
-		6F1947352FBD15A900A811F4 /* NFTPresentation */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6F84E02A2FAE901500CD4102 /* XCLocalSwiftPackageReference "NFTKit" */;
-			productName = NFTPresentation;
-		};
-		6F1947372FBD15A900A811F4 /* NFTProviderAdapters */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6F84E02A2FAE901500CD4102 /* XCLocalSwiftPackageReference "NFTKit" */;
-			productName = NFTProviderAdapters;
-		};
 		6F29475030410BF9004E0CFA /* RuntimeCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = RuntimeCore;
@@ -951,11 +918,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6F6A10042F90000100BEEF01 /* XCLocalSwiftPackageReference "AuralisPrimaryModels" */;
 			productName = AuralisPrimaryModels;
-		};
-		6F75572A308EBDC9005BDD97 /* ENS */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6FDB397F2FBA7B5E00075FCE /* XCLocalSwiftPackageReference "ProviderKit" */;
-			productName = ENS;
 		};
 		6F75572C308EE9D1005BDD97 /* AuralisShellCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -981,6 +943,46 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6F8748CE308C160D00E51115 /* XCLocalSwiftPackageReference "AuralisFoundation" */;
 			productName = SwiftDataAdapters;
+		};
+		6F755736308FA3B7005BDD97 /* ENS */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
+			productName = ENS;
+		};
+		6F755738308FA498005BDD97 /* ProviderKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
+			productName = ProviderKit;
+		};
+		6F75573A308FA4A3005BDD97 /* ChainProviders */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
+			productName = ChainProviders;
+		};
+		6F75573C308FA4AD005BDD97 /* ExplorerAdapter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
+			productName = ExplorerAdapter;
+		};
+		6F75573E308FA4D9005BDD97 /* NFTDomain */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
+			productName = NFTDomain;
+		};
+		6F755740308FA4D9005BDD97 /* NFTPersistence */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
+			productName = NFTPersistence;
+		};
+		6F755742308FA4D9005BDD97 /* NFTPresentation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
+			productName = NFTPresentation;
+		};
+		6F755744308FA4D9005BDD97 /* NFTProviderAdapters */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
+			productName = NFTProviderAdapters;
 		};
 		6F793F7E2FD45B6300EC8C40 /* ReceiptsCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1009,10 +1011,6 @@
 		6F84E0252FAE705B00CD4102 /* PolicyCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PolicyCore;
-		};
-		6F84E02B2FAE901500CD4102 /* NFTKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = NFTKit;
 		};
 		6F84E2FE2FAFF7FE00CD4102 /* AccountStorage */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1091,16 +1089,6 @@
 			package = 6F84E0142FAE329900CD4102 /* XCLocalSwiftPackageReference "AccountsCore" */;
 			productName = AccountsFeature;
 		};
-		6F8748F0308E2B8E00E51115 /* ChainProviders */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6FDB397F2FBA7B5E00075FCE /* XCLocalSwiftPackageReference "ProviderKit" */;
-			productName = ChainProviders;
-		};
-		6F8748F2308E660C00E51115 /* ExplorerAdapter */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6FDB397F2FBA7B5E00075FCE /* XCLocalSwiftPackageReference "ProviderKit" */;
-			productName = ExplorerAdapter;
-		};
 		6FA256422FB6A28400292ECA /* NFTLibraryFeature */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = NFTLibraryFeature;
@@ -1108,10 +1096,6 @@
 		6FAA000130000001000AA001 /* OperatorsFeature */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OperatorsFeature;
-		};
-		6FDB39802FBA7B5E00075FCE /* ProviderKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ProviderKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

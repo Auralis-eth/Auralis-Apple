@@ -27,6 +27,15 @@ let package = Package(
             name: "AccountsFeature",
             targets: ["AccountsFeature"]
         ),
+        .library(name: "ProviderKit", targets: ["ProviderKit"]),
+        .library(name: "ChainProviders", targets: ["ChainProviders"]),
+        .library(name: "ExplorerAdapter", targets: ["ExplorerAdapter"]),
+        .library(name: "ENS", targets: ["ENS"]),
+        .library(name: "NFTKit", targets: ["NFTKit"]),
+        .library(name: "NFTDomain", targets: ["NFTDomain"]),
+        .library(name: "NFTProviderAdapters", targets: ["NFTProviderAdapters"]),
+        .library(name: "NFTPersistence", targets: ["NFTPersistence"]),
+        .library(name: "NFTPresentation", targets: ["NFTPresentation"]),
         .library(name: "WalletConnectorKit", targets: ["WalletConnectorKit"]),
         .library(name: "WalletConnectorKitReownAdapter", targets: ["WalletConnectorKitReownAdapter"]),
         .library(name: "WalletConnectorKitCoinbaseAdapter", targets: ["WalletConnectorKitCoinbaseAdapter"]),
@@ -39,14 +48,14 @@ let package = Package(
         .package(path: "../AuralisPrimaryModels"),
         .package(path: "../ReceiptsCore"),
         .package(path: "../AuralisFoundation"),
-        .package(path: "../ProviderKit"),
-        .package(path: "../NFTKit"),
+        .package(path: "../AuralisTestSupport"),
         .package(path: "../AuraUI"),
         .package(path: "../CodeScanner"),
         .package(url: "https://github.com/reown-com/reown-swift", .upToNextMajor(from: "2.3.0")),
         .package(url: "https://github.com/MobileWalletProtocol/wallet-mobile-sdk", .upToNextMajor(from: "1.1.2")),
         .package(url: "https://github.com/privy-io/privy-ios", .upToNextMajor(from: "2.14.0")),
         .package(url: "https://github.com/dynamic-labs/swift-sdk-and-sample-app", .upToNextMajor(from: "1.2.0")),
+        .package(url: "https://github.com/argentlabs/web3.swift", from: "1.6.1"),
         // web3.swift 1.6.1 still names the pre-rename secp256k1 product.
         .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", exact: "0.6.0")
     ],
@@ -67,7 +76,7 @@ let package = Package(
                 .product(name: "ReceiptStorage", package: "ReceiptsCore"),
                 .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
                 "TokenStorage",
-                .product(name: "NFTPersistence", package: "NFTKit")
+                "NFTPersistence"
             ]
         ),
         .target(
@@ -93,6 +102,59 @@ let package = Package(
                 "Presentation",
                 "Support"
             ]
+        ),
+        .target(
+            name: "ProviderKit",
+            dependencies: [
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
+                "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
+            ]
+        ),
+        .target(name: "ChainProviders", dependencies: ["AuralisPrimaryModels", "ProviderKit"]),
+        .target(name: "ExplorerAdapter", dependencies: ["AuralisPrimaryModels"]),
+        .target(
+            name: "ENS",
+            dependencies: [
+                "AuralisPrimaryModels",
+                "ProviderKit",
+                .product(name: "web3.swift", package: "web3.swift")
+            ]
+        ),
+        .target(
+            name: "NFTDomain",
+            dependencies: [
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
+                "AuralisPrimaryModels"
+            ]
+        ),
+        .target(
+            name: "NFTProviderAdapters",
+            dependencies: ["NFTDomain", "ChainProviders", "ExplorerAdapter", "ProviderKit"]
+        ),
+        .target(
+            name: "NFTPersistence",
+            dependencies: [
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
+                .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
+                "NFTDomain",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "ReceiptsCore"
+            ]
+        ),
+        .target(
+            name: "NFTPresentation",
+            dependencies: [
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
+                "NFTDomain",
+                "NFTProviderAdapters",
+                "NFTPersistence",
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
+            ]
+        ),
+        .target(
+            name: "NFTKit",
+            dependencies: ["NFTDomain", "NFTProviderAdapters", "NFTPersistence", "NFTPresentation"]
         ),
         .target(name: "WalletConnectorKit"),
         .target(
@@ -151,6 +213,27 @@ let package = Package(
                 "AccountsFeature",
                 "AuralisPrimaryModels",
                 .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
+            ]
+        ),
+        .testTarget(name: "ProviderKitTests", dependencies: ["ProviderKit", "AuralisTestSupport"]),
+        .testTarget(
+            name: "ChainProvidersTests",
+            dependencies: ["AuralisPrimaryModels", "ChainProviders", "ProviderKit", "AuralisTestSupport"]
+        ),
+        .testTarget(name: "ExplorerAdapterTests", dependencies: ["ExplorerAdapter"]),
+        .testTarget(name: "ENSTests", dependencies: ["ENS", "AuralisTestSupport"]),
+        .testTarget(
+            name: "NFTKitTests",
+            dependencies: [
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
+                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "AuralisTestSupport",
+                "NFTDomain",
+                "NFTKit",
+                "NFTPersistence",
+                "NFTPresentation",
+                "NFTProviderAdapters",
+                .product(name: "ReceiptStorage", package: "ReceiptsCore")
             ]
         ),
         .testTarget(

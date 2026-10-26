@@ -199,11 +199,11 @@ Ethereum-specific capability, including accounts (an Auralis account *is* a wall
 | `Accounts` | `AccountsCore` |
 | `AccountStorage` | **Merged 2026-10-24.** The unchanged `AccountStorage` module and its 10-test target now live inside the `AccountsCore` package root, preserving the coordinator and its consumer-owned transaction participants. |
 | `AccountsUI` | **Merged 2026-10-24.** The unchanged `AccountsFeature` product and its 18-test target now live inside the `AccountsCore` package root. |
-| `Providers` | **Partially merged 2026-10-24.** `ChainProviders` now lives as a distinct product/target inside the `ProviderKit` package root; ProviderKit itself remains to be folded into the final crypto package. |
-| `ENS` | **Merged 2026-10-25.** The unchanged `ENS` product and its 8-test target now live inside the `ProviderKit` package root; its web3 dependency remains isolated to that target. |
-| `Explorer` | **Merged 2026-10-25.** The unchanged `ExplorerAdapter` product and its 17-test target now live inside the `ProviderKit` package root. |
+| `Providers` | **Merged 2026-10-25.** `ProviderKit` and `ChainProviders` now live as distinct products/targets inside the `AccountsCore` crypto package root. |
+| `ENS` | **Merged 2026-10-25.** The unchanged `ENS` product and its 8-test target now live inside `AccountsCore`; its web3 dependency remains isolated to that target. |
+| `Explorer` | **Merged 2026-10-25.** The unchanged `ExplorerAdapter` product and its 17-test target now live inside `AccountsCore`. |
 | `TokenStorage` | **Merged 2026-10-24.** The unchanged `TokenStorage` module and its 10-test target now live inside the `AccountsCore` package root; app `DataModels/{Chain,TokenHolding}.swift` and `Gas/` remain later consolidation work. |
-| `NFT*` (5) | `NFTKit`'s existing `NFTDomain` / `NFTProviderAdapters` / `NFTPersistence` / `NFTPresentation` targets |
+| `NFT*` (5) | **Merged 2026-10-25.** `NFTKit`, `NFTDomain`, `NFTProviderAdapters`, `NFTPersistence`, and `NFTPresentation` now live inside `AccountsCore`, eliminating the former provider/NFT cycle as one atomic move. |
 | `WalletConnect*` (7) | **Merged 2026-10-25.** `WalletConnectorKit` and its six independently linked adapter targets now live inside the `AccountsCore` crypto package root, with 180 tests and vendor SDK dependencies retained on adapter targets only. |
 | `WalletActions` | app `Aura/WalletConnection/*` (12 files), `Networking/*`, `Aura/ERC20*` |
 

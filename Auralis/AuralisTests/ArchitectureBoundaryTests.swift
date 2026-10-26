@@ -161,8 +161,14 @@ struct ArchitectureBoundaryTests {
         )
 
         let providerManifest = try String(
-            contentsOf: projectRoot.appending(path: "ProviderKit/Package.swift"),
+            contentsOf: projectRoot.appending(path: "AccountsCore/Package.swift"),
             encoding: .utf8
+        )
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "ProviderKit/Package.swift").path()
+            ) == false,
+            "ProviderKit must remain an internal AuralisCrypto target."
         )
         #expect(providerManifest.contains("name: \"ChainProviders\""))
         #expect(
@@ -184,6 +190,15 @@ struct ArchitectureBoundaryTests {
                 atPath: projectRoot.appending(path: "ENS/Package.swift").path()
             ) == false,
             "ENS must remain an internal AuralisCrypto target, not return as a package root."
+        )
+        for target in ["NFTKit", "NFTDomain", "NFTProviderAdapters", "NFTPersistence", "NFTPresentation"] {
+            #expect(providerManifest.contains("name: \"\(target)\""))
+        }
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "NFTKit/Package.swift").path()
+            ) == false,
+            "NFTKit must remain an internal AuralisCrypto target."
         )
 
         let walletAccountsManifest = try String(
@@ -361,7 +376,7 @@ struct ArchitectureBoundaryTests {
         )
         let nftParticipant = try String(
             contentsOf: projectRoot.appending(
-                path: "NFTKit/Sources/NFTPersistence/NFTAccountPersistenceParticipant.swift"
+                path: "AccountsCore/Sources/NFTPersistence/NFTAccountPersistenceParticipant.swift"
             ),
             encoding: .utf8
         )
@@ -748,17 +763,18 @@ struct ArchitectureBoundaryTests {
     func nftKitKeepsReceiptStorageTestOnly() throws {
         let projectRoot = try projectRootURL()
         let packageFile = projectRoot
-            .appending(path: "NFTKit")
+            .appending(path: "AccountsCore")
             .appending(path: "Package.swift")
         let packageText = try String(contentsOf: packageFile, encoding: .utf8)
-        let sourceImports = try swiftImports(
-            under: projectRoot
-                .appending(path: "NFTKit")
-                .appending(path: "Sources")
-        )
+        let nftSourceRoot = projectRoot.appending(path: "AccountsCore/Sources")
+        let sourceImports = try [
+            "NFTDomain", "NFTProviderAdapters", "NFTPersistence", "NFTPresentation", "NFTKit"
+        ].reduce(into: Set<String>()) { imports, target in
+            imports.formUnion(try swiftImports(under: nftSourceRoot.appending(path: target)))
+        }
 
         #expect(packageText.contains("../ReceiptsCore"))
-        #expect(packageText.contains("../ReceiptStorage"))
+        #expect(packageText.contains("name: \"ReceiptStorage\""))
         #expect(sourceImports.contains("ReceiptsCore"))
         #expect(sourceImports.contains("ReceiptStorage") == false)
     }
@@ -766,7 +782,7 @@ struct ArchitectureBoundaryTests {
     @Test("NFTKit layers keep one-way dependencies")
     func nftKitLayerBoundariesStayExplicit() throws {
         let projectRoot = try projectRootURL()
-        let nftKitRoot = projectRoot.appending(path: "NFTKit")
+        let nftKitRoot = projectRoot.appending(path: "AccountsCore")
         let packageText = try String(
             contentsOf: nftKitRoot.appending(path: "Package.swift"),
             encoding: .utf8
@@ -868,7 +884,7 @@ struct ArchitectureBoundaryTests {
         let roots = [
             projectRoot.appending(path: "Auralis"),
             projectRoot.appending(path: "AuralisTests"),
-            projectRoot.appending(path: "NFTLibraryFeature").appending(path: "Sources")
+            projectRoot.appending(path: "OperatorsFeature/Sources/NFTLibraryFeature")
         ]
         var offenders: [String] = []
 
@@ -1540,7 +1556,7 @@ struct ArchitectureBoundaryTests {
                 reason: "NFTLibraryFeature presentation may use SwiftUI and explicit NFTKit layer products, but not umbrella/provider/storage implementation imports"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "NFTKit/Sources/NFTDomain",
+                rootPath: "AccountsCore/Sources/NFTDomain",
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "ChainProviders",
@@ -1557,7 +1573,7 @@ struct ArchitectureBoundaryTests {
                 reason: "NFTDomain must stay pure domain"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "NFTKit/Sources/NFTProviderAdapters",
+                rootPath: "AccountsCore/Sources/NFTProviderAdapters",
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "NFTPersistence",
@@ -1570,7 +1586,7 @@ struct ArchitectureBoundaryTests {
                 reason: "NFTProviderAdapters must not own persistence models, UI, SwiftData, receipts, or presentation state"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "NFTKit/Sources/NFTPersistence",
+                rootPath: "AccountsCore/Sources/NFTPersistence",
                 forbiddenImports: [
                     "ChainProviders",
                     "ExplorerAdapter",
@@ -1582,7 +1598,7 @@ struct ArchitectureBoundaryTests {
                 reason: "NFTPersistence must not depend on provider adapters, provider packages, explorer packages, or UI"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "NFTKit/Sources/NFTPresentation",
+                rootPath: "AccountsCore/Sources/NFTPresentation",
                 forbiddenImports: [
                     "ChainProviders",
                     "ExplorerAdapter",
@@ -1593,7 +1609,7 @@ struct ArchitectureBoundaryTests {
                 reason: "NFTPresentation may orchestrate NFT layers and SwiftData models, but not UI or provider implementation packages"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "NFTKit/Sources/NFTKit",
+                rootPath: "AccountsCore/Sources/NFTKit",
                 forbiddenImports: [
                     "ChainProviders",
                     "ExplorerAdapter",
