@@ -61,16 +61,6 @@ public enum TagError: LocalizedError, Equatable {
     }
 }
 
-public struct TagValue: Hashable, Codable, Sendable {
-    public let name: String
-    public let hexColor: String
-
-    public init(name: String, hexColor: String) throws {
-        self.name = try Tag.validateName(name)
-        self.hexColor = try Tag.validateColor(hexColor)
-    }
-}
-
 @Model
 public final class Tag: Codable, Equatable, Hashable {
     @Attribute(.unique) public var name: String

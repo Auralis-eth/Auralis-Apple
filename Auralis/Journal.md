@@ -5164,3 +5164,16 @@ The important lesson is that an app test plan is the building's lobby alarm, not
 each kitchen. A green app build cannot prove that an independently compiled package target still
 works. The ownership audit therefore counts only direct package-test dependencies as behavioral
 coverage and records app integration tests as additional—not replacement—evidence.
+
+## 2026-10-26 - The Schema Knot Is Real
+
+The remaining primary models cannot be peeled apart one file at a time. `EOAccount`, `NFT`, `Tag`,
+and legacy `Playlist` form a bidirectional SwiftData relationship cluster; moving only one owner
+would make the old and new packages depend on each other. Runtime and Policy also still consume
+crypto-specific chain and address types, blocking those values from moving outward to Accounts.
+
+The migration therefore changed order rather than gambling with the store: remove generic-runtime
+crypto dependencies, decouple or deliberately relocate the shared schema cluster, and only then
+retire the transitional package. One genuinely unused piece, `TagValue`, had no consumers at all and
+was deleted instead of being ceremonially moved. Dead abstractions do not become architecture merely
+because they have a destination folder.
