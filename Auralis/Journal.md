@@ -1,5 +1,15 @@
 # Journal
 
+## 2026-10-25 - The NFT Gallery Joined the Operator Wing
+
+`NFTLibraryFeature` now lives as a distinct product inside OperatorsFeature. Its routes, sorting,
+image safety, gallery views, presentation helpers, and 12 focused tests remain their own module.
+The package-level OperatorCore dependency became a direct internal target edge, removing a root
+without weakening the external-link confirmation boundary.
+
+The gallery moved into the operator wing, but the velvet rope stayed in place: browsing may propose
+an external destination; OperatorCore still decides whether that destination is fit to present.
+
 ## 2026-10-25 - The Shell State Machine Joined the App Container
 
 `AuralisShellCore` now lives as a distinct product inside RuntimeKit, the future AppShell package.

@@ -386,7 +386,6 @@
 				6F84E0242FAE705B00CD4102 /* XCLocalSwiftPackageReference "PolicyCore" */,
 				6F84E02A2FAE901500CD4102 /* XCLocalSwiftPackageReference "NFTKit" */,
 				6F84E3112FB66B8200CD4102 /* XCLocalSwiftPackageReference "AuraUI" */,
-				6FA256412FB6A28400292ECA /* XCLocalSwiftPackageReference "NFTLibraryFeature" */,
 				6FA256462FB77B4800292ECA /* XCLocalSwiftPackageReference "MusicFeature" */,
 				6FDB397F2FBA7B5E00075FCE /* XCLocalSwiftPackageReference "ProviderKit" */,
 				6F467D992FCD0E7E0062CE28 /* XCLocalSwiftPackageReference "AuralisTestSupport" */,
@@ -874,10 +873,6 @@
 		6F8748E7308D449F00E51115 /* XCLocalSwiftPackageReference "OperatorsFeature" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = OperatorsFeature;
-		};
-		6FA256412FB6A28400292ECA /* XCLocalSwiftPackageReference "NFTLibraryFeature" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = NFTLibraryFeature;
 		};
 		6FA256462FB77B4800292ECA /* XCLocalSwiftPackageReference "MusicFeature" */ = {
 			isa = XCLocalSwiftPackageReference;

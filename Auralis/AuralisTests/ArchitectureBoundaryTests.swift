@@ -121,6 +121,13 @@ struct ArchitectureBoundaryTests {
             ) == false,
             "OperatorCore must remain an internal AuralisOperators target, not return as a package root."
         )
+        #expect(operatorsManifest.contains("name: \"NFTLibraryFeature\""))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: projectRoot.appending(path: "NFTLibraryFeature/Package.swift").path()
+            ) == false,
+            "NFTLibraryFeature must remain an internal AuralisOperators target, not return as a package root."
+        )
 
         let missionControlManifest = try String(
             contentsOf: projectRoot.appending(path: "MissionControlFeature/Package.swift"),
