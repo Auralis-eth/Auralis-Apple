@@ -1,11 +1,10 @@
-import PlannerCore
-import RuntimeCore
+import AuralisRuntime
 
-/// A ``StepAuthorizing`` that authorizes plan steps through the RuntimeCore governance kernel:
+/// A ``StepAuthorizing`` that authorizes plan steps through the AuralisRuntime governance kernel:
 /// it turns each step into an ``ActionProposal``, runs the required deterministic checks, asks a
 /// ``Judge``, and maps the ``JudgeDecision`` back onto the ``StepAuthorization`` ladder.
 ///
-/// This is the RuntimeCore-native counterpart to ``AutopilotAuthorizer`` (which drives the legacy
+/// This is the AuralisRuntime-native counterpart to ``AutopilotAuthorizer`` (which drives the legacy
 /// `PolicyActionGating`). Both honor the same Observe → Assist → Confirm → Autopilot ladder; this one
 /// additionally runs deterministic checks and can express `.revise`/`.escalate` verdicts. With the
 /// default ``ObserveModeJudge`` in Observe mode, execute steps for high-risk capabilities resolve to
@@ -22,7 +21,7 @@ public struct JudgeStepAuthorizer: StepAuthorizing {
     /// paused run outright, before a planner is even built, which is what stops inference from
     /// happening at all. This exists for the caller that reaches an authorizer some other way.
     ///
-    /// The gap it closes: ``RuntimeCore/PauseGate`` was wired into `GovernedToolPipeline` only, so
+    /// The gap it closes: ``AuralisRuntime/PauseGate`` was wired into `GovernedToolPipeline` only, so
     /// pausing stopped `runOperator`/`runPolicyAction` and — via the scheduling engine — routines,
     /// while an autopilot goal run went through neither. A paused runtime still planned on device,
     /// still performed read-only and advisory steps, and still wrote `autopilot.step.ran` receipts

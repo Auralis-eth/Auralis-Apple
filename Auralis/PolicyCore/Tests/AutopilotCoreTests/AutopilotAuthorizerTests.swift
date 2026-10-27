@@ -1,9 +1,8 @@
 import AuralisPrimaryModels
 @testable import AutopilotCore
 import AuralisFoundation
-import PlannerCore
+import AuralisRuntime
 import PolicyCore
-import RuntimeCore
 import Testing
 
 /// A gate that returns a fixed verdict, so authorizer behavior can be tested without the

@@ -19,7 +19,7 @@ public struct ReceiptEventLogger {
     ///   - actorDetail: Who acted (P0.5-602). Required, with no default, so a receipt cannot be
     ///     written without stating its actor — this logger is the app's shared receipt writer, and
     ///     while it had no such parameter the majority of receipts by volume persisted no attribution
-    ///     at all. Callers holding a `RuntimeCore.ActorRef` pass `ref.receiptActorDetail`.
+    ///     at all. Callers holding a `AuralisRuntime.ActorRef` pass `ref.receiptActorDetail`.
     ///   - authorityDetail: The authority the action proceeded under. Required, with no default, for
     ///     the same reason as `actorDetail`: while it was defaulted only 2 of 18 writers ever set it.
     ///     Most app-level events (launch, cache refresh, a copy action) resolve no capability lease,

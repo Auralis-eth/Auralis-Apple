@@ -1,5 +1,4 @@
-import PlannerCore
-import RuntimeCore
+import AuralisRuntime
 
 /// A convenience that wires the whole loop end to end: plan a goal, then orchestrate it
 /// under autopilot authorization. The feature layer supplies the planner (deterministic

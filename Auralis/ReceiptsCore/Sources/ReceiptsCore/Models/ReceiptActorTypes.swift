@@ -8,9 +8,9 @@ public enum ReceiptActor: String, Codable, Equatable, Sendable {
 /// Structured attribution persisted alongside the coarse ``ReceiptActor`` (P0.5-602 "first-class actor
 /// column"). Where `ReceiptActor` only says *user vs system*, this records *which* non-human actor acted
 /// (operator/plugin/workflow/routine/model), under what identity, and — for model actors — with what
-/// inference provenance. ReceiptsCore owns this persisted representation and the RuntimeCore bridge.
+/// inference provenance. ReceiptsCore owns this persisted representation and the AuralisRuntime bridge.
 ///
-/// Fields are stored as raw strings rather than the richer `RuntimeCore` enums (`ActorKind`,
+/// Fields are stored as raw strings rather than the richer `AuralisRuntime` enums (`ActorKind`,
 /// `InferenceLocality`) so the persisted schema stays stable; the typed bridge lives beside this
 /// receipt model. All fields are optional so the type round-trips cleanly for
 /// legacy receipts that predate the structured column.
@@ -42,7 +42,7 @@ public struct ReceiptActorDetail: Codable, Equatable, Sendable {
     }
 
     /// The coarse ``ReceiptActor`` this attribution collapses to, for the filter column that predates
-    /// the structured one. The leaf-side inverse of `RuntimeCore.ActorRef.receiptActor`, and kept
+    /// the structured one. The leaf-side inverse of `AuralisRuntime.ActorRef.receiptActor`, and kept
     /// consistent with it: only `"human"` is a user, every other kind is the system.
     ///
     /// Exists so callers that only hold a `ReceiptActorDetail` cannot drift the two columns apart by
@@ -55,7 +55,7 @@ public struct ReceiptActorDetail: Codable, Equatable, Sendable {
 /// Canonical constructors, so the ~30 receipt-writing call sites across the app don't each spell a
 /// raw `ActorKind` string by hand (P0.5-602).
 ///
-/// Packages that can see `RuntimeCore` should prefer `ActorRef.…receiptActorDetail` — the typed path.
+/// Packages that can see `AuralisRuntime` should prefer `ActorRef.…receiptActorDetail` — the typed path.
 /// These exist for the leaves that deliberately cannot (`MusicFeature`, `NFTKit`, `ReceiptsCore`
 /// itself), where the alternative is a bare string literal per site.
 public extension ReceiptActorDetail {
@@ -63,7 +63,7 @@ public extension ReceiptActorDetail {
     static let human = ReceiptActorDetail(kind: "human")
 
     /// Internal, non-user-initiated work with no more specific identity. Mirrors
-    /// `RuntimeCore.ActorRef.system`, including its `"system"` identifier, so the two agree.
+    /// `AuralisRuntime.ActorRef.system`, including its `"system"` identifier, so the two agree.
     static let system = ReceiptActorDetail(kind: "workflow", identifier: "system")
 
     /// A named background workflow — a sync job, an indexer, a cache refresh. Preferred over
@@ -86,7 +86,7 @@ public extension ReceiptActorDetail {
     }
 
     /// A model actor with inference provenance. `locality` takes `InferenceLocality`'s raw values
-    /// (`"local"`/`"remote"`); callers that hold a typed `ModelRoute` should use the `RuntimeCore`
+    /// (`"local"`/`"remote"`); callers that hold a typed `ModelRoute` should use the `AuralisRuntime`
     /// bridge instead of this.
     static func model(
         _ identifier: String,
@@ -110,7 +110,7 @@ public extension ReceiptActorDetail {
 /// A capability check answers whether an actor may act; this records *which grant* said yes, so a
 /// receipt can be audited after the fact rather than only asserting that something was allowed.
 /// Fields are raw strings so the receipt representation remains a versionable persisted wire model;
-/// the typed `RuntimeCore.AuthorityRef` bridge lives beside this type.
+/// the typed `AuralisRuntime.AuthorityRef` bridge lives beside this type.
 public struct ReceiptAuthorityDetail: Codable, Equatable, Sendable {
     /// Raw `AuthorityRef.Source` value ("lease", "humanApproval", "policyDefault").
     public let source: String

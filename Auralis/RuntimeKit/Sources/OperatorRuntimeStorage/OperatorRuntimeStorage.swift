@@ -1,12 +1,8 @@
 import ArtifactCore
 import ArtifactStorage
-import EvalCore
+import AuralisRuntime
 import Foundation
 import OSLog
-import PerformanceCore
-import PlaybookCore
-import RuntimeCore
-import SchedulingCore
 import SwiftData
 
 private let storageLogger = Logger(subsystem: "Auralis", category: "OperatorRuntimeStorage")
@@ -61,7 +57,7 @@ public final class StoredPerformanceEventRecord {
     /// own in-memory equivalents. `recordApprovalDecision` resolves by *last* matching position, so
     /// without a recorded insertion order the durable store's answer is whatever order SwiftData
     /// happened to return — the F-26 divergence, on a method whose two implementations
-    /// `PerformanceCore` documents as agreeing. That method therefore ranks on this column **alone**:
+    /// `AuralisRuntime` documents as agreeing. That method therefore ranks on this column **alone**:
     /// `recordedAt` above it would override insertion position rather than be broken by it, and the
     /// replay path makes the two genuinely disagree, because merging a re-recorded event updates
     /// `recordedAt` while deliberately preserving `sequence`. And a `recordedAt`-only prune ordering
@@ -583,7 +579,7 @@ public actor SwiftDataPerformanceStore: PerformanceStoring {
     /// "Last" is resolved by `sequence` **alone**, rather than by the order the fetch happened to
     /// return or by `recordedAt`. `PerformanceStore` resolves it with
     /// `events.lastIndex(where: { $0.runID == runID })` — purely insertion position — and
-    /// `PerformanceCore` documents the two as agreeing, so an unordered fetch here made that written
+    /// `AuralisRuntime` documents the two as agreeing, so an unordered fetch here made that written
     /// claim rest on whatever SwiftData returned (the F-26 divergence). Ranking by `recordedAt`
     /// first did not fix it but moved it: `sequence` *is* the recorded insertion position, so a
     /// clock reading placed above it can only ever **override** the order it is supposed to
@@ -994,7 +990,7 @@ public actor SwiftDataWorklogStore: WorklogStoring {
     private var storeHealth = WorklogStoreHealth()
 
     /// - Note: `@discardableResult` has to be restated here. The attribute is not inherited from the
-    ///   ``WorklogRecording/record(_:)`` requirement, and both of RuntimeCore's own conformances
+    ///   ``WorklogRecording/record(_:)`` requirement, and both of AuralisRuntime's own conformances
     ///   carry it, so omitting it on the one durable implementation made every caller that ignores
     ///   the result warn against *this* store and not against the in-memory ones.
     @discardableResult

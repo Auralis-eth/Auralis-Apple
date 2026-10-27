@@ -1,12 +1,11 @@
-import PlannerCore
-import RuntimeCore
+import AuralisRuntime
 
 /// Turns a ``PlanStep`` (in the context of its ``PlanningGoal``) into a governable
 /// ``ActionProposal``.
 ///
 /// The step's `kind` still proposes the impact class, but it cannot propose one *below* what the
 /// capability makes possible. This is the seam that lets the same plan the orchestrator runs also
-/// flow through the RuntimeCore Judge/checks pipeline.
+/// flow through the AuralisRuntime Judge/checks pipeline.
 ///
 /// `kind` used to decide alone: `.observe`/`.assist` mapped to `.readOnly` regardless of capability,
 /// on the reasoning that those rungs carry no state change. But `kind` is a *claim about* the step —

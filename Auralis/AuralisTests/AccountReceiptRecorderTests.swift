@@ -5,7 +5,7 @@ import AuralisPrimaryModels
 import Foundation
 import PolicyCore
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 import SwiftData
 import Testing
 

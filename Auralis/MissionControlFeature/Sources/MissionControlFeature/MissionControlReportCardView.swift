@@ -1,5 +1,4 @@
-import EvalCore
-import PerformanceCore
+import AuralisRuntime
 import SwiftUI
 
 /// P2-EVAL — Operator report cards: each operator's run health joined with how its graded runs did

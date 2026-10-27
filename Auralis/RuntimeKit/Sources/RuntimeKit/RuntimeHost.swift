@@ -3,18 +3,13 @@ import ArtifactCore
 import AuralisPrimaryModels
 import AutopilotCore
 import AuralisFoundation
-import EvalCore
 import Foundation
 import Observation
 @_spi(ToolRegistration) import OperatorsFeature
 import OSLog
-import PerformanceCore
-import PlannerCore
-import PlaybookCore
 import PolicyCore
 import ReceiptsCore
-@_spi(RuntimeComposition) @_spi(ToolRegistration) import RuntimeCore
-import SchedulingCore
+@_spi(RuntimeComposition) @_spi(ToolRegistration) import AuralisRuntime
 import SocialCore
 
 /// Where the host reports a failure it cannot propagate to its caller.
@@ -73,7 +68,7 @@ public final class RuntimeHost {
     public static let shellContextActor = ActorRef(kind: .workflow, identifier: "shell.context")
 
     /// Instance access to ``shellContextActor``. Shell callers reach the host through
-    /// `RuntimeAssembly` and import neither RuntimeKit nor RuntimeCore, so they cannot name
+    /// `RuntimeAssembly` and import neither RuntimeKit nor AuralisRuntime, so they cannot name
     /// `RuntimeHost` or `ActorRef` to attribute an instrumentation call; this lets them pass the
     /// named actor off the host value they already hold.
     public var shellContextActor: ActorRef { Self.shellContextActor }
@@ -1239,7 +1234,7 @@ public final class RuntimeHost {
     /// Plans `goalText` on autopilot and runs it under the runtime's governance, recording the
     /// planner's deliberation — every option it considered and rejected, and why — plus each executed
     /// step to the shared worklog/receipt trace Mission Control reads. Authorization uses the
-    /// RuntimeCore-native ``JudgeStepAuthorizer`` (DomainJudge + the host's deterministic checks), so
+    /// AuralisRuntime-native ``JudgeStepAuthorizer`` (DomainJudge + the host's deterministic checks), so
     /// state-changing steps stay gated exactly like the rest of the app. Returns the plan and the run
     /// result so a caller can show the plan review alongside what actually happened. (P1-101)
     @discardableResult

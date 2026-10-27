@@ -1,5 +1,4 @@
-import PerformanceCore
-import RuntimeCore
+import AuralisRuntime
 import Testing
 
 @testable import RuntimeKit

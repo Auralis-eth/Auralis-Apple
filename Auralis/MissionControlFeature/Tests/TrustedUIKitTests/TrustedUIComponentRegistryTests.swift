@@ -1,6 +1,6 @@
 import AuralisFoundation
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 import Testing
 @testable import TrustedUIKit
 

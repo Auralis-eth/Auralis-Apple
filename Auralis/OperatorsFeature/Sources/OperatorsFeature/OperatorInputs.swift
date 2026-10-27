@@ -1,6 +1,6 @@
 import AccountsCore
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 
 // There is deliberately no `ScopeText` helper here. It was a second, unreferenced copy of the
 // sanitizer below — same flatten-and-bound body at a different ceiling (64 rather than
@@ -46,7 +46,7 @@ public struct WatchTarget: Identifiable, Equatable, Sendable, Codable {
     /// Keying on the prefixed form keeps this agreeing with the check that admits the value.
     ///
     /// Lexical rather than via `AuralisEthereumAddress` because this package deliberately depends
-    /// only on `RuntimeCore` and `ArtifactCore`, and the normalization that matters here — trim,
+    /// only on `AuralisRuntime` and `ArtifactCore`, and the normalization that matters here — trim,
     /// fold case, one prefix spelling — needs no address validation to perform. Anything that is
     /// not a 40-hex body is left alone rather than collapsed, so an unrecognized value still
     /// compares consistently with itself.
@@ -58,7 +58,7 @@ public struct WatchTarget: Identifiable, Equatable, Sendable, Codable {
     ///
     /// `Character.isHexDigit` is not ASCII-restricted: it is true for the fullwidth digit forms
     /// (`０`–`９`, U+FF10…) and other Unicode digit variants. ``ToolSchemaField/Kind/address`` and
-    /// `AuralisEthereumAddress` both refuse those deliberately — RuntimeCore records the defect
+    /// `AuralisEthereumAddress` both refuse those deliberately — AuralisRuntime records the defect
     /// where a 40-character address made entirely of fullwidth digits cleared a plain
     /// `allSatisfy(\.isHexDigit)` and reached `draftTransaction`.
     ///
@@ -497,7 +497,7 @@ public struct OperatorRequest: Equatable, Sendable {
     /// Rebuilds the request from proposal parameters (the inverse of ``toParameters()``).
     ///
     /// The `watchlist` key being *present* decides the scope on its own, exactly as it does in
-    /// RuntimeCore's `CheckTargets.decode`: if it is there but unusable, the result is an empty
+    /// AuralisRuntime's `CheckTargets.decode`: if it is there but unusable, the result is an empty
     /// watchlist, never the flattened `chain`/`address`/`ens` pair.
     ///
     /// The hazard this guards against is not a bad decode — it is two decoders disagreeing about

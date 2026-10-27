@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import AuralisFoundation
 import Foundation
 import PolicyCore
-import RuntimeCore
+import AuralisRuntime
 
 /// The governed-pipeline tools that back the app's `PolicyControlledAction`s, so wallet/plugin actions
 /// flow through the *same* `GovernedToolPipeline` as everything else (one governed path — #3).

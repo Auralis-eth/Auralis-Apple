@@ -2,7 +2,7 @@ import ArtifactCore
 import AuralisFoundation
 import PolicyCore
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 import RuntimeKit
 import SocialCore
 import SwiftUI

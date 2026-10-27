@@ -1,6 +1,6 @@
 import ArtifactCore
 import Foundation
-@_spi(ToolRegistration) import RuntimeCore
+@_spi(ToolRegistration) import AuralisRuntime
 
 /// The `ToolExecuting` behind the built-in operators. When the governed pipeline clears an operator it
 /// gathers real local inputs through the ``OperatorDataSource``, composes a structured artifact from

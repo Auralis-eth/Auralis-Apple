@@ -1,5 +1,5 @@
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 
 /// P1-AGENT-103 — the result of an on-chain *dry-run* of a proposed transaction, so the Proposal
 /// Diff Viewer can show what would actually happen (revert / gas / balance-and-asset deltas) rather

@@ -1,5 +1,5 @@
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 
 /// Applies the current action policy and records denied execution-style behavior.
 ///
@@ -103,7 +103,7 @@ private extension ActionPolicyGate {
     /// This gate consults no capability lease — it applies the app's standing mode policy — so
     /// `policyDefault` is the honest source in both directions. Recording it means the large majority
     /// of policy history stops persisting a null authority and can answer "what let this happen?"
-    /// `ReceiptAuthorityDetail` rather than `RuntimeCore.AuthorityRef` for the same reason the actor
+    /// `ReceiptAuthorityDetail` rather than `AuralisRuntime.AuthorityRef` for the same reason the actor
     /// is a `ReceiptActorDetail`: PolicyCore is a leaf.
     static func policyAuthority(
         action: PolicyControlledAction,

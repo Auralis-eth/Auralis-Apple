@@ -348,8 +348,8 @@ public enum ReceiptContentPresenter {
 
     /// Builds the derived "Privacy impact" row when a receipt recorded where inference ran.
     ///
-    /// Mirrors `RuntimeCore.InferenceLocality.privacyImpact` — ReceiptsCore is a dependency-free leaf,
-    /// so the tiny mapping is duplicated here rather than importing RuntimeCore. Keep the wording in
+    /// Mirrors `AuralisRuntime.InferenceLocality.privacyImpact` — ReceiptsCore is a dependency-free leaf,
+    /// so the tiny mapping is duplicated here rather than importing AuralisRuntime. Keep the wording in
     /// sync with that type.
     ///
     /// `inferenceLocality` is the *only* input. A stored `privacyImpact` used to short-circuit this

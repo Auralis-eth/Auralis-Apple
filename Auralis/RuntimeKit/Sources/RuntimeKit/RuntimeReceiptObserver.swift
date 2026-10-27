@@ -3,7 +3,7 @@ import AuralisFoundation
 import Foundation
 import OSLog
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 
 /// Turns governance events that do not otherwise pass through the governed receipt sink into
 /// durable audit receipts. Tool execution events continue to be receipted by `ReceiptStoreSink`,

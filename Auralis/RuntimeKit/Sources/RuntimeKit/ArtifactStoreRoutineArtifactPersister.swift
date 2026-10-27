@@ -1,6 +1,6 @@
 import ArtifactCore
 import Foundation
-import SchedulingCore
+import AuralisRuntime
 
 /// Adapts the runtime-owned routine output request to the receipts-owned durable artifact store.
 public struct ArtifactStoreRoutineArtifactPersister: RoutineArtifactPersisting {

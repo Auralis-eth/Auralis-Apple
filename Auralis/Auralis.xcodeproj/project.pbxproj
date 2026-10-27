@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		6F0646A5302BFFD600FCE6A8 /* RuntimeKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F0646A4302BFFD600FCE6A8 /* RuntimeKit */; };
 		6F0646A8302BFFFF00FCE6A8 /* MissionControlFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 6F0646A7302BFFFF00FCE6A8 /* MissionControlFeature */; };
-		6F29475130410BF9004E0CFA /* RuntimeCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F29475030410BF9004E0CFA /* RuntimeCore */; };
+		6F29475130410BF9004E0CFA /* AuralisRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 6F29475030410BF9004E0CFA /* AuralisRuntime */; };
 		6F4179322DA96363002A78F5 /* web3.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 6F4179312DA96363002A78F5 /* web3.swift */; };
 		6F467D9B2FCD0E7E0062CE28 /* AuralisTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6F467D9A2FCD0E7E0062CE28 /* AuralisTestSupport */; };
 		6F64465F2DFFC11F001674D2 /* AuralisIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 6F64465E2DFFC11F001674D2 /* AuralisIcon.icon */; };
@@ -36,7 +36,7 @@
 		6F84E0262FAE705B00CD4102 /* PolicyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E0252FAE705B00CD4102 /* PolicyCore */; };
 		6F84E2FF2FAFF7FE00CD4102 /* AccountStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E2FE2FAFF7FE00CD4102 /* AccountStorage */; };
 		6F84E3132FB66B8200CD4102 /* AuraUI in Frameworks */ = {isa = PBXBuildFile; productRef = 6F84E3122FB66B8200CD4102 /* AuraUI */; };
-		6F8748BA308BF7E100E51115 /* RuntimeCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748B9308BF7E100E51115 /* RuntimeCore */; };
+		6F8748BA308BF7E100E51115 /* AuralisRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748B9308BF7E100E51115 /* AuralisRuntime */; };
 		6F8748C7308C110600E51115 /* AuraPlayAudioEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748C6308C110600E51115 /* AuraPlayAudioEngine */; };
 		6F8748C9308C110600E51115 /* AuraPlayMediaCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748C8308C110600E51115 /* AuraPlayMediaCore */; };
 		6F8748CB308C110600E51115 /* AuraPlayVideoEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 6F8748CA308C110600E51115 /* AuraPlayVideoEngine */; };
@@ -133,7 +133,7 @@
 				6F75572D308EE9D1005BDD97 /* AuralisShellCore in Frameworks */,
 				6F8748E4308D33CF00E51115 /* ReceiptStorage in Frameworks */,
 				6F75573F308FA4D9005BDD97 /* NFTDomain in Frameworks */,
-				6F29475130410BF9004E0CFA /* RuntimeCore in Frameworks */,
+				6F29475130410BF9004E0CFA /* AuralisRuntime in Frameworks */,
 				6F755743308FA4D9005BDD97 /* NFTPresentation in Frameworks */,
 				6F84E0162FAE32FF00CD4102 /* AccountsCore in Frameworks */,
 				6F755739308FA498005BDD97 /* ProviderKit in Frameworks */,
@@ -160,7 +160,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6F8748BA308BF7E100E51115 /* RuntimeCore in Frameworks */,
+				6F8748BA308BF7E100E51115 /* AuralisRuntime in Frameworks */,
 				6F8748CD308C117700E51115 /* AuraPlayMediaCore in Frameworks */,
 				6F793F7F2FD45B6300EC8C40 /* ReceiptsCore in Frameworks */,
 				6F8748D4308C163E00E51115 /* AuralisFoundation in Frameworks */,
@@ -254,7 +254,7 @@
 				6F0646A4302BFFD600FCE6A8 /* RuntimeKit */,
 				6FAA000130000001000AA001 /* OperatorsFeature */,
 				6F0646A7302BFFFF00FCE6A8 /* MissionControlFeature */,
-				6F29475030410BF9004E0CFA /* RuntimeCore */,
+				6F29475030410BF9004E0CFA /* AuralisRuntime */,
 				6F8748C6308C110600E51115 /* AuraPlayAudioEngine */,
 				6F8748C8308C110600E51115 /* AuraPlayMediaCore */,
 				6F8748CA308C110600E51115 /* AuraPlayVideoEngine */,
@@ -303,7 +303,7 @@
 				6F467D9A2FCD0E7E0062CE28 /* AuralisTestSupport */,
 				6F793F7E2FD45B6300EC8C40 /* ReceiptsCore */,
 				6F793F8E2FD5A39E00EC8C40 /* AuraUI */,
-				6F8748B9308BF7E100E51115 /* RuntimeCore */,
+				6F8748B9308BF7E100E51115 /* AuralisRuntime */,
 				6F8748CC308C117700E51115 /* AuraPlayMediaCore */,
 				6F8748D3308C163E00E51115 /* AuralisFoundation */,
 				6F8748E5308D33E300E51115 /* ReceiptStorage */,
@@ -378,7 +378,7 @@
 				6F467D992FCD0E7E0062CE28 /* XCLocalSwiftPackageReference "AuralisTestSupport" */,
 				6F0646A3302BFFD600FCE6A8 /* XCLocalSwiftPackageReference "RuntimeKit" */,
 				6F0646A6302BFFFF00FCE6A8 /* XCLocalSwiftPackageReference "MissionControlFeature" */,
-				6F29474F30410BF9004E0CFA /* XCLocalSwiftPackageReference "RuntimeCore" */,
+				6F29474F30410BF9004E0CFA /* XCLocalSwiftPackageReference "AuralisRuntime" */,
 				6F8748BB308C026600E51115 /* XCLocalSwiftPackageReference "AuraPlayEngines" */,
 				6F8748CE308C160D00E51115 /* XCLocalSwiftPackageReference "AuralisFoundation" */,
 				6F8748E7308D449F00E51115 /* XCLocalSwiftPackageReference "OperatorsFeature" */,
@@ -817,9 +817,9 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = MissionControlFeature;
 		};
-		6F29474F30410BF9004E0CFA /* XCLocalSwiftPackageReference "RuntimeCore" */ = {
+		6F29474F30410BF9004E0CFA /* XCLocalSwiftPackageReference "AuralisRuntime" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = RuntimeCore;
+			relativePath = AuralisRuntime;
 		};
 		6F467D992FCD0E7E0062CE28 /* XCLocalSwiftPackageReference "AuralisTestSupport" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -895,9 +895,10 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MissionControlFeature;
 		};
-		6F29475030410BF9004E0CFA /* RuntimeCore */ = {
+		6F29475030410BF9004E0CFA /* AuralisRuntime */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = RuntimeCore;
+			package = 6F29474F30410BF9004E0CFA /* XCLocalSwiftPackageReference */;
+			productName = AuralisRuntime;
 		};
 		6F4179312DA96363002A78F5 /* web3.swift */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1013,10 +1014,10 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = AuraUI;
 		};
-		6F8748B9308BF7E100E51115 /* RuntimeCore */ = {
+		6F8748B9308BF7E100E51115 /* AuralisRuntime */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 6F29474F30410BF9004E0CFA /* XCLocalSwiftPackageReference "RuntimeCore" */;
-			productName = RuntimeCore;
+			package = 6F29474F30410BF9004E0CFA /* XCLocalSwiftPackageReference "AuralisRuntime" */;
+			productName = AuralisRuntime;
 		};
 		6F8748C6308C110600E51115 /* AuraPlayAudioEngine */ = {
 			isa = XCSwiftPackageProductDependency;

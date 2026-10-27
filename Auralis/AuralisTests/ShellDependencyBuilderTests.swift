@@ -12,7 +12,7 @@ import NFTProviderAdapters
 import ProviderKit
 import ReceiptsCore
 import ReceiptStorage
-import RuntimeCore
+import AuralisRuntime
 import SwiftData
 import Testing
 import TokenStorage

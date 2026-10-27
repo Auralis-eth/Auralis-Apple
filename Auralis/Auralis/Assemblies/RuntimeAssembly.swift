@@ -5,7 +5,7 @@ import PolicyCore
 import ProviderKit
 import ReceiptsCore
 import ReceiptStorage
-import RuntimeCore
+import AuralisRuntime
 import RuntimeKit
 import SwiftData
 

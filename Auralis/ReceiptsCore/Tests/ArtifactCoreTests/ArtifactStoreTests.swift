@@ -1,6 +1,6 @@
 @testable import ArtifactCore
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 import Testing
 
 @Suite("Artifact model")

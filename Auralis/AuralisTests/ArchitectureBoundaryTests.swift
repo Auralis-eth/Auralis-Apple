@@ -46,7 +46,7 @@ struct ArchitectureBoundaryTests {
             FileManager.default.fileExists(
                 atPath: projectRoot.appending(path: "AgentIdentityCore/Package.swift").path()
             ) == false,
-            "AgentIdentityCore was retired; identity must remain owned by RuntimeCore instead of returning as a stub package."
+            "AgentIdentityCore was retired; identity must remain owned by AuralisRuntime instead of returning as a stub package."
         )
 
         let engineManifest = try String(
@@ -67,7 +67,7 @@ struct ArchitectureBoundaryTests {
             contentsOf: projectRoot.appending(path: "AuralisFoundation/Package.swift"),
             encoding: .utf8
         )
-        for target in ["CapabilitiesCore", "SwiftDataAdapters", "UserDefaultsAdapters"] {
+        for target in ["AuralisFoundation", "AuralisFoundation", "AuralisFoundation"] {
             #expect(foundationManifest.contains("name: \"\(target)\""))
             #expect(
                 FileManager.default.fileExists(
@@ -78,11 +78,11 @@ struct ArchitectureBoundaryTests {
         }
 
         let runtimeManifest = try String(
-            contentsOf: projectRoot.appending(path: "RuntimeCore/Package.swift"),
+            contentsOf: projectRoot.appending(path: "AuralisRuntime/Package.swift"),
             encoding: .utf8
         )
         for target in [
-            "PlannerCore", "PlaybookCore", "PerformanceCore", "EvalCore", "SchedulingCore"
+            "AuralisRuntime", "AuralisRuntime", "AuralisRuntime", "AuralisRuntime", "AuralisRuntime"
         ] {
             #expect(runtimeManifest.contains("name: \"\(target)\""))
             #expect(
@@ -378,7 +378,7 @@ struct ArchitectureBoundaryTests {
         )
         let scopedParticipant = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisFoundation/Sources/SwiftDataAdapters/ScopedPersistenceParticipant.swift"
+                path: "AuralisFoundation/Sources/AuralisFoundation/ScopedPersistenceParticipant.swift"
             ),
             encoding: .utf8
         )
@@ -450,7 +450,7 @@ struct ArchitectureBoundaryTests {
     func runtimeEvidencePackagesStayIndependentFromPrimaryModels() throws {
         let projectRoot = try projectRootURL()
 
-        for package in ["RuntimeCore", "PolicyCore", "ReceiptsCore"] {
+        for package in ["AuralisRuntime", "PolicyCore", "ReceiptsCore"] {
             let packageRoot = projectRoot.appending(path: package)
             let manifest = try String(
                 contentsOf: packageRoot.appending(path: "Package.swift"),
@@ -469,7 +469,7 @@ struct ArchitectureBoundaryTests {
         let projectRoot = try projectRootURL()
         let corePackages = [
             "AuralisContext", "AuralisFoundation", "AuralisTestSupport",
-            "PolicyCore", "ReceiptsCore", "RuntimeCore"
+            "PolicyCore", "ReceiptsCore", "AuralisRuntime"
         ]
         let uiAndCompositionPackages = [
             "AccountsCore", "AuraPlayEngines", "AuraUI", "MissionControlFeature",
@@ -657,10 +657,10 @@ struct ArchitectureBoundaryTests {
         #expect(
             FileManager.default.fileExists(
                 atPath: projectRoot.appending(
-                    path: "RuntimeCore/Sources/RuntimeCore/Action/ActorRef+ReceiptActor.swift"
+                    path: "AuralisRuntime/Sources/AuralisRuntime/Action/ActorRef+ReceiptActor.swift"
                 ).path()
             ) == false,
-            "RuntimeCore must not own receipt conversion extensions"
+            "AuralisRuntime must not own receipt conversion extensions"
         )
 
         for declaration in ["ReceiptJSONValue", "ReceiptPayload", "ReceiptMode"] {
@@ -682,7 +682,7 @@ struct ArchitectureBoundaryTests {
             encoding: .utf8
         )
 
-        #expect(source.contains("import RuntimeCore"))
+        #expect(source.contains("import AuralisRuntime"))
         #expect(source.contains("actor: ActorRef"))
         #expect(
             source.contains("ReceiptActor") == false,
@@ -702,9 +702,9 @@ struct ArchitectureBoundaryTests {
     func ownershipMetadataGrantsNoAuthority() throws {
         let projectRoot = try projectRootURL()
         let decidingPackages = [
-            "CapabilitiesCore",
+            "AuralisFoundation",
             "PolicyCore",
-            "RuntimeCore",
+            "AuralisRuntime",
             "RuntimeKit",
             "MissionControlFeature"
         ]
@@ -770,17 +770,17 @@ struct ArchitectureBoundaryTests {
         let projectRoot = try projectRootURL()
         let layers: [String: Int] = [
             "AuralisPrimaryModels": 0,
-            "CapabilitiesCore": 0,
-            "RuntimeCore": 1,
+            "AuralisFoundation": 0,
+            "AuralisRuntime": 1,
             "ReceiptsCore": 2,
             "ArtifactCore": 2,
-            "PlaybookCore": 2,
-            "PerformanceCore": 2,
-            "SchedulingCore": 2,
+            "AuralisRuntime": 2,
+            "AuralisRuntime": 2,
+            "AuralisRuntime": 2,
             "ReceiptStorage": 3,
             "ArtifactStorage": 3,
             "PolicyCore": 4,
-            "PlannerCore": 4,
+            "AuralisRuntime": 4,
             "AutopilotCore": 4,
             "OperatorsFeature": 5,
             "AuraUI": 5,
@@ -1019,9 +1019,9 @@ struct ArchitectureBoundaryTests {
 
         #expect(packageText.contains("../ReceiptsCore"))
         #expect(packageText.contains("../AuralisFoundation"))
-        #expect(packageText.contains(".product(name: \"CapabilitiesCore\", package: \"AuralisFoundation\")"))
+        #expect(packageText.contains(".product(name: \"AuralisFoundation\", package: \"AuralisFoundation\")"))
         #expect(musicFeatureImports.contains("ReceiptsCore"))
-        #expect(musicFeatureImports.contains("CapabilitiesCore"))
+        #expect(musicFeatureImports.contains("AuralisFoundation"))
         #expect(playbackRuntimeSource.contains("import NFTKit") == false)
         #expect(
             appReceiptFiles.isEmpty,
@@ -1171,7 +1171,7 @@ struct ArchitectureBoundaryTests {
 
         #expect(
             offenders.isEmpty,
-            "ToolExecuting.execute is an internal RuntimeCore seam; app callers must enter through RuntimeHost/GovernedToolPipeline: \(offenders.sorted())"
+            "ToolExecuting.execute is an internal AuralisRuntime seam; app callers must enter through RuntimeHost/GovernedToolPipeline: \(offenders.sorted())"
         )
     }
 
@@ -1184,7 +1184,7 @@ struct ArchitectureBoundaryTests {
         // a row written before attribution existed — the misattribution the ticket exists to prevent.
         let runtimeRoots = [
             projectRoot.appending(path: "RuntimeKit/Sources"),
-            projectRoot.appending(path: "RuntimeCore/Sources")
+            projectRoot.appending(path: "AuralisRuntime/Sources")
         ]
         let forbiddenPatterns = [
             "ActorRef.system",
@@ -1192,7 +1192,7 @@ struct ArchitectureBoundaryTests {
         ]
         // `ActorRef.system` is declared here; the declaration is not a call site.
         let allowedFiles: Set<String> = [
-            "RuntimeCore/Sources/RuntimeCore/Actor/ActorRef.swift"
+            "AuralisRuntime/Sources/AuralisRuntime/Actor/ActorRef.swift"
         ]
 
         var offenders: [String] = []
@@ -1230,8 +1230,8 @@ struct ArchitectureBoundaryTests {
             "GovernedToolPipeline(",
             "GovernedToolPipeline.testing(",
             "ToolRegistry()",
-            "@_spi(RuntimeComposition) import RuntimeCore",
-            "@_spi(RuntimeTesting) import RuntimeCore",
+            "@_spi(RuntimeComposition) import AuralisRuntime",
+            "@_spi(RuntimeTesting) import AuralisRuntime",
             "ToolExecutionAuthorization("
         ]
         let offenders = try swiftSourceFiles(under: appRoot)
@@ -1261,14 +1261,14 @@ struct ArchitectureBoundaryTests {
         var offenders: [String] = []
         for packageDirectory in packageDirectories {
             let packageName = packageDirectory.lastPathComponent
-            guard packageName != "RuntimeCore", packageName != "RuntimeKit" else { continue }
+            guard packageName != "AuralisRuntime", packageName != "RuntimeKit" else { continue }
             let sources = packageDirectory.appending(path: "Sources")
             guard FileManager.default.fileExists(atPath: sources.path()) else { continue }
 
             for fileURL in try swiftSourceFiles(under: sources) {
                 let source = try String(contentsOf: fileURL, encoding: .utf8)
-                if source.contains("@_spi(RuntimeComposition) import RuntimeCore")
-                    || source.contains("@_spi(RuntimeTesting) import RuntimeCore")
+                if source.contains("@_spi(RuntimeComposition) import AuralisRuntime")
+                    || source.contains("@_spi(RuntimeTesting) import AuralisRuntime")
                     || source.contains("GovernedToolPipeline(")
                     || source.contains("GovernedToolPipeline.testing(")
                     || source.contains("ToolRegistry()")
@@ -1282,7 +1282,7 @@ struct ArchitectureBoundaryTests {
 
         #expect(
             offenders.isEmpty,
-            "Only RuntimeKit may compose RuntimeCore governance infrastructure: \(offenders.sorted())"
+            "Only RuntimeKit may compose AuralisRuntime governance infrastructure: \(offenders.sorted())"
         )
     }
 
@@ -1293,7 +1293,7 @@ struct ArchitectureBoundaryTests {
             "OperatorsFeature/Sources/OperatorCore",
             "OperatorsFeature/Sources/OperatorsFeature",
             "PolicyCore/Sources/AutopilotCore",
-            "RuntimeCore/Sources/PlaybookCore"
+            "AuralisRuntime/Sources/AuralisRuntime"
         ]
         let forbiddenImports: Set<String> = ["SwiftUI", "UIKit", "AppKit"]
         var offenders: [String] = []
@@ -1341,7 +1341,7 @@ struct ArchitectureBoundaryTests {
         )
     }
 
-    @Test("validated context cannot be forged outside RuntimeCore")
+    @Test("validated context cannot be forged outside AuralisRuntime")
     func validatedContextConstructionStaysInsideRuntimeCore() throws {
         let projectRoot = try projectRootURL()
         var offenders: [String] = []
@@ -1349,7 +1349,7 @@ struct ArchitectureBoundaryTests {
         for fileURL in try swiftSourceFiles(under: projectRoot) {
             let relativePath = fileURL.path().replacingOccurrences(of: projectRoot.path() + "/", with: "")
             guard relativePath.contains("/Sources/"),
-                  !relativePath.contains("/RuntimeCore/Sources/RuntimeCore/") else { continue }
+                  !relativePath.contains("/AuralisRuntime/Sources/AuralisRuntime/") else { continue }
             let source = try String(contentsOf: fileURL, encoding: .utf8)
             if source.contains("GovernedContext(") {
                 offenders.append(relativePath)
@@ -1358,7 +1358,7 @@ struct ArchitectureBoundaryTests {
 
         #expect(
             offenders.isEmpty,
-            "Only RuntimeCore may mint GovernedContext after validation: \(offenders.sorted())"
+            "Only AuralisRuntime may mint GovernedContext after validation: \(offenders.sorted())"
         )
     }
 
@@ -1370,7 +1370,7 @@ struct ArchitectureBoundaryTests {
         for fileURL in try swiftSourceFiles(under: projectRoot) {
             let relativePath = fileURL.path().replacingOccurrences(of: projectRoot.path() + "/", with: "")
             guard relativePath.contains("/Sources/"),
-                  !relativePath.contains("/RuntimeCore/Sources/RuntimeCore/") else { continue }
+                  !relativePath.contains("/AuralisRuntime/Sources/AuralisRuntime/") else { continue }
             let source = try String(contentsOf: fileURL, encoding: .utf8)
             if source.contains("ModelInferenceRequest(") {
                 offenders.append(relativePath)
@@ -1480,7 +1480,7 @@ struct ArchitectureBoundaryTests {
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
-                    "CapabilitiesCore",
+                    "AuralisFoundation",
                     "ReceiptsCore",
                     "SwiftData",
                     "SwiftUI",
@@ -1493,7 +1493,7 @@ struct ArchitectureBoundaryTests {
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
-                    "CapabilitiesCore",
+                    "AuralisFoundation",
                     "ReceiptsCore",
                     "SwiftData",
                     "SwiftUI",

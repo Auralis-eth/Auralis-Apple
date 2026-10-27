@@ -21,7 +21,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../RuntimeKit"),
-        .package(path: "../RuntimeCore"),
+        .package(path: "../AuralisRuntime"),
         .package(path: "../PolicyCore"),
         .package(path: "../ReceiptsCore"),
         .package(path: "../AuralisFoundation"),
@@ -35,18 +35,13 @@ let package = Package(
             name: "MissionControlFeature",
             dependencies: [
                 "RuntimeKit",
-                "RuntimeCore",
-                .product(name: "PlannerCore", package: "RuntimeCore"),
+                .product(name: "AuralisRuntime", package: "AuralisRuntime"),
                 "PolicyCore",
                 "ReceiptsCore",
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
-                .product(name: "PlaybookCore", package: "RuntimeCore"),
                 .product(name: "ArtifactCore", package: "ReceiptsCore"),
                 "OperatorsFeature",
-                .product(name: "SchedulingCore", package: "RuntimeCore"),
-                .product(name: "PerformanceCore", package: "RuntimeCore"),
-                .product(name: "EvalCore", package: "RuntimeCore"),
                 .product(name: "SocialCore", package: "OperatorsFeature"),
                 "TrustedUIKit",
                 "AuraUI"
@@ -67,7 +62,7 @@ let package = Package(
         .target(
             name: "TrustedUIKit",
             dependencies: [
-                "RuntimeCore",
+                .product(name: "AuralisRuntime", package: "AuralisRuntime"),
                 .product(name: "AuralisFoundation", package: "AuralisFoundation")
             ]
         ),
@@ -76,17 +71,13 @@ let package = Package(
             dependencies: [
                 "MissionControlFeature",
                 "RuntimeKit",
-                "RuntimeCore",
+                .product(name: "AuralisRuntime", package: "AuralisRuntime"),
                 "PolicyCore",
                 "ReceiptsCore",
-                .product(name: "PlaybookCore", package: "RuntimeCore"),
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                .product(name: "PerformanceCore", package: "RuntimeCore"),
-                .product(name: "EvalCore", package: "RuntimeCore"),
-                .product(name: "SchedulingCore", package: "RuntimeCore"),
                 "OperatorsFeature",
-                // Imported/used directly by the test sources. Declared explicitly rather than
-                // relying on SPM's transitive module search path, which is not a contract.
+                // Imported/used directly by the test sources. Declared explicitly rather than,
+                // relying on SPM's transitive module search path, which is not a contract.,
                 .product(name: "ArtifactCore", package: "ReceiptsCore"),
                 .product(name: "SocialCore", package: "OperatorsFeature"),
                 "TrustedUIKit",
@@ -99,7 +90,7 @@ let package = Package(
             name: "TrustedUIKitTests",
             dependencies: [
                 "TrustedUIKit",
-                "RuntimeCore",
+                .product(name: "AuralisRuntime", package: "AuralisRuntime"),
                 .product(name: "AuralisFoundation", package: "AuralisFoundation")
             ]
         )

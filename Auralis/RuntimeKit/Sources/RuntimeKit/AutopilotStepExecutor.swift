@@ -3,9 +3,8 @@ import AuralisFoundation
 import Foundation
 import OperatorsFeature
 import OSLog
-import PlannerCore
+import AuralisRuntime
 import ReceiptsCore
-import RuntimeCore
 
 #if canImport(FoundationModels)
 import FoundationModels
@@ -408,7 +407,7 @@ struct OnDeviceModelResponse: Sendable {
     ///   "Not recorded" rather than "0 tokens". A change there to print the count literally would turn
     ///   this into the "zero-token phantom inference" that ``AutopilotStepExecutor/execute(_:)`` says it
     ///   refuses to produce — silently, and only on iOS 26. Representing it properly needs an optional
-    ///   or an `isReported` flag on `InferenceTelemetry` in `RuntimeCore`.
+    ///   or an `isReported` flag on `InferenceTelemetry` in `AuralisRuntime`.
     let promptTokens: Int?
     let completionTokens: Int?
 }

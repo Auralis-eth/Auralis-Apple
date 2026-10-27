@@ -21,7 +21,7 @@ let package = Package(
     dependencies: [
         .package(path: "../AuralisFoundation"),
         .package(path: "../ReceiptsCore"),
-        .package(path: "../RuntimeCore")
+        .package(path: "../AuralisRuntime")
     ],
     targets: [
         .target(
@@ -29,7 +29,7 @@ let package = Package(
             dependencies: [
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "ReceiptsCore",
-                "RuntimeCore"
+                .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]
         ),
         .target(
@@ -37,8 +37,7 @@ let package = Package(
             dependencies: [
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "PolicyCore",
-                .product(name: "PlannerCore", package: "RuntimeCore"),
-                "RuntimeCore"
+                .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]
         ),
         .testTarget(

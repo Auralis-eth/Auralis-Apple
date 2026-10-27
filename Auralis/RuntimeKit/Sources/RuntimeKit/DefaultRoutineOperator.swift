@@ -1,7 +1,5 @@
 import Foundation
-import PlaybookCore
-import RuntimeCore
-import SchedulingCore
+import AuralisRuntime
 
 /// Assembles a governed ``ContextBundle`` from a playbook's own definition. This is deliberately
 /// minimal — richer, source-attributed fields (worklog, holdings, …) are layered in per-operator —

@@ -1,7 +1,7 @@
 import Foundation
 import PolicyCore
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 import Testing
 
 private actor SpyReceiptStore: ReceiptStore {

@@ -1,6 +1,5 @@
 import ArtifactCore
-import OperatorRegistry
-import RuntimeCore
+import AuralisRuntime
 
 /// What kind of real work an operator performs — selects the data it gathers and how the artifact
 /// body is composed. (P1-701..703)

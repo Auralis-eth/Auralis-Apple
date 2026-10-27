@@ -1,6 +1,5 @@
 import Foundation
-import PerformanceCore
-import RuntimeCore
+import AuralisRuntime
 @testable import RuntimeKit
 import Testing
 

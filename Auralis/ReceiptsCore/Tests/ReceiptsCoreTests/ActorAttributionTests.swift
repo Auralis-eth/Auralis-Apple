@@ -1,7 +1,7 @@
 import AuralisFoundation
 import Foundation
 @testable import ReceiptsCore
-@testable import RuntimeCore
+@testable import AuralisRuntime
 import Testing
 
 /// Pins the *serialized* shape of `ActorRef` (P0.5-601).
@@ -415,7 +415,7 @@ struct ModelRouteAttributionTests {
 /// whatever the persisted blob carries.
 ///
 /// Added in audit Round 18. Both labels were untested against this input: neutering the non-empty
-/// filter left RuntimeCore 281/281 and MissionControlFeature 126/126 green.
+/// filter left AuralisRuntime 281/281 and MissionControlFeature 126/126 green.
 @Suite("Actor attribution falls back past an empty display name")
 struct ActorAttributionEmptyNameTests {
     private let routine = ActorRef(

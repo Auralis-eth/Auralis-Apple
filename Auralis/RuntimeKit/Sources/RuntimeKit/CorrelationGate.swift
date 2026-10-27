@@ -28,7 +28,7 @@ import Foundation
 ///
 /// Serializing at the governed entry points is the narrow fix. The alternative — carrying a run ID on
 /// every `WorkflowStepLog` and making the session upsert a store-side merge — reaches
-/// `SchedulingCore`, `AgentSessionStoring`, and the durable row format, and is what the notes on those
+/// `AuralisRuntime`, `AgentSessionStoring`, and the durable row format, and is what the notes on those
 /// methods describe as the prerequisite for running plan steps or routines *concurrently on purpose*.
 /// This makes the documented invariant true today without buying that.
 ///

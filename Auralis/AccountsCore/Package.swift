@@ -49,7 +49,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../ReceiptsCore"),
-        .package(path: "../RuntimeCore"),
+        .package(path: "../AuralisRuntime"),
         .package(path: "../AuralisFoundation"),
         .package(path: "../AuralisTestSupport"),
         .package(path: "../AuraUI"),
@@ -84,7 +84,7 @@ let package = Package(
             dependencies: [
                 "AuralisPrimaryModels",
                 "AuralisPrimaryPersistence",
-                .product(name: "RuntimeCore", package: "RuntimeCore")
+                .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]
         ),
         .target(
@@ -211,7 +211,7 @@ let package = Package(
             dependencies: [
                 "AccountsCore",
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                .product(name: "RuntimeCore", package: "RuntimeCore")
+                .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]
         ),
         .testTarget(

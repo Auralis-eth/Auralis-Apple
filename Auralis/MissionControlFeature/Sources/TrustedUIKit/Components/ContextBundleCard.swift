@@ -1,4 +1,4 @@
-import RuntimeCore
+import AuralisRuntime
 import SwiftUI
 
 /// A trusted component that makes a governed ``ContextBundle`` visible: each field with its value,

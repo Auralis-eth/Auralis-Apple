@@ -75,7 +75,7 @@ struct WatchTargetTests {
     /// put into `PreparedAction.address` and the executor puts into the `preparedActionAddress`
     /// output field — which `ToolSchemaField.Kind.address` validates ASCII-strictly, *after* the
     /// artifact has been persisted. `normalizedAddress`'s own documentation promises this cannot
-    /// happen; it only holds with the ASCII restriction. RuntimeCore records the same permissive
+    /// happen; it only holds with the ASCII restriction. AuralisRuntime records the same permissive
     /// test reaching `draftTransaction` before `AuralisEthereumAddress` was tightened.
     @Test(arguments: [
         // Forty fullwidth digits: `isHexDigit` says yes, every validating layer says no.
@@ -361,7 +361,7 @@ struct OperatorRequestTests {
     }
 
     /// Unreadable watchlist JSON yields *no* scope, even when flattened parameters sit beside it.
-    /// Falling back there would disagree with RuntimeCore's `CheckTargets.decode`, which treats the
+    /// Falling back there would disagree with AuralisRuntime's `CheckTargets.decode`, which treats the
     /// mere presence of the `watchlist` key as the whole scope and fails the proposal when it will
     /// not parse. An empty list is the one answer that cannot be a target the checks never saw.
     @Test(arguments: [

@@ -1,6 +1,4 @@
-import PlaybookCore
-import RuntimeCore
-import SchedulingCore
+import AuralisRuntime
 
 // The seams that let the ritual/social surface live outside ``RuntimeHost``.
 //

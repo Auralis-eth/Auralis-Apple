@@ -1,5 +1,5 @@
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 
 /// A workflow's coarse lifecycle state, derived from its stream of events. (P1-102)
 public enum WorkflowState: String, Sendable, CaseIterable {

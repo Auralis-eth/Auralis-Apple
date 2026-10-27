@@ -1,5 +1,4 @@
-import PerformanceCore
-import SchedulingCore
+import AuralisRuntime
 import SwiftUI
 
 /// P1-604 — Performance Dashboard: per-playbook health + recent execution records. Descriptive only;

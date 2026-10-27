@@ -1,6 +1,6 @@
 import Foundation
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 import SwiftData
 import Testing
 

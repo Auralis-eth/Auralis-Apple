@@ -1,6 +1,6 @@
 import AuralisFoundation
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 import SwiftUI
 
 /// The governed registry of trusted UI components (P0.5-502).

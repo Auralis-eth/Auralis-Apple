@@ -196,7 +196,7 @@ public actor ArtifactPersistenceStore {
     /// app told the person had not been recorded. `addVersion` already guarded itself this way; this
     /// is the same guard for the rest of the write path.
     ///
-    /// The mechanics are `SwiftDataAdapters.performRollbackSafeMutation`, not a private copy of it:
+    /// The mechanics are `AuralisFoundation.performRollbackSafeMutation`, not a private copy of it:
     /// AGENTS.md puts shared SwiftData rollback helpers in that package, and a second
     /// `do/catch { rollback() }` here is the kind of duplicate that drifts. This wrapper adds only
     /// the artifact-specific part — the DEBUG commit probe, which throws *inside* the shared helper's

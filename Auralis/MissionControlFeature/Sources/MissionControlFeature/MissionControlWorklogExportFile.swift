@@ -1,5 +1,5 @@
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 
 /// A written-to-disk snapshot of the runtime worklog, ready to hand off the device.
 ///

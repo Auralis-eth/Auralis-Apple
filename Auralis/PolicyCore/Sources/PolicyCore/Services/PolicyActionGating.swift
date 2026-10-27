@@ -1,4 +1,4 @@
-import RuntimeCore
+import AuralisRuntime
 
 /// Service contract for callers that need policy-checked actions.
 @MainActor

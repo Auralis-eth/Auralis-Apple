@@ -1,4 +1,4 @@
-import RuntimeCore
+import AuralisRuntime
 
 /// The app's single composition root for model providers (P1-AI-101).
 ///

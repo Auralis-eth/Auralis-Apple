@@ -1,7 +1,7 @@
 import ArtifactCore
 import OperatorsFeature
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 @testable import RuntimeKit
 import Testing
 

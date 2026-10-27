@@ -28,19 +28,19 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../AuralisFoundation"),
-        .package(path: "../RuntimeCore")
+        .package(path: "../AuralisRuntime")
     ],
     targets: [
         .target(
             name: "ReceiptsCore",
             dependencies: [
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                "RuntimeCore"
+                .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]
         ),
         .target(
             name: "ArtifactCore",
-            dependencies: ["RuntimeCore"]
+            dependencies: [.product(name: "AuralisRuntime", package: "AuralisRuntime")]
         ),
         .target(
             name: "ArtifactStorage",
@@ -54,7 +54,7 @@ let package = Package(
             dependencies: [
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "ReceiptsCore",
-                "RuntimeCore"
+                .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]
         ),
         .testTarget(
@@ -62,7 +62,7 @@ let package = Package(
             dependencies: [
                 "ReceiptsCore",
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                .product(name: "RuntimeCore", package: "RuntimeCore")
+                .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]
         ),
         .testTarget(
@@ -73,7 +73,7 @@ let package = Package(
             name: "ArtifactStorageTests",
             dependencies: [
                 "ArtifactStorage",
-                .product(name: "RuntimeCore", package: "RuntimeCore")
+                .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]
         ),
         .testTarget(

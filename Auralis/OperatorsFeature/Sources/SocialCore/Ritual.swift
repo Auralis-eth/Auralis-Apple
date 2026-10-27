@@ -1,6 +1,5 @@
 import Foundation
-import PlaybookCore
-import RuntimeCore
+import AuralisRuntime
 
 /// P1-SOCIAL-102 — Ritual / Routine Engine.
 ///

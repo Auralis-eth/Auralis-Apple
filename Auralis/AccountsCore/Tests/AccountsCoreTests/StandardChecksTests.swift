@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 @testable import AccountsCore
-@testable import RuntimeCore
+@testable import AuralisRuntime
 import Testing
 
 @Suite("Standard deterministic checks")

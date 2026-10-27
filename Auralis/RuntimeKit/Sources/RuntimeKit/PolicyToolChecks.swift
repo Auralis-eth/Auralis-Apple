@@ -1,7 +1,7 @@
 import AccountsCore
 import AuralisPrimaryModels
 import PolicyCore
-import RuntimeCore
+import AuralisRuntime
 
 public enum PolicyToolCheckID {
     public static let payloadValid = "policy.payload.valid"

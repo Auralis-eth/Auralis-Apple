@@ -1,5 +1,5 @@
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 
 public extension ActorRef {
     /// A non-optional, stable key for matching participants/votes.

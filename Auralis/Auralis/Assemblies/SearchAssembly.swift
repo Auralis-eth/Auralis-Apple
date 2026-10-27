@@ -1,5 +1,5 @@
 import ReceiptStorage
-import RuntimeCore
+import AuralisRuntime
 import SwiftData
 
 @MainActor

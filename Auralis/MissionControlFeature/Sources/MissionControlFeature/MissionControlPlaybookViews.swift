@@ -1,7 +1,6 @@
 import ArtifactCore
 import AuralisFoundation
-import PlaybookCore
-import RuntimeCore
+import AuralisRuntime
 import SwiftUI
 
 /// P1-502 / P1-504 — Playbook Library with user drafts, editing, install/pause/resume, and the

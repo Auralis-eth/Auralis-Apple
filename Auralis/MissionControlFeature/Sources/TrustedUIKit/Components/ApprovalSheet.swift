@@ -1,5 +1,5 @@
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 import SwiftUI
 
 /// A trusted component that presents an ``ApprovalRequest`` for a human decision. Shows the proposal's

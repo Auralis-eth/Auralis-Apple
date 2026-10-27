@@ -1,6 +1,6 @@
 import AuralisFoundation
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 
 /// The severity a ``RiskBanner`` communicates. Derived from ``ActionImpactClass`` so the banner and
 /// the governance layer read the same blast-radius vocabulary rather than re-deriving it in the UI.

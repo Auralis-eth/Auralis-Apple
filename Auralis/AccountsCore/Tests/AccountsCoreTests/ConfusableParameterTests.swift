@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import AuralisFoundation
 import Foundation
 @testable import AccountsCore
-@testable import RuntimeCore
+@testable import AuralisRuntime
 import Testing
 
 /// Hex and numeric parameters must be ASCII, not merely "Unicode-numeric".

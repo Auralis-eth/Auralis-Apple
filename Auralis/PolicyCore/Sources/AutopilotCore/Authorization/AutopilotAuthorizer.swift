@@ -1,7 +1,6 @@
 import AuralisFoundation
-import PlannerCore
+import AuralisRuntime
 import PolicyCore
-import RuntimeCore
 
 /// The concrete ``StepAuthorizing`` that turns a plan step into a ladder verdict by
 /// composing the app's real policy gate with a trusted-routine allowlist.
@@ -52,7 +51,7 @@ public struct AutopilotAuthorizer: StepAuthorizing {
         // ``SequentialPlanOrchestrator`` nor the executor consults `Task.isCancelled`, so without this
         // the orchestrator ran every remaining step of a plan the user had already called off. The
         // authorizer runs immediately before each step, so refusing here halts the run at the next
-        // step boundary. Matches ``JudgeStepAuthorizer``, which gates the RuntimeCore-native path.
+        // step boundary. Matches ``JudgeStepAuthorizer``, which gates the AuralisRuntime-native path.
         if Task.isCancelled {
             return .blocked("The run was cancelled.")
         }

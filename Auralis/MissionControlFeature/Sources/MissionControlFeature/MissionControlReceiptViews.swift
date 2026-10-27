@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 import SwiftUI
 import TrustedUIKit
 

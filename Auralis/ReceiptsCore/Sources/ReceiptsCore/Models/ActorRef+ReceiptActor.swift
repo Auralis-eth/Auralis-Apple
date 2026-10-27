@@ -1,6 +1,6 @@
 import AuralisFoundation
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 
 public extension ActorRef {
     /// Collapses the rich actor model down to the two-case `ReceiptActor` the receipt store persists

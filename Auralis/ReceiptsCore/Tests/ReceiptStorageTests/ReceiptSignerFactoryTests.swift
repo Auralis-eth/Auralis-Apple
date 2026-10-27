@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 @testable import ReceiptStorage
-import RuntimeCore
+import AuralisRuntime
 import Security
 import Testing
 

@@ -1,6 +1,5 @@
 import Foundation
-import RuntimeCore
-import SchedulingCore
+import AuralisRuntime
 import SocialCore
 
 // The host's public face for rituals, shared sessions, and the Social v1 event log

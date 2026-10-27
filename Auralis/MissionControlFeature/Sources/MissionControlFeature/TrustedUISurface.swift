@@ -1,5 +1,5 @@
 import AuralisFoundation
-import RuntimeCore
+import AuralisRuntime
 import SwiftUI
 @_exported import TrustedUIKit
 

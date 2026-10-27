@@ -1,7 +1,6 @@
-import EvalCore
+import AuralisRuntime
 import Foundation
 import OperatorRuntimeStorage
-import PerformanceCore
 import SwiftData
 import Testing
 

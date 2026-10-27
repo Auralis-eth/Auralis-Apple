@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 import PolicyCore
-import RuntimeCore
+import AuralisRuntime
 
 /// Performs cleared ``PolicyControlledAction``s against the connected wallet — the real effect that turns
 /// an approved Operate-mode action into a signature or on-chain transaction.
@@ -52,7 +52,7 @@ struct WalletActionExecutor: ToolExecuting {
         proposal: ActionProposal,
         authorization: ToolExecutionAuthorization
     ) async throws -> ToolCallArtifact {
-        // `ToolExecutionAuthorization` is unforgeable — only RuntimeCore can mint one — so holding it is
+        // `ToolExecutionAuthorization` is unforgeable — only AuralisRuntime can mint one — so holding it is
         // the proof that governance cleared *something*. What it does not prove on its own is that it
         // cleared *this* call, so the capability is checked against the tool and proposal it arrived
         // with. Cheap, and it turns the "only runs after the pipeline cleared it" invariant from a
@@ -70,7 +70,7 @@ struct WalletActionExecutor: ToolExecuting {
 
     /// Internal rather than private so tests can drive the full payload → signer → artifact path.
     /// `execute` cannot be called from the app's test target: minting a `ToolExecutionAuthorization`
-    /// is RuntimeCore-only by design, and widening that to make the executor testable would trade away
+    /// is AuralisRuntime-only by design, and widening that to make the executor testable would trade away
     /// the unforgeability the capability exists to provide.
     @MainActor
     func perform(payload: PolicyActionPayload, toolID tool: String) async throws -> ToolCallArtifact {

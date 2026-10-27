@@ -15,7 +15,7 @@ included:
   - OperatorsFeature
   - PolicyCore
   - ReceiptsCore
-  - RuntimeCore
+  - AuralisRuntime
   - RuntimeKit
 
 # SwiftPM writes generated sources (notably `test_entry_point.swift`, whose SwiftPM-internal
@@ -33,7 +33,7 @@ excluded:
   - OperatorsFeature/.build
   - PolicyCore/.build
   - ReceiptsCore/.build
-  - RuntimeCore/.build
+  - AuralisRuntime/.build
   - RuntimeKit/.build
 
 reporter: xcode

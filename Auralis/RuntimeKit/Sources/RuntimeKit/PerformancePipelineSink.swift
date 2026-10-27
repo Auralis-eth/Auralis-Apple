@@ -1,6 +1,5 @@
 import Foundation
-import PerformanceCore
-import RuntimeCore
+import AuralisRuntime
 
 /// Bridges the kernel's ``PerformanceSignalEmitting`` seam to the app's real ``PerformanceRecording``
 /// store: every terminal governed tool call — executed, failed, or blocked — becomes a durable

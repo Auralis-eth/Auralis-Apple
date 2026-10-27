@@ -1,6 +1,6 @@
 import Foundation
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 
 /// The signing rules, and the standalone verifier that applies them to an exported archive.
 ///

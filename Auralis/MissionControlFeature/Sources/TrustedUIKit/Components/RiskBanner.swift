@@ -1,4 +1,4 @@
-import RuntimeCore
+import AuralisRuntime
 import SwiftUI
 
 /// A trusted component that communicates the blast radius of an action. Used standalone and inside

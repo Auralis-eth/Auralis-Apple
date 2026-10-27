@@ -1,7 +1,6 @@
 @testable import AutopilotCore
 import AuralisFoundation
-import PlannerCore
-import RuntimeCore
+import AuralisRuntime
 import Testing
 
 /// Named rather than a fabricated default, so these tests carry the same attribution a real caller

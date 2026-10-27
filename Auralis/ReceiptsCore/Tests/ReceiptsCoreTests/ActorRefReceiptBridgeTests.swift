@@ -1,5 +1,5 @@
 @testable import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 import Testing
 
 /// Covers the `ActorRef` → receipt-attribution bridges (P0.5-602): the coarse two-case `receiptActor`

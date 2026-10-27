@@ -3,7 +3,7 @@ import AuralisPrimaryModels
 import Foundation
 import OperatorsFeature
 import ProviderKit
-import RuntimeCore
+import AuralisRuntime
 
 /// Adds bounded, read-only RPC snapshots to the local receipt history used by operators.
 /// The adapter exposes only native balances for explicitly supplied watch targets; it cannot sign,

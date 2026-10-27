@@ -1,5 +1,5 @@
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 
 /// Default policy gate service backed by a current-mode provider and receipt store.
 @MainActor

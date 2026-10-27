@@ -14,7 +14,7 @@ packages=(
     OperatorsFeature
     PolicyCore
     ReceiptsCore
-    RuntimeCore
+    AuralisRuntime
     RuntimeKit
 )
 

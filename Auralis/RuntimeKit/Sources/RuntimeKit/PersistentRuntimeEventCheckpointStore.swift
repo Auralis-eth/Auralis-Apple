@@ -1,5 +1,5 @@
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 
 /// Persists only named observer cursors; event payloads remain in runtime history.
 ///

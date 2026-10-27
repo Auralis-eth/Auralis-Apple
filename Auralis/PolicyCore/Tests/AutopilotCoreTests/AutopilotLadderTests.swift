@@ -1,9 +1,8 @@
 import AuralisPrimaryModels
 @testable import AutopilotCore
 import AuralisFoundation
-import PlannerCore
+import AuralisRuntime
 import PolicyCore
-import RuntimeCore
 import Testing
 
 /// Captures worklog entries so a test can assert the planner's deliberation was recorded.

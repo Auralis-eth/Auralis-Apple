@@ -4,7 +4,7 @@ import Foundation
 import OSLog
 import PolicyCore
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 
 /// Bridges the kernel's ``ReceiptEmitting`` seam to the app's real ``ReceiptStore``: every governed
 /// tool call — allowed *or* denied — becomes a durable, signed receipt (P0.5-204 + ADR-004 "receipts

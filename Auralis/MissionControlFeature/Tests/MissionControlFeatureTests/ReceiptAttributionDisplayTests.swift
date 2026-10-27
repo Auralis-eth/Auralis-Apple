@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import Foundation
 @testable import MissionControlFeature
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 import Testing
 
 /// P0.5-601/602 — the structured attribution has to be *readable*, not just stored. These pin what a

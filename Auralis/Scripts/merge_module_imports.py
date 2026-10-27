@@ -15,7 +15,14 @@ import re
 import sys
 
 SKIP_DIRS = {".build", ".git", "DerivedData", "WalletConnectorDemo", "CodeScanner"}
-IMPORT_RE = re.compile(r"^(@testable\s+)?import\s+([A-Za-z_][A-Za-z0-9_]*)\s*$")
+# An import line may carry attributes before the keyword, e.g.
+# `@_spi(RuntimeTesting) @_spi(ToolRegistration) @testable import RuntimeCore`.
+# Matching only `[@testable] import X` silently skips those and leaves a
+# reference to a module that no longer exists.
+IMPORT_RE = re.compile(
+    r"^(?P<attrs>(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*)"
+    r"import\s+(?P<module>[A-Za-z_][A-Za-z0-9_]*)\s*$"
+)
 
 
 def swift_files(roots):
@@ -41,27 +48,24 @@ def rewrite(path, new_module, old_modules, strip):
         if not match:
             out.append(line)
             continue
-        testable, module = match.group(1), match.group(2)
+        attrs, module = match.group("attrs"), match.group("module")
         if module not in old_modules:
             out.append(line)
             continue
         if strip:
             changed = True
             continue
-        out.append(f"{testable or ''}import {new_module}")
+        out.append(f"{attrs}import {new_module}")
         changed = True
 
-    # Collapse duplicates produced by the substitution, preferring @testable.
-    seen_plain = set()
-    seen_testable = set()
+    # Collapse duplicates produced by the substitution. An attributed import
+    # (@testable, @_spi) grants strictly more access than a plain one, so it is
+    # the entry that must survive.
+    attributed = set()
     for line in out:
         match = IMPORT_RE.match(line)
-        if not match:
-            continue
-        if match.group(1):
-            seen_testable.add(match.group(2))
-        else:
-            seen_plain.add(match.group(2))
+        if match and match.group("attrs").strip():
+            attributed.add(match.group("module"))
 
     deduped = []
     emitted = set()
@@ -70,17 +74,16 @@ def rewrite(path, new_module, old_modules, strip):
         if not match:
             deduped.append(line)
             continue
-        module = match.group(2)
-        is_testable = bool(match.group(1))
-        # Drop a plain import when the same file also imports the module @testable.
-        if not is_testable and module in seen_testable:
+        module = match.group("module")
+        has_attrs = bool(match.group("attrs").strip())
+        # Drop a plain import when the same file imports the module with attributes.
+        if not has_attrs and module in attributed:
             changed = True
             continue
-        key = (module, is_testable)
-        if key in emitted:
+        if module in emitted:
             changed = True
             continue
-        emitted.add(key)
+        emitted.add(module)
         deduped.append(line)
 
     if not changed:

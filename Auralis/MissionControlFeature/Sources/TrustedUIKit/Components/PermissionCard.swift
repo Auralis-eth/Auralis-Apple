@@ -1,5 +1,5 @@
 import AuralisFoundation
-import RuntimeCore
+import AuralisRuntime
 import SwiftUI
 
 /// A trusted component that describes a capability the runtime wants to inspect or grant. Renders the

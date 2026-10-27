@@ -3,7 +3,7 @@ import AuralisFoundation
 import Foundation
 import PolicyCore
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 import Testing
 
 @MainActor

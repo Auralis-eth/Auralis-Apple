@@ -1,7 +1,6 @@
-import PlannerCore
-import RuntimeCore
+import AuralisRuntime
 
-/// Bridges a RuntimeCore ``JudgeDecision`` onto the PlannerCore ``StepAuthorization`` ladder.
+/// Bridges a AuralisRuntime ``JudgeDecision`` onto the AuralisRuntime ``StepAuthorization`` ladder.
 ///
 /// The two vocabularies line up cleanly except that the ladder has no separate "revise" rung — a
 /// proposal the Judge wants revised is surfaced to the user as a confirmation carrying the revision

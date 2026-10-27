@@ -18,7 +18,7 @@ public enum MusicReceiptActorValue: String, Sendable {
     ///
     /// This enum is a coarse *kind* — it carries no identity — so this is only the fallback used
     /// when a caller supplies no `MusicReceiptContext.actorDetail`. Raw `ActorKind` values match
-    /// `RuntimeCore.ActorRef` (`"operator"` is the wire value for its `operatorAgent` case), so a
+    /// `AuralisRuntime.ActorRef` (`"operator"` is the wire value for its `operatorAgent` case), so a
     /// Music receipt can at least say *which* non-human actor acted.
     var actorDetail: ReceiptActorDetail {
         switch self {
@@ -94,7 +94,7 @@ public struct MusicReceiptContext: Sendable {
     ///   the app did on its own — the one misattribution that is worse than none, since it is the
     ///   `.user` value the trust surfaces treat as consent.
     /// - Parameter actorDetail: The acting identity, when the caller knows it — e.g.
-    ///   `ActorRef.receiptActorDetail` from a package that can see `RuntimeCore`, which this leaf
+    ///   `ActorRef.receiptActorDetail` from a package that can see `AuralisRuntime`, which this leaf
     ///   cannot. `actor` is only a *kind*, so without this every operator pack invoking a music tool
     ///   would be recorded as the in-tree `music.operator`: a lease, denial or rate limit keyed on
     ///   that identity would then bind the wrong principal, and the audit chain would name the wrong

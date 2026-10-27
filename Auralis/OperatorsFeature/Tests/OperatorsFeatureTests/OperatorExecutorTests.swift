@@ -1,7 +1,7 @@
 import ArtifactCore
 import Foundation
 @_spi(ToolRegistration) @testable import OperatorsFeature
-@_spi(RuntimeTesting) @_spi(ToolRegistration) @testable import RuntimeCore
+@_spi(RuntimeTesting) @_spi(ToolRegistration) @testable import AuralisRuntime
 import Testing
 
 /// A data source with a fixed feed, so composed-artifact content can be asserted deterministically.
@@ -1032,7 +1032,7 @@ struct OperatorExecutorTests {
     /// into `.failed` with an orphan artifact behind it, for every run of that operator.
     ///
     /// The schema is `allowsAdditionalFields: false` with twelve required fields, and it is
-    /// assembled from three independent sources: `InferenceTelemetry.outputFields` (RuntimeCore,
+    /// assembled from three independent sources: `InferenceTelemetry.outputFields` (AuralisRuntime,
     /// which this package does not own), the composer's counts, and the optional prepared-target
     /// pair. Only the watch was exercised end-to-end through the pipeline, so the strictest pair —
     /// `preparedActionChain`/`preparedActionAddress`, where `.address` is ASCII-strict and

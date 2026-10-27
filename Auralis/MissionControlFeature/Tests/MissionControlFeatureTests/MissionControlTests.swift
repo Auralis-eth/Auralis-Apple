@@ -4,13 +4,10 @@ import AuralisFoundation
 import Foundation
 @testable import MissionControlFeature
 import OperatorsFeature
-import PerformanceCore
-import PlaybookCore
+import AuralisRuntime
 import PolicyCore
 import ReceiptsCore
-import RuntimeCore
 import RuntimeKit
-import SchedulingCore
 import SocialCore
 import Testing
 
@@ -2842,7 +2839,7 @@ struct MissionControlTests {
     }
 
     /// A blocked step must never be filed under "Completed", whatever its reason text says. The
-    /// deterministic-check gate (`RuntimeCore.Judge`) blocks with the reason "Check failed (<id>)",
+    /// deterministic-check gate (`AuralisRuntime.Judge`) blocks with the reason "Check failed (<id>)",
     /// so a classifier that keyed off the word "failed" put the system's most common block in the
     /// completed bucket.
     @Test

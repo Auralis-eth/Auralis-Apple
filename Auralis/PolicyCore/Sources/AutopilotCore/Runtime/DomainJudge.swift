@@ -1,5 +1,5 @@
 import PolicyCore
-import RuntimeCore
+import AuralisRuntime
 
 /// The app's default ``Judge``, encoding the **crypto-scoped** Observe boundary (ADR-010).
 ///

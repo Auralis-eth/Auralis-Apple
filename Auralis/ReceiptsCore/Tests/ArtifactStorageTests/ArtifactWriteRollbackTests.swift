@@ -1,7 +1,7 @@
 import ArtifactCore
 @testable import ArtifactStorage
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 import SwiftData
 import Testing
 

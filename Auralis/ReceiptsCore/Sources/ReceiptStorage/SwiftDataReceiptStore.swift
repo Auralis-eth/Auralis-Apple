@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 import OSLog
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 import SwiftData
 import AuralisFoundation
 

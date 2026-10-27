@@ -11,7 +11,7 @@ import web3
 /// only by the counterparty or the chain.
 ///
 /// `WalletActionExecutor` coverage is intentionally absent here and not yet written: driving it needs
-/// `ToolCallArtifact`'s type metadata, and RuntimeCore is not in the `AuralisTests` Frameworks build
+/// `ToolCallArtifact`'s type metadata, and AuralisRuntime is not in the `AuralisTests` Frameworks build
 /// phase, so the test bundle fails to link. Adding that package product to the target is a project-file
 /// change; the executor tests land with it.
 @MainActor

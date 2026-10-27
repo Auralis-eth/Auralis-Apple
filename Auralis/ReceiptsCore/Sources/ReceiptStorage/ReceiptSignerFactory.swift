@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 import OSLog
-import RuntimeCore
+import AuralisRuntime
 import Security
 
 public enum ReceiptSigningKeyStoreError: Error, Equatable, Sendable {

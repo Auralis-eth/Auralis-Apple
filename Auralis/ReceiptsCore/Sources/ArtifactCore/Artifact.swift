@@ -1,5 +1,5 @@
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 
 /// Receipt-domain name for the runtime's portable output-kind contract. (P1-401)
 public typealias ArtifactType = ArtifactOutputType

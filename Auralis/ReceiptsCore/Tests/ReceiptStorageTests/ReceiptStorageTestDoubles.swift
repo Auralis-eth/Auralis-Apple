@@ -1,7 +1,7 @@
 import Foundation
 import ReceiptsCore
 @testable import ReceiptStorage
-import RuntimeCore
+import AuralisRuntime
 
 /// Doubles shared across the suites in this target.
 ///

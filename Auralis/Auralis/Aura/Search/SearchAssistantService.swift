@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import ContextCore
 import Foundation
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 import RuntimeKit
 import SwiftData
 
@@ -642,9 +642,9 @@ final class SearchAssistantService: SearchAssistantProviding, @unchecked Sendabl
             taskKind: ModelTaskKind.searchAssistant,
             instructions: instructions,
             bundle: ContextBundle(fields: [
-                RuntimeCore.ContextField(key: "search.query", stringValue: request.query, dataClass: .userProvided, source: .userProvided, lastRefreshed: now),
-                RuntimeCore.ContextField(key: "search.accountAddress", stringValue: request.scope.normalizedAccountAddress ?? "none", dataClass: .publicIdentifier, source: .walletStore, lastRefreshed: now),
-                RuntimeCore.ContextField(key: "search.chain", stringValue: request.scope.chain.routingDisplayName, dataClass: .publicIdentifier, source: .chainProvider, lastRefreshed: now)
+                AuralisRuntime.ContextField(key: "search.query", stringValue: request.query, dataClass: .userProvided, source: .userProvided, lastRefreshed: now),
+                AuralisRuntime.ContextField(key: "search.accountAddress", stringValue: request.scope.normalizedAccountAddress ?? "none", dataClass: .publicIdentifier, source: .walletStore, lastRefreshed: now),
+                AuralisRuntime.ContextField(key: "search.chain", stringValue: request.scope.chain.routingDisplayName, dataClass: .publicIdentifier, source: .chainProvider, lastRefreshed: now)
             ]),
             contract: ContextBundleContract(
                 identifier: "model.search.assistant",

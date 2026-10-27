@@ -1,7 +1,7 @@
 import Foundation
 import ReceiptsCore
 @testable import ReceiptStorage
-import RuntimeCore
+import AuralisRuntime
 import SwiftData
 import Testing
 

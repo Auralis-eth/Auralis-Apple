@@ -1,5 +1,5 @@
 @_spi(ToolRegistration) @testable import OperatorsFeature
-@_spi(ToolRegistration) import RuntimeCore
+@_spi(ToolRegistration) import AuralisRuntime
 import Testing
 
 /// Every operator the catalog ships, by id. Parameterizing on the ids rather than on a hand-written

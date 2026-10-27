@@ -3,7 +3,7 @@ import AuralisPrimaryModels
 import Foundation
 import MissionControlFeature
 import ProviderKit
-import RuntimeCore
+import AuralisRuntime
 
 /// P1-AGENT-103 — real on-chain dry-run of a proposed EVM transaction via Alchemy's
 /// `alchemy_simulateAssetChanges`, which returns whether the transaction would revert, the gas it

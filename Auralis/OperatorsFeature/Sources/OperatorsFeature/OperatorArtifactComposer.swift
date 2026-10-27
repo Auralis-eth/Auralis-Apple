@@ -1,5 +1,5 @@
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 
 /// The composed result of an operator run: the artifact body plus the structured signals the runtime
 /// surfaces (alerts, prepared actions) and stamps onto the receipt/output fields.

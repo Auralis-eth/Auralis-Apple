@@ -2,7 +2,7 @@ import AuralisFoundation
 import Foundation
 @testable import MissionControlFeature
 import PolicyCore
-import RuntimeCore
+import AuralisRuntime
 import Testing
 
 /// The Proposal Diff Viewer can only dry-run a proposal it can extract a transaction from.

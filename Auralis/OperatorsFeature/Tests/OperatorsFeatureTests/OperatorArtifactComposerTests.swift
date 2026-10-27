@@ -1,7 +1,7 @@
 import AccountsCore
 import Foundation
 @testable import OperatorsFeature
-import RuntimeCore
+import AuralisRuntime
 import Testing
 
 private let watched = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"

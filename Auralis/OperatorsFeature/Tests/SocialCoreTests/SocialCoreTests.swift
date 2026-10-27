@@ -1,6 +1,5 @@
 import Foundation
-import PlaybookCore
-import RuntimeCore
+import AuralisRuntime
 @testable import SocialCore
 import Testing
 

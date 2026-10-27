@@ -31,7 +31,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(path: "../RuntimeCore"),
+        .package(path: "../AuralisRuntime"),
         .package(path: "../ReceiptsCore"),
         .package(path: "../AuraUI"),
         .package(path: "../AccountsCore"),
@@ -46,8 +46,7 @@ let package = Package(
             name: "OperatorsFeature",
             dependencies: [
                 .product(name: "AccountsCore", package: "AccountsCore"),
-                "RuntimeCore",
-                .product(name: "OperatorRegistry", package: "RuntimeCore"),
+                .product(name: "AuralisRuntime", package: "AuralisRuntime"),
                 .product(name: "ArtifactCore", package: "ReceiptsCore")
             ]
         ),
@@ -55,8 +54,7 @@ let package = Package(
             name: "SocialCore",
             dependencies: [
                 .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
-                "RuntimeCore",
-                .product(name: "PlaybookCore", package: "RuntimeCore")
+                .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]
         ),
         .target(

@@ -1,7 +1,7 @@
 import AuralisFoundation
 import Foundation
 @testable import ReceiptsCore
-@testable import RuntimeCore
+@testable import AuralisRuntime
 import Testing
 
 /// A future build adding a seventh `ActorKind` must not make this build delete history.

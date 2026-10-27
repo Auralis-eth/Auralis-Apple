@@ -4,7 +4,7 @@ import Foundation
 import OperatorsFeature
 import PolicyCore
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 @testable import RuntimeKit
 import Testing
 

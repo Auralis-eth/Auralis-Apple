@@ -3,12 +3,10 @@ import AccountsCore
 import AuralisPrimaryModels
 import AuralisFoundation
 import Foundation
-import PlaybookCore
+import AuralisRuntime
 import PolicyCore
 import ReceiptsCore
-import RuntimeCore
 @testable import RuntimeKit
-import SchedulingCore
 import Testing
 
 /// Minimal in-memory receipt store, newest-first like the real one.
@@ -383,7 +381,7 @@ struct PolicyCoreToolEvaluatorTests {
 /// what most routine runs actually produce.
 @Suite("Default routine operator")
 struct DefaultRoutineOperatorTests {
-    /// A real governed context, minted the only way anything outside `RuntimeCore` can: by running
+    /// A real governed context, minted the only way anything outside `AuralisRuntime` can: by running
     /// the provider's bundle through ``ContextGovernanceBoundary``. `GovernedContext`'s initializer
     /// is deliberately internal so the type is an unforgeable proof of validation — a test that
     /// reached around that would be testing a context the runtime would never hand the operator.

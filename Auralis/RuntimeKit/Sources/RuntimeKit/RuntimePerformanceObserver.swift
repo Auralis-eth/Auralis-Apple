@@ -1,6 +1,5 @@
 import Foundation
-import PerformanceCore
-import RuntimeCore
+import AuralisRuntime
 
 /// Subscribes to the runtime event bus and derives *planner-level* performance from workflow
 /// lifecycle events (P0.5-302: the bus is "observable by eval/performance").

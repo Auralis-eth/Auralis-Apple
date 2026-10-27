@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
-import RuntimeCore
+import AuralisRuntime
 
 /// The concrete deterministic checks the runtime ships with (P0.5-802). All are pure and operate on
 /// `ActionProposal.parameters`, so they're reproducible from a receipt and require no network or heavy

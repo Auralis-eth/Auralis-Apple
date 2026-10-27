@@ -1,5 +1,5 @@
 import ReceiptsCore
-import RuntimeCore
+import AuralisRuntime
 import RuntimeKit
 import SwiftUI
 
