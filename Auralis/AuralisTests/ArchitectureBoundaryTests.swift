@@ -4,6 +4,52 @@ import Testing
 
 @Suite(.tags(.architecture, .slow))
 struct ArchitectureBoundaryTests {
+    /// The twelve Auralis-owned package roots. Vendored `CodeScanner` is deliberately not counted.
+    static let ownedPackages = [
+        "AuraPlayEngines", "AuraUI", "AuralisAppShell", "AuralisContext", "AuralisCrypto",
+        "AuralisFoundation", "AuralisMissionControl", "AuralisOperators", "AuralisPolicy",
+        "AuralisReceipts", "AuralisRuntime", "AuralisTestSupport"
+    ]
+
+    /// One module per package is the rule. Every entry beyond a package's own name is an exception
+    /// with a reason, and adding another one is a decision rather than an accident.
+    ///
+    /// - `WalletAdapters`: SwiftPM conditions dependencies per platform but not source files, so the
+    ///   iOS-gated vendor adapters cannot live in a module that also builds for macOS.
+    /// - `AuralisCryptoTestSupport`: fixtures consumed by another package's tests, which must not
+    ///   link into production.
+    /// - The two AuraPlay demos: executables, not frameworks.
+    static let expectedProducts: [String: Set<String>] = [
+        "AuraPlayEngines": ["AuraPlayEngines", "AuraPlayAudioEngineDemo", "AuraPlayVideoEngineDemo"],
+        "AuraUI": ["AuraUI"],
+        "AuralisAppShell": ["AuralisAppShell"],
+        "AuralisContext": ["AuralisContext"],
+        "AuralisCrypto": ["AuralisCrypto", "WalletAdapters", "AuralisCryptoTestSupport"],
+        "AuralisFoundation": ["AuralisFoundation"],
+        "AuralisMissionControl": ["AuralisMissionControl"],
+        "AuralisOperators": ["AuralisOperators"],
+        "AuralisPolicy": ["AuralisPolicy"],
+        "AuralisReceipts": ["AuralisReceipts"],
+        "AuralisRuntime": ["AuralisRuntime"],
+        "AuralisTestSupport": ["AuralisTestSupport"]
+    ]
+
+    /// Package roots the consolidation removed. Their behavior lives inside an owned package now, as
+    /// a source group rather than a separate module; a `Package.swift` reappearing at any of these
+    /// paths means the graph is regrowing.
+    static let retiredPackageRoots = [
+        "AccountStorage", "AccountsCore", "AccountsFeature", "AgentIdentityCore", "ArtifactCore",
+        "ArtifactStorage", "AuraPlayAudioEngine", "AuraPlayMediaCore", "AuraPlayVideoEngine",
+        "AuralisPrimaryModels", "AuralisShellCore", "AutopilotCore", "CapabilitiesCore",
+        "ChainProviders", "ContextCore", "ENS", "EvalCore", "ExplorerAdapter", "MemoryCore",
+        "MemoryRetrieval", "MemoryStorage", "MissionControlFeature", "MusicFeature", "NFTKit",
+        "NFTLibraryFeature", "OperatorCore", "OperatorRuntimeStorage", "OperatorsFeature",
+        "PerformanceCore", "PlannerCore", "PlaybookCore", "PolicyCore", "PrimaryModelsTestSupport",
+        "ProviderKit", "ReceiptStorage", "ReceiptsCore", "RuntimeCore", "RuntimeKit",
+        "SchedulingCore", "SocialCore", "SwiftDataAdapters", "TokenStorage", "TrustedUIKit",
+        "UserDefaultsAdapters", "WalletConnectorKit"
+    ]
+
     @Test("first-party package dependency graph is acyclic and packages are not empty identity stubs")
     func firstPartyPackageGraphIsAcyclicAndConcrete() throws {
         let projectRoot = try projectRootURL()
@@ -49,298 +95,100 @@ struct ArchitectureBoundaryTests {
             "AgentIdentityCore was retired; identity must remain owned by AuralisRuntime instead of returning as a stub package."
         )
 
-        let engineManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuraPlayEngines/Package.swift"),
-            encoding: .utf8
+        // Each owned package vends exactly the products it is supposed to, and every root retired by
+        // the consolidation stays retired. This replaces the former per-package "X must remain an
+        // internal target of Y" checks: with one module per package there are no internal targets
+        // left to assert about, so the invariant is now the product list itself.
+        #expect(
+            packageNames == Set(Self.ownedPackages + ["CodeScanner"]),
+            "The local package roots must be exactly the owned set plus vendored CodeScanner: \(packageNames.sorted())"
         )
-        for target in ["AuraPlayEngines", "AuraPlayEngines", "AuraPlayEngines"] {
-            #expect(engineManifest.contains("name: \"\(target)\""))
+
+        for (package, expected) in Self.expectedProducts {
+            let manifest = try String(
+                contentsOf: projectRoot.appending(path: "\(package)/Package.swift"),
+                encoding: .utf8
+            )
+            // A product declaration may put `.library(` and `name:` on separate lines, so scan the
+            // manifest as one string from each declaration to the first name that follows it rather
+            // than requiring both on the same line.
+            var declared = Set<String>()
+            for marker in [".library(", ".executable("] {
+                var searchRange = manifest.startIndex..<manifest.endIndex
+                while let declaration = manifest.range(of: marker, range: searchRange) {
+                    let remainder = declaration.upperBound..<manifest.endIndex
+                    if let nameLabel = manifest.range(of: "name: \"", range: remainder) {
+                        let valueStart = nameLabel.upperBound
+                        if let valueEnd = manifest[valueStart...].firstIndex(of: "\"") {
+                            declared.insert(String(manifest[valueStart..<valueEnd]))
+                        }
+                    }
+                    searchRange = declaration.upperBound..<manifest.endIndex
+                }
+            }
             #expect(
-                FileManager.default.fileExists(
-                    atPath: projectRoot.appending(path: "\(target)/Package.swift").path()
-                ) == false,
-                "\(target) must remain an internal AuraPlayEngines target, not return as a package root."
+                declared == expected,
+                "\(package) must vend exactly \(expected.sorted()), not \(declared.sorted())"
             )
         }
 
-        let foundationManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuralisFoundation/Package.swift"),
-            encoding: .utf8
-        )
-        for target in ["AuralisFoundation", "AuralisFoundation", "AuralisFoundation"] {
-            #expect(foundationManifest.contains("name: \"\(target)\""))
+        for retired in Self.retiredPackageRoots {
             #expect(
                 FileManager.default.fileExists(
-                    atPath: projectRoot.appending(path: "\(target)/Package.swift").path()
+                    atPath: projectRoot.appending(path: "\(retired)/Package.swift").path()
                 ) == false,
-                "\(target) must remain an internal AuralisFoundation target, not return as a package root."
-            )
-        }
-
-        let runtimeManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuralisRuntime/Package.swift"),
-            encoding: .utf8
-        )
-        for target in [
-            "AuralisRuntime", "AuralisRuntime", "AuralisRuntime", "AuralisRuntime", "AuralisRuntime"
-        ] {
-            #expect(runtimeManifest.contains("name: \"\(target)\""))
-            #expect(
-                FileManager.default.fileExists(
-                    atPath: projectRoot.appending(path: "\(target)/Package.swift").path()
-                ) == false,
-                "\(target) must remain an internal AuralisRuntime target, not return as a package root."
-            )
-        }
-
-        let runtimeKitManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuralisAppShell/Package.swift"),
-            encoding: .utf8
-        )
-        #expect(runtimeKitManifest.contains("name: \"AuralisAppShell\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisAppShell/Package.swift").path()
-            ) == false,
-            "AuralisAppShell must remain an internal AuralisAppShell target."
-        )
-
-        let appShellManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuralisAppShell/Package.swift"),
-            encoding: .utf8
-        )
-        #expect(appShellManifest.contains("name: \"AuralisAppShell\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisAppShell/Package.swift").path()
-            ) == false,
-            "AuralisAppShell must remain an internal AuralisAppShell target, not return as a package root."
-        )
-
-        let operatorsManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuralisOperators/Package.swift"),
-            encoding: .utf8
-        )
-        #expect(operatorsManifest.contains("name: \"AuralisOperators\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisOperators/Package.swift").path()
-            ) == false,
-            "AuralisOperators must remain an internal AuralisOperators target, not return as a package root."
-        )
-        #expect(operatorsManifest.contains("name: \"AuralisOperators\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisOperators/Package.swift").path()
-            ) == false,
-            "AuralisOperators must remain an internal AuralisOperators target, not return as a package root."
-        )
-        #expect(operatorsManifest.contains("name: \"AuralisOperators\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisOperators/Package.swift").path()
-            ) == false,
-            "AuralisOperators must remain an internal AuralisOperators target, not return as a package root."
-        )
-        #expect(operatorsManifest.contains("name: \"AuralisOperators\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisOperators/Package.swift").path()
-            ) == false,
-            "AuralisOperators must remain an internal AuralisOperators target, not return as a package root."
-        )
-
-        let missionControlManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuralisMissionControl/Package.swift"),
-            encoding: .utf8
-        )
-        #expect(missionControlManifest.contains("name: \"AuralisMissionControl\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisMissionControl/Package.swift").path()
-            ) == false,
-            "AuralisMissionControl must remain an internal MissionControl target, not return as a package root."
-        )
-
-        let policyManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuralisPolicy/Package.swift"),
-            encoding: .utf8
-        )
-        #expect(policyManifest.contains("name: \"AuralisPolicy\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisPolicy/Package.swift").path()
-            ) == false,
-            "AuralisPolicy must remain an internal AuralisPolicy target, not return as a package root."
-        )
-
-        let providerManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuralisCrypto/Package.swift"),
-            encoding: .utf8
-        )
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisCrypto/Package.swift").path()
-            ) == false,
-            "AuralisCrypto must remain an internal AuralisCrypto target."
-        )
-        #expect(providerManifest.contains("name: \"AuralisCrypto\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisCrypto/Package.swift").path()
-            ) == false,
-            "AuralisCrypto must remain an internal AuralisCrypto target, not return as a package root."
-        )
-        #expect(providerManifest.contains("name: \"AuralisCrypto\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisCrypto/Package.swift").path()
-            ) == false,
-            "AuralisCrypto must remain an internal AuralisCrypto target, not return as a package root."
-        )
-        #expect(providerManifest.contains("name: \"ENS\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "ENS/Package.swift").path()
-            ) == false,
-            "ENS must remain an internal AuralisCrypto target, not return as a package root."
-        )
-        for target in ["AuralisCrypto", "AuralisCrypto", "AuralisCrypto", "AuralisCrypto", "AuralisCrypto"] {
-            #expect(providerManifest.contains("name: \"\(target)\""))
-        }
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisCrypto/Package.swift").path()
-            ) == false,
-            "AuralisCrypto must remain an internal AuralisCrypto target."
-        )
-
-        let walletAccountsManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuralisCrypto/Package.swift"),
-            encoding: .utf8
-        )
-        for target in [
-            "WalletAdapters",
-            "WalletAdapters",
-            "WalletAdapters",
-            "WalletAdapters",
-            "WalletAdapters",
-            "WalletAdapters",
-            "WalletAdapters"
-        ] {
-            #expect(walletAccountsManifest.contains("name: \"\(target)\""))
-        }
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "WalletAdapters/Package.swift").path()
-            ) == false,
-            "WalletAdapters adapters must remain internal AuralisCrypto targets."
-        )
-
-        let accountsManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuralisCrypto/Package.swift"),
-            encoding: .utf8
-        )
-        #expect(accountsManifest.contains("name: \"AuralisCrypto\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisCrypto/Package.swift").path()
-            ) == false,
-            "AuralisCrypto must remain an internal AuralisCrypto target, not return as a package root."
-        )
-        #expect(accountsManifest.contains("name: \"AuralisCrypto\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisCrypto/Package.swift").path()
-            ) == false,
-            "AuralisCrypto must remain an internal AuralisCrypto target, not return as a package root."
-        )
-        #expect(accountsManifest.contains("name: \"AuralisCrypto\""))
-        #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisCrypto/Package.swift").path()
-            ) == false,
-            "AuralisCrypto must remain an internal AuralisCrypto target, not return as a package root."
-        )
-
-        let receiptsManifest = try String(
-            contentsOf: projectRoot.appending(path: "AuralisReceipts/Package.swift"),
-            encoding: .utf8
-        )
-        for target in ["AuralisReceipts", "AuralisReceipts", "AuralisReceipts"] {
-            #expect(receiptsManifest.contains("name: \"\(target)\""))
-            #expect(
-                FileManager.default.fileExists(
-                    atPath: projectRoot.appending(path: "\(target)/Package.swift").path()
-                ) == false,
-                "\(target) must remain an internal AuralisReceipts target, not return as a package root."
+                "\(retired) was consolidated into an owned package; it must not return as a package root."
             )
         }
 
         let tokenNativePresentation = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisCrypto/Sources/AuralisCrypto/Chain+NativeToken.swift"
+                path: "AuralisCrypto/Sources/AuralisCrypto/TokenStorage/Chain+NativeToken.swift"
             ),
             encoding: .utf8
         )
         let tokenFreshnessPolicy = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisCrypto/Sources/AuralisCrypto/TokenHoldingsMetadataFreshnessPolicy.swift"
+                path: "AuralisCrypto/Sources/AuralisCrypto/TokenStorage/TokenHoldingsMetadataFreshnessPolicy.swift"
             ),
             encoding: .utf8
         )
         #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(
-                    path: "AuralisCrypto/Sources/AuralisCrypto/TokenHoldingSupport.swift"
-                ).path()
-            ) == false
+            try sourceFileExists(named: "TokenHoldingSupport.swift", inPackage: "AuralisCrypto") == false
         )
         #expect(tokenNativePresentation.contains("var nativeTokenSymbol"))
         #expect(tokenNativePresentation.contains("var nativeTokenDisplayName"))
         #expect(tokenFreshnessPolicy.contains("public enum TokenHoldingsMetadataFreshnessPolicy"))
         #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(
-                    path: "AuralisCrypto/Sources/AuralisCrypto/PrimaryStoreCopy.swift"
-                ).path()
-            ) == false,
+            try sourceFileExists(named: "PrimaryStoreCopy.swift", inPackage: "AuralisCrypto") == false,
             "App-launch recovery copy belongs to AppShell composition, not shared domain models."
         )
         let foundationJSONValue = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisFoundation/Sources/AuralisFoundation/JSONValue.swift"
+                path: "AuralisFoundation/Sources/AuralisFoundation/Primitives/JSONValue.swift"
             ),
             encoding: .utf8
         )
         let musicAlchemyClient = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisOperators/Sources/AuralisOperators/Discovery/AlchemyNFTClient.swift"
+                path: "AuralisOperators/Sources/AuralisOperators/Music/Discovery/AlchemyNFTClient.swift"
             ),
             encoding: .utf8
         )
         #expect(foundationJSONValue.contains("public enum JSONValue"))
         #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(
-                    path: "AuralisCrypto/Sources/AuralisCrypto/JSONValue.swift"
-                ).path()
-            ) == false
+            try sourceFileExists(named: "JSONValue.swift", inPackage: "AuralisCrypto") == false
         )
         #expect(musicAlchemyClient.contains("private enum JSONValue") == false)
 
         let accountSummary = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisCrypto/Sources/AuralisCrypto/Models/AccountSummary.swift"
+                path: "AuralisCrypto/Sources/AuralisCrypto/Accounts/Models/AccountSummary.swift"
             ),
             encoding: .utf8
         )
         #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(
-                    path: "AuralisCrypto/Sources/AuralisCrypto/PortableDomainValues.swift"
-                ).path()
-            ) == false
+            try sourceFileExists(named: "PortableDomainValues.swift", inPackage: "AuralisCrypto") == false
         )
         for unusedType in [
             "NFTIdentity",
@@ -357,46 +205,42 @@ struct ArchitectureBoundaryTests {
         #expect(accountSummary.contains("public struct AccountSummary"))
         let musicURLSupport = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisOperators/Sources/AuralisOperators/Persistence/NFT+MusicURL.swift"
+                path: "AuralisOperators/Sources/AuralisOperators/Music/Persistence/NFT+MusicURL.swift"
             ),
             encoding: .utf8
         )
         #expect(musicURLSupport.contains("public extension NFT"))
         #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(
-                    path: "AuralisCrypto/Sources/AuralisCrypto/MediaURLSupport.swift"
-                ).path()
-            ) == false
+            try sourceFileExists(named: "MediaURLSupport.swift", inPackage: "AuralisCrypto") == false
         )
 
         let accountStorage = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisCrypto/Sources/AuralisCrypto/SwiftDataAccountStore.swift"
+                path: "AuralisCrypto/Sources/AuralisCrypto/AccountStorage/SwiftDataAccountStore.swift"
             ),
             encoding: .utf8
         )
         let scopedParticipant = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisFoundation/Sources/AuralisFoundation/ScopedPersistenceParticipant.swift"
+                path: "AuralisFoundation/Sources/AuralisFoundation/Persistence/ScopedPersistenceParticipant.swift"
             ),
             encoding: .utf8
         )
         let tokenParticipant = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisCrypto/Sources/AuralisCrypto/TokenHoldingAccountPersistenceParticipant.swift"
+                path: "AuralisCrypto/Sources/AuralisCrypto/TokenStorage/TokenHoldingAccountPersistenceParticipant.swift"
             ),
             encoding: .utf8
         )
         let nftParticipant = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisCrypto/Sources/AuralisCrypto/NFTAccountPersistenceParticipant.swift"
+                path: "AuralisCrypto/Sources/AuralisCrypto/NFTPersistence/NFTAccountPersistenceParticipant.swift"
             ),
             encoding: .utf8
         )
         let musicParticipant = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisOperators/Sources/AuralisOperators/Persistence/MusicLibraryAccountPersistenceParticipant.swift"
+                path: "AuralisOperators/Sources/AuralisOperators/Music/Persistence/MusicLibraryAccountPersistenceParticipant.swift"
             ),
             encoding: .utf8
         )
@@ -443,7 +287,6 @@ struct ArchitectureBoundaryTests {
         #expect(manifest.contains("../AuralisCrypto") == false)
         #expect(imports.contains("AuralisReceipts") == false)
         #expect(imports.contains("AuralisCrypto") == false)
-        #expect(imports.contains("AuralisCrypto") == false)
     }
 
     @Test("runtime evidence packages do not depend on transitional primary models")
@@ -460,38 +303,31 @@ struct ArchitectureBoundaryTests {
 
             #expect(manifest.contains("../AuralisCrypto") == false)
             #expect(imports.contains("AuralisCrypto") == false)
-            #expect(imports.contains("AuralisCrypto") == false)
         }
     }
 
-    @Test("owned package manifests declare compatible platform floors")
+    /// Every owned package declares the same floor as the app.
+    ///
+    /// The former split — reusable cores at iOS 18 / macOS 15, UI and composition at 26 — was given
+    /// up deliberately when the packages merged: a single module per package cannot hold both a
+    /// SwiftUI surface and an OS-18-compatible core, because SwiftPM applies platform declarations to
+    /// the whole package. A lower floor reappearing here means a package was split again, not that a
+    /// floor was "fixed".
+    @Test("owned package manifests declare one platform floor matching the app")
     func ownedPackagePlatformsStayCompatible() throws {
         let projectRoot = try projectRootURL()
-        let corePackages = [
-            "AuralisContext", "AuralisFoundation", "AuralisTestSupport",
-            "AuralisPolicy", "AuralisReceipts", "AuralisRuntime"
-        ]
-        let uiAndCompositionPackages = [
-            "AuralisCrypto", "AuraPlayEngines", "AuraUI", "AuralisMissionControl",
-            "AuralisOperators", "AuralisAppShell"
-        ]
 
-        for package in corePackages {
+        for package in Self.ownedPackages {
             let manifest = try String(
                 contentsOf: projectRoot.appending(path: "\(package)/Package.swift"),
                 encoding: .utf8
             )
-            #expect(manifest.contains(".iOS(.v18)"), "\(package) must support the core iOS floor.")
-            #expect(manifest.contains(".macOS(.v15)"), "\(package) must support the core macOS floor.")
-        }
-
-        for package in uiAndCompositionPackages {
-            let manifest = try String(
-                contentsOf: projectRoot.appending(path: "\(package)/Package.swift"),
-                encoding: .utf8
+            #expect(manifest.contains(".iOS(\"26.0\")"), "\(package) must declare the iOS 26 floor.")
+            #expect(manifest.contains(".macOS(\"26.0\")"), "\(package) must declare the macOS 26 floor.")
+            #expect(
+                manifest.contains(".v18") == false && manifest.contains(".v15") == false,
+                "\(package) must not reintroduce the retired iOS 18 / macOS 15 reuse floor."
             )
-            #expect(manifest.contains(".iOS(\"26.0\")"), "\(package) must match the UI iOS floor.")
-            #expect(manifest.contains(".macOS(\"26.0\")"), "\(package) must match the UI macOS floor.")
         }
     }
 
@@ -582,8 +418,8 @@ struct ArchitectureBoundaryTests {
         // And the ownership sources themselves import nothing but Foundation, which is what makes the
         // vocabulary portable to a consumer that has none of this app.
         let ownershipSources = [
-            "AuralisFoundation/Sources/AuralisFoundation/PrincipalID.swift",
-            "AuralisFoundation/Sources/AuralisFoundation/OwnershipDescriptor.swift"
+            "AuralisFoundation/Sources/AuralisFoundation/Primitives/PrincipalID.swift",
+            "AuralisFoundation/Sources/AuralisFoundation/Primitives/OwnershipDescriptor.swift"
         ]
         var offenders: [String] = []
 
@@ -600,12 +436,8 @@ struct ArchitectureBoundaryTests {
 
         #expect(offenders.isEmpty, "Ownership value types must import only Foundation: \(offenders)")
 
-        let legacyOwnershipSources = [
-            "AuralisCrypto/Sources/AuralisCrypto/PrincipalID.swift",
-            "AuralisCrypto/Sources/AuralisCrypto/OwnershipDescriptor.swift"
-        ]
-        let duplicatedSources = legacyOwnershipSources.filter {
-            FileManager.default.fileExists(atPath: projectRoot.appending(path: $0).path())
+        let duplicatedSources = try ["PrincipalID.swift", "OwnershipDescriptor.swift"].filter {
+            try sourceFileExists(named: $0, inPackage: "AuralisCrypto")
         }
         #expect(
             duplicatedSources.isEmpty,
@@ -617,15 +449,14 @@ struct ArchitectureBoundaryTests {
     func receiptWireValuesBelongToReceiptsCore() throws {
         let projectRoot = try projectRootURL()
         let receiptSource = projectRoot.appending(
-            path: "AuralisReceipts/Sources/AuralisReceipts/Models/ReceiptWireValues.swift"
+            path: "AuralisReceipts/Sources/AuralisReceipts/ReceiptsCore/Models/ReceiptWireValues.swift"
         )
         let source = try String(contentsOf: receiptSource, encoding: .utf8)
-        let legacyURL = projectRoot.appending(
-            path: "AuralisCrypto/Sources/AuralisCrypto/ReceiptPayloadTypes.swift"
-        )
-        let legacySource = FileManager.default.fileExists(atPath: legacyURL.path())
-            ? try String(contentsOf: legacyURL, encoding: .utf8)
-            : ""
+        let legacyURL = try projectRootURL()
+            .appending(path: "AuralisCrypto/Sources")
+        let legacySource = try swiftSourceFiles(under: legacyURL)
+            .first { $0.lastPathComponent == "ReceiptPayloadTypes.swift" }
+            .map { try String(contentsOf: $0, encoding: .utf8) } ?? ""
 
         for declaration in ["ReceiptJSONValue", "ReceiptPayload", "ReceiptMode"] {
             #expect(
@@ -637,7 +468,7 @@ struct ArchitectureBoundaryTests {
 
         let actorSource = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisReceipts/Sources/AuralisReceipts/Models/ReceiptActorTypes.swift"
+                path: "AuralisReceipts/Sources/AuralisReceipts/ReceiptsCore/Models/ReceiptActorTypes.swift"
             ),
             encoding: .utf8
         )
@@ -655,11 +486,7 @@ struct ArchitectureBoundaryTests {
         }
 
         #expect(
-            FileManager.default.fileExists(
-                atPath: projectRoot.appending(
-                    path: "AuralisRuntime/Sources/AuralisRuntime/Action/ActorRef+ReceiptActor.swift"
-                ).path()
-            ) == false,
+            try sourceFileExists(named: "ActorRef+ReceiptActor.swift", inPackage: "AuralisRuntime") == false,
             "AuralisRuntime must not own receipt conversion extensions"
         )
 
@@ -677,7 +504,7 @@ struct ArchitectureBoundaryTests {
         let projectRoot = try projectRootURL()
         let source = try String(
             contentsOf: projectRoot.appending(
-                path: "AuralisPolicy/Sources/AuralisPolicy/Services/PolicyActionGating.swift"
+                path: "AuralisPolicy/Sources/AuralisPolicy/Policy/Services/PolicyActionGating.swift"
             ),
             encoding: .utf8
         )
@@ -768,24 +595,23 @@ struct ArchitectureBoundaryTests {
     @Test("operator runtime packages preserve the ADR-008 dependency direction")
     func operatorRuntimePackageDependenciesFollowLayering() throws {
         let projectRoot = try projectRootURL()
+        // One entry per owned package root, ordered low to high. A package may only declare a path
+        // dependency on a package in a strictly lower layer; equal layers are siblings that must not
+        // reach for each other. These numbers are the longest path through the real manifests, so a
+        // new dependency that deepens the graph shows up here as a violation rather than silently.
         let layers: [String: Int] = [
-            "AuralisCrypto": 0,
+            "AuraPlayEngines": 0,
+            "AuraUI": 0,
+            "AuralisContext": 0,
             "AuralisFoundation": 0,
             "AuralisRuntime": 1,
+            "AuralisTestSupport": 1,
             "AuralisReceipts": 2,
-            "AuralisReceipts": 2,
-            "AuralisRuntime": 2,
-            "AuralisRuntime": 2,
-            "AuralisRuntime": 2,
-            "AuralisReceipts": 3,
-            "AuralisReceipts": 3,
-            "AuralisPolicy": 4,
-            "AuralisRuntime": 4,
-            "AuralisPolicy": 4,
-            "AuralisOperators": 5,
-            "AuraUI": 5,
-            "AuralisAppShell": 6,
-            "AuralisMissionControl": 7
+            "AuralisCrypto": 3,
+            "AuralisPolicy": 3,
+            "AuralisOperators": 4,
+            "AuralisAppShell": 5,
+            "AuralisMissionControl": 6
         ]
         var violations: [String] = []
 
@@ -825,169 +651,23 @@ struct ArchitectureBoundaryTests {
         )
     }
 
-    @Test("AuralisCrypto production depends on AuralisReceipts and keeps AuralisReceipts test-only")
-    func nftKitKeepsReceiptStorageTestOnly() throws {
-        let projectRoot = try projectRootURL()
-        let packageFile = projectRoot
-            .appending(path: "AuralisCrypto")
-            .appending(path: "Package.swift")
-        let packageText = try String(contentsOf: packageFile, encoding: .utf8)
-        let nftSourceRoot = projectRoot.appending(path: "AuralisCrypto/Sources")
-        let sourceImports = try [
-            "AuralisCrypto", "AuralisCrypto", "AuralisCrypto", "AuralisCrypto", "AuralisCrypto"
-        ].reduce(into: Set<String>()) { imports, target in
-            imports.formUnion(try swiftImports(under: nftSourceRoot.appending(path: target)))
-        }
+    // Four tests lived here that enforced boundaries *inside* the former NFTKit package:
+    //
+    //   - NFTKit production may import ReceiptsCore but not ReceiptStorage
+    //   - the NFT domain/adapter/persistence/presentation layers depend one way only
+    //   - callers import those layers explicitly rather than through the NFTKit umbrella
+    //   - TokenStorage does not depend on NFTKit
+    //
+    // All four distinguished modules that are now one module. They cannot be restated as import
+    // checks -- the first two referenced NFTKitPackageExports.swift, which no longer exists, and the
+    // last two degenerated into "AuralisCrypto must not import AuralisCrypto", which is vacuously
+    // true. They are removed rather than left passing for the wrong reason. What survives of their
+    // intent is `retiredPackageRoots` and `expectedProducts` in the graph test above, which fail if
+    // any of those layers returns as a separate package or product, plus the source-group structure
+    // under AuralisCrypto/Sources/AuralisCrypto that keeps the layering readable.
 
-        #expect(packageText.contains("../AuralisReceipts"))
-        #expect(packageText.contains("name: \"AuralisReceipts\""))
-        #expect(sourceImports.contains("AuralisReceipts"))
-        #expect(sourceImports.contains("AuralisReceipts") == false)
-    }
 
-    @Test("AuralisCrypto layers keep one-way dependencies")
-    func nftKitLayerBoundariesStayExplicit() throws {
-        let projectRoot = try projectRootURL()
-        let nftKitRoot = projectRoot.appending(path: "AuralisCrypto")
-        let packageText = try String(
-            contentsOf: nftKitRoot.appending(path: "Package.swift"),
-            encoding: .utf8
-        )
-        let facadeExports = try String(
-            contentsOf: nftKitRoot
-                .appending(path: "Sources")
-                .appending(path: "AuralisCrypto")
-                .appending(path: "Support")
-                .appending(path: "NFTKitPackageExports.swift"),
-            encoding: .utf8
-        )
 
-        let domainImports = try swiftImports(under: nftKitRoot.appending(path: "Sources/AuralisCrypto"))
-        let providerImports = try swiftImports(under: nftKitRoot.appending(path: "Sources/AuralisCrypto"))
-        let persistenceImports = try swiftImports(under: nftKitRoot.appending(path: "Sources/AuralisCrypto"))
-
-        let forbiddenDomainImports: Set<String> = [
-            "AuralisCrypto",
-            "SwiftUI",
-            "SwiftData",
-            "AuralisCrypto",
-            "AuralisCrypto",
-            "AuralisCrypto",
-            "AuralisReceipts",
-            "AuralisCrypto",
-            "AuralisCrypto",
-            "AuralisCrypto"
-        ]
-        let forbiddenProviderImports: Set<String> = [
-            "AuralisCrypto",
-            "SwiftUI",
-            "SwiftData",
-            "AuralisCrypto",
-            "AuralisCrypto",
-            "AuralisReceipts"
-        ]
-        let forbiddenPersistenceImports: Set<String> = [
-            "AuralisCrypto",
-            "AuralisCrypto",
-            "AuralisCrypto",
-            "AuralisCrypto",
-            "SwiftUI"
-        ]
-        let forbiddenFacadeExports = [
-            "@_exported import AuralisCrypto",
-            "@_exported import AuralisCrypto",
-            "@_exported import AuralisCrypto"
-        ]
-
-        #expect(
-            domainImports.isDisjoint(with: forbiddenDomainImports),
-            "AuralisCrypto must stay pure domain: \(domainImports.intersection(forbiddenDomainImports).sorted())"
-        )
-        #expect(
-            providerImports.isDisjoint(with: forbiddenProviderImports),
-            "AuralisCrypto must not own persistence models, UI, SwiftData, receipts, or presentation state: \(providerImports.intersection(forbiddenProviderImports).sorted())"
-        )
-        #expect(
-            packageText.contains(
-                """
-                name: "AuralisCrypto",
-                            dependencies: [
-                                "AuralisCrypto",
-                                .product(name: "AuralisCrypto", package: "AuralisCrypto"),
-                """
-            ) == false,
-            "AuralisCrypto must not directly depend on the SwiftData persistence product"
-        )
-        #expect(
-            persistenceImports.isDisjoint(with: forbiddenPersistenceImports),
-            "AuralisCrypto must not depend on provider adapters, provider packages, explorer packages, or UI: \(persistenceImports.intersection(forbiddenPersistenceImports).sorted())"
-        )
-        #expect(
-            packageText.contains(
-                """
-                name: "AuralisCrypto",
-                            dependencies: [
-                                "AuralisCrypto",
-                                "AuralisCrypto",
-                """
-            ) == false,
-            "AuralisCrypto must not directly depend on AuralisCrypto"
-        )
-        #expect(persistenceImports.contains("SwiftData"))
-        #expect(packageText.contains("name: \"AuralisCrypto\""))
-        #expect(packageText.contains("name: \"AuralisCrypto\""))
-        #expect(packageText.contains("name: \"AuralisCrypto\""))
-        #expect(packageText.contains("name: \"AuralisCrypto\""))
-        #expect(
-            forbiddenFacadeExports.allSatisfy { facadeExports.contains($0) == false },
-            "AuralisCrypto facade must not re-export provider packages"
-        )
-    }
-
-    @Test("app and feature callers import AuralisCrypto layers explicitly")
-    func callersDoNotUseNFTKitUmbrellaImports() throws {
-        let projectRoot = try projectRootURL()
-        let roots = [
-            projectRoot.appending(path: "Auralis"),
-            projectRoot.appending(path: "AuralisTests"),
-            projectRoot.appending(path: "AuralisOperators/Sources/AuralisOperators")
-        ]
-        var offenders: [String] = []
-
-        for root in roots {
-            for fileURL in try swiftSourceFiles(under: root) {
-                let source = try String(contentsOf: fileURL, encoding: .utf8)
-                if importedModules(in: source).contains("AuralisCrypto") {
-                    offenders.append(
-                        fileURL.path().replacingOccurrences(of: projectRoot.path() + "/", with: "")
-                    )
-                }
-            }
-        }
-
-        #expect(
-            offenders.isEmpty,
-            "Callers should import AuralisCrypto/AuralisCrypto/AuralisCrypto/AuralisCrypto explicitly: \(offenders.sorted())"
-        )
-    }
-
-    @Test("AuralisCrypto does not depend on AuralisCrypto")
-    func tokenStorageDoesNotDependOnNFTKit() throws {
-        let projectRoot = try projectRootURL()
-        let packageFile = projectRoot
-            .appending(path: "AuralisCrypto")
-            .appending(path: "Package.swift")
-        let packageText = try String(contentsOf: packageFile, encoding: .utf8)
-        let sourceImports = try swiftImports(
-            under: projectRoot
-                .appending(path: "AuralisCrypto")
-                .appending(path: "Sources")
-                .appending(path: "AuralisCrypto")
-        )
-
-        #expect(packageText.contains("../AuralisCrypto") == false)
-        #expect(sourceImports.contains("AuralisCrypto") == false)
-    }
 
     @Test("AuraPlay receipts live in AuralisOperators and playback runtime does not import AuralisCrypto")
     func auraPlayReceiptBoundaryStaysInMusicFeature() throws {
@@ -1192,7 +872,7 @@ struct ArchitectureBoundaryTests {
         ]
         // `ActorRef.system` is declared here; the declaration is not a call site.
         let allowedFiles: Set<String> = [
-            "AuralisRuntime/Sources/AuralisRuntime/Actor/ActorRef.swift"
+            "AuralisRuntime/Sources/AuralisRuntime/Runtime/Actor/ActorRef.swift"
         ]
 
         var offenders: [String] = []
@@ -1471,17 +1151,25 @@ struct ArchitectureBoundaryTests {
         )
     }
 
+    /// Per-source-group import rules, reduced to what one module per package can still prove.
+    ///
+    /// These rules used to separate layers that were separate *modules*: a music domain file could be
+    /// held to importing `AuralisPrimaryModels` but not `NFTKit`, and receipt logic to `ReceiptsCore`
+    /// but not `ReceiptStorage`. Those pairs are each one module now, so an import check cannot tell
+    /// the two apart and the corresponding entries were removed rather than left passing vacuously.
+    /// What remains — no SwiftUI or UIKit below the presentation groups, no SwiftData outside
+    /// persistence, and no chain or wallet SDK anywhere near the ownership vocabulary — is still a
+    /// real boundary, because those are framework and cross-package imports rather than intra-package
+    /// layering. The intra-package layering is now carried by the source-group structure alone.
     @Test("feature package source boundaries use intended imports and Observation")
     func featurePackageSourceBoundariesUseIntendedImportsAndObservation() throws {
         let projectRoot = try projectRootURL()
         let rules: [PackageSourceBoundaryRule] = [
             PackageSourceBoundaryRule(
-                rootPath: "AuralisOperators/Sources/AuralisOperators/Domain",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Music/Domain",
                 forbiddenImports: [
-                    "AuralisCrypto",
                     "AuraUI",
                     "AuralisFoundation",
-                    "AuralisReceipts",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"
@@ -1489,12 +1177,10 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisOperators domain values must stay portable and UI/storage-free"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisOperators/Sources/AuralisOperators/Core",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Music/Core",
                 forbiddenImports: [
-                    "AuralisCrypto",
                     "AuraUI",
                     "AuralisFoundation",
-                    "AuralisReceipts",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"
@@ -1502,15 +1188,9 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisOperators core configuration must stay independent of UI, persistence, and receipt services"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisOperators/Sources/AuralisOperators/Services",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Music/Services",
                 forbiddenImports: [
-                    "AuralisCrypto",
                     "AuraUI",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"
@@ -1518,30 +1198,18 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisOperators service contracts must not depend on UI, SwiftData, or NFT implementation layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisOperators/Sources/AuralisOperators/Persistence",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Music/Persistence",
                 forbiddenImports: [
                     "AuraUI",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "SwiftUI",
                     "UIKit"
                 ],
                 reason: "AuralisOperators persistence may use SwiftData but must not reach into UI or NFT layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisOperators/Sources/AuralisOperators/Receipts",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Music/Receipts",
                 forbiddenImports: [
-                    "AuralisCrypto",
                     "AuraUI",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisReceipts",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"
@@ -1549,35 +1217,23 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisOperators receipt logic depends on receipt contracts, not app storage, UI, or NFT layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisOperators/Sources/AuralisOperators/Presentation",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Music/Presentation",
                 forbiddenImports: [
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisReceipts"
+
                 ],
                 reason: "AuralisOperators presentation may use SwiftUI and SwiftData-facing models but not provider or storage implementation packages"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisOperators/Sources/AuralisOperators/App",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Music/App",
                 forbiddenImports: [
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisReceipts"
+
                 ],
                 reason: "AuralisOperators app entry points may compose presentation but not provider or storage implementation packages"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisOperators/Sources/AuralisOperators/Domain",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/NFTLibrary/Domain",
                 forbiddenImports: [
                     "AuraUI",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "AuralisOperators",
                     "SwiftData",
                     "SwiftUI",
@@ -1586,16 +1242,9 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisOperators domain routing and sorting must stay free of UI, provider, and concrete AuralisCrypto layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisOperators/Sources/AuralisOperators/Services",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/NFTLibrary/Services",
                 forbiddenImports: [
-                    "AuralisCrypto",
                     "AuraUI",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"
@@ -1603,15 +1252,9 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisOperators services must stay domain-facing and avoid UI, persistence, and NFT provider layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisOperators/Sources/AuralisOperators/Support",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/NFTLibrary/Support",
                 forbiddenImports: [
                     "AuraUI",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "AuralisOperators",
                     "SwiftData",
                     "SwiftUI",
@@ -1620,23 +1263,15 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisOperators support mappers must stay presentation-data oriented without UI or provider dependencies"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisOperators/Sources/AuralisOperators/Presentation",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/NFTLibrary/Presentation",
                 forbiddenImports: [
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisReceipts"
+
                 ],
                 reason: "AuralisOperators presentation may use SwiftUI and explicit AuralisCrypto layer products, but not umbrella/provider/storage implementation imports"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisCrypto/Sources/AuralisCrypto",
+                rootPath: "AuralisCrypto/Sources/AuralisCrypto/NFTDomain",
                 forbiddenImports: [
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "AuralisCrypto",
                     "AuralisReceipts",
                     "SwiftData",
@@ -1646,10 +1281,8 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisCrypto must stay pure domain"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisCrypto/Sources/AuralisCrypto",
+                rootPath: "AuralisCrypto/Sources/AuralisCrypto/NFTProviderAdapters",
                 forbiddenImports: [
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "AuralisCrypto",
                     "AuralisReceipts",
                     "SwiftData",
@@ -1659,11 +1292,8 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisCrypto must not own persistence models, UI, SwiftData, receipts, or presentation state"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisCrypto/Sources/AuralisCrypto",
+                rootPath: "AuralisCrypto/Sources/AuralisCrypto/NFTPersistence",
                 forbiddenImports: [
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "AuralisCrypto",
                     "SwiftUI",
                     "UIKit"
@@ -1671,10 +1301,8 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisCrypto must not depend on provider adapters, provider packages, explorer packages, or UI"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisCrypto/Sources/AuralisCrypto",
+                rootPath: "AuralisCrypto/Sources/AuralisCrypto/NFTPresentation",
                 forbiddenImports: [
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "AuralisCrypto",
                     "SwiftUI",
                     "UIKit"
@@ -1682,10 +1310,8 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisCrypto may orchestrate NFT layers and SwiftData models, but not UI or provider implementation packages"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisCrypto/Sources/AuralisCrypto",
+                rootPath: "AuralisCrypto/Sources/AuralisCrypto/NFTKit",
                 forbiddenImports: [
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "AuralisCrypto",
                     "SwiftData",
                     "SwiftUI",
@@ -1699,13 +1325,7 @@ struct ArchitectureBoundaryTests {
                     "AuralisCrypto",
                     "AuraUI",
                     "AuralisOperators",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "Observation",
-                    "SwiftData",
                     "SwiftUI",
                     "UIKit",
                     // Blockchain and wallet SDKs, named explicitly because this is the package that
@@ -1714,14 +1334,14 @@ struct ArchitectureBoundaryTests {
                     // exactly this: depending on it pulled in ENS, secp256k1 and web3.swift, which
                     // broke `swift test` for everything downstream. A principal identifier that can
                     // only be understood by something holding a chain client is not a portable label.
+                    //
+                    // SwiftData is deliberately absent: the SwiftData adapters merged into this
+                    // package, so persisting with it here is now expected.
                     "BigInt",
-                    "AuralisCrypto",
                     "CoinbaseWalletSDK",
                     "DynamicSDKSwift",
                     "ENS",
-                    "AuralisCrypto",
                     "Privy",
-                    "AuralisCrypto",
                     "Web3",
                     "WalletAdapters",
                     "Yttrium",
@@ -1732,17 +1352,12 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisFoundation must stay pure portable domain values with no chain or wallet dependency"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisCrypto/Sources/AuralisCrypto",
+                rootPath: "AuralisCrypto/Sources/AuralisCrypto/PrimaryPersistence",
                 forbiddenImports: [
                     "AuraUI",
                     "AuralisOperators",
                     "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
-                    "AuralisCrypto",
                     "Observation",
-                    "AuralisCrypto",
                     "SwiftUI",
                     "UIKit"
                 ],
@@ -1839,7 +1454,7 @@ struct ArchitectureBoundaryTests {
     func accountSwitcherCurrentChainChangesRouteThroughShell() throws {
         let projectRoot = try projectRootURL()
         let accountSwitcherFile = projectRoot
-            .appending(path: "AuralisCrypto/Sources/AuralisCrypto/Presentation/AddressTextField.swift")
+            .appending(path: "AuralisCrypto/Sources/AuralisCrypto/AccountsUI/Presentation/AddressTextField.swift")
         let source = try String(contentsOf: accountSwitcherFile, encoding: .utf8)
         let currentChainCase = try extractSwitchCase(named: "case .current:", from: source)
 
@@ -1979,6 +1594,17 @@ struct ArchitectureBoundaryTests {
         }
 
         return files
+    }
+
+    /// Whether a source file with this name exists anywhere under a package's `Sources`.
+    ///
+    /// Absence is asserted by name rather than by exact path because one module per package means
+    /// files sit in source groups that may be reorganized. A path-exact absence check keeps passing
+    /// when a file is merely moved, which is the same as not checking.
+    private func sourceFileExists(named name: String, inPackage package: String) throws -> Bool {
+        let root = try projectRootURL().appending(path: "\(package)/Sources")
+        guard FileManager.default.fileExists(atPath: root.path()) else { return false }
+        return try swiftSourceFiles(under: root).contains { $0.lastPathComponent == name }
     }
 
     private func importedModules(in source: String) -> Set<String> {
