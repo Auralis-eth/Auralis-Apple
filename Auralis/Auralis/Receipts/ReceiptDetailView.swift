@@ -1,7 +1,6 @@
 import AuralisPrimaryModels
 import AuraUI
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import SwiftUI
 
@@ -214,7 +213,7 @@ private struct ReceiptDetailTaskID: Equatable {
 
 extension ReceiptPresentation {
     /// Builds the canonical receipt view-model from a timeline record. The presentation logic
-    /// (sections, ordering, outcome, change rows, searchable text) lives once in `ReceiptsCore`
+    /// (sections, ordering, outcome, change rows, searchable text) lives once in `AuralisReceipts`
     /// so this tab and the Mission Control console can never drift.
     init(receipt: ReceiptTimelineRecord) {
         self.init(

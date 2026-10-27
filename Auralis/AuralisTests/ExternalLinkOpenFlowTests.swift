@@ -3,7 +3,7 @@ import AuralisPrimaryModels
 import AuralisTestSupport
 import Foundation
 import OperatorCore
-import ReceiptsCore
+import AuralisReceipts
 import Testing
 
 struct ExternalLinkOpenFlowTests {

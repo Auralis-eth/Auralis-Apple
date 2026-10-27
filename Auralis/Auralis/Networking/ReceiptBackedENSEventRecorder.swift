@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import ENS
 import Foundation
 import OSLog
-import ReceiptsCore
+import AuralisReceipts
 
 @MainActor
 final class ReceiptBackedENSEventRecorder: ENSEventRecording {

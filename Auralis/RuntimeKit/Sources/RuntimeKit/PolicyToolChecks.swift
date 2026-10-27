@@ -1,6 +1,6 @@
 import AccountsCore
 import AuralisPrimaryModels
-import PolicyCore
+import AuralisPolicy
 import AuralisRuntime
 
 public enum PolicyToolCheckID {

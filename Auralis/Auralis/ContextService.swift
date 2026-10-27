@@ -8,9 +8,9 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import Observation
-import PolicyCore
+import AuralisPolicy
 import ProviderKit
-import ReceiptsCore
+import AuralisReceipts
 
 struct ContextRefreshInstrumentation {
     let recordContextRefresh: @MainActor (_ key: String, _ dataClass: ContextDataClass?, _ correlationID: String) async -> Void

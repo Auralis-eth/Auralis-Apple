@@ -4,7 +4,7 @@ import AccountStorage
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import Testing
 

@@ -1,4 +1,4 @@
-import ArtifactCore
+import AuralisReceipts
 import Foundation
 @_spi(ToolRegistration) @testable import OperatorsFeature
 @_spi(RuntimeTesting) @_spi(ToolRegistration) @testable import AuralisRuntime

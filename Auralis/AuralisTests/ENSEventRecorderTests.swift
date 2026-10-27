@@ -2,8 +2,7 @@
 import AuralisPrimaryModels
 import ENS
 import Foundation
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import Testing
 

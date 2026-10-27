@@ -2,7 +2,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 import Testing
 
 struct ReceiptContractTests {

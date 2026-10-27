@@ -1,6 +1,6 @@
 @testable import Auralis
 import Foundation
-import PolicyCore
+import AuralisPolicy
 import Testing
 
 /// `ModeState.refreshFromStorage()` must actually re-read persisted storage.

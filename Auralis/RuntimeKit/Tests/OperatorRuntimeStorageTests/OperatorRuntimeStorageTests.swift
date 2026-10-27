@@ -1,5 +1,4 @@
-import ArtifactCore
-import ArtifactStorage
+import AuralisReceipts
 import AuralisRuntime
 import Foundation
 @testable import OperatorRuntimeStorage
@@ -313,7 +312,7 @@ struct OperatorRuntimeStorageTests {
     }
 
     /// Artifacts written before the storage change live in ``StoredArtifactRecord``, and production
-    /// now reads `ArtifactStorage`'s `StoredArtifact`. Without the migration they would simply stop
+    /// now reads `AuralisReceipts`'s `StoredArtifact`. Without the migration they would simply stop
     /// appearing in Mission Control, so this pins that they survive the move.
     ///
     /// The store behaviour itself is covered by `ArtifactStorageTests` — 21 tests against the

@@ -3,8 +3,7 @@ import AuralisPrimaryModels
 import ContextCore
 import Foundation
 import OperatorCore
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import Testing
 

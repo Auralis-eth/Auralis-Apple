@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import ContextCore
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 import AuralisRuntime
 import RuntimeKit
 import SwiftData

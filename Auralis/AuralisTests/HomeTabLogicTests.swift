@@ -2,7 +2,7 @@ import AccountsFeature
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 import Testing
 
 struct HomeTabLogicTests {

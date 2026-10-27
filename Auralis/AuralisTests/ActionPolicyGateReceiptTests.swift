@@ -1,8 +1,8 @@
 import AuralisPrimaryModels
 import AuralisFoundation
 import Foundation
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
+import AuralisReceipts
 import AuralisRuntime
 import Testing
 

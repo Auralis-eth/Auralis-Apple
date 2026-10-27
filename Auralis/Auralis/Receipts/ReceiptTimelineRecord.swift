@@ -1,7 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import AuralisRuntime
 
 struct ReceiptTimelineRecord: Identifiable, Equatable, Sendable {
@@ -199,7 +198,7 @@ struct ReceiptTimelineRecord: Identifiable, Equatable, Sendable {
     /// The comparable form of a receipt-ledger account key, applied to **both** sides of the scope
     /// comparison.
     ///
-    /// It has to mirror `ReceiptStorage.ReceiptAccountAddress.resolve`, which is what actually wrote
+    /// It has to mirror `AuralisReceipts.ReceiptAccountAddress.resolve`, which is what actually wrote
     /// the stored key: canonical `0x…` when the value parses as an address, and a plain lowercased
     /// string when it does not — because that function deliberately accepts keys that are not
     /// addresses rather than dropping those receipts onto the global timeline.

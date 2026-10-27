@@ -1,6 +1,6 @@
 import AuralisRuntime
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 import Testing
 
 @testable import RuntimeKit

@@ -1,14 +1,12 @@
 import AccountsCore
-import ArtifactCore
+import AuralisReceipts
 import AuralisPrimaryModels
-import AutopilotCore
+import AuralisPolicy
 import AuralisFoundation
 import Foundation
 import Observation
 @_spi(ToolRegistration) import OperatorsFeature
 import OSLog
-import PolicyCore
-import ReceiptsCore
 @_spi(RuntimeComposition) @_spi(ToolRegistration) import AuralisRuntime
 import SocialCore
 

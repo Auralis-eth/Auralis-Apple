@@ -1,12 +1,11 @@
 import AuralisPrimaryModels
 import AuralisTestSupport
 import Foundation
-import ReceiptStorage
-import ReceiptsCore
+import AuralisReceipts
 
 /// App-integration fixture for tests that exercise persisted receipt cleanup and presentation.
 ///
-/// This deliberately lives in `AuralisTests`: `StoredReceipt` is a ReceiptStorage adapter model,
+/// This deliberately lives in `AuralisTests`: `StoredReceipt` is a AuralisReceipts adapter model,
 /// so exposing its builder from dependency-clean `AuralisTestSupport` created a reverse dependency
 /// from generic test utilities to receipt persistence.
 struct StoredReceiptFixture: @unchecked Sendable {

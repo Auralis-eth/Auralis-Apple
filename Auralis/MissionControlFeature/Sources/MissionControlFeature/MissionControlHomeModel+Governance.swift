@@ -1,12 +1,11 @@
-import ArtifactCore
+import AuralisReceipts
 import AuralisPrimaryModels
 import AuralisFoundation
 import AuralisRuntime
 import Foundation
 import Observation
 import OperatorsFeature
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
 import RuntimeKit
 import SocialCore
 import TrustedUIKit

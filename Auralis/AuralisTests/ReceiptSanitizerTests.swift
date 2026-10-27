@@ -1,6 +1,6 @@
 @testable import Auralis
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 import Testing
 
 struct ReceiptSanitizerTests {

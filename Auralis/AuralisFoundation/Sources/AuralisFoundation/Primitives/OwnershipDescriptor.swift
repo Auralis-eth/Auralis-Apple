@@ -13,7 +13,7 @@ import Foundation
 ///
 /// **It is metadata, not authority.** A descriptor saying a principal is the owner of something is a
 /// statement, not a key. Nothing here answers a permission question, and no authorization decision may
-/// read one: if a rule like "the owner may do X" is ever wanted, it belongs in `PolicyCore`, with
+/// read one: if a rule like "the owner may do X" is ever wanted, it belongs in `AuralisPolicy`, with
 /// ownership as one input among several and the decision recorded on a receipt. See `OWNERSHIP.md`.
 ///
 /// It is also not a free-standing registry, a proof of legal title, or an economic instrument. It

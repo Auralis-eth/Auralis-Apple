@@ -3,7 +3,7 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import MusicFeature
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import Testing
 

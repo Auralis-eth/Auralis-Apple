@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import AuralisFoundation
 import Foundation
-import PolicyCore
+import AuralisPolicy
 import AuralisRuntime
 
 /// The governed-pipeline tools that back the app's `PolicyControlledAction`s, so wallet/plugin actions

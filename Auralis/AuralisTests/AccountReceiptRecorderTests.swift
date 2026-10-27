@@ -3,8 +3,8 @@ import AccountsFeature
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
+import AuralisReceipts
 import AuralisRuntime
 import SwiftData
 import Testing

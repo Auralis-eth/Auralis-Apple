@@ -29,7 +29,7 @@ public extension TriggerSource {
 
 /// A scheduling-owned description of a work product an operator wants persisted.
 ///
-/// The durable artifact model belongs to ReceiptsCore. Keeping this request in the runtime domain
+/// The durable artifact model belongs to AuralisReceipts. Keeping this request in the runtime domain
 /// lets scheduling describe its output without depending outward on a persistence implementation.
 public struct RoutineArtifactDraft: Equatable, Sendable {
     public let type: ArtifactOutputType

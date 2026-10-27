@@ -1,7 +1,6 @@
-import ArtifactCore
+import AuralisReceipts
 import OperatorsFeature
 import AuralisRuntime
-import ReceiptsCore
 import SwiftUI
 #if canImport(UIKit)
 import UIKit

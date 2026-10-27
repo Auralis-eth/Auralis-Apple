@@ -1,6 +1,6 @@
 @testable import Auralis
 import Foundation
-import ReceiptStorage
+import AuralisReceipts
 import Testing
 
 struct AuraPlayCacheLaunchConfigurationTests {

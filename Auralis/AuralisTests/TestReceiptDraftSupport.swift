@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 
 /// These two convenience initializers keep an `actor:` parameter even though ``ReceiptDraft`` no
 /// longer has one, because it is the knob ~30 existing test call sites already turn. The coarse

@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import MusicFeature
-import ReceiptsCore
+import AuralisReceipts
 import SwiftData
 
 /// Projects the account's local music-NFT inventory for receipt/telemetry

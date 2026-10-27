@@ -1,7 +1,7 @@
 import AuralisShellCore
 import Foundation
 import NFTDomain
-import ReceiptsCore
+import AuralisReceipts
 import Testing
 
 extension AppDeepLink: @retroactive CustomTestStringConvertible {

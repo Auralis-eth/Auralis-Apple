@@ -1,4 +1,4 @@
-import ArtifactCore
+import AuralisReceipts
 import AuralisFoundation
 import AuralisRuntime
 import SwiftUI

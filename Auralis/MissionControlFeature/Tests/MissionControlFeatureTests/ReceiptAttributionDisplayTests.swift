@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 @testable import MissionControlFeature
-import ReceiptsCore
+import AuralisReceipts
 import AuralisRuntime
 import Testing
 

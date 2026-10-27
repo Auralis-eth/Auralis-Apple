@@ -32,7 +32,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../AuralisRuntime"),
-        .package(path: "../ReceiptsCore"),
+        .package(path: "../AuralisReceipts"),
         .package(path: "../AuraUI"),
         .package(path: "../AccountsCore"),
         .package(path: "../AuralisTestSupport"),
@@ -47,7 +47,7 @@ let package = Package(
             dependencies: [
                 .product(name: "AccountsCore", package: "AccountsCore"),
                 .product(name: "AuralisRuntime", package: "AuralisRuntime"),
-                .product(name: "ArtifactCore", package: "ReceiptsCore")
+                .product(name: "AuralisReceipts", package: "AuralisReceipts")
             ]
         ),
         .target(
@@ -61,7 +61,7 @@ let package = Package(
             name: "OperatorCore",
             dependencies: [
                 .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
-                "ReceiptsCore"
+                .product(name: "AuralisReceipts", package: "AuralisReceipts")
             ]
         ),
         .target(
@@ -83,7 +83,7 @@ let package = Package(
                 .product(name: "AuraPlayMediaCore", package: "AuraPlayEngines"),
                 "AuraUI",
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                "ReceiptsCore"
+                .product(name: "AuralisReceipts", package: "AuralisReceipts")
             ]
         ),
         .testTarget(
@@ -101,7 +101,7 @@ let package = Package(
             name: "OperatorCoreTests",
             dependencies: [
                 "OperatorCore",
-                "ReceiptsCore"
+                .product(name: "AuralisReceipts", package: "AuralisReceipts")
             ]
         ),
         .testTarget(
@@ -120,7 +120,7 @@ let package = Package(
                 "AuralisTestSupport",
                 .product(name: "AuralisPrimaryPersistence", package: "AccountsCore"),
                 .product(name: "PrimaryModelsTestSupport", package: "AccountsCore"),
-                .product(name: "ReceiptStorage", package: "ReceiptsCore")
+                .product(name: "AuralisReceipts", package: "AuralisReceipts")
             ],
             exclude: ["__Snapshots__"]
         )

@@ -1,8 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import Testing
 

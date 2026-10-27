@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 import SwiftData
 
 @ModelActor

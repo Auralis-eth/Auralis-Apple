@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import AuralisFoundation
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 import AuralisRuntime
 
 /// Renders a receipt's stored attribution for trust surfaces (P0.5-601/602).

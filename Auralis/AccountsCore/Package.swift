@@ -48,7 +48,7 @@ let package = Package(
         .library(name: "WalletConnectorKitSolanaAdapter", targets: ["WalletConnectorKitSolanaAdapter"])
     ],
     dependencies: [
-        .package(path: "../ReceiptsCore"),
+        .package(path: "../AuralisReceipts"),
         .package(path: "../AuralisRuntime"),
         .package(path: "../AuralisFoundation"),
         .package(path: "../AuralisTestSupport"),
@@ -93,7 +93,7 @@ let package = Package(
                 "AuralisPrimaryModels",
                 "AuralisPrimaryPersistence",
                 "AccountsCore",
-                .product(name: "ReceiptStorage", package: "ReceiptsCore"),
+                .product(name: "AuralisReceipts", package: "AuralisReceipts"),
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "TokenStorage",
                 "NFTPersistence"
@@ -158,7 +158,7 @@ let package = Package(
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "NFTDomain",
                 "AuralisPrimaryPersistence",
-                "ReceiptsCore"
+                .product(name: "AuralisReceipts", package: "AuralisReceipts")
             ]
         ),
         .target(
@@ -258,7 +258,7 @@ let package = Package(
                 "NFTPresentation",
                 "NFTProviderAdapters",
                 "ProviderKit",
-                .product(name: "ReceiptStorage", package: "ReceiptsCore")
+                .product(name: "AuralisReceipts", package: "AuralisReceipts")
             ]
         ),
         .testTarget(

@@ -24,9 +24,9 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../AuralisRuntime"),
-        .package(path: "../ReceiptsCore"),
+        .package(path: "../AuralisReceipts"),
         .package(path: "../OperatorsFeature"),
-        .package(path: "../PolicyCore"),
+        .package(path: "../AuralisPolicy"),
         .package(path: "../AuralisFoundation"),
         .package(path: "../AccountsCore"),
         // web3.swift 1.6.1 still references the pre-rename `secp256k1` product.,
@@ -38,16 +38,13 @@ let package = Package(
             name: "RuntimeKit",
             dependencies: [
                 .product(name: "AuralisRuntime", package: "AuralisRuntime"),
-                .product(name: "AutopilotCore", package: "PolicyCore"),
-                "ReceiptsCore",
+                .product(name: "AuralisPolicy", package: "AuralisPolicy"),
+                .product(name: "AuralisReceipts", package: "AuralisReceipts"),
                 .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
-                .product(name: "ArtifactCore", package: "ReceiptsCore"),
                 // The hardened SwiftData artifact store. Named explicitly rather than taken,
                 // transitively through OperatorRuntimeStorage, because `PersistentRuntimeHost`,
                 // constructs it directly and a transitive import is not a dependency.,
-                .product(name: "ArtifactStorage", package: "ReceiptsCore"),
                 "OperatorsFeature",
-                "PolicyCore",
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "OperatorRuntimeStorage",
                 .product(name: "SocialCore", package: "OperatorsFeature")
@@ -64,8 +61,7 @@ let package = Package(
         .target(
             name: "OperatorRuntimeStorage",
             dependencies: [
-                .product(name: "ArtifactCore", package: "ReceiptsCore"),
-                .product(name: "ArtifactStorage", package: "ReceiptsCore"),
+                .product(name: "AuralisReceipts", package: "AuralisReceipts"),
                 .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]
         ),
@@ -77,7 +73,7 @@ let package = Package(
                 "OperatorRuntimeStorage",
                 // The persistent-host suite builds the container itself, so it names the artifact,
                 // row type directly.,
-                .product(name: "ArtifactStorage", package: "ReceiptsCore"),
+                .product(name: "AuralisReceipts", package: "AuralisReceipts"),
                 .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]
         ),

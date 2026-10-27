@@ -8,7 +8,7 @@ import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
-import ReceiptsCore
+import AuralisReceipts
 import Security
 import SwiftData
 

@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import AuralisFoundation
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 import AuralisRuntime
 @testable import RuntimeKit
 import Testing

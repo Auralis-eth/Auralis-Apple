@@ -1,5 +1,5 @@
 import AccountsCore
-import PolicyCore
+import AuralisPolicy
 import AuralisRuntime
 @testable import RuntimeKit
 import Testing

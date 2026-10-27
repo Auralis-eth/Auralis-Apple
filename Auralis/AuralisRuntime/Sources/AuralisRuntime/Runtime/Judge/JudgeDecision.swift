@@ -24,7 +24,7 @@ public struct ApprovalRequest: Identifiable, Equatable, Sendable, Codable {
 /// only allowing or blocking it.
 ///
 /// AuralisRuntime stays a leaf package, so the mappings from `JudgeDecision` onto `StepAuthorization`
-/// (AuralisRuntime) and `PolicyGateResult` (PolicyCore) live in those higher layers, not here.
+/// (AuralisRuntime) and `PolicyGateResult` (AuralisPolicy) live in those higher layers, not here.
 public enum JudgeDecision: Equatable, Sendable, Codable {
     /// Permit the action to proceed.
     case allow

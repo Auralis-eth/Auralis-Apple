@@ -8,8 +8,7 @@ import NFTPresentation
 import NFTProviderAdapters
 import OSLog
 import ProviderKit
-import ReceiptStorage
-import ReceiptsCore
+import AuralisReceipts
 import SwiftData
 import SwiftUI
 

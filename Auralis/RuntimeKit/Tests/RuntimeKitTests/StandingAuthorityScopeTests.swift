@@ -1,8 +1,7 @@
-import ArtifactCore
+import AuralisReceipts
 import AuralisPrimaryModels
 import AuralisFoundation
 import Foundation
-import ReceiptsCore
 import AuralisRuntime
 @testable import RuntimeKit
 import Testing

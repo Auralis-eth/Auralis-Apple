@@ -3,7 +3,7 @@ import ENS
 import Foundation
 import MusicFeature
 import ProviderKit
-import ReceiptStorage
+import AuralisReceipts
 
 enum LocalDataClassification: String, CaseIterable, Sendable {
     case publicIdentifierMetadata

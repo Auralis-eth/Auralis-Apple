@@ -1,5 +1,5 @@
 import Observation
-import PolicyCore
+import AuralisPolicy
 import SwiftUI
 
 // MARK: - Mode System

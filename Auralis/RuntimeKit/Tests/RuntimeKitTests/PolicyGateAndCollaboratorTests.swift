@@ -1,11 +1,10 @@
-import ArtifactCore
+import AuralisReceipts
 import AccountsCore
 import AuralisPrimaryModels
 import AuralisFoundation
 import Foundation
 import AuralisRuntime
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
 @testable import RuntimeKit
 import Testing
 
@@ -90,12 +89,12 @@ struct PipelineBackedPolicyGateTests {
         #expect(result.outputs.isEmpty)
 
         // And it has to be *readable*. This message is rendered verbatim in the "Policy decision"
-        // alert, and non-emptiness was the whole bar it had to clear while it read "PolicyCore
+        // alert, and non-emptiness was the whole bar it had to clear while it read "AuralisPolicy
         // denied sign_message in Observe mode." — a module name and a schema identifier, both
         // shown to a person. The escalation branch next door always used the action's title.
         #expect(result.userMessage.contains(PolicyControlledAction.signMessage.title))
         #expect(!result.userMessage.contains(PolicyControlledAction.signMessage.rawValue))
-        #expect(!result.userMessage.contains("PolicyCore"))
+        #expect(!result.userMessage.contains("AuralisPolicy"))
     }
 
     /// The escalation path is the one most easily confused with a denial: `PolicyGateResult` has no
@@ -301,7 +300,7 @@ struct PipelineBackedPolicyGateTests {
 
 /// The standing-policy adapter that decides allow / block / escalate before a tool runs. Untested
 /// until now despite sitting on every governed call's critical path.
-@Suite("PolicyCore tool evaluator")
+@Suite("AuralisPolicy tool evaluator")
 struct PolicyCoreToolEvaluatorTests {
     private func proposal(
         capability: CapabilityID,

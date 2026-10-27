@@ -12,8 +12,7 @@ import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import RuntimeKit
 import SwiftData
 import Testing
@@ -941,7 +940,7 @@ private actor RecordingTransactionalResetService: TransactionalPrivacyResetting 
 /// The receipt ledger's reset, which `PrivacyResetService` now drives as its own step so it can go
 /// through `ReceiptPersistenceStore`'s ledger lock (F-46). Recorded rather than real because these
 /// cases are about the orchestration — which phases run, in what order, and what a failure reports —
-/// and the ledger reset's own behaviour is covered in `ReceiptStorage`.
+/// and the ledger reset's own behaviour is covered in `AuralisReceipts`.
 @MainActor
 private final class RecordingReceiptLedgerResetService: ReceiptLedgerPrivacyResetting {
     private(set) var resetCallCount = 0

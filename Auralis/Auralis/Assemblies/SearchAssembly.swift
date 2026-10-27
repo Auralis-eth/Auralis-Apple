@@ -1,4 +1,4 @@
-import ReceiptStorage
+import AuralisReceipts
 import AuralisRuntime
 import SwiftData
 

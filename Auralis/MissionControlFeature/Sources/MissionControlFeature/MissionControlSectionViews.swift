@@ -1,7 +1,6 @@
-import ArtifactCore
+import AuralisReceipts
 import AuralisFoundation
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
 import AuralisRuntime
 import RuntimeKit
 import SocialCore

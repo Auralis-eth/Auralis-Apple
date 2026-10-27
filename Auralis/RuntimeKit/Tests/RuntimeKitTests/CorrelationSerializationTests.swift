@@ -1,7 +1,6 @@
-import ArtifactCore
+import AuralisReceipts
 import AuralisRuntime
 import Foundation
-import ReceiptsCore
 import SocialCore
 import Testing
 

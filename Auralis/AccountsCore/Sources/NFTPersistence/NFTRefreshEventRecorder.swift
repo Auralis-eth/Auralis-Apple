@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import Foundation
 import NFTDomain
 import OSLog
-import ReceiptsCore
+import AuralisReceipts
 
 public final class ReceiptBackedNFTRefreshEventRecorder: NFTRefreshEventRecording, Sendable {
     private let receiptStore: any ReceiptStore

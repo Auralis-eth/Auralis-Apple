@@ -1,8 +1,7 @@
-import AutopilotCore
-import PolicyCore
+import AuralisPolicy
 import AuralisRuntime
 
-/// Adapts PolicyCore's standing action policy into AuralisRuntime's before-tool-call policy stage.
+/// Adapts AuralisPolicy's standing action policy into AuralisRuntime's before-tool-call policy stage.
 public struct PolicyCoreToolEvaluator: ToolPolicyEvaluating {
     private let cryptoMode: CryptoMode
 

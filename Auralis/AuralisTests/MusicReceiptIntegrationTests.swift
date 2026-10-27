@@ -2,9 +2,8 @@
 import AuralisFoundation
 import Foundation
 import MusicFeature
-import PolicyCore
-import ReceiptsCore
-import ReceiptStorage
+import AuralisPolicy
+import AuralisReceipts
 import SwiftData
 import Testing
 

@@ -1,5 +1,5 @@
 import OperatorCore
-import ReceiptsCore
+import AuralisReceipts
 
 struct AppExternalLinkEventLogger: ExternalLinkEventLogging {
     private let receiptEventLogger: ReceiptEventLogger

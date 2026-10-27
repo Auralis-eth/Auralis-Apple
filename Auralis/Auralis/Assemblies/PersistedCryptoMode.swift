@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
+import AuralisReceipts
 
 /// The user's persisted crypto mode, for assembly parameters that need a *correct* default.
 ///

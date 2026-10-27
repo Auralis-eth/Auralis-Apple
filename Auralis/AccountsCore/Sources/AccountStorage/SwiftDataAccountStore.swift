@@ -3,7 +3,7 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import NFTPersistence
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import AuralisFoundation
 import TokenStorage

@@ -1,6 +1,6 @@
 import MissionControlFeature
-import PolicyCore
-import ReceiptStorage
+import AuralisPolicy
+import AuralisReceipts
 import RuntimeKit
 import SwiftData
 import SwiftUI

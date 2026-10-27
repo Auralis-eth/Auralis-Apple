@@ -1,8 +1,7 @@
 import AuralisPrimaryModels
 import AuraUI
 import Foundation
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import SwiftUI
 import UIKit

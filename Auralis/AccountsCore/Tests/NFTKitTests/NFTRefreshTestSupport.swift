@@ -4,7 +4,7 @@ import AuralisPrimaryPersistence
 import AuralisTestSupport
 import Foundation
 import NFTDomain
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 
 @MainActor

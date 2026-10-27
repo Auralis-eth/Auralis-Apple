@@ -3,8 +3,8 @@ import AuralisFoundation
 import Foundation
 import OSLog
 import AuralisRuntime
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
+import AuralisReceipts
 import SocialCore
 
 /// Rituals, shared sessions, and the Social v1 event log (P1-SOCIAL-101/102).

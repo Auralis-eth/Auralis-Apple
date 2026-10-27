@@ -1,9 +1,8 @@
-import ArtifactCore
+import AuralisReceipts
 import AuralisPrimaryModels
 import Foundation
 import OSLog
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
 import AuralisRuntime
 
 /// Bridges the kernel's ``ReceiptEmitting`` seam to the app's real ``ReceiptStore``: every governed

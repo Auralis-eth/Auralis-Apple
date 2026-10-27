@@ -9,7 +9,7 @@ import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
-import PolicyCore
+import AuralisPolicy
 import ProviderKit
 import RuntimeKit
 import SwiftData

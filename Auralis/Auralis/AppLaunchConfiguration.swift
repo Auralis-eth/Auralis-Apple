@@ -1,6 +1,6 @@
 import Foundation
 import OSLog
-import ReceiptStorage
+import AuralisReceipts
 
 struct AppLaunchConfiguration {
     private static let logger = Logger(subsystem: "Auralis", category: "AppLaunchConfiguration")

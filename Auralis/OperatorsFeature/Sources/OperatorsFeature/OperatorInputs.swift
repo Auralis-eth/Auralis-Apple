@@ -46,7 +46,7 @@ public struct WatchTarget: Identifiable, Equatable, Sendable, Codable {
     /// Keying on the prefixed form keeps this agreeing with the check that admits the value.
     ///
     /// Lexical rather than via `AuralisEthereumAddress` because this package deliberately depends
-    /// only on `AuralisRuntime` and `ArtifactCore`, and the normalization that matters here — trim,
+    /// only on `AuralisRuntime` and `AuralisReceipts`, and the normalization that matters here — trim,
     /// fold case, one prefix spelling — needs no address validation to perform. Anything that is
     /// not a 40-hex body is left alone rather than collapsed, so an unrecognized value still
     /// compares consistently with itself.
@@ -587,7 +587,7 @@ public enum ObservationOutcome: String, Sendable, Equatable, Codable {
 }
 
 /// A real, locally-observed event that an operator can reason over. Deliberately provider-neutral so
-/// `OperatorsFeature` needn't depend on `ReceiptsCore`; the runtime maps its receipt ledger onto this.
+/// `OperatorsFeature` needn't depend on `AuralisReceipts`; the runtime maps its receipt ledger onto this.
 public struct ObservedActivity: Equatable, Sendable {
     /// Receipt that proves this observation, when it originated in the local receipt ledger.
     public let sourceReceiptID: UUID?

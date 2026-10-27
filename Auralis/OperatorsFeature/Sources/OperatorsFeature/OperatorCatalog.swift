@@ -1,4 +1,4 @@
-import ArtifactCore
+import AuralisReceipts
 import AuralisRuntime
 
 /// What kind of real work an operator performs — selects the data it gathers and how the artifact

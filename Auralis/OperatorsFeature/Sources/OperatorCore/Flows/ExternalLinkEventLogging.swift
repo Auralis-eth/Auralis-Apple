@@ -1,4 +1,4 @@
-import ReceiptsCore
+import AuralisReceipts
 
 @MainActor
 public protocol ExternalLinkEventLogging {

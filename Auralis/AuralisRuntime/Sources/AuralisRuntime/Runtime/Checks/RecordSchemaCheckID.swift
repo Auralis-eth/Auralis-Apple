@@ -4,7 +4,7 @@ import Foundation
 ///
 /// The identifiers live here while the checks themselves live in `RuntimeKit`, because a check ID is
 /// just a string but validating a receipt or artifact schema requires *seeing* those schemas — and
-/// both `ArtifactCore` and `OperatorsFeature` sit between this package and them. Tools that produce
+/// both `AuralisReceipts` and `OperatorsFeature` sit between this package and them. Tools that produce
 /// records need to name these checks; only the runtime host needs to implement them.
 public enum RecordSchemaCheckID {
     public static let receiptSchema = "receipt.schema"

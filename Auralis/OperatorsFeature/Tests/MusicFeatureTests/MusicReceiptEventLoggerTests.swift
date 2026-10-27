@@ -1,8 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 import MusicFeature
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import Testing
 

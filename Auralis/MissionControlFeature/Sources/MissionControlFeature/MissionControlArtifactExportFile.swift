@@ -1,4 +1,4 @@
-import ArtifactCore
+import AuralisReceipts
 import Foundation
 
 struct MissionControlArtifactExportFile: Identifiable, Equatable {

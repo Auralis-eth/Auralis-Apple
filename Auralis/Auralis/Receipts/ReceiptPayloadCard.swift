@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 import AuraUI
-import ReceiptsCore
+import AuralisReceipts
 import SwiftUI
 
 struct ReceiptPayloadCard: View {

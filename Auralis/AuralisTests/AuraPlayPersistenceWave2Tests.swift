@@ -4,7 +4,7 @@ import AuralisPrimaryPersistence
 import AuralisTestSupport
 import Foundation
 import MusicFeature
-import ReceiptsCore
+import AuralisReceipts
 import SwiftData
 import Testing
 

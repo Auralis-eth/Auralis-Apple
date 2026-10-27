@@ -2,8 +2,7 @@ import AccountsCore
 import AuralisPrimaryModels
 import Foundation
 import OSLog
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 
 @MainActor

@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import ContextCore
 import Foundation
-import PolicyCore
+import AuralisPolicy
 
 /// Live source implementation for Phase 0 context.
 struct LiveContextSource: ContextSource {

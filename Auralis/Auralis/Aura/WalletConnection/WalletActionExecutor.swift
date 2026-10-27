@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
-import PolicyCore
+import AuralisPolicy
 import AuralisRuntime
 
 /// Performs cleared ``PolicyControlledAction``s against the connected wallet — the real effect that turns

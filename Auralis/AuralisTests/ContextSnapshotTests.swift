@@ -3,10 +3,9 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import ContextCore
 import Foundation
-import PolicyCore
+import AuralisPolicy
 import ProviderKit
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import AuralisRuntime
 import SwiftData
 import Testing

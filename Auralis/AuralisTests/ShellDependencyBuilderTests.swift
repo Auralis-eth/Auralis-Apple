@@ -10,8 +10,7 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import AuralisRuntime
 import SwiftData
 import Testing
@@ -244,7 +243,7 @@ struct ShellDependencyBuilderTests {
 
         #expect(result.isAllowed == false)
         // The person's wording, not the schema's: this string is rendered verbatim in the
-        // "Policy decision" alert, and it used to read "PolicyCore denied sign_message in Observe mode."
+        // "Policy decision" alert, and it used to read "AuralisPolicy denied sign_message in Observe mode."
         #expect(result.userMessage == "“Sign Message” is not available in Observe mode.")
         let receipts = try await receiptStore.latest(limit: 10)
         #expect(receipts.contains { $0.trigger == "tool.blocked" })

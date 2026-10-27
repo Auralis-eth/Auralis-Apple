@@ -8,7 +8,7 @@ public enum InferenceLocality: String, Codable, CaseIterable, Sendable {
     /// from locality rather than stored separately, so it can never drift from the recorded fact:
     /// on-device work keeps inputs on the device; remote work sends them to a third-party provider.
     ///
-    /// - Note: `ReceiptsCore` mirrors this mapping locally (it is a dependency-free leaf) — keep the
+    /// - Note: `AuralisReceipts` mirrors this mapping locally (it is a dependency-free leaf) — keep the
     ///   two in sync if the wording changes.
     public var privacyImpact: String {
         switch self {

@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 
 public struct MusicLibraryIndexRebuildResult: Equatable, Sendable {
     public let scannedCount: Int

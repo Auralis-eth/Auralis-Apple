@@ -1,5 +1,5 @@
 import AuralisPrimaryModels
-import ReceiptsCore
+import AuralisReceipts
 
 public extension ReceiptEventLogger {
     func recordMusicLibraryIndexStarted(

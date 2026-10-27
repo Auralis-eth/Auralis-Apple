@@ -1,4 +1,4 @@
-import PolicyCore
+import AuralisPolicy
 import RuntimeKit
 import SwiftData
 

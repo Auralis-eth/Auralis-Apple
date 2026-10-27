@@ -4,7 +4,7 @@ import Foundation
 import OperatorsFeature
 import OSLog
 import AuralisRuntime
-import ReceiptsCore
+import AuralisReceipts
 
 #if canImport(FoundationModels)
 import FoundationModels

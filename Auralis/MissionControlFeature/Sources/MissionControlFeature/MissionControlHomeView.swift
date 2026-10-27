@@ -1,4 +1,4 @@
-import ReceiptsCore
+import AuralisReceipts
 import AuralisRuntime
 import RuntimeKit
 import SwiftUI

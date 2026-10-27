@@ -1,13 +1,13 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 import Testing
 
 /// How a receipt's stored account key is compared against the timeline's active scope.
 ///
 /// The two sides are written by different code with different rules —
-/// `ReceiptStorage.ReceiptAccountAddress.resolve` lowercases the stored key, while the scope side
+/// `AuralisReceipts.ReceiptAccountAddress.resolve` lowercases the stored key, while the scope side
 /// went through `AuralisEthereumAddress`, which *adds* a `0x` prefix. Anything that makes those two
 /// disagree removes a receipt from its own account's timeline silently, so the agreement is pinned
 /// here rather than left to the two call sites staying in step.

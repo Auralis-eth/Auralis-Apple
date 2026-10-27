@@ -1,13 +1,12 @@
-import ArtifactCore
+import AuralisReceipts
 import Foundation
-import ReceiptsCore
 import AuralisRuntime
 
 // The record-shape deterministic checks (P0.5-802).
 //
 // These live in `RuntimeKit` rather than beside the other standard checks in `AuralisRuntime` because
-// `ArtifactCore` already depends on `AuralisRuntime` — authoring them there would close a dependency
-// cycle. `RuntimeKit` sits above both `ArtifactCore` and `ReceiptsCore`, so it is the lowest point in
+// `AuralisReceipts` already depends on `AuralisRuntime` — authoring them there would close a dependency
+// cycle. `RuntimeKit` sits above both `AuralisReceipts` and `AuralisReceipts`, so it is the lowest point in
 // the graph that can see the schemas it validates. Their *identifiers* stay in `AuralisRuntime` as
 // ``RecordSchemaCheckID``, so tools further down the graph can still name them.
 

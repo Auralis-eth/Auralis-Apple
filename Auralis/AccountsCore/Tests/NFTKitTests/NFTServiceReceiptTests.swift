@@ -8,8 +8,7 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import Testing
 
@@ -564,7 +563,7 @@ struct NFTServiceReceiptTests {
     /// refuses a re-entrant append rather than trapping, which only helps if the refresh survives the
     /// refusal — so a store that throws from every `append` must still leave a fetched, persisted
     /// inventory and an unflagged service. The thrown error is a stand-in: the ledger's own
-    /// re-entrancy error is internal to `ReceiptStorage`, and the recorder only reads
+    /// re-entrancy error is internal to `AuralisReceipts`, and the recorder only reads
     /// `localizedDescription`, so the identity of the failure is not what is being proven here.
     @Test("a refresh completes when every receipt append fails")
     @MainActor

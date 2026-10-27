@@ -3,8 +3,7 @@ import ImagePlayground
 import MusicFeature
 import OSLog
 import PhotosUI
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import SwiftUI
 import UIKit

@@ -2,7 +2,7 @@
 /// Decides whether a plan step may run, and how far it may go on its own.
 ///
 /// This is the seam between planning (pure, in this package) and authority (policy, app
-/// mode, trusted routines — supplied by a higher layer such as AutopilotCore). The
+/// mode, trusted routines — supplied by a higher layer such as AuralisPolicy). The
 /// orchestrator never decides for itself whether a state change is allowed; it always
 /// asks an authorizer. Marked `@MainActor` because real authorizers consult the app's
 /// policy gate, which is main-actor isolated.

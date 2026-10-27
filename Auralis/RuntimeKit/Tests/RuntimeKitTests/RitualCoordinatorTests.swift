@@ -1,6 +1,6 @@
 import Foundation
 import AuralisRuntime
-import ReceiptsCore
+import AuralisReceipts
 @testable import RuntimeKit
 import SocialCore
 import Testing

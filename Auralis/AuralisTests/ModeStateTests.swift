@@ -1,7 +1,7 @@
 @testable import Auralis
 import AuralisTestSupport
 import Foundation
-import PolicyCore
+import AuralisPolicy
 import Testing
 
 @MainActor

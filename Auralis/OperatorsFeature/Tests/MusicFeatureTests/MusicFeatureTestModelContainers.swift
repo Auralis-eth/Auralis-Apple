@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import MusicFeature
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 
 @MainActor

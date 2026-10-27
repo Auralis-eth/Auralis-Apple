@@ -1,7 +1,7 @@
 import AuralisPrimaryPersistence
 import Foundation
 import OSLog
-import ReceiptStorage
+import AuralisReceipts
 import RuntimeKit
 import SwiftData
 

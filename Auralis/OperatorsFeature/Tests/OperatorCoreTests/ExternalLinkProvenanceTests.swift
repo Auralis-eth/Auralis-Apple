@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 import OperatorCore
-import ReceiptsCore
+import AuralisReceipts
 import Testing
 
 /// What an external-link receipt records about who opened the link and under what authority, and the

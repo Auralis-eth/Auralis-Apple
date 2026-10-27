@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import AuralisFoundation
 import Foundation
 import OSLog
-import ReceiptsCore
+import AuralisReceipts
 import AuralisRuntime
 
 /// Turns governance events that do not otherwise pass through the governed receipt sink into

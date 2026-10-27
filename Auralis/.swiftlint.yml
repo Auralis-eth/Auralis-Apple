@@ -13,8 +13,8 @@ included:
   - AuralisTestSupport
   - MissionControlFeature
   - OperatorsFeature
-  - PolicyCore
-  - ReceiptsCore
+  - AuralisPolicy
+  - AuralisReceipts
   - AuralisRuntime
   - RuntimeKit
 
@@ -31,8 +31,8 @@ excluded:
   - AuralisTestSupport/.build
   - MissionControlFeature/.build
   - OperatorsFeature/.build
-  - PolicyCore/.build
-  - ReceiptsCore/.build
+  - AuralisPolicy/.build
+  - AuralisReceipts/.build
   - AuralisRuntime/.build
   - RuntimeKit/.build
 

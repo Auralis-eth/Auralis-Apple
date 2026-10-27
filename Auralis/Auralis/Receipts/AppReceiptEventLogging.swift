@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import ContextCore
 import Foundation
 import OperatorCore
-import ReceiptsCore
+import AuralisReceipts
 
 @MainActor
 extension ReceiptEventLogger {

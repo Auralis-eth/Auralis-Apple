@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import AuralisFoundation
 import Foundation
 import OSLog
-import ReceiptsCore
+import AuralisReceipts
 
 public struct MusicReceiptEventLogger: Sendable {
     private let receiptStore: any ReceiptStore
@@ -409,7 +409,7 @@ private extension MusicReceiptEventLogger {
         do {
             return try await receiptStore.append(
                 ReceiptDraft(
-                    // Derived from the structured column, matching `ReceiptsCore.ReceiptEventLogger`:
+                    // Derived from the structured column, matching `AuralisReceipts.ReceiptEventLogger`:
                     // setting the two from independent switches lets the coarse filter drift out of
                     // agreement with the real attribution, and a receipt whose columns disagree about
                     // whether a human acted is worse than one that is merely coarse.

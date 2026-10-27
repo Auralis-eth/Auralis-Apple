@@ -1,7 +1,7 @@
 import AuralisFoundation
 import Foundation
 @testable import MissionControlFeature
-import PolicyCore
+import AuralisPolicy
 import AuralisRuntime
 import Testing
 

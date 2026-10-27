@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import Foundation
 import OperatorsFeature
 import OSLog
-import ReceiptsCore
+import AuralisReceipts
 
 /// Backs the built-in operators with the app's *real* local activity: the append-only receipt ledger.
 /// Requires no external network authority (ADR-010, P1-701..703) — it only reads on-device records and

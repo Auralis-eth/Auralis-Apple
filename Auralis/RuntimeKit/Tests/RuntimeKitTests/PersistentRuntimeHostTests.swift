@@ -1,9 +1,7 @@
-import ArtifactCore
-import ArtifactStorage
+import AuralisReceipts
 import Foundation
 import OperatorRuntimeStorage
 import AuralisRuntime
-import ReceiptsCore
 @testable import RuntimeKit
 import SwiftData
 import Testing
@@ -249,7 +247,7 @@ struct PersistentRuntimeHostTests {
     /// Which artifact store the persistent host actually builds.
     ///
     /// Two near-identical `SwiftDataArtifactStore` types existed: the hardened one in
-    /// `ArtifactStorage`, with 21 tests and zero production imports, and a weaker copy declared in
+    /// `AuralisReceipts`, with 21 tests and zero production imports, and a weaker copy declared in
     /// `OperatorRuntimeStorage` that this host was the sole caller of. The copy's write methods
     /// `guard let … else { return }` on a missing row, so they reported success for a mutation that
     /// wrote nothing — and `MissionControlHomeModel.updateArtifactLifecycle` appends an

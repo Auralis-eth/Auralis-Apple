@@ -3,7 +3,7 @@ import AccountsFeature
 import AccountStorage
 import AuralisPrimaryModels
 import ENS
-import ReceiptsCore
+import AuralisReceipts
 import SwiftData
 
 @MainActor

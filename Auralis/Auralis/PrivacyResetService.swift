@@ -6,8 +6,7 @@ import ENS
 import Foundation
 import MusicFeature
 import ProviderKit
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import RuntimeKit
 import SwiftData
 import TokenStorage

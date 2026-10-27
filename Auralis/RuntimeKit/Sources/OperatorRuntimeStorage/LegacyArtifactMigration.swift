@@ -1,5 +1,4 @@
-import ArtifactCore
-import ArtifactStorage
+import AuralisReceipts
 import Foundation
 import OSLog
 import SwiftData
@@ -9,7 +8,7 @@ private let migrationLogger = Logger(subsystem: "Auralis", category: "LegacyArti
 /// Copies artifacts out of the legacy ``StoredArtifactRecord`` table into ``StoredArtifact``.
 ///
 /// Artifacts used to be persisted by a `SwiftDataArtifactStore` declared in this package, as one
-/// JSON blob per row. The store that reads and writes them now is `ArtifactStorage`'s — the one with
+/// JSON blob per row. The store that reads and writes them now is `AuralisReceipts`'s — the one with
 /// real columns, an external-storage body, a rollback guard on every write, and a read path that
 /// refuses a row it cannot interpret rather than coercing an unknown approval state to `.draft`.
 /// Two same-named types coexisted for a while; the hardened one had 21 passing tests and zero

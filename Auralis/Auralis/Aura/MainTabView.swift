@@ -9,9 +9,8 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import Observation
-import PolicyCore
-import ReceiptsCore
-import ReceiptStorage
+import AuralisPolicy
+import AuralisReceipts
 import SwiftData
 import SwiftUI
 

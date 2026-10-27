@@ -1,12 +1,11 @@
-import ArtifactCore
+import AuralisReceipts
 import AuralisPrimaryModels
 import AuralisFoundation
 import AuralisRuntime
 import Foundation
 import Observation
 import OperatorsFeature
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
 import RuntimeKit
 import SocialCore
 import TrustedUIKit
@@ -672,7 +671,7 @@ public final class MissionControlHomeModel {
         public let additionalRows: [ReceiptDetailRow]
 
         /// Non-empty categorized sections in the canonical order and titles shared with the
-        /// Receipts tab (both surfaces source this from `ReceiptsCore`).
+        /// Receipts tab (both surfaces source this from `AuralisReceipts`).
         public var sections: [ReceiptDetailSection] {
             ReceiptContentCategory.presentationOrder.compactMap { category in
                 let rows = rows(for: category)
@@ -831,9 +830,9 @@ public final class MissionControlHomeModel {
         let details = receipt.details.values
         let categorized = ReceiptContentPresenter.categorizedRows(details: details)
         // Sections, ordering, outcome, change rows, and searchable text all come from the one
-        // canonical `ReceiptsCore.ReceiptPresentation` the Receipts tab uses, so the two surfaces
+        // canonical `AuralisReceipts.ReceiptPresentation` the Receipts tab uses, so the two surfaces
         // stay in lockstep. Mission Control keeps its own per-category row accessors on top of it.
-        let core = ReceiptsCore.ReceiptPresentation(
+        let core = AuralisReceipts.ReceiptPresentation(
             summary: receipt.summary,
             trigger: receipt.trigger,
             scope: receipt.scope,

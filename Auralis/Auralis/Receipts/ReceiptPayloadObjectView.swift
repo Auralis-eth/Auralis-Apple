@@ -1,5 +1,5 @@
 import AuralisPrimaryModels
-import ReceiptsCore
+import AuralisReceipts
 import SwiftUI
 
 struct ReceiptPayloadObjectView: View {

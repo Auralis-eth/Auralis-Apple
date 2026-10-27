@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 import Foundation
-import ReceiptsCore
+import AuralisReceipts
 
 extension ReceiptPayload {
     var timelineAccountAddress: String? {

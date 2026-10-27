@@ -1,11 +1,10 @@
 import AccountsCore
-import ArtifactCore
+import AuralisReceipts
 import AuralisPrimaryModels
 import AuralisRuntime
 import Foundation
 import OperatorsFeature
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
 import SocialCore
 
 // The grouped composition surface for ``RuntimeHost``.

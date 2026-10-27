@@ -2,8 +2,7 @@
 import AuralisPrimaryModels
 import AuralisTestSupport
 import Foundation
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 import Testing
 
@@ -578,7 +577,7 @@ struct ReceiptStoreTests {
     /// 10 deliberately changed that: an account holding exactly its genesis row with no anchor is
     /// indistinguishable from an append killed between the row save and the anchor write, and
     /// branding that ordinary crash window as a forged ledger made `exportAll()` refuse the history
-    /// permanently. `ReceiptStorage`'s own `genesisAppendCrashWindowIsHealedNotTampering` pins the
+    /// permanently. `AuralisReceipts`'s own `genesisAppendCrashWindowIsHealedNotTampering` pins the
     /// rule with the full argument, and this test is the app-hosted view of the same store.
     ///
     /// It went unnoticed for a round because nothing re-ran the app plan after Round 10, and then

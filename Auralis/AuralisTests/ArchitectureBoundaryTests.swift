@@ -163,15 +163,15 @@ struct ArchitectureBoundaryTests {
         )
 
         let policyManifest = try String(
-            contentsOf: projectRoot.appending(path: "PolicyCore/Package.swift"),
+            contentsOf: projectRoot.appending(path: "AuralisPolicy/Package.swift"),
             encoding: .utf8
         )
-        #expect(policyManifest.contains("name: \"AutopilotCore\""))
+        #expect(policyManifest.contains("name: \"AuralisPolicy\""))
         #expect(
             FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AutopilotCore/Package.swift").path()
+                atPath: projectRoot.appending(path: "AuralisPolicy/Package.swift").path()
             ) == false,
-            "AutopilotCore must remain an internal AuralisPolicy target, not return as a package root."
+            "AuralisPolicy must remain an internal AuralisPolicy target, not return as a package root."
         )
 
         let providerManifest = try String(
@@ -264,10 +264,10 @@ struct ArchitectureBoundaryTests {
         )
 
         let receiptsManifest = try String(
-            contentsOf: projectRoot.appending(path: "ReceiptsCore/Package.swift"),
+            contentsOf: projectRoot.appending(path: "AuralisReceipts/Package.swift"),
             encoding: .utf8
         )
-        for target in ["ArtifactCore", "ArtifactStorage", "ReceiptStorage"] {
+        for target in ["AuralisReceipts", "AuralisReceipts", "AuralisReceipts"] {
             #expect(receiptsManifest.contains("name: \"\(target)\""))
             #expect(
                 FileManager.default.fileExists(
@@ -439,9 +439,9 @@ struct ArchitectureBoundaryTests {
         )
         let imports = try swiftImports(under: packageRoot.appending(path: "Sources"))
 
-        #expect(manifest.contains("../ReceiptStorage") == false)
+        #expect(manifest.contains("../AuralisReceipts") == false)
         #expect(manifest.contains("../AuralisPrimaryModels") == false)
-        #expect(imports.contains("ReceiptStorage") == false)
+        #expect(imports.contains("AuralisReceipts") == false)
         #expect(imports.contains("AuralisPrimaryModels") == false)
         #expect(imports.contains("AuralisPrimaryPersistence") == false)
     }
@@ -450,7 +450,7 @@ struct ArchitectureBoundaryTests {
     func runtimeEvidencePackagesStayIndependentFromPrimaryModels() throws {
         let projectRoot = try projectRootURL()
 
-        for package in ["AuralisRuntime", "PolicyCore", "ReceiptsCore"] {
+        for package in ["AuralisRuntime", "AuralisPolicy", "AuralisReceipts"] {
             let packageRoot = projectRoot.appending(path: package)
             let manifest = try String(
                 contentsOf: packageRoot.appending(path: "Package.swift"),
@@ -469,7 +469,7 @@ struct ArchitectureBoundaryTests {
         let projectRoot = try projectRootURL()
         let corePackages = [
             "AuralisContext", "AuralisFoundation", "AuralisTestSupport",
-            "PolicyCore", "ReceiptsCore", "AuralisRuntime"
+            "AuralisPolicy", "AuralisReceipts", "AuralisRuntime"
         ]
         let uiAndCompositionPackages = [
             "AccountsCore", "AuraPlayEngines", "AuraUI", "MissionControlFeature",
@@ -617,7 +617,7 @@ struct ArchitectureBoundaryTests {
     func receiptWireValuesBelongToReceiptsCore() throws {
         let projectRoot = try projectRootURL()
         let receiptSource = projectRoot.appending(
-            path: "ReceiptsCore/Sources/ReceiptsCore/Models/ReceiptWireValues.swift"
+            path: "AuralisReceipts/Sources/AuralisReceipts/Models/ReceiptWireValues.swift"
         )
         let source = try String(contentsOf: receiptSource, encoding: .utf8)
         let legacyURL = projectRoot.appending(
@@ -631,13 +631,13 @@ struct ArchitectureBoundaryTests {
             #expect(
                 source.contains("public enum \(declaration)")
                     || source.contains("public struct \(declaration)"),
-                "ReceiptsCore must own \(declaration)"
+                "AuralisReceipts must own \(declaration)"
             )
         }
 
         let actorSource = try String(
             contentsOf: projectRoot.appending(
-                path: "ReceiptsCore/Sources/ReceiptsCore/Models/ReceiptActorTypes.swift"
+                path: "AuralisReceipts/Sources/AuralisReceipts/Models/ReceiptActorTypes.swift"
             ),
             encoding: .utf8
         )
@@ -645,7 +645,7 @@ struct ArchitectureBoundaryTests {
             #expect(
                 actorSource.contains("public enum \(declaration)")
                     || actorSource.contains("public struct \(declaration)"),
-                "ReceiptsCore must own \(declaration)"
+                "AuralisReceipts must own \(declaration)"
             )
             #expect(
                 legacySource.contains("public enum \(declaration)") == false
@@ -677,7 +677,7 @@ struct ArchitectureBoundaryTests {
         let projectRoot = try projectRootURL()
         let source = try String(
             contentsOf: projectRoot.appending(
-                path: "PolicyCore/Sources/PolicyCore/Services/PolicyActionGating.swift"
+                path: "AuralisPolicy/Sources/AuralisPolicy/Services/PolicyActionGating.swift"
             ),
             encoding: .utf8
         )
@@ -703,7 +703,7 @@ struct ArchitectureBoundaryTests {
         let projectRoot = try projectRootURL()
         let decidingPackages = [
             "AuralisFoundation",
-            "PolicyCore",
+            "AuralisPolicy",
             "AuralisRuntime",
             "RuntimeKit",
             "MissionControlFeature"
@@ -772,16 +772,16 @@ struct ArchitectureBoundaryTests {
             "AuralisPrimaryModels": 0,
             "AuralisFoundation": 0,
             "AuralisRuntime": 1,
-            "ReceiptsCore": 2,
-            "ArtifactCore": 2,
+            "AuralisReceipts": 2,
+            "AuralisReceipts": 2,
             "AuralisRuntime": 2,
             "AuralisRuntime": 2,
             "AuralisRuntime": 2,
-            "ReceiptStorage": 3,
-            "ArtifactStorage": 3,
-            "PolicyCore": 4,
+            "AuralisReceipts": 3,
+            "AuralisReceipts": 3,
+            "AuralisPolicy": 4,
             "AuralisRuntime": 4,
-            "AutopilotCore": 4,
+            "AuralisPolicy": 4,
             "OperatorsFeature": 5,
             "AuraUI": 5,
             "RuntimeKit": 6,
@@ -825,7 +825,7 @@ struct ArchitectureBoundaryTests {
         )
     }
 
-    @Test("NFTKit production depends on ReceiptsCore and keeps ReceiptStorage test-only")
+    @Test("NFTKit production depends on AuralisReceipts and keeps AuralisReceipts test-only")
     func nftKitKeepsReceiptStorageTestOnly() throws {
         let projectRoot = try projectRootURL()
         let packageFile = projectRoot
@@ -839,10 +839,10 @@ struct ArchitectureBoundaryTests {
             imports.formUnion(try swiftImports(under: nftSourceRoot.appending(path: target)))
         }
 
-        #expect(packageText.contains("../ReceiptsCore"))
-        #expect(packageText.contains("name: \"ReceiptStorage\""))
-        #expect(sourceImports.contains("ReceiptsCore"))
-        #expect(sourceImports.contains("ReceiptStorage") == false)
+        #expect(packageText.contains("../AuralisReceipts"))
+        #expect(packageText.contains("name: \"AuralisReceipts\""))
+        #expect(sourceImports.contains("AuralisReceipts"))
+        #expect(sourceImports.contains("AuralisReceipts") == false)
     }
 
     @Test("NFTKit layers keep one-way dependencies")
@@ -873,7 +873,7 @@ struct ArchitectureBoundaryTests {
             "ProviderKit",
             "ChainProviders",
             "ExplorerAdapter",
-            "ReceiptsCore",
+            "AuralisReceipts",
             "NFTProviderAdapters",
             "NFTPersistence",
             "NFTPresentation"
@@ -884,7 +884,7 @@ struct ArchitectureBoundaryTests {
             "SwiftData",
             "NFTPersistence",
             "NFTPresentation",
-            "ReceiptsCore"
+            "AuralisReceipts"
         ]
         let forbiddenPersistenceImports: Set<String> = [
             "NFTProviderAdapters",
@@ -1017,10 +1017,10 @@ struct ArchitectureBoundaryTests {
         )
         .filter { $0.path().contains("/Receipts/") }
 
-        #expect(packageText.contains("../ReceiptsCore"))
+        #expect(packageText.contains("../AuralisReceipts"))
         #expect(packageText.contains("../AuralisFoundation"))
         #expect(packageText.contains(".product(name: \"AuralisFoundation\", package: \"AuralisFoundation\")"))
-        #expect(musicFeatureImports.contains("ReceiptsCore"))
+        #expect(musicFeatureImports.contains("AuralisReceipts"))
         #expect(musicFeatureImports.contains("AuralisFoundation"))
         #expect(playbackRuntimeSource.contains("import NFTKit") == false)
         #expect(
@@ -1292,7 +1292,7 @@ struct ArchitectureBoundaryTests {
         let governedSourcePaths = [
             "OperatorsFeature/Sources/OperatorCore",
             "OperatorsFeature/Sources/OperatorsFeature",
-            "PolicyCore/Sources/AutopilotCore",
+            "AuralisPolicy/Sources/AuralisPolicy",
             "AuralisRuntime/Sources/AuralisRuntime"
         ]
         let forbiddenImports: Set<String> = ["SwiftUI", "UIKit", "AppKit"]
@@ -1481,7 +1481,7 @@ struct ArchitectureBoundaryTests {
                     "AuralisPrimaryPersistence",
                     "AuraUI",
                     "AuralisFoundation",
-                    "ReceiptsCore",
+                    "AuralisReceipts",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"
@@ -1494,7 +1494,7 @@ struct ArchitectureBoundaryTests {
                     "AuralisPrimaryPersistence",
                     "AuraUI",
                     "AuralisFoundation",
-                    "ReceiptsCore",
+                    "AuralisReceipts",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"
@@ -1541,7 +1541,7 @@ struct ArchitectureBoundaryTests {
                     "NFTPersistence",
                     "NFTPresentation",
                     "NFTProviderAdapters",
-                    "ReceiptStorage",
+                    "AuralisReceipts",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"
@@ -1554,7 +1554,7 @@ struct ArchitectureBoundaryTests {
                     "NFTKit",
                     "NFTProviderAdapters",
                     "ProviderKit",
-                    "ReceiptStorage"
+                    "AuralisReceipts"
                 ],
                 reason: "MusicFeature presentation may use SwiftUI and SwiftData-facing models but not provider or storage implementation packages"
             ),
@@ -1564,7 +1564,7 @@ struct ArchitectureBoundaryTests {
                     "NFTKit",
                     "NFTProviderAdapters",
                     "ProviderKit",
-                    "ReceiptStorage"
+                    "AuralisReceipts"
                 ],
                 reason: "MusicFeature app entry points may compose presentation but not provider or storage implementation packages"
             ),
@@ -1624,7 +1624,7 @@ struct ArchitectureBoundaryTests {
                 forbiddenImports: [
                     "NFTKit",
                     "ProviderKit",
-                    "ReceiptStorage"
+                    "AuralisReceipts"
                 ],
                 reason: "NFTLibraryFeature presentation may use SwiftUI and explicit NFTKit layer products, but not umbrella/provider/storage implementation imports"
             ),
@@ -1638,7 +1638,7 @@ struct ArchitectureBoundaryTests {
                     "NFTPresentation",
                     "NFTProviderAdapters",
                     "ProviderKit",
-                    "ReceiptsCore",
+                    "AuralisReceipts",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"
@@ -1651,7 +1651,7 @@ struct ArchitectureBoundaryTests {
                     "AuralisPrimaryPersistence",
                     "NFTPersistence",
                     "NFTPresentation",
-                    "ReceiptsCore",
+                    "AuralisReceipts",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"

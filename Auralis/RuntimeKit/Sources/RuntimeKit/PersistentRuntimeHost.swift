@@ -1,13 +1,11 @@
 import AccountsCore
-import ArtifactCore
-import ArtifactStorage
+import AuralisReceipts
 import AuralisRuntime
 import Foundation
 import OperatorRuntimeStorage
 import OperatorsFeature
 import OSLog
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
 import SocialCore
 import SwiftData
 
@@ -154,7 +152,7 @@ public extension RuntimeHost {
         let playbookStore = SwiftDataPlaybookStore(modelContainer: container)
         let performanceStore = SwiftDataPerformanceStore(modelContainer: container)
         let executionRecordStore = SwiftDataExecutionRecordStore(modelContainer: container)
-        // `ArtifactStorage`'s store, which is the hardened one: every write is rolled back if its
+        // `AuralisReceipts`'s store, which is the hardened one: every write is rolled back if its
         // commit fails, a mutation naming a row that no longer exists throws
         // `ArtifactStoreWriteError.artifactNotFound` instead of returning normally, and a row this
         // build cannot interpret is refused rather than coerced to `.draft`. The near-identical

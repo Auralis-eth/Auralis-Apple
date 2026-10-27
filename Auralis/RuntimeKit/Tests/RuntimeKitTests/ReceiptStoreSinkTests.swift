@@ -1,9 +1,8 @@
-import ArtifactCore
+import AuralisReceipts
 import AuralisPrimaryModels
 import Foundation
 import AuralisRuntime
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
 @testable import RuntimeKit
 import SocialCore
 import Testing

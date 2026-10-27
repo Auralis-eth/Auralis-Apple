@@ -3,8 +3,8 @@ import AuralisFoundation
 import Foundation
 @testable import MissionControlFeature
 import AuralisRuntime
-import PolicyCore
-import ReceiptsCore
+import AuralisPolicy
+import AuralisReceipts
 import RuntimeKit
 import SnapshotTesting
 import SwiftUI

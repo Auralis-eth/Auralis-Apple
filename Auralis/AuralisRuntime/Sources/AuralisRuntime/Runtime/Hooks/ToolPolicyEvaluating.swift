@@ -3,7 +3,7 @@ public protocol ToolPolicyEvaluating: Sendable {
     func evaluate(_ proposal: ActionProposal, checkResults: [DeterministicCheckResult]) async -> JudgeDecision
 }
 
-/// Neutral policy used by isolated AuralisRuntime tests. Shipping composition injects its PolicyCore adapter.
+/// Neutral policy used by isolated AuralisRuntime tests. Shipping composition injects its AuralisPolicy adapter.
 public struct AllowAllToolPolicy: ToolPolicyEvaluating {
     public init() { }
 

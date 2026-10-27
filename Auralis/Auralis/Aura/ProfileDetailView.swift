@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuraUI
-import PolicyCore
+import AuralisPolicy
 import SwiftData
 import SwiftUI
 

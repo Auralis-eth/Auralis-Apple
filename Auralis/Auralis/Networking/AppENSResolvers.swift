@@ -6,8 +6,7 @@ import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import ProviderKit
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import SwiftData
 
 @MainActor

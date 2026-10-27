@@ -12,8 +12,8 @@ packages=(
     AuralisFoundation
     MissionControlFeature
     OperatorsFeature
-    PolicyCore
-    ReceiptsCore
+    AuralisPolicy
+    AuralisReceipts
     AuralisRuntime
     RuntimeKit
 )

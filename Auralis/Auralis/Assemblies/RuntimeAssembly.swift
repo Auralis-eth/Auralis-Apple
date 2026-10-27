@@ -1,10 +1,9 @@
 import AccountsCore
 import AuralisPrimaryModels
 import OperatorsFeature
-import PolicyCore
+import AuralisPolicy
 import ProviderKit
-import ReceiptsCore
-import ReceiptStorage
+import AuralisReceipts
 import AuralisRuntime
 import RuntimeKit
 import SwiftData

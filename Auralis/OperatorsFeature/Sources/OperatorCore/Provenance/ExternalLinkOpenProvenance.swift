@@ -1,4 +1,4 @@
-import ReceiptsCore
+import AuralisReceipts
 
 public enum ExternalLinkOpenProvenance: String, Equatable, Sendable {
     case userConfirmedTap = "user_confirmed_tap"

@@ -8,9 +8,9 @@ import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
-import PolicyCore
+import AuralisPolicy
 import ProviderKit
-import ReceiptsCore
+import AuralisReceipts
 import SwiftData
 import TokenStorage
 

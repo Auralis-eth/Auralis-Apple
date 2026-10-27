@@ -1,5 +1,4 @@
-import ArtifactCore
-import ArtifactStorage
+import AuralisReceipts
 import AuralisRuntime
 import Foundation
 import OSLog
@@ -136,15 +135,15 @@ public final class StoredExecutionRecordRow {
 /// for querying.
 ///
 /// **Legacy, read-only.** Nothing writes this table any more. Artifacts are persisted by
-/// `ArtifactStorage.StoredArtifact`, which keeps the fields as real columns, bounds the body with
+/// `AuralisReceipts.StoredArtifact`, which keeps the fields as real columns, bounds the body with
 /// external storage, and — the reason for the move — refuses a row it cannot interpret instead of
 /// coercing an unknown approval state to `.draft`. Two same-named `SwiftDataArtifactStore` types
-/// existed for a while, one here and one in `ArtifactStorage`; the hardened one had 21 passing tests
+/// existed for a while, one here and one in `AuralisReceipts`; the hardened one had 21 passing tests
 /// and zero production imports, while this file's weaker one was what `PersistentRuntimeHost`
 /// actually built. Its write methods returned normally when the named row was missing, so a person
 /// who approved an artifact deleted from under them was told the decision had been recorded.
 ///
-/// Kept registered in the schema so `ArtifactStorage.LegacyArtifactMigration` can read rows written
+/// Kept registered in the schema so `AuralisReceipts.LegacyArtifactMigration` can read rows written
 /// before the move and copy them across. Remove the type only once no installation can still be
 /// carrying one.
 @Model
@@ -317,7 +316,7 @@ public enum OperatorRuntimeStorage {
             StoredPlaybookRecord.self,
             StoredPerformanceEventRecord.self,
             StoredExecutionRecordRow.self,
-            // The current artifact table, owned by `ArtifactStorage` along with the store that
+            // The current artifact table, owned by `AuralisReceipts` along with the store that
             // writes it. Registered here because this package owns the container.
             StoredArtifact.self,
             // Legacy, read-only, still registered so `LegacyArtifactMigration` can find rows
