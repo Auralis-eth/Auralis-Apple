@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
 
 public enum AppDeepLink: Hashable, Sendable {

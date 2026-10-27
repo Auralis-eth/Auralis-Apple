@@ -5,13 +5,8 @@
 //  Created by Daniel Bell on 6/29/25.
 //
 
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
-import NFTDomain
+import AuralisCrypto
 import AuralisOperators
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
 import SwiftData
 import SwiftUI
 

@@ -2,7 +2,7 @@ import AuraUI
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import SwiftUI
-import WalletConnectorKit
+import WalletAdapters
 #if os(iOS)
 import CodeScanner
 #endif

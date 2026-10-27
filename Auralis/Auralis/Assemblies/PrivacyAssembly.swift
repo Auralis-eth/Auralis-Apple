@@ -1,4 +1,4 @@
-import AccountsCore
+import AuralisCrypto
 import SwiftData
 
 @MainActor

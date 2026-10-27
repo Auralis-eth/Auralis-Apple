@@ -1,9 +1,7 @@
 @testable import Auralis
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import Foundation
 import Testing
-import TokenStorage
 
 struct SearchQueryParserTests {
     private let parser = SearchQueryParser()

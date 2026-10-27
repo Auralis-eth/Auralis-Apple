@@ -10,44 +10,28 @@ let package = Package(
         .visionOS("26.0")
     ],
     products: [
-        .library(name: "AuraPlayMediaCore", targets: ["AuraPlayMediaCore"]),
-        .library(name: "AuraPlayAudioEngine", targets: ["AuraPlayAudioEngine"]),
-        .library(name: "AuraPlayVideoEngine", targets: ["AuraPlayVideoEngine"]),
+        .library(name: "AuraPlayEngines", targets: ["AuraPlayEngines"]),
+        // The two demo apps are the package's only non-library targets. They are executables rather
+        // than another framework, and they exist to exercise the engine API outside the app.
         .executable(name: "AuraPlayAudioEngineDemo", targets: ["AuraPlayAudioEngineDemo"]),
         .executable(name: "AuraPlayVideoEngineDemo", targets: ["AuraPlayVideoEngineDemo"])
     ],
     targets: [
-        .target(name: "AuraPlayMediaCore"),
-        .target(
-            name: "AuraPlayAudioEngine",
-            dependencies: ["AuraPlayMediaCore"]
-        ),
-        .target(
-            name: "AuraPlayVideoEngine",
-            dependencies: ["AuraPlayMediaCore"]
-        ),
+        .target(name: "AuraPlayEngines"),
         .executableTarget(
             name: "AuraPlayAudioEngineDemo",
-            dependencies: ["AuraPlayAudioEngine"],
+            dependencies: ["AuraPlayEngines"],
             path: "Examples/AuraPlayAudioEngineDemo"
         ),
         .executableTarget(
             name: "AuraPlayVideoEngineDemo",
-            dependencies: ["AuraPlayVideoEngine"],
+            dependencies: ["AuraPlayEngines"],
             path: "Examples/AuraPlayVideoEngineDemo"
         ),
         .testTarget(
-            name: "AuraPlayMediaCoreTests",
-            dependencies: ["AuraPlayMediaCore"]
-        ),
-        .testTarget(
-            name: "AuraPlayAudioEngineTests",
-            dependencies: ["AuraPlayAudioEngine"],
-            resources: [.process("Fixtures")]
-        ),
-        .testTarget(
-            name: "AuraPlayVideoEngineTests",
-            dependencies: ["AuraPlayVideoEngine"]
+            name: "AuraPlayEnginesTests",
+            dependencies: ["AuraPlayEngines"],
+            resources: [.process("AudioEngine/Fixtures")]
         )
     ]
 )

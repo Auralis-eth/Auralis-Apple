@@ -1,6 +1,5 @@
-import ProviderKit
+import AuralisCrypto
 import SwiftData
-import TokenStorage
 
 @MainActor
 struct TokenHoldingsAssembly {

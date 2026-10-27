@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
 import SwiftUI
 
@@ -48,9 +48,9 @@ private struct AuraPlayContextActionsKey: EnvironmentKey {
 /// App-provided explorer URL policy (ChainRegistry-backed). The package only
 /// consumes the resolved URL; it never builds explorer URLs itself.
 public struct AuraPlayExplorerURLResolving: Sendable {
-    public let nftURL: @Sendable (AuralisPrimaryModels.Chain, String?, String?) -> URL?
+    public let nftURL: @Sendable (AuralisCrypto.Chain, String?, String?) -> URL?
 
-    public init(nftURL: @escaping @Sendable (AuralisPrimaryModels.Chain, String?, String?) -> URL?) {
+    public init(nftURL: @escaping @Sendable (AuralisCrypto.Chain, String?, String?) -> URL?) {
         self.nftURL = nftURL
     }
 }

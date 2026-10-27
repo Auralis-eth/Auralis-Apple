@@ -1,9 +1,4 @@
-import AuralisPrimaryModels
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
-import ProviderKit
+import AuralisCrypto
 
 @MainActor
 struct ProviderAssembly {

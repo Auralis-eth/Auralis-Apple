@@ -1,6 +1,6 @@
 import Foundation
 import AuralisOperators
-import WalletConnectorKit
+import WalletAdapters
 
 protocol SocialWalletOwnershipVerifying: Sendable {
     func verifyOwnership(

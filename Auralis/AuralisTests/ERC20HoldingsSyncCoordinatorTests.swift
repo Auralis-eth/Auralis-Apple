@@ -1,11 +1,7 @@
 @testable import Auralis
 import AuralisTestSupport
 import Foundation
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
-import ProviderKit
+import AuralisCrypto
 import Testing
 
 struct ERC20HoldingsSyncCoordinatorTests {

@@ -1,5 +1,5 @@
 import AuralisReceipts
-import AuralisPrimaryModels
+import AuralisCrypto
 import AuralisFoundation
 import AuralisRuntime
 import Foundation

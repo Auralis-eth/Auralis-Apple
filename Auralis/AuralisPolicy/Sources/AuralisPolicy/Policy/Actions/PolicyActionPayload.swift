@@ -2,7 +2,7 @@
 ///
 /// `PolicyControlledAction` names the *class* of action (sign a message, approve spending, …); this
 /// carries the actual bytes/parameters the wallet must act on. Kept dependency-free (stringly-typed,
-/// no WalletConnectorKit types) so `AuralisPolicy` stays a leaf: it flattens to and from
+/// no WalletAdapters types) so `AuralisPolicy` stays a leaf: it flattens to and from
 /// `ActionProposal.parameters` (`[String: String]`), which survives the escalate → approve → resume
 /// round-trip unchanged, so the executor that finally runs after approval sees the same payload the
 /// user reviewed.

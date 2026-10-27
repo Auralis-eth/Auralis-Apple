@@ -20,7 +20,7 @@ let package = Package(
         .package(path: "../AuralisOperators"),
         .package(path: "../AuralisPolicy"),
         .package(path: "../AuralisFoundation"),
-        .package(path: "../AccountsCore"),
+        .package(path: "../AuralisCrypto"),
         // web3.swift 1.6.1 still references the pre-rename `secp256k1` product.
         // Keep the compatible constraint visible at this AppShell graph root.
         .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", exact: "0.6.0")
@@ -34,17 +34,14 @@ let package = Package(
                 .product(name: "AuralisReceipts", package: "AuralisReceipts"),
                 .product(name: "AuralisOperators", package: "AuralisOperators"),
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                .product(name: "AccountsCore", package: "AccountsCore"),
-                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
-                .product(name: "AuralisPrimaryPersistence", package: "AccountsCore")
+                .product(name: "AuralisCrypto", package: "AuralisCrypto")
             ]
         ),
         .testTarget(
             name: "AuralisAppShellTests",
             dependencies: [
                 "AuralisAppShell",
-                .product(name: "AccountsCore", package: "AccountsCore"),
-                .product(name: "AuralisPrimaryPersistence", package: "AccountsCore"),
+                .product(name: "AuralisCrypto", package: "AuralisCrypto"),
                 .product(name: "AuralisReceipts", package: "AuralisReceipts"),
                 .product(name: "AuralisRuntime", package: "AuralisRuntime")
             ]

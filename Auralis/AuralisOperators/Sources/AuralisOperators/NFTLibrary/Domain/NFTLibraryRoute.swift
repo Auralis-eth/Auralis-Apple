@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 
 public enum NFTLibraryRoute: Hashable, Sendable {
     case item(id: String)

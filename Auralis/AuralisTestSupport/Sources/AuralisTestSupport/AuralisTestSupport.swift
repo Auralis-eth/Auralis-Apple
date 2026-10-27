@@ -63,7 +63,7 @@ public struct UserDefaultsBox: @unchecked Sendable {
 /// the test body, and a plain `var` capture is a data race Swift 6 rejects outright.
 ///
 /// `ChainProvidersTests` already used this type, and it did not exist — so that suite never compiled,
-/// which went unnoticed because ChainProviders has no CI lane and no Xcode test-plan entry. The build
+/// which went unnoticed because AuralisCrypto has no CI lane and no Xcode test-plan entry. The build
 /// failure was the first thing a lane for it would have reported.
 public final class LockedValue<Value>: @unchecked Sendable {
     private let lock = NSLock()

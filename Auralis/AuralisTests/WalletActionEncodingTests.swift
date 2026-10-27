@@ -1,8 +1,8 @@
 @testable import Auralis
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
 import Testing
-import WalletConnectorKit
+import WalletAdapters
 
 /// Pins the invariants that stand between a cleared Operate-mode action and the chain.
 ///

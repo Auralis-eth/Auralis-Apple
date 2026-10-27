@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 
 struct ReceiptTimelineScope: Equatable, Sendable {
     let accountAddress: String

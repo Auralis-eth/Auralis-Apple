@@ -1,8 +1,5 @@
 import AuralisAppShell
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
+import AuralisCrypto
 import SwiftData
 
 @MainActor

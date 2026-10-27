@@ -1,18 +1,9 @@
-import AccountsCore
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import AuralisAppShell
-import ENS
 import AuralisOperators
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
 import AuralisPolicy
-import ProviderKit
 import AuralisReceipts
 import SwiftData
-import TokenStorage
 
 @MainActor
 struct MainTabAssembly {

@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import web3
 
 extension Chain {

@@ -6,7 +6,7 @@
 //
 
 @testable import Auralis
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
 import Testing
 

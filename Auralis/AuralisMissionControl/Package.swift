@@ -21,7 +21,7 @@ let package = Package(
         .package(path: "../AuralisPolicy"),
         .package(path: "../AuralisReceipts"),
         .package(path: "../AuralisFoundation"),
-        .package(path: "../AccountsCore"),
+        .package(path: "../AuralisCrypto"),
         .package(path: "../AuralisOperators"),
         .package(path: "../AuraUI"),
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.17.0")
@@ -35,7 +35,7 @@ let package = Package(
                 .product(name: "AuralisPolicy", package: "AuralisPolicy"),
                 .product(name: "AuralisReceipts", package: "AuralisReceipts"),
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
+                .product(name: "AuralisCrypto", package: "AuralisCrypto"),
                 .product(name: "AuralisOperators", package: "AuralisOperators"),
                 "AuraUI"
             ],
@@ -64,7 +64,7 @@ let package = Package(
                 .product(name: "AuralisOperators", package: "AuralisOperators"),
                 // Imported/used directly by the test sources. Declared explicitly rather than
                 // relying on SPM's transitive module search path, which is not a contract.
-                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
+                .product(name: "AuralisCrypto", package: "AuralisCrypto"),
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
             ],
             // Baselines live beside the suite that records them, so the path moved with the

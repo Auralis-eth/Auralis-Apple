@@ -1,10 +1,9 @@
 @testable import Auralis
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import Foundation
 import SwiftData
 import Testing
-import WalletConnectorKit
+import WalletAdapters
 
 /// P4-007 interaction coverage for the wallet picker.
 ///

@@ -1,13 +1,7 @@
-import AccountsFeature
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import AuralisAppShell
 import AuraUI
 import AuralisOperators
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
 import AuralisReceipts
 import SwiftData
 import SwiftUI

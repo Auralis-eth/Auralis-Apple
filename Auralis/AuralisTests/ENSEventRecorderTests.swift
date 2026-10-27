@@ -1,6 +1,5 @@
 @testable import Auralis
-import AuralisPrimaryModels
-import ENS
+import AuralisCrypto
 import Foundation
 import AuralisReceipts
 import SwiftData

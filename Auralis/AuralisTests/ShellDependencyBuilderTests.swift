@@ -1,20 +1,13 @@
 @testable import Auralis
-import AuralisPrimaryModels
+import AuralisCrypto
 import AuralisAppShell
 import AuralisTestSupport
-import ENS
 import Foundation
 import AuralisOperators
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
-import ProviderKit
 import AuralisReceipts
 import AuralisRuntime
 import SwiftData
 import Testing
-import TokenStorage
 
 @Suite(.tags(.slow))
 struct ShellDependencyBuilderTests {

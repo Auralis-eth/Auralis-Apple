@@ -1,4 +1,4 @@
-import AccountsFeature
+import AuralisCrypto
 import AuraUI
 import SwiftUI
 

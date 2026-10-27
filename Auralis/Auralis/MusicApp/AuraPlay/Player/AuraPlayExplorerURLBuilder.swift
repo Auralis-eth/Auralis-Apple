@@ -1,9 +1,8 @@
-import AuralisPrimaryModels
-import ExplorerAdapter
+import AuralisCrypto
 import Foundation
 
 /// Explorer URL policy for AuraPlay media. EVM chains route through the
-/// tested `ExplorerAdapter` catalog; Solana uses Solscan, which the catalog
+/// tested `AuralisCrypto` catalog; Solana uses Solscan, which the catalog
 /// does not model. Unsupported chains return nil instead of silently falling
 /// back to Etherscan.
 enum AuraPlayExplorerURLBuilder {

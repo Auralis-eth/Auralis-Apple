@@ -1,8 +1,5 @@
 import AuraUI
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
+import AuralisCrypto
 import SwiftUI
 
 public struct NFTLibraryEmptyStateView: View {

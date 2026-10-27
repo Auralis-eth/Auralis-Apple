@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import AuraUI
 import SwiftUI
 

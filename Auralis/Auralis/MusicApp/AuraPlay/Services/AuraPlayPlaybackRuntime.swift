@@ -1,8 +1,5 @@
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
-import AuraPlayAudioEngine
-import AuraPlayMediaCore
-import AuraPlayVideoEngine
+import AuralisCrypto
+import AuraPlayEngines
 import AVFoundation
 import Foundation
 import AuralisOperators
@@ -1721,7 +1718,7 @@ private extension AuraPlayPlaybackRuntime {
         let message: String
         let canSaveOffline: Bool
 
-        if let auraPlayError = error as? AuraPlayMediaCore.AuraPlayError {
+        if let auraPlayError = error as? AuraPlayEngines.AuraPlayError {
             switch auraPlayError {
             case .unsupportedFormat(let format):
                 let suffix = format.flatMap { $0.isEmpty ? nil : " (\($0))" } ?? ""
@@ -1769,7 +1766,7 @@ private extension AuraPlayPlaybackRuntime {
     }
 
     func playbackAlertPresentation(for error: Error) -> AuraPlayPlaybackAlertPresentation? {
-        guard let auraPlayError = error as? AuraPlayMediaCore.AuraPlayError else {
+        guard let auraPlayError = error as? AuraPlayEngines.AuraPlayError else {
             return nil
         }
 
@@ -1801,7 +1798,7 @@ private extension AuraPlayPlaybackRuntime {
     }
 
     func isUnsupportedFormat(_ error: Error) -> Bool {
-        guard let auraPlayError = error as? AuraPlayMediaCore.AuraPlayError,
+        guard let auraPlayError = error as? AuraPlayEngines.AuraPlayError,
               case .unsupportedFormat = auraPlayError else {
             return false
         }
@@ -2587,7 +2584,7 @@ private extension AuraPlayPlaybackRuntime {
     }
 
     static func explorerURL(chain: Chain, contractAddress: String?, tokenID: String?) -> URL? {
-        // Single explorer policy: the tested ExplorerAdapter catalog (P10-007).
+        // Single explorer policy: the tested AuralisCrypto catalog (P10-007).
         AuraPlayExplorerURLBuilder.nftURL(
             chain: chain,
             contractAddress: contractAddress,

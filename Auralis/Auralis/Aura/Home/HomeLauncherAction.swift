@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 enum HomeLauncherAction: String, CaseIterable, Codable, Equatable, Hashable {
     case openMusic
     case openNFTTokens

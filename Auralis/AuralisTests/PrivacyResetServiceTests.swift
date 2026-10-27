@@ -1,21 +1,12 @@
-import AccountsCore
-import AccountStorage
+import AuralisCrypto
 @testable import Auralis
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
 import AuralisAppShell
 import AuralisTestSupport
-import ENS
 import Foundation
 import AuralisOperators
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
 import AuralisReceipts
 import SwiftData
 import Testing
-import TokenStorage
 
 @MainActor
 @Suite(.tags(.privacy, .swiftdata))
@@ -35,7 +26,7 @@ struct PrivacyResetServiceTests {
         #expect(try fixture.context.fetch(FetchDescriptor<TokenHolding>()).isEmpty)
         #expect(try fixture.context.fetch(FetchDescriptor<NFT>()).isEmpty)
         #expect(try fixture.context.fetch(FetchDescriptor<MusicLibraryItem>()).isEmpty)
-        #expect(try fixture.context.fetch(FetchDescriptor<AuralisPrimaryPersistence.Tag>()).isEmpty)
+        #expect(try fixture.context.fetch(FetchDescriptor<AuralisCrypto.Tag>()).isEmpty)
         #expect(try fixture.context.fetch(FetchDescriptor<NFT.Contract>()).isEmpty)
         #expect(try fixture.context.fetch(FetchDescriptor<NFT.Collection>()).isEmpty)
         #expect(fixture.selectionPersistence.clearSelectionCallCount == 1)
@@ -182,7 +173,7 @@ struct PrivacyResetServiceTests {
             $0.id = "track-1"
             $0.sourceNFTID = "music-source-1"
         }.build())
-        context.insert(try AuralisPrimaryPersistence.Tag(name: "Local Favorite"))
+        context.insert(try AuralisCrypto.Tag(name: "Local Favorite"))
         try context.save()
         _ = try await receiptStore.append(
             ReceiptDraft(

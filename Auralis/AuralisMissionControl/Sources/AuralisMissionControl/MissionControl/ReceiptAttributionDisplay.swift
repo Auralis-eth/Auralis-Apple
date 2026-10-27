@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import AuralisFoundation
 import Foundation
 import AuralisReceipts
@@ -7,7 +7,7 @@ import AuralisRuntime
 /// Renders a receipt's stored attribution for trust surfaces (P0.5-601/602).
 ///
 /// Receipts persist attribution as raw strings (`ReceiptActorDetail`/`ReceiptAuthorityDetail` live in
-/// the dependency-free `AuralisPrimaryModels` leaf). This maps them back through the `AuralisRuntime`
+/// the dependency-free `AuralisCrypto` leaf). This maps them back through the `AuralisRuntime`
 /// enums so the UI shows "Scheduled routine — Morning Brief" instead of the coarse "system", and
 /// degrades to the coarse actor for receipts written before the structured columns existed.
 enum ReceiptAttributionDisplay {

@@ -1,5 +1,4 @@
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import Foundation
 
 public struct NFTCollectionDetailPresentation: Equatable, Sendable {

@@ -1,5 +1,5 @@
 @testable import Auralis
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import AuralisTestSupport
 import AuralisOperators
 import Testing
@@ -73,7 +73,7 @@ struct LocalDataStoragePolicyTests {
         .init(identifier: "Auralis.ENSResolutionCache.v1", classification: .publicIdentifierMetadata, storage: .userDefaults, resetPhase: .supportCaches),
         .init(identifier: "AuralisReceiptIntegrityHeadService", classification: .walletMetadata, storage: .keychain, resetPhase: .receiptHistory),
         .init(identifier: "SearchHistoryRecord", classification: .walletMetadata, storage: .swiftData, resetPhase: .transactionalStore),
-        .init(identifier: "ProviderKit.GasPriceCache.shared", classification: .publicIdentifierMetadata, storage: .memoryCache, resetPhase: .supportCaches),
+        .init(identifier: "AuralisCrypto.GasPriceCache.shared", classification: .publicIdentifierMetadata, storage: .memoryCache, resetPhase: .supportCaches),
         .init(identifier: "AURALIS_ALCHEMY_API_KEY", classification: .publicPreference, storage: .bundleConfiguration, resetPhase: nil),
         .init(identifier: "WalletPasswordService/WalletPasswordAccount", classification: .credential, storage: .keychain, resetPhase: .credentialStore),
         .init(identifier: "NFT", classification: .publicIdentifierMetadata, storage: .swiftData, resetPhase: .transactionalStore),

@@ -5,7 +5,7 @@ set -euo pipefail
 # Keep this list aligned with the final package graph. The app test plans do not execute these
 # suites, so CI must invoke this lane independently.
 packages=(
-    AccountsCore
+    AuralisCrypto
     AuraPlayEngines
     AuraUI
     AuralisContext

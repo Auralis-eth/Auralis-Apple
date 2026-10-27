@@ -6,7 +6,7 @@
 //
 
 import AuralisFoundation
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
 import OSLog
 

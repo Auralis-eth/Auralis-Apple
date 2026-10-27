@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
 
 /// One distinct collection (contract + chain) in the scoped library.

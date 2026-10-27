@@ -2,7 +2,7 @@
 import Foundation
 import AuralisOperators
 import Testing
-import WalletConnectorKit
+import WalletAdapters
 
 @Suite("Social join verification (P3)")
 struct SocialJoinVerificationServiceTests {

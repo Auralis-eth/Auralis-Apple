@@ -1,6 +1,6 @@
 import Foundation
 import AuralisOperators
-import WalletConnectorKit
+import WalletAdapters
 
 /// One decrypted-once-more-hop inbound relay message: the raw (still-sealed) payload plus its topic.
 struct SocialRelayInboundMessage: Equatable, Sendable {

@@ -1,6 +1,6 @@
 import Foundation
 import AuralisOperators
-import WalletConnectorKit
+import WalletAdapters
 
 /// The transport + inbound source a session needs. Abstracted so production wires the live
 /// WalletConnect/IRN relay while tests inject fakes.

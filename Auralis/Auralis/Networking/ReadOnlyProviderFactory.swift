@@ -1,11 +1,5 @@
-import AuralisPrimaryModels
-import ChainProviders
+import AuralisCrypto
 import Foundation
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
-import ProviderKit
 
 struct ReadOnlyProviderFactory: Sendable {
     private let chainProviderFactory: ReadOnlyChainProviderFactory

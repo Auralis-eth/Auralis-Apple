@@ -1,6 +1,6 @@
 import AuralisAppShell
 import Foundation
-import NFTDomain
+import AuralisCrypto
 import AuralisReceipts
 import Testing
 

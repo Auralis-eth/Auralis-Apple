@@ -1,6 +1,6 @@
 import Foundation
 import AuralisOperators
-import WalletConnectorKit
+import WalletAdapters
 
 /// P3 — turns a wallet-ownership check into a recorded, verified participant.
 ///

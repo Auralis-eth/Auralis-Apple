@@ -5,10 +5,9 @@
 //  Created by Daniel Bell on 10/1/24.
 //
 
-import AuralisPrimaryModels
+import AuralisCrypto
 import AuraUI
 import Observation
-import ProviderKit
 import SwiftUI
 import UIKit
 

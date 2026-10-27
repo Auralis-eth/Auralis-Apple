@@ -5,7 +5,7 @@ included:
   - Auralis
   - AuralisTests
   - AuralisUITests
-  - AccountsCore
+  - AuralisCrypto
   - AuraPlayEngines
   - AuralisContext
   - AuraUI
@@ -23,7 +23,7 @@ included:
 # Linting them fails the CI lint step over code nobody in this repository wrote or can change.
 # One entry per package: `excluded:` matches path prefixes, not globs.
 excluded:
-  - AccountsCore/.build
+  - AuralisCrypto/.build
   - AuraPlayEngines/.build
   - AuralisContext/.build
   - AuraUI/.build

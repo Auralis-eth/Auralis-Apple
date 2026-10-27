@@ -1,7 +1,7 @@
 @testable import Auralis
 import Foundation
 import Testing
-import WalletConnectorKit
+import WalletAdapters
 
 /// The relay socket's event stream is a single `AsyncStream`, and `AsyncStream` is **unicast** — each
 /// yielded element reaches exactly one iterator.

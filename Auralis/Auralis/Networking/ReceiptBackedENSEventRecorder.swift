@@ -1,5 +1,4 @@
-import AuralisPrimaryModels
-import ENS
+import AuralisCrypto
 import Foundation
 import OSLog
 import AuralisReceipts

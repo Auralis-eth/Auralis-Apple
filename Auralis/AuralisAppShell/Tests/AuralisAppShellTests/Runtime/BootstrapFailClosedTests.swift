@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import AuralisFoundation
 import Foundation
 import AuralisOperators

@@ -1,6 +1,6 @@
 import Foundation
 import AuralisOperators
-import WalletConnectorKit
+import WalletAdapters
 
 /// A live relay runtime for one shared session: the coordinator (publish/subscribe/handle inbound) plus
 /// the inbound pump that feeds it. Start subscribes to saved invites and replays any pending outbound;

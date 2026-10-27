@@ -1,10 +1,5 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
-import ProviderKit
 
 @MainActor
 final class ERC20HoldingsSyncCoordinator {

@@ -1,5 +1,5 @@
 @testable import Auralis
-import AuralisPrimaryModels
+import AuralisCrypto
 import Testing
 
 #if canImport(CoreSpotlight)

@@ -1,6 +1,6 @@
 import Foundation
 
-import AuralisPrimaryModels
+import AuralisCrypto
 
 public struct AuraPlayAccountSyncUpdateRequest: Sendable {
     public let address: String

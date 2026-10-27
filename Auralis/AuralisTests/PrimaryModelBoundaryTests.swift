@@ -1,12 +1,11 @@
 @testable import Auralis
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import AuralisTestSupport
 import Foundation
 import AuralisOperators
 import AuralisReceipts
 import SwiftData
 import Testing
-import TokenStorage
 
 @Suite(.tags(.architecture, .slow))
 struct PrimaryModelBoundaryTests {
@@ -52,7 +51,7 @@ struct PrimaryModelBoundaryTests {
 
     @Test("storage-owned models live in storage packages")
     func storageOwnedModelsLiveInStoragePackages() throws {
-        let primarySourceFiles = try swiftFiles(in: projectRoot.appendingPathComponent("AuralisPrimaryModels/Sources"))
+        let primarySourceFiles = try swiftFiles(in: projectRoot.appendingPathComponent("AuralisCrypto/Sources"))
 
         for file in primarySourceFiles {
             let source = try String(contentsOf: file, encoding: .utf8)
@@ -75,7 +74,7 @@ struct PrimaryModelBoundaryTests {
 }
 
 private var primaryModelsSourceRoot: URL {
-    projectRoot.appendingPathComponent("AuralisPrimaryModels/Sources/AuralisPrimaryModels")
+    projectRoot.appendingPathComponent("AuralisCrypto/Sources/AuralisCrypto")
 }
 
 private var projectRoot: URL {

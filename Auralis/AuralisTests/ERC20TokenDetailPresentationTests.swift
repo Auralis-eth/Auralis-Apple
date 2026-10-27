@@ -1,12 +1,7 @@
 @testable import Auralis
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
 import Testing
-import TokenStorage
 
 struct ERC20TokenDetailPresentationTests {
     private let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)

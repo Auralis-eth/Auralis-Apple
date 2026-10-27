@@ -1,5 +1,4 @@
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import AuraUI
 import CoreImage.CIFilterBuiltins
 import Foundation
@@ -8,7 +7,7 @@ import Security
 import SwiftData
 import SwiftUI
 import UIKit
-import WalletConnectorKit
+import WalletAdapters
 
 struct AuralisWalletConnectionConfig: Sendable {
     let projectID: String

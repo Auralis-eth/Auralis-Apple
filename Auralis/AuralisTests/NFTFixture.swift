@@ -1,6 +1,5 @@
 import AuralisFoundation
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import AuralisTestSupport
 
 struct NFTFixture: @unchecked Sendable {

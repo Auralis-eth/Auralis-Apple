@@ -1,5 +1,5 @@
 import AuralisFoundation
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
 
 public actor AlchemyNFTClient: EVMNFTDiscovering {

@@ -1,10 +1,9 @@
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import AuraUI
 import CoreImage.CIFilterBuiltins
 import SwiftData
 import SwiftUI
-import WalletConnectorKit
+import WalletAdapters
 
 struct WalletPickerHostSheet: View {
     @Environment(\.modelContext) private var modelContext

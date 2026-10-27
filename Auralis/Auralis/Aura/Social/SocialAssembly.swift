@@ -1,7 +1,7 @@
 import Foundation
 import AuralisOperators
 import SwiftData
-import WalletConnectorKit
+import WalletAdapters
 
 /// App composition for Social v1: builds a ``SocialRelayAssembly`` wired to the app's shared, durable
 /// social event log and (only when the relay flag is on) the live WalletConnect/IRN relay client.

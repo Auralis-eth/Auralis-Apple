@@ -1,4 +1,4 @@
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import Foundation
 
 public extension NFT {

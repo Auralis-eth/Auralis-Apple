@@ -1,6 +1,6 @@
 #if os(macOS)
 import AppKit
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
 import AuralisOperators
 import SwiftUI

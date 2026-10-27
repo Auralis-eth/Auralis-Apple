@@ -1,4 +1,4 @@
-import AccountsCore
+import AuralisCrypto
 import AuralisPolicy
 import AuralisRuntime
 @testable import AuralisAppShell

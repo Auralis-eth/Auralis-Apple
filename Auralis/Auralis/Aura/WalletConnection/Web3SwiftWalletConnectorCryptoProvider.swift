@@ -1,9 +1,9 @@
 import Foundation
 import secp256k1
-import WalletConnectorKit
+import WalletAdapters
 import web3
 
-/// Bridges web3.swift (secp256k1) into `WalletConnectorKit`'s crypto seam so the
+/// Bridges web3.swift (secp256k1) into `WalletAdapters`'s crypto seam so the
 /// custom IRN connector can actually **verify EVM wallet ownership**.
 ///
 /// Without a recovery-capable provider injected, `WalletConnectDAppConnector`

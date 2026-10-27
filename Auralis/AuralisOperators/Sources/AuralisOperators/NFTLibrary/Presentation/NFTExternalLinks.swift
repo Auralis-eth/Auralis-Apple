@@ -1,7 +1,5 @@
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import AuraUI
-import ExplorerAdapter
 import SwiftUI
 
 private enum NFTExternalLinkStyle {

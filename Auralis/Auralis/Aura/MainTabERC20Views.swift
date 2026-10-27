@@ -1,15 +1,8 @@
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import AuraUI
-import ChainProviders
 import AuralisContext
-import NFTDomain
-import NFTPersistence
-import NFTPresentation
-import NFTProviderAdapters
 import SwiftData
 import SwiftUI
-import TokenStorage
 
 struct ERC20TokensRootView: View {
     @Environment(\.modelContext) private var modelContext

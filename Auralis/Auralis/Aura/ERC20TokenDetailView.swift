@@ -1,9 +1,7 @@
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import AuraUI
 import SwiftData
 import SwiftUI
-import TokenStorage
 
 struct ERC20TokenDetailView: View {
     let route: ERC20TokenRoute

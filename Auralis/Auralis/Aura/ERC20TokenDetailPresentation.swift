@@ -1,6 +1,5 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
-import TokenStorage
 
 struct ERC20TokenDetailPresentation: Equatable {
     let title: String

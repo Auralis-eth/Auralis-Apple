@@ -1,6 +1,4 @@
-import AccountsFeature
-import AuralisPrimaryModels
-import AuralisPrimaryPersistence
+import AuralisCrypto
 import Foundation
 
 struct HomeTabLogic {

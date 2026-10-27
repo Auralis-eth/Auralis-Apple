@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 struct HomeLogoutPlan {
     let shouldDeleteNFTs: Bool
     let shouldDeleteAccounts: Bool

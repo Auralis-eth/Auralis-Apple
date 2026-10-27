@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import SwiftData
 
 public enum AuraPlaySchema {

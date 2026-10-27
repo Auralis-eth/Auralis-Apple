@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
 
 /// Identifies the active account-and-chain scope for AuraPlay library queries.

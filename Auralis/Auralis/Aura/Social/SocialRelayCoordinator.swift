@@ -1,6 +1,6 @@
 import Foundation
 import AuralisOperators
-import WalletConnectorKit
+import WalletAdapters
 
 protocol SocialEnvelopeCiphering: Sendable {
     func seal(_ envelope: SocialEventEnvelope) throws -> String

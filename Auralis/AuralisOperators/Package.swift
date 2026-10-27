@@ -18,7 +18,7 @@ let package = Package(
         .package(path: "../AuralisRuntime"),
         .package(path: "../AuralisReceipts"),
         .package(path: "../AuraUI"),
-        .package(path: "../AccountsCore"),
+        .package(path: "../AuralisCrypto"),
         .package(path: "../AuralisTestSupport"),
         .package(path: "../AuraPlayEngines"),
         .package(path: "../AuralisFoundation"),
@@ -29,12 +29,8 @@ let package = Package(
         .target(
             name: "AuralisOperators",
             dependencies: [
-                .product(name: "AccountsCore", package: "AccountsCore"),
-                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
-                .product(name: "AuralisPrimaryPersistence", package: "AccountsCore"),
-                .product(name: "NFTKit", package: "AccountsCore"),
-                .product(name: "ExplorerAdapter", package: "AccountsCore"),
-                .product(name: "AuraPlayMediaCore", package: "AuraPlayEngines"),
+                .product(name: "AuralisCrypto", package: "AuralisCrypto"),
+                .product(name: "AuraPlayEngines", package: "AuraPlayEngines"),
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 .product(name: "AuralisRuntime", package: "AuralisRuntime"),
                 .product(name: "AuralisReceipts", package: "AuralisReceipts"),
@@ -46,10 +42,8 @@ let package = Package(
             dependencies: [
                 "AuralisOperators",
                 "AuralisTestSupport",
-                .product(name: "AccountsCore", package: "AccountsCore"),
-                .product(name: "AuralisPrimaryPersistence", package: "AccountsCore"),
-                .product(name: "PrimaryModelsTestSupport", package: "AccountsCore"),
-                .product(name: "ExplorerAdapter", package: "AccountsCore"),
+                .product(name: "AuralisCrypto", package: "AuralisCrypto"),
+                .product(name: "AuralisCryptoTestSupport", package: "AuralisCrypto"),
                 .product(name: "AuralisReceipts", package: "AuralisReceipts")
             ],
             // Baselines live beside the suite that records them, so the path moved with the

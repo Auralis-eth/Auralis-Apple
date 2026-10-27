@@ -1,5 +1,5 @@
 @testable import Auralis
-import AuraPlayMediaCore
+import AuraPlayEngines
 import Foundation
 import AuralisOperators
 import SwiftData

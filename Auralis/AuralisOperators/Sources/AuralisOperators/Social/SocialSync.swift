@@ -1,4 +1,4 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import Foundation
 
 /// Canonicalization for the CAIP-10 account strings carried on participants and envelopes.

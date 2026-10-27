@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 import AuralisOperators
-import WalletConnectorKit
+import WalletAdapters
 
 /// Drives the host/join invite-exchange surface for one shared session. UI-framework-free so it can be
 /// unit-tested against a ``SocialRelayAssembly`` built with fake collaborators.

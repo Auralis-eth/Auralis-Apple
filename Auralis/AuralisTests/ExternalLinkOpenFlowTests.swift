@@ -1,5 +1,5 @@
 @testable import Auralis
-import AuralisPrimaryModels
+import AuralisCrypto
 import AuralisTestSupport
 import Foundation
 import AuralisOperators

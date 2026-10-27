@@ -93,7 +93,7 @@ struct ActorKindStabilityTests {
         #expect(decoded.inference == nil)
     }
 
-    /// `AuralisPrimaryModels` is a dependency-free leaf, so `ReceiptActorDetail.kind` is a plain
+    /// `AuralisCrypto` is a dependency-free leaf, so `ReceiptActorDetail.kind` is a plain
     /// `String` mirroring `ActorKind`'s raw values. Nothing but this test keeps the two in step.
     @Test("every kind survives the ReceiptActorDetail string mirror")
     func mirrorsIntoReceiptActorDetail() {

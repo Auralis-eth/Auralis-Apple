@@ -1,7 +1,6 @@
-import AuralisPrimaryModels
+import AuralisCrypto
 import BigInt
 import Foundation
-import ProviderKit
 import web3
 
 /// Tracks which addresses belong to Auralis's in-app self-custodial wallet, so the signer router can send
