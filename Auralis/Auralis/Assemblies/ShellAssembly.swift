@@ -2,6 +2,7 @@ import AccountsCore
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisShellCore
+import ContextCore
 import Foundation
 import NFTDomain
 import NFTPersistence

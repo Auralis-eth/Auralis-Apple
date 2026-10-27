@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import RuntimeCore
 
 /// One option the planner weighed while deciding what to do, and whether it made the cut.

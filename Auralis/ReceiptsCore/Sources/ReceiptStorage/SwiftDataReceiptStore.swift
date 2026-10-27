@@ -4,7 +4,7 @@ import OSLog
 import ReceiptsCore
 import RuntimeCore
 import SwiftData
-import SwiftDataAdapters
+import AuralisFoundation
 
 public struct ReceiptIntegrityVerificationResult: Equatable, Sendable {
     /// Three genuinely different answers, because collapsing them costs the user their audit trail.

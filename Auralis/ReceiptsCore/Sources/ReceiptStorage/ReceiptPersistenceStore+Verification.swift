@@ -3,7 +3,7 @@ import Foundation
 import ReceiptsCore
 import RuntimeCore
 import SwiftData
-import SwiftDataAdapters
+import AuralisFoundation
 
 /// The verify-and-export half of ``ReceiptPersistenceStore``.
 ///

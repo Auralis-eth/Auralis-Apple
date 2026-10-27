@@ -1,5 +1,5 @@
 import ArtifactCore
-import CapabilitiesCore
+import AuralisFoundation
 import PolicyCore
 import ReceiptsCore
 import RuntimeCore

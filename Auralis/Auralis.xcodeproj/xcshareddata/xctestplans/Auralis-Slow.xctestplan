@@ -26,7 +26,6 @@
         "AuraPlayPersistenceWave2Tests",
         "AuraPlayPrivacyManifestTests",
         "PrimaryModelBoundaryTests",
-        "ProviderAbstractionTests",
         "ShellDependencyBuilderTests"
       ],
       "target" : {

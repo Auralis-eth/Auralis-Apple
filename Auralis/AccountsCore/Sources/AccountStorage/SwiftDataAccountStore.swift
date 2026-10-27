@@ -5,7 +5,7 @@ import Foundation
 import NFTPersistence
 import ReceiptStorage
 import SwiftData
-import SwiftDataAdapters
+import AuralisFoundation
 import TokenStorage
 
 private let accountSortDescriptors: [SortDescriptor<EOAccount>] = [

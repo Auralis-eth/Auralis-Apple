@@ -5,8 +5,8 @@ import PackageDescription
 let package = Package(
     name: "ReceiptsCore",
     platforms: [
-        .iOS(.v18),
-        .macOS(.v15)
+        .iOS("26.0"),
+        .macOS("26.0")
     ],
     products: [
         .library(
@@ -34,8 +34,7 @@ let package = Package(
         .target(
             name: "ReceiptsCore",
             dependencies: [
-                "AuralisFoundation",
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "RuntimeCore"
             ]
         ),
@@ -47,15 +46,14 @@ let package = Package(
             name: "ArtifactStorage",
             dependencies: [
                 "ArtifactCore",
-                .product(name: "SwiftDataAdapters", package: "AuralisFoundation")
+                .product(name: "AuralisFoundation", package: "AuralisFoundation")
             ]
         ),
         .target(
             name: "ReceiptStorage",
             dependencies: [
-                "AuralisFoundation",
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "ReceiptsCore",
-                .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
                 "RuntimeCore"
             ]
         ),
@@ -64,7 +62,6 @@ let package = Package(
             dependencies: [
                 "ReceiptsCore",
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
                 .product(name: "RuntimeCore", package: "RuntimeCore")
             ]
         ),

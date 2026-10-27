@@ -1,6 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import ContextCore
 import Foundation
 import PolicyCore
 import ProviderKit
@@ -37,7 +38,7 @@ struct ContextSnapshotTests {
         #expect(snapshot.scope.accountAddress.value == address)
         #expect(snapshot.scope.accountAddress.provenance == .userProvided)
         #expect(snapshot.scope.accountName.value == nil)
-        #expect(snapshot.scope.selectedChains.value == [.baseMainnet])
+        #expect(snapshot.scope.selectedChains.value?.map(\.id) == [Chain.baseMainnet.rawValue])
         #expect(snapshot.scope.selectedChains.provenance == .userProvided)
         #expect(snapshot.libraryPointers.trackedNFTCount.value == 42)
         #expect(snapshot.libraryPointers.musicCollectionCount.value == 3)
@@ -201,13 +202,23 @@ struct ContextSnapshotTests {
         let namedSnapshot = summarySnapshot(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             accountName: "Collector",
-            selectedChains: [.baseMainnet]
+            selectedChains: [
+                ContextChainReference(
+                    id: Chain.baseMainnet.rawValue,
+                    displayName: Chain.baseMainnet.routingDisplayName
+                )
+            ]
         )
 
         let fallbackSnapshot = summarySnapshot(
             accountAddress: "0x1234567890abcdef1234567890abcdef12345678",
             accountName: nil,
-            selectedChains: [.ethMainnet]
+            selectedChains: [
+                ContextChainReference(
+                    id: Chain.ethMainnet.rawValue,
+                    displayName: Chain.ethMainnet.routingDisplayName
+                )
+            ]
         )
 
         #expect(namedSnapshot.chromeAccountTitle == "Collector")
@@ -219,7 +230,7 @@ struct ContextSnapshotTests {
     private func summarySnapshot(
         accountAddress: String,
         accountName: String?,
-        selectedChains: [Chain]
+        selectedChains: [ContextChainReference]
     ) -> ContextSnapshot {
         ContextSnapshot(
             version: .v0,

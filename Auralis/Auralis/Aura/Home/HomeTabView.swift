@@ -4,6 +4,7 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisShellCore
 import AuraUI
+import ContextCore
 import ENS
 import ImagePlayground
 import OSLog

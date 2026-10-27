@@ -1,7 +1,8 @@
 import ArtifactCore
+import AccountsCore
 import AuralisPrimaryModels
 import AutopilotCore
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 import OperatorsFeature
 import PlannerCore

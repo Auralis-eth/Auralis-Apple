@@ -468,7 +468,7 @@ struct ArchitectureBoundaryTests {
     func ownedPackagePlatformsStayCompatible() throws {
         let projectRoot = try projectRootURL()
         let corePackages = [
-            "AuralisFoundation", "AuralisPrimaryModels", "AuralisTestSupport",
+            "AuralisContext", "AuralisFoundation", "AuralisTestSupport",
             "PolicyCore", "ReceiptsCore", "RuntimeCore"
         ]
         let uiAndCompositionPackages = [
@@ -993,13 +993,14 @@ struct ArchitectureBoundaryTests {
     func auraPlayReceiptBoundaryStaysInMusicFeature() throws {
         let projectRoot = try projectRootURL()
         let musicFeaturePackage = projectRoot
-            .appending(path: "MusicFeature")
+            .appending(path: "OperatorsFeature")
             .appending(path: "Package.swift")
         let packageText = try String(contentsOf: musicFeaturePackage, encoding: .utf8)
         let musicFeatureImports = try swiftImports(
             under: projectRoot
-                .appending(path: "MusicFeature")
+                .appending(path: "OperatorsFeature")
                 .appending(path: "Sources")
+                .appending(path: "MusicFeature")
         )
         let playbackRuntimeFile = projectRoot
             .appending(path: "Auralis")
@@ -1017,7 +1018,8 @@ struct ArchitectureBoundaryTests {
         .filter { $0.path().contains("/Receipts/") }
 
         #expect(packageText.contains("../ReceiptsCore"))
-        #expect(packageText.contains("../CapabilitiesCore"))
+        #expect(packageText.contains("../AuralisFoundation"))
+        #expect(packageText.contains(".product(name: \"CapabilitiesCore\", package: \"AuralisFoundation\")"))
         #expect(musicFeatureImports.contains("ReceiptsCore"))
         #expect(musicFeatureImports.contains("CapabilitiesCore"))
         #expect(playbackRuntimeSource.contains("import NFTKit") == false)
@@ -1287,12 +1289,17 @@ struct ArchitectureBoundaryTests {
     @Test("operator and playbook packages cannot ship arbitrary platform UI")
     func operatorPackagesCannotRenderArbitraryUI() throws {
         let projectRoot = try projectRootURL()
-        let governedPackages = ["OperatorCore", "OperatorsFeature", "AutopilotCore", "PlaybookCore"]
+        let governedSourcePaths = [
+            "OperatorsFeature/Sources/OperatorCore",
+            "OperatorsFeature/Sources/OperatorsFeature",
+            "PolicyCore/Sources/AutopilotCore",
+            "RuntimeCore/Sources/PlaybookCore"
+        ]
         let forbiddenImports: Set<String> = ["SwiftUI", "UIKit", "AppKit"]
         var offenders: [String] = []
 
-        for packageName in governedPackages {
-            let sourceRoot = projectRoot.appending(path: "\(packageName)/Sources")
+        for sourcePath in governedSourcePaths {
+            let sourceRoot = projectRoot.appending(path: sourcePath)
             guard FileManager.default.fileExists(atPath: sourceRoot.path()) else { continue }
 
             for fileURL in try swiftSourceFiles(under: sourceRoot) {
@@ -1725,7 +1732,7 @@ struct ArchitectureBoundaryTests {
                 reason: "AuralisFoundation must stay pure portable domain values with no chain or wallet dependency"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "AuralisPrimaryModels/Sources/AuralisPrimaryPersistence",
+                rootPath: "AccountsCore/Sources/AuralisPrimaryPersistence",
                 forbiddenImports: [
                     "AuraUI",
                     "MusicFeature",
@@ -1832,7 +1839,7 @@ struct ArchitectureBoundaryTests {
     func accountSwitcherCurrentChainChangesRouteThroughShell() throws {
         let projectRoot = try projectRootURL()
         let accountSwitcherFile = projectRoot
-            .appending(path: "AccountsFeature/Sources/AccountsFeature/Presentation/AddressTextField.swift")
+            .appending(path: "AccountsCore/Sources/AccountsFeature/Presentation/AddressTextField.swift")
         let source = try String(contentsOf: accountSwitcherFile, encoding: .utf8)
         let currentChainCase = try extractSwitchCase(named: "case .current:", from: source)
 

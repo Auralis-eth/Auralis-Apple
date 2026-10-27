@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 
 /// The set of capabilities the user has explicitly promoted to unattended ("autopilot")
 /// execution — the "later, for trusted routines only" rung of the ladder.

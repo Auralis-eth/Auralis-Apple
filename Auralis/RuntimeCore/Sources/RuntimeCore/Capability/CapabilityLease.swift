@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 
 /// The authority surface a capability lease grants into.

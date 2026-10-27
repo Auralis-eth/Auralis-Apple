@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 
 /// A request from the runtime for the app to present a *trusted*, schema-driven UI surface.

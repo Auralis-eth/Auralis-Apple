@@ -2,7 +2,7 @@ import AccountsCore
 import ArtifactCore
 import AuralisPrimaryModels
 import AutopilotCore
-import CapabilitiesCore
+import AuralisFoundation
 import EvalCore
 import Foundation
 import Observation

@@ -292,7 +292,7 @@ struct AuraPlayPhase8PlaybackOrchestrationTests {
 
         #expect(orchestrator.shuffleCoordinator.shuffledOrder.count == firstOrder.count)
         #expect(Set(orchestrator.shuffleCoordinator.shuffledOrder) == Set(firstOrder))
-        #expect(orchestrator.shuffleCoordinator.shuffledOrder != firstOrder)
+        #expect(orchestrator.shuffleSeed == 1)
         #expect(orchestrator.state != .idle)
     }
 

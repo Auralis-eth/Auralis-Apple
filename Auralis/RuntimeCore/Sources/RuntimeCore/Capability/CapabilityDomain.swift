@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 
 /// Classifies a capability by product domain, so governance can apply the crypto-scoped Observe
 /// boundary (ADR-010): only `.wallet` capabilities are gated; everything else operates fully.

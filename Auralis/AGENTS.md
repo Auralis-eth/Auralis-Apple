@@ -90,6 +90,9 @@ in `OWNERSHIP.md`; the position behind it is in `FOUNDERS_COVENANT.md`.
   `DEVELOPER_DIR=<Xcode-beta>/Contents/Developer swift test --package-path <Pkg>` — or it is not
   validated until CI. Audit Round 13 shipped seven compile-breaking call sites past a 771/0 app run
   this way.
+- `Scripts/TestOwnedPackages.sh` is the canonical package-test lane. It tests every production
+  package and independently builds the intentionally fixture-only `AuralisTestSupport`. Keep its
+  explicit package list aligned whenever a package root is added, consolidated, or retired.
 
 ## High-Value Docs
 
@@ -100,7 +103,9 @@ in `OWNERSHIP.md`; the position behind it is in `FOUNDERS_COVENANT.md`.
 - `P0-Future-Work.md` is the post-Phase-0 backlog and should be updated when hardening or architecture follow-on work becomes clearer.
 - `P0-Physical-Device-QA-Suite.md` is the real-device manual QA contract for Phase 0.
 - `P0-UI-Design-Audit-Checklist.md` is the product/design quality checklist for Phase 0 surfaces.
-- `AuralisPrimaryModels/` owns pure domain values in `AuralisPrimaryModels`, the remaining shared SwiftData schema cluster in `AuralisPrimaryPersistence`, and domain-specific NFT fixtures in the test-only consumer product `PrimaryModelsTestSupport`.
+- `AccountsCore/` now owns the crypto-domain `AuralisPrimaryModels`, `AuralisPrimaryPersistence`, and test-only `PrimaryModelsTestSupport` targets. The former standalone `AuralisPrimaryModels/` package root has been retired.
+- `AuralisContext/` owns current-context contracts separately from durable memory. `ContextCore` has no persistence side effect; `MemoryCore`, `MemoryStorage`, and `MemoryRetrieval` require explicit writes and governed, task-scoped retrieval.
+- `RuntimeCore/` owns `IntentCore`, `CommitmentCore`, `OutcomeVerification`, and `OperatorRegistry` as separate products. Inferred intent requires an explicit authorization transition before commitment creation; successful execution never fulfills a commitment without matching outcome verification; an operator manifest requests authority but grants none.
 - `AuralisFoundation/` is the dependency-free home of portable cross-domain vocabulary. Its
   `AuralisFoundation` target owns `PrincipalID`, `OwnershipDescriptor`, and generic `JSONValue`; its independent
   `CapabilitiesCore` target owns stable capability vocabulary and the conservative registry;

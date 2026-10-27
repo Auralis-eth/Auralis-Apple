@@ -32,14 +32,13 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../RuntimeCore"),
-        .package(path: "../AuralisPrimaryModels"),
         .package(path: "../ReceiptsCore"),
         .package(path: "../AuraUI"),
         .package(path: "../AccountsCore"),
         .package(path: "../AuralisTestSupport"),
         .package(path: "../AuraPlayEngines"),
         .package(path: "../AuralisFoundation"),
-        // web3.swift 1.6.1 still references the pre-rename `secp256k1` product.
+        // web3.swift 1.6.1 still references the pre-rename `secp256k1` product.,
         .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", exact: "0.6.0")
     ],
     targets: [
@@ -48,13 +47,14 @@ let package = Package(
             dependencies: [
                 .product(name: "AccountsCore", package: "AccountsCore"),
                 "RuntimeCore",
+                .product(name: "OperatorRegistry", package: "RuntimeCore"),
                 .product(name: "ArtifactCore", package: "ReceiptsCore")
             ]
         ),
         .target(
             name: "SocialCore",
             dependencies: [
-                "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
                 "RuntimeCore",
                 .product(name: "PlaybookCore", package: "RuntimeCore")
             ]
@@ -62,15 +62,15 @@ let package = Package(
         .target(
             name: "OperatorCore",
             dependencies: [
-                "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
                 "ReceiptsCore"
             ]
         ),
         .target(
             name: "NFTLibraryFeature",
             dependencies: [
-                "AuralisPrimaryModels",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
+                .product(name: "AuralisPrimaryPersistence", package: "AccountsCore"),
                 "AuraUI",
                 .product(name: "NFTKit", package: "AccountsCore"),
                 "OperatorCore",
@@ -80,13 +80,11 @@ let package = Package(
         .target(
             name: "MusicFeature",
             dependencies: [
-                "AuralisPrimaryModels",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
+                .product(name: "AuralisPrimaryPersistence", package: "AccountsCore"),
                 .product(name: "AuraPlayMediaCore", package: "AuraPlayEngines"),
                 "AuraUI",
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
-                .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
                 "ReceiptsCore"
             ]
         ),
@@ -122,8 +120,8 @@ let package = Package(
             dependencies: [
                 "MusicFeature",
                 "AuralisTestSupport",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
-                .product(name: "PrimaryModelsTestSupport", package: "AuralisPrimaryModels"),
+                .product(name: "AuralisPrimaryPersistence", package: "AccountsCore"),
+                .product(name: "PrimaryModelsTestSupport", package: "AccountsCore"),
                 .product(name: "ReceiptStorage", package: "ReceiptsCore")
             ],
             exclude: ["__Snapshots__"]

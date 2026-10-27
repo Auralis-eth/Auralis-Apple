@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import RuntimeCore
 import SwiftUI
 

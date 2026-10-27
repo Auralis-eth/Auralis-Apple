@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import ContextCore
 import Foundation
 
 /// Compatibility model used by shell consumers that still need the compact
@@ -15,7 +16,16 @@ struct AppContext: Equatable {
 }
 extension AppContext {
     init(snapshot: ContextSnapshot) {
-        self = snapshot.appContext
+        self.init(
+            accountAddress: snapshot.scope.accountAddress.value ?? "",
+            accountName: snapshot.scope.accountName.value,
+            chain: snapshot.scope.selectedChains.value?.first?.id ?? "",
+            mode: snapshot.mode.value ?? "",
+            isLoading: snapshot.freshness.refreshState == .refreshing,
+            lastSuccessfulRefreshAt: snapshot.freshness.lastSuccessfulRefreshAt,
+            freshnessTTL: snapshot.freshness.ttl,
+            freshnessReferenceDate: snapshot.freshness.referenceDate
+        )
     }
 
     var accountDisplay: String {

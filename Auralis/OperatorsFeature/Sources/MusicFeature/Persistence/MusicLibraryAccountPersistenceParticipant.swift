@@ -1,6 +1,6 @@
 import Foundation
 import SwiftData
-import SwiftDataAdapters
+import AuralisFoundation
 
 public struct MusicLibraryItemSnapshot: Sendable {
     private let id: String

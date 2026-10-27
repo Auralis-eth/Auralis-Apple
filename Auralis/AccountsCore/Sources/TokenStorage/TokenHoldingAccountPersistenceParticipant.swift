@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import Foundation
 import SwiftData
-import SwiftDataAdapters
+import AuralisFoundation
 
 /// Complete value snapshot used when an account-scoped token library is removed and later undone.
 public struct TokenHoldingAccountSnapshot {

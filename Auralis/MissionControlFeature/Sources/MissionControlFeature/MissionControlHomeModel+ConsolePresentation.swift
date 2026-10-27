@@ -1,6 +1,6 @@
 import ArtifactCore
 import AuralisPrimaryModels
-import CapabilitiesCore
+import AuralisFoundation
 import EvalCore
 import Foundation
 import Observation

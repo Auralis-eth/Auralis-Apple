@@ -25,7 +25,7 @@ let package = Package(
         .package(path: "../PolicyCore"),
         .package(path: "../ReceiptsCore"),
         .package(path: "../AuralisFoundation"),
-        .package(path: "../AuralisPrimaryModels"),
+        .package(path: "../AccountsCore"),
         .package(path: "../OperatorsFeature"),
         .package(path: "../AuraUI"),
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.17.0")
@@ -39,8 +39,8 @@ let package = Package(
                 .product(name: "PlannerCore", package: "RuntimeCore"),
                 "PolicyCore",
                 "ReceiptsCore",
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
-                "AuralisPrimaryModels",
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
+                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
                 .product(name: "PlaybookCore", package: "RuntimeCore"),
                 .product(name: "ArtifactCore", package: "ReceiptsCore"),
                 "OperatorsFeature",
@@ -68,7 +68,7 @@ let package = Package(
             name: "TrustedUIKit",
             dependencies: [
                 "RuntimeCore",
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation")
+                .product(name: "AuralisFoundation", package: "AuralisFoundation")
             ]
         ),
         .testTarget(
@@ -80,7 +80,7 @@ let package = Package(
                 "PolicyCore",
                 "ReceiptsCore",
                 .product(name: "PlaybookCore", package: "RuntimeCore"),
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
                 .product(name: "EvalCore", package: "RuntimeCore"),
                 .product(name: "SchedulingCore", package: "RuntimeCore"),
@@ -90,7 +90,7 @@ let package = Package(
                 .product(name: "ArtifactCore", package: "ReceiptsCore"),
                 .product(name: "SocialCore", package: "OperatorsFeature"),
                 "TrustedUIKit",
-                "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
             ],
             exclude: ["__Snapshots__"]
@@ -100,7 +100,7 @@ let package = Package(
             dependencies: [
                 "TrustedUIKit",
                 "RuntimeCore",
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation")
+                .product(name: "AuralisFoundation", package: "AuralisFoundation")
             ]
         )
     ]

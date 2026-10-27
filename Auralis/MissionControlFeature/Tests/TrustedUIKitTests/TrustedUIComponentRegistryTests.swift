@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 import RuntimeCore
 import Testing

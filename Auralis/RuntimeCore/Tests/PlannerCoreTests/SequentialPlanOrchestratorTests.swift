@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 @testable import PlannerCore
 import Testing
 

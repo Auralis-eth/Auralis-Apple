@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import RuntimeCore
 
 /// The instruction text that grounds the model-backed planner, on either executor.

@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 
 /// A single thing that happened inside the runtime, worth surfacing to observers such as Mission

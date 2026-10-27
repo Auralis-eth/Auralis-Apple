@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import ContextCore
 import Foundation
 import PolicyCore
 
@@ -68,86 +69,42 @@ struct LiveContextSource: ContextSource {
         let account = accountProvider()
         let selectedChain = chainProvider()
         let refreshTimestamp = refreshedAtProvider()
+        let pinnedActions = pinnedActionsProvider()
 
-        return ContextSnapshot(
-            version: .v0,
-            mode: ContextField(
-                modeProvider().rawValue,
-                provenance: .localCache
-            ),
-            scope: ContextScope(
-                accountAddress: ContextField(
-                    account?.address ?? addressProvider(),
-                    provenance: .userProvided,
-                    updatedAt: account?.addedAt
-                ),
-                accountName: ContextField(
-                    account?.name,
-                    provenance: .localCache,
-                    updatedAt: account?.mostRecentActivityAt
-                ),
-                selectedChains: ContextField(
-                    [selectedChain],
-                    provenance: .userProvided,
-                    updatedAt: account?.mostRecentActivityAt
-                )
-            ),
-            balances: ContextBalancesSummary(
-                nativeBalanceDisplay: ContextField(
-                    nativeBalanceDisplayProvider(),
-                    provenance: nativeBalanceProvenanceProvider(),
-                    updatedAt: nativeBalanceUpdatedAtProvider() ?? refreshTimestamp
-                ),
-                nativeBalanceStatusMessage: ContextField(
-                    nativeBalanceStatusMessageProvider(),
-                    provenance: .localCache,
-                    updatedAt: refreshTimestamp
-                )
-            ),
-            libraryPointers: ContextLibraryPointers(
-                trackedNFTCount: ContextField(
-                    trackedNFTCountProvider() ?? account?.trackedNFTCount,
-                    provenance: .localCache,
-                    updatedAt: account?.mostRecentActivityAt
-                ),
-                musicCollectionCount: ContextField(
-                    musicCollectionCountProvider(),
-                    provenance: .localCache,
-                    updatedAt: refreshTimestamp
-                ),
-                receiptCount: ContextField(
-                    receiptCountProvider(),
-                    provenance: .localCache,
-                    updatedAt: refreshTimestamp
-                )
-            ),
-            modulePointers: ContextModulePointers(
-                items: HomeLauncherAction.allCases.map { action in
+        return ContextSnapshotBuilder().build(
+            from: ContextSnapshotInput(
+                mode: modeProvider().rawValue,
+                accountAddress: account?.address ?? addressProvider(),
+                accountName: account?.name,
+                accountAddedAt: account?.addedAt,
+                accountMostRecentActivityAt: account?.mostRecentActivityAt,
+                selectedChains: [
+                    ContextChainReference(
+                        id: selectedChain.rawValue,
+                        displayName: selectedChain.routingDisplayName
+                    )
+                ],
+                isRefreshing: loadingProvider(),
+                refreshedAt: refreshTimestamp,
+                nativeBalanceDisplay: nativeBalanceDisplayProvider(),
+                nativeBalanceStatusMessage: nativeBalanceStatusMessageProvider(),
+                nativeBalanceUpdatedAt: nativeBalanceUpdatedAtProvider(),
+                nativeBalanceProvenance: nativeBalanceProvenanceProvider(),
+                freshnessTTL: freshnessTTLProvider(),
+                trackedNFTCount: trackedNFTCountProvider() ?? account?.trackedNFTCount,
+                musicCollectionCount: musicCollectionCountProvider(),
+                receiptCount: receiptCountProvider(),
+                modulePointers: HomeLauncherAction.allCases.map { action in
                     ContextModulePointer(
                         routeID: action.rawValue,
                         title: action.contextTitle,
                         priority: action.contextPriority,
-                        isPinned: pinnedActionsProvider().contains(action),
+                        isPinned: pinnedActions.contains(action),
                         isMounted: true
                     )
-                }
-            ),
-            localPreferences: ContextLocalPreferences(
-                prefersDemoData: ContextField(
-                    prefersDemoDataProvider(),
-                    provenance: .userProvided
-                ),
-                pinnedItemCount: ContextField(
-                    pinnedItemCountProvider(),
-                    provenance: .localCache,
-                    updatedAt: refreshTimestamp
-                )
-            ),
-            freshness: ContextFreshness(
-                refreshState: loadingProvider() ? .refreshing : .idle,
-                lastSuccessfulRefreshAt: refreshTimestamp,
-                lastSuccessfulRefreshProvenance: .localCache,
-                ttl: freshnessTTLProvider(),
+                },
+                prefersDemoData: prefersDemoDataProvider(),
+                pinnedItemCount: pinnedItemCountProvider(),
                 referenceDate: nowProvider()
             )
         )

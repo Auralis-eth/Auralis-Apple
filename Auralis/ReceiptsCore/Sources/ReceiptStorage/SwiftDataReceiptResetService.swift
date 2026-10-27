@@ -1,6 +1,6 @@
 import ReceiptsCore
 import SwiftData
-import SwiftDataAdapters
+import AuralisFoundation
 
 @MainActor
 public struct SwiftDataReceiptResetService: ReceiptResetting {

@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 
 /// Where an action's permission came from — the "under what authority" leg of actor attribution

@@ -1,6 +1,6 @@
 # TEST-015: Test Ownership Migration For The 12-Package Architecture
 
-Status: In progress; re-scoped from the original package-by-package proposal
+Status: In progress; final CI and full-plan validation remain
 Date: 2026-10-22
 Related: `ARCH-003-Domain-Package-Consolidation-Plan.md`, `ARCH-004-Independent-Core-And-Adapter-Migration-Plan.md`
 
@@ -43,17 +43,15 @@ keeps its own tests; third-party tests are outside this plan.
 | CodeScanner basics | Existing CodeScanner package tests | Remain in vendored CodeScanner |
 | Explicit package platforms | Touched packages now declare iOS/macOS floors, including AccountStorage | Preserve during manifest consolidation |
 
-### Known remaining app-owned behavior suites
+### App-owned behavior suites removed
 
-The source inventory still found these package-behavior names in `AuralisTests`:
-
-- `NFTProviderFailurePresentationTests.swift`
-- `ProviderAbstractionTests.swift`
-- `ChainTests.swift`
-- `EOAccountTests.swift`
-
-Each must be split by imports and behavior before removal. App assembly/provider-selection assertions
-remain in renamed integration suites.
+The four package-behavior suites identified by the source inventory no longer live in `AuralisTests`
+(2026-10-27). `ChainTests` and `EOAccountTests` now compile with the primary-model owner;
+`NFTProviderFailurePresentationTests` and the provider abstraction regression suite compile with the
+AccountsCore/NFT package owner. All 48 moved tests passed independently, and Xcode build-for-testing
+succeeded. The large provider suite still needs an internal follow-up split between the existing
+ProviderKit, ChainProviders, and NFT adapter test targets; it no longer depends on or tests the app
+module.
 
 ### Structural blocker
 
@@ -139,7 +137,8 @@ the manifest or source import. Before Phase 1, continue to:
   run completed with 962 tests, 958 passed, 4 skipped and 0 failed. The additional test is the new
   package-boundary guard; the two baseline Dynamic Type audit failures did not reproduce;
 - record all 42 current local-root test results or documented blockers;
-- add the required package-test CI lane;
+- [x] add the required package-test CI lane as `Scripts/TestOwnedPackages.sh` (2026-10-26); hosted
+  CI should invoke this script independently of the app test plan;
 - retain current snapshot and receipt golden-vector baselines.
 
 ### Slice 1 — Foundation model split
@@ -242,7 +241,7 @@ the manifest or source import. Before Phase 1, continue to:
 
 - preserve the existing RuntimeCore, Planner, Playbook, Scheduling, Performance and Eval suites as
   separate test targets;
-- add intent/commitment boundary tests before introducing their production types;
+- [x] add intent/commitment boundary tests before introducing their production types (2026-10-26);
 - move Ethereum check tests with the checks into AuralisCrypto;
 - test model routing without concrete providers.
 
@@ -257,8 +256,9 @@ the manifest or source import. Before Phase 1, continue to:
   build-for-testing succeeds;
 - preserve every receipt envelope golden vector unchanged;
 - keep storage/tamper/export compatibility tests distinct from receipt UI tests;
-- move current app Context tests with extracted ContextCore;
-- add Memory tests from the required list above.
+- [x] move portable Context behavior and tests into extracted `ContextCore` (2026-10-26);
+- [x] add independent Memory core, storage and retrieval tests from the required list above
+  (2026-10-26). `AuralisContext` passed 11/11 tests, and the 23 affected app integration tests passed.
 
 ### Slice 4 — Policy decoupling
 
@@ -269,14 +269,16 @@ the manifest or source import. Before Phase 1, continue to:
 
 ### Slice 5 — Crypto
 
-- finish splitting `ProviderAbstractionTests` by ProviderKit, ChainProviders and NFT adapter ownership;
-- move the remaining NFT failure-presentation behavior;
+- move `ProviderAbstractionTests` out of the app target, then finish splitting it by ProviderKit,
+  ChainProviders and NFT adapter ownership;
+- [x] move the remaining NFT failure-presentation behavior (2026-10-27);
 - keep vendor SDK adapter tests isolated from wallet-contract tests;
 - retain physical-device wallet QA as separate evidence, not a compile-time unit-test claim.
 
 ### Slice 6 — Operators and Mission Control
 
-- migrate existing operator catalog tests into canonical manifest/registry tests;
+- [x] add canonical versioned manifest/registry tests and adapt the existing operator catalog to
+  expose the manifest without serializing live runtime state (2026-10-26);
 - keep concrete operator execution/provider-adapter tests in AuralisOperators;
 - remove concrete pack imports from Mission Control tests;
 - preserve trusted-UI fidelity, redaction and approval tests.
@@ -305,10 +307,11 @@ the manifest or source import. Before Phase 1, continue to:
 - [x] Shared test support depends only on AuralisFoundation. Domain-specific NFT fixtures live in `PrimaryModelsTestSupport` or the app integration-test target.
 - [x] All package manifests declare compatible platforms: reusable core packages use the iOS 18/macOS 15 floor, while UI/composition packages match AuraUI at iOS/macOS 26.
 - [x] Every current production target has a directly owning package test target. The only exceptions are the fixture-only `AuralisTestSupport` and `PrimaryModelsTestSupport` targets, documented in `Final-Target-Test-Ownership-Audit.md`.
-- [ ] Intent, commitment, runtime-state, memory, context, artifact and receipt boundaries are tested.
-- [ ] Operator manifest authority/absence/runtime-state rules are tested.
+- [x] Intent, commitment, runtime-state, memory, context, artifact and receipt boundaries are tested.
+- [x] Operator manifest authority/absence/runtime-state rules are tested.
 - [ ] Existing NFT and music package migrations survive movement to final packages.
-- [ ] Provider, chain, account and NFT failure tests no longer remain as package behavior in app tests.
+- [x] Provider, chain, account and NFT failure tests no longer remain as package behavior in app tests.
 - [ ] App tests are explicitly composition/integration/architecture/UI suites.
-- [ ] CI runs all final package suites as a required lane.
+- [x] The repository provides one canonical lane that runs every final package suite; hosted CI must
+  invoke `Scripts/TestOwnedPackages.sh` as a required job.
 - [ ] The full app test plan and Auralis build pass after every consolidation phase.

@@ -1,6 +1,7 @@
 import ArtifactCore
+import AccountsCore
 import AuralisPrimaryModels
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 import PlaybookCore
 import PolicyCore

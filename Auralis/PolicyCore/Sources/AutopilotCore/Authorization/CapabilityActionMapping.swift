@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import PolicyCore
 
 /// Maps a canonical ``CapabilityID`` to the ``PolicyControlledAction`` the app's policy

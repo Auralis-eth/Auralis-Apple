@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 
 public enum AgentSessionStatus: String, Equatable, Sendable, Codable {

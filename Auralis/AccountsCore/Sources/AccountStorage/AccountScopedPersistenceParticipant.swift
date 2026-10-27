@@ -1,5 +1,5 @@
 import SwiftData
-import SwiftDataAdapters
+import AuralisFoundation
 
 /// Type-erases a domain-owned persistence participant for account-scoped transactions.
 ///

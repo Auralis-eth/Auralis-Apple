@@ -3,7 +3,7 @@ import AuralisPrimaryPersistence
 import Foundation
 import ProviderKit
 import SwiftData
-import SwiftDataAdapters
+import AuralisFoundation
 
 public enum TokenHoldingsStoreError: LocalizedError, Equatable {
     case invalidAccountAddress(String)

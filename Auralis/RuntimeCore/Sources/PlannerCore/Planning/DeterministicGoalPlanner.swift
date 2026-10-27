@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 
 /// A planner that maps a goal to a plan using a keyword-triggered template catalog.
 ///

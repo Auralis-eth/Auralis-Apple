@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 
 /// A typed, serializable description of a single thing an actor wants to do, *before* any

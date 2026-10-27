@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import AuraUI
+import ContextCore
 import SwiftData
 import SwiftUI
 
@@ -157,7 +158,8 @@ struct ChromeContextInspectorSheet: View {
     }
 
     private var receiptScope: ReceiptTimelineScope? {
-        guard let chain = snapshot.scope.selectedChains.value?.first else {
+        guard let chainReference = snapshot.scope.selectedChains.value?.first,
+              let chain = Chain(rawValue: chainReference.id) else {
             return nil
         }
 

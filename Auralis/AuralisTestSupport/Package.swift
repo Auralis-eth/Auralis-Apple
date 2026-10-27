@@ -5,8 +5,8 @@ import PackageDescription
 let package = Package(
     name: "AuralisTestSupport",
     platforms: [
-        .iOS(.v18),
-        .macOS(.v15),
+        .iOS("26.0"),
+        .macOS("26.0")
     ],
     products: [
         .library(

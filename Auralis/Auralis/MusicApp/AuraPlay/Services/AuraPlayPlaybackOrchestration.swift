@@ -157,7 +157,7 @@ final class PlaybackOrchestrator {
     private var positionCadenceTask: Task<Void, Never>?
     private var isSmartShuffleEnabled = false
     private var smartShuffleHistory: [String: SmartShufflePlaybackHistory] = [:]
-    private var shuffleSeed: UInt64 = 0
+    private(set) var shuffleSeed: UInt64 = 0
 
     private(set) var state: OrchestratorState = .idle
     private(set) var queue = AuraPlayPlaybackQueue()

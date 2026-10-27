@@ -1,6 +1,6 @@
 import Foundation
 import SwiftData
-import SwiftDataAdapters
+import AuralisFoundation
 
 struct SearchHistorySnapshot: Sendable {
     private let accountAddressRawValue: String?

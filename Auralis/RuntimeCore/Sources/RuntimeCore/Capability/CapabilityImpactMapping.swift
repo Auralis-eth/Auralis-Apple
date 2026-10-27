@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 
 /// Maps a canonical ``CapabilityID`` to the ``ActionImpactClass`` of *executing* it.
 ///

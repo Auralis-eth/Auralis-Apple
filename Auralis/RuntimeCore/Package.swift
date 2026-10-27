@@ -5,14 +5,18 @@ import PackageDescription
 let package = Package(
     name: "RuntimeCore",
     platforms: [
-        .iOS(.v18),
-        .macOS(.v15)
+        .iOS("26.0"),
+        .macOS("26.0")
     ],
     products: [
         .library(
             name: "RuntimeCore",
             targets: ["RuntimeCore"]
         ),
+        .library(name: "IntentCore", targets: ["IntentCore"]),
+        .library(name: "CommitmentCore", targets: ["CommitmentCore"]),
+        .library(name: "OutcomeVerification", targets: ["OutcomeVerification"]),
+        .library(name: "OperatorRegistry", targets: ["OperatorRegistry"]),
         .library(
             name: "PlannerCore",
             targets: ["PlannerCore"]
@@ -41,20 +45,42 @@ let package = Package(
         .target(
             name: "RuntimeCore",
             dependencies: [
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation")
+                .product(name: "AuralisFoundation", package: "AuralisFoundation")
             ]
+        ),
+        .target(
+            name: "IntentCore",
+            dependencies: [
+                .product(name: "AuralisFoundation", package: "AuralisFoundation")
+            ]
+        ),
+        .target(
+            name: "CommitmentCore",
+            dependencies: [
+                "IntentCore",
+                "RuntimeCore",
+                .product(name: "AuralisFoundation", package: "AuralisFoundation")
+            ]
+        ),
+        .target(
+            name: "OutcomeVerification",
+            dependencies: ["CommitmentCore", "EvalCore"]
+        ),
+        .target(
+            name: "OperatorRegistry",
+            dependencies: ["RuntimeCore"]
         ),
         .target(
             name: "PlannerCore",
             dependencies: [
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "RuntimeCore"
             ]
         ),
         .target(
             name: "PlaybookCore",
             dependencies: [
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "RuntimeCore"
             ]
         ),
@@ -78,6 +104,16 @@ let package = Package(
             name: "RuntimeCoreTests",
             dependencies: ["RuntimeCore"]
         ),
+        .testTarget(name: "IntentCoreTests", dependencies: ["IntentCore"]),
+        .testTarget(
+            name: "CommitmentCoreTests",
+            dependencies: ["CommitmentCore", "IntentCore", "RuntimeCore"]
+        ),
+        .testTarget(
+            name: "OutcomeVerificationTests",
+            dependencies: ["OutcomeVerification", "CommitmentCore", "IntentCore", "RuntimeCore", "EvalCore"]
+        ),
+        .testTarget(name: "OperatorRegistryTests", dependencies: ["OperatorRegistry", "RuntimeCore"]),
         .testTarget(
             name: "PlannerCoreTests",
             dependencies: [

@@ -1,5 +1,6 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
+import ContextCore
 import Foundation
 import MissionControlFeature
 import NFTDomain
@@ -26,13 +27,6 @@ final class ContextService {
         case reuseCachedBalance
     }
 
-    /// Identifies the account, chain, and mode scope for an in-flight context refresh.
-    struct RequestScope: Equatable {
-        let accountAddress: String
-        let chain: Chain
-        let mode: CryptoMode
-    }
-
     private struct CapturedInputs {
         let account: EOAccount?
         let address: String
@@ -52,11 +46,11 @@ final class ContextService {
         let prefersDemoData: Bool?
         let pinnedItemCount: Int?
 
-        var scope: RequestScope {
-            RequestScope(
+        var scope: ContextRequestScope {
+            ContextRequestScope(
                 accountAddress: account?.address ?? address,
-                chain: chain,
-                mode: mode
+                chainID: chain.rawValue,
+                modeID: mode.rawValue
             )
         }
     }
@@ -80,9 +74,7 @@ final class ContextService {
 
     private(set) var snapshot: ContextSnapshot
 
-    @ObservationIgnored private var inFlightTask: Task<ContextSnapshot, Never>?
-    @ObservationIgnored private var inFlightScope: RequestScope?
-    @ObservationIgnored private var refreshGeneration: Int = 0
+    @ObservationIgnored private let refreshCoordinator = ContextRefreshCoordinator()
 
     /// Creates a context service from shell-owned providers and a context-source builder.
     ///
@@ -180,37 +172,27 @@ final class ContextService {
     ) async -> ContextSnapshot {
         let capturedInputs = await captureInputs(strategy: strategy)
 
-        if let inFlightTask, inFlightScope == capturedInputs.scope {
-            let reusedSnapshot = await inFlightTask.value
+        let resolution = await refreshCoordinator.resolve(scope: capturedInputs.scope) {
+            [capturedInputs, contextSourceBuilder, beforeResolve] in
+            await beforeResolve()
+            return Self.makeSnapshot(from: capturedInputs, using: contextSourceBuilder)
+        }
+        let resolvedSnapshot = resolution.snapshot
+
+        if resolution.reusedInFlightRefresh {
             await recordInstrumentation(
-                snapshot: reusedSnapshot,
+                snapshot: resolvedSnapshot,
                 inputs: capturedInputs,
                 strategy: strategy,
                 correlationID: correlationID,
                 instrumentation: instrumentation,
                 reusedInFlightRefresh: true
             )
-            return reusedSnapshot
+            return resolvedSnapshot
         }
 
-        inFlightTask?.cancel()
-        refreshGeneration += 1
-        let generation = refreshGeneration
-
-        let task = Task { @MainActor [capturedInputs, contextSourceBuilder, beforeResolve] in
-            await beforeResolve()
-            return Self.makeSnapshot(from: capturedInputs, using: contextSourceBuilder)
-        }
-
-        inFlightTask = task
-        inFlightScope = capturedInputs.scope
-
-        let resolvedSnapshot = await task.value
-        let didWinGeneration = generation == refreshGeneration
-        if didWinGeneration {
+        if resolution.shouldCommit {
             snapshot = resolvedSnapshot
-            inFlightTask = nil
-            inFlightScope = nil
         }
 
         if let receiptEventLogger {
@@ -228,7 +210,7 @@ final class ContextService {
             reusedInFlightRefresh: false
         )
 
-        return didWinGeneration ? snapshot : resolvedSnapshot
+        return resolution.shouldCommit ? snapshot : resolvedSnapshot
     }
 }
 
@@ -290,9 +272,9 @@ private extension ContextService {
         }
     }
 
-    private static func generatedContextCorrelationID(for scope: RequestScope) -> String {
+    private static func generatedContextCorrelationID(for scope: ContextRequestScope) -> String {
         let address = scope.accountAddress.isEmpty ? "none" : scope.accountAddress
-        return "context.refresh.\(scope.chain.rawValue).\(address).\(UUID().uuidString)"
+        return "context.refresh.\(scope.chainID).\(address).\(UUID().uuidString)"
     }
 
     private func captureInputs(
@@ -417,7 +399,7 @@ private extension ContextService {
 
         if strategy == .reuseCachedBalance,
            cachedSnapshot.scope.accountAddress.value == address,
-           cachedSnapshot.scope.selectedChains.value == [chain] {
+           cachedSnapshot.scope.selectedChains.value?.map(\.id) == [chain.rawValue] {
             return NativeBalanceSnapshot(
                 displayValue: cachedSnapshot.balances.nativeBalanceDisplay.value,
                 statusMessage: cachedSnapshot.balances.nativeBalanceStatusMessage.value,
@@ -436,7 +418,7 @@ private extension ContextService {
             )
         } catch {
             if cachedSnapshot.scope.accountAddress.value == address,
-               cachedSnapshot.scope.selectedChains.value == [chain],
+               cachedSnapshot.scope.selectedChains.value?.map(\.id) == [chain.rawValue],
                let cachedDisplayValue = cachedSnapshot.balances.nativeBalanceDisplay.value {
                 return NativeBalanceSnapshot(
                     displayValue: cachedDisplayValue,

@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 
 /// An ordered, inspectable decomposition of a ``PlanningGoal`` into capability-grounded
 /// steps. A plan is a proposal: producing one changes nothing. It is meant to be shown

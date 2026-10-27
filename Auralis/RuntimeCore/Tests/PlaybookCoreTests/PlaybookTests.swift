@@ -1,5 +1,5 @@
 import ArtifactCore
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 @testable import PlaybookCore
 import RuntimeCore

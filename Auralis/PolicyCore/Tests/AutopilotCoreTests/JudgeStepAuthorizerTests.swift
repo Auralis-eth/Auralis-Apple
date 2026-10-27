@@ -1,5 +1,5 @@
 @testable import AutopilotCore
-import CapabilitiesCore
+import AuralisFoundation
 import PlannerCore
 import RuntimeCore
 import Testing

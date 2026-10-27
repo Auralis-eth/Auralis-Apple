@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 @testable import AutopilotCore
-import CapabilitiesCore
+import AuralisFoundation
 import PlannerCore
 import PolicyCore
 import RuntimeCore

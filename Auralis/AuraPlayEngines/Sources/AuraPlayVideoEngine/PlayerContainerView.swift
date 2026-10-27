@@ -8,7 +8,10 @@ public final class PlayerSurfaceView: UIView {
     public override static var layerClass: AnyClass { AVPlayerLayer.self }
 
     public var playerLayer: AVPlayerLayer {
-        layer as! AVPlayerLayer
+        guard let playerLayer = layer as? AVPlayerLayer else {
+            preconditionFailure("PlayerSurfaceView must be backed by AVPlayerLayer")
+        }
+        return playerLayer
     }
 
     public var player: AVPlayer? {

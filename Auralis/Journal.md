@@ -1,5 +1,89 @@
 # Journal
 
+## 2026-10-26 - A Promise Is Not A Successful Function Call
+
+Intent and commitment now have distinct runtime homes. An intent records where a desired outcome
+came from, but inference is not a permission slip. `CommitmentFactory` refuses any intent without an
+explicit authorization transition carrying the principal, time, and evidence reference. It is the
+difference between overhearing “I should travel more” and booking a non-refundable flight.
+
+A commitment keeps a stable identity, outcome specification, constraints, dependencies, expiry,
+and append-only lifecycle transitions. Amendment, cancellation, delegation, escalation, expiration,
+and fulfillment are all named events. Execution retries remain elsewhere in runtime state. Most
+importantly, a successful tool receipt cannot close the commitment: `OutcomeVerification` must match
+an evaluation to the commitment's exact outcome and return confirmed evidence. Missing,
+contradictory, or unrelated evidence leaves it open.
+
+The operator catalog gained the other half of that honesty. Each existing `OperatorSpec` now exposes
+a canonical `OperatorManifest` covering identity, context/memory needs, reasoning, capabilities,
+authority requests, execution/commitments, events, artifacts/receipts, outcomes, and interface
+lifecycle. The manifest says what an operator supports and requests; registering one creates no
+lease, policy grant, current context, progress, or active commitment. Runtime owner tests and the
+existing operator governance contract tests passed after the bridge was added.
+
+The validation pass also flushed out three stale architecture-audit assumptions from earlier package
+moves: MusicFeature and AccountsFeature still pointed at their retired standalone roots, while the
+operator UI rule scanned the entire consolidated OperatorsFeature package and mistook the explicitly
+owned Music/NFT presentation targets for arbitrary operator UI. The checks now follow target paths,
+not yesterday's package folders. All 36 focused architecture checks pass across the initial run and
+the repaired reruns. The full simulator-heavy `Auralis-Full` action did not return a terminal result,
+so it remains a validation item rather than being quietly reported green.
+
+## 2026-10-26 - Memory Is A Library, Not A Security Camera
+
+The first durable-memory slice now lives beside Context without being wired into context capture.
+That negative space is the most important design choice: looking at the current room does not mean
+the app gets to record it forever. A caller must explicitly use `MemoryWriter` to create, correct,
+or delete a memory.
+
+Memories behave like an archive ledger rather than an editable sticky note. Corrections append a new
+revision linked to the prior one, and deletion appends a tombstone. The old statement remains in the
+audit history without remaining eligible for retrieval. Provenance, sensitivity, retention, and data
+scope travel with every revision, while portable versioned archives keep export and restoration from
+depending on the storage implementation.
+
+`MemoryStorage` supplies an actor-isolated, atomically written JSON-file ledger. `MemoryRetrieval`
+opens only the drawers a task is permitted to see: it filters deleted and expired records, session
+memory, sensitivity, and data scopes, and it propagates cancellation. The package suite now runs 11
+tests across ContextCore, MemoryCore, MemoryStorage, and MemoryRetrieval. The larger lesson is simple:
+context is what is on the desk; memory is what someone deliberately files in the cabinet.
+
+## 2026-10-26 - Context Got Its Own Address
+
+`AuralisContext` now exists as the future home of what the app knows. Its first `ContextCore` slice
+owns the dependency-clean vocabulary for fields, provenance, freshness, refresh state, and schema
+versioning. Those types moved out of the app target instead of being copied, and focused Swift
+Testing coverage pins freshness labels, future-clock handling, and field metadata.
+
+The boundary matters because context is a packed travel bag, not the whole house. `ContextCore`
+describes what is currently relevant and where it came from; live wallet providers, receipt writing,
+and persistence stay outside the bag. Durable memory will get separate rooms later so observing the
+present never silently becomes remembering forever.
+
+The second moving truck carried the complete immutable snapshot contract and its builder. The old
+snapshot embedded the crypto-owned `Chain` enum, which would have turned Context into a tenant of the
+wallet package. `ContextChainReference` now crosses that boundary with only a stable ID and display
+name; the live app adapter translates from `Chain` at the doorstep. Context can describe the current
+network without learning how wallets route, sign, or talk to providers.
+
+This was also a useful test-ownership war story: the app built cleanly, but build-for-testing found a
+presentation test that still relied on the type living inside the app module. Adding the explicit
+`ContextCore` import restored the honest dependency. Nineteen focused app tests and the package suite
+then passed, covering snapshot construction, refresh races, cached balance fallback, receipts, and
+shell presentation.
+
+The last context extraction moved the traffic-control rules too. `ContextRefreshCoordinator` now
+owns same-scope coalescing, cancellation of superseded refreshes, and the rule that only the newest
+scope may replace the visible snapshot. It is main-actor isolated because it coordinates the
+observable shell state, while balance providers and receipt/instrumentation adapters remain outside
+the package. Think of it as moving the air-traffic rules into Context while leaving the aircraft,
+weather service, and incident recorder with their actual operators.
+
+Swift 6 caught a deliberately concurrent owner test trying to share a plain mutable counter between
+two `async let` branches. The fix was an actor-isolated counter—not a suppression—which made the test
+model the same safety contract as production. Six package tests and all seven context-service tests
+passed after the move, including duplicate-request coalescing and rapid account-switch races.
+
 ## 2026-10-25 - Wallet Connectors Entered the Crypto Vault
 
 `WalletConnectorKit` and its six vendor adapter targets now live inside AccountsCore, the emerging
@@ -5192,3 +5276,35 @@ at the storage boundary because it is part of the receipt account-key contract, 
 normalizer deliberately recognizes syntax only—it grants no wallet authority and exposes no crypto
 domain model. Package tests plus an architecture guard now keep RuntimeCore, PolicyCore, and
 ReceiptsCore independent of the transitional primary-model package.
+## The CI Lane That Refused To Be A Rubber Stamp
+
+The final ownership pass added one explicit package lane instead of assuming the app test plan was
+the whole restaurant. That lane immediately found two dusty cupboards: Mission Control carried a
+stale `secp256k1.swift` lock that disagreed with `web3.swift`, and RuntimeKit tests used migrated
+Ethereum checks through undeclared transitive imports. Pinning the compatible lock and declaring
+`AccountsCore` directly made both packages independently reproducible again. Expanding lint to the
+real package roots also caught an old UIKit force cast in the video surface; the layer-class
+invariant is now checked with a descriptive precondition instead of an unchecked cast.
+
+The lesson is pleasantly blunt: package sovereignty is not proved by a green app build. Each owner
+has to walk through the door under its own name, with its own dependency declaration and tests.
+
+## 2026-10-27 - Four Tests Finally Changed Their Mailing Address
+
+Four suites were still living in the app target even though none of them tested app composition.
+They were like specialists receiving mail at city hall: the letters arrived, but ownership was
+impossible to prove without opening the whole building. Chain display names and account persistence
+defaults now compile beside the primary models; NFT failure presentation and provider regressions now
+compile inside AccountsCore. Removing the unused `@testable import Auralis` was the useful proof—not
+just tidying—that the app was never their real dependency.
+
+The 48 moved tests passed from the package lane and Xcode still builds for testing. One honest loose
+end remains: the large provider regression suite covers ProviderKit, chain providers, and NFT
+adapters in a single file. Moving it establishes package sovereignty; splitting it among the existing
+test targets will make the neighborhood map accurate down to the module boundary.
+
+That validation pass also caught a tiny roulette wheel disguised as a test. Smart Shuffle correctly
+advanced its seed when repeat-all rebuilt the queue, but the test demanded that the new permutation
+must differ from the old one. Two different shuffles can legally produce the same order—unlikely is
+not impossible, and CI eventually collected the losing ticket. The test now checks the actual
+contract: the seed advances, the rebuilt order contains the same entries, and playback stays active.

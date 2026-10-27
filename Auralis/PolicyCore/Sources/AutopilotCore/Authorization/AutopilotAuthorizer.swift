@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import PlannerCore
 import PolicyCore
 import RuntimeCore

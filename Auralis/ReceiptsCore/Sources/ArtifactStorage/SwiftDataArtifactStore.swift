@@ -2,7 +2,7 @@ import ArtifactCore
 import Foundation
 import OSLog
 import SwiftData
-import SwiftDataAdapters
+import AuralisFoundation
 
 private let artifactStorageLogger = Logger(subsystem: "Auralis", category: "ArtifactStorage")
 

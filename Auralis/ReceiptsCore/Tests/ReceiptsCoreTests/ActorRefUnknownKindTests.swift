@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 @testable import ReceiptsCore
 @testable import RuntimeCore

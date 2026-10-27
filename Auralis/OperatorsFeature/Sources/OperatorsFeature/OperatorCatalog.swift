@@ -1,4 +1,5 @@
 import ArtifactCore
+import OperatorRegistry
 import RuntimeCore
 
 /// What kind of real work an operator performs — selects the data it gathers and how the artifact
@@ -43,6 +44,70 @@ public struct OperatorSpec: Sendable {
         self.artifactType = artifactType
         self.modelTaskKind = modelTaskKind
         self.usesInference = usesInference
+    }
+
+    /// Canonical static declaration for registry and Mission Control consumers.
+    /// Live permissions, context, progress, and commitments intentionally do not appear here.
+    public var manifest: OperatorManifest {
+        OperatorManifest(
+            id: tool.id,
+            operatorVersion: "1.0.0",
+            identity: .init(
+                title: tool.title,
+                purpose: "Run the \(tool.title) operator through the governed runtime.",
+                intendedOutcomes: ["Produce a verified \(artifactType.rawValue) artifact"],
+                principalScope: "requesting principal"
+            ),
+            context: .init(
+                requiredFields: tool.inputSchema.fields.filter(\.isRequired).map(\.name),
+                permittedMemoryScopes: nil,
+                dataScopes: tool.inputSchema.fields.map(\.name),
+                maximumAgeSeconds: nil
+            ),
+            reasoning: .init(
+                supportsPlanning: false,
+                workflowIDs: [modelTaskKind],
+                decisionBoundaries: tool.impact.requiresConfirmation ? ["human confirmation required"] : [],
+                usesInference: usesInference
+            ),
+            capabilities: .init(tool: tool, outputContracts: [artifactType.rawValue]),
+            authority: .init(
+                requestedPermissions: [tool.capability.rawValue],
+                riskClassification: tool.impact.rawValue,
+                confirmationBoundaries: tool.impact.requiresConfirmation ? ["before execution"] : [],
+                revocationBehavior: "recheck before execution"
+            ),
+            execution: .init(
+                supportedCommitmentTypes: [],
+                lifecycleHooks: ["cancel"],
+                cancellationBehavior: "cooperative",
+                retryBehavior: "runtime governed",
+                recoveryBehavior: "preserve receipt evidence"
+            ),
+            events: .init(
+                subscribedCategories: [],
+                triggerIDs: [],
+                idempotencyRequirement: "correlation ID",
+                schedulingRequirement: nil
+            ),
+            records: .init(
+                artifactTypes: [artifactType.rawValue],
+                requiresReceipt: tool.requiresReceipt,
+                evidenceRequirements: tool.requiredCheckIDs
+            ),
+            outcomes: .init(
+                successCriteria: ["artifact produced"],
+                verificationRequirements: tool.requiredCheckIDs,
+                failureSemantics: "report failure without claiming fulfillment",
+                escalationSemantics: "follow declared impact and policy"
+            ),
+            interface: .init(
+                representations: ["mission-control"],
+                interventionSurfaces: tool.impact.requiresConfirmation ? ["approval-inbox"] : [],
+                lifecycle: "registered",
+                compatibility: "manifest-v1"
+            )
+        )
     }
 }
 

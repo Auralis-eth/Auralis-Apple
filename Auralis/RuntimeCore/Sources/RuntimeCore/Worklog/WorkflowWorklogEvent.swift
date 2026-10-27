@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 
 /// One option a planner weighed while deciding what to do, recorded on the worklog so Mission

@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 
 /// A named, keyword-triggered blueprint for a common goal. Templates make the
 /// deterministic planner's behavior legible and testable: a goal that mentions any of

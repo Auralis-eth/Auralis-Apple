@@ -6,32 +6,17 @@ included:
   - AuralisTests
   - AuralisUITests
   - AccountsCore
-  - ArtifactCore
-  - ArtifactStorage
+  - AuraPlayEngines
+  - AuralisContext
   - AuraUI
-  - AuralisPrimaryModels
-  - AuralisShellCore
-  - AutopilotCore
-  - CapabilitiesCore
-  - EvalCore
+  - AuralisFoundation
+  - AuralisTestSupport
   - MissionControlFeature
-  - MusicFeature
-  - NFTKit
-  - OperatorCore
-  - OperatorRuntimeStorage
   - OperatorsFeature
-  - PerformanceCore
-  - PlannerCore
-  - PlaybookCore
   - PolicyCore
-  - ProviderKit
-  - ReceiptStorage
   - ReceiptsCore
   - RuntimeCore
   - RuntimeKit
-  - SchedulingCore
-  - SocialCore
-  - TrustedUIKit
 
 # SwiftPM writes generated sources (notably `test_entry_point.swift`, whose SwiftPM-internal
 # `__SwiftPM*` type names trip `type_name` at *error* severity) into each package's `.build`.
@@ -39,32 +24,17 @@ included:
 # One entry per package: `excluded:` matches path prefixes, not globs.
 excluded:
   - AccountsCore/.build
-  - ArtifactCore/.build
-  - ArtifactStorage/.build
+  - AuraPlayEngines/.build
+  - AuralisContext/.build
   - AuraUI/.build
-  - AuralisPrimaryModels/.build
-  - AuralisShellCore/.build
-  - AutopilotCore/.build
-  - CapabilitiesCore/.build
-  - EvalCore/.build
+  - AuralisFoundation/.build
+  - AuralisTestSupport/.build
   - MissionControlFeature/.build
-  - MusicFeature/.build
-  - NFTKit/.build
-  - OperatorCore/.build
-  - OperatorRuntimeStorage/.build
   - OperatorsFeature/.build
-  - PerformanceCore/.build
-  - PlannerCore/.build
-  - PlaybookCore/.build
   - PolicyCore/.build
-  - ProviderKit/.build
-  - ReceiptStorage/.build
   - ReceiptsCore/.build
   - RuntimeCore/.build
   - RuntimeKit/.build
-  - SchedulingCore/.build
-  - SocialCore/.build
-  - TrustedUIKit/.build
 
 reporter: xcode
 

@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import OSLog
-import UserDefaultsAdapters
+import AuralisFoundation
 
 struct HomePinnedItemRecord: Codable, Equatable {
     let accountAddress: String

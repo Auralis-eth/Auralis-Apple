@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 @testable import AccountsCore
 @_spi(RuntimeComposition) @_spi(RuntimeTesting) @_spi(ToolRegistration) @testable import RuntimeCore

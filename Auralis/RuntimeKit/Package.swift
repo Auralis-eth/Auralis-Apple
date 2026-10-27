@@ -25,7 +25,6 @@ let package = Package(
     dependencies: [
         .package(path: "../RuntimeCore"),
         .package(path: "../ReceiptsCore"),
-        .package(path: "../AuralisPrimaryModels"),
         .package(path: "../OperatorsFeature"),
         .package(path: "../PolicyCore"),
         .package(path: "../AuralisFoundation"),
@@ -42,7 +41,7 @@ let package = Package(
                 .product(name: "AutopilotCore", package: "PolicyCore"),
                 .product(name: "PlannerCore", package: "RuntimeCore"),
                 "ReceiptsCore",
-                "AuralisPrimaryModels",
+                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
                 .product(name: "PlaybookCore", package: "RuntimeCore"),
                 .product(name: "SchedulingCore", package: "RuntimeCore"),
                 .product(name: "PerformanceCore", package: "RuntimeCore"),
@@ -53,7 +52,7 @@ let package = Package(
                 .product(name: "ArtifactStorage", package: "ReceiptsCore"),
                 "OperatorsFeature",
                 "PolicyCore",
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "OperatorRuntimeStorage",
                 .product(name: "SocialCore", package: "OperatorsFeature"),
                 .product(name: "EvalCore", package: "RuntimeCore")
@@ -62,8 +61,8 @@ let package = Package(
         .target(
             name: "AuralisShellCore",
             dependencies: [
-                "AuralisPrimaryModels",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                .product(name: "AuralisPrimaryModels", package: "AccountsCore"),
+                .product(name: "AuralisPrimaryPersistence", package: "AccountsCore"),
                 "AccountsCore"
             ]
         ),
@@ -83,6 +82,7 @@ let package = Package(
             name: "RuntimeKitTests",
             dependencies: [
                 "RuntimeKit",
+                "AccountsCore",
                 "OperatorRuntimeStorage",
                 // The persistent-host suite builds the container itself, so it names the artifact
                 // row type directly.
@@ -95,7 +95,7 @@ let package = Package(
             dependencies: [
                 "AuralisShellCore",
                 "AccountsCore",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
+                .product(name: "AuralisPrimaryPersistence", package: "AccountsCore")
             ]
         ),
         .testTarget(

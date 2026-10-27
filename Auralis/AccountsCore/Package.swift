@@ -11,6 +11,9 @@ let package = Package(
         .macOS("26.0")
     ],
     products: [
+        .library(name: "AuralisPrimaryModels", targets: ["AuralisPrimaryModels"]),
+        .library(name: "AuralisPrimaryPersistence", targets: ["AuralisPrimaryPersistence"]),
+        .library(name: "PrimaryModelsTestSupport", targets: ["PrimaryModelsTestSupport"]),
         .library(
             name: "AccountsCore",
             targets: ["AccountsCore"]
@@ -45,7 +48,6 @@ let package = Package(
         .library(name: "WalletConnectorKitSolanaAdapter", targets: ["WalletConnectorKitSolanaAdapter"])
     ],
     dependencies: [
-        .package(path: "../AuralisPrimaryModels"),
         .package(path: "../ReceiptsCore"),
         .package(path: "../RuntimeCore"),
         .package(path: "../AuralisFoundation"),
@@ -57,15 +59,31 @@ let package = Package(
         .package(url: "https://github.com/privy-io/privy-ios", .upToNextMajor(from: "2.14.0")),
         .package(url: "https://github.com/dynamic-labs/swift-sdk-and-sample-app", .upToNextMajor(from: "1.2.0")),
         .package(url: "https://github.com/argentlabs/web3.swift", from: "1.6.1"),
-        // web3.swift 1.6.1 still names the pre-rename secp256k1 product.
+        // web3.swift 1.6.1 still names the pre-rename secp256k1 product.,
         .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", exact: "0.6.0")
     ],
     targets: [
+        .target(name: "AuralisPrimaryModels"),
+        .target(
+            name: "AuralisPrimaryPersistence",
+            dependencies: [
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
+                "AuralisPrimaryModels"
+            ]
+        ),
+        .target(
+            name: "PrimaryModelsTestSupport",
+            dependencies: [
+                "AuralisPrimaryModels",
+                "AuralisPrimaryPersistence",
+                .product(name: "AuralisFoundation", package: "AuralisFoundation")
+            ]
+        ),
         .target(
             name: "AccountsCore",
             dependencies: [
                 "AuralisPrimaryModels",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "AuralisPrimaryPersistence",
                 .product(name: "RuntimeCore", package: "RuntimeCore")
             ]
         ),
@@ -73,10 +91,10 @@ let package = Package(
             name: "AccountStorage",
             dependencies: [
                 "AuralisPrimaryModels",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "AuralisPrimaryPersistence",
                 "AccountsCore",
                 .product(name: "ReceiptStorage", package: "ReceiptsCore"),
-                .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "TokenStorage",
                 "NFTPersistence"
             ]
@@ -85,9 +103,9 @@ let package = Package(
             name: "TokenStorage",
             dependencies: [
                 "AuralisPrimaryModels",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "AuralisPrimaryPersistence",
                 "ProviderKit",
-                .product(name: "SwiftDataAdapters", package: "AuralisFoundation")
+                .product(name: "AuralisFoundation", package: "AuralisFoundation")
             ]
         ),
         .target(
@@ -95,7 +113,7 @@ let package = Package(
             dependencies: [
                 "AccountsCore",
                 "AuralisPrimaryModels",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "AuralisPrimaryPersistence",
                 "AuraUI",
                 .product(name: "CodeScanner", package: "CodeScanner")
             ],
@@ -110,7 +128,7 @@ let package = Package(
             dependencies: [
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "AuralisPrimaryModels",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
+                "AuralisPrimaryPersistence"
             ]
         ),
         .target(name: "ChainProviders", dependencies: ["AuralisPrimaryModels", "ProviderKit"]),
@@ -138,9 +156,8 @@ let package = Package(
             name: "NFTPersistence",
             dependencies: [
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                .product(name: "SwiftDataAdapters", package: "AuralisFoundation"),
                 "NFTDomain",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "AuralisPrimaryPersistence",
                 "ReceiptsCore"
             ]
         ),
@@ -151,7 +168,7 @@ let package = Package(
                 "NFTDomain",
                 "NFTProviderAdapters",
                 "NFTPersistence",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
+                "AuralisPrimaryPersistence"
             ]
         ),
         .target(
@@ -193,7 +210,7 @@ let package = Package(
             name: "AccountsCoreTests",
             dependencies: [
                 "AccountsCore",
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 .product(name: "RuntimeCore", package: "RuntimeCore")
             ]
         ),
@@ -201,14 +218,14 @@ let package = Package(
             name: "AccountStorageTests",
             dependencies: [
                 "AccountStorage",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
+                "AuralisPrimaryPersistence"
             ]
         ),
         .testTarget(
             name: "TokenStorageTests",
             dependencies: [
                 "AuralisPrimaryModels",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
+                "AuralisPrimaryPersistence",
                 "ProviderKit",
                 "TokenStorage"
             ]
@@ -218,7 +235,7 @@ let package = Package(
             dependencies: [
                 "AccountsFeature",
                 "AuralisPrimaryModels",
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels")
+                "AuralisPrimaryPersistence"
             ]
         ),
         .testTarget(name: "ProviderKitTests", dependencies: ["ProviderKit", "AuralisTestSupport"]),
@@ -232,14 +249,15 @@ let package = Package(
             name: "NFTKitTests",
             dependencies: [
                 .product(name: "AuralisFoundation", package: "AuralisFoundation"),
-                .product(name: "AuralisPrimaryPersistence", package: "AuralisPrimaryModels"),
-                .product(name: "PrimaryModelsTestSupport", package: "AuralisPrimaryModels"),
+                "AuralisPrimaryPersistence",
+                "PrimaryModelsTestSupport",
                 "AuralisTestSupport",
                 "NFTDomain",
                 "NFTKit",
                 "NFTPersistence",
                 "NFTPresentation",
                 "NFTProviderAdapters",
+                "ProviderKit",
                 .product(name: "ReceiptStorage", package: "ReceiptsCore")
             ]
         ),
@@ -254,6 +272,10 @@ let package = Package(
                 "WalletConnectorKitDynamicAdapter",
                 "WalletConnectorKitSolanaAdapter"
             ]
+        ),
+        .testTarget(
+            name: "AuralisPrimaryModelsTests",
+            dependencies: ["AuralisPrimaryModels", "AuralisPrimaryPersistence"]
         )
     ]
 )

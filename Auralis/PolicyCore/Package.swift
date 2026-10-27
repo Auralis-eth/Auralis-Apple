@@ -5,8 +5,8 @@ import PackageDescription
 let package = Package(
     name: "PolicyCore",
     platforms: [
-        .iOS(.v18),
-        .macOS(.v15)
+        .iOS("26.0"),
+        .macOS("26.0")
     ],
     products: [
         .library(
@@ -27,7 +27,7 @@ let package = Package(
         .target(
             name: "PolicyCore",
             dependencies: [
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "ReceiptsCore",
                 "RuntimeCore"
             ]
@@ -35,7 +35,7 @@ let package = Package(
         .target(
             name: "AutopilotCore",
             dependencies: [
-                .product(name: "CapabilitiesCore", package: "AuralisFoundation"),
+                .product(name: "AuralisFoundation", package: "AuralisFoundation"),
                 "PolicyCore",
                 .product(name: "PlannerCore", package: "RuntimeCore"),
                 "RuntimeCore"

@@ -3,7 +3,6 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
 import SwiftData
-import SwiftDataAdapters
 
 public struct NFTAccountSnapshot {
     let id: String

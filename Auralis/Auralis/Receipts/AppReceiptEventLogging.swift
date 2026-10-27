@@ -1,4 +1,5 @@
 import AuralisPrimaryModels
+import ContextCore
 import Foundation
 import OperatorCore
 import ReceiptsCore
@@ -40,7 +41,7 @@ extension ReceiptEventLogger {
             summary: "Built shell context snapshot",
             provenance: "local_cache",
             timelineAccountAddress: snapshot.scope.accountAddress.value,
-            timelineChainRawValue: snapshot.scope.selectedChains.value?.first?.rawValue,
+            timelineChainRawValue: snapshot.scope.selectedChains.value?.first?.id,
             rawPayload: ContextBuiltReceiptPayload(snapshot: snapshot).rawPayload,
             correlationID: correlationID,
             actorDetail: .workflow("context.snapshot_builder"),
@@ -135,7 +136,7 @@ private struct ContextBuiltReceiptPayload: TypedReceiptPayload {
             .hashed("accountAddress", string: snapshot.scope.accountAddress.value ?? "", kind: .walletAddress),
             .stringArray(
                 "selectedChains",
-                values: (snapshot.scope.selectedChains.value ?? []).map(\.rawValue),
+                values: (snapshot.scope.selectedChains.value ?? []).map(\.id),
                 kind: .chain
             ),
             .public("refreshState", string: snapshot.freshness.refreshState.rawValue, kind: .label),

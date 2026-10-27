@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 
 /// Actions evaluated by the app policy gate before execution-style behavior runs.
 public enum PolicyControlledAction: String, CaseIterable, Sendable {

@@ -1,5 +1,5 @@
 @testable import Auralis
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 import MusicFeature
 import PolicyCore

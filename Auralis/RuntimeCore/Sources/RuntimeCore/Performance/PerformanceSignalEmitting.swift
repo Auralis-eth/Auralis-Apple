@@ -1,4 +1,4 @@
-import CapabilitiesCore
+import AuralisFoundation
 import Foundation
 
 /// The boundary that refused a governed call. This remains RuntimeCore-owned so the kernel does not
