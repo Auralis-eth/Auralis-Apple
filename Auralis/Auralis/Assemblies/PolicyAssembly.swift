@@ -1,5 +1,5 @@
 import AuralisPolicy
-import RuntimeKit
+import AuralisAppShell
 import SwiftData
 
 @MainActor

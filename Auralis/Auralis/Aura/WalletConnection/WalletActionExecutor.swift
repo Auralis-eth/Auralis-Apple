@@ -6,7 +6,7 @@ import AuralisRuntime
 /// Performs cleared ``PolicyControlledAction``s against the connected wallet — the real effect that turns
 /// an approved Operate-mode action into a signature or on-chain transaction.
 ///
-/// This replaces `RuntimeKit`'s fail-closed `UnconfiguredPolicyActionExecutor` in the shipping app. It only runs *after* the
+/// This replaces `AuralisAppShell`'s fail-closed `UnconfiguredPolicyActionExecutor` in the shipping app. It only runs *after* the
 /// governed pipeline has cleared the action (Observe blocks, Assist/Operate escalate for approval, and the
 /// executor is invoked on approval-resume), so it never itself decides policy — it reconstructs the payload
 /// the user reviewed from `proposal.parameters` and asks the connected signer to perform it.

@@ -1,5 +1,5 @@
 import Foundation
-import SocialCore
+import AuralisOperators
 import WalletConnectorKit
 
 /// P3 — turns a wallet-ownership check into a recorded, verified participant.

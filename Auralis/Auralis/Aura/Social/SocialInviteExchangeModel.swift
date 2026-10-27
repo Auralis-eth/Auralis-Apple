@@ -1,6 +1,6 @@
 import Foundation
 import Observation
-import SocialCore
+import AuralisOperators
 import WalletConnectorKit
 
 /// Drives the host/join invite-exchange surface for one shared session. UI-framework-free so it can be

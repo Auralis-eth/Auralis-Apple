@@ -94,72 +94,72 @@ struct ArchitectureBoundaryTests {
         }
 
         let runtimeKitManifest = try String(
-            contentsOf: projectRoot.appending(path: "RuntimeKit/Package.swift"),
+            contentsOf: projectRoot.appending(path: "AuralisAppShell/Package.swift"),
             encoding: .utf8
         )
-        #expect(runtimeKitManifest.contains("name: \"OperatorRuntimeStorage\""))
+        #expect(runtimeKitManifest.contains("name: \"AuralisAppShell\""))
         #expect(
             FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "OperatorRuntimeStorage/Package.swift").path()
+                atPath: projectRoot.appending(path: "AuralisAppShell/Package.swift").path()
             ) == false,
-            "OperatorRuntimeStorage must remain an internal AuralisAppShell target."
+            "AuralisAppShell must remain an internal AuralisAppShell target."
         )
 
         let appShellManifest = try String(
-            contentsOf: projectRoot.appending(path: "RuntimeKit/Package.swift"),
+            contentsOf: projectRoot.appending(path: "AuralisAppShell/Package.swift"),
             encoding: .utf8
         )
-        #expect(appShellManifest.contains("name: \"AuralisShellCore\""))
+        #expect(appShellManifest.contains("name: \"AuralisAppShell\""))
         #expect(
             FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "AuralisShellCore/Package.swift").path()
+                atPath: projectRoot.appending(path: "AuralisAppShell/Package.swift").path()
             ) == false,
-            "AuralisShellCore must remain an internal AuralisAppShell target, not return as a package root."
+            "AuralisAppShell must remain an internal AuralisAppShell target, not return as a package root."
         )
 
         let operatorsManifest = try String(
-            contentsOf: projectRoot.appending(path: "OperatorsFeature/Package.swift"),
+            contentsOf: projectRoot.appending(path: "AuralisOperators/Package.swift"),
             encoding: .utf8
         )
-        #expect(operatorsManifest.contains("name: \"SocialCore\""))
+        #expect(operatorsManifest.contains("name: \"AuralisOperators\""))
         #expect(
             FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "SocialCore/Package.swift").path()
+                atPath: projectRoot.appending(path: "AuralisOperators/Package.swift").path()
             ) == false,
-            "SocialCore must remain an internal AuralisOperators target, not return as a package root."
+            "AuralisOperators must remain an internal AuralisOperators target, not return as a package root."
         )
-        #expect(operatorsManifest.contains("name: \"OperatorCore\""))
+        #expect(operatorsManifest.contains("name: \"AuralisOperators\""))
         #expect(
             FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "OperatorCore/Package.swift").path()
+                atPath: projectRoot.appending(path: "AuralisOperators/Package.swift").path()
             ) == false,
-            "OperatorCore must remain an internal AuralisOperators target, not return as a package root."
+            "AuralisOperators must remain an internal AuralisOperators target, not return as a package root."
         )
-        #expect(operatorsManifest.contains("name: \"NFTLibraryFeature\""))
+        #expect(operatorsManifest.contains("name: \"AuralisOperators\""))
         #expect(
             FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "NFTLibraryFeature/Package.swift").path()
+                atPath: projectRoot.appending(path: "AuralisOperators/Package.swift").path()
             ) == false,
-            "NFTLibraryFeature must remain an internal AuralisOperators target, not return as a package root."
+            "AuralisOperators must remain an internal AuralisOperators target, not return as a package root."
         )
-        #expect(operatorsManifest.contains("name: \"MusicFeature\""))
+        #expect(operatorsManifest.contains("name: \"AuralisOperators\""))
         #expect(
             FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "MusicFeature/Package.swift").path()
+                atPath: projectRoot.appending(path: "AuralisOperators/Package.swift").path()
             ) == false,
-            "MusicFeature must remain an internal AuralisOperators target, not return as a package root."
+            "AuralisOperators must remain an internal AuralisOperators target, not return as a package root."
         )
 
         let missionControlManifest = try String(
-            contentsOf: projectRoot.appending(path: "MissionControlFeature/Package.swift"),
+            contentsOf: projectRoot.appending(path: "AuralisMissionControl/Package.swift"),
             encoding: .utf8
         )
-        #expect(missionControlManifest.contains("name: \"TrustedUIKit\""))
+        #expect(missionControlManifest.contains("name: \"AuralisMissionControl\""))
         #expect(
             FileManager.default.fileExists(
-                atPath: projectRoot.appending(path: "TrustedUIKit/Package.swift").path()
+                atPath: projectRoot.appending(path: "AuralisMissionControl/Package.swift").path()
             ) == false,
-            "TrustedUIKit must remain an internal MissionControl target, not return as a package root."
+            "AuralisMissionControl must remain an internal MissionControl target, not return as a package root."
         )
 
         let policyManifest = try String(
@@ -315,7 +315,7 @@ struct ArchitectureBoundaryTests {
         )
         let musicAlchemyClient = try String(
             contentsOf: projectRoot.appending(
-                path: "OperatorsFeature/Sources/MusicFeature/Discovery/AlchemyNFTClient.swift"
+                path: "AuralisOperators/Sources/AuralisOperators/Discovery/AlchemyNFTClient.swift"
             ),
             encoding: .utf8
         )
@@ -357,7 +357,7 @@ struct ArchitectureBoundaryTests {
         #expect(accountSummary.contains("public struct AccountSummary"))
         let musicURLSupport = try String(
             contentsOf: projectRoot.appending(
-                path: "OperatorsFeature/Sources/MusicFeature/Persistence/NFT+MusicURL.swift"
+                path: "AuralisOperators/Sources/AuralisOperators/Persistence/NFT+MusicURL.swift"
             ),
             encoding: .utf8
         )
@@ -396,7 +396,7 @@ struct ArchitectureBoundaryTests {
         )
         let musicParticipant = try String(
             contentsOf: projectRoot.appending(
-                path: "OperatorsFeature/Sources/MusicFeature/Persistence/MusicLibraryAccountPersistenceParticipant.swift"
+                path: "AuralisOperators/Sources/AuralisOperators/Persistence/MusicLibraryAccountPersistenceParticipant.swift"
             ),
             encoding: .utf8
         )
@@ -472,8 +472,8 @@ struct ArchitectureBoundaryTests {
             "AuralisPolicy", "AuralisReceipts", "AuralisRuntime"
         ]
         let uiAndCompositionPackages = [
-            "AccountsCore", "AuraPlayEngines", "AuraUI", "MissionControlFeature",
-            "OperatorsFeature", "RuntimeKit"
+            "AccountsCore", "AuraPlayEngines", "AuraUI", "AuralisMissionControl",
+            "AuralisOperators", "AuralisAppShell"
         ]
 
         for package in corePackages {
@@ -705,8 +705,8 @@ struct ArchitectureBoundaryTests {
             "AuralisFoundation",
             "AuralisPolicy",
             "AuralisRuntime",
-            "RuntimeKit",
-            "MissionControlFeature"
+            "AuralisAppShell",
+            "AuralisMissionControl"
         ]
         var offenders: [String] = []
 
@@ -782,10 +782,10 @@ struct ArchitectureBoundaryTests {
             "AuralisPolicy": 4,
             "AuralisRuntime": 4,
             "AuralisPolicy": 4,
-            "OperatorsFeature": 5,
+            "AuralisOperators": 5,
             "AuraUI": 5,
-            "RuntimeKit": 6,
-            "MissionControlFeature": 7
+            "AuralisAppShell": 6,
+            "AuralisMissionControl": 7
         ]
         var violations: [String] = []
 
@@ -950,7 +950,7 @@ struct ArchitectureBoundaryTests {
         let roots = [
             projectRoot.appending(path: "Auralis"),
             projectRoot.appending(path: "AuralisTests"),
-            projectRoot.appending(path: "OperatorsFeature/Sources/NFTLibraryFeature")
+            projectRoot.appending(path: "AuralisOperators/Sources/AuralisOperators")
         ]
         var offenders: [String] = []
 
@@ -989,18 +989,18 @@ struct ArchitectureBoundaryTests {
         #expect(sourceImports.contains("NFTKit") == false)
     }
 
-    @Test("AuraPlay receipts live in MusicFeature and playback runtime does not import NFTKit")
+    @Test("AuraPlay receipts live in AuralisOperators and playback runtime does not import NFTKit")
     func auraPlayReceiptBoundaryStaysInMusicFeature() throws {
         let projectRoot = try projectRootURL()
         let musicFeaturePackage = projectRoot
-            .appending(path: "OperatorsFeature")
+            .appending(path: "AuralisOperators")
             .appending(path: "Package.swift")
         let packageText = try String(contentsOf: musicFeaturePackage, encoding: .utf8)
         let musicFeatureImports = try swiftImports(
             under: projectRoot
-                .appending(path: "OperatorsFeature")
+                .appending(path: "AuralisOperators")
                 .appending(path: "Sources")
-                .appending(path: "MusicFeature")
+                .appending(path: "AuralisOperators")
         )
         let playbackRuntimeFile = projectRoot
             .appending(path: "Auralis")
@@ -1025,7 +1025,7 @@ struct ArchitectureBoundaryTests {
         #expect(playbackRuntimeSource.contains("import NFTKit") == false)
         #expect(
             appReceiptFiles.isEmpty,
-            "AuraPlay receipt implementation belongs in MusicFeature, not the app target: \(appReceiptFiles.map(\.path).sorted())"
+            "AuraPlay receipt implementation belongs in AuralisOperators, not the app target: \(appReceiptFiles.map(\.path).sorted())"
         )
     }
 
@@ -1183,7 +1183,7 @@ struct ArchitectureBoundaryTests {
         // `AgentSession.init(from:)` (P0.5-602), so a session opened with it is indistinguishable from
         // a row written before attribution existed — the misattribution the ticket exists to prevent.
         let runtimeRoots = [
-            projectRoot.appending(path: "RuntimeKit/Sources"),
+            projectRoot.appending(path: "AuralisAppShell/Sources"),
             projectRoot.appending(path: "AuralisRuntime/Sources")
         ]
         let forbiddenPatterns = [
@@ -1225,7 +1225,7 @@ struct ArchitectureBoundaryTests {
         let appRoot = projectRoot.appending(path: "Auralis")
         // `RuntimeTesting` is fenced alongside `RuntimeComposition`: `GovernedToolPipeline.testing` is
         // `#if DEBUG`, so without this an app or package *source* file could compose a pipeline in debug
-        // builds and route around RuntimeKit. Test targets are unaffected — this walks `Sources` only.
+        // builds and route around AuralisAppShell. Test targets are unaffected — this walks `Sources` only.
         let forbiddenPatterns = [
             "GovernedToolPipeline(",
             "GovernedToolPipeline.testing(",
@@ -1243,11 +1243,11 @@ struct ArchitectureBoundaryTests {
 
         #expect(
             offenders.isEmpty,
-            "Only RuntimeKit composition may create registries, pipelines, or execution authorization: \(offenders.sorted())"
+            "Only AuralisAppShell composition may create registries, pipelines, or execution authorization: \(offenders.sorted())"
         )
     }
 
-    @Test("only RuntimeKit may compose the governed runtime across first-party packages")
+    @Test("only AuralisAppShell may compose the governed runtime across first-party packages")
     func firstPartyPackagesCannotBypassRuntimeComposition() throws {
         let projectRoot = try projectRootURL()
         let packageDirectories = try FileManager.default.contentsOfDirectory(
@@ -1261,7 +1261,7 @@ struct ArchitectureBoundaryTests {
         var offenders: [String] = []
         for packageDirectory in packageDirectories {
             let packageName = packageDirectory.lastPathComponent
-            guard packageName != "AuralisRuntime", packageName != "RuntimeKit" else { continue }
+            guard packageName != "AuralisRuntime", packageName != "AuralisAppShell" else { continue }
             let sources = packageDirectory.appending(path: "Sources")
             guard FileManager.default.fileExists(atPath: sources.path()) else { continue }
 
@@ -1282,7 +1282,7 @@ struct ArchitectureBoundaryTests {
 
         #expect(
             offenders.isEmpty,
-            "Only RuntimeKit may compose AuralisRuntime governance infrastructure: \(offenders.sorted())"
+            "Only AuralisAppShell may compose AuralisRuntime governance infrastructure: \(offenders.sorted())"
         )
     }
 
@@ -1290,8 +1290,8 @@ struct ArchitectureBoundaryTests {
     func operatorPackagesCannotRenderArbitraryUI() throws {
         let projectRoot = try projectRootURL()
         let governedSourcePaths = [
-            "OperatorsFeature/Sources/OperatorCore",
-            "OperatorsFeature/Sources/OperatorsFeature",
+            "AuralisOperators/Sources/AuralisOperators",
+            "AuralisOperators/Sources/AuralisOperators",
             "AuralisPolicy/Sources/AuralisPolicy",
             "AuralisRuntime/Sources/AuralisRuntime"
         ]
@@ -1321,7 +1321,7 @@ struct ArchitectureBoundaryTests {
     @Test("every core trusted UI request has a production registry route")
     func trustedUIRequestsHaveProductionRoutes() throws {
         let projectRoot = try projectRootURL()
-        let featureRoot = projectRoot.appending(path: "MissionControlFeature/Sources/MissionControlFeature")
+        let featureRoot = projectRoot.appending(path: "AuralisMissionControl/Sources/AuralisMissionControl")
         let productionSource = try swiftSourceFiles(under: featureRoot)
             .filter { $0.lastPathComponent != "TrustedUISurface.swift" }
             .map { try String(contentsOf: $0, encoding: .utf8) }
@@ -1476,7 +1476,7 @@ struct ArchitectureBoundaryTests {
         let projectRoot = try projectRootURL()
         let rules: [PackageSourceBoundaryRule] = [
             PackageSourceBoundaryRule(
-                rootPath: "OperatorsFeature/Sources/MusicFeature/Domain",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Domain",
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
@@ -1486,10 +1486,10 @@ struct ArchitectureBoundaryTests {
                     "SwiftUI",
                     "UIKit"
                 ],
-                reason: "MusicFeature domain values must stay portable and UI/storage-free"
+                reason: "AuralisOperators domain values must stay portable and UI/storage-free"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "OperatorsFeature/Sources/MusicFeature/Core",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Core",
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
@@ -1499,10 +1499,10 @@ struct ArchitectureBoundaryTests {
                     "SwiftUI",
                     "UIKit"
                 ],
-                reason: "MusicFeature core configuration must stay independent of UI, persistence, and receipt services"
+                reason: "AuralisOperators core configuration must stay independent of UI, persistence, and receipt services"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "OperatorsFeature/Sources/MusicFeature/Services",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Services",
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
@@ -1515,10 +1515,10 @@ struct ArchitectureBoundaryTests {
                     "SwiftUI",
                     "UIKit"
                 ],
-                reason: "MusicFeature service contracts must not depend on UI, SwiftData, or NFT implementation layers"
+                reason: "AuralisOperators service contracts must not depend on UI, SwiftData, or NFT implementation layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "OperatorsFeature/Sources/MusicFeature/Persistence",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Persistence",
                 forbiddenImports: [
                     "AuraUI",
                     "NFTKit",
@@ -1529,10 +1529,10 @@ struct ArchitectureBoundaryTests {
                     "SwiftUI",
                     "UIKit"
                 ],
-                reason: "MusicFeature persistence may use SwiftData but must not reach into UI or NFT layers"
+                reason: "AuralisOperators persistence may use SwiftData but must not reach into UI or NFT layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "OperatorsFeature/Sources/MusicFeature/Receipts",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Receipts",
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
@@ -1546,30 +1546,30 @@ struct ArchitectureBoundaryTests {
                     "SwiftUI",
                     "UIKit"
                 ],
-                reason: "MusicFeature receipt logic depends on receipt contracts, not app storage, UI, or NFT layers"
+                reason: "AuralisOperators receipt logic depends on receipt contracts, not app storage, UI, or NFT layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "OperatorsFeature/Sources/MusicFeature/Presentation",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Presentation",
                 forbiddenImports: [
                     "NFTKit",
                     "NFTProviderAdapters",
                     "ProviderKit",
                     "AuralisReceipts"
                 ],
-                reason: "MusicFeature presentation may use SwiftUI and SwiftData-facing models but not provider or storage implementation packages"
+                reason: "AuralisOperators presentation may use SwiftUI and SwiftData-facing models but not provider or storage implementation packages"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "OperatorsFeature/Sources/MusicFeature/App",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/App",
                 forbiddenImports: [
                     "NFTKit",
                     "NFTProviderAdapters",
                     "ProviderKit",
                     "AuralisReceipts"
                 ],
-                reason: "MusicFeature app entry points may compose presentation but not provider or storage implementation packages"
+                reason: "AuralisOperators app entry points may compose presentation but not provider or storage implementation packages"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "NFTLibraryFeature/Sources/NFTLibraryFeature/Domain",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Domain",
                 forbiddenImports: [
                     "AuraUI",
                     "ExplorerAdapter",
@@ -1578,15 +1578,15 @@ struct ArchitectureBoundaryTests {
                     "NFTPersistence",
                     "NFTPresentation",
                     "NFTProviderAdapters",
-                    "OperatorCore",
+                    "AuralisOperators",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"
                 ],
-                reason: "NFTLibraryFeature domain routing and sorting must stay free of UI, provider, and concrete NFTKit layers"
+                reason: "AuralisOperators domain routing and sorting must stay free of UI, provider, and concrete NFTKit layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "NFTLibraryFeature/Sources/NFTLibraryFeature/Services",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Services",
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
@@ -1600,10 +1600,10 @@ struct ArchitectureBoundaryTests {
                     "SwiftUI",
                     "UIKit"
                 ],
-                reason: "NFTLibraryFeature services must stay domain-facing and avoid UI, persistence, and NFT provider layers"
+                reason: "AuralisOperators services must stay domain-facing and avoid UI, persistence, and NFT provider layers"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "NFTLibraryFeature/Sources/NFTLibraryFeature/Support",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Support",
                 forbiddenImports: [
                     "AuraUI",
                     "ExplorerAdapter",
@@ -1612,21 +1612,21 @@ struct ArchitectureBoundaryTests {
                     "NFTPersistence",
                     "NFTPresentation",
                     "NFTProviderAdapters",
-                    "OperatorCore",
+                    "AuralisOperators",
                     "SwiftData",
                     "SwiftUI",
                     "UIKit"
                 ],
-                reason: "NFTLibraryFeature support mappers must stay presentation-data oriented without UI or provider dependencies"
+                reason: "AuralisOperators support mappers must stay presentation-data oriented without UI or provider dependencies"
             ),
             PackageSourceBoundaryRule(
-                rootPath: "NFTLibraryFeature/Sources/NFTLibraryFeature/Presentation",
+                rootPath: "AuralisOperators/Sources/AuralisOperators/Presentation",
                 forbiddenImports: [
                     "NFTKit",
                     "ProviderKit",
                     "AuralisReceipts"
                 ],
-                reason: "NFTLibraryFeature presentation may use SwiftUI and explicit NFTKit layer products, but not umbrella/provider/storage implementation imports"
+                reason: "AuralisOperators presentation may use SwiftUI and explicit NFTKit layer products, but not umbrella/provider/storage implementation imports"
             ),
             PackageSourceBoundaryRule(
                 rootPath: "AccountsCore/Sources/NFTDomain",
@@ -1698,7 +1698,7 @@ struct ArchitectureBoundaryTests {
                 forbiddenImports: [
                     "AuralisPrimaryPersistence",
                     "AuraUI",
-                    "MusicFeature",
+                    "AuralisOperators",
                     "NFTKit",
                     "NFTDomain",
                     "NFTPersistence",
@@ -1735,7 +1735,7 @@ struct ArchitectureBoundaryTests {
                 rootPath: "AccountsCore/Sources/AuralisPrimaryPersistence",
                 forbiddenImports: [
                     "AuraUI",
-                    "MusicFeature",
+                    "AuralisOperators",
                     "NFTKit",
                     "NFTDomain",
                     "NFTPersistence",
@@ -1797,7 +1797,7 @@ struct ArchitectureBoundaryTests {
         let projectRoot = try projectRootURL()
         let scannedRoots = [
             projectRoot.appending(path: "Auralis"),
-            projectRoot.appending(path: "OperatorsFeature/Sources/MusicFeature")
+            projectRoot.appending(path: "AuralisOperators/Sources/AuralisOperators")
         ]
         let allowedFiles: Set<String> = [
             "Auralis/Aura/MainAuraView.swift", // read-only activeAccountID resolver

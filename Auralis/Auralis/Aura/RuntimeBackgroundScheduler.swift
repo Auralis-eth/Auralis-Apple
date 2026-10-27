@@ -2,7 +2,7 @@ import AuralisPrimaryPersistence
 import Foundation
 import OSLog
 import AuralisReceipts
-import RuntimeKit
+import AuralisAppShell
 import SwiftData
 
 #if canImport(BackgroundTasks)

@@ -3,15 +3,15 @@ import AuraPlayAudioEngine
 import AuraPlayVideoEngine
 import AuraUI
 import Foundation
-import MissionControlFeature
-import MusicFeature
+import AuralisMissionControl
+import AuralisOperators
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import AuralisPolicy
 import ProviderKit
-import RuntimeKit
+import AuralisAppShell
 import SwiftData
 import SwiftUI
 

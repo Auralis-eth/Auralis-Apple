@@ -1,7 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import AuralisShellCore
+import AuralisAppShell
 import Foundation
 import Testing
 

@@ -1,6 +1,6 @@
 @testable import Auralis
 import Foundation
-import SocialCore
+import AuralisOperators
 import Testing
 
 @Suite("Social queue — inbound pump drives playlist reconcile")

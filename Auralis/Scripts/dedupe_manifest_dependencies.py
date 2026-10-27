@@ -84,30 +84,40 @@ def dedupe(path):
             index += 1
             continue
 
-        chosen = {}
-        order = []
+        # Walk the array once, preserving order and any comment lines exactly where they sit. A
+        # comment is not a dependency entry: treating it as one appends a stray comma to the prose
+        # and can move it away from the entry it documents.
+        kept = []
+        seen = {}
         for entry in body:
             text = normalize(entry)
             if not text:
                 continue
+            if text.startswith("//"):
+                kept.append(("comment", entry.rstrip()))
+                continue
             key = dependency_key(text)
-            if key not in chosen:
-                chosen[key] = text
-                order.append(key)
+            if key not in seen:
+                seen[key] = len(kept)
+                kept.append(("entry", text))
                 continue
             changed = True
             # Same module named twice: keep the explicit `.product` spelling.
-            if is_explicit(text) and not is_explicit(chosen[key]):
-                chosen[key] = text
-
-        kept = [chosen[key] for key in order]
-        if kept != [normalize(entry) for entry in body if normalize(entry)]:
-            changed = True
+            position = seen[key]
+            if is_explicit(text) and not is_explicit(kept[position][1]):
+                kept[position] = ("entry", text)
 
         out.append(line)
-        for position, entry in enumerate(kept):
-            suffix = "," if position < len(kept) - 1 else ""
-            out.append(f"{indent}    {entry}{suffix}")
+        last_entry = max(
+            (position for position, (kind, _) in enumerate(kept) if kind == "entry"),
+            default=-1,
+        )
+        for position, (kind, text) in enumerate(kept):
+            if kind == "comment":
+                out.append(text)
+                continue
+            suffix = "," if position < last_entry else ""
+            out.append(f"{indent}    {text}{suffix}")
         out.append(lines[cursor])
         index = cursor + 1
 

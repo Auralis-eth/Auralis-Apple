@@ -10,26 +10,17 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "ContextCore",
-            targets: ["ContextCore"]
-        ),
-        .library(name: "MemoryCore", targets: ["MemoryCore"]),
-        .library(name: "MemoryStorage", targets: ["MemoryStorage"]),
-        .library(name: "MemoryRetrieval", targets: ["MemoryRetrieval"])
+            name: "AuralisContext",
+            targets: ["AuralisContext"]
+        )
     ],
     targets: [
         .target(
-            name: "ContextCore"
+            name: "AuralisContext"
         ),
-        .target(name: "MemoryCore"),
-        .target(name: "MemoryStorage", dependencies: ["MemoryCore"]),
-        .target(name: "MemoryRetrieval", dependencies: ["MemoryCore"]),
         .testTarget(
-            name: "ContextCoreTests",
-            dependencies: ["ContextCore"]
-        ),
-        .testTarget(name: "MemoryCoreTests", dependencies: ["MemoryCore"]),
-        .testTarget(name: "MemoryStorageTests", dependencies: ["MemoryCore", "MemoryStorage"]),
-        .testTarget(name: "MemoryRetrievalTests", dependencies: ["MemoryCore", "MemoryRetrieval"])
+            name: "AuralisContextTests",
+            dependencies: ["AuralisContext"]
+        )
     ]
 )

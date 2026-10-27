@@ -7,7 +7,7 @@ import AuralisRuntime
 /// dependencies. (ENS *resolution* — as opposed to name-format validation — is an async concern handled
 /// elsewhere, not a deterministic check.)
 ///
-/// The record-shape checks (`receipt.schema`, `artifact.schema`) live in `RuntimeKit` instead, because
+/// The record-shape checks (`receipt.schema`, `artifact.schema`) live in `AuralisAppShell` instead, because
 /// the schemas they validate sit above this package in the dependency graph.
 /// One chain/address/ENS triple that the target-shaped checks validate.
 ///

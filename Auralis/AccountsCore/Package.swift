@@ -59,7 +59,7 @@ let package = Package(
         .package(url: "https://github.com/privy-io/privy-ios", .upToNextMajor(from: "2.14.0")),
         .package(url: "https://github.com/dynamic-labs/swift-sdk-and-sample-app", .upToNextMajor(from: "1.2.0")),
         .package(url: "https://github.com/argentlabs/web3.swift", from: "1.6.1"),
-        // web3.swift 1.6.1 still names the pre-rename secp256k1 product.,
+        // web3.swift 1.6.1 still names the pre-rename secp256k1 product.
         .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", exact: "0.6.0")
     ],
     targets: [

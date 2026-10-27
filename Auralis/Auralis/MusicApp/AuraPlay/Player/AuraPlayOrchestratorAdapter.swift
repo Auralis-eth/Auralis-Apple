@@ -1,12 +1,12 @@
 import AuralisPrimaryPersistence
 import AuraPlayMediaCore
 import Foundation
-import MusicFeature
+import AuralisOperators
 import Observation
 
 /// App-target adapter that maps the app-private Phase 8 `PlaybackOrchestrator`
-/// (via `AuraPlayPlaybackRuntime`) into the public MusicFeature
-/// `AuraPlayPlaybackOrchestrating` boundary. `MusicFeature` observes state and
+/// (via `AuraPlayPlaybackRuntime`) into the public AuralisOperators
+/// `AuraPlayPlaybackOrchestrating` boundary. `AuralisOperators` observes state and
 /// issues commands through this type without seeing engine internals.
 @MainActor
 @Observable

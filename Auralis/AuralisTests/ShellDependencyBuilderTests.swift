@@ -1,10 +1,10 @@
 @testable import Auralis
 import AuralisPrimaryModels
-import AuralisShellCore
+import AuralisAppShell
 import AuralisTestSupport
 import ENS
 import Foundation
-import MusicFeature
+import AuralisOperators
 import NFTDomain
 import NFTPersistence
 import NFTPresentation

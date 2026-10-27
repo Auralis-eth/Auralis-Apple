@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
-import RuntimeKit
-import SocialCore
+import AuralisAppShell
+import AuralisOperators
 import UserNotifications
 
 /// Posts ritual outcomes only when the person has already authorized notifications. Permission is

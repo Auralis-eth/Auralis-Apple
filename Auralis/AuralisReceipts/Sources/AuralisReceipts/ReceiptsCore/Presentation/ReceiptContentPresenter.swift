@@ -52,7 +52,7 @@ public struct ReceiptContentRow: Identifiable, Equatable, Sendable {
 /// its postflight outcome, and the "what changed" summary.
 ///
 /// Both the standalone Receipts tab (`Auralis/Receipts/*`) and the Mission Control console
-/// (`MissionControlFeature`) delegate here so their receipt presentation can never drift.
+/// (`AuralisMissionControl`) delegate here so their receipt presentation can never drift.
 public enum ReceiptContentPresenter {
     // MARK: Postflight outcome (P1-303)
 

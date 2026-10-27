@@ -1,7 +1,7 @@
 import AuralisPrimaryPersistence
 import ENS
 import Foundation
-import MusicFeature
+import AuralisOperators
 import ProviderKit
 import AuralisReceipts
 

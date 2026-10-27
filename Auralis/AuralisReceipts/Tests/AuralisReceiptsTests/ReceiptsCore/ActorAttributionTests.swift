@@ -415,7 +415,7 @@ struct ModelRouteAttributionTests {
 /// whatever the persisted blob carries.
 ///
 /// Added in audit Round 18. Both labels were untested against this input: neutering the non-empty
-/// filter left AuralisRuntime 281/281 and MissionControlFeature 126/126 green.
+/// filter left AuralisRuntime 281/281 and AuralisMissionControl 126/126 green.
 @Suite("Actor attribution falls back past an empty display name")
 struct ActorAttributionEmptyNameTests {
     private let routine = ActorRef(

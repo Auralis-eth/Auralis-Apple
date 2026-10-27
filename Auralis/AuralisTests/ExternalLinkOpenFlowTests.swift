@@ -2,7 +2,7 @@
 import AuralisPrimaryModels
 import AuralisTestSupport
 import Foundation
-import OperatorCore
+import AuralisOperators
 import AuralisReceipts
 import Testing
 

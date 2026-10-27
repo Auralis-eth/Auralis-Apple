@@ -1,7 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryPersistence
 import AuralisTestSupport
-import MusicFeature
+import AuralisOperators
 import Testing
 
 @Suite(.tags(.architecture, .privacy))

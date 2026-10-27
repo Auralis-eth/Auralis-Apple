@@ -1,8 +1,8 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import AuralisShellCore
+import AuralisAppShell
 import NFTDomain
-import NFTLibraryFeature
+import AuralisOperators
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters

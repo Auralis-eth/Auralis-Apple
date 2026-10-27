@@ -1,6 +1,6 @@
 import AuraPlayMediaCore
 import Foundation
-import MusicFeature
+import AuralisOperators
 import Observation
 
 private let auraPlayRemoteSkipInterval: TimeInterval = 15
@@ -468,7 +468,7 @@ final class PlaybackOrchestrator {
     }
 
     private static func userFacingMessage(for error: Error) -> String {
-        if let auraPlayError = error as? MusicFeature.AuraPlayError {
+        if let auraPlayError = error as? AuralisOperators.AuraPlayError {
             return auraPlayError.localizedDescription
         }
         return "Could not play this item. Choose another track or try again."

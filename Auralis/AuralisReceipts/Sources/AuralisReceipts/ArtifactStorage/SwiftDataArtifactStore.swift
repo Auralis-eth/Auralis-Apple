@@ -11,7 +11,7 @@ private let artifactStorageLogger = Logger(subsystem: "Auralis", category: "Aura
 /// scanning for it made every named read and every named write O(table) — see ``fetchRow(id:)``.
 ///
 /// **This table has no retention cap, deliberately.** The sibling durable stores trim
-/// (`SwiftDataWorklogStore` keeps 10_000 steps; `OperatorRuntimeStorage` prunes execution records
+/// (`SwiftDataWorklogStore` keeps 10_000 steps; `AuralisAppShell` prunes execution records
 /// and performance events), so the absence here is a decision and has to be argued, not left to the
 /// reader. Two halves:
 ///
@@ -24,7 +24,7 @@ private let artifactStorageLogger = Logger(subsystem: "Auralis", category: "Aura
 ///
 /// *What the rows are.* These are the person's deliverables, they are what `relatedReceiptIDs` ties
 /// the receipt chain to, and ``versions(ofGroup:)`` promises **every** version of a lineage. A trim
-/// on the `OperatorRuntimeStorage` shape — oldest-first on the key the lookup ranks by — cannot be
+/// on the `AuralisAppShell` shape — oldest-first on the key the lookup ranks by — cannot be
 /// written here without breaking one of those: dropping old versions makes `versions` lie about a
 /// lineage its newest row still anchors, and dropping whole oldest groups silently deletes approved,
 /// exported work that a receipt still points at. Deleting artifacts stays a decision the person
@@ -213,7 +213,7 @@ public actor ArtifactPersistenceStore {
     }
 
     /// One row that cannot be interpreted must not take down a listing (the argument
-    /// `OperatorRuntimeStorage.decodeStoredBlob` makes for the same shape), but it must not vanish
+    /// `decodeStoredBlob` makes for the same shape), but it must not vanish
     /// silently either — forward-incompatible rows show up as a log line rather than as a browser
     /// that quietly reads short.
     private func readable(_ row: StoredArtifact) -> Artifact? {

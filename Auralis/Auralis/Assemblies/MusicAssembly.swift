@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import Foundation
-import MusicFeature
+import AuralisOperators
 import NFTDomain
 import NFTPersistence
 import NFTPresentation

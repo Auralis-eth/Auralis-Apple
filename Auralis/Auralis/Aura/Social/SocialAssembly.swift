@@ -1,6 +1,5 @@
 import Foundation
-import MusicFeature
-import SocialCore
+import AuralisOperators
 import SwiftData
 import WalletConnectorKit
 

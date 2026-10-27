@@ -1,7 +1,7 @@
 import AuralisPrimaryModels
 import AuralisTestSupport
 import Foundation
-import MusicFeature
+import AuralisOperators
 
 struct MusicLibraryItemFixture: @unchecked Sendable {
     static let music = MusicLibraryItemFixture()
@@ -16,7 +16,7 @@ struct MusicLibraryItemFixture: @unchecked Sendable {
     var artworkURLString: String?
     var contentType: String?
     var playbackURLString: String?
-    var availability: MusicFeature.MusicLibraryAvailability
+    var availability: AuralisOperators.MusicLibraryAvailability
     var availabilityReason: String?
     var sourceUpdatedAtRawValue: String?
     var indexedAt: Date
@@ -32,7 +32,7 @@ struct MusicLibraryItemFixture: @unchecked Sendable {
         artworkURLString: String? = nil,
         contentType: String? = "audio/mpeg",
         playbackURLString: String? = "https://example.com/fixture-track.mp3",
-        availability: MusicFeature.MusicLibraryAvailability = .ready,
+        availability: AuralisOperators.MusicLibraryAvailability = .ready,
         availabilityReason: String? = nil,
         sourceUpdatedAtRawValue: String? = nil,
         indexedAt: Date = Fixture.referenceDate

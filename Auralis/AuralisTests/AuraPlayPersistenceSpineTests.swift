@@ -1,6 +1,6 @@
 @testable import Auralis
 import Foundation
-import MusicFeature
+import AuralisOperators
 import SwiftData
 import Testing
 

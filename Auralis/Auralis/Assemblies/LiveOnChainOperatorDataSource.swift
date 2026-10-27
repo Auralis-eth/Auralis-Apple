@@ -1,7 +1,7 @@
 import AccountsCore
 import AuralisPrimaryModels
 import Foundation
-import OperatorsFeature
+import AuralisOperators
 import ProviderKit
 import AuralisRuntime
 

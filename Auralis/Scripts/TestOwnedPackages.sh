@@ -10,12 +10,12 @@ packages=(
     AuraUI
     AuralisContext
     AuralisFoundation
-    MissionControlFeature
-    OperatorsFeature
+    AuralisMissionControl
+    AuralisOperators
     AuralisPolicy
     AuralisReceipts
     AuralisRuntime
-    RuntimeKit
+    AuralisAppShell
 )
 
 for package in "${packages[@]}"; do

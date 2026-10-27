@@ -5,7 +5,7 @@
 //  Created by Daniel Bell on 6/24/25.
 //
 
-import AuralisShellCore
+import AuralisAppShell
 import AuraUI
 import SwiftUI
 

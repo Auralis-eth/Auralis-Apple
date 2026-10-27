@@ -1,6 +1,6 @@
 import CryptoKit
 import Foundation
-import SocialCore
+import AuralisOperators
 
 /// Session-key material for a Social v1 shared session.
 ///

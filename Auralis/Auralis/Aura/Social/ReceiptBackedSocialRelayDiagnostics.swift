@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
-import RuntimeKit
-import SocialCore
+import AuralisAppShell
+import AuralisOperators
 
 /// Privacy-safe production diagnostics for Social v1. Durable receipts contain only stable event
 /// classifications and public identifiers; unified logging contains classifications only.

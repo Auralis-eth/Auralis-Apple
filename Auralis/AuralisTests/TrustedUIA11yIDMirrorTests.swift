@@ -1,10 +1,10 @@
 import AuraUI
 import Testing
-import TrustedUIKit
+import AuralisMissionControl
 
 /// `TrustedUIA11yID` documents that its values "are mirrored in AuraUI's central `A11yID` registry
 /// so app UI tests and package-owned components share the same contract without coupling
-/// TrustedUIKit to AuraUI". That mirroring is maintained by hand across two packages that cannot see
+/// AuralisMissionControl to AuraUI". That mirroring is maintained by hand across two packages that cannot see
 /// each other, so nothing but this test stands between a renamed identifier and UI tests that
 /// silently stop matching the control they name — a green suite that no longer checks anything.
 ///

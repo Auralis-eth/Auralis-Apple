@@ -1,5 +1,5 @@
 import Foundation
-import SocialCore
+import AuralisOperators
 
 enum SocialInviteCodingError: Error, Equatable, Sendable {
     /// The string was not a well-formed, prefixed, base64 `SocialInvite` payload.

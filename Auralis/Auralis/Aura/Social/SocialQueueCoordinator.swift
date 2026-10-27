@@ -1,5 +1,5 @@
 import Foundation
-import SocialCore
+import AuralisOperators
 
 /// Keeps a session-linked AuraPlay playlist in sync with the session's accepted collaborative queue.
 ///

@@ -1,7 +1,7 @@
 import AccountsCore
 import AuralisPrimaryModels
 import Foundation
-import MissionControlFeature
+import AuralisMissionControl
 import ProviderKit
 import AuralisRuntime
 

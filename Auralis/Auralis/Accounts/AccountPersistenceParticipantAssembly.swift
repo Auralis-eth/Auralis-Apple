@@ -1,5 +1,5 @@
 import AccountStorage
-import MusicFeature
+import AuralisOperators
 
 @MainActor
 func makeAppAccountScopedPersistenceParticipants() -> [AccountScopedPersistenceParticipant] {

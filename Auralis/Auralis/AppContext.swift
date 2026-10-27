@@ -1,5 +1,5 @@
 import AuralisPrimaryModels
-import ContextCore
+import AuralisContext
 import Foundation
 
 /// Compatibility model used by shell consumers that still need the compact

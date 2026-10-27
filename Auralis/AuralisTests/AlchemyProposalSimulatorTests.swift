@@ -1,5 +1,5 @@
 @testable import Auralis
-import MissionControlFeature
+import AuralisMissionControl
 import Testing
 
 /// Unit coverage for the pure mapping/formatting helpers in `AlchemyProposalSimulator` — the parts

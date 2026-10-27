@@ -2,7 +2,7 @@ import AccountsCore
 import AccountStorage
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import AuralisShellCore
+import AuralisAppShell
 import Foundation
 import NFTDomain
 import NFTPersistence

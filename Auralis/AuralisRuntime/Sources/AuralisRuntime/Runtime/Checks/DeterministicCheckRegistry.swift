@@ -14,7 +14,7 @@ public enum DeterministicCheckRegistration: Equatable, Sendable {
 /// Consolidates the checks that are scattered across the app today (address validation, chain
 /// allowlists, ENS, freshness) behind one lookup surface so proposals can name the checks they
 /// require and the runtime can run exactly those. The record-shape checks (`receipt.schema`,
-/// `artifact.schema`) register here too, from `RuntimeKit`, which is the lowest point in the graph
+/// `artifact.schema`) register here too, from `AuralisAppShell`, which is the lowest point in the graph
 /// that can see the receipt and artifact schemas.
 ///
 /// Security posture: an unregistered check **fails closed**. A proposal that names a check the

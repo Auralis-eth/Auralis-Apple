@@ -1,6 +1,6 @@
 @testable import Auralis
 import AuralisPrimaryModels
-import ContextCore
+import AuralisContext
 import Foundation
 import NFTDomain
 import NFTPersistence

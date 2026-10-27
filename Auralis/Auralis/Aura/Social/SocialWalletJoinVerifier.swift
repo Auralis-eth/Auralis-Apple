@@ -1,5 +1,5 @@
 import Foundation
-import SocialCore
+import AuralisOperators
 import WalletConnectorKit
 
 protocol SocialWalletOwnershipVerifying: Sendable {

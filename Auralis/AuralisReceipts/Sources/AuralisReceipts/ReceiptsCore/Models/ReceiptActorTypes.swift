@@ -56,7 +56,7 @@ public struct ReceiptActorDetail: Codable, Equatable, Sendable {
 /// raw `ActorKind` string by hand (P0.5-602).
 ///
 /// Packages that can see `AuralisRuntime` should prefer `ActorRef.…receiptActorDetail` — the typed path.
-/// These exist for the leaves that deliberately cannot (`MusicFeature`, `NFTKit`, `AuralisReceipts`
+/// These exist for the leaves that deliberately cannot (`AuralisOperators`, `NFTKit`, `AuralisReceipts`
 /// itself), where the alternative is a bare string literal per site.
 public extension ReceiptActorDetail {
     /// The person using the app.

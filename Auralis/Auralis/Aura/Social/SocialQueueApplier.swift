@@ -1,6 +1,5 @@
 import Foundation
-import MusicFeature
-import SocialCore
+import AuralisOperators
 
 /// A single playlist as a reorderable list of media items — the seam the queue applier writes through.
 /// Abstracted so the applier is unit-testable with an in-memory fake, while the live adapter maps onto

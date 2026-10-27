@@ -3,7 +3,7 @@ import Foundation
 /// The single, canonical receipt view-model shared by every Auralis receipt surface.
 ///
 /// Both the standalone Receipts tab (`Auralis/Receipts/*`) and the Mission Control console
-/// (`MissionControlFeature`) build their views from this type, so section titles, ordering,
+/// (`AuralisMissionControl`) build their views from this type, so section titles, ordering,
 /// searchable text, the postflight outcome, the "what changed" rows, and artifact links can
 /// never drift between surfaces. UI layers keep their own chrome (styling, layout, navigation)
 /// and map ``ReceiptContentRow``/``ReceiptOutcomeKind`` onto their own display types.

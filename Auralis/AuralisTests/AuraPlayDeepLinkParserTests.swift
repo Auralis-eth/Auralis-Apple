@@ -1,8 +1,8 @@
 @testable import Auralis
 import AuralisPrimaryModels
-import AuralisShellCore
+import AuralisAppShell
 import Foundation
-import MusicFeature
+import AuralisOperators
 import Testing
 
 struct AuraPlayDeepLinkParserTests {

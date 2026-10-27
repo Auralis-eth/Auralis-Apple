@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import AuralisShellCore
+import AuralisAppShell
 import Foundation
 
 /// Describes the resolved shell state after restoring persisted account and chain data.

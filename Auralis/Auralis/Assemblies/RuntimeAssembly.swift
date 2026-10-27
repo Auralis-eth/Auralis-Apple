@@ -1,18 +1,18 @@
 import AccountsCore
 import AuralisPrimaryModels
-import OperatorsFeature
+import AuralisOperators
 import AuralisPolicy
 import ProviderKit
 import AuralisReceipts
 import AuralisRuntime
-import RuntimeKit
+import AuralisAppShell
 import SwiftData
 
 /// App-wide owner of the shared ``RuntimeHost``. One host per SwiftData container, so the event bus,
 /// kill switch, capability leases, scheduling engine, and tool registry are global — not per-tab.
 ///
 /// The playbook / performance / execution-record stores are backed by a dedicated on-disk SwiftData
-/// container (`OperatorRuntimeStorage`) so operator runtime state survives relaunch, independent of
+/// container (`AuralisAppShell`) so operator runtime state survives relaunch, independent of
 /// the app's main model container. Falls back to the host's in-memory defaults if that container
 /// cannot be created.
 @MainActor

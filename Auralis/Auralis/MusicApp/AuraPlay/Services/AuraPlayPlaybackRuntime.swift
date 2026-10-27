@@ -5,7 +5,7 @@ import AuraPlayMediaCore
 import AuraPlayVideoEngine
 import AVFoundation
 import Foundation
-import MusicFeature
+import AuralisOperators
 import Observation
 import SwiftData
 import SwiftUI

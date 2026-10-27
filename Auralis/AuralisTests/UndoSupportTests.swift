@@ -5,7 +5,7 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuralisTestSupport
 import Foundation
-import MusicFeature
+import AuralisOperators
 import SwiftData
 import Testing
 import TokenStorage

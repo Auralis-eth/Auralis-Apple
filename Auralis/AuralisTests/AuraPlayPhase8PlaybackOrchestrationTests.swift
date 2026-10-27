@@ -1,7 +1,7 @@
 @testable import Auralis
 import AuraPlayMediaCore
 import Foundation
-import MusicFeature
+import AuralisOperators
 import SwiftData
 import Testing
 

@@ -7,7 +7,7 @@ import Foundation
 /// known request kinds, which the app renders with its own trusted components (PermissionCard,
 /// ApprovalSheet, ReceiptCard, …). This enum is the schema; the SwiftUI components that consume it —
 /// and the governed `TrustedUIComponentRegistry` that maps each case onto one — live in the
-/// `TrustedUIKit` package (P0.5-502).
+/// `AuralisMissionControl` package (P0.5-502).
 ///
 /// Receipts and drafts are referenced by identifier so this type stays free of the receipt/storage
 /// packages — the presenting layer resolves the id.
@@ -23,7 +23,7 @@ public enum TrustedUIRequest: Equatable, Sendable {
 
 /// A proactive, non-blocking suggestion the runtime asks the app to present via a trusted
 /// `SuggestionCard`. Carries only data — the trusted presenting layer supplies the action handler,
-/// never the suggestion's author. Lives in AuralisRuntime (not TrustedUIKit) so it can be carried by a
+/// never the suggestion's author. Lives in AuralisRuntime (not AuralisMissionControl) so it can be carried by a
 /// ``TrustedUIRequest`` case without a dependency cycle.
 public struct TrustedUISuggestion: Identifiable, Equatable, Sendable {
     public let id: UUID

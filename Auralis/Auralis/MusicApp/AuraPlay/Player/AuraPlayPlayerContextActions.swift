@@ -1,5 +1,5 @@
 import Foundation
-import MusicFeature
+import AuralisOperators
 #if canImport(UIKit)
 import SafariServices
 import UIKit
@@ -7,7 +7,7 @@ import UIKit
 
 /// App-owned live implementations of the player/library context actions:
 /// UIKit share sheet (with cached artwork image when available), in-app
-/// Safari for explorer links, and pasteboard copy. `MusicFeature` only sees
+/// Safari for explorer links, and pasteboard copy. `AuralisOperators` only sees
 /// the abstract `AuraPlayPlayerContextActionHandler`.
 extension AuraPlayPlayerContextActionHandler {
     static var uiKitLive: AuraPlayPlayerContextActionHandler {

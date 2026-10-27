@@ -5,7 +5,7 @@ import AuraPlayMediaCore
 import AuraPlayVideoEngine
 import AuraUI
 import AVFoundation
-import MusicFeature
+import AuralisOperators
 import SwiftData
 import SwiftUI
 #if canImport(UIKit)

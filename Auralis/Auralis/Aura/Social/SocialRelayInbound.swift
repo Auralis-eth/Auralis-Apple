@@ -1,5 +1,5 @@
 import Foundation
-import SocialCore
+import AuralisOperators
 import WalletConnectorKit
 
 /// One decrypted-once-more-hop inbound relay message: the raw (still-sealed) payload plus its topic.

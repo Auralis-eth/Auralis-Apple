@@ -2,7 +2,7 @@ import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import AuraUI
 import ChainProviders
-import ContextCore
+import AuralisContext
 import NFTDomain
 import NFTPersistence
 import NFTPresentation

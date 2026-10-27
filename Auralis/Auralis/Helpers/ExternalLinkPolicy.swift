@@ -1,4 +1,4 @@
-import OperatorCore
+import AuralisOperators
 import AuralisReceipts
 
 struct AppExternalLinkEventLogger: ExternalLinkEventLogging {

@@ -1,8 +1,8 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import ContextCore
+import AuralisContext
 import Foundation
-import MissionControlFeature
+import AuralisMissionControl
 import NFTDomain
 import NFTPersistence
 import NFTPresentation

@@ -78,7 +78,7 @@ struct StoredArtifactForwardCompatibilityTests {
 
     /// `ArtifactSchema.supportedVersions` documents that a version outside the set "cannot be
     /// interpreted, so the check fails closed rather than guessing". That was enforced on the
-    /// proposal path (`RuntimeKit.SchemaChecks`) and nowhere on the read path.
+    /// proposal path (`AuralisAppShell.SchemaChecks`) and nowhere on the read path.
     @Test("a row written under an unsupported schema version throws")
     func unsupportedSchemaVersionThrows() throws {
         let unsupported = (ArtifactSchema.supportedVersions.max() ?? 0) + 1

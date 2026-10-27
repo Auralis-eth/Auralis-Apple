@@ -1,5 +1,5 @@
 import Foundation
-import SocialCore
+import AuralisOperators
 import WalletConnectorKit
 
 /// The transport + inbound source a session needs. Abstracted so production wires the live

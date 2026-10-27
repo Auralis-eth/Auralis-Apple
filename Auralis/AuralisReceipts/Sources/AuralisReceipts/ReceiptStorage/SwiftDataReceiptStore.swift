@@ -339,7 +339,7 @@ public actor ReceiptPersistenceStore: ModelActor {
     }
 
     /// Runs `body` once every ledger mutation already enqueued has finished, in the order callers
-    /// arrived. Modelled on `RuntimeKit.CorrelationGate.withLock(_:_:)`, minus the per-key chain:
+    /// arrived. Modelled on `AuralisAppShell.CorrelationGate.withLock(_:_:)`, minus the per-key chain:
     /// there is one receipt chain, so there is one queue.
     ///
     /// **Why this is needed even though this is an actor.** An actor serializes only *between*

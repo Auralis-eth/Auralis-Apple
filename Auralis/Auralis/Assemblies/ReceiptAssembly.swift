@@ -1,6 +1,6 @@
 import AccountsCore
 import AuralisPrimaryModels
-import AuralisShellCore
+import AuralisAppShell
 import NFTDomain
 import NFTPersistence
 import NFTPresentation

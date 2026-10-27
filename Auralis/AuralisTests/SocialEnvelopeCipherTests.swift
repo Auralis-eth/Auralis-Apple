@@ -1,7 +1,7 @@
 @testable import Auralis
 import CryptoKit
 import Foundation
-import SocialCore
+import AuralisOperators
 import Testing
 
 @Suite("Social envelope cipher")

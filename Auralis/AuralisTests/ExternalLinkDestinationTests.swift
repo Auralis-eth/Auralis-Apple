@@ -2,7 +2,7 @@
 import AuralisPrimaryModels
 import ExplorerAdapter
 import Foundation
-import OperatorCore
+import AuralisOperators
 import Testing
 
 struct ExternalLinkDestinationTests {

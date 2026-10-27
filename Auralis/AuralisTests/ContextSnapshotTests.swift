@@ -1,7 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import ContextCore
+import AuralisContext
 import Foundation
 import AuralisPolicy
 import ProviderKit

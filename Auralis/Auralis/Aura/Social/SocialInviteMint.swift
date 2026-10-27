@@ -1,5 +1,5 @@
 import Foundation
-import SocialCore
+import AuralisOperators
 
 /// Mints a ``SocialInvite`` for a shared session (Social v1).
 ///

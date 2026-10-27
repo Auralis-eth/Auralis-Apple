@@ -3,17 +3,16 @@ import AccountStorage
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import AuralisShellCore
+import AuralisAppShell
 import AuralisTestSupport
 import ENS
 import Foundation
-import MusicFeature
+import AuralisOperators
 import NFTDomain
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters
 import AuralisReceipts
-import RuntimeKit
 import SwiftData
 import Testing
 import TokenStorage

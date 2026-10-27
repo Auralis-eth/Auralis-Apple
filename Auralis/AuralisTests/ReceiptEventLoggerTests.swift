@@ -1,8 +1,8 @@
 @testable import Auralis
 import AuralisPrimaryModels
-import ContextCore
+import AuralisContext
 import Foundation
-import OperatorCore
+import AuralisOperators
 import AuralisReceipts
 import SwiftData
 import Testing

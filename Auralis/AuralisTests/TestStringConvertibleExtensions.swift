@@ -1,4 +1,4 @@
-import AuralisShellCore
+import AuralisAppShell
 import Foundation
 import NFTDomain
 import AuralisReceipts

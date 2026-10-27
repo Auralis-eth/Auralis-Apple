@@ -1,5 +1,5 @@
 import Foundation
-import SocialCore
+import AuralisOperators
 import WalletConnectorKit
 
 /// A live relay runtime for one shared session: the coordinator (publish/subscribe/handle inbound) plus

@@ -1,7 +1,7 @@
 @testable import Auralis
 import AuralisFoundation
 import Foundation
-import MusicFeature
+import AuralisOperators
 import AuralisPolicy
 import AuralisReceipts
 import SwiftData

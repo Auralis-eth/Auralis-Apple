@@ -11,12 +11,12 @@ included:
   - AuraUI
   - AuralisFoundation
   - AuralisTestSupport
-  - MissionControlFeature
-  - OperatorsFeature
+  - AuralisMissionControl
+  - AuralisOperators
   - AuralisPolicy
   - AuralisReceipts
   - AuralisRuntime
-  - RuntimeKit
+  - AuralisAppShell
 
 # SwiftPM writes generated sources (notably `test_entry_point.swift`, whose SwiftPM-internal
 # `__SwiftPM*` type names trip `type_name` at *error* severity) into each package's `.build`.
@@ -29,12 +29,12 @@ excluded:
   - AuraUI/.build
   - AuralisFoundation/.build
   - AuralisTestSupport/.build
-  - MissionControlFeature/.build
-  - OperatorsFeature/.build
+  - AuralisMissionControl/.build
+  - AuralisOperators/.build
   - AuralisPolicy/.build
   - AuralisReceipts/.build
   - AuralisRuntime/.build
-  - RuntimeKit/.build
+  - AuralisAppShell/.build
 
 reporter: xcode
 

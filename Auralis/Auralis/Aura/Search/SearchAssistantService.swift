@@ -1,9 +1,9 @@
 import AuralisPrimaryModels
-import ContextCore
+import AuralisContext
 import Foundation
 import AuralisReceipts
 import AuralisRuntime
-import RuntimeKit
+import AuralisAppShell
 import SwiftData
 
 #if canImport(CoreSpotlight)

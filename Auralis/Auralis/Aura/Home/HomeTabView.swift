@@ -2,9 +2,9 @@ import AccountsCore
 import AccountsFeature
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import AuralisShellCore
+import AuralisAppShell
 import AuraUI
-import ContextCore
+import AuralisContext
 import ENS
 import ImagePlayground
 import OSLog

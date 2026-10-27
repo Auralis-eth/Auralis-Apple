@@ -1,7 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import Foundation
-import MusicFeature
+import AuralisOperators
 import Testing
 
 @MainActor

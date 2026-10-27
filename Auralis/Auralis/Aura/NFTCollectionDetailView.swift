@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import NFTLibraryFeature
+import AuralisOperators
 import SwiftData
 import SwiftUI
 

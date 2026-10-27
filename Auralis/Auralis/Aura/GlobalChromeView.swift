@@ -1,6 +1,6 @@
 import AuralisPrimaryModels
 import AuraUI
-import ContextCore
+import AuralisContext
 import SwiftData
 import SwiftUI
 

@@ -1,6 +1,6 @@
 import AuraPlayMediaCore
 import Foundation
-import MusicFeature
+import AuralisOperators
 
 struct QueueEntry: Identifiable, Sendable {
     let id: UUID

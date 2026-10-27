@@ -8,7 +8,7 @@
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
 import NFTDomain
-import NFTLibraryFeature
+import AuralisOperators
 import NFTPersistence
 import NFTPresentation
 import NFTProviderAdapters

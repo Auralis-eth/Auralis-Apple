@@ -1,7 +1,7 @@
 @testable import Auralis
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import NFTLibraryFeature
+import AuralisOperators
 import Testing
 
 @MainActor

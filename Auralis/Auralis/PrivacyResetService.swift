@@ -1,13 +1,12 @@
 import AccountsCore
 import AuralisPrimaryModels
 import AuralisPrimaryPersistence
-import AuralisShellCore
+import AuralisAppShell
 import ENS
 import Foundation
-import MusicFeature
+import AuralisOperators
 import ProviderKit
 import AuralisReceipts
-import RuntimeKit
 import SwiftData
 import TokenStorage
 
@@ -78,7 +77,7 @@ protocol SocialCoordinationPrivacyResetting: Sendable {
 /// performance events, event history, artifacts, and capability grants.
 ///
 /// Separate from ``TransactionalPrivacyResetting`` because these live in their own on-disk container
-/// (`OperatorRuntimeStorage`), not the app's main model container, so deleting `StoredReceipt` and
+/// (`AuralisAppShell`), not the app's main model container, so deleting `StoredReceipt` and
 /// friends never touched them.
 @MainActor
 protocol RuntimeHistoryPrivacyResetting {

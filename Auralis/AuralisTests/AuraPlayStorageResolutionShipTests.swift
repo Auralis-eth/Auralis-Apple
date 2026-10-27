@@ -1,6 +1,6 @@
 import AuralisTestSupport
 import Foundation
-import MusicFeature
+import AuralisOperators
 import XCTest
 
 final class AuraPlayStorageResolutionShipTests: XCTestCase {
