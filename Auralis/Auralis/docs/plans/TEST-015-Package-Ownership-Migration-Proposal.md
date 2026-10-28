@@ -1,7 +1,7 @@
 # TEST-015: Test Ownership Migration For The 12-Package Architecture
 
-Status: In progress; final CI and full-plan validation remain
-Date: 2026-10-22
+Status: Complete for the 12-package shape; see the 2026-10-27 note below
+Date: 2026-10-27 (revised from 2026-10-22)
 Related: `ARCH-003-Domain-Package-Consolidation-Plan.md`, `ARCH-004-Independent-Core-And-Adapter-Migration-Plan.md`
 
 ## Purpose
@@ -309,9 +309,40 @@ the manifest or source import. Before Phase 1, continue to:
 - [x] Every current production target has a directly owning package test target. The only exceptions are the fixture-only `AuralisTestSupport` and `PrimaryModelsTestSupport` targets, documented in `Final-Target-Test-Ownership-Audit.md`.
 - [x] Intent, commitment, runtime-state, memory, context, artifact and receipt boundaries are tested.
 - [x] Operator manifest authority/absence/runtime-state rules are tested.
-- [ ] Existing NFT and music package migrations survive movement to final packages.
+- [x] Existing NFT and music package migrations survive movement to final packages (2026-10-27).
 - [x] Provider, chain, account and NFT failure tests no longer remain as package behavior in app tests.
-- [ ] App tests are explicitly composition/integration/architecture/UI suites.
+- [x] App tests are explicitly composition/integration/architecture/UI suites (2026-10-27).
 - [x] The repository provides one canonical lane that runs every final package suite; hosted CI must
   invoke `Scripts/TestOwnedPackages.sh` as a required job.
-- [ ] The full app test plan and Auralis build pass after every consolidation phase.
+- [x] The full app test plan and Auralis build pass after every consolidation phase (2026-10-27):
+  `Auralis-Full` runs 913 tests with 908 passed, 4 skipped and 1 failed -- the pre-existing Music
+  Dynamic Type audit, which the baseline also fails.
+
+## 2026-10-27: rule 1 and rule 2 superseded by one module per package
+
+Rules 1 and 2 above ("domain behavior is tested in the owning domain target", "adapter behavior is
+tested beside the adapter") and the Slice-2 instruction to *preserve* each suite as a separate test
+target are superseded. Each owned package now has exactly one test target, because each has exactly
+one module; `ARCH-003` records why. The test *files* were preserved and grouped by their former
+target name under `Tests/<Package>Tests/`, and every per-package count matched the sum of its former
+targets after merging, so no coverage was dropped:
+
+| Package | Tests | Former targets summed |
+|---|---|---|
+| `AuralisCrypto` | 438 | 10 |
+| `AuralisOperators` | 481 | 5 |
+| `AuralisRuntime` | 370 | 10 |
+| `AuralisReceipts` | 369 | 4 |
+| `AuralisAppShell` | 366 | 3 |
+| `AuralisMissionControl` | 191 | 2 |
+| `AuraPlayEngines` | 186 | 3 |
+| `AuralisPolicy` | 45 | 2 |
+| `AuralisFoundation` | 37 | 4 |
+| `AuralisContext` | 11 | 4 |
+| `AuraUI` | 3 | 1 |
+
+Three latent defects surfaced, each a test importing a module its package never declared and which
+only compiled against a stale `.build`: `ArtifactCore` in the playbook tests and
+`AuralisPrimaryModels` in two autopilot tests. All three imports were unused.
+`Scripts/check_package_imports.py` now fails on that class of defect by reading manifests and sources
+only, so a stale build directory cannot hide it.

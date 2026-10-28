@@ -1,14 +1,43 @@
 # ARCH-003: Domain Package Consolidation Plan
 
-Status: Physical package-root consolidation complete; domain evolution continues
-Date: 2026-10-26 (revised from 2026-09-09)
+Status: Complete — roots and internal targets both consolidated
+Date: 2026-10-27 (revised from 2026-10-26, 2026-09-09)
 Supersedes nothing. Extends `ADR-008-operator-runtime-package-boundaries.md`.
 Related: `ARCH-004-Independent-Core-And-Adapter-Migration-Plan.md`, `TEST-015-Package-Ownership-Migration-Proposal.md`, `ADR-011-app-composition-boundaries.md`, `ADR-012-nft-refresh-pipeline.md`.
 
-Completion record: the repository now contains exactly **12 Auralis-owned Swift package roots plus
-vendored `CodeScanner`**. All 30 planned physical root eliminations are complete. The historical
-inventory below remains as the migration baseline; ongoing work concerns the responsibilities and
-internal targets within the final package shape, not additional root consolidation.
+Completion record: the repository contains exactly **12 Auralis-owned Swift package roots plus
+vendored `CodeScanner`**, and those roots declare **29 targets where they once declared 113**.
+
+## 2026-10-27 revision: one module per package
+
+The "fewer packages, not fewer boundaries" principle stated below was **deliberately reversed** on
+2026-10-27. The goal is now one SPM package producing one framework. Ten of the twelve owned packages
+are exactly one library plus one test target; the exceptions are enumerated and each has a reason
+SwiftPM forces:
+
+| Package | Extra product | Why it cannot merge |
+|---|---|---|
+| `AuralisCrypto` | `WalletAdapters` | SwiftPM conditions *dependencies* per platform but not *source files*. The iOS-gated vendor adapters would compile on macOS against SDKs that are not linked there. It also stops every consumer of a plain `Chain` or `EOAccount` from linking five wallet SDKs. |
+| `AuralisCrypto` | `AuralisCryptoTestSupport` | Fixtures consumed by `AuralisOperators`' tests, which must not link into production. |
+| `AuraPlayEngines` | two demo executables | Executables, not frameworks. |
+
+Consequences accepted with the reversal, recorded so they are not later "fixed" as regressions:
+
+- **One platform floor.** Every owned package declares iOS 26 / macOS 26. The former split (reusable
+  cores at iOS 18 / macOS 15, UI and composition at 26) cannot survive one module per package,
+  because SwiftPM applies platform declarations to the whole package and a single module holds both
+  a SwiftUI surface and the core it used to sit above.
+- **Intra-package layering is no longer import-checkable.** Rules that separated `AuralisPrimaryModels`
+  from `NFTKit`, or `ReceiptsCore` from `ReceiptStorage`, described modules that are now one module.
+  Those assertions were removed rather than left passing vacuously; see the note in
+  `ArchitectureBoundaryTests`. Layering is now carried by the source-group structure under each
+  package's `Sources/<Module>/` directory, and by the product-list and retired-root guards.
+- **Renames.** `AccountsCore`→`AuralisCrypto`, `RuntimeCore`→`AuralisRuntime`,
+  `RuntimeKit`→`AuralisAppShell`, `ReceiptsCore`→`AuralisReceipts`,
+  `OperatorsFeature`→`AuralisOperators`, `PolicyCore`→`AuralisPolicy`,
+  `MissionControlFeature`→`AuralisMissionControl`.
+
+The historical inventory below remains as the migration baseline.
 
 ## Purpose
 
