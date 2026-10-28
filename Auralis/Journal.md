@@ -5308,3 +5308,13 @@ advanced its seed when repeat-all rebuilt the queue, but the test demanded that 
 must differ from the old one. Two different shuffles can legally produce the same order—unlikely is
 not impossible, and CI eventually collected the losing ticket. The test now checks the actual
 contract: the seed advances, the rebuilt order contains the same entries, and playback stays active.
+
+# The Root-Package Drawbridge (2026-10-28)
+
+Auralis already had five sturdy package buildings—Foundation, Runtime, Context, Policy, and Receipts—but each sat behind its own local-path driveway. That worked for the app and for repository-local development, yet a remote SwiftPM consumer such as Mirenva arrived at the repository entrance and found no front door: Git dependencies resolve a package only from the repository root.
+
+The root `Package.swift` is that front door. It exposes the five existing source trees as five products without moving or copying their code, and it preserves their dependency direction: Foundation and Context are independent; Runtime builds on Foundation; Receipts builds on Foundation and Runtime; Policy builds on all three governed-action layers. A root smoke test imports every product and constructs a real public value from each one, so a future rename or accidental loss of visibility fails where an integrator would feel it.
+
+The subtle lesson is that nested manifests are excellent local ownership boundaries but are not a remote-package federation mechanism. SwiftPM does not let a root product simply re-export a nested package target, either. Pointing root targets at the canonical source directories gives Git consumers a stable façade while leaving the package-specific manifests—and therefore the Auralis app’s existing dependency graph—unchanged.
+
+One more boundary mattered for Mirenva: present context is not durable memory. The root façade therefore compiles only the `Context` source group into `AuralisContext` and exposes the three memory source groups as the separate, opt-in `AuralisMemory` product. Think of context as the tray currently on the desk and memory as the filing cabinet. Buying a desk should not quietly deliver a filing cabinet—or grant access to everything inside it. None of the five initial integration products depends on `AuralisMemory`.
