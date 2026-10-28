@@ -51,7 +51,7 @@ struct PrimaryModelBoundaryTests {
 
     @Test("storage-owned models live in storage packages")
     func storageOwnedModelsLiveInStoragePackages() throws {
-        let primarySourceFiles = try swiftFiles(in: projectRoot.appendingPathComponent("AuralisCrypto/Sources"))
+        let primarySourceFiles = try swiftFiles(in: primaryModelsSourceRoot)
 
         for file in primarySourceFiles {
             let source = try String(contentsOf: file, encoding: .utf8)
@@ -73,8 +73,13 @@ struct PrimaryModelBoundaryTests {
     }
 }
 
+/// The pure primary-model values, which are now a source group rather than their own package.
+///
+/// Scoped to the group and not to `AuralisCrypto/Sources/AuralisCrypto`: the whole crypto module
+/// legitimately contains SwiftData storage, so pointing these checks at the module root would flag
+/// `TokenStorage` and `PrimaryPersistence` for doing exactly what they exist to do.
 private var primaryModelsSourceRoot: URL {
-    projectRoot.appendingPathComponent("AuralisCrypto/Sources/AuralisCrypto")
+    projectRoot.appendingPathComponent("AuralisCrypto/Sources/AuralisCrypto/PrimaryModels")
 }
 
 private var projectRoot: URL {
